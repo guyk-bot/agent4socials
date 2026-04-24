@@ -123,7 +123,7 @@ export function ConfirmModal({
                 isDanger
                   ? 'px-4 py-2 rounded-xl bg-red-600 text-sm font-medium text-white hover:bg-red-700 transition-colors'
                   : isInfo || isAlert
-                  ? 'px-4 py-2 rounded-xl bg-indigo-600 text-sm font-medium text-white hover:bg-indigo-700 transition-colors'
+                  ? 'px-4 py-2 rounded-xl bg-orange-600 text-sm font-medium text-white hover:bg-orange-700 transition-colors'
                   : 'px-4 py-2 rounded-xl bg-amber-500 text-sm font-medium text-white hover:bg-amber-600 transition-colors'
               }
             >

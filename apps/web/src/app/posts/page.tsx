@@ -287,7 +287,7 @@ export default function PostsPage() {
                                         <Link
                                             href={`/composer?edit=${post.id}`}
                                             prefetch
-                                            className="inline-flex items-center gap-1 text-sm font-medium text-violet-700 hover:text-violet-800"
+                                            className="inline-flex items-center gap-1 text-sm font-medium text-orange-700 hover:text-orange-800"
                                         >
                                             Open in Composer
                                             <ChevronRight size={18} />

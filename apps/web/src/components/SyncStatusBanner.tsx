@@ -113,8 +113,8 @@ function getSyncConfig(
       label: `Syncing ${platformLabel}data…`,
       shortLabel: 'Syncing…',
       sub: 'Latest data will appear shortly',
-      bg: 'bg-gradient-to-r from-violet-50 via-fuchsia-50/80 to-rose-50/50 border border-violet-200/70',
-      textColor: 'text-violet-900',
+      bg: 'bg-gradient-to-r from-orange-50 via-orange-50/80 to-rose-50/50 border border-orange-200/70',
+      textColor: 'text-orange-900',
       Icon: Loader2,
     };
   }

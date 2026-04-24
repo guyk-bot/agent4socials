@@ -18,13 +18,13 @@ import {
   ReferenceLine,
 } from 'recharts';
 
-// —— Purple color system (one hue, multiple expressions) ——
-const PURPLE = {
-  primary: '#7c3aed',      // violet-600, main brand
-  strong: '#6d28d9',       // violet-700, highlights / emphasis
-  soft: '#a78bfa',        // violet-400, secondary elements
-  muted: 'rgba(124, 58, 237, 0.4)',
-  bg: 'rgba(124, 58, 237, 0.08)',
+// —— Brand orange chart system (aligned with --color-primary) ——
+const BRAND = {
+  primary: '#ff7a00',
+  strong: '#ea580c',
+  soft: '#fdba74',
+  muted: 'rgba(255, 122, 0, 0.45)',
+  bg: 'rgba(255, 122, 0, 0.08)',
   grid: 'rgba(0, 0, 0, 0.018)',
 } as const;
 
@@ -132,7 +132,7 @@ function KpiCard({
   const displayValue = useCountUp(value);
   // Distinct solid background per tint; selected = ring + darker border
   const tintStyles: Record<NonNullable<typeof tint>, { bg: string; border: string; borderSelected: string; text: string; trendPositive: string }> = {
-    violet: { bg: 'bg-violet-50', border: 'border-violet-200', borderSelected: 'border-violet-500 ring-2 ring-violet-400/50', text: 'text-violet-900', trendPositive: 'text-violet-600' },
+    violet: { bg: 'bg-orange-50', border: 'border-orange-200', borderSelected: 'border-orange-500 ring-2 ring-orange-400/50', text: 'text-orange-900', trendPositive: 'text-orange-600' },
     blue: { bg: 'bg-blue-50', border: 'border-blue-200', borderSelected: 'border-blue-500 ring-2 ring-blue-400/50', text: 'text-blue-900', trendPositive: 'text-blue-600' },
     emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', borderSelected: 'border-emerald-500 ring-2 ring-emerald-400/50', text: 'text-emerald-900', trendPositive: 'text-emerald-600' },
     slate: { bg: 'bg-amber-50', border: 'border-amber-200', borderSelected: 'border-amber-500 ring-2 ring-amber-400/50', text: 'text-amber-900', trendPositive: 'text-amber-600' },
@@ -188,7 +188,7 @@ function SummaryStatCard({ label, value }: { label: string; value: string | numb
 
 // Line metric colors (aligned with KPI card tints) + posts for chart
 const METRIC_COLORS: Record<LineMetricId, { stroke: string; fill: string }> = {
-  followers: { stroke: PURPLE.primary, fill: PURPLE.soft },
+  followers: { stroke: BRAND.primary, fill: BRAND.soft },
   views: { stroke: '#2563eb', fill: '#93c5fd' },
   visits: { stroke: '#059669', fill: '#6ee7b7' },
   following: { stroke: '#059669', fill: '#6ee7b7' }, // emerald to match Following card
@@ -310,12 +310,12 @@ function FollowersGrowthChart({
           >
             <defs>
               <linearGradient id="followersLineGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={PURPLE.strong} stopOpacity={1} />
-                <stop offset="100%" stopColor={PURPLE.primary} stopOpacity={0.75} />
+                <stop offset="0%" stopColor={BRAND.strong} stopOpacity={1} />
+                <stop offset="100%" stopColor={BRAND.primary} stopOpacity={0.75} />
               </linearGradient>
               <linearGradient id="followersAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={PURPLE.soft} stopOpacity={0.09} />
-                <stop offset="100%" stopColor={PURPLE.primary} stopOpacity={0} />
+                <stop offset="0%" stopColor={BRAND.soft} stopOpacity={0.09} />
+                <stop offset="100%" stopColor={BRAND.primary} stopOpacity={0} />
               </linearGradient>
               <linearGradient id="viewsLineGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#1d4ed8" stopOpacity={1} />
@@ -350,9 +350,9 @@ function FollowersGrowthChart({
                 <stop offset="100%" stopColor={POSTS_CHART_COLOR.stroke} stopOpacity={1} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke={PURPLE.grid} vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={BRAND.grid} vertical={false} />
             {hoveredDate && (
-              <ReferenceLine x={hoveredDate} stroke={PURPLE.primary} strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="4 3" />
+              <ReferenceLine x={hoveredDate} stroke={BRAND.primary} strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="4 3" />
             )}
             <XAxis
               dataKey="date"
@@ -426,7 +426,7 @@ function FollowersGrowthChart({
                   </div>
                 );
               }}
-              cursor={{ stroke: PURPLE.muted, strokeWidth: 1, strokeDasharray: '4 2' }}
+              cursor={{ stroke: BRAND.muted, strokeWidth: 1, strokeDasharray: '4 2' }}
             />
             {[...leftMetricIds, ...(hasViews ? (['views'] as const) : [])].map((id) => {
               const isPrimary = id === primaryFocus;
@@ -481,7 +481,7 @@ function FollowersGrowthChart({
                       key={entry.date + index}
                       fill={fill}
                       fillOpacity={fillOpacity}
-                      stroke={isHovered || isPrimary ? PURPLE.primary : undefined}
+                      stroke={isHovered || isPrimary ? BRAND.primary : undefined}
                       strokeWidth={isHovered || isPrimary ? 1.5 : 0}
                     />
                   );
@@ -535,17 +535,17 @@ function ContentActivityChart({
           >
             <defs>
               <linearGradient id="contentBarGrad" x1="0" y1="1" x2="0" y2="0">
-                <stop offset="0%" stopColor={PURPLE.soft} stopOpacity={0.7} />
-                <stop offset="100%" stopColor={PURPLE.soft} stopOpacity={0.95} />
+                <stop offset="0%" stopColor={BRAND.soft} stopOpacity={0.7} />
+                <stop offset="100%" stopColor={BRAND.soft} stopOpacity={0.95} />
               </linearGradient>
               <linearGradient id="contentBarGradMax" x1="0" y1="1" x2="0" y2="0">
-                <stop offset="0%" stopColor={PURPLE.primary} stopOpacity={0.85} />
-                <stop offset="100%" stopColor={PURPLE.strong} stopOpacity={1} />
+                <stop offset="0%" stopColor={BRAND.primary} stopOpacity={0.85} />
+                <stop offset="100%" stopColor={BRAND.strong} stopOpacity={1} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke={PURPLE.grid} vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={BRAND.grid} vertical={false} />
             {hoveredDate && (
-              <ReferenceLine x={hoveredDate} stroke={PURPLE.primary} strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="4 3" />
+              <ReferenceLine x={hoveredDate} stroke={BRAND.primary} strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="4 3" />
             )}
             <XAxis
               dataKey="date"
@@ -575,7 +575,7 @@ function ContentActivityChart({
                     <p className="text-neutral-500 text-xs font-medium">{formatDate(labelStr)}</p>
                     <p className="mt-0.5 text-sm">
                       <span className="text-neutral-500">Posts: </span>
-                      <span className="font-semibold text-violet-600 tabular-nums">{postsVal}</span>
+                      <span className="font-semibold text-orange-600 tabular-nums">{postsVal}</span>
                     </p>
                     <p className="mt-0.5 text-sm text-neutral-600">
                       <span className="text-neutral-500">Followers: </span>
@@ -584,21 +584,21 @@ function ContentActivityChart({
                   </div>
                 );
               }}
-              cursor={{ stroke: PURPLE.muted, strokeWidth: 1, strokeDasharray: '4 2' }}
+              cursor={{ stroke: BRAND.muted, strokeWidth: 1, strokeDasharray: '4 2' }}
             />
             <Bar dataKey="posts" fill="url(#contentBarGrad)" radius={[6, 6, 0, 0]} barSize={17} maxBarSize={32} isAnimationActive animationDuration={400} animationEasing="ease-out">
               {data.map((entry, index) => {
                 const isMax = entry.date === maxPostsDate && maxPosts > 0;
                 const isHovered = entry.date === hoveredDate;
                 const fill =
-                  isHovered ? PURPLE.primary : isMax ? 'url(#contentBarGradMax)' : 'url(#contentBarGrad)';
+                  isHovered ? BRAND.primary : isMax ? 'url(#contentBarGradMax)' : 'url(#contentBarGrad)';
                 const fillOpacity = isHovered ? 1 : isMax ? 1 : 0.72;
                 return (
                   <Cell
                     key={entry.date + index}
                     fill={fill}
                     fillOpacity={fillOpacity}
-                    stroke={isHovered ? PURPLE.primary : undefined}
+                    stroke={isHovered ? BRAND.primary : undefined}
                     strokeWidth={isHovered ? 1.5 : 0}
                   />
                 );
@@ -659,10 +659,10 @@ function BalanceOfFollowersChart({
             barGap={2}
             barCategoryGap="12%"
           >
-            <CartesianGrid strokeDasharray="3 3" stroke={PURPLE.grid} vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={BRAND.grid} vertical={false} />
             <ReferenceLine y={0} stroke="#a3a3a3" strokeWidth={1} />
             {hoveredDate && (
-              <ReferenceLine x={hoveredDate} stroke={PURPLE.primary} strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="4 3" />
+              <ReferenceLine x={hoveredDate} stroke={BRAND.primary} strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="4 3" />
             )}
             <XAxis
               dataKey="date"
@@ -704,7 +704,7 @@ function BalanceOfFollowersChart({
                   </div>
                 );
               }}
-              cursor={{ stroke: PURPLE.muted, strokeWidth: 1, strokeDasharray: '4 2' }}
+              cursor={{ stroke: BRAND.muted, strokeWidth: 1, strokeDasharray: '4 2' }}
             />
             <Bar dataKey="gained" name="Gained" fill="#10b981" radius={[4, 4, 0, 0]} barSize={14} isAnimationActive animationDuration={400} />
             <Bar dataKey="lost" name="Lost" fill="#f43f5e" radius={[0, 0, 4, 4]} barSize={14} isAnimationActive animationDuration={400} />
@@ -816,7 +816,7 @@ export function OverviewGrowthSection({
                 type="date"
                 value={dateRange.start}
                 onChange={(e) => onDateRangeChange({ ...dateRange, start: e.target.value })}
-                className="text-sm border border-neutral-200 rounded-lg px-3 py-2 text-neutral-700 bg-white focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                className="text-sm border border-neutral-200 rounded-lg px-3 py-2 text-neutral-700 bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
               />
             )}
             {onExport && (

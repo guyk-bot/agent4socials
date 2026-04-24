@@ -8,8 +8,8 @@ export type KpiAccent = 'visibility' | 'audience' | 'engagement' | 'content' | '
 const ACCENT_STYLES: Record<KpiAccent, { border: string; trendPositive: string; trendNegative: string }> = {
   visibility: { border: 'border-l-neutral-400', trendPositive: 'text-neutral-600', trendNegative: 'text-red-500' },
   audience: { border: 'border-l-neutral-400', trendPositive: 'text-neutral-600', trendNegative: 'text-red-500' },
-  engagement: { border: 'border-l-[#b030ad]', trendPositive: 'text-[#b030ad]', trendNegative: 'text-red-500' },
-  content: { border: 'border-l-[#b030ad]', trendPositive: 'text-[#b030ad]', trendNegative: 'text-red-500' },
+  engagement: { border: 'border-l-[#ea580c]', trendPositive: 'text-[#ea580c]', trendNegative: 'text-red-500' },
+  content: { border: 'border-l-[#ea580c]', trendPositive: 'text-[#ea580c]', trendNegative: 'text-red-500' },
   muted: { border: 'border-l-neutral-200', trendPositive: 'text-neutral-500', trendNegative: 'text-neutral-500' },
 };
 

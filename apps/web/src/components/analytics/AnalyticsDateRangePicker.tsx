@@ -167,10 +167,10 @@ function CalendarGrid({
                 ${cellSize} rounded-lg font-semibold
                 flex items-center justify-center p-0 leading-none tabular-nums
                 ${!currentMonth ? 'text-neutral-300' : 'text-neutral-800'}
-                ${inRange && !startOrEnd ? 'bg-violet-100' : ''}
+                ${inRange && !startOrEnd ? 'bg-orange-100' : ''}
                 ${!inRange && !startOrEnd ? 'hover:bg-neutral-100' : ''}
-                ${startOrEnd ? 'bg-violet-600 text-white hover:bg-violet-700' : ''}
-                ${isToday && !startOrEnd ? 'ring-2 ring-violet-400 ring-offset-1' : ''}
+                ${startOrEnd ? 'bg-orange-600 text-white hover:bg-orange-700' : ''}
+                ${isToday && !startOrEnd ? 'ring-2 ring-orange-400 ring-offset-1' : ''}
               `}
             >
               {new Date(dateStr + 'T12:00:00').getDate()}
@@ -299,13 +299,13 @@ export function AnalyticsDateRangePicker({
                   onClick={() => handlePreset(p.id)}
                   className={`w-full text-left px-4 py-3 text-base font-medium rounded-lg transition-colors flex items-center justify-between gap-2 ${
                     p.highlight
-                      ? 'bg-violet-50 text-violet-800 hover:bg-violet-100 hover:text-violet-900'
+                      ? 'bg-orange-50 text-orange-800 hover:bg-orange-100 hover:text-orange-900'
                       : 'text-neutral-800 hover:bg-neutral-100 hover:text-neutral-700'
                   }`}
                 >
                   <span>{p.label}</span>
                   {p.premium && (
-                    <Gem size={14} className="text-violet-500 shrink-0" aria-hidden />
+                    <Gem size={14} className="text-orange-500 shrink-0" aria-hidden />
                   )}
                 </button>
               ))}
@@ -323,7 +323,7 @@ export function AnalyticsDateRangePicker({
                   setTempStart(v);
                   if (displayEnd && v <= displayEnd) onChange({ start: v, end: displayEnd });
                 }}
-                className="flex-1 min-w-[140px] text-base border border-neutral-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                className="flex-1 min-w-[140px] text-base border border-neutral-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
               />
               <span className="text-neutral-400 text-base">–</span>
               <input
@@ -335,7 +335,7 @@ export function AnalyticsDateRangePicker({
                   setTempEnd(v);
                   if (displayStart && v >= displayStart) onChange({ start: displayStart, end: v });
                 }}
-                className="flex-1 min-w-[140px] text-base border border-neutral-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                className="flex-1 min-w-[140px] text-base border border-neutral-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
               />
             </div>
             <div className="border border-neutral-200 rounded-xl p-4 bg-neutral-50/50 min-h-0 flex flex-col w-full">
@@ -391,7 +391,7 @@ export function AnalyticsDateRangePicker({
                     onChange({ start: todayStr, end: todayStr });
                     setRangeSelectPhase('start');
                   }}
-                  className="text-sm font-medium text-violet-600 hover:text-violet-800"
+                  className="text-sm font-medium text-orange-600 hover:text-orange-800"
                 >
                   Today
                 </button>

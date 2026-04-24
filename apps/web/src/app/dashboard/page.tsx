@@ -91,7 +91,7 @@ function DataSyncBanner({
   const Step = ({ state, label }: { state: 'done' | 'loading' | 'pending'; label: string }) => (
     <div className="flex items-center gap-1.5 min-w-0">
       <div className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-        state === 'done' ? 'bg-white/95 text-violet-700' :
+        state === 'done' ? 'bg-white/95 text-orange-700' :
         state === 'loading' ? 'bg-white/25 text-white' : 'bg-white/30 text-white/60'
       }`}>
         {state === 'done' ? '✓' : state === 'loading' ? (

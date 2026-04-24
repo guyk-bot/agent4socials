@@ -122,8 +122,8 @@ export default function ReelAnalyzerPage() {
       <div className="border-b border-neutral-200 bg-white px-4 py-8 sm:px-6 shadow-sm">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-start gap-4">
-            <div className="p-3 rounded-2xl bg-indigo-100 shrink-0">
-              <Video className="w-8 h-8 text-indigo-600" />
+            <div className="p-3 rounded-2xl bg-orange-100 shrink-0">
+              <Video className="w-8 h-8 text-orange-600" />
             </div>
             <div className="min-w-0">
               <h1 className="text-2xl sm:text-3xl font-bold text-neutral-900 tracking-tight">Reel Analyzer</h1>
@@ -144,7 +144,7 @@ export default function ReelAnalyzerPage() {
                 onDragLeave={preventDefault}
                 onDrop={onDrop}
                 onClick={() => inputRef.current?.click()}
-                className="relative rounded-2xl border-2 border-dashed border-neutral-300 bg-white hover:border-indigo-300 hover:bg-indigo-50/30 transition-all cursor-pointer flex flex-col items-center justify-center py-20 px-6 min-h-[320px] shadow-sm"
+                className="relative rounded-2xl border-2 border-dashed border-neutral-300 bg-white hover:border-orange-300 hover:bg-orange-50/30 transition-all cursor-pointer flex flex-col items-center justify-center py-20 px-6 min-h-[320px] shadow-sm"
               >
                 <input
                   ref={inputRef}
@@ -159,7 +159,7 @@ export default function ReelAnalyzerPage() {
                 />
                 {uploading ? (
                   <>
-                    <Loader2 className="w-14 h-14 text-indigo-500 animate-spin mb-4" />
+                    <Loader2 className="w-14 h-14 text-orange-500 animate-spin mb-4" />
                     <p className="text-sm font-medium text-neutral-700">Uploading video…</p>
                   </>
                 ) : (
@@ -230,13 +230,13 @@ export default function ReelAnalyzerPage() {
                       onChange={(e) => setCaption(e.target.value)}
                       placeholder="Paste or type the caption you plan to use, or generate one below…"
                       rows={3}
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2.5 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2.5 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none"
                     />
                     <button
                       type="button"
                       onClick={handleGenerateCaption}
                       disabled={generatingCaption}
-                      className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-indigo-600 hover:bg-indigo-50 disabled:opacity-50 transition-colors"
+                      className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-orange-600 hover:bg-orange-50 disabled:opacity-50 transition-colors"
                     >
                       {generatingCaption ? (
                         <Loader2 size={16} className="animate-spin" />
@@ -254,7 +254,7 @@ export default function ReelAnalyzerPage() {
                     <select
                       value={targetPlatform}
                       onChange={(e) => setTargetPlatform(e.target.value)}
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white"
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
                     >
                       {PLATFORMS.map((p) => (
                         <option key={p.id} value={p.id}>{p.label}</option>
@@ -280,7 +280,7 @@ export default function ReelAnalyzerPage() {
                 />
               ) : (
                 <div className="rounded-xl border border-neutral-200 bg-white px-4 py-8 text-center shadow-sm">
-                  <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mx-auto mb-2" />
+                  <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto mb-2" />
                   <p className="text-sm text-neutral-600">Loading video metadata to enable analysis…</p>
                 </div>
               )}

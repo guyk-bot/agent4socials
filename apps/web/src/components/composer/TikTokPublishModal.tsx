@@ -259,7 +259,7 @@ export function TikTokPublishModal({
                   key={a.id}
                   type="button"
                   onClick={() => setActiveIdx(i)}
-                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${i === activeIdx ? 'bg-violet-700 text-white border-violet-700' : 'border-neutral-200 text-neutral-700 hover:bg-violet-50 hover:border-violet-200'}`}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${i === activeIdx ? 'bg-orange-700 text-white border-orange-700' : 'border-neutral-200 text-neutral-700 hover:bg-orange-50 hover:border-orange-200'}`}
                 >
                   {a.username ? `@${a.username.replace(/^@/, '')}` : `Account ${i + 1}`}
                 </button>
@@ -296,7 +296,7 @@ export function TikTokPublishModal({
                   value={f.title}
                   onChange={(e) => updateForm(activeId, { title: e.target.value.slice(0, 2200) })}
                   rows={3}
-                  className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500"
+                  className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500"
                 />
               </label>
 
@@ -305,7 +305,7 @@ export function TikTokPublishModal({
                 <select
                   value={f.privacyLevel}
                   onChange={(e) => updateForm(activeId, { privacyLevel: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm accent-violet-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500 bg-white"
+                  className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm accent-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 bg-white"
                 >
                   <option value="">Choose visibility</option>
                   {privacyOptions.map((opt) => (
@@ -324,7 +324,7 @@ export function TikTokPublishModal({
                     checked={f.allowComment}
                     disabled={Boolean(ci.comment_disabled)}
                     onChange={(e) => updateForm(activeId, { allowComment: e.target.checked })}
-                    className="rounded border-neutral-300 accent-violet-600"
+                    className="rounded border-neutral-300 accent-orange-600"
                   />
                   <span className={ci.comment_disabled ? 'text-neutral-400' : ''}>Allow comments</span>
                 </label>
@@ -334,7 +334,7 @@ export function TikTokPublishModal({
                     checked={f.allowDuet}
                     disabled={Boolean(ci.duet_disabled)}
                     onChange={(e) => updateForm(activeId, { allowDuet: e.target.checked })}
-                    className="rounded border-neutral-300 accent-violet-600"
+                    className="rounded border-neutral-300 accent-orange-600"
                   />
                   <span className={ci.duet_disabled ? 'text-neutral-400' : ''}>Allow duet</span>
                 </label>
@@ -344,7 +344,7 @@ export function TikTokPublishModal({
                     checked={f.allowStitch}
                     disabled={Boolean(ci.stitch_disabled)}
                     onChange={(e) => updateForm(activeId, { allowStitch: e.target.checked })}
-                    className="rounded border-neutral-300 accent-violet-600"
+                    className="rounded border-neutral-300 accent-orange-600"
                   />
                   <span className={ci.stitch_disabled ? 'text-neutral-400' : ''}>Allow stitch</span>
                 </label>
@@ -361,7 +361,7 @@ export function TikTokPublishModal({
                         ...(e.target.checked ? {} : { yourBrand: false, brandedContent: false }),
                       })
                     }
-                    className="rounded border-neutral-300 accent-violet-600"
+                    className="rounded border-neutral-300 accent-orange-600"
                   />
                   Commercial content disclosure
                 </label>
@@ -372,7 +372,7 @@ export function TikTokPublishModal({
                         type="checkbox"
                         checked={f.yourBrand}
                         onChange={(e) => updateForm(activeId, { yourBrand: e.target.checked })}
-                        className="rounded border-neutral-300 accent-violet-600"
+                        className="rounded border-neutral-300 accent-orange-600"
                       />
                       Your brand
                     </label>
@@ -381,7 +381,7 @@ export function TikTokPublishModal({
                         type="checkbox"
                         checked={f.brandedContent}
                         onChange={(e) => updateForm(activeId, { brandedContent: e.target.checked })}
-                        className="rounded border-neutral-300 accent-violet-600"
+                        className="rounded border-neutral-300 accent-orange-600"
                       />
                       Branded content
                     </label>
@@ -397,7 +397,7 @@ export function TikTokPublishModal({
                   type="checkbox"
                   checked={f.userConsentedToPublish}
                   onChange={(e) => updateForm(activeId, { userConsentedToPublish: e.target.checked })}
-                  className="rounded border-neutral-300 accent-violet-600 mt-0.5"
+                  className="rounded border-neutral-300 accent-orange-600 mt-0.5"
                 />
                 <span>
                   {f.commercialDisclosureOn

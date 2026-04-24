@@ -40,7 +40,7 @@ export function AnalyticsLocalJsonPanel({ title, description, data }: Props) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between gap-3 text-left rounded-xl px-1 py-0.5 -mx-1 hover:bg-indigo-50/70 transition-colors"
+        className="w-full flex items-center justify-between gap-3 text-left rounded-xl px-1 py-0.5 -mx-1 hover:bg-orange-50/70 transition-colors"
       >
         <div className="min-w-0">
           <h4 className="text-base font-semibold text-neutral-900">{title}</h4>
@@ -49,7 +49,7 @@ export function AnalyticsLocalJsonPanel({ title, description, data }: Props) {
           ) : null}
         </div>
         <ChevronDown
-          className={`w-5 h-5 shrink-0 text-indigo-700 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`w-5 h-5 shrink-0 text-orange-700 transition-transform ${open ? 'rotate-180' : ''}`}
           aria-hidden
         />
       </button>

@@ -24,8 +24,8 @@ const PLATFORM_INFO: Record<string, {
     name: 'Instagram',
     description: 'Connect your Instagram account to schedule posts, track performance, and manage conversations from one place.',
     headerIcon: <InstagramIcon size={40} />,
-    buttonGradient: 'from-pink-500 to-purple-600',
-    buttonHover: 'hover:from-pink-600 hover:to-purple-700',
+    buttonGradient: 'from-pink-500 to-orange-600',
+    buttonHover: 'hover:from-pink-600 hover:to-orange-700',
     accentBorder: 'border-pink-200',
     accentHover: 'hover:border-pink-400 hover:bg-pink-50/40',
     functionalities: [
@@ -181,7 +181,7 @@ function ConnectPageSections({
       <div className="pt-1">
         <Link
           href={`/help#${helpAnchor}`}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:underline"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline"
         >
           <BookOpen size={16} />
           Learn more about platform capabilities

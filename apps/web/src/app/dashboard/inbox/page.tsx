@@ -221,8 +221,8 @@ function MessagesConversationList({
               }
             }}
             className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
-              selectMode && selectedConversationIds.has(c.id) ? 'bg-indigo-50 border border-indigo-200' :
-              selectedConversationId === c.id ? 'bg-indigo-50 border-indigo-100' : unreadConversationIds.has(c.id) ? 'bg-violet-50/80 hover:bg-violet-100/80' : 'hover:bg-neutral-50'
+              selectMode && selectedConversationIds.has(c.id) ? 'bg-orange-50 border border-orange-200' :
+              selectedConversationId === c.id ? 'bg-orange-50 border-orange-100' : unreadConversationIds.has(c.id) ? 'bg-orange-50/80 hover:bg-orange-100/80' : 'hover:bg-neutral-50'
             }`}
           >
             {selectMode ? (
@@ -1151,7 +1151,7 @@ function InboxPage() {
       if (engagementLoading) {
         return (
           <div className="p-6 flex flex-col items-center justify-center gap-3">
-            <Loader2 size={32} className="text-indigo-500 animate-spin" />
+            <Loader2 size={32} className="text-orange-500 animate-spin" />
             <p className="text-sm text-neutral-500">Loading engagement…</p>
           </div>
         );
@@ -1220,7 +1220,7 @@ function InboxPage() {
                     });
                   }}
                   className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
-                    selectedEngagement?.platformPostId === e.platformPostId ? 'bg-indigo-50 border border-indigo-100' : isUnread ? 'bg-violet-50/80 hover:bg-violet-100/80' : 'hover:bg-neutral-50'
+                    selectedEngagement?.platformPostId === e.platformPostId ? 'bg-orange-50 border border-orange-100' : isUnread ? 'bg-orange-50/80 hover:bg-orange-100/80' : 'hover:bg-neutral-50'
                   }`}
                 >
                   <div className="w-12 h-12 rounded-lg bg-neutral-100 shrink-0 overflow-hidden flex items-center justify-center">
@@ -1274,7 +1274,7 @@ function InboxPage() {
       if (commentsLoading) {
         return (
           <div className="p-6 flex flex-col items-center justify-center gap-3">
-            <Loader2 size={32} className="text-indigo-500 animate-spin" />
+            <Loader2 size={32} className="text-orange-500 animate-spin" />
             <p className="text-sm text-neutral-500">Loading comments…</p>
           </div>
         );
@@ -1320,7 +1320,7 @@ function InboxPage() {
                       if (url) window.location.href = url;
                     } catch { /* ignore */ }
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium hover:opacity-90"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-medium hover:opacity-90"
                 >
                   Reconnect Instagram
                 </button>
@@ -1412,8 +1412,8 @@ function InboxPage() {
                       }
                     }}
                     className={`w-full px-3 py-3 text-left transition-colors flex items-center gap-2 cursor-pointer ${
-                      isSelected ? 'bg-indigo-50 border-l-2 border-l-indigo-500' :
-                      selectedComment?.commentId === c.commentId ? 'bg-indigo-50 border-l-2 border-l-indigo-500' : isUnread ? 'bg-violet-50/80 hover:bg-violet-100/80' : 'hover:bg-neutral-50'
+                      isSelected ? 'bg-orange-50 border-l-2 border-l-orange-500' :
+                      selectedComment?.commentId === c.commentId ? 'bg-orange-50 border-l-2 border-l-orange-500' : isUnread ? 'bg-orange-50/80 hover:bg-orange-100/80' : 'hover:bg-neutral-50'
                     }`}
                   >
                     {selectMode ? (
@@ -1497,7 +1497,7 @@ function InboxPage() {
     if (conversationsLoading && conversations.length === 0) {
       return (
         <div className="p-6 flex flex-col items-center justify-center gap-3">
-          <Loader2 size={32} className="text-indigo-500 animate-spin" />
+          <Loader2 size={32} className="text-orange-500 animate-spin" />
           <p className="text-sm text-neutral-500">Loading conversations…</p>
         </div>
       );
@@ -1546,7 +1546,7 @@ function InboxPage() {
                           if (url && typeof url === 'string') window.location.href = url;
                         } catch (_) {}
                       }}
-                      className="px-4 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium hover:opacity-90"
+                      className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-medium hover:opacity-90"
                     >
                       Reconnect Instagram
                     </button>
@@ -1561,7 +1561,7 @@ function InboxPage() {
                           if (url && typeof url === 'string') window.location.href = url;
                         } catch (_) {}
                       }}
-                      className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700"
+                      className="px-4 py-2 rounded-lg bg-orange-600 text-white text-sm font-medium hover:bg-orange-700"
                     >
                       Reconnect Facebook
                     </button>
@@ -1581,7 +1581,7 @@ function InboxPage() {
                           if (url && typeof url === 'string') window.location.href = url;
                         } catch (_) {}
                       }}
-                      className="px-3 py-1.5 rounded-lg border border-purple-300 bg-white text-purple-700 text-sm font-medium hover:bg-purple-50"
+                      className="px-3 py-1.5 rounded-lg border border-orange-300 bg-white text-orange-700 text-sm font-medium hover:bg-orange-50"
                     >
                       Reconnect Instagram
                     </button>
@@ -1596,7 +1596,7 @@ function InboxPage() {
                           if (url && typeof url === 'string') window.location.href = url;
                         } catch (_) {}
                       }}
-                      className="px-3 py-1.5 rounded-lg border border-violet-300 bg-white text-violet-700 text-sm font-medium hover:bg-violet-50"
+                      className="px-3 py-1.5 rounded-lg border border-orange-300 bg-white text-orange-700 text-sm font-medium hover:bg-orange-50"
                     >
                       Reconnect Facebook
                     </button>
@@ -1687,7 +1687,7 @@ function InboxPage() {
                       if (url && typeof url === 'string') window.location.href = url;
                     } catch (_) {}
                   }}
-                  className="text-xs px-2 py-1 rounded bg-violet-600 text-white font-medium hover:bg-violet-700"
+                  className="text-xs px-2 py-1 rounded bg-orange-600 text-white font-medium hover:bg-orange-700"
                 >
                   Reconnect Facebook
                 </button>
@@ -1759,7 +1759,7 @@ function InboxPage() {
               placeholder={inboxMode === 'comments' ? 'Search comments...' : 'Search conversation...'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 border border-neutral-200 rounded-lg text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+              className="w-full pl-9 pr-3 py-2 border border-neutral-200 rounded-lg text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
             />
           </div>
         </div>
@@ -1771,7 +1771,7 @@ function InboxPage() {
             onClick={() => { setInboxMode('messages'); setSelectedComment(null); setSelectMode(false); setSelectedConversationIds(new Set()); setSelectedCommentIds(new Set()); }}
             className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors rounded-t-lg mx-0.5 mt-0.5 ${
               inboxMode === 'messages'
-                ? 'text-violet-900 bg-white border border-b-0 border-violet-200 shadow-sm'
+                ? 'text-orange-900 bg-white border border-b-0 border-orange-200 shadow-sm'
                 : 'text-neutral-500 border border-transparent hover:text-neutral-800 hover:bg-white/60'
             }`}
           >
@@ -1787,7 +1787,7 @@ function InboxPage() {
             onClick={() => { setInboxMode('comments'); setSelectedConversationId(null); setSelectMode(false); setSelectedConversationIds(new Set()); setSelectedCommentIds(new Set()); }}
             className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors rounded-t-lg mx-0.5 mt-0.5 ${
               inboxMode === 'comments'
-                ? 'text-violet-900 bg-white border border-b-0 border-violet-200 shadow-sm'
+                ? 'text-orange-900 bg-white border border-b-0 border-orange-200 shadow-sm'
                 : 'text-neutral-500 border border-transparent hover:text-neutral-800 hover:bg-white/60'
             }`}
           >
@@ -1830,7 +1830,7 @@ function InboxPage() {
               <button
                 type="button"
                 onClick={toggleSelectMode}
-                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${selectMode ? 'bg-indigo-100 text-indigo-700' : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100'}`}
+                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${selectMode ? 'bg-orange-100 text-orange-700' : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100'}`}
               >
                 {selectMode ? <CheckSquare size={13} /> : <Square size={13} />}
                 {selectMode ? 'Cancel' : 'Select'}
@@ -1875,7 +1875,7 @@ function InboxPage() {
                     <button
                       type="button"
                       onClick={markAllAsRead}
-                      className="ml-auto text-xs text-indigo-600 hover:text-indigo-800 underline"
+                      className="ml-auto text-xs text-orange-600 hover:text-orange-800 underline"
                     >
                       Mark all as read
                     </button>
@@ -1915,7 +1915,7 @@ function InboxPage() {
               <button
                 type="button"
                 onClick={toggleSelectMode}
-                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${selectMode ? 'bg-indigo-100 text-indigo-700' : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100'}`}
+                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${selectMode ? 'bg-orange-100 text-orange-700' : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100'}`}
               >
                 {selectMode ? <CheckSquare size={13} /> : <Square size={13} />}
                 {selectMode ? 'Cancel' : 'Select'}
@@ -1967,7 +1967,7 @@ function InboxPage() {
                         setSelectedCommentIds(new Set());
                         setSelectMode(false);
                       }}
-                      className="ml-auto text-xs text-indigo-600 hover:text-indigo-800 underline"
+                      className="ml-auto text-xs text-orange-600 hover:text-orange-800 underline"
                     >
                       Mark all as read
                     </button>
@@ -2084,7 +2084,7 @@ function InboxPage() {
                             setAiReplyLoading(false);
                           }
                         }}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-40 border border-indigo-200 text-sm font-medium"
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-40 border border-orange-200 text-sm font-medium"
                         title={hasCommentExamples ? 'Generate reply with AI' : 'Add examples in AI Assistant'}
                       >
                         {aiReplyLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
@@ -2096,7 +2096,7 @@ function InboxPage() {
                       rows={3}
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
-                      className="w-full px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
+                      className="w-full px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none"
                     />
                     {aiReplyError && <p className="text-sm text-amber-700 mt-2">{aiReplyError}</p>}
                     <button
@@ -2231,7 +2231,7 @@ function InboxPage() {
                                     setAiReplyLoading(false);
                                   }
                                 }}
-                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-40 border border-indigo-200 text-xs font-medium"
+                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-40 border border-orange-200 text-xs font-medium"
                                 title={hasInboxExamples ? 'Generate reply with AI' : 'Add inbox reply examples in AI Assistant'}
                               >
                                 {aiReplyLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
@@ -2246,7 +2246,7 @@ function InboxPage() {
                                 const v = e.target.value;
                                 setBatchDmTexts((prev) => ({ ...prev, [c.id]: v }));
                               }}
-                              className="w-full px-3 py-2 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
+                              className="w-full px-3 py-2 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none"
                             />
                             <div className="mt-2 flex items-center justify-between gap-2">
                               <button
@@ -2348,7 +2348,7 @@ function InboxPage() {
                             href={selectedComment.postUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-700 hover:underline"
+                            className="inline-flex items-center gap-1 text-xs text-orange-500 hover:text-orange-700 hover:underline"
                           >
                             <ExternalLink size={10} />
                             Open in {INBOX_PLATFORM_DEFS.find((p) => p.id === selectedComment.platform)?.label ?? selectedComment.platform.charAt(0) + selectedComment.platform.slice(1).toLowerCase()}
@@ -2526,7 +2526,7 @@ function InboxPage() {
                     rows={2}
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
-                    className="flex-1 px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
+                    className="flex-1 px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none"
                   />
                   <button
                     type="button"
@@ -2552,7 +2552,7 @@ function InboxPage() {
                         setAiReplyLoading(false);
                       }
                     }}
-                    className="p-3 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 border border-indigo-200"
+                    className="p-3 rounded-xl bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 border border-orange-200"
                     title={hasCommentExamples ? 'Generate reply with AI' : 'Add comment reply examples in AI Assistant to enable AI drafts'}
                   >
                     {aiReplyLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
@@ -2698,7 +2698,7 @@ function InboxPage() {
                         href={selectedEngagement.permalink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-block mt-3 text-sm text-indigo-600 hover:text-indigo-700"
+                        className="inline-block mt-3 text-sm text-orange-600 hover:text-orange-700"
                       >
                         View on {selectedEngagement.platform === 'INSTAGRAM' ? 'Instagram' : 'Facebook'}
                       </a>
@@ -2770,7 +2770,7 @@ function InboxPage() {
                     <div className="p-6 flex-1 min-h-0 overflow-y-auto">
                     {conversationMessagesLoading ? (
                       <div className="flex flex-col items-center justify-center gap-2 py-6">
-                        <Loader2 size={24} className="text-indigo-500 animate-spin" />
+                        <Loader2 size={24} className="text-orange-500 animate-spin" />
                         <p className="text-xs text-neutral-500">Loading messages…</p>
                       </div>
                     ) : conversationMessagesError ? (
@@ -2804,7 +2804,7 @@ function InboxPage() {
                               )}
                               <p className="text-sm whitespace-pre-wrap break-words">{msg.message || '—'}</p>
                               {msg.createdTime && (
-                                <p className={`text-xs mt-1 ${msg.isFromPage ? 'text-indigo-200' : 'text-neutral-400'}`}>
+                                <p className={`text-xs mt-1 ${msg.isFromPage ? 'text-orange-200' : 'text-neutral-400'}`}>
                                   {new Date(msg.createdTime).toLocaleString()}
                                 </p>
                               )}
@@ -2831,7 +2831,7 @@ function InboxPage() {
                         placeholder="username"
                         value={dmRecipientUsername}
                         onChange={(e) => { setDmRecipientUsername(e.target.value.replace(/^@/, '').trim()); setDmRecipientLookupError(null); }}
-                        className="flex-1 min-w-[120px] px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                        className="flex-1 min-w-[120px] px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
                       />
                       <button
                         type="button"
@@ -2889,7 +2889,7 @@ function InboxPage() {
                     value={dmReplyText}
                     onChange={(e) => setDmReplyText(e.target.value)}
                     disabled={dmReplySending}
-                    className="flex-1 px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="flex-1 px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none disabled:opacity-60 disabled:cursor-not-allowed"
                 />
                 <button
                   type="button"
@@ -2915,7 +2915,7 @@ function InboxPage() {
                         setAiReplyLoading(false);
                       }
                     }}
-                    className="p-3 rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 border border-indigo-200"
+                    className="p-3 rounded-xl bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 border border-orange-200"
                     title={hasInboxExamples ? 'Generate reply with AI' : 'Add inbox reply examples in AI Assistant to enable AI drafts'}
                   >
                     {aiReplyLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
@@ -2987,9 +2987,9 @@ function InboxPage() {
                     <button type="button" onClick={() => setDmSendError(null)} className="ml-auto shrink-0 text-amber-500 hover:text-amber-700">&#x2715;</button>
                   </div>
                   {(dmSendError.includes('capability') || dmSendError.includes('instagram_manage_messages') || dmSendError.includes('instagram_business_manage_messages')) && (
-                    <div className="rounded-lg border border-indigo-200 bg-indigo-50/80 px-3 py-2.5 text-xs text-indigo-900">
+                    <div className="rounded-lg border border-orange-200 bg-orange-50/80 px-3 py-2.5 text-xs text-orange-900">
                       <p className="font-semibold mb-1.5">How to fix this</p>
-                      <ol className="list-decimal list-inside space-y-1 text-indigo-800">
+                      <ol className="list-decimal list-inside space-y-1 text-orange-800">
                         <li><strong>Reconnect</strong> Facebook &amp; Instagram from the left sidebar: click your Instagram or Facebook account icon, choose reconnect (or remove and add again). This refreshes the token and scopes.</li>
                         <li>If the app is in <strong>Development mode</strong> in Meta: go to <a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener noreferrer" className="underline">Meta for Developers</a> &rarr; <strong>App roles</strong> &rarr; <strong>Roles</strong> and add the Instagram account you want to message as an <strong>Instagram Tester</strong>. They must accept the invite (Instagram &rarr; Settings &rarr; Apps and websites &rarr; Tester invitations).</li>
                         <li>For full access with any recipient: complete <strong>App Review</strong> for Instagram Manage Messages in Meta for Developers.</li>

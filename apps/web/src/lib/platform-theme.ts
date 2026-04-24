@@ -25,8 +25,8 @@ export interface PlatformTheme {
 
 export const PLATFORM_THEMES: Record<string, PlatformTheme> = {
   INSTAGRAM: {
-    gradient: 'from-pink-500 via-fuchsia-500 to-purple-600',
-    solidBg: 'bg-gradient-to-r from-pink-500 to-purple-600',
+    gradient: 'from-pink-500 via-orange-500 to-orange-600',
+    solidBg: 'bg-gradient-to-r from-pink-500 to-orange-600',
     textColor: 'text-pink-600',
     borderColor: 'border-pink-300',
     lightBg: 'bg-pink-50',
@@ -88,12 +88,12 @@ export const PLATFORM_THEMES: Record<string, PlatformTheme> = {
     label: 'Pinterest',
   },
   DEFAULT: {
-    gradient: 'from-indigo-500 to-violet-600',
-    solidBg: 'bg-indigo-600',
-    textColor: 'text-indigo-600',
-    borderColor: 'border-indigo-300',
-    lightBg: 'bg-indigo-50',
-    hex: '#6366F1',
+    gradient: 'from-orange-500 to-orange-600',
+    solidBg: 'bg-orange-600',
+    textColor: 'text-orange-600',
+    borderColor: 'border-orange-300',
+    lightBg: 'bg-orange-50',
+    hex: '#FF7A00',
     label: 'Social',
   },
 };

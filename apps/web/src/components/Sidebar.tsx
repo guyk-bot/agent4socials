@@ -175,8 +175,8 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
             /** Connect URL per platform; optional gem styling when platform is in UPGRADE_TO_CONNECT_PLATFORMS. */
             const href = `/dashboard?connect=${connectParam}`;
             const platformRowClass = `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
-              isPlatformSelected ? 'bg-violet-50 shadow-sm ring-1 ring-violet-200' : 'hover:bg-violet-50/70'
-            } ${needsUpgrade ? 'ring-1 ring-violet-400/50 bg-gradient-to-r from-violet-500/10 to-purple-500/10' : ''}`;
+              isPlatformSelected ? 'bg-orange-50 shadow-sm ring-1 ring-orange-200' : 'hover:bg-orange-50/70'
+            } ${needsUpgrade ? 'ring-1 ring-orange-400/50 bg-gradient-to-r from-orange-500/10 to-orange-500/10' : ''}`;
             const platformRowInner = (
               <>
                 <div className="w-10 h-10 flex items-center justify-center shrink-0">
@@ -184,8 +184,8 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 </div>
                 <span className="truncate flex-1 font-medium">{PLATFORM_LABELS[platform]}</span>
                 {needsUpgrade ? (
-                  <span className="shrink-0 flex items-center text-violet-600" aria-hidden title="Upgrade to connect">
-                    <Gem size={14} className="text-violet-600" aria-hidden />
+                  <span className="shrink-0 flex items-center text-orange-600" aria-hidden title="Upgrade to connect">
+                    <Gem size={14} className="text-orange-600" aria-hidden />
                   </span>
                 ) : null}
                 <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 hover:bg-neutral-300">
@@ -211,7 +211,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
               {accounts.map((acc) => {
                 const isSelected = selectedAccountId === acc.id;
                 const accountRowClass = `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors min-w-0 ${
-                  isSelected ? 'bg-violet-50 shadow-sm ring-1 ring-violet-200' : 'hover:bg-violet-50/70'
+                  isSelected ? 'bg-orange-50 shadow-sm ring-1 ring-orange-200' : 'hover:bg-orange-50/70'
                 }`;
                 // From Inbox or any page: go to this account's analytics via client-side nav (keeps cache, no reload).
                 const dashboardUrl = `/dashboard?accountId=${encodeURIComponent(acc.id)}`;
@@ -249,7 +249,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
                           onKeyDown={(e) => e.stopPropagation()}
-                          className="flex items-center justify-center w-full h-full rounded-lg hover:bg-violet-100/80"
+                          className="flex items-center justify-center w-full h-full rounded-lg hover:bg-orange-100/80"
                           title={`Open ${platformLabel} profile in a new tab`}
                           aria-label={`Open ${platformLabel} profile in a new tab`}
                         >

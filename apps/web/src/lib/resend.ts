@@ -156,7 +156,7 @@ export async function sendScheduleConfirmationEmail(
       html: `
         <p>Your post was scheduled successfully for <strong>${whenLabel}</strong>.</p>
         <p>${modeText}</p>
-        <p><a href="${baseUrl}/posts" style="color:#7c3aed;font-weight:600">Open Post History</a></p>
+        <p><a href="${baseUrl}/posts" style="color:#ff7a00;font-weight:600">Open Post History</a></p>
       `,
     });
     if (error) {
@@ -200,8 +200,8 @@ export async function sendScheduledPublishFailureEmail(
         <p><strong>Status:</strong> Failed</p>
         <p><strong>Reason:</strong> ${reason || 'Unknown error'}</p>
         <p>
-          <a href="${baseUrl}/posts" style="color:#7c3aed;font-weight:600">Open Post History</a><br/>
-          <a href="${baseUrl}/help/support" style="color:#7c3aed;font-weight:600">Contact support</a>
+          <a href="${baseUrl}/posts" style="color:#ff7a00;font-weight:600">Open Post History</a><br/>
+          <a href="${baseUrl}/help/support" style="color:#ff7a00;font-weight:600">Contact support</a>
         </p>
       `,
     });

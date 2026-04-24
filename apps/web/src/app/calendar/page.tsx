@@ -16,8 +16,8 @@ import { PlatformIcon, PLATFORM_ICON_MAP } from '@/components/SocialPlatformIcon
 import { useAppData } from '@/context/AppDataContext';
 
 const STATUS_STYLE: Record<string, { bg: string; border: string; text: string; label: string }> = {
-    SCHEDULED: { bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-800', label: 'Pending' },
-    DRAFT:      { bg: 'bg-violet-50',  border: 'border-violet-200', text: 'text-violet-800',  label: 'Draft' },
+    SCHEDULED: { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-800', label: 'Pending' },
+    DRAFT:      { bg: 'bg-orange-50',  border: 'border-orange-200', text: 'text-orange-800',  label: 'Draft' },
     POSTED:     { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-800', label: 'Published' },
     FAILED:     { bg: 'bg-red-50',  border: 'border-red-200', text: 'text-red-800',  label: 'With errors' },
     POSTING:    { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800', label: 'Posting' },
@@ -27,7 +27,7 @@ const PLATFORM_CARD_STYLE: Record<string, { bg: string; border: string; text: st
     INSTAGRAM: { bg: 'bg-pink-50', border: 'border-pink-200', text: 'text-pink-900' },
     FACEBOOK:  { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-900' },
     TWITTER:   { bg: 'bg-slate-100', border: 'border-slate-300', text: 'text-slate-900' },
-    LINKEDIN:  { bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-900' },
+    LINKEDIN:  { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-900' },
     PINTEREST: { bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-900' },
     TIKTOK:    { bg: 'bg-zinc-100', border: 'border-zinc-300', text: 'text-zinc-900' },
     YOUTUBE:   { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-900' },
@@ -283,14 +283,14 @@ export default function CalendarPage() {
                     <div className="flex rounded-lg border border-gray-200 p-0.5 bg-gray-50">
                         <button
                             onClick={() => setView('week')}
-                            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium ${view === 'week' ? 'bg-white shadow text-violet-700' : 'text-gray-600 hover:text-gray-900'}`}
+                            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium ${view === 'week' ? 'bg-white shadow text-orange-700' : 'text-gray-600 hover:text-gray-900'}`}
                         >
                             <LayoutGrid size={16} />
                             Week
                         </button>
                         <button
                             onClick={() => setView('month')}
-                            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium ${view === 'month' ? 'bg-white shadow text-violet-700' : 'text-gray-600 hover:text-gray-900'}`}
+                            className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium ${view === 'month' ? 'bg-white shadow text-orange-700' : 'text-gray-600 hover:text-gray-900'}`}
                         >
                             <CalendarIcon size={16} />
                             Month
@@ -305,7 +305,7 @@ export default function CalendarPage() {
                             <button onClick={nextWeek} className="p-2 hover:bg-gray-50 rounded" aria-label="Next week">
                                 <ChevronRight size={20} />
                             </button>
-                            <button onClick={goToday} className="ml-1 px-2 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-50 rounded">Today</button>
+                            <button onClick={goToday} className="ml-1 px-2 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-50 rounded">Today</button>
                         </div>
                     ) : (
                         <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white p-1">
@@ -363,7 +363,7 @@ export default function CalendarPage() {
                                                                 >
                                                                     <div className="flex items-start justify-between gap-2 mb-1 min-w-0">
                                                                         <span className="text-[11px] font-semibold leading-none truncate">{formatTime(new Date(p.scheduledAt))}</span>
-                                                                        <span className="shrink-0 text-[10px] font-semibold rounded-md bg-violet-600 text-white px-2 py-0.5">Edit</span>
+                                                                        <span className="shrink-0 text-[10px] font-semibold rounded-md bg-orange-600 text-white px-2 py-0.5">Edit</span>
                                                                     </div>
                                                                     <div className="flex items-start gap-1.5 min-w-0">
                                                                         {thumb && (
@@ -439,7 +439,7 @@ export default function CalendarPage() {
                                                     >
                                                         <div className="flex items-start justify-between gap-2 mb-1 min-w-0">
                                                             <span className="text-[11px] font-semibold leading-none truncate">{formatTime(new Date(p.scheduledAt))}</span>
-                                                            <span className="shrink-0 text-[10px] font-semibold rounded-md bg-violet-600 text-white px-2 py-0.5">Edit</span>
+                                                            <span className="shrink-0 text-[10px] font-semibold rounded-md bg-orange-600 text-white px-2 py-0.5">Edit</span>
                                                         </div>
                                                         <div className="flex items-start gap-1.5 min-w-0">
                                                             {thumb ? (

@@ -125,7 +125,7 @@ export function ReelAnalyzer({
             <button
               type="button"
               onClick={runAnalysis}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-orange-600 text-white text-sm font-medium hover:bg-orange-700 transition-colors shadow-sm"
             >
               <Sparkles size={18} />
               Analyze for growth potential
@@ -163,7 +163,7 @@ export function ReelAnalyzer({
                   <span className="text-neutral-500">/ 100</span>
                   <span className="text-sm font-medium text-neutral-600 ml-1">Short Video Score</span>
                 </div>
-                <p className="mt-2 text-sm font-semibold text-indigo-600">{result.label}</p>
+                <p className="mt-2 text-sm font-semibold text-orange-600">{result.label}</p>
                 <p className="mt-2 text-sm text-neutral-700 leading-relaxed">{result.summary}</p>
               </div>
 
@@ -182,7 +182,7 @@ export function ReelAnalyzer({
                         </div>
                         <div className="h-2 mt-2 rounded-full bg-neutral-200 overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-indigo-500 transition-all"
+                            className="h-full rounded-full bg-orange-500 transition-all"
                             style={{ width: `${Math.min(100, sub.score)}%` }}
                           />
                         </div>
@@ -201,7 +201,7 @@ export function ReelAnalyzer({
                         </div>
                         <div className="h-2 mt-2 rounded-full bg-neutral-200 overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-indigo-500 transition-all"
+                            className="h-full rounded-full bg-orange-500 transition-all"
                             style={{ width: `${Math.min(100, sub.score)}%` }}
                           />
                         </div>
@@ -245,7 +245,7 @@ export function ReelAnalyzer({
                   {result.creativeAdvice.vocalsAndSound && result.creativeAdvice.vocalsAndSound.length > 0 && (
                     <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
                       <div className="flex items-center gap-2 mb-2">
-                        <Mic size={18} className="text-indigo-500" />
+                        <Mic size={18} className="text-orange-500" />
                         <span className="text-sm font-medium text-neutral-800">Vocals & sound</span>
                       </div>
                       <ul className="list-disc list-inside text-sm text-neutral-700 space-y-1">
@@ -291,7 +291,7 @@ export function ReelAnalyzer({
               <button
                 type="button"
                 onClick={runAnalysis}
-                className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                className="text-sm text-orange-600 hover:text-orange-700 font-medium"
               >
                 Run analysis again
               </button>

@@ -55,7 +55,7 @@ export function PlatformBreakdownCards({ platforms }: { platforms: SummaryPlatfo
       <h2 className="text-lg font-semibold text-slate-900 mb-4">Platform Breakdown</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {sorted.map((p, idx) => {
-          const color = PLATFORM_HEX[p.platform] ?? '#8b5cf6';
+          const color = PLATFORM_HEX[p.platform] ?? '#ff7a00';
           const bg = PLATFORM_BG[p.platform] ?? 'bg-slate-100';
           return (
             <div

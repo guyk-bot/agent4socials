@@ -2431,8 +2431,8 @@ export default function ComposerPage() {
                                                 }
                                             }}
                                             className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${mediaType === type
-                                                ? 'bg-violet-50 text-violet-950 shadow-sm ring-1 ring-violet-200'
-                                                : 'text-neutral-600 hover:text-violet-900 hover:bg-violet-50/70'
+                                                ? 'bg-orange-50 text-orange-950 shadow-sm ring-1 ring-orange-200'
+                                                : 'text-neutral-600 hover:text-orange-900 hover:bg-orange-50/70'
                                                 }`}
                                         >
                                             {MEDIA_RECOMMENDATIONS[type].label}
@@ -2494,7 +2494,7 @@ export default function ComposerPage() {
                                                                         onClick={() => setSelectedPlatformForThumbnail(p)}
                                                                         className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs transition-colors ${
                                                                             active
-                                                                                ? 'border-violet-300 bg-violet-50 text-violet-700'
+                                                                                ? 'border-orange-300 bg-orange-50 text-orange-700'
                                                                                 : 'border-neutral-200 text-neutral-600 hover:border-neutral-300'
                                                                         }`}
                                                                     >
@@ -3114,7 +3114,7 @@ export default function ComposerPage() {
                         {scheduledAt.trim() !== '' && (
                         <>
                         <div className="flex items-start gap-3">
-                            <Calendar size={22} className="text-violet-500 shrink-0" />
+                            <Calendar size={22} className="text-orange-500 shrink-0" />
                             <div className="flex-1 space-y-2">
                                 {(() => {
                                     const minLocal = nextFutureTenMinuteLocalString();
@@ -3135,7 +3135,7 @@ export default function ComposerPage() {
                                                 value={selectedDate}
                                                 min={scheduleDatePart(minLocal)}
                                                 onChange={(e) => updateDateTime(e.target.value || selectedDate, selectedHour, selectedMinute)}
-                                                className="w-full p-3 border border-violet-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                                className="w-full p-3 border border-orange-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                                             />
                                             <div className="grid grid-cols-2 gap-2">
                                                 <div className="text-xs font-medium text-neutral-500">Hour (00-23)</div>
@@ -3143,7 +3143,7 @@ export default function ComposerPage() {
                                                 <select
                                                     value={selectedHour}
                                                     onChange={(e) => updateDateTime(selectedDate, e.target.value, selectedMinute)}
-                                                    className="w-full max-h-40 overflow-y-auto p-3 border border-violet-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                                    className="w-full max-h-40 overflow-y-auto p-3 border border-orange-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                                                 >
                                                     {HOUR_OPTIONS_24H.map((hh) => (
                                                         <option key={hh} value={hh}>{hh}</option>
@@ -3152,7 +3152,7 @@ export default function ComposerPage() {
                                                 <select
                                                     value={selectedMinute}
                                                     onChange={(e) => updateDateTime(selectedDate, selectedHour, e.target.value)}
-                                                    className="w-full max-h-40 overflow-y-auto p-3 border border-violet-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                                                    className="w-full max-h-40 overflow-y-auto p-3 border border-orange-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                                                 >
                                                     {SCHEDULE_TEN_MINUTE_OPTIONS.map((mm) => (
                                                         <option key={mm} value={mm}>{mm}</option>
@@ -3379,8 +3379,8 @@ function PlatformToggle({ platform, label, icon, active, onClick, connected }: {
                     !connected
                         ? 'border-neutral-100 bg-neutral-50 text-neutral-300 cursor-not-allowed opacity-50'
                         : active
-                    ? 'border-violet-400 bg-violet-50 text-violet-900 shadow-sm ring-1 ring-violet-200/80'
-                    : 'border-neutral-200 bg-white text-neutral-500 hover:border-violet-300 hover:bg-violet-50/70 hover:text-violet-900'
+                    ? 'border-orange-400 bg-orange-50 text-orange-900 shadow-sm ring-1 ring-orange-200/80'
+                    : 'border-neutral-200 bg-white text-neutral-500 hover:border-orange-300 hover:bg-orange-50/70 hover:text-orange-900'
                 }`}
         >
                 <span className="flex items-center justify-center w-9 h-9 shrink-0">{icon}</span>
@@ -3447,7 +3447,7 @@ function PostPreview({
             className={`rounded-xl overflow-hidden bg-white shadow-sm ${reelPreview ? '' : 'border border-neutral-200'} ${compact ? 'max-w-[260px]' : 'w-full max-w-none mx-auto shadow-lg'}`}
         >
             {mediaType === 'story' && (
-                <div className="bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 text-white text-[10px] font-semibold text-center py-1 tracking-wide">
+                <div className="bg-gradient-to-r from-orange-500 via-pink-500 to-orange-400 text-white text-[10px] font-semibold text-center py-1 tracking-wide">
                     Story preview (Instagram only)
                 </div>
             )}

@@ -82,16 +82,16 @@ const COLOR = {
   text: '#111827',
   textSecondary: '#667085',
   textMuted: '#98a2b3',
-  violet: '#7c6cff',
+  violet: '#ff7a00',
   mint: '#31c48d',
   amber: '#f5b942',
   coral: '#ff8b7b',
   magenta: '#d946ef',
-  cyan: '#6366f1',
+  cyan: '#ff7a00',
 } as const;
 
 const CONSOLE_ENGAGEMENT_ACCENT = '#f59e0b';
-const CONSOLE_VIEWS_ACCENT = '#8b5cf6';
+const CONSOLE_VIEWS_ACCENT = '#f97316';
 
 /** Console-specific platform colors for the Performance per platform section. */
 const CONSOLE_PLATFORM_COLOR: Record<string, string> = {
@@ -1128,7 +1128,7 @@ function HistoryTable({ rows }: { rows: UnifiedHistoryPost[] }) {
             {visible.length === 0 ? (
               <tr><td colSpan={9} className="py-8 text-center text-sm" style={{ color: COLOR.textMuted }}>No posts in this period</td></tr>
             ) : visible.map((row) => {
-              const c = PLATFORM_COLOR[row.platform] ?? '#8b5cf6';
+              const c = PLATFORM_COLOR[row.platform] ?? '#ff7a00';
               return (
                 <tr key={row.id} style={{ borderBottom: `1px solid ${COLOR.border}` }}>
                   <td className="py-2.5 px-3 whitespace-nowrap"><span className="flex items-center gap-1.5"><PlatformIcon platform={row.platform} size={13} /><span className="text-xs font-medium" style={{ color: c }}>{row.platform}</span></span></td>
@@ -1851,15 +1851,15 @@ export default function UnifiedSummaryPage() {
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5">
             <div className="flex flex-wrap items-center gap-2">
               {orderedAccounts.length === 0 ? (
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold" style={{ background: '#eef2ff', color: COLOR.violet }} aria-hidden>{emptyAccountsInitials}</div>
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold" style={{ background: '#fff7ed', color: COLOR.violet }} aria-hidden>{emptyAccountsInitials}</div>
               ) : orderedAccounts.map((acc) => {
                 const label = acc.username || acc.platform || 'Account';
                 const initials = label.replace(/^@/, '').slice(0, 2).toUpperCase() || '?';
                 return (
-                  <button key={acc.id} type="button" onClick={() => goToAccountDashboard(acc)} className="group relative shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2" title={`Open ${label} dashboard`}>
+                  <button key={acc.id} type="button" onClick={() => goToAccountDashboard(acc)} className="group relative shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2" title={`Open ${label} dashboard`}>
                     <span className="relative block h-11 w-11 transition-transform group-hover:scale-[1.03] group-active:scale-[0.98]">
                       <span className="block h-11 w-11 overflow-hidden rounded-full bg-neutral-100 shadow-sm ring-2 ring-white">
-                        {acc.profilePicture ? <img src={acc.profilePicture} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-xs font-semibold" style={{ background: '#eef2ff', color: COLOR.violet }}>{initials}</span>}
+                        {acc.profilePicture ? <img src={acc.profilePicture} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-xs font-semibold" style={{ background: '#fff7ed', color: COLOR.violet }}>{initials}</span>}
                       </span>
                       <span className="pointer-events-none absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center [&>svg]:h-5 [&>svg]:w-5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]" aria-hidden><AccountBadgeIcon platform={acc.platform} /></span>
                     </span>

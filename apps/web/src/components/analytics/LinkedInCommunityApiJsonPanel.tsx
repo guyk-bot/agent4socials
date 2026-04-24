@@ -53,7 +53,7 @@ export function LinkedInCommunityApiJsonPanel({ accountId }: Props) {
           setOpen(next);
           if (next) void fetchPayload();
         }}
-        className="w-full flex items-center justify-between gap-3 text-left rounded-xl px-1 py-0.5 -mx-1 hover:bg-violet-50/60 transition-colors"
+        className="w-full flex items-center justify-between gap-3 text-left rounded-xl px-1 py-0.5 -mx-1 hover:bg-orange-50/60 transition-colors"
       >
         <div>
           <h3 className="text-lg font-semibold text-neutral-900">LinkedIn Community Management API</h3>
@@ -64,10 +64,10 @@ export function LinkedInCommunityApiJsonPanel({ accountId }: Props) {
           </p>
         </div>
         {loading ? (
-          <Loader2 className="w-5 h-5 shrink-0 text-violet-600 animate-spin" aria-hidden />
+          <Loader2 className="w-5 h-5 shrink-0 text-orange-600 animate-spin" aria-hidden />
         ) : (
           <ChevronDown
-            className={`w-5 h-5 shrink-0 text-violet-700 transition-transform ${open ? 'rotate-180' : ''}`}
+            className={`w-5 h-5 shrink-0 text-orange-700 transition-transform ${open ? 'rotate-180' : ''}`}
             aria-hidden
           />
         )}

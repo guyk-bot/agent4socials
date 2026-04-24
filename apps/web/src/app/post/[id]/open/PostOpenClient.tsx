@@ -127,7 +127,7 @@ export default function PostOpenClient({
           <p className="text-sm text-neutral-500 mt-1">X and LinkedIn cannot open with images in the browser. Use &quot;Publish now&quot; to post as-is, or download media and post manually.</p>
         </div>
         {postId && token && (
-          <div className="card space-y-3 border-2 border-indigo-200 bg-indigo-50/50">
+          <div className="card space-y-3 border-2 border-orange-200 bg-orange-50/50">
             <p className="text-sm font-semibold text-neutral-900">Option 1: Post directly (with images)</p>
             <p className="text-xs text-neutral-600">Publish to your connected accounts with captions and media as-is. Best for X and LinkedIn (no need to open them in the browser or add images manually).</p>
             <button
@@ -298,7 +298,7 @@ export default function PostOpenClient({
                   value={currentCaption}
                   onChange={(e) => setEditedCaptions((prev) => ({ ...prev, [platform]: e.target.value }))}
                   rows={4}
-                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
                   placeholder="No caption"
                 />
               </div>
@@ -357,7 +357,7 @@ export default function PostOpenClient({
           );
         })}
         <p className="text-center text-sm text-neutral-500">
-          <Link href="/" className="text-indigo-600 hover:underline">Back to Agent4Socials</Link>
+          <Link href="/" className="text-orange-600 hover:underline">Back to Agent4Socials</Link>
         </p>
       </div>
     </div>

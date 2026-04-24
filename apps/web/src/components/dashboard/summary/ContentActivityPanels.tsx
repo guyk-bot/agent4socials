@@ -33,7 +33,7 @@ const PLATFORM_COLORS: Record<string, string> = {
   PINTEREST: '#E60023',
 };
 
-const ACCENT = '#8b5cf6';
+const ACCENT = '#ff7a00';
 
 const ENGAGEMENT_ACTIVITY_STACK = ['likes', 'comments'] as const;
 
@@ -199,15 +199,15 @@ export function ContentActivityPanels({ dailyPublishing, dailyEngagement }: Cont
                 <XAxis dataKey="date" tickFormatter={formatDateShort} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
                 <YAxis domain={[0, engagementYMax]} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip content={<EngageTooltip />} cursor={{ fill: 'rgba(139,92,246,0.08)' }} />
-                <Bar dataKey="likes" name="Likes" fill="#b030ad" stackId="engage" shape={EngagementActivityBarShape} />
-                <Bar dataKey="comments" name="Comments" fill="#8b5cf6" stackId="engage" shape={EngagementActivityBarShape} />
+                <Bar dataKey="likes" name="Likes" fill="#ea580c" stackId="engage" shape={EngagementActivityBarShape} />
+                <Bar dataKey="comments" name="Comments" fill="#ff7a00" stackId="engage" shape={EngagementActivityBarShape} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         )}
         <div className="flex gap-4 mt-3">
-          <span className="flex items-center gap-1.5 text-xs text-slate-600"><span className="w-2 h-2 rounded-sm bg-[#b030ad]" />Likes</span>
-          <span className="flex items-center gap-1.5 text-xs text-slate-600"><span className="w-2 h-2 rounded-sm bg-[#8b5cf6]" />Comments</span>
+          <span className="flex items-center gap-1.5 text-xs text-slate-600"><span className="w-2 h-2 rounded-sm bg-[#ea580c]" />Likes</span>
+          <span className="flex items-center gap-1.5 text-xs text-slate-600"><span className="w-2 h-2 rounded-sm bg-[#ff7a00]" />Comments</span>
         </div>
       </section>
     </div>
