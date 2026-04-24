@@ -90,6 +90,9 @@ const COLOR = {
   cyan: '#6366f1',
 } as const;
 
+const CONSOLE_ENGAGEMENT_ACCENT = '#f59e0b';
+const CONSOLE_VIEWS_ACCENT = '#8b5cf6';
+
 /** Console-specific platform colors for the Performance per platform section. */
 const CONSOLE_PLATFORM_COLOR: Record<string, string> = {
   ...PLATFORM_COLOR,
@@ -1701,8 +1704,8 @@ export default function UnifiedSummaryPage() {
   const selectedOverviewLegendItems = useMemo(() => {
     const items: Array<{ key: 'followers' | 'engagements' | 'views'; label: string; color: string }> = [
       { key: 'followers', label: 'Followers', color: COLOR.mint },
-      { key: 'engagements', label: 'Engagements', color: COLOR.violet },
-      { key: 'views', label: 'Views', color: COLOR.magenta },
+      { key: 'engagements', label: 'Engagements', color: CONSOLE_ENGAGEMENT_ACCENT },
+      { key: 'views', label: 'Views', color: CONSOLE_VIEWS_ACCENT },
     ];
     return items.filter((i) => selectedOverviewMetrics.includes(i.key));
   }, [selectedOverviewMetrics]);
@@ -1829,7 +1832,7 @@ export default function UnifiedSummaryPage() {
   return (
     <div className="p-0 md:p-0.5 space-y-3" style={{ maxWidth: 1400, background: COLOR.pageBg }}>
       {/* ── Upgrade banner ── */}
-      <div className="w-full rounded-2xl border px-3 py-2.5 sm:px-4 sm:py-3 shadow-sm ring-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 bg-neutral-900 border-neutral-700 ring-neutral-700/70">
+      <div className="w-full rounded-2xl border px-3 py-2.5 sm:px-4 sm:py-3 shadow-sm ring-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 bg-gradient-to-r from-neutral-700 via-neutral-600 to-neutral-700 border-neutral-500 ring-neutral-500/70">
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center gap-1.5 text-neutral-200"><Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden /><span className="text-[11px] font-semibold uppercase tracking-wide">Your plan</span></div>
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
@@ -1912,7 +1915,7 @@ export default function UnifiedSummaryPage() {
                 value={fmtExactInt(data.kpi.totalEngagement)}
                 growthPct={data.kpi.engagementGrowthPercentage}
                 icon={<Heart size={15} />}
-                accent={COLOR.violet}
+                accent={CONSOLE_ENGAGEMENT_ACCENT}
                 active={selectedOverviewMetrics.includes('engagements')}
                 onClick={() => toggleOverviewMetric('engagements')}
               />
@@ -1921,7 +1924,7 @@ export default function UnifiedSummaryPage() {
                 value={fmtExactInt(data.kpi.totalImpressions)}
                 growthPct={data.kpi.impressionsGrowthPercentage}
                 icon={<Eye size={15} />}
-                accent={COLOR.magenta}
+                accent={CONSOLE_VIEWS_ACCENT}
                 active={selectedOverviewMetrics.includes('views')}
                 onClick={() => toggleOverviewMetric('views')}
               />
@@ -1968,10 +1971,10 @@ export default function UnifiedSummaryPage() {
                       <Line type="monotone" dataKey="followers" name="Followers" stroke={COLOR.mint} strokeWidth={2} dot={false} isAnimationActive={false} />
                     )}
                     {selectedOverviewMetrics.includes('views') && (
-                      <Line type="monotone" dataKey="views" name="Views" stroke={COLOR.magenta} strokeWidth={2} dot={false} isAnimationActive={false} />
+                      <Line type="monotone" dataKey="views" name="Views" stroke={CONSOLE_VIEWS_ACCENT} strokeWidth={2} dot={false} isAnimationActive={false} />
                     )}
                     {selectedOverviewMetrics.includes('engagements') && (
-                      <Line type="monotone" dataKey="engagements" name="Engagements" stroke={COLOR.violet} strokeWidth={2} dot={false} isAnimationActive={false} />
+                      <Line type="monotone" dataKey="engagements" name="Engagements" stroke={CONSOLE_ENGAGEMENT_ACCENT} strokeWidth={2} dot={false} isAnimationActive={false} />
                     )}
                   </LineChart>
                 </ResponsiveContainer>
