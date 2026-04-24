@@ -10,7 +10,7 @@ export function BrandedPageLoader({ message }: { message: string }) {
       aria-busy="true"
       aria-live="polite"
     >
-      <LogoLoadingAnimation className="w-[min(92vw,680px)] max-w-[min(88vh,520px)]" />
+      <LogoLoadingAnimation className="w-[min(40vw,200px)] max-w-[200px] sm:w-[min(32vw,220px)] sm:max-w-[220px]" />
       <p className="text-neutral-600 text-sm">{message}</p>
     </div>
   );

@@ -59,7 +59,7 @@ export default function LoadingVideoOverlay({ loading, contained = false }: Prop
       aria-live="polite"
       aria-label="Loading"
     >
-      <LogoLoadingAnimation className="w-[min(92vw,680px)] max-w-[min(88vh,520px)]" />
+      <LogoLoadingAnimation className="w-[min(40vw,200px)] max-w-[200px] sm:w-[min(32vw,220px)] sm:max-w-[220px]" />
     </div>
   );
 }
