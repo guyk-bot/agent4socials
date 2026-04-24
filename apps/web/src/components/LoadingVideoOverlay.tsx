@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
+import { LogoLoadingAnimation } from '@/components/LogoLoadingAnimation';
 
-const LOADING_VIDEO_PATH = '/logo-loading-page.mp4';
-/** Show video immediately when loading starts so the default spinner is not shown. */
+/** Show loader immediately when loading starts so the default spinner is not shown. */
 const DELAY_MS = 0;
 
 type Props = {
@@ -17,22 +17,21 @@ type Props = {
 };
 
 /**
- * Shows the logo loading video when loading starts (after a short delay if DELAY_MS > 0).
- * If loading finishes before the delay (e.g. cached data), the video never appears.
+ * Shows the logo loading animation when loading starts (after a short delay if DELAY_MS > 0).
+ * If loading finishes before the delay (e.g. cached data), the overlay never appears.
  */
 export default function LoadingVideoOverlay({ loading, contained = false }: Props) {
-  const [showVideo, setShowVideo] = useState(false);
+  const [showLoader, setShowLoader] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
     if (loading) {
       if (DELAY_MS <= 0) {
-        setShowVideo(true);
+        setShowLoader(true);
       } else {
         timerRef.current = setTimeout(() => {
           timerRef.current = null;
-          setShowVideo(true);
+          setShowLoader(true);
         }, DELAY_MS);
       }
     } else {
@@ -40,18 +39,14 @@ export default function LoadingVideoOverlay({ loading, contained = false }: Prop
         clearTimeout(timerRef.current);
         timerRef.current = null;
       }
-      setShowVideo(false);
-      if (videoRef.current) {
-        videoRef.current.pause();
-        videoRef.current.currentTime = 0;
-      }
+      setShowLoader(false);
     }
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [loading]);
 
-  if (!showVideo) return null;
+  if (!showLoader) return null;
 
   const positionClass = contained
     ? 'absolute inset-0 z-20'
@@ -64,19 +59,7 @@ export default function LoadingVideoOverlay({ loading, contained = false }: Prop
       aria-live="polite"
       aria-label="Loading"
     >
-      <video
-        ref={videoRef}
-        src={LOADING_VIDEO_PATH}
-        className="w-[min(92vw,680px)] h-auto max-h-[min(88vh,520px)] object-contain"
-        autoPlay
-        muted
-        playsInline
-        loop
-        onEnded={() => {
-          if (!loading) return;
-          videoRef.current?.play().catch(() => {});
-        }}
-      />
+      <LogoLoadingAnimation className="w-[min(92vw,680px)] max-w-[min(88vh,520px)]" />
     </div>
   );
 }
