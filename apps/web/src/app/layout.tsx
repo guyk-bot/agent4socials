@@ -56,27 +56,27 @@ export const metadata: Metadata = {
     siteName: "Agent4Socials",
     title: "Agent4Socials | Schedule Posts & Analytics for All Major Social Platforms",
     description: "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. Try for free.",
-    images: [{ url: "/logo-192.png?v=13", width: 192, height: 192, alt: "Agent4Socials" }],
+    images: [{ url: "/logo-192.png?v=14", width: 192, height: 192, alt: "Agent4Socials" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Agent4Socials | Schedule Posts & Analytics",
     description: "One dashboard for scheduling and analytics. Try for free.",
-    images: ["/logo-192.png?v=13"],
+    images: ["/logo-192.png?v=14"],
   },
   robots: {
     index: true,
     follow: true,
     googleBot: { index: true, follow: true },
   },
-  // Tab favicon: `a4s-tab.svg` + `app/icon.svg` (from your `4S fav.svg`); bump ?v when replacing assets.
+  // Tab favicon: `a4s-tab.svg` + `app/icon.svg` (copy of `real website favicon.svg`); bump ?v when replacing assets.
   icons: {
     icon: [
-      { url: "/a4s-tab.svg?v=13", type: "image/svg+xml" },
-      { url: "/favicon-48.png?v=13", sizes: "48x48", type: "image/png" },
-      { url: "/favicon.ico?v=13", sizes: "any", type: "image/x-icon" },
+      { url: "/a4s-tab.svg?v=14", type: "image/svg+xml" },
+      { url: "/favicon-48.png?v=14", sizes: "48x48", type: "image/png" },
+      { url: "/favicon.ico?v=14", sizes: "any", type: "image/x-icon" },
     ],
-    apple: [{ url: "/favicon-192.png?v=13", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/favicon-192.png?v=14", sizes: "192x192", type: "image/png" }],
   },
   manifest: "/manifest.json",
   appleWebApp: {

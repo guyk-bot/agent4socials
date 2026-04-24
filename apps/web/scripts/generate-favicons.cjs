@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 const publicDir = path.join(__dirname, "..", "public");
-/** Small mark used for favicon + `logo-48/192` PNGs (repo copy of `4S fav.svg` from brand pack). */
+/** Favicon + `logo-48/192` PNGs — keep in sync with `real website favicon.svg` (copied to `a4s-tab.svg`). */
 const svgPath = path.join(publicDir, "a4s-tab.svg");
 
 if (!fs.existsSync(svgPath)) {

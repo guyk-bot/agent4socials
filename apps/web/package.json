@@ -53,6 +53,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "jest": "^30.0.0",
+    "png-to-ico": "^3.0.1",
     "tailwindcss": "^4",
     "ts-jest": "^29.2.5",
     "typescript": "^5"
