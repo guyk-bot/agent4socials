@@ -1832,7 +1832,7 @@ export default function UnifiedSummaryPage() {
   return (
     <div className="p-0 md:p-0.5 space-y-3" style={{ maxWidth: 1400, background: COLOR.pageBg }}>
       {/* ── Upgrade banner ── */}
-      <div className="w-full rounded-2xl border px-3 py-2.5 sm:px-4 sm:py-3 ring-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 bg-[linear-gradient(135deg,rgba(255,255,255,0.78)_0%,rgba(255,255,255,0.5)_42%,rgba(240,245,255,0.35)_100%)] border-white/70 ring-white/80 backdrop-blur-xl shadow-[0_10px_30px_rgba(148,163,184,0.18)]">
+      <div className="w-full rounded-2xl border px-3 py-2.5 sm:px-4 sm:py-3 ring-1 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3 bg-[linear-gradient(135deg,rgba(255,255,255,0.9)_0%,rgba(255,255,255,0.72)_50%,rgba(255,255,255,0.6)_100%)] border-orange-200/70 ring-orange-200/60 backdrop-blur-xl shadow-[0_10px_28px_rgba(251,146,60,0.14)]">
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center gap-1.5 text-neutral-700"><Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden /><span className="text-[11px] font-semibold uppercase tracking-wide">Your plan</span></div>
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
