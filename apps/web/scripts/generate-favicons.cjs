@@ -3,10 +3,11 @@ const fs = require("fs");
 const path = require("path");
 
 const publicDir = path.join(__dirname, "..", "public");
+/** Small mark used for favicon + `logo-48/192` PNGs (repo copy of `4S fav.svg` from brand pack). */
 const svgPath = path.join(publicDir, "a4s-tab.svg");
 
 if (!fs.existsSync(svgPath)) {
-  console.error("Missing public/a4s-tab.svg (brand mark for icons)");
+  console.error("Missing public/a4s-tab.svg");
   process.exit(1);
 }
 

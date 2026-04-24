@@ -73,7 +73,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
           {logoUrl ? (
             <img src={logoUrl} alt="" className="h-7 w-7 sm:h-8 sm:w-8 object-contain" />
           ) : (
-            <img src="/a4s-header.svg?v=12" alt="Agent4Socials" className="h-7 w-7 sm:h-8 sm:w-8 object-contain block bg-transparent" />
+            <img src="/logo-white.svg?v=13" alt="Agent4Socials" className="h-7 w-7 sm:h-8 sm:w-8 object-contain block bg-transparent" />
           )}
           <span className="font-semibold text-white hidden sm:inline truncate">{appName || 'Agent4Socials'}</span>
         </Link>

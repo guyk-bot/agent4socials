@@ -4,8 +4,8 @@ import React, { useRef } from 'react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { Upload, Type, RotateCcw } from 'lucide-react';
 
-/** Shown when no custom upload is saved (matches tab favicon + header default). */
-const OFFICIAL_LOGO_SRC = '/a4s-tab.svg?v=12';
+/** Shown when no custom upload is saved (same asset as dashboard header on dark chrome). */
+const OFFICIAL_LOGO_SRC = '/logo-white.svg?v=13';
 
 export default function SettingsPage() {
   const {
@@ -17,6 +17,7 @@ export default function SettingsPage() {
   } = useWhiteLabel();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logoPreview = logoUrl ?? OFFICIAL_LOGO_SRC;
+  const previewIsOfficial = !logoUrl;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -41,7 +42,11 @@ export default function SettingsPage() {
       <div className="card space-y-6">
         <h2 className="font-semibold text-gray-900">Your logo</h2>
         <div className="flex items-center gap-6">
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-gray-200 bg-gray-50">
+          <div
+            className={`flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed ${
+              previewIsOfficial ? 'border-orange-200/80 bg-neutral-950' : 'border-gray-200 bg-gray-50'
+            }`}
+          >
             <img src={logoPreview} alt="" className="h-full w-full object-contain p-1" />
           </div>
           <div className="flex flex-col gap-2">
