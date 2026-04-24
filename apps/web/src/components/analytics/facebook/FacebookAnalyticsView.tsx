@@ -4607,7 +4607,7 @@ type PostsUploadDayTooltipAgg = {
   return (
     <div className="p-0 md:p-0.5 space-y-3" style={{ background: COLOR.pageBg, maxWidth: 1400 }}>
       {onUpgrade ? (
-        <div className="w-full rounded-2xl border upgrade-banner-warm px-3 py-2.5 sm:px-4 sm:py-3 shadow-sm ring-1 ring-orange-100/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
+        <div className="w-full rounded-2xl border upgrade-banner-warm px-3 py-2.5 sm:px-4 sm:py-3 shadow-sm ring-1 ring-slate-200/70 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex items-center gap-1.5 upgrade-badge-warm">
               <Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden />

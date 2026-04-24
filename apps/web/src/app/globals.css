@@ -90,15 +90,15 @@
   filter: brightness(0.98);
 }
 
-/* Shared warm upgrade/funnel banner tones. */
+/* Shared upgrade banner: white to very light grey fill, neutral edge (CTA stays orange in markup). */
 .upgrade-banner-warm {
-  border-color: rgba(255, 122, 0, 0.35);
-  background: linear-gradient(135deg, rgba(255, 176, 0, 0.16), #ffffff 54%, rgba(255, 77, 0, 0.12));
-  box-shadow: 0 0 0 1px rgba(255, 122, 0, 0.12);
+  border-color: rgba(148, 163, 184, 0.35);
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 42%, #f1f5f9 100%);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 0 0 1px rgba(148, 163, 184, 0.1);
 }
 
 .upgrade-badge-warm {
-  color: #9a3412;
+  color: #64748b;
 }
 
 /* Branded loading logo (SVG stroke draw + sparkle), replaces legacy MP4 loader. */
