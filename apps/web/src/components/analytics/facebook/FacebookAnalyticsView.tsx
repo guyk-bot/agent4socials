@@ -1488,15 +1488,14 @@ export function MetricCard({
   instagramGraphHighlight?: boolean;
 }) {
   const hint = `Source metric: ${source}${typeof trendPercent === 'number' && Number.isFinite(trendPercent) ? `. Change in selected range: ${trendPercent >= 0 ? '+' : ''}${trendPercent.toFixed(1)}%.` : ''}`;
-  const apiRing = tiktokApiHighlight ? TIKTOK_API_CARD_CLASS : instagramGraphHighlight ? INSTAGRAM_GRAPH_API_CARD_CLASS : '';
-  const hasApiRing = Boolean(apiRing);
-  const tintBg = hasApiRing ? undefined : active ? `${color}22` : `${color}14`;
+  const hasApiRing = false;
+  const tintBg = active ? `${color}22` : `${color}14`;
   return (
     <button
       type="button"
       onClick={onClick}
       title={hint}
-      className={`rounded-[14px] px-3 py-2 text-left transition-all hover:-translate-y-[1px] ${apiRing}`}
+      className="rounded-[14px] px-3 py-2 text-left transition-all hover:-translate-y-[1px]"
       style={{
         ...(tintBg ? { background: tintBg } : {}),
         ...(!hasApiRing ? { border: `1px solid ${COLOR.border}` } : {}),

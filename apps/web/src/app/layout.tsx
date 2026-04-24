@@ -72,11 +72,11 @@ export const metadata: Metadata = {
   // Tab favicon only (browser tab / Google): use favicon.svg. Header and footer logos are unchanged (logo.svg, etc.).
   icons: {
     icon: [
-      { url: "/favicon.svg?v=6", type: "image/svg+xml" },
-      { url: "/favicon-48.png?v=6", sizes: "48x48", type: "image/png" },
-      { url: "/favicon.ico?v=6", sizes: "any", type: "image/x-icon" },
+      { url: "/favicon.svg?v=7", type: "image/svg+xml" },
+      { url: "/favicon-48.png?v=7", sizes: "48x48", type: "image/png" },
+      { url: "/favicon.ico?v=7", sizes: "any", type: "image/x-icon" },
     ],
-    apple: [{ url: "/favicon-192.png?v=6", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/favicon-192.png?v=7", sizes: "192x192", type: "image/png" }],
   },
   manifest: "/manifest.json",
   appleWebApp: {
