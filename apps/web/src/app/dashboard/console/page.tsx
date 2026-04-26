@@ -2001,7 +2001,12 @@ export default function UnifiedSummaryPage() {
                   return (
                     <button key={mode} type="button" onClick={() => setPerformanceMode(mode)} aria-pressed={active}
                       className="rounded-lg px-3 py-1.5 text-sm"
-                      style={{ background: active ? 'rgba(139,124,255,0.15)' : 'rgba(255,255,255,0.03)', color: active ? COLOR.text : COLOR.textSecondary, border: `1px solid ${COLOR.border}` }}>
+                      style={{
+                        background: active ? 'linear-gradient(135deg, #ffffff 0%, #f8fafc 42%, #f1f5f9 100%)' : 'rgba(0,0,0,0)',
+                        color: active ? COLOR.text : COLOR.textSecondary,
+                        border: `1px solid ${COLOR.border}`,
+                        boxShadow: active ? '0 1px 2px rgba(15,23,42,0.06), 0 0 0 1px rgba(148,163,184,0.28)' : 'none',
+                      }}>
                       {mode === 'views' ? 'Views' : mode === 'engagement' ? 'Engagement' : 'Growth'}
                     </button>
                   );
@@ -2155,9 +2160,10 @@ export default function UnifiedSummaryPage() {
                       aria-pressed={active}
                       className="rounded-lg px-3 py-1.5 text-sm"
                       style={{
-                        background: active ? 'rgba(139,124,255,0.15)' : 'rgba(255,255,255,0.03)',
+                        background: active ? 'linear-gradient(135deg, #ffffff 0%, #f8fafc 42%, #f1f5f9 100%)' : 'rgba(0,0,0,0)',
                         color: active ? COLOR.text : COLOR.textSecondary,
                         border: `1px solid ${COLOR.border}`,
+                        boxShadow: active ? '0 1px 2px rgba(15,23,42,0.06), 0 0 0 1px rgba(148,163,184,0.28)' : 'none',
                       }}
                     >
                       {POST_TYPE_LABEL[preset]}
