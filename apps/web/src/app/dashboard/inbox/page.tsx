@@ -222,7 +222,7 @@ function MessagesConversationList({
             }}
             className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
               selectMode && selectedConversationIds.has(c.id) ? 'bg-orange-50 border border-orange-200' :
-              selectedConversationId === c.id ? 'bg-orange-50 border-orange-100' : unreadConversationIds.has(c.id) ? 'bg-orange-50/80 hover:bg-orange-100/80' : 'hover:bg-neutral-50'
+              selectedConversationId === c.id ? 'sidebar-item-selected border-slate-200/60' : unreadConversationIds.has(c.id) ? 'bg-orange-50/80 hover:bg-orange-100/80' : 'hover:bg-neutral-50'
             }`}
           >
             {selectMode ? (
@@ -1220,7 +1220,7 @@ function InboxPage() {
                     });
                   }}
                   className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
-                    selectedEngagement?.platformPostId === e.platformPostId ? 'bg-orange-50 border border-orange-100' : isUnread ? 'bg-orange-50/80 hover:bg-orange-100/80' : 'hover:bg-neutral-50'
+                    selectedEngagement?.platformPostId === e.platformPostId ? 'sidebar-item-selected border border-slate-200/60' : isUnread ? 'bg-orange-50/80 hover:bg-orange-100/80' : 'hover:bg-neutral-50'
                   }`}
                 >
                   <div className="w-12 h-12 rounded-lg bg-neutral-100 shrink-0 overflow-hidden flex items-center justify-center">
@@ -1412,8 +1412,8 @@ function InboxPage() {
                       }
                     }}
                     className={`w-full px-3 py-3 text-left transition-colors flex items-center gap-2 cursor-pointer ${
-                      isSelected ? 'bg-orange-50 border-l-2 border-l-orange-500' :
-                      selectedComment?.commentId === c.commentId ? 'bg-orange-50 border-l-2 border-l-orange-500' : isUnread ? 'bg-orange-50/80 hover:bg-orange-100/80' : 'hover:bg-neutral-50'
+                      isSelected ? 'sidebar-item-selected border-l-2 border-l-slate-400' :
+                      selectedComment?.commentId === c.commentId ? 'sidebar-item-selected border-l-2 border-l-slate-400' : isUnread ? 'bg-orange-50/80 hover:bg-orange-100/80' : 'hover:bg-neutral-50'
                     }`}
                   >
                     {selectMode ? (
@@ -2552,7 +2552,7 @@ function InboxPage() {
                         setAiReplyLoading(false);
                       }
                     }}
-                    className="p-3 rounded-xl bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 border border-orange-200"
+                    className="p-3 rounded-xl bg-neutral-100 text-neutral-600 hover:bg-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 border border-neutral-200"
                     title={hasCommentExamples ? 'Generate reply with AI' : 'Add comment reply examples in AI Assistant to enable AI drafts'}
                   >
                     {aiReplyLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
@@ -2607,7 +2607,7 @@ function InboxPage() {
                       setReplySending(false);
                     }
                   }}
-                  className="p-3 rounded-xl bg-[var(--button)] text-white hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  className="p-3 rounded-xl bg-neutral-700 text-white hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                   title="Send reply"
                   >
                     {replySending ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
@@ -2793,7 +2793,7 @@ function InboxPage() {
                             <div
                               className={`max-w-[80%] rounded-2xl px-4 py-2 ${
                                 msg.isFromPage
-                                  ? 'bg-[var(--button)] text-white rounded-br-md'
+                                  ? 'bg-neutral-700 text-white rounded-br-md'
                                   : 'bg-neutral-100 text-neutral-900 rounded-bl-md'
                               }`}
                             >
@@ -2804,7 +2804,7 @@ function InboxPage() {
                               )}
                               <p className="text-sm whitespace-pre-wrap break-words">{msg.message || '—'}</p>
                               {msg.createdTime && (
-                                <p className={`text-xs mt-1 ${msg.isFromPage ? 'text-orange-200' : 'text-neutral-400'}`}>
+                                <p className={`text-xs mt-1 ${msg.isFromPage ? 'text-neutral-400' : 'text-neutral-400'}`}>
                                   {new Date(msg.createdTime).toLocaleString()}
                                 </p>
                               )}
@@ -2915,7 +2915,7 @@ function InboxPage() {
                         setAiReplyLoading(false);
                       }
                     }}
-                    className="p-3 rounded-xl bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 border border-orange-200"
+                    className="p-3 rounded-xl bg-neutral-100 text-neutral-600 hover:bg-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 border border-neutral-200"
                     title={hasInboxExamples ? 'Generate reply with AI' : 'Add inbox reply examples in AI Assistant to enable AI drafts'}
                   >
                     {aiReplyLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
@@ -2973,7 +2973,7 @@ function InboxPage() {
                       setDmReplySending(false);
                     }
                   }}
-                  className="p-3 rounded-xl bg-[var(--button)] text-white hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  className="p-3 rounded-xl bg-neutral-700 text-white hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                   title="Send"
                 >
                   {dmReplySending ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
