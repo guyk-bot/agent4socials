@@ -1675,7 +1675,7 @@ export function TopPostsGrid({
                       target="_blank"
                       rel="noopener noreferrer"
                       className={ANALYTICS_OPEN_ON_PLATFORM_BTN_CLASS}
-                      style={{ borderColor: COLOR.border, background: '#ffffff', color: COLOR.cyan }}
+                      style={{ borderColor: COLOR.border, background: '#ffffff', color: COLOR.textSecondary }}
                       aria-label="Open post on platform"
                       title="Open on platform"
                     >
@@ -1798,7 +1798,8 @@ function YoutubeVideosAnalyticsPanel({
               }}
               className="rounded-lg px-3 py-1.5 text-sm"
               style={{
-                background: reelPreset === preset.id ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)',
+                background: reelPreset === preset.id ? 'linear-gradient(135deg, #ffffff 0%, #f8fafc 42%, #f1f5f9 100%)' : 'rgba(0,0,0,0)',
+                boxShadow: reelPreset === preset.id ? '0 1px 2px rgba(15,23,42,0.06), 0 0 0 1px rgba(148,163,184,0.28)' : 'none',
                 color: reelPreset === preset.id ? COLOR.text : COLOR.textSecondary,
                 border: `1px solid ${COLOR.border}`,
               }}
@@ -2095,7 +2096,7 @@ export function PostsPerformanceTable({
                         target="_blank"
                         rel="noopener noreferrer"
                         className={ANALYTICS_OPEN_ON_PLATFORM_BTN_CLASS}
-                        style={{ borderColor: COLOR.border, background: '#ffffff', color: COLOR.cyan }}
+                        style={{ borderColor: COLOR.border, background: '#ffffff', color: COLOR.textSecondary }}
                         aria-label="Open post on platform"
                         title="Open on platform"
                       >
@@ -2193,7 +2194,7 @@ export function PostsPerformanceTable({
                   target="_blank"
                   rel="noopener noreferrer"
                   className={ANALYTICS_OPEN_ON_PLATFORM_BTN_CLASS}
-                  style={{ borderColor: COLOR.border, background: '#ffffff', color: COLOR.cyan }}
+                  style={{ borderColor: COLOR.border, background: '#ffffff', color: COLOR.textSecondary }}
                   aria-label="Open post on platform"
                   title="Open on platform"
                 >
@@ -4909,9 +4910,10 @@ type PostsUploadDayTooltipAgg = {
                     aria-pressed={active}
                     className="rounded-lg px-3 py-1.5 text-sm"
                     style={{
-                      background: active ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)',
+                      background: active ? 'linear-gradient(135deg, #ffffff 0%, #f8fafc 42%, #f1f5f9 100%)' : 'rgba(0,0,0,0)',
                       color: active ? COLOR.text : COLOR.textSecondary,
                       border: `1px solid ${COLOR.border}`,
+                      boxShadow: active ? '0 1px 2px rgba(15,23,42,0.06), 0 0 0 1px rgba(148,163,184,0.28)' : 'none',
                     }}
                   >
                     {preset.label}
@@ -4931,9 +4933,10 @@ type PostsUploadDayTooltipAgg = {
                   aria-label={`${mode === 'views' ? 'Views' : mode === 'engagement' ? 'Engagement' : 'Growth'} mode. Change in selected range: ${storyModeHoverHint[mode]}`}
                   className="rounded-lg px-3 py-1.5 text-sm"
                   style={{
-                    background: storyMode === mode ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)',
+                    background: storyMode === mode ? 'linear-gradient(135deg, #ffffff 0%, #f8fafc 42%, #f1f5f9 100%)' : 'rgba(0,0,0,0)',
                     color: storyMode === mode ? COLOR.text : COLOR.textSecondary,
                     border: `1px solid ${COLOR.border}`,
+                    boxShadow: storyMode === mode ? '0 1px 2px rgba(15,23,42,0.06), 0 0 0 1px rgba(148,163,184,0.28)' : 'none',
                   }}
                 >
                   {mode === 'views' ? 'Views' : mode === 'engagement' ? 'Engagement' : 'Growth'}
@@ -6266,7 +6269,8 @@ type PostsUploadDayTooltipAgg = {
               }}
               className="rounded-lg px-3 py-1.5 text-sm"
               style={{
-                background: reelPreset === preset.id ? 'rgba(139,124,255,0.2)' : 'rgba(255,255,255,0.03)',
+                background: reelPreset === preset.id ? 'linear-gradient(135deg, #ffffff 0%, #f8fafc 42%, #f1f5f9 100%)' : 'rgba(0,0,0,0)',
+                boxShadow: reelPreset === preset.id ? '0 1px 2px rgba(15,23,42,0.06), 0 0 0 1px rgba(148,163,184,0.28)' : 'none',
                 color: reelPreset === preset.id ? COLOR.text : COLOR.textSecondary,
                 border: `1px solid ${COLOR.border}`,
               }}
@@ -6456,8 +6460,9 @@ type PostsUploadDayTooltipAgg = {
                 onClick={() => setHistoryFilter(f.id)}
                 className="rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
                 style={{
-                  background: historyFilter === f.id ? 'rgba(124,108,255,0.14)' : '#ffffff',
-                  color: historyFilter === f.id ? COLOR.violet : COLOR.textSecondary,
+                  background: historyFilter === f.id ? 'linear-gradient(135deg, #ffffff 0%, #f8fafc 42%, #f1f5f9 100%)' : '#ffffff',
+                  color: historyFilter === f.id ? COLOR.text : COLOR.textSecondary,
+                  boxShadow: historyFilter === f.id ? '0 1px 2px rgba(15,23,42,0.06), 0 0 0 1px rgba(148,163,184,0.28)' : 'none',
                 }}
               >
                 {f.label}
