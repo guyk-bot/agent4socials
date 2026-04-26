@@ -2431,8 +2431,8 @@ export default function ComposerPage() {
                                                 }
                                             }}
                                             className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${mediaType === type
-                                                ? 'bg-orange-50 text-orange-950 shadow-sm ring-1 ring-orange-200'
-                                                : 'text-neutral-600 hover:text-orange-900 hover:bg-orange-50/70'
+                                                ? 'sidebar-item-selected text-neutral-900 shadow-sm'
+                                                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/80'
                                                 }`}
                                         >
                                             {MEDIA_RECOMMENDATIONS[type].label}
@@ -2494,7 +2494,7 @@ export default function ComposerPage() {
                                                                         onClick={() => setSelectedPlatformForThumbnail(p)}
                                                                         className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs transition-colors ${
                                                                             active
-                                                                                ? 'border-orange-300 bg-orange-50 text-orange-700'
+                                                                                ? 'border-slate-300 sidebar-item-selected text-neutral-700'
                                                                                 : 'border-neutral-200 text-neutral-600 hover:border-neutral-300'
                                                                         }`}
                                                                     >
@@ -2792,7 +2792,7 @@ export default function ComposerPage() {
                             <button
                                 type="button"
                                 onClick={openAiModal}
-                                className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--button)]/15 text-[var(--button)] hover:bg-[var(--button)]/25 rounded-lg text-sm font-medium transition-colors"
+                                className="inline-flex items-center gap-1.5 px-3 py-2 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 rounded-lg text-sm font-medium transition-colors"
                             >
                                 <Sparkles size={16} />
                                 Generate with AI
@@ -3135,7 +3135,7 @@ export default function ComposerPage() {
                                                 value={selectedDate}
                                                 min={scheduleDatePart(minLocal)}
                                                 onChange={(e) => updateDateTime(e.target.value || selectedDate, selectedHour, selectedMinute)}
-                                                className="w-full p-3 border border-orange-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                                                className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-neutral-400 focus:border-neutral-400"
                                             />
                                             <div className="grid grid-cols-2 gap-2">
                                                 <div className="text-xs font-medium text-neutral-500">Hour (00-23)</div>
@@ -3143,7 +3143,7 @@ export default function ComposerPage() {
                                                 <select
                                                     value={selectedHour}
                                                     onChange={(e) => updateDateTime(selectedDate, e.target.value, selectedMinute)}
-                                                    className="w-full max-h-40 overflow-y-auto p-3 border border-orange-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                                                    className="w-full max-h-40 overflow-y-auto p-3 border border-neutral-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-neutral-400 focus:border-neutral-400"
                                                 >
                                                     {HOUR_OPTIONS_24H.map((hh) => (
                                                         <option key={hh} value={hh}>{hh}</option>
@@ -3152,7 +3152,7 @@ export default function ComposerPage() {
                                                 <select
                                                     value={selectedMinute}
                                                     onChange={(e) => updateDateTime(selectedDate, selectedHour, e.target.value)}
-                                                    className="w-full max-h-40 overflow-y-auto p-3 border border-orange-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                                                    className="w-full max-h-40 overflow-y-auto p-3 border border-neutral-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-neutral-400 focus:border-neutral-400"
                                                 >
                                                     {SCHEDULE_TEN_MINUTE_OPTIONS.map((mm) => (
                                                         <option key={mm} value={mm}>{mm}</option>
@@ -3207,7 +3207,7 @@ export default function ComposerPage() {
                         type="submit"
                             value="publish"
                         disabled={loading}
-                            className="flex-1 btn-primary flex items-center justify-center gap-2 py-3.5 rounded-xl text-base font-medium disabled:opacity-70 disabled:cursor-not-allowed"
+                            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-base font-medium bg-neutral-700 text-white hover:bg-neutral-800 active:bg-neutral-900 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             {loading ? (
                                 <>
@@ -3379,8 +3379,8 @@ function PlatformToggle({ platform, label, icon, active, onClick, connected }: {
                     !connected
                         ? 'border-neutral-100 bg-neutral-50 text-neutral-300 cursor-not-allowed opacity-50'
                         : active
-                    ? 'border-orange-400 bg-orange-50 text-orange-900 shadow-sm ring-1 ring-orange-200/80'
-                    : 'border-neutral-200 bg-white text-neutral-500 hover:border-orange-300 hover:bg-orange-50/70 hover:text-orange-900'
+                    ? 'border-slate-300 sidebar-item-selected text-neutral-900 shadow-sm'
+                    : 'border-neutral-200 bg-white text-neutral-500 hover:border-neutral-300 hover:bg-neutral-100/80 hover:text-neutral-900'
                 }`}
         >
                 <span className="flex items-center justify-center w-9 h-9 shrink-0">{icon}</span>
