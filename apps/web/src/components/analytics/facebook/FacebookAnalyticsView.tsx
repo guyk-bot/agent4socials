@@ -103,10 +103,10 @@ const COLOR = {
   textSecondary: '#667085',
   textMuted: '#98a2b3',
   /** Former “cyan” analytics accent; kept as key `cyan` for metric map compatibility. */
-  cyan: '#ff7a00',
-  /** True cyan for non-viral traffic (distinct from post impressions accent above). */
+  cyan: '#6366f1',
+  /** True cyan for non-viral traffic (distinct from post impressions indigo above). */
   trafficNonviralCyan: '#06b6d4',
-  violet: '#ff7a00',
+  violet: '#7c6cff',
   magenta: '#d946ef',
   mint: '#31c48d',
   amber: '#f5b942',
@@ -116,7 +116,7 @@ const COLOR = {
 const CONTENT_TYPE_COLOR: Record<ContentTypeKey, string> = {
   reels: '#22d3ee',
   image: '#ec4899',
-  carousel: '#f97316',
+  carousel: '#9333ea',
 };
 
 const YOUTUBE_CONTENT_TYPE_COLOR: Record<YouTubeContentTypeKey, string> = {
@@ -269,10 +269,10 @@ const YOUTUBE_GEO_PIE_COLORS = [
   '#1565c0', // blue
   '#ef6c00', // orange
   '#2e7d32', // green
-  '#d97706', // amber
+  '#6a1b9a', // purple
   '#00838f', // teal
   '#ad1457', // magenta
-  '#ea580c', // orange-deep
+  '#4527a0', // indigo
   '#827717', // olive
   '#546e7a', // blue-grey — Others
 ] as const;
@@ -4698,7 +4698,7 @@ type PostsUploadDayTooltipAgg = {
             <div
               className="h-11 w-11 rounded-full items-center justify-center text-base font-semibold"
               style={{
-                background: '#fff7ed',
+                background: '#eef2ff',
                 color: COLOR.violet,
                 display: headerAvatarUrl ? 'none' : 'flex',
               }}
