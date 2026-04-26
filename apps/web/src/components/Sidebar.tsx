@@ -175,7 +175,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
             /** Connect URL per platform; optional gem styling when platform is in UPGRADE_TO_CONNECT_PLATFORMS. */
             const href = `/dashboard?connect=${connectParam}`;
             const platformRowClass = `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
-              isPlatformSelected ? 'bg-orange-50 shadow-sm ring-1 ring-orange-200' : 'hover:bg-orange-50/70'
+              isPlatformSelected ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80'
             } ${needsUpgrade ? 'ring-1 ring-orange-400/50 bg-gradient-to-r from-orange-500/10 to-orange-500/10' : ''}`;
             const platformRowInner = (
               <>
@@ -211,7 +211,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
               {accounts.map((acc) => {
                 const isSelected = selectedAccountId === acc.id;
                 const accountRowClass = `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors min-w-0 ${
-                  isSelected ? 'bg-orange-50 shadow-sm ring-1 ring-orange-200' : 'hover:bg-orange-50/70'
+                  isSelected ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80'
                 }`;
                 // From Inbox or any page: go to this account's analytics via client-side nav (keeps cache, no reload).
                 const dashboardUrl = `/dashboard?accountId=${encodeURIComponent(acc.id)}`;
