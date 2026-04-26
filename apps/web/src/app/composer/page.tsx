@@ -3096,7 +3096,7 @@ export default function ComposerPage() {
                                     name="scheduleMode"
                                     checked={!scheduledAt || scheduledAt.trim() === ''}
                                     onChange={() => setScheduledAt('')}
-                                    className="text-[var(--button)] focus:ring-[var(--button)]"
+                                    className="text-neutral-600 focus:ring-neutral-400"
                                 />
                                 <span className="text-sm font-medium text-neutral-800">Post now</span>
                             </label>
@@ -3106,7 +3106,7 @@ export default function ComposerPage() {
                                     name="scheduleMode"
                                     checked={scheduledAt.trim() !== ''}
                                     onChange={() => { if (!scheduledAt.trim()) setScheduledAt(nextFutureTenMinuteLocalString()); }}
-                                    className="text-[var(--button)] focus:ring-[var(--button)]"
+                                    className="text-neutral-600 focus:ring-neutral-400"
                                 />
                                 <span className="text-sm font-medium text-neutral-800">Schedule for later</span>
                             </label>
@@ -3114,7 +3114,7 @@ export default function ComposerPage() {
                         {scheduledAt.trim() !== '' && (
                         <>
                         <div className="flex items-start gap-3">
-                            <Calendar size={22} className="text-orange-500 shrink-0" />
+                            <Calendar size={22} className="text-neutral-500 shrink-0" />
                             <div className="flex-1 space-y-2">
                                 {(() => {
                                     const minLocal = nextFutureTenMinuteLocalString();
@@ -3178,7 +3178,7 @@ export default function ComposerPage() {
                                     name="scheduleDelivery"
                                     checked={scheduleDelivery === 'auto'}
                                     onChange={() => setScheduleDelivery('auto')}
-                                    className="text-[var(--button)] focus:ring-[var(--button)]"
+                                    className="text-neutral-600 focus:ring-neutral-400"
                                 />
                                 <span className="text-sm text-neutral-800">Post automatically to all platforms</span>
                             </label>
@@ -3188,7 +3188,7 @@ export default function ComposerPage() {
                                     name="scheduleDelivery"
                                     checked={scheduleDelivery === 'email_links'}
                                     onChange={() => setScheduleDelivery('email_links')}
-                                    className="text-[var(--button)] focus:ring-[var(--button)]"
+                                    className="text-neutral-600 focus:ring-neutral-400"
                                 />
                                 <span className="text-sm text-neutral-800">Email me a link per platform so I can open each one, edit or add sound, and publish manually</span>
                             </label>
