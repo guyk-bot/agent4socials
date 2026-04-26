@@ -27,9 +27,13 @@ export default function AutomationPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
+    const ctrl = new AbortController();
+    const t = window.setTimeout(() => ctrl.abort(), 45_000);
+    let cancelled = false;
     api
-      .get<AutomationSettings>('/automation/settings')
+      .get<AutomationSettings>('/automation/settings', { signal: ctrl.signal })
       .then((res) => {
+        if (cancelled) return;
         const data = res.data;
         if (data && typeof data.dmWelcomeEnabled === 'boolean') {
           setSettings({
@@ -42,10 +46,19 @@ export default function AutomationPage() {
         setLoadError(null);
       })
       .catch(() => {
+        if (cancelled) return;
         setSettings(defaultSettings);
         setLoadError('Could not load settings. You can still change options below and save.');
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        window.clearTimeout(t);
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      ctrl.abort();
+      window.clearTimeout(t);
+    };
   }, []);
 
   const update = (patch: Partial<AutomationSettings>) => {

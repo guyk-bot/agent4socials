@@ -134,9 +134,11 @@ export default function SmartLinksPage() {
 
   useEffect(() => {
     let cancelled = false;
+    const ctrl = new AbortController();
+    const t = window.setTimeout(() => ctrl.abort(), 45_000);
     async function load() {
       try {
-        const res = await api.get<{ linkPage: LinkPageData | null }>('/smart-links');
+        const res = await api.get<{ linkPage: LinkPageData | null }>('/smart-links', { signal: ctrl.signal });
         if (cancelled) return;
         if (res.data.linkPage) {
           const server = res.data.linkPage;
@@ -161,7 +163,7 @@ export default function SmartLinksPage() {
         if (status === 401) {
           await new Promise((r) => setTimeout(r, 400));
           try {
-            const retry = await api.get<{ linkPage: LinkPageData | null }>('/smart-links');
+            const retry = await api.get<{ linkPage: LinkPageData | null }>('/smart-links', { signal: ctrl.signal });
             if (cancelled) return;
             if (retry.data.linkPage) {
               const server = retry.data.linkPage;
@@ -187,11 +189,16 @@ export default function SmartLinksPage() {
           console.error('Failed to load smart links:', e);
         }
       } finally {
+        window.clearTimeout(t);
         if (!cancelled) setLoading(false);
       }
     }
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      ctrl.abort();
+      window.clearTimeout(t);
+    };
   }, []);
 
   const [avatarUploading, setAvatarUploading] = useState(false);

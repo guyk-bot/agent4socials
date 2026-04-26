@@ -43,9 +43,13 @@ export default function AIAssistantPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
 
   useEffect(() => {
+    const ctrl = new AbortController();
+    const t = window.setTimeout(() => ctrl.abort(), 45_000);
+    let cancelled = false;
     api
-      .get('/ai/brand-context')
+      .get('/ai/brand-context', { signal: ctrl.signal })
       .then((res) => {
+        if (cancelled) return;
         const data = res.data;
         if (data && typeof data === 'object') {
           setForm({
@@ -59,14 +63,27 @@ export default function AIAssistantPage() {
           });
         }
       })
-      .catch((err: { response?: { status?: number } }) => {
+      .catch((err: { response?: { status?: number }; code?: string; name?: string }) => {
+        if (cancelled) return;
+        if (err.code === 'ERR_CANCELED' || err.name === 'CanceledError') {
+          setMessage({ type: 'warning', text: 'Loading took too long. You can fill the form and save; try refreshing if data looks wrong.' });
+          return;
+        }
         if (err.response?.status === 401) {
           setMessage({ type: 'error', text: 'Please log in again to load your saved context.' });
         } else {
           setMessage({ type: 'warning', text: 'Couldn\'t load your saved context. You can still fill the form and save.' });
         }
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        window.clearTimeout(t);
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      ctrl.abort();
+      window.clearTimeout(t);
+    };
   }, []);
 
   const savePayload = () => ({

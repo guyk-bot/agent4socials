@@ -17,7 +17,9 @@ const api = axios.create({
 //
 // MAX_CONCURRENT controls how many HTTP requests can be in-flight at once.
 // Excess requests are queued and executed as earlier ones complete.
-const MAX_CONCURRENT = 6;
+// Keep this high enough that dashboard prefetch + navigation to another page
+// (e.g. AI Assistant) does not sit behind the queue so long the UI looks broken.
+const MAX_CONCURRENT = 14;
 let _inFlight = 0;
 const _queue: Array<{ resolve: () => void }> = [];
 
@@ -40,11 +42,10 @@ function releaseSlot(): void {
   }
 }
 
-// Use request interceptor to acquire a slot before sending.
-// The interceptor returns a promise, so axios will wait for it before sending.
+// Use request interceptor: resolve auth first, then acquire a slot right before send.
+// Acquiring before getSession() held a "slot" during Supabase session resolution and
+// could starve other requests (pages stuck on loaders while slots were busy).
 api.interceptors.request.use(async (config) => {
-  await acquireSlot();
-
   if (typeof window !== 'undefined') {
     const supabase = getSupabaseBrowser();
     const { data: { session } } = await supabase.auth.getSession();
@@ -52,6 +53,8 @@ api.interceptors.request.use(async (config) => {
       config.headers.Authorization = `Bearer ${session.access_token}`;
     }
   }
+
+  await acquireSlot();
 
   return config;
 });

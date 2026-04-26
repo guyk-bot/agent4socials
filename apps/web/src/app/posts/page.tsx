@@ -89,10 +89,13 @@ export default function PostsPage() {
             return () => { cancelled = true; };
         }
 
+        const ctrl = new AbortController();
+        const t = window.setTimeout(() => ctrl.abort(), 45_000);
+
         (async () => {
             try {
                 setLoading(true);
-                const res = await api.get('/posts');
+                const res = await api.get('/posts', { signal: ctrl.signal });
                 if (cancelled) return;
                 const list = Array.isArray(res.data) ? res.data : [];
                 setPosts(list);
@@ -100,11 +103,16 @@ export default function PostsPage() {
             } catch {
                 if (!cancelled) console.error('Failed to fetch posts');
             } finally {
+                window.clearTimeout(t);
                 if (!cancelled) setLoading(false);
             }
         })();
 
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+            ctrl.abort();
+            window.clearTimeout(t);
+        };
     }, [pathname, draftSavedParam, refreshParam]);
 
     const highlightId = searchParams.get('highlight');
