@@ -94,7 +94,12 @@ export function TikTokPublishModal({
       return next;
     });
     try {
-      const res = await api.get<{ creator?: TikTokCreatorInfoData; message?: string; blockingCode?: string }>(`/social/accounts/${accountId}/tiktok-creator-info`);
+      const res = await Promise.race([
+        api.get<{ creator?: TikTokCreatorInfoData; message?: string; blockingCode?: string }>(`/social/accounts/${accountId}/tiktok-creator-info`),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(() => reject(new Error('Timed out while loading TikTok account options.')), 15000);
+        }),
+      ]);
       const c = res.data?.creator;
       if (!c) {
         setCreatorById((prev) => ({ ...prev, [accountId]: null }));
@@ -312,7 +317,18 @@ export function TikTokPublishModal({
               <span className="text-sm">Loading TikTok options...</span>
             </div>
           ) : creatorErrorById[activeId ?? ''] ? (
-            <p className="text-sm text-red-600 py-4">{creatorErrorById[activeId ?? '']}</p>
+            <div className="py-4 space-y-3">
+              <p className="text-sm text-red-600">{creatorErrorById[activeId ?? '']}</p>
+              {activeId ? (
+                <button
+                  type="button"
+                  onClick={() => void loadCreator(activeId)}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-orange-300 bg-white text-orange-700 text-xs font-medium hover:bg-orange-50"
+                >
+                  Retry loading TikTok options
+                </button>
+              ) : null}
+            </div>
           ) : f && activeId && ci ? (
             <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-4 md:gap-6">
               <div className="rounded-xl overflow-hidden border border-neutral-200 bg-neutral-950 flex items-center justify-center min-h-[300px] md:min-h-[560px]">
