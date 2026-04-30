@@ -274,7 +274,7 @@ export function TikTokPublishModal({
         >
           <div className="flex items-start justify-between gap-3 mb-3">
             <h2 id="tiktok-modal-title" className="text-lg font-semibold text-neutral-900">
-              Upload to TikTok
+              Post to TikTok
             </h2>
             <button type="button" onClick={onClose} className="text-neutral-400 hover:text-neutral-600 p-1" aria-label="Close">
               <X size={20} />
@@ -287,7 +287,7 @@ export function TikTokPublishModal({
                   key={a.id}
                   type="button"
                   onClick={() => setActiveIdx(i)}
-                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${i === activeIdx ? 'bg-neutral-900 text-white border-neutral-900' : 'border-neutral-200 text-neutral-700 hover:bg-neutral-50'}`}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${i === activeIdx ? 'bg-orange-700 text-white border-orange-700' : 'border-neutral-200 text-neutral-700 hover:bg-orange-50 hover:border-orange-200'}`}
                 >
                   {a.username ? `@${a.username.replace(/^@/, '')}` : `Account ${i + 1}`}
                 </button>
@@ -340,7 +340,7 @@ export function TikTokPublishModal({
                       value={f.title}
                       onChange={(e) => updateForm(activeId, { title: e.target.value.slice(0, captionMax) })}
                       rows={3}
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 pr-14 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:border-cyan-500"
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 pr-14 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
                       placeholder="Add a title that describes your video"
                     />
                     <span className="absolute right-3 bottom-2 text-[11px] text-neutral-500">
@@ -354,7 +354,7 @@ export function TikTokPublishModal({
                   <select
                     value={f.privacyLevel}
                     onChange={(e) => updateForm(activeId, { privacyLevel: e.target.value })}
-                    className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:border-cyan-500 bg-white"
+                    className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
                   >
                     <option value="">Choose visibility</option>
                     {privacyOptions.map((opt) => (
@@ -374,7 +374,7 @@ export function TikTokPublishModal({
                         checked={f.allowComment}
                         disabled={Boolean(ci.comment_disabled)}
                         onChange={(e) => updateForm(activeId, { allowComment: e.target.checked })}
-                        className="rounded border-neutral-300 accent-cyan-500"
+                        className="rounded border-neutral-300 accent-orange-600"
                       />
                       Comment
                     </label>
@@ -384,7 +384,7 @@ export function TikTokPublishModal({
                         checked={f.allowDuet}
                         disabled={Boolean(ci.duet_disabled)}
                         onChange={(e) => updateForm(activeId, { allowDuet: e.target.checked })}
-                        className="rounded border-neutral-300 accent-cyan-500"
+                        className="rounded border-neutral-300 accent-orange-600"
                       />
                       Duet
                     </label>
@@ -394,7 +394,7 @@ export function TikTokPublishModal({
                         checked={f.allowStitch}
                         disabled={Boolean(ci.stitch_disabled)}
                         onChange={(e) => updateForm(activeId, { allowStitch: e.target.checked })}
-                        className="rounded border-neutral-300 accent-cyan-500"
+                        className="rounded border-neutral-300 accent-orange-600"
                       />
                       Stitch
                     </label>
@@ -415,7 +415,7 @@ export function TikTokPublishModal({
                           ...(!f.commercialDisclosureOn ? {} : { yourBrand: false, brandedContent: false }),
                         })
                       }
-                      className={`relative h-6 w-11 rounded-full transition-colors ${f.commercialDisclosureOn ? 'bg-cyan-500' : 'bg-neutral-300'}`}
+                      className={`relative h-6 w-11 rounded-full transition-colors ${f.commercialDisclosureOn ? 'bg-orange-600' : 'bg-neutral-300'}`}
                       aria-pressed={f.commercialDisclosureOn}
                       aria-label="Toggle commercial disclosure"
                     >
@@ -427,7 +427,7 @@ export function TikTokPublishModal({
 
                   {f.commercialDisclosureOn ? (
                     <div className="mt-3 space-y-3 border-t border-neutral-100 pt-3">
-                      <div className="rounded-md bg-blue-50 border border-blue-100 px-3 py-2 text-xs text-blue-900">
+                      <div className="rounded-md bg-orange-50 border border-orange-100 px-3 py-2 text-xs text-orange-900">
                         Your video may be labeled as promotional content by TikTok.
                       </div>
                       <label className="flex items-start gap-2 text-sm">
@@ -435,7 +435,7 @@ export function TikTokPublishModal({
                           type="checkbox"
                           checked={f.yourBrand}
                           onChange={(e) => updateForm(activeId, { yourBrand: e.target.checked })}
-                          className="mt-0.5 rounded border-neutral-300 accent-cyan-500"
+                          className="mt-0.5 rounded border-neutral-300 accent-orange-600"
                         />
                         <span>
                           <span className="font-medium text-neutral-900">Your brand</span>
@@ -447,7 +447,7 @@ export function TikTokPublishModal({
                           type="checkbox"
                           checked={f.brandedContent}
                           onChange={(e) => updateForm(activeId, { brandedContent: e.target.checked })}
-                          className="mt-0.5 rounded border-neutral-300 accent-cyan-500"
+                          className="mt-0.5 rounded border-neutral-300 accent-orange-600"
                         />
                         <span>
                           <span className="font-medium text-neutral-900">Branded content</span>
@@ -477,9 +477,9 @@ export function TikTokPublishModal({
               type="button"
               onClick={handleConfirm}
               disabled={anyLoadingCreator || Boolean(activeId && creatorErrorById[activeId])}
-              className="px-6 py-2.5 text-sm font-semibold rounded-md text-white bg-cyan-500 hover:bg-cyan-600 disabled:opacity-50 disabled:shadow-none"
+              className="px-6 py-2.5 text-sm font-semibold rounded-full text-white shadow-md transition-all active:scale-[0.98] gradient-cta-pro disabled:opacity-50 disabled:shadow-none"
             >
-              Upload
+              Continue
             </button>
           </div>
           <label className="mt-3 flex items-start gap-2 text-sm text-neutral-600">
@@ -487,7 +487,7 @@ export function TikTokPublishModal({
               type="checkbox"
               checked={Boolean(f?.userConsentedToPublish)}
               onChange={(e) => activeId && updateForm(activeId, { userConsentedToPublish: e.target.checked })}
-              className="rounded border-neutral-300 accent-cyan-500 mt-0.5"
+              className="rounded border-neutral-300 accent-orange-600 mt-0.5"
             />
             <span>By posting, you agree to TikTok Music Usage Confirmation and terms for posting this content.</span>
           </label>
