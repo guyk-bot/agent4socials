@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import api from '@/lib/api';
 import type { TikTokCreatorInfoData, TikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
@@ -72,44 +72,60 @@ export function TikTokPublishModal({
   const [activeIdx, setActiveIdx] = useState(0);
   const [creatorById, setCreatorById] = useState<Record<string, TikTokCreatorInfoData | null>>({});
   const [creatorErrorById, setCreatorErrorById] = useState<Record<string, string>>({});
-  const [loadingCreator, setLoadingCreator] = useState(false);
+  const [loadingCreatorById, setLoadingCreatorById] = useState<Record<string, boolean>>({});
   const [formById, setFormById] = useState<Record<string, FormState>>({});
   const [videoDurationSec, setVideoDurationSec] = useState<number | undefined>(undefined);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const initializedAccountsKeyRef = useRef<string | null>(null);
 
   const activeAccount = accounts[activeIdx];
   const activeId = activeAccount?.id;
+  const accountIdsKey = useMemo(() => accounts.map((a) => a.id).join(','), [accounts]);
 
   const loadCreator = useCallback(async (accountId: string) => {
-    setLoadingCreator(true);
+    setLoadingCreatorById((prev) => ({ ...prev, [accountId]: true }));
     setCreatorErrorById((prev) => {
       const next = { ...prev };
       delete next[accountId];
       return next;
     });
     try {
-      const res = await api.get<{ creator?: TikTokCreatorInfoData; message?: string }>(`/social/accounts/${accountId}/tiktok-creator-info`);
+      const res = await api.get<{ creator?: TikTokCreatorInfoData; message?: string; blockingCode?: string }>(`/social/accounts/${accountId}/tiktok-creator-info`);
       const c = res.data?.creator;
       if (!c) {
         setCreatorById((prev) => ({ ...prev, [accountId]: null }));
-        setCreatorErrorById((prev) => ({ ...prev, [accountId]: res.data?.message || 'Could not load TikTok account options.' }));
+        const blockingMsg = res.data?.blockingCode
+          ? 'TikTok says this account cannot post right now. Please try again later.'
+          : undefined;
+        setCreatorErrorById((prev) => ({ ...prev, [accountId]: blockingMsg || res.data?.message || 'Could not load TikTok account options.' }));
         return;
       }
       setCreatorById((prev) => ({ ...prev, [accountId]: c }));
     } catch (e: unknown) {
-      const msg =
-        e && typeof e === 'object' && 'response' in e
-          ? String((e as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Request failed')
-          : 'Could not load TikTok creator info.';
+      const status = e && typeof e === 'object' && 'response' in e
+        ? (e as { response?: { status?: number } }).response?.status
+        : undefined;
+      const responseMessage = e && typeof e === 'object' && 'response' in e
+        ? (e as { response?: { data?: { message?: string } } }).response?.data?.message
+        : undefined;
+      const msg = status === 429
+        ? 'TikTok says this account cannot post right now. Please try again later.'
+        : String(responseMessage ?? 'Could not load TikTok creator info.');
       setCreatorErrorById((prev) => ({ ...prev, [accountId]: msg }));
       setCreatorById((prev) => ({ ...prev, [accountId]: null }));
     } finally {
-      setLoadingCreator(false);
+      setLoadingCreatorById((prev) => ({ ...prev, [accountId]: false }));
     }
   }, []);
 
   useEffect(() => {
-    if (!open || accounts.length === 0) return;
+    if (!open) {
+      initializedAccountsKeyRef.current = null;
+      return;
+    }
+    if (accounts.length === 0) return;
+    if (initializedAccountsKeyRef.current === accountIdsKey) return;
+    initializedAccountsKeyRef.current = accountIdsKey;
     setActiveIdx(0);
     setSubmitError(null);
     const seed = defaultCaption.trim().slice(0, 2200);
@@ -133,8 +149,9 @@ export function TikTokPublishModal({
     setFormById(initial);
     setCreatorById({});
     setCreatorErrorById({});
+    setLoadingCreatorById({});
     void Promise.all(accounts.map((a) => loadCreator(a.id)));
-  }, [open, accounts, defaultCaption, initialByAccountId, loadCreator]);
+  }, [open, accountIdsKey, accounts, defaultCaption, initialByAccountId, loadCreator]);
 
   useEffect(() => {
     if (!open || !videoPreviewSrc) return;
@@ -225,7 +242,14 @@ export function TikTokPublishModal({
 
   const ci = activeId ? creatorById[activeId] : null;
   const f = activeId ? formById[activeId] : null;
+  const activeLoadingCreator = Boolean(activeId && loadingCreatorById[activeId]);
+  const anyLoadingCreator = accounts.some((a) => loadingCreatorById[a.id]);
   const privacyOptions = ci?.privacy_level_options ?? [];
+  const creatorDisplayName =
+    (ci?.creator_nickname && ci.creator_nickname.trim()) ||
+    (ci?.creator_username && `@${ci.creator_username.replace(/^@/, '')}`) ||
+    (activeAccount?.username && `@${activeAccount.username.replace(/^@/, '')}`) ||
+    'this TikTok account';
 
   return createPortal(
     <>
@@ -281,7 +305,7 @@ export function TikTokPublishModal({
             </div>
           ) : null}
 
-          {loadingCreator && !ci ? (
+          {activeLoadingCreator && !ci ? (
             <div className="flex items-center justify-center py-12 text-neutral-500 gap-2">
               <Loader2 className="animate-spin" size={22} />
               <span className="text-sm">Loading TikTok options…</span>
@@ -290,6 +314,16 @@ export function TikTokPublishModal({
             <p className="text-sm text-red-600 py-4">{creatorErrorById[activeId ?? '']}</p>
           ) : f && activeId && ci ? (
             <div className="space-y-4">
+              <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-700">
+                <p>
+                  Posting as <span className="font-semibold text-neutral-900">{creatorDisplayName}</span>
+                </p>
+                {typeof ci.max_video_post_duration_sec === 'number' && ci.max_video_post_duration_sec > 0 ? (
+                  <p className="mt-1 text-neutral-600">
+                    Max video length for this account: {Math.floor(ci.max_video_post_duration_sec)}s.
+                  </p>
+                ) : null}
+              </div>
               <label className="block">
                 <span className="text-xs font-medium text-neutral-700">Title / caption (TikTok)</span>
                 <textarea
@@ -417,7 +451,7 @@ export function TikTokPublishModal({
             <button
               type="button"
               onClick={handleConfirm}
-              disabled={loadingCreator || Boolean(activeId && creatorErrorById[activeId])}
+              disabled={anyLoadingCreator || Boolean(activeId && creatorErrorById[activeId])}
               className="px-5 py-2.5 text-sm font-semibold rounded-full text-white shadow-md disabled:opacity-50 disabled:shadow-none gradient-cta-pro"
             >
               Continue
