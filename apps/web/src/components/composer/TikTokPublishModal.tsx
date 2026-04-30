@@ -320,12 +320,7 @@ export function TikTokPublishModal({
             </div>
           )}
 
-          {activeLoadingCreator && !ci ? (
-            <div className="flex items-center justify-center py-12 text-neutral-500 gap-2">
-              <Loader2 className="animate-spin" size={22} />
-              <span className="text-sm">Loading TikTok options...</span>
-            </div>
-          ) : creatorErrorById[activeId ?? ''] ? (
+          {creatorErrorById[activeId ?? ''] ? (
             <div className="py-4 space-y-3">
               <p className="text-sm text-red-600">{creatorErrorById[activeId ?? '']}</p>
               {activeId ? (
@@ -338,7 +333,7 @@ export function TikTokPublishModal({
                 </button>
               ) : null}
             </div>
-          ) : f && activeId && ci ? (
+          ) : f && activeId ? (
             <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-4 md:gap-6">
               <div className="rounded-xl overflow-hidden border border-neutral-200 bg-neutral-950 flex items-center justify-center min-h-[300px] md:min-h-[560px]">
                 {videoPreviewSrc ? (
@@ -357,6 +352,12 @@ export function TikTokPublishModal({
               </div>
 
               <div className="space-y-4">
+                {activeLoadingCreator && !ci ? (
+                  <div className="flex items-center gap-2 text-xs text-neutral-500">
+                    <Loader2 className="animate-spin" size={14} />
+                    <span>Loading TikTok options...</span>
+                  </div>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => activeId && setShowCaptionById((prev) => ({ ...prev, [activeId]: !prev[activeId] }))}
@@ -397,6 +398,7 @@ export function TikTokPublishModal({
                     value={f.privacyLevel}
                     onChange={(e) => updateForm(activeId, { privacyLevel: e.target.value })}
                     className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
+                    disabled={!ci}
                   >
                     <option value="">Choose visibility</option>
                     {privacyOptions.map((opt) => (
@@ -414,7 +416,7 @@ export function TikTokPublishModal({
                       <input
                         type="checkbox"
                         checked={f.allowComment}
-                        disabled={Boolean(ci.comment_disabled)}
+                        disabled={!ci || Boolean(ci.comment_disabled)}
                         onChange={(e) => updateForm(activeId, { allowComment: e.target.checked })}
                         className="rounded border-neutral-300 accent-orange-600"
                       />
@@ -426,7 +428,7 @@ export function TikTokPublishModal({
                           <input
                             type="checkbox"
                             checked={f.allowDuet}
-                            disabled={Boolean(ci.duet_disabled)}
+                            disabled={!ci || Boolean(ci.duet_disabled)}
                             onChange={(e) => updateForm(activeId, { allowDuet: e.target.checked })}
                             className="rounded border-neutral-300 accent-orange-600"
                           />
@@ -436,7 +438,7 @@ export function TikTokPublishModal({
                           <input
                             type="checkbox"
                             checked={f.allowStitch}
-                            disabled={Boolean(ci.stitch_disabled)}
+                            disabled={!ci || Boolean(ci.stitch_disabled)}
                             onChange={(e) => updateForm(activeId, { allowStitch: e.target.checked })}
                             className="rounded border-neutral-300 accent-orange-600"
                           />
@@ -504,7 +506,7 @@ export function TikTokPublishModal({
                   ) : null}
                 </div>
 
-                {!isPhotoPost && typeof ci.max_video_post_duration_sec === 'number' && ci.max_video_post_duration_sec > 0 ? (
+                {!isPhotoPost && typeof ci?.max_video_post_duration_sec === 'number' && ci.max_video_post_duration_sec > 0 ? (
                   <label className="flex items-start gap-2 text-sm text-neutral-600">
                     <input
                       type="checkbox"
