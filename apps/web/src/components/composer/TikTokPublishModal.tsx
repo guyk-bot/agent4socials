@@ -18,6 +18,7 @@ type FormState = {
   commercialDisclosureOn: boolean;
   yourBrand: boolean;
   brandedContent: boolean;
+  maxDurationAcknowledged: boolean;
   userConsentedToPublish: boolean;
 };
 
@@ -30,6 +31,7 @@ const defaultForm = (titleSeed: string): FormState => ({
   commercialDisclosureOn: false,
   yourBrand: false,
   brandedContent: false,
+  maxDurationAcknowledged: false,
   userConsentedToPublish: false,
 });
 
@@ -43,6 +45,7 @@ function formToPayload(f: FormState): TikTokDirectPostPayload {
     commercialDisclosureOn: f.commercialDisclosureOn,
     yourBrand: f.yourBrand,
     brandedContent: f.brandedContent,
+    maxDurationAcknowledged: f.maxDurationAcknowledged,
     userConsentedToPublish: f.userConsentedToPublish,
   };
 }
@@ -142,6 +145,7 @@ export function TikTokPublishModal({
             commercialDisclosureOn: existing.commercialDisclosureOn,
             yourBrand: existing.yourBrand,
             brandedContent: existing.brandedContent,
+            maxDurationAcknowledged: Boolean(existing.maxDurationAcknowledged),
             userConsentedToPublish: existing.userConsentedToPublish,
           }
         : defaultForm(seed);
@@ -227,6 +231,10 @@ export function TikTokPublishModal({
       }
       const maxDur = ci.max_video_post_duration_sec;
       if (typeof maxDur === 'number' && maxDur > 0) {
+        if (!f.maxDurationAcknowledged) {
+          setSubmitError(`Please confirm the max video length check for this account (${maxDur} seconds).`);
+          return;
+        }
         if (!(typeof videoDurationSec === 'number' && videoDurationSec > 0)) {
           setSubmitError(`We could not read the video duration yet. TikTok requires duration check before upload (${maxDur}s max). Wait a moment and try again.`);
           return;
@@ -459,9 +467,17 @@ export function TikTokPublishModal({
                 </div>
 
                 {typeof ci.max_video_post_duration_sec === 'number' && ci.max_video_post_duration_sec > 0 ? (
-                  <p className="text-xs text-neutral-500">
-                    Max video length for this account: {Math.floor(ci.max_video_post_duration_sec)} seconds.
-                  </p>
+                  <label className="flex items-start gap-2 text-xs text-neutral-600">
+                    <input
+                      type="checkbox"
+                      checked={f.maxDurationAcknowledged}
+                      onChange={(e) => updateForm(activeId, { maxDurationAcknowledged: e.target.checked })}
+                      className="rounded border-neutral-300 accent-orange-600 mt-0.5"
+                    />
+                    <span>
+                      I checked max duration: Max video length for this account: {Math.floor(ci.max_video_post_duration_sec)} seconds.
+                    </span>
+                  </label>
                 ) : null}
               </div>
             </div>
