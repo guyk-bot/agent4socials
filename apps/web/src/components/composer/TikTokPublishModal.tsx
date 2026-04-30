@@ -79,6 +79,7 @@ export function TikTokPublishModal({
   const [formById, setFormById] = useState<Record<string, FormState>>({});
   const [videoDurationSec, setVideoDurationSec] = useState<number | undefined>(undefined);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showCaptionById, setShowCaptionById] = useState<Record<string, boolean>>({});
   const initializedAccountsKeyRef = useRef<string | null>(null);
 
   const activeAccount = accounts[activeIdx];
@@ -154,6 +155,7 @@ export function TikTokPublishModal({
     setCreatorById({});
     setCreatorErrorById({});
     setLoadingCreatorById({});
+    setShowCaptionById({});
     void Promise.all(accounts.map((a) => loadCreator(a.id)));
   }, [open, accountIdsKey, accounts, defaultCaption, initialByAccountId, loadCreator]);
 
@@ -266,6 +268,7 @@ export function TikTokPublishModal({
     'this TikTok account';
   const captionLength = f?.title?.length ?? 0;
   const captionMax = 2200;
+  const showCaptionEditor = Boolean(activeId && showCaptionById[activeId]);
 
   return createPortal(
     <>
@@ -329,7 +332,11 @@ export function TikTokPublishModal({
               </div>
 
               <div className="space-y-4">
-                <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => activeId && setShowCaptionById((prev) => ({ ...prev, [activeId]: !prev[activeId] }))}
+                  className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 flex items-center justify-between hover:bg-orange-50 transition-colors"
+                >
                   <div className="flex items-center gap-2 min-w-0">
                     {ci.creator_avatar_url ? (
                       <img src={ci.creator_avatar_url} alt="" className="h-6 w-6 rounded-full object-cover border border-neutral-200" />
@@ -338,24 +345,26 @@ export function TikTokPublishModal({
                     )}
                     <span className="text-sm font-medium text-neutral-900 truncate">{creatorDisplayName}</span>
                   </div>
-                  <ChevronDown size={16} className="text-neutral-500" />
-                </div>
+                  <ChevronDown size={16} className={`text-neutral-500 transition-transform ${showCaptionEditor ? 'rotate-180' : ''}`} />
+                </button>
 
-                <label className="block">
-                  <span className="text-sm font-semibold text-neutral-900">Caption</span>
-                  <div className="relative mt-1">
-                    <textarea
-                      value={f.title}
-                      onChange={(e) => updateForm(activeId, { title: e.target.value.slice(0, captionMax) })}
-                      rows={3}
-                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 pr-14 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
-                      placeholder="Add a title that describes your video"
-                    />
-                    <span className="absolute right-3 bottom-2 text-[11px] text-neutral-500">
-                      {captionLength}/{captionMax}
-                    </span>
-                  </div>
-                </label>
+                {showCaptionEditor ? (
+                  <label className="block">
+                    <span className="text-sm font-semibold text-neutral-900">Caption</span>
+                    <div className="relative mt-1">
+                      <textarea
+                        value={f.title}
+                        onChange={(e) => updateForm(activeId, { title: e.target.value.slice(0, captionMax) })}
+                        rows={3}
+                        className="w-full rounded-lg border border-neutral-200 px-3 py-2 pr-14 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                        placeholder="Add a title that describes your video"
+                      />
+                      <span className="absolute right-3 bottom-2 text-[11px] text-neutral-500">
+                        {captionLength}/{captionMax}
+                      </span>
+                    </div>
+                  </label>
+                ) : null}
 
                 <label className="block">
                   <span className="text-sm font-semibold text-neutral-900">Who can view this video</span>
