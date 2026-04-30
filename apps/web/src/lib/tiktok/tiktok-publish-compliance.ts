@@ -86,7 +86,11 @@ export function buildTikTokPostInfoFromPayload(
   }
 
   if (p.commercialDisclosureOn && !p.yourBrand && !p.brandedContent) {
-    return { error: 'Commercial content is on: choose Your brand and/or Branded content.' };
+    return { error: 'Commercial content is on: choose either Your brand or Branded content.' };
+  }
+
+  if (p.commercialDisclosureOn && p.yourBrand && p.brandedContent) {
+    return { error: 'Choose only one: Your brand or Branded content.' };
   }
 
   if (p.brandedContent && p.privacyLevel === 'SELF_ONLY') {

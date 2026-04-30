@@ -222,7 +222,11 @@ export function TikTokPublishModal({
         return;
       }
       if (f.commercialDisclosureOn && !f.yourBrand && !f.brandedContent) {
-        setSubmitError('Commercial content is on: choose Your brand and/or Branded content.');
+        setSubmitError('Commercial content is on: choose either Your brand or Branded content.');
+        return;
+      }
+      if (f.commercialDisclosureOn && f.yourBrand && f.brandedContent) {
+        setSubmitError('Choose only one: Your brand or Branded content.');
         return;
       }
       if (f.brandedContent && f.privacyLevel === 'SELF_ONLY') {
@@ -364,7 +368,7 @@ export function TikTokPublishModal({
                   className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 flex items-center justify-between hover:bg-orange-50 transition-colors"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    {ci.creator_avatar_url ? (
+                    {ci?.creator_avatar_url ? (
                       <img src={ci.creator_avatar_url} alt="" className="h-6 w-6 rounded-full object-cover border border-neutral-200" />
                     ) : (
                       <div className="h-6 w-6 rounded-full bg-neutral-300" />
@@ -482,7 +486,7 @@ export function TikTokPublishModal({
                         <input
                           type="checkbox"
                           checked={f.yourBrand}
-                          onChange={(e) => updateForm(activeId, { yourBrand: e.target.checked })}
+                          onChange={(e) => updateForm(activeId, { yourBrand: e.target.checked, brandedContent: e.target.checked ? false : f.brandedContent })}
                           className="mt-0.5 rounded border-neutral-300 accent-orange-600"
                         />
                         <span>
@@ -494,7 +498,7 @@ export function TikTokPublishModal({
                         <input
                           type="checkbox"
                           checked={f.brandedContent}
-                          onChange={(e) => updateForm(activeId, { brandedContent: e.target.checked })}
+                          onChange={(e) => updateForm(activeId, { brandedContent: e.target.checked, yourBrand: e.target.checked ? false : f.yourBrand })}
                           className="mt-0.5 rounded border-neutral-300 accent-orange-600"
                         />
                         <span>
