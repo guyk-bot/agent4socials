@@ -488,6 +488,15 @@ export function TikTokPublishModal({
                     </span>
                   </label>
                 ) : null}
+                <label className="flex items-start gap-2 text-sm text-neutral-600">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(f?.userConsentedToPublish)}
+                    onChange={(e) => activeId && updateForm(activeId, { userConsentedToPublish: e.target.checked })}
+                    className="rounded border-neutral-300 accent-orange-600 mt-0.5"
+                  />
+                  <span>By posting, you agree to TikTok Music Usage Confirmation and terms for posting this content.</span>
+                </label>
               </div>
             </div>
           ) : null}
@@ -507,15 +516,6 @@ export function TikTokPublishModal({
               Continue
             </button>
           </div>
-          <label className="mt-3 flex items-start gap-2 text-sm text-neutral-600">
-            <input
-              type="checkbox"
-              checked={Boolean(f?.userConsentedToPublish)}
-              onChange={(e) => activeId && updateForm(activeId, { userConsentedToPublish: e.target.checked })}
-              className="rounded border-neutral-300 accent-orange-600 mt-0.5"
-            />
-            <span>By posting, you agree to TikTok Music Usage Confirmation and terms for posting this content.</span>
-          </label>
         </div>
       </div>
     </>,
