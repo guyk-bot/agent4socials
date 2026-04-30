@@ -27,7 +27,7 @@ export type TikTokDirectPostPayload = {
   brandedContent: boolean;
   /** User checked the legal consent box for the active declaration variant. */
   userConsentedToPublish: boolean;
-  /** Seconds; optional but recommended so we can enforce max_video_post_duration_sec. */
+  /** Seconds; required for strict max duration enforcement during video posting. */
   videoDurationSec?: number;
 };
 
@@ -102,10 +102,17 @@ export function buildTikTokPostInfoFromPayload(
   }
 
   const maxDur = ci.max_video_post_duration_sec;
-  if (typeof maxDur === 'number' && maxDur > 0 && typeof p.videoDurationSec === 'number' && p.videoDurationSec > maxDur + 0.5) {
-    return {
-      error: `Video is longer than TikTok allows for this account (${maxDur}s). Use a shorter clip or post from the TikTok app.`,
-    };
+  if (typeof maxDur === 'number' && maxDur > 0) {
+    if (!(typeof p.videoDurationSec === 'number' && p.videoDurationSec > 0)) {
+      return {
+        error: `Video duration is required to publish to TikTok for this account (${maxDur}s max). Wait for video metadata to load and try again.`,
+      };
+    }
+    if (p.videoDurationSec > maxDur + 0.5) {
+      return {
+        error: `Video is longer than TikTok allows for this account (${maxDur}s). Use a shorter clip or post from the TikTok app.`,
+      };
+    }
   }
 
   const title = (p.title ?? '').trim().slice(0, 2200);

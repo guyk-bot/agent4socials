@@ -226,9 +226,15 @@ export function TikTokPublishModal({
         return;
       }
       const maxDur = ci.max_video_post_duration_sec;
-      if (typeof maxDur === 'number' && maxDur > 0 && typeof videoDurationSec === 'number' && videoDurationSec > maxDur + 0.5) {
-        setSubmitError(`This video is longer than TikTok allows for this account (${maxDur}s). Use a shorter clip.`);
-        return;
+      if (typeof maxDur === 'number' && maxDur > 0) {
+        if (!(typeof videoDurationSec === 'number' && videoDurationSec > 0)) {
+          setSubmitError(`We could not read the video duration yet. TikTok requires duration check before upload (${maxDur}s max). Wait a moment and try again.`);
+          return;
+        }
+        if (videoDurationSec > maxDur + 0.5) {
+          setSubmitError(`This video is longer than TikTok allows for this account (${maxDur}s). Use a shorter clip.`);
+          return;
+        }
       }
       out[a.id] = {
         ...formToPayload(f),
