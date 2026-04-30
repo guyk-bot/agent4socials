@@ -237,7 +237,7 @@ export function TikTokPublishModal({
         return;
       }
       const maxDur = ci.max_video_post_duration_sec;
-      if (typeof maxDur === 'number' && maxDur > 0) {
+      if (!isPhotoPost && typeof maxDur === 'number' && maxDur > 0) {
         if (!f.maxDurationAcknowledged) {
           setSubmitError(`Please confirm the max video length check for this account (${maxDur} seconds).`);
           return;
@@ -266,6 +266,7 @@ export function TikTokPublishModal({
   const activeLoadingCreator = Boolean(activeId && loadingCreatorById[activeId]);
   const anyLoadingCreator = accounts.some((a) => loadingCreatorById[a.id]);
   const privacyOptions = ci?.privacy_level_options ?? [];
+  const isPhotoPost = !videoPreviewSrc;
   const creatorDisplayName =
     (ci?.creator_nickname && ci.creator_nickname.trim()) ||
     (ci?.creator_username && `@${ci.creator_username.replace(/^@/, '')}`) ||
@@ -274,6 +275,14 @@ export function TikTokPublishModal({
   const captionLength = f?.title?.length ?? 0;
   const captionMax = 2200;
   const showCaptionEditor = Boolean(activeId && showCaptionById[activeId]);
+
+  useEffect(() => {
+    if (!activeId || !isPhotoPost) return;
+    const activeForm = formById[activeId];
+    if (!activeForm) return;
+    if (!activeForm.allowDuet && !activeForm.allowStitch) return;
+    updateForm(activeId, { allowDuet: false, allowStitch: false });
+  }, [activeId, isPhotoPost, formById]);
 
   return createPortal(
     <>
@@ -400,7 +409,7 @@ export function TikTokPublishModal({
 
                 <div>
                   <span className="text-sm font-semibold text-neutral-900">Allow users to</span>
-                  <div className="mt-2 grid grid-cols-3 gap-2">
+                  <div className={`mt-2 grid gap-2 ${isPhotoPost ? 'grid-cols-1' : 'grid-cols-3'}`}>
                     <label className={`rounded-lg border px-2 py-2 text-sm flex items-center justify-center gap-1.5 ${ci.comment_disabled ? 'border-neutral-100 text-neutral-400' : 'border-neutral-200 text-neutral-700'}`}>
                       <input
                         type="checkbox"
@@ -411,26 +420,30 @@ export function TikTokPublishModal({
                       />
                       Comment
                     </label>
-                    <label className={`rounded-lg border px-2 py-2 text-sm flex items-center justify-center gap-1.5 ${ci.duet_disabled ? 'border-neutral-100 text-neutral-400' : 'border-neutral-200 text-neutral-700'}`}>
-                      <input
-                        type="checkbox"
-                        checked={f.allowDuet}
-                        disabled={Boolean(ci.duet_disabled)}
-                        onChange={(e) => updateForm(activeId, { allowDuet: e.target.checked })}
-                        className="rounded border-neutral-300 accent-orange-600"
-                      />
-                      Duet
-                    </label>
-                    <label className={`rounded-lg border px-2 py-2 text-sm flex items-center justify-center gap-1.5 ${ci.stitch_disabled ? 'border-neutral-100 text-neutral-400' : 'border-neutral-200 text-neutral-700'}`}>
-                      <input
-                        type="checkbox"
-                        checked={f.allowStitch}
-                        disabled={Boolean(ci.stitch_disabled)}
-                        onChange={(e) => updateForm(activeId, { allowStitch: e.target.checked })}
-                        className="rounded border-neutral-300 accent-orange-600"
-                      />
-                      Stitch
-                    </label>
+                    {!isPhotoPost ? (
+                      <>
+                        <label className={`rounded-lg border px-2 py-2 text-sm flex items-center justify-center gap-1.5 ${ci.duet_disabled ? 'border-neutral-100 text-neutral-400' : 'border-neutral-200 text-neutral-700'}`}>
+                          <input
+                            type="checkbox"
+                            checked={f.allowDuet}
+                            disabled={Boolean(ci.duet_disabled)}
+                            onChange={(e) => updateForm(activeId, { allowDuet: e.target.checked })}
+                            className="rounded border-neutral-300 accent-orange-600"
+                          />
+                          Duet
+                        </label>
+                        <label className={`rounded-lg border px-2 py-2 text-sm flex items-center justify-center gap-1.5 ${ci.stitch_disabled ? 'border-neutral-100 text-neutral-400' : 'border-neutral-200 text-neutral-700'}`}>
+                          <input
+                            type="checkbox"
+                            checked={f.allowStitch}
+                            disabled={Boolean(ci.stitch_disabled)}
+                            onChange={(e) => updateForm(activeId, { allowStitch: e.target.checked })}
+                            className="rounded border-neutral-300 accent-orange-600"
+                          />
+                          Stitch
+                        </label>
+                      </>
+                    ) : null}
                   </div>
                 </div>
 
@@ -491,8 +504,8 @@ export function TikTokPublishModal({
                   ) : null}
                 </div>
 
-                {typeof ci.max_video_post_duration_sec === 'number' && ci.max_video_post_duration_sec > 0 ? (
-                  <label className="flex items-start gap-2 text-xs text-neutral-600">
+                {!isPhotoPost && typeof ci.max_video_post_duration_sec === 'number' && ci.max_video_post_duration_sec > 0 ? (
+                  <label className="flex items-start gap-2 text-sm text-neutral-600">
                     <input
                       type="checkbox"
                       checked={f.maxDurationAcknowledged}
