@@ -85,6 +85,7 @@ export function TikTokPublishModal({
   const activeAccount = accounts[activeIdx];
   const activeId = activeAccount?.id;
   const accountIdsKey = useMemo(() => accounts.map((a) => a.id).join(','), [accounts]);
+  const isPhotoPost = !videoPreviewSrc;
 
   const loadCreator = useCallback(async (accountId: string) => {
     setLoadingCreatorById((prev) => ({ ...prev, [accountId]: true }));
@@ -181,6 +182,14 @@ export function TikTokPublishModal({
     };
   }, [open, videoPreviewSrc]);
 
+  useEffect(() => {
+    if (!activeId || !isPhotoPost) return;
+    const activeForm = formById[activeId];
+    if (!activeForm) return;
+    if (!activeForm.allowDuet && !activeForm.allowStitch) return;
+    updateForm(activeId, { allowDuet: false, allowStitch: false });
+  }, [activeId, isPhotoPost, formById]);
+
   const updateForm = (accountId: string, patch: Partial<FormState>) => {
     setFormById((prev) => ({
       ...prev,
@@ -266,7 +275,6 @@ export function TikTokPublishModal({
   const activeLoadingCreator = Boolean(activeId && loadingCreatorById[activeId]);
   const anyLoadingCreator = accounts.some((a) => loadingCreatorById[a.id]);
   const privacyOptions = ci?.privacy_level_options ?? [];
-  const isPhotoPost = !videoPreviewSrc;
   const creatorDisplayName =
     (ci?.creator_nickname && ci.creator_nickname.trim()) ||
     (ci?.creator_username && `@${ci.creator_username.replace(/^@/, '')}`) ||
@@ -275,14 +283,6 @@ export function TikTokPublishModal({
   const captionLength = f?.title?.length ?? 0;
   const captionMax = 2200;
   const showCaptionEditor = Boolean(activeId && showCaptionById[activeId]);
-
-  useEffect(() => {
-    if (!activeId || !isPhotoPost) return;
-    const activeForm = formById[activeId];
-    if (!activeForm) return;
-    if (!activeForm.allowDuet && !activeForm.allowStitch) return;
-    updateForm(activeId, { allowDuet: false, allowStitch: false });
-  }, [activeId, isPhotoPost, formById]);
 
   return createPortal(
     <>
