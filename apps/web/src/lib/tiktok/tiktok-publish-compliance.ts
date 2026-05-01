@@ -25,11 +25,9 @@ export type TikTokDirectPostPayload = {
   commercialDisclosureOn: boolean;
   yourBrand: boolean;
   brandedContent: boolean;
-  /** User explicitly acknowledged the max duration check shown in composer. */
-  maxDurationAcknowledged?: boolean;
   /** User checked the legal consent box for the active declaration variant. */
   userConsentedToPublish: boolean;
-  /** Seconds; required for strict max duration enforcement during video posting. */
+  /** Seconds; sent from client metadata read so we can enforce creator_info max_video_post_duration_sec before upload. */
   videoDurationSec?: number;
 };
 
@@ -147,7 +145,6 @@ export function isTikTokDirectPostPayload(v: unknown): v is TikTokDirectPostPayl
     typeof o.commercialDisclosureOn === 'boolean' &&
     typeof o.yourBrand === 'boolean' &&
     typeof o.brandedContent === 'boolean' &&
-    (typeof o.maxDurationAcknowledged === 'undefined' || typeof o.maxDurationAcknowledged === 'boolean') &&
     typeof o.userConsentedToPublish === 'boolean' &&
     typeof o.title === 'string'
   );

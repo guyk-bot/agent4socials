@@ -18,7 +18,6 @@ type FormState = {
   commercialDisclosureOn: boolean;
   yourBrand: boolean;
   brandedContent: boolean;
-  maxDurationAcknowledged: boolean;
   userConsentedToPublish: boolean;
 };
 
@@ -31,7 +30,6 @@ const defaultForm = (titleSeed: string): FormState => ({
   commercialDisclosureOn: false,
   yourBrand: false,
   brandedContent: false,
-  maxDurationAcknowledged: false,
   userConsentedToPublish: false,
 });
 
@@ -45,7 +43,6 @@ function formToPayload(f: FormState): TikTokDirectPostPayload {
     commercialDisclosureOn: f.commercialDisclosureOn,
     yourBrand: f.yourBrand,
     brandedContent: f.brandedContent,
-    maxDurationAcknowledged: f.maxDurationAcknowledged,
     userConsentedToPublish: f.userConsentedToPublish,
   };
 }
@@ -152,7 +149,6 @@ export function TikTokPublishModal({
             commercialDisclosureOn: existing.commercialDisclosureOn,
             yourBrand: existing.yourBrand,
             brandedContent: existing.brandedContent,
-            maxDurationAcknowledged: Boolean(existing.maxDurationAcknowledged),
             userConsentedToPublish: existing.userConsentedToPublish,
           }
         : defaultForm(seed);
@@ -251,10 +247,6 @@ export function TikTokPublishModal({
       }
       const maxDur = ci.max_video_post_duration_sec;
       if (!isPhotoPost && typeof maxDur === 'number' && maxDur > 0) {
-        if (!f.maxDurationAcknowledged) {
-          setSubmitError(`Please confirm the max video length check for this account (${maxDur} seconds).`);
-          return;
-        }
         if (!(typeof videoDurationSec === 'number' && videoDurationSec > 0)) {
           setSubmitError(`We could not read the video duration yet. TikTok requires duration check before upload (${maxDur}s max). Wait a moment and try again.`);
           return;
@@ -283,11 +275,6 @@ export function TikTokPublishModal({
   const commentDisabledUi = Boolean(ci?.comment_disabled);
   const duetDisabledUi = Boolean(ci?.duet_disabled);
   const stitchDisabledUi = Boolean(ci?.stitch_disabled);
-  const rawMaxVideoPostDurationSec = ci?.max_video_post_duration_sec;
-  const maxVideoPostDurationSec =
-    typeof rawMaxVideoPostDurationSec === 'number' && rawMaxVideoPostDurationSec > 0
-      ? rawMaxVideoPostDurationSec
-      : undefined;
   const creatorDisplayName =
     (ci?.creator_nickname && ci.creator_nickname.trim()) ||
     (ci?.creator_username && `@${ci.creator_username.replace(/^@/, '')}`) ||
@@ -519,19 +506,6 @@ export function TikTokPublishModal({
                   ) : null}
                 </div>
 
-                {!isPhotoPost && typeof maxVideoPostDurationSec === 'number' ? (
-                  <label className="flex items-start gap-2 text-sm text-neutral-600">
-                    <input
-                      type="checkbox"
-                      checked={f.maxDurationAcknowledged}
-                      onChange={(e) => updateForm(activeId, { maxDurationAcknowledged: e.target.checked })}
-                      className="rounded border-neutral-300 accent-orange-600 mt-0.5"
-                    />
-                    <span>
-                      I checked max duration: Max video length for this account: {Math.floor(maxVideoPostDurationSec)} seconds.
-                    </span>
-                  </label>
-                ) : null}
                 <label className="flex items-start gap-2 text-sm text-neutral-600">
                   <input
                     type="checkbox"
