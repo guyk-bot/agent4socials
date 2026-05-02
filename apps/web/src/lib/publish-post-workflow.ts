@@ -280,15 +280,34 @@ export async function runPublishPostWorkflow(input: {
     if (isTiktokVideo) {
       const raw = tiktokMerged[socialAccount.id];
       if (!isTikTokDirectPostPayload(raw)) {
+        const missingFields =
+          raw && typeof raw === 'object' && !Array.isArray(raw)
+            ? ([
+                ['privacyLevel', typeof (raw as Record<string, unknown>).privacyLevel === 'string'],
+                ['allowComment', typeof (raw as Record<string, unknown>).allowComment === 'boolean'],
+                ['allowDuet', typeof (raw as Record<string, unknown>).allowDuet === 'boolean'],
+                ['allowStitch', typeof (raw as Record<string, unknown>).allowStitch === 'boolean'],
+                ['commercialDisclosureOn', typeof (raw as Record<string, unknown>).commercialDisclosureOn === 'boolean'],
+                ['yourBrand', typeof (raw as Record<string, unknown>).yourBrand === 'boolean'],
+                ['brandedContent', typeof (raw as Record<string, unknown>).brandedContent === 'boolean'],
+                ['title', typeof (raw as Record<string, unknown>).title === 'string'],
+              ] as const)
+                .filter(([, ok]) => !ok)
+                .map(([name]) => name)
+            : [];
+        const details =
+          missingFields.length > 0
+            ? ` Missing or invalid fields: ${missingFields.join(', ')}.`
+            : ' No TikTok payload was saved for this account.';
         const msg =
           isCron || post.status === PostStatus.SCHEDULED
             ? 'TikTok video needs Post to TikTok settings saved on the post. Open the post in the composer, complete the TikTok step, and save or reschedule.'
             : 'TikTok video needs Post to TikTok settings. Open the post in the composer, complete the TikTok step, then publish again.';
         await prisma.postTarget.update({
           where: { id: target.id },
-          data: { status: PostStatus.FAILED, error: msg.slice(0, 500) },
+          data: { status: PostStatus.FAILED, error: `${msg}${details}`.slice(0, 500) },
         });
-        return { platform, ok: false, error: msg.slice(0, 200) };
+        return { platform, ok: false, error: `${msg}${details}`.slice(0, 300) };
       }
       tiktokDirectPost = raw;
     }

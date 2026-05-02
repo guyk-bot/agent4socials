@@ -18,7 +18,6 @@ type FormState = {
   commercialDisclosureOn: boolean;
   yourBrand: boolean;
   brandedContent: boolean;
-  userConsentedToPublish: boolean;
 };
 
 const defaultForm = (titleSeed: string): FormState => ({
@@ -30,7 +29,6 @@ const defaultForm = (titleSeed: string): FormState => ({
   commercialDisclosureOn: false,
   yourBrand: false,
   brandedContent: false,
-  userConsentedToPublish: false,
 });
 
 function formToPayload(f: FormState): TikTokDirectPostPayload {
@@ -43,7 +41,7 @@ function formToPayload(f: FormState): TikTokDirectPostPayload {
     commercialDisclosureOn: f.commercialDisclosureOn,
     yourBrand: f.yourBrand,
     brandedContent: f.brandedContent,
-    userConsentedToPublish: f.userConsentedToPublish,
+    userConsentedToPublish: true,
   };
 }
 
@@ -149,7 +147,6 @@ export function TikTokPublishModal({
             commercialDisclosureOn: existing.commercialDisclosureOn,
             yourBrand: existing.yourBrand,
             brandedContent: existing.brandedContent,
-            userConsentedToPublish: existing.userConsentedToPublish,
           }
         : defaultForm(seed);
     }
@@ -237,10 +234,6 @@ export function TikTokPublishModal({
         setSubmitError('Stitch is disabled for this TikTok account. Turn off Allow stitch.');
         return;
       }
-      if (!f.userConsentedToPublish) {
-        setSubmitError('Check the consent box to publish to TikTok.');
-        return;
-      }
       const maxDur = ci.max_video_post_duration_sec;
       if (!isPhotoPost && typeof maxDur === 'number' && maxDur > 0) {
         if (!(typeof videoDurationSec === 'number' && videoDurationSec > 0)) {
@@ -282,15 +275,12 @@ export function TikTokPublishModal({
   const brandedRequiresNonPrivate = Boolean(f?.commercialDisclosureOn && f?.brandedContent);
   const disclosureSelectionCount = Number(Boolean(f?.yourBrand)) + Number(Boolean(f?.brandedContent));
   const disclosureNeedsSelection = Boolean(f?.commercialDisclosureOn && disclosureSelectionCount === 0);
-  const consentText = brandedRequiresNonPrivate
-    ? "By posting, you agree to TikTok's Branded Content Policy and Music Usage Confirmation."
-    : "By posting, you agree to TikTok's Music Usage Confirmation.";
   const disclosureLabelNotice = !f?.commercialDisclosureOn
     ? null
     : f.brandedContent
-      ? "Your video will be labeled as 'Paid partnership' by TikTok."
+      ? "Your video will be labeled as 'Paid partnership' by TikTok. This cannot be changed once your video is posted."
       : f.yourBrand
-        ? "Your video will be labeled as 'Promotional content' by TikTok."
+        ? "Your video will be labeled as 'Promotional content' by TikTok. This cannot be changed once your video is posted."
         : "Choose Your brand, Branded content, or both to continue.";
 
   return createPortal(
@@ -541,15 +531,31 @@ export function TikTokPublishModal({
                   ) : null}
                 </div>
 
-                <label className="flex items-start gap-2 text-sm text-neutral-600">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(f?.userConsentedToPublish)}
-                    onChange={(e) => activeId && updateForm(activeId, { userConsentedToPublish: e.target.checked })}
-                    className="rounded border-neutral-300 accent-orange-600 mt-0.5"
-                  />
-                  <span>{consentText}</span>
-                </label>
+                <p className="text-sm text-neutral-600">
+                  By posting, you agree to TikTok&apos;s{' '}
+                  {brandedRequiresNonPrivate ? (
+                    <>
+                      <a
+                        href="https://www.tiktok.com/legal/page/global/bc-policy/en"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-orange-700 hover:text-orange-800 underline underline-offset-2"
+                      >
+                        Branded Content Policy
+                      </a>
+                      {' '}and{' '}
+                    </>
+                  ) : null}
+                  <a
+                    href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-orange-700 hover:text-orange-800 underline underline-offset-2"
+                  >
+                    Music Usage Confirmation
+                  </a>
+                  .
+                </p>
               </div>
             </div>
           ) : null}

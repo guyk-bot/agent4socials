@@ -25,8 +25,8 @@ export type TikTokDirectPostPayload = {
   commercialDisclosureOn: boolean;
   yourBrand: boolean;
   brandedContent: boolean;
-  /** User checked the legal consent box for the active declaration variant. */
-  userConsentedToPublish: boolean;
+  /** Kept for backward compatibility; modal now always sends true without a checkbox. */
+  userConsentedToPublish?: boolean;
   /** Seconds; sent from client metadata read so we can enforce creator_info max_video_post_duration_sec before upload. */
   videoDurationSec?: number;
 };
@@ -71,10 +71,6 @@ export function buildTikTokPostInfoFromPayload(
   p: TikTokDirectPostPayload,
   ci: TikTokCreatorInfoData
 ): { post_info: Record<string, unknown> } | { error: string } {
-  if (!p.userConsentedToPublish) {
-    return { error: 'TikTok requires explicit consent before publishing.' };
-  }
-
   const options = ci.privacy_level_options;
   if (!Array.isArray(options) || options.length === 0) {
     return { error: 'TikTok did not return privacy options for this account. Reconnect TikTok and try again.' };
@@ -141,7 +137,7 @@ export function isTikTokDirectPostPayload(v: unknown): v is TikTokDirectPostPayl
     typeof o.commercialDisclosureOn === 'boolean' &&
     typeof o.yourBrand === 'boolean' &&
     typeof o.brandedContent === 'boolean' &&
-    typeof o.userConsentedToPublish === 'boolean' &&
+    (typeof o.userConsentedToPublish === 'undefined' || typeof o.userConsentedToPublish === 'boolean') &&
     typeof o.title === 'string'
   );
 }

@@ -1450,7 +1450,7 @@ export async function publishTarget(
         return {
           ok: false,
           error:
-            'TikTok requires Post to TikTok settings (visibility, consent, and commercial disclosure). Open the post in the composer, complete the TikTok step, then save or publish again.',
+            'TikTok requires Post to TikTok settings (visibility and commercial disclosure). Open the post in the composer, complete the TikTok step, then save or publish again.',
         };
       }
 
