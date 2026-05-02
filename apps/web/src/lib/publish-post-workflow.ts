@@ -328,7 +328,9 @@ export async function runPublishPostWorkflow(input: {
         return { platform, ok: false, error: `${msg}${details}${fallbackDetails}`.slice(0, 300) };
         }
       }
-      tiktokDirectPost = tiktokDirectPost ?? raw;
+      if (!tiktokDirectPost && isTikTokDirectPostPayload(raw)) {
+        tiktokDirectPost = raw;
+      }
     }
 
     const isStory = postMediaType === 'story' && (platform === 'INSTAGRAM' || platform === 'FACEBOOK');
