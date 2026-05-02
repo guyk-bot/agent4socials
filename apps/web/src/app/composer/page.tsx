@@ -350,6 +350,49 @@ const PLATFORM_LABELS: Record<string, string> = {
     PINTEREST: 'Pinterest',
 };
 
+type PublishResultItem = { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean };
+
+function buildPublishFailureAlert(prefix: 'created' | 'updated', results: PublishResultItem[]): string {
+    const failedResults = results.filter((r) => !r.ok);
+    const failedLines = failedResults.map((r) => `${r.platform}: ${r.error || 'failed'}`);
+    const failedText = failedLines.join('\n');
+    const failedJoined = failedLines.join('; ');
+    let hint = '';
+
+    if (failedJoined.includes('TWITTER')) {
+        if (failedJoined.includes('Credits Depleted') || failedJoined.includes('credits')) hint = 'Your X (Twitter) account has no API credits. Add credits in your X billing or upgrade your plan.';
+        else if (failedJoined.includes('Application-Only') || failedJoined.includes('Unsupported Authentication')) hint = 'Reconnect X from Dashboard -> Accounts so the app can request media.write scope, or use Enable image upload for OAuth 1.0a. If you set TWITTER_OAUTH_SCOPES in Vercel, add media.write.';
+        else if (failedJoined.includes('403') || failedJoined.includes('media')) hint = 'Enable image upload from the Dashboard, then reconnect X.';
+        else if (failedJoined.includes('401') || failedJoined.includes('Unauthorized')) hint = 'Your Twitter session may have expired. Reconnect X from Accounts and try again.';
+        else if (failedJoined.includes('socket hang up') || failedJoined.includes('ECONNRESET')) hint = 'Connection to X dropped. Check if the post already went through, then retry from History if needed.';
+        else if (failedJoined.includes('timeout')) hint = 'X took too long. Retry from History, or try a smaller image/video.';
+    }
+    if (failedJoined.includes('INSTAGRAM') && (failedJoined.includes('2207082') || failedJoined.includes('2207076') || failedJoined.includes('Media upload'))) {
+        hint = `${hint ? `${hint} ` : ''}For Instagram: reconnect from Dashboard -> Accounts, try a different file (under 8MB for images), and make sure the media URL is publicly reachable over HTTPS.`;
+    }
+    if (failedJoined.includes('INSTAGRAM') && (failedJoined.includes('Request processing failed') || failedJoined.includes('ProcessingFailedError'))) {
+        hint = `${hint ? `${hint} ` : ''}For Instagram: media URL must be publicly reachable by Meta. For Reels use 9:16, 15 to 90 sec, MP4.`;
+    }
+    if (failedJoined.includes('TIKTOK')) {
+        if (failedJoined.includes('unaudited_client_can_only_post_to_private_accounts')) hint = `${hint ? `${hint} ` : ''}For TikTok: your app has not passed TikTok Content Posting audit, so public posting is blocked.`;
+        else if (failedJoined.includes('scope_not_authorized')) hint = `${hint ? `${hint} ` : ''}For TikTok: reconnect account to grant video.publish permission.`;
+        else if ((failedJoined.includes('spam_risk') || failedJoined.includes('too many pending')) && !failedJoined.includes('TikTok sandbox')) hint = `${hint ? `${hint} ` : ''}For TikTok sandbox: clear pending items in TikTok app Inbox/Drafts, then retry.`;
+        else if (
+            failedJoined.includes('Post to TikTok') &&
+            !failedJoined.includes('No TikTok payload was saved') &&
+            !failedJoined.includes('Missing or invalid fields')
+        ) {
+            hint = `${hint ? `${hint} ` : ''}Open composer and complete Post to TikTok settings (visibility and disclosure), then save and retry.`;
+        } else hint = `${hint ? `${hint} ` : ''}For TikTok: verify app permissions and video format requirements, then retry.`;
+    }
+    if (failedJoined.includes('PINTEREST') && (failedJoined.includes('"code":29') || failedJoined.includes('Trial access'))) {
+        hint = `${hint ? `${hint} ` : ''}For Pinterest: request Standard access in Pinterest Developer Platform.`;
+    }
+
+    const title = prefix === 'updated' ? 'Post updated but some platforms failed.' : 'Post created but some platforms failed.';
+    return `${title}\n\nActual platform error:\n${failedText}${hint ? `\n\nSuggested next step:\n${hint}` : ''}`;
+}
+
 // Platforms that support comment-automation (replies to keyword comments)
 const COMMENT_AUTOMATION_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
 const TWITTER_AI_MAX_CHARS = 230;
@@ -1969,29 +2012,7 @@ export default function ComposerPage() {
                         const results = publishRes.data?.results;
                         if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
                         if (results?.some((r) => !r.ok)) {
-                            const failed = results.filter((r) => !r.ok).map((r) => `${r.platform}: ${r.error || 'failed'}`).join('; ');
-                            let hint = '';
-                            if (failed.includes('TWITTER')) {
-                                if (failed.includes('Credits Depleted') || failed.includes('credits')) hint = ' Your X (Twitter) account has no API credits. Add credits in your X account billing or upgrade your plan.';
-                                else if (failed.includes('Application-Only') || failed.includes('Unsupported Authentication')) hint = ' Reconnect X from Dashboard → Accounts so the app can request the **media.write** scope (needed for image upload with OAuth 2.0), or use “Enable image upload” for OAuth 1.0a. If you set TWITTER_OAUTH_SCOPES in Vercel, add media.write.';
-                                else if (failed.includes('403') || failed.includes('media')) hint = ' Enable image upload from the Dashboard (select your X account and click "Enable image upload"), then reconnect.';
-                                else if (failed.includes('401') || failed.includes('Unauthorized')) hint = ' Your Twitter session may have expired. Reconnect the Twitter account in the Accounts page, then try again.';
-                                else if (failed.includes('socket hang up') || failed.includes('ECONNRESET')) hint = ' Connection to X dropped (often temporary). Check your X profile to see if the post went through; if not, open the post from History and try Post now again.';
-                                else if (failed.includes('timeout')) hint = ' X took too long (e.g. image upload). Open the post from History and try Post now again, or try a smaller image.';
-                            }
-                            if (failed.includes('INSTAGRAM') && (failed.includes('2207082') || failed.includes('2207076') || failed.includes('Media upload'))) hint = (hint ? hint + ' ' : '') + 'For Instagram: reconnect from Dashboard → Accounts so the app has publish permission; try a different image, under 8MB, and ensure the image URL is publicly accessible (HTTPS).';
-                            if (failed.includes('INSTAGRAM') && (failed.includes('Request processing failed') || failed.includes('ProcessingFailedError'))) hint = (hint ? hint + ' ' : '') + 'For Instagram: the media URL must be publicly reachable by Meta (HTTPS). For Reels use 9:16, 15-90 sec, MP4. Set S3_PUBLIC_URL and CRON_SECRET in Vercel so media is served correctly; or try a different image/video.';
-                            if (failed.includes('TIKTOK')) {
-                                if (failed.includes('unaudited_client_can_only_post_to_private_accounts')) hint = (hint ? hint + ' ' : '') + 'For TikTok: your app has not passed TikTok\'s content posting audit, so it cannot post to public accounts. Apply for the Content Posting API audit in the TikTok Developer Portal.';
-                                else if (failed.includes('scope_not_authorized')) hint = (hint ? hint + ' ' : '') + 'For TikTok: reconnect your TikTok account from the Dashboard to grant the video.publish permission.';
-                                else if ((failed.includes('spam_risk') || failed.includes('too many pending')) && !failed.includes('TikTok sandbox')) hint = (hint ? hint + ' ' : '') + 'For TikTok sandbox: open TikTok mobile app on the same connected account, check Inbox and Drafts, and accept or delete all pending items. Then try again.';
-                                else if (failed.includes('Post to TikTok')) hint = (hint ? hint + ' ' : '') + 'Open the post in the composer, complete Post to TikTok (visibility, consent, disclosure), save, then try Post now again.';
-                                else hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (MP4, under 10 min). Reconnect the account from Dashboard if needed.';
-                            }
-                            if (failed.includes('PINTEREST') && (failed.includes('"code":29') || failed.includes('Trial access'))) {
-                                hint = (hint ? hint + ' ' : '') + 'For Pinterest: your app may still be in Trial access. Request Standard access in the Pinterest Developer Platform to publish Pins to your live profile.';
-                            }
-                            setAlertMessage(`Post updated but some platforms failed: ${failed}. ${hint}`);
+                            setAlertMessage(buildPublishFailureAlert('updated', results));
                             return;
                         }
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -2043,29 +2064,7 @@ export default function ComposerPage() {
                     const results = publishRes.data?.results;
                         if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
                     if (results?.some((r) => !r.ok)) {
-                        const failed = results.filter((r) => !r.ok).map((r) => `${r.platform}: ${r.error || 'failed'}`).join('; ');
-                            let hint = '';
-                            if (failed.includes('TWITTER')) {
-                                if (failed.includes('Credits Depleted') || failed.includes('credits')) hint = ' Your X (Twitter) account has no API credits. Add credits in your X account billing or upgrade your plan.';
-                                else if (failed.includes('Application-Only') || failed.includes('Unsupported Authentication')) hint = ' Reconnect X from Dashboard → Accounts so the app can request the **media.write** scope (needed for image upload with OAuth 2.0), or use “Enable image upload” for OAuth 1.0a. If you set TWITTER_OAUTH_SCOPES in Vercel, add media.write.';
-                                else if (failed.includes('403') || failed.includes('media')) hint = ' Enable image upload from the Dashboard (select your X account and click "Enable image upload"), then reconnect.';
-                                else if (failed.includes('401') || failed.includes('Unauthorized')) hint = ' Your Twitter session may have expired. Reconnect the Twitter account in the Accounts page, then try again.';
-                                else if (failed.includes('socket hang up') || failed.includes('ECONNRESET')) hint = ' Connection to X dropped (often temporary). Check your X profile to see if the post went through; if not, open the post from History and try Post now again.';
-                                else if (failed.includes('timeout')) hint = ' X took too long (e.g. image upload). Open the post from History and try Post now again, or try a smaller image.';
-                            }
-                            if (failed.includes('INSTAGRAM') && (failed.includes('2207082') || failed.includes('2207076') || failed.includes('Media upload'))) hint = (hint ? hint + ' ' : '') + 'For Instagram: reconnect from Dashboard → Accounts so the app has publish permission; try a different image, under 8MB, and ensure the image URL is publicly accessible (HTTPS).';
-                            if (failed.includes('INSTAGRAM') && (failed.includes('Request processing failed') || failed.includes('ProcessingFailedError'))) hint = (hint ? hint + ' ' : '') + 'For Instagram: the media URL must be publicly reachable by Meta (HTTPS). For Reels use 9:16, 15-90 sec, MP4. Set S3_PUBLIC_URL and CRON_SECRET in Vercel so media is served correctly; or try a different image/video.';
-                            if (failed.includes('TIKTOK')) {
-                                if (failed.includes('unaudited_client_can_only_post_to_private_accounts')) hint = (hint ? hint + ' ' : '') + 'For TikTok: your app has not passed TikTok\'s content posting audit, so it cannot post to public accounts. Apply for the Content Posting API audit in the TikTok Developer Portal.';
-                                else if (failed.includes('scope_not_authorized')) hint = (hint ? hint + ' ' : '') + 'For TikTok: reconnect your TikTok account from the Dashboard to grant the video.publish permission.';
-                                else if ((failed.includes('spam_risk') || failed.includes('too many pending')) && !failed.includes('TikTok sandbox')) hint = (hint ? hint + ' ' : '') + 'For TikTok sandbox: open TikTok mobile app on the same connected account, check Inbox and Drafts, and accept or delete all pending items. Then try again.';
-                                else if (failed.includes('Post to TikTok')) hint = (hint ? hint + ' ' : '') + 'Open the post in the composer, complete Post to TikTok (visibility, consent, disclosure), save, then try Post now again.';
-                                else hint = (hint ? hint + ' ' : '') + 'For TikTok: ensure your app has Content Posting API access and the video meets requirements (MP4, under 10 min). Reconnect the account from Dashboard if needed.';
-                            }
-                            if (failed.includes('PINTEREST') && (failed.includes('"code":29') || failed.includes('Trial access'))) {
-                                hint = (hint ? hint + ' ' : '') + 'For Pinterest: your app may still be in Trial access. Request Standard access in the Pinterest Developer Platform to publish Pins to your live profile.';
-                            }
-                            setAlertMessage(`Post created but some platforms failed: ${failed}. ${hint}`);
+                            setAlertMessage(buildPublishFailureAlert('created', results));
                             return;
                         }
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
