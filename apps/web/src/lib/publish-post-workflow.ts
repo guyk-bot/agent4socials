@@ -279,37 +279,56 @@ export async function runPublishPostWorkflow(input: {
     let tiktokDirectPost: TikTokDirectPostPayload | undefined;
     if (isTiktokVideo) {
       const raw = tiktokMerged[socialAccount.id];
+      const tiktokEntries = Object.entries(tiktokMerged).filter(([, value]) => isTikTokDirectPostPayload(value));
+      const fallbackSinglePayload =
+        raw == null && tiktokEntries.length === 1
+          ? tiktokEntries[0]?.[1]
+          : undefined;
+      const rawForValidation = raw ?? fallbackSinglePayload;
       if (!isTikTokDirectPostPayload(raw)) {
         const missingFields =
-          raw && typeof raw === 'object' && !Array.isArray(raw)
+          rawForValidation && typeof rawForValidation === 'object' && !Array.isArray(rawForValidation)
             ? ([
-                ['privacyLevel', typeof (raw as Record<string, unknown>).privacyLevel === 'string'],
-                ['allowComment', typeof (raw as Record<string, unknown>).allowComment === 'boolean'],
-                ['allowDuet', typeof (raw as Record<string, unknown>).allowDuet === 'boolean'],
-                ['allowStitch', typeof (raw as Record<string, unknown>).allowStitch === 'boolean'],
-                ['commercialDisclosureOn', typeof (raw as Record<string, unknown>).commercialDisclosureOn === 'boolean'],
-                ['yourBrand', typeof (raw as Record<string, unknown>).yourBrand === 'boolean'],
-                ['brandedContent', typeof (raw as Record<string, unknown>).brandedContent === 'boolean'],
-                ['title', typeof (raw as Record<string, unknown>).title === 'string'],
+                ['privacyLevel', typeof (rawForValidation as Record<string, unknown>).privacyLevel === 'string'],
+                ['allowComment', typeof (rawForValidation as Record<string, unknown>).allowComment === 'boolean'],
+                ['allowDuet', typeof (rawForValidation as Record<string, unknown>).allowDuet === 'boolean'],
+                ['allowStitch', typeof (rawForValidation as Record<string, unknown>).allowStitch === 'boolean'],
+                ['commercialDisclosureOn', typeof (rawForValidation as Record<string, unknown>).commercialDisclosureOn === 'boolean'],
+                ['yourBrand', typeof (rawForValidation as Record<string, unknown>).yourBrand === 'boolean'],
+                ['brandedContent', typeof (rawForValidation as Record<string, unknown>).brandedContent === 'boolean'],
+                ['title', typeof (rawForValidation as Record<string, unknown>).title === 'string'],
               ] as const)
                 .filter(([, ok]) => !ok)
                 .map(([name]) => name)
             : [];
+        const availableIds = Object.keys(tiktokMerged);
         const details =
           missingFields.length > 0
             ? ` Missing or invalid fields: ${missingFields.join(', ')}.`
-            : ' No TikTok payload was saved for this account.';
+            : ` No TikTok payload was saved for this account (expected account id: ${socialAccount.id}${availableIds.length ? `, saved ids: ${availableIds.join(', ')}` : ', saved ids: none'}).`;
+        const fallbackDetails =
+          !raw && fallbackSinglePayload
+            ? ` Reused the only saved TikTok payload from a different account id key (${tiktokEntries[0]?.[0]}).`
+            : '';
+        if (fallbackSinglePayload && isTikTokDirectPostPayload(fallbackSinglePayload)) {
+          tiktokDirectPost = fallbackSinglePayload;
+          console.log('[TikTok publish] using single-payload fallback by account id', {
+            expectedAccountId: socialAccount.id,
+            fallbackAccountId: tiktokEntries[0]?.[0],
+          });
+        } else {
         const msg =
           isCron || post.status === PostStatus.SCHEDULED
             ? 'TikTok video needs Post to TikTok settings saved on the post. Open the post in the composer, complete the TikTok step, and save or reschedule.'
             : 'TikTok video needs Post to TikTok settings. Open the post in the composer, complete the TikTok step, then publish again.';
         await prisma.postTarget.update({
           where: { id: target.id },
-          data: { status: PostStatus.FAILED, error: `${msg}${details}`.slice(0, 500) },
+          data: { status: PostStatus.FAILED, error: `${msg}${details}${fallbackDetails}`.slice(0, 500) },
         });
-        return { platform, ok: false, error: `${msg}${details}`.slice(0, 300) };
+        return { platform, ok: false, error: `${msg}${details}${fallbackDetails}`.slice(0, 300) };
+        }
       }
-      tiktokDirectPost = raw;
+      tiktokDirectPost = tiktokDirectPost ?? raw;
     }
 
     const isStory = postMediaType === 'story' && (platform === 'INSTAGRAM' || platform === 'FACEBOOK');

@@ -377,6 +377,9 @@ function buildPublishFailureAlert(prefix: 'created' | 'updated', results: Publis
         if (failedJoined.includes('unaudited_client_can_only_post_to_private_accounts')) hint = `${hint ? `${hint} ` : ''}For TikTok: your app has not passed TikTok Content Posting audit, so public posting is blocked.`;
         else if (failedJoined.includes('scope_not_authorized')) hint = `${hint ? `${hint} ` : ''}For TikTok: reconnect account to grant video.publish permission.`;
         else if ((failedJoined.includes('spam_risk') || failedJoined.includes('too many pending')) && !failedJoined.includes('TikTok sandbox')) hint = `${hint ? `${hint} ` : ''}For TikTok sandbox: clear pending items in TikTok app Inbox/Drafts, then retry.`;
+        else if (failedJoined.includes('No TikTok payload was saved for this account')) {
+            hint = `${hint ? `${hint} ` : ''}For TikTok: open Post to TikTok again in composer and click Continue so settings are saved for the current connected account id.`;
+        }
         else if (
             failedJoined.includes('Post to TikTok') &&
             !failedJoined.includes('No TikTok payload was saved') &&
