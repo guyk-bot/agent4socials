@@ -87,10 +87,6 @@ export function buildTikTokPostInfoFromPayload(
     return { error: 'Commercial content is on: choose either Your brand or Branded content.' };
   }
 
-  if (p.commercialDisclosureOn && p.yourBrand && p.brandedContent) {
-    return { error: 'Choose only one: Your brand or Branded content.' };
-  }
-
   if (p.brandedContent && p.privacyLevel === 'SELF_ONLY') {
     return { error: 'Branded content cannot be set to Only me. Change visibility or turn off Branded content.' };
   }

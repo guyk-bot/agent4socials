@@ -221,10 +221,6 @@ export function TikTokPublishModal({
         setSubmitError('Commercial content is on: choose either Your brand or Branded content.');
         return;
       }
-      if (f.commercialDisclosureOn && f.yourBrand && f.brandedContent) {
-        setSubmitError('Choose only one: Your brand or Branded content.');
-        return;
-      }
       if (f.brandedContent && f.privacyLevel === 'SELF_ONLY') {
         setSubmitError('Branded content cannot be set to Only me. Change visibility or turn off Branded content.');
         return;
@@ -283,6 +279,19 @@ export function TikTokPublishModal({
   const captionLength = f?.title?.length ?? 0;
   const captionMax = 2200;
   const showCaptionEditor = Boolean(activeId && showCaptionById[activeId]);
+  const brandedRequiresNonPrivate = Boolean(f?.commercialDisclosureOn && f?.brandedContent);
+  const disclosureSelectionCount = Number(Boolean(f?.yourBrand)) + Number(Boolean(f?.brandedContent));
+  const disclosureNeedsSelection = Boolean(f?.commercialDisclosureOn && disclosureSelectionCount === 0);
+  const consentText = brandedRequiresNonPrivate
+    ? "By posting, you agree to TikTok's Branded Content Policy and Music Usage Confirmation."
+    : "By posting, you agree to TikTok's Music Usage Confirmation.";
+  const disclosureLabelNotice = !f?.commercialDisclosureOn
+    ? null
+    : f.brandedContent
+      ? "Your video will be labeled as 'Paid partnership' by TikTok."
+      : f.yourBrand
+        ? "Your video will be labeled as 'Promotional content' by TikTok."
+        : "Choose Your brand, Branded content, or both to continue.";
 
   return createPortal(
     <>
@@ -396,17 +405,26 @@ export function TikTokPublishModal({
                   <span className="text-sm font-semibold text-neutral-900">Who can view this video</span>
                   <select
                     value={f.privacyLevel}
-                    onChange={(e) => updateForm(activeId, { privacyLevel: e.target.value })}
+                    onChange={(e) => {
+                      const nextPrivacy = e.target.value;
+                      if (nextPrivacy === 'SELF_ONLY' && brandedRequiresNonPrivate) {
+                        return;
+                      }
+                      updateForm(activeId, { privacyLevel: nextPrivacy });
+                    }}
                     className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
                     disabled={!ci}
                   >
                     <option value="">Choose visibility</option>
                     {privacyOptions.map((opt) => (
-                      <option key={opt} value={opt}>
+                      <option key={opt} value={opt} disabled={brandedRequiresNonPrivate && opt === 'SELF_ONLY'}>
                         {TIKTOK_PRIVACY_LABELS[opt] ?? opt}
                       </option>
                     ))}
                   </select>
+                  {brandedRequiresNonPrivate ? (
+                    <p className="mt-1 text-xs text-orange-700">Branded content visibility cannot be set to Only me.</p>
+                  ) : null}
                 </label>
 
                 <div>
@@ -475,14 +493,16 @@ export function TikTokPublishModal({
 
                   {f.commercialDisclosureOn ? (
                     <div className="mt-3 space-y-3 border-t border-neutral-100 pt-3">
-                      <div className="rounded-md bg-orange-50 border border-orange-100 px-3 py-2 text-xs text-orange-900">
-                        Your video may be labeled as promotional content by TikTok.
-                      </div>
+                      {disclosureLabelNotice ? (
+                        <div className="rounded-md bg-orange-50 border border-orange-100 px-3 py-2 text-xs text-orange-900">
+                          {disclosureLabelNotice}
+                        </div>
+                      ) : null}
                       <label className="flex items-start gap-2 text-sm">
                         <input
                           type="checkbox"
                           checked={f.yourBrand}
-                          onChange={(e) => updateForm(activeId, { yourBrand: e.target.checked, brandedContent: e.target.checked ? false : f.brandedContent })}
+                          onChange={(e) => updateForm(activeId, { yourBrand: e.target.checked })}
                           className="mt-0.5 rounded border-neutral-300 accent-orange-600"
                         />
                         <span>
@@ -494,14 +514,29 @@ export function TikTokPublishModal({
                         <input
                           type="checkbox"
                           checked={f.brandedContent}
-                          onChange={(e) => updateForm(activeId, { brandedContent: e.target.checked, yourBrand: e.target.checked ? false : f.yourBrand })}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            const patch: Partial<FormState> = { brandedContent: checked };
+                            if (checked && f.privacyLevel === 'SELF_ONLY') {
+                              const firstAllowed = privacyOptions.find((opt) => opt !== 'SELF_ONLY');
+                              if (firstAllowed) patch.privacyLevel = firstAllowed;
+                            }
+                            updateForm(activeId, patch);
+                          }}
+                          disabled={f.privacyLevel === 'SELF_ONLY'}
                           className="mt-0.5 rounded border-neutral-300 accent-orange-600"
                         />
                         <span>
                           <span className="font-medium text-neutral-900">Branded content</span>
                           <span className="block text-neutral-500 text-xs">You are promoting another brand or third party.</span>
+                          {f.privacyLevel === 'SELF_ONLY' ? (
+                            <span className="block text-orange-700 text-xs mt-0.5">Set visibility to Public or Friends to enable this option.</span>
+                          ) : null}
                         </span>
                       </label>
+                      {disclosureNeedsSelection ? (
+                        <p className="text-xs text-orange-700">You need to indicate if your content promotes yourself, a third party, or both.</p>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
@@ -513,7 +548,7 @@ export function TikTokPublishModal({
                     onChange={(e) => activeId && updateForm(activeId, { userConsentedToPublish: e.target.checked })}
                     className="rounded border-neutral-300 accent-orange-600 mt-0.5"
                   />
-                  <span>By posting, you agree to TikTok Music Usage Confirmation and terms for posting this content.</span>
+                  <span>{consentText}</span>
                 </label>
               </div>
             </div>
@@ -528,7 +563,7 @@ export function TikTokPublishModal({
             <button
               type="button"
               onClick={handleConfirm}
-              disabled={anyLoadingCreator || Boolean(activeId && creatorErrorById[activeId])}
+              disabled={anyLoadingCreator || Boolean(activeId && creatorErrorById[activeId]) || Boolean(activeId && disclosureNeedsSelection)}
               className="px-6 py-2.5 text-sm font-semibold rounded-full text-white shadow-md transition-all active:scale-[0.98] gradient-cta-pro disabled:opacity-50 disabled:shadow-none"
             >
               Continue
