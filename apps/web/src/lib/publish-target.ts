@@ -1809,7 +1809,11 @@ export async function publishTarget(
               return { ok: false, error: (e as Error).message.slice(0, 300) };
             }
           }
-          return { ok: false, error: `TikTok: ${reason}`.slice(0, 300) };
+          const reasonHint =
+            reason === 'frame_rate_check_failed'
+              ? ' Re-export as H.264 MP4 at a standard fps (e.g. 30 or 60).'
+              : '';
+          return { ok: false, error: `TikTok: ${reason}${reasonHint}`.slice(0, 300) };
         }
         // status === 'PROCESSING_UPLOAD' or 'PROCESSING_DOWNLOAD' — keep polling
       }

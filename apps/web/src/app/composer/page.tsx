@@ -380,6 +380,9 @@ function buildPublishFailureAlert(prefix: 'created' | 'updated', results: Publis
         else if (failedJoined.includes('No TikTok payload was saved for this account')) {
             hint = `${hint ? `${hint} ` : ''}For TikTok: open Post to TikTok again in composer and click Continue so settings are saved for the current connected account id.`;
         }
+        else if (failedJoined.includes('frame_rate_check_failed')) {
+            hint = `${hint ? `${hint} ` : ''}For TikTok: this file failed TikTok frame rate checks. Re-export the video as H.264 MP4 with a standard frame rate (for example 30 fps or 60 fps), avoid variable or very low fps, then upload again.`;
+        }
         else if (
             failedJoined.includes('Post to TikTok') &&
             !failedJoined.includes('No TikTok payload was saved') &&
