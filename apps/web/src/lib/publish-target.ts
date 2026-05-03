@@ -80,6 +80,9 @@ const TIKTOK_MIN_CHUNK_BYTES = 5 * 1024 * 1024;
 const TIKTOK_MAX_SINGLE_UPLOAD_BYTES = 64 * 1024 * 1024;
 /** When video exceeds 64MB, split into 10MB parts (matches TikTok docs example). */
 const TIKTOK_MULTIPART_CHUNK_BYTES = 10 * 1024 * 1024;
+const TIKTOK_MAX_CHUNK_COUNT = 1000;
+/** Max size for each non-final chunk (final chunk may be up to 128 MB per TikTok). */
+const TIKTOK_MAX_CHUNK_BYTES = 64 * 1024 * 1024;
 
 function tiktokFileUploadChunkPlan(videoSize: number): { chunkSize: number; totalChunkCount: number } {
   const n = Math.max(0, Math.floor(videoSize));
@@ -90,9 +93,41 @@ function tiktokFileUploadChunkPlan(videoSize: number): { chunkSize: number; tota
   if (n <= TIKTOK_MAX_SINGLE_UPLOAD_BYTES) {
     return { chunkSize: n, totalChunkCount: 1 };
   }
-  const chunkSize = TIKTOK_MULTIPART_CHUNK_BYTES;
-  const totalChunkCount = Math.ceil(n / chunkSize);
+  let chunkSize = TIKTOK_MULTIPART_CHUNK_BYTES;
+  // total_chunk_count = floor(video_size / chunk_size); last PUT may send more than chunk_size bytes (oversized final chunk).
+  let totalChunkCount = Math.floor(n / chunkSize);
+  if (totalChunkCount > TIKTOK_MAX_CHUNK_COUNT) {
+    chunkSize = TIKTOK_MAX_CHUNK_BYTES;
+    totalChunkCount = Math.floor(n / chunkSize);
+  }
   return { chunkSize, totalChunkCount };
+}
+
+async function putTikTokResumableChunks(
+  buffer: Buffer,
+  uploadUrl: string,
+  mimeType: string,
+  chunkSize: number,
+  totalChunkCount: number,
+  fetchFn: typeof globalThis.fetch
+): Promise<void> {
+  const videoSize = buffer.length;
+  for (let i = 0; i < totalChunkCount; i++) {
+    const off = i * chunkSize;
+    const end = i < totalChunkCount - 1 ? off + chunkSize : videoSize;
+    const chunk = buffer.subarray(off, end);
+    const putRes = await fetchFn(uploadUrl, {
+      method: 'PUT',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      body: chunk as any,
+      headers: { 'Content-Type': mimeType, 'Content-Range': `bytes ${off}-${end - 1}/${videoSize}` },
+      signal: AbortSignal.timeout(120_000),
+    });
+    if (putRes.status !== 200 && putRes.status !== 201 && putRes.status !== 206) {
+      const errText = await putRes.text().catch(() => `status ${putRes.status}`);
+      throw new Error(`TikTok upload: ${putRes.status} ${errText}`.slice(0, 300));
+    }
+  }
 }
 
 function pinterestCoverContentTypeFromBuffer(contentType: string): 'image/jpeg' | 'image/png' {
@@ -1507,21 +1542,7 @@ export async function publishTarget(
         if (!nextPublishId || !uploadUrl) {
           throw new Error('TikTok inbox FILE_UPLOAD init did not return publish_id or upload_url.');
         }
-        for (let off = 0; off < videoSize; off += chunkSize) {
-          const end = Math.min(off + chunkSize, videoSize);
-          const chunk = buffer.subarray(off, end);
-          const putRes = await fetchFn(uploadUrl, {
-            method: 'PUT',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            body: chunk as any,
-            headers: { 'Content-Type': mimeType, 'Content-Range': `bytes ${off}-${end - 1}/${videoSize}` },
-            signal: AbortSignal.timeout(120_000),
-          });
-          if (putRes.status !== 200 && putRes.status !== 201 && putRes.status !== 206) {
-            const errText = await putRes.text().catch(() => `status ${putRes.status}`);
-            throw new Error(`TikTok upload: ${putRes.status} ${errText}`.slice(0, 300));
-          }
-        }
+        await putTikTokResumableChunks(buffer, uploadUrl, mimeType, chunkSize, totalChunkCount, fetchFn);
         return { publishId: nextPublishId };
       };
 
@@ -1620,20 +1641,17 @@ export async function publishTarget(
           if (!publishId || !uaUploadUrl) {
             return { ok: false, error: 'TikTok inbox init did not return publish_id or upload_url.' };
           }
-          for (let off = 0; off < unauditedSize; off += unauditedChunk) {
-            const end = Math.min(off + unauditedChunk, unauditedSize);
-            const chunk = unauditedBuf.subarray(off, end);
-            const putRes = await fetchFn(uaUploadUrl, {
-              method: 'PUT',
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              body: chunk as any,
-              headers: { 'Content-Type': unauditedMime, 'Content-Range': `bytes ${off}-${end - 1}/${unauditedSize}` },
-              signal: AbortSignal.timeout(120_000),
-            });
-            if (putRes.status !== 200 && putRes.status !== 201 && putRes.status !== 206) {
-              const errText = await putRes.text().catch(() => `status ${putRes.status}`);
-              return { ok: false, error: `TikTok upload: ${putRes.status} ${errText}`.slice(0, 300) };
-            }
+          try {
+            await putTikTokResumableChunks(
+              unauditedBuf,
+              uaUploadUrl,
+              unauditedMime,
+              unauditedChunk,
+              unauditedChunkCount,
+              fetchFn
+            );
+          } catch (e) {
+            return { ok: false, error: (e as Error).message.slice(0, 300) };
           }
         }
       } else if (pullErr && (pullErr.code === 'scope_not_authorized' || pullErr.code === 'access_token_invalid')) {
@@ -1731,25 +1749,10 @@ export async function publishTarget(
           return { ok: false, error: 'TikTok init did not return publish_id or upload_url.' };
         }
 
-        // Upload chunks using native fetch (avoids axios binary-serialisation issues)
-        for (let offset = 0; offset < videoSize; offset += CHUNK_SIZE) {
-          const end = Math.min(offset + CHUNK_SIZE, videoSize);
-          const chunk = buffer.subarray(offset, end);
-          const putRes = await fetchFn(uploadUrl, {
-            method: 'PUT',
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            body: chunk as any,
-            headers: {
-              'Content-Type': mimeType,
-              'Content-Range': `bytes ${offset}-${end - 1}/${videoSize}`,
-            },
-            signal: AbortSignal.timeout(120_000),
-          });
-          // 200, 201, or 206 (partial) are all success
-          if (putRes.status !== 200 && putRes.status !== 201 && putRes.status !== 206) {
-            const errText = await putRes.text().catch(() => `status ${putRes.status}`);
-            return { ok: false, error: `TikTok upload: ${putRes.status} ${errText}`.slice(0, 300) };
-          }
+        try {
+          await putTikTokResumableChunks(buffer, uploadUrl, mimeType, CHUNK_SIZE, totalChunkCount, fetchFn);
+        } catch (e) {
+          return { ok: false, error: (e as Error).message.slice(0, 300) };
         }
       }
 

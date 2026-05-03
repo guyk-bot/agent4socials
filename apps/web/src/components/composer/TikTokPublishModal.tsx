@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom';
 import api from '@/lib/api';
 import type { TikTokCreatorInfoData, TikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
-import { TIKTOK_PRIVACY_LABELS } from '@/lib/tiktok/tiktok-publish-compliance';
+import { TIKTOK_MAX_VIDEO_DURATION_EXCEEDED_MESSAGE, TIKTOK_PRIVACY_LABELS } from '@/lib/tiktok/tiktok-publish-compliance';
 import { X, Loader2, ChevronDown } from 'lucide-react';
 
 export type TikTokModalAccount = { id: string; username?: string | null };
@@ -241,7 +241,7 @@ export function TikTokPublishModal({
           return;
         }
         if (videoDurationSec > maxDur + 0.5) {
-          setSubmitError(`This video is longer than TikTok allows for this account (${maxDur}s). Use a shorter clip.`);
+          setSubmitError(TIKTOK_MAX_VIDEO_DURATION_EXCEEDED_MESSAGE);
           return;
         }
       }

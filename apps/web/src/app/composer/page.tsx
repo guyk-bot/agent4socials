@@ -383,6 +383,9 @@ function buildPublishFailureAlert(prefix: 'created' | 'updated', results: Publis
         else if (failedJoined.includes('frame_rate_check_failed')) {
             hint = `${hint ? `${hint} ` : ''}For TikTok: this file failed TikTok frame rate checks. Re-export the video as H.264 MP4 with a standard frame rate (for example 30 fps or 60 fps), avoid variable or very low fps, then upload again.`;
         }
+        else if (failedJoined.toLowerCase().includes('chunk count')) {
+            hint = `${hint ? `${hint} ` : ''}For TikTok: chunked upload parameters did not match TikTok. Deploy the latest app build and try again.`;
+        }
         else if (
             failedJoined.includes('Post to TikTok') &&
             !failedJoined.includes('No TikTok payload was saved') &&

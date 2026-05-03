@@ -38,6 +38,10 @@ export const TIKTOK_PRIVACY_LABELS: Record<string, string> = {
   SELF_ONLY: 'Only me',
 };
 
+/** Per TikTok UX guidance when duration exceeds creator_info.max_video_post_duration_sec. */
+export const TIKTOK_MAX_VIDEO_DURATION_EXCEEDED_MESSAGE =
+  'Your video exceeds the maximum allowed duration for your account. Please shorten your video and try again.';
+
 export type TikTokCreatorInfoApiResult =
   | { ok: true; data: TikTokCreatorInfoData }
   | { ok: false; error: string; blockingCode?: string };
@@ -105,9 +109,7 @@ export function buildTikTokPostInfoFromPayload(
       };
     }
     if (p.videoDurationSec > maxDur + 0.5) {
-      return {
-        error: `Video is longer than TikTok allows for this account (${maxDur}s). Use a shorter clip or post from the TikTok app.`,
-      };
+      return { error: TIKTOK_MAX_VIDEO_DURATION_EXCEEDED_MESSAGE };
     }
   }
 
