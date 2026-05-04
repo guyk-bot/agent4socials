@@ -648,9 +648,12 @@ export default function ComposerPage() {
     const previewResizeRef = useRef<{ startX: number; startW: number } | null>(null);
     const saveAsDraftRef = useRef(false);
     const skipTiktokGateRef = useRef(false);
+    /** After user acknowledges TikTok visibility-processing notice, continue the same Post now run. */
+    const skipTiktokProcessingVisibilityNoticeRef = useRef(false);
     const [tiktokPublishByAccountId, setTiktokPublishByAccountId] = useState<Record<string, TikTokDirectPostPayload>>({});
     const [tiktokPublishModalOpen, setTiktokPublishModalOpen] = useState(false);
     const [tiktokModalAccountIds, setTiktokModalAccountIds] = useState<string[]>([]);
+    const [tiktokProcessingVisibilityNoticeOpen, setTiktokProcessingVisibilityNoticeOpen] = useState(false);
 
     useEffect(() => {
         const onMove = (e: MouseEvent) => {
@@ -1750,6 +1753,11 @@ export default function ComposerPage() {
             return;
         }
 
+        if (!saveAsDraft && platforms.includes('TIKTOK') && !skipTiktokProcessingVisibilityNoticeRef.current) {
+            setTiktokProcessingVisibilityNoticeOpen(true);
+            return;
+        }
+
         const tiktokAccountIdsNeedingUi = targets
             .filter((t) => t.platform === 'TIKTOK')
             .filter((t) => {
@@ -2157,6 +2165,7 @@ export default function ComposerPage() {
             setAlertMessage(msg);
         } finally {
             saveAsDraftRef.current = false;
+            skipTiktokProcessingVisibilityNoticeRef.current = false;
             setLoading(false);
         }
     };
@@ -2239,9 +2248,28 @@ export default function ComposerPage() {
                 variant="alert"
                 confirmLabel="OK"
             />
+            <ConfirmModal
+                open={tiktokProcessingVisibilityNoticeOpen}
+                onClose={() => setTiktokProcessingVisibilityNoticeOpen(false)}
+                title="Publishing to TikTok"
+                variant="info"
+                confirmLabel="Continue"
+                cancelLabel="Not now"
+                message={
+                    'TikTok Content Posting rule for apps: API Clients must clearly notify users that after they finish publishing their content, it may take a few minutes for the content to process and be visible on their profile.\n\nTap Continue to keep going with Post now. (Demo: publishing may still be limited by TikTok or your app setup.)'
+                }
+                onConfirm={() => {
+                    skipTiktokProcessingVisibilityNoticeRef.current = true;
+                    setTiktokProcessingVisibilityNoticeOpen(false);
+                    void runComposerCommit(saveAsDraftRef.current);
+                }}
+            />
             <TikTokPublishModal
                 open={tiktokPublishModalOpen}
-                onClose={() => setTiktokPublishModalOpen(false)}
+                onClose={() => {
+                    skipTiktokProcessingVisibilityNoticeRef.current = false;
+                    setTiktokPublishModalOpen(false);
+                }}
                 onConfirm={(payloads) => {
                     setTiktokPublishByAccountId(payloads);
                     skipTiktokGateRef.current = true;
