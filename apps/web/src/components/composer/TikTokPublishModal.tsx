@@ -340,20 +340,30 @@ export function TikTokPublishModal({
               ) : null}
             </div>
           ) : f && activeId ? (
-            <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-4 md:gap-6">
-              <div className="rounded-xl overflow-hidden border border-neutral-200 bg-neutral-950 flex items-center justify-center min-h-[300px] md:min-h-[560px]">
+            <div className="grid grid-cols-1 md:grid-cols-[minmax(260px,300px)_1fr] gap-4 md:gap-6">
+              <div className="flex min-h-0 items-center justify-center rounded-xl border border-neutral-200 bg-neutral-950 py-4 md:py-5">
                 {videoPreviewSrc && isPhotoPost ? (
-                  <img src={videoPreviewSrc} alt="" className="h-full w-full object-contain" />
+                  <div
+                    className="relative mx-auto w-auto max-w-full overflow-hidden rounded-2xl border border-neutral-800 bg-black shadow-xl ring-1 ring-white/10"
+                    style={{ aspectRatio: '9 / 16', height: 'min(72vh, 560px)' }}
+                  >
+                    <img src={videoPreviewSrc} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                  </div>
                 ) : videoPreviewSrc ? (
-                  <video
-                    src={videoPreviewSrc}
-                    poster={videoPosterSrc || undefined}
-                    className="h-full w-full object-contain"
-                    muted
-                    playsInline
-                    controls
-                    preload="metadata"
-                  />
+                  <div
+                    className="relative mx-auto w-auto max-w-full overflow-hidden rounded-2xl border border-neutral-800 bg-black shadow-xl ring-1 ring-white/10"
+                    style={{ aspectRatio: '9 / 16', height: 'min(72vh, 560px)' }}
+                  >
+                    <video
+                      src={videoPreviewSrc}
+                      poster={videoPosterSrc || undefined}
+                      className="absolute inset-0 h-full w-full object-cover"
+                      muted
+                      playsInline
+                      controls
+                      preload="metadata"
+                    />
+                  </div>
                 ) : (
                   <p className="text-xs text-neutral-400">No media preview</p>
                 )}
