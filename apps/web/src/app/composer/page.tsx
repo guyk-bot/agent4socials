@@ -1719,8 +1719,18 @@ export default function ComposerPage() {
         return content.trim() + hashtagSuffix(selectedHashtags);
     };
 
+    /** Match publish-post-workflow: per-platform media falls back to shared `mediaList` when empty. */
+    const getEffectiveMediaListForPlatform = useCallback(
+        (platformKey: string) => {
+            if (!differentMediaPerPlatform) return mediaList;
+            const per = mediaByPlatform[platformKey];
+            return per && per.length > 0 ? per : mediaList;
+        },
+        [differentMediaPerPlatform, mediaByPlatform, mediaList]
+    );
+
     const tikTokModalPreview = useMemo(() => {
-        const list = differentMediaPerPlatform ? (mediaByPlatform['TIKTOK'] ?? []) : mediaList;
+        const list = getEffectiveMediaListForPlatform('TIKTOK');
         const hasVideo = list.some((m) => m.type === 'VIDEO');
         const firstVideo = list.find((m) => m.type === 'VIDEO');
         const firstImage = list.find((m) => m.type === 'IMAGE');
@@ -1730,7 +1740,7 @@ export default function ComposerPage() {
               ? mediaDisplayUrl(firstImage.fileUrl)
               : '';
         return { previewUrl, previewKind: (hasVideo ? 'video' : 'photo') as 'video' | 'photo' };
-    }, [differentMediaPerPlatform, mediaByPlatform, mediaList]);
+    }, [getEffectiveMediaListForPlatform]);
 
     const runComposerCommit = async (saveAsDraft: boolean) => {
         saveAsDraftRef.current = saveAsDraft;
@@ -1760,8 +1770,8 @@ export default function ComposerPage() {
 
         const tiktokAccountIdsNeedingUi = targets
             .filter((t) => t.platform === 'TIKTOK')
-            .filter((t) => {
-                const mediaForTt = differentMediaPerPlatform ? (mediaByPlatform['TIKTOK'] ?? []) : mediaList;
+            .filter(() => {
+                const mediaForTt = getEffectiveMediaListForPlatform('TIKTOK');
                 return mediaForTt.some((m) => m.type === 'VIDEO' || m.type === 'IMAGE');
             })
             .map((t) => t.socialAccountId);
@@ -2284,7 +2294,7 @@ export default function ComposerPage() {
                 previewKind={tikTokModalPreview.previewKind}
                 videoPreviewSrc={tikTokModalPreview.previewUrl}
                 videoPosterSrc={(() => {
-                    const list = differentMediaPerPlatform ? (mediaByPlatform['TIKTOK'] ?? []) : mediaList;
+                    const list = getEffectiveMediaListForPlatform('TIKTOK');
                     const v = list.find((m) => m.type === 'VIDEO') as MediaItem | undefined;
                     const thumb = v?.thumbnailUrl;
                     return thumb ? mediaDisplayUrl(thumb) : undefined;
