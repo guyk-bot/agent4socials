@@ -176,8 +176,9 @@ export function buildTikTokPhotoPostInfoFromPayload(
 export function isTikTokDirectPostPayload(v: unknown): v is TikTokDirectPostPayload {
   if (!v || typeof v !== 'object') return false;
   const o = v as Record<string, unknown>;
+  const privacy = o.privacyLevel;
+  if (typeof privacy !== 'string' || privacy.trim().length === 0) return false;
   return (
-    typeof o.privacyLevel === 'string' &&
     typeof o.allowComment === 'boolean' &&
     typeof o.allowDuet === 'boolean' &&
     typeof o.allowStitch === 'boolean' &&

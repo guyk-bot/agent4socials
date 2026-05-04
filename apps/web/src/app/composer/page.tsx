@@ -1753,7 +1753,7 @@ export default function ComposerPage() {
             Object.values(mediaByPlatform).some((arr) => Array.isArray(arr) && arr.length > 0);
         const targets = platforms
             .map((p) => {
-                const acc = accounts.find((a: { platform: string }) => a.platform === p);
+                const acc = accounts.find((a: { platform: string }) => String(a.platform).toUpperCase() === String(p).toUpperCase());
                 if (!acc?.id) return null;
                 return { platform: p, socialAccountId: acc.id };
             })
@@ -2064,7 +2064,8 @@ export default function ComposerPage() {
                             );
                         }
                         const followDetail = detailLines.length > 0 ? detailLines.join('\n\n') : undefined;
-                        if (platforms.includes('TIKTOK')) {
+                        const tiktokPublishedOk = results?.some((r) => String(r.platform).toUpperCase() === 'TIKTOK' && r.ok);
+                        if (tiktokPublishedOk) {
                             tiktokPostPublishFollowUpPostIdRef.current = editPostId;
                             setTiktokPostPublishFollowUp({ open: true, detail: followDetail });
                             void api
@@ -2138,7 +2139,8 @@ export default function ComposerPage() {
                             );
                         }
                         const createFollowDetail = createDetailLines.length > 0 ? createDetailLines.join('\n\n') : undefined;
-                        if (platforms.includes('TIKTOK')) {
+                        const tiktokCreatePublishedOk = results?.some((r) => String(r.platform).toUpperCase() === 'TIKTOK' && r.ok);
+                        if (tiktokCreatePublishedOk) {
                             tiktokPostPublishFollowUpPostIdRef.current = postId;
                             setTiktokPostPublishFollowUp({ open: true, detail: createFollowDetail });
                             void api
@@ -2220,6 +2222,8 @@ export default function ComposerPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        // New submit from the composer form (not the TikTok modal chain): always show Post to TikTok when needed.
+        skipTiktokGateRef.current = false;
         const saveAsDraft = (e.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'draft';
         await runComposerCommit(saveAsDraft);
     };
