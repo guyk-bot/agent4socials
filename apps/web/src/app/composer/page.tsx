@@ -2247,7 +2247,12 @@ export default function ComposerPage() {
                 <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(23,23,23,0.82)' }} role="status" aria-live="polite">
                     <Loader2 size={48} className="animate-spin text-white mb-4" aria-hidden />
                     <p className="text-white font-medium text-lg">Publishing to {platforms.map((p) => PLATFORM_LABELS[p] ?? p).join(', ')}…</p>
-                    <p className="text-neutral-300 text-sm mt-1">Keep this tab open. Most posts finish in a few seconds; large video uploads can take longer.</p>
+                    <p className="text-neutral-300 text-sm mt-1 text-center max-w-md px-4">Keep this tab open. Most posts finish in a few seconds; large video uploads can take longer.</p>
+                    {platforms.includes('TIKTOK') ? (
+                        <p className="text-neutral-200 text-sm mt-4 max-w-lg mx-auto text-center px-5 leading-relaxed border-t border-white/10 pt-4">
+                            TikTok requires apps to tell you: after you finish publishing your content, it may take a few minutes for the content to process and be visible on your profile.
+                        </p>
+                    ) : null}
                 </div>,
                 document.body,
             )}
@@ -2261,8 +2266,9 @@ export default function ComposerPage() {
             <ConfirmModal
                 open={tiktokProcessingVisibilityNoticeOpen}
                 onClose={() => setTiktokProcessingVisibilityNoticeOpen(false)}
-                title="Publishing to TikTok"
+                title="Before publishing to TikTok"
                 variant="info"
+                stack="high"
                 confirmLabel="Continue"
                 cancelLabel="Not now"
                 message={

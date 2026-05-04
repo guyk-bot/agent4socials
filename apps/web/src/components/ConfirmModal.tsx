@@ -13,6 +13,8 @@ type ConfirmModalProps = {
   cancelLabel?: string;
   onConfirm?: () => void;
   variant?: 'confirm' | 'alert' | 'danger' | 'info';
+  /** `high` stacks above full-screen overlays that use z-index 9999 (e.g. composer publishing). */
+  stack?: 'default' | 'high';
 };
 
 export function ConfirmModal({
@@ -24,6 +26,7 @@ export function ConfirmModal({
   cancelLabel = 'Cancel',
   onConfirm,
   variant = 'confirm',
+  stack = 'default',
 }: ConfirmModalProps) {
   const isAlert = variant === 'alert';
   const isDanger = variant === 'danger';
@@ -60,11 +63,13 @@ export function ConfirmModal({
   const Icon = isDanger ? Trash2 : isInfo ? Info : isAlert ? CheckCircle : AlertTriangle;
   const iconColor = isDanger ? 'text-red-600' : isInfo ? 'text-blue-600' : 'text-amber-600';
   const accentLine = isDanger ? 'bg-red-500' : isInfo ? 'bg-blue-500' : 'bg-amber-500';
+  const zBackdrop = stack === 'high' ? 'z-[10140]' : 'z-[8500]';
+  const zDialog = stack === 'high' ? 'z-[10150]' : 'z-[8600]';
 
   return createPortal(
     <>
       <div
-        className="fixed z-[8500] min-h-screen min-h-[100dvh] min-h-[100lvh] w-screen"
+        className={`fixed ${zBackdrop} min-h-screen min-h-[100dvh] min-h-[100lvh] w-screen`}
         style={{
           top: 0,
           left: 0,
@@ -77,7 +82,7 @@ export function ConfirmModal({
         aria-hidden="true"
       />
       <div
-        className="fixed inset-0 z-[8600] flex items-center justify-center p-4 pointer-events-none"
+        className={`fixed inset-0 ${zDialog} flex items-center justify-center p-4 pointer-events-none`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-modal-title"
