@@ -15,6 +15,8 @@ type ConfirmModalProps = {
   variant?: 'confirm' | 'alert' | 'danger' | 'info';
   /** `high` stacks above full-screen overlays that use z-index 9999 (e.g. composer publishing). */
   stack?: 'default' | 'high';
+  /** If false, the primary button does not call `onClose` after `onConfirm` (use when confirm navigates away). Default true. */
+  closeOnConfirm?: boolean;
 };
 
 export function ConfirmModal({
@@ -27,6 +29,7 @@ export function ConfirmModal({
   onConfirm,
   variant = 'confirm',
   stack = 'default',
+  closeOnConfirm = true,
 }: ConfirmModalProps) {
   const isAlert = variant === 'alert';
   const isDanger = variant === 'danger';
@@ -52,9 +55,9 @@ export function ConfirmModal({
     const result = onConfirm?.();
     if (result != null && typeof (result as Promise<unknown>).then === 'function') {
       (result as Promise<unknown>).finally(() => {
-        onClose();
+        if (closeOnConfirm) onClose();
       });
-    } else {
+    } else if (closeOnConfirm) {
       onClose();
     }
   };

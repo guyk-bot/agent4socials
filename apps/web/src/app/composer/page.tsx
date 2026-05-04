@@ -648,12 +648,12 @@ export default function ComposerPage() {
     const previewResizeRef = useRef<{ startX: number; startW: number } | null>(null);
     const saveAsDraftRef = useRef(false);
     const skipTiktokGateRef = useRef(false);
-    /** After user acknowledges TikTok visibility-processing notice, continue the same Post now run. */
-    const skipTiktokProcessingVisibilityNoticeRef = useRef(false);
     const [tiktokPublishByAccountId, setTiktokPublishByAccountId] = useState<Record<string, TikTokDirectPostPayload>>({});
     const [tiktokPublishModalOpen, setTiktokPublishModalOpen] = useState(false);
     const [tiktokModalAccountIds, setTiktokModalAccountIds] = useState<string[]>([]);
-    const [tiktokProcessingVisibilityNoticeOpen, setTiktokProcessingVisibilityNoticeOpen] = useState(false);
+    /** After successful Post now that included TikTok, show processing reminder (post id for History link). */
+    const tiktokPostPublishFollowUpPostIdRef = useRef<string | null>(null);
+    const [tiktokPostPublishFollowUp, setTiktokPostPublishFollowUp] = useState<{ open: boolean; detail?: string }>({ open: false });
 
     useEffect(() => {
         const onMove = (e: MouseEvent) => {
@@ -1763,11 +1763,6 @@ export default function ComposerPage() {
             return;
         }
 
-        if (!saveAsDraft && platforms.includes('TIKTOK') && !skipTiktokProcessingVisibilityNoticeRef.current) {
-            setTiktokProcessingVisibilityNoticeOpen(true);
-            return;
-        }
-
         const tiktokAccountIdsNeedingUi = targets
             .filter((t) => t.platform === 'TIKTOK')
             .filter(() => {
@@ -2059,6 +2054,28 @@ export default function ComposerPage() {
                         const mediaSkipped = (results as any[])?.filter((r) => r.mediaSkipped).map((r) => r.platform as string);
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const inboxPlatforms = (results as any[])?.filter((r) => r.sentToInbox).map((r) => r.platform as string);
+                        const detailLines: string[] = [];
+                        if (mediaSkipped?.length) {
+                            detailLines.push(`Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).`);
+                        }
+                        if (inboxPlatforms?.length) {
+                            detailLines.push(
+                                'TikTok: this may appear as Private first (unaudited app). Open the TikTok app, Profile, tap the post and set visibility to Public if you want it public.'
+                            );
+                        }
+                        const followDetail = detailLines.length > 0 ? detailLines.join('\n\n') : undefined;
+                        if (platforms.includes('TIKTOK')) {
+                            tiktokPostPublishFollowUpPostIdRef.current = editPostId;
+                            setTiktokPostPublishFollowUp({ open: true, detail: followDetail });
+                            void api
+                                .get('/posts')
+                                .then((listRes) => {
+                                    const list = Array.isArray(listRes.data) ? listRes.data : [];
+                                    appData?.setScheduledPosts?.(list);
+                                })
+                                .catch(() => {});
+                            return;
+                        }
                         let msg = 'Post updated and published.';
                         if (mediaSkipped?.length) msg += ` Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).`;
                         if (inboxPlatforms?.length) msg += ` TikTok: video posted as Private (TikTok restricts unaudited apps to private only). Open TikTok app, Profile, tap the video and set visibility to Public. After app approval, posts can go public automatically.`;
@@ -2111,6 +2128,28 @@ export default function ComposerPage() {
                         const mediaSkippedCreate = (results as any[])?.filter((r) => r.mediaSkipped).map((r) => r.platform as string);
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const inboxCreate = (results as any[])?.filter((r) => r.sentToInbox).map((r) => r.platform as string);
+                        const createDetailLines: string[] = [];
+                        if (mediaSkippedCreate?.length) {
+                            createDetailLines.push(`Note: ${mediaSkippedCreate.join(', ')} posted as text only (image upload was not allowed).`);
+                        }
+                        if (inboxCreate?.length) {
+                            createDetailLines.push(
+                                'TikTok: this may appear as Private first (unaudited app). Open the TikTok app, Profile, tap the post and set visibility to Public if you want it public.'
+                            );
+                        }
+                        const createFollowDetail = createDetailLines.length > 0 ? createDetailLines.join('\n\n') : undefined;
+                        if (platforms.includes('TIKTOK')) {
+                            tiktokPostPublishFollowUpPostIdRef.current = postId;
+                            setTiktokPostPublishFollowUp({ open: true, detail: createFollowDetail });
+                            void api
+                                .get('/posts')
+                                .then((listRes) => {
+                                    const list = Array.isArray(listRes.data) ? listRes.data : [];
+                                    appData?.setScheduledPosts?.(list);
+                                })
+                                .catch(() => {});
+                            return;
+                        }
                         let createMsg = 'Post published.';
                         if (mediaSkippedCreate?.length) createMsg += ` Note: ${mediaSkippedCreate.join(', ')} posted as text only (image upload was not allowed).`;
                         if (inboxCreate?.length) createMsg += ` TikTok: video posted as Private (TikTok restricts unaudited apps to private only). Open TikTok app, Profile, tap the video and set visibility to Public. After app approval, posts can go public automatically.`;
@@ -2175,7 +2214,6 @@ export default function ComposerPage() {
             setAlertMessage(msg);
         } finally {
             saveAsDraftRef.current = false;
-            skipTiktokProcessingVisibilityNoticeRef.current = false;
             setLoading(false);
         }
     };
@@ -2248,11 +2286,6 @@ export default function ComposerPage() {
                     <Loader2 size={48} className="animate-spin text-white mb-4" aria-hidden />
                     <p className="text-white font-medium text-lg">Publishing to {platforms.map((p) => PLATFORM_LABELS[p] ?? p).join(', ')}…</p>
                     <p className="text-neutral-300 text-sm mt-1 text-center max-w-md px-4">Keep this tab open. Most posts finish in a few seconds; large video uploads can take longer.</p>
-                    {platforms.includes('TIKTOK') ? (
-                        <p className="text-neutral-200 text-sm mt-4 max-w-lg mx-auto text-center px-5 leading-relaxed border-t border-white/10 pt-4">
-                            TikTok requires apps to tell you: after you finish publishing your content, it may take a few minutes for the content to process and be visible on your profile.
-                        </p>
-                    ) : null}
                 </div>,
                 document.body,
             )}
@@ -2264,26 +2297,41 @@ export default function ComposerPage() {
                 confirmLabel="OK"
             />
             <ConfirmModal
-                open={tiktokProcessingVisibilityNoticeOpen}
-                onClose={() => setTiktokProcessingVisibilityNoticeOpen(false)}
-                title="Before publishing to TikTok"
+                open={tiktokPostPublishFollowUp.open}
+                onClose={() => {
+                    tiktokPostPublishFollowUpPostIdRef.current = null;
+                    setTiktokPostPublishFollowUp({ open: false });
+                    router.push('/composer');
+                }}
+                title="Posted to TikTok"
                 variant="info"
                 stack="high"
-                confirmLabel="Continue"
-                cancelLabel="Not now"
-                message={
-                    'TikTok Content Posting rule for apps: API Clients must clearly notify users that after they finish publishing their content, it may take a few minutes for the content to process and be visible on their profile.\n\nTap Continue to keep going with Post now. (Demo: publishing may still be limited by TikTok or your app setup.)'
-                }
+                closeOnConfirm={false}
+                confirmLabel="History"
+                cancelLabel="Exit"
+                message={[
+                    'It may take a few minutes for your content to process and be visible on your TikTok profile. You can check status in the History section.',
+                    tiktokPostPublishFollowUp.detail,
+                ]
+                    .filter((s): s is string => Boolean(s && s.trim()))
+                    .join('\n\n')}
                 onConfirm={() => {
-                    skipTiktokProcessingVisibilityNoticeRef.current = true;
-                    setTiktokProcessingVisibilityNoticeOpen(false);
-                    void runComposerCommit(saveAsDraftRef.current);
+                    const id = tiktokPostPublishFollowUpPostIdRef.current;
+                    tiktokPostPublishFollowUpPostIdRef.current = null;
+                    setTiktokPostPublishFollowUp({ open: false });
+                    router.push(id ? `/posts?published=1&highlight=${encodeURIComponent(id)}` : '/posts');
+                    void api
+                        .get('/posts')
+                        .then((listRes) => {
+                            const list = Array.isArray(listRes.data) ? listRes.data : [];
+                            appData?.setScheduledPosts?.(list);
+                        })
+                        .catch(() => {});
                 }}
             />
             <TikTokPublishModal
                 open={tiktokPublishModalOpen}
                 onClose={() => {
-                    skipTiktokProcessingVisibilityNoticeRef.current = false;
                     setTiktokPublishModalOpen(false);
                 }}
                 onConfirm={(payloads) => {
