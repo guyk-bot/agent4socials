@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/context/AuthContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
@@ -1716,6 +1716,19 @@ export default function ComposerPage() {
         return content.trim() + hashtagSuffix(selectedHashtags);
     };
 
+    const tikTokModalPreview = useMemo(() => {
+        const list = differentMediaPerPlatform ? (mediaByPlatform['TIKTOK'] ?? []) : mediaList;
+        const hasVideo = list.some((m) => m.type === 'VIDEO');
+        const firstVideo = list.find((m) => m.type === 'VIDEO');
+        const firstImage = list.find((m) => m.type === 'IMAGE');
+        const previewUrl = firstVideo
+            ? mediaDisplayUrl(firstVideo.fileUrl)
+            : firstImage
+              ? mediaDisplayUrl(firstImage.fileUrl)
+              : '';
+        return { previewUrl, previewKind: (hasVideo ? 'video' : 'photo') as 'video' | 'photo' };
+    }, [differentMediaPerPlatform, mediaByPlatform, mediaList]);
+
     const runComposerCommit = async (saveAsDraft: boolean) => {
         saveAsDraftRef.current = saveAsDraft;
         if (platforms.length === 0) {
@@ -1741,7 +1754,7 @@ export default function ComposerPage() {
             .filter((t) => t.platform === 'TIKTOK')
             .filter((t) => {
                 const mediaForTt = differentMediaPerPlatform ? (mediaByPlatform['TIKTOK'] ?? []) : mediaList;
-                return mediaForTt.some((m) => m.type === 'VIDEO');
+                return mediaForTt.some((m) => m.type === 'VIDEO' || m.type === 'IMAGE');
             })
             .map((t) => t.socialAccountId);
         if (!saveAsDraft && tiktokAccountIdsNeedingUi.length > 0 && !skipTiktokGateRef.current) {
@@ -2240,11 +2253,8 @@ export default function ComposerPage() {
                     return { id, username: a?.username };
                 })}
                 defaultCaption={computeTikTokCaptionPreview()}
-                videoPreviewSrc={(() => {
-                    const list = differentMediaPerPlatform ? (mediaByPlatform['TIKTOK'] ?? []) : mediaList;
-                    const v = list.find((m) => m.type === 'VIDEO');
-                    return v ? mediaDisplayUrl(v.fileUrl) : '';
-                })()}
+                previewKind={tikTokModalPreview.previewKind}
+                videoPreviewSrc={tikTokModalPreview.previewUrl}
                 videoPosterSrc={(() => {
                     const list = differentMediaPerPlatform ? (mediaByPlatform['TIKTOK'] ?? []) : mediaList;
                     const v = list.find((m) => m.type === 'VIDEO') as MediaItem | undefined;

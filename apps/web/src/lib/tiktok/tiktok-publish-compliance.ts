@@ -128,6 +128,51 @@ export function buildTikTokPostInfoFromPayload(
   return { post_info };
 }
 
+/**
+ * Build post_info for `/v2/post/publish/content/init/` (photo, DIRECT_POST) from modal payload + creator_info.
+ * Photo posts do not support Duet or Stitch; those fields must not be sent to TikTok.
+ * @see https://developers.tiktok.com/doc/content-posting-api-reference-photo-post
+ */
+export function buildTikTokPhotoPostInfoFromPayload(
+  p: TikTokDirectPostPayload,
+  ci: TikTokCreatorInfoData,
+  descriptionSeed: string
+): { post_info: Record<string, unknown> } | { error: string } {
+  const options = ci.privacy_level_options;
+  if (!Array.isArray(options) || options.length === 0) {
+    return { error: 'TikTok did not return privacy options for this account. Reconnect TikTok and try again.' };
+  }
+  if (!options.includes(p.privacyLevel)) {
+    return { error: 'Selected visibility is not allowed for this TikTok account. Pick another option.' };
+  }
+
+  if (p.commercialDisclosureOn && !p.yourBrand && !p.brandedContent) {
+    return { error: 'Commercial content is on: choose either Your brand or Branded content.' };
+  }
+
+  if (p.brandedContent && p.privacyLevel === 'SELF_ONLY') {
+    return { error: 'Branded content cannot be set to Only me. Change visibility or turn off Branded content.' };
+  }
+
+  if (p.allowComment && ci.comment_disabled) {
+    return { error: 'Comments are disabled for this TikTok account.' };
+  }
+
+  const title = (p.title ?? '').trim().slice(0, 90);
+  const description = (descriptionSeed || p.title || '').trim().slice(0, 4000);
+
+  const post_info: Record<string, unknown> = {
+    ...(title ? { title } : {}),
+    ...(description ? { description } : {}),
+    privacy_level: p.privacyLevel,
+    disable_comment: !p.allowComment,
+    brand_content_toggle: Boolean(p.commercialDisclosureOn && p.brandedContent),
+    brand_organic_toggle: Boolean(p.commercialDisclosureOn && p.yourBrand),
+  };
+
+  return { post_info };
+}
+
 export function isTikTokDirectPostPayload(v: unknown): v is TikTokDirectPostPayload {
   if (!v || typeof v !== 'object') return false;
   const o = v as Record<string, unknown>;

@@ -276,8 +276,10 @@ export async function runPublishPostWorkflow(input: {
     }
 
     const isTiktokVideo = platform === 'TIKTOK' && targetMedia.some((m) => m.type === 'VIDEO');
+    const isTiktokPhoto = platform === 'TIKTOK' && !isTiktokVideo && targetMedia.some((m) => m.type === 'IMAGE');
+    const isTiktokDirectPostRequired = isTiktokVideo || isTiktokPhoto;
     let tiktokDirectPost: TikTokDirectPostPayload | undefined;
-    if (isTiktokVideo) {
+    if (isTiktokDirectPostRequired) {
       const raw = tiktokMerged[socialAccount.id];
       const tiktokEntries = Object.entries(tiktokMerged).filter(([, value]) => isTikTokDirectPostPayload(value));
       const fallbackSinglePayload =
@@ -319,8 +321,8 @@ export async function runPublishPostWorkflow(input: {
         } else {
         const msg =
           isCron || post.status === PostStatus.SCHEDULED
-            ? 'TikTok video needs Post to TikTok settings saved on the post. Open the post in the composer, complete the TikTok step, and save or reschedule.'
-            : 'TikTok video needs Post to TikTok settings. Open the post in the composer, complete the TikTok step, then publish again.';
+            ? 'TikTok needs Post to TikTok settings saved on the post. Open the post in the composer, complete the TikTok step, and save or reschedule.'
+            : 'TikTok needs Post to TikTok settings. Open the post in the composer, complete the TikTok step, then publish again.';
         await prisma.postTarget.update({
           where: { id: target.id },
           data: { status: PostStatus.FAILED, error: `${msg}${details}${fallbackDetails}`.slice(0, 500) },
@@ -372,6 +374,7 @@ export async function runPublishPostWorkflow(input: {
         pinterestBoardId,
         pinterestSandbox: requestBody.pinterestSandbox === true,
         ...(tiktokDirectPost ? { tiktokDirectPost } : {}),
+        ...(platform === 'TIKTOK' ? { tiktokPostMediaKind: isTiktokPhoto ? 'photo' : 'video' } : {}),
         ...(isStory ? { isStory: true } : {}),
       },
       { fetch, axios }
@@ -439,6 +442,7 @@ export async function runPublishPostWorkflow(input: {
             pinterestBoardId,
             pinterestSandbox: requestBody.pinterestSandbox === true,
             ...(tiktokDirectPost ? { tiktokDirectPost } : {}),
+            ...(platform === 'TIKTOK' ? { tiktokPostMediaKind: isTiktokPhoto ? 'photo' : 'video' } : {}),
           },
           { fetch, axios }
         );

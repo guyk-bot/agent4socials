@@ -8,6 +8,7 @@ import { signTwitterRequest } from './twitter-oauth1';
 import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 import { facebookGraphBaseUrl, META_GRAPH_FACEBOOK_API_VERSION } from '@/lib/meta-graph-insights';
 import {
+  buildTikTokPhotoPostInfoFromPayload,
   buildTikTokPostInfoFromPayload,
   parseTikTokCreatorInfoResponse,
   type TikTokDirectPostPayload,
@@ -32,8 +33,10 @@ export type PublishTargetOptions = {
   pinterestBoardId?: string | null;
   /** Use Pinterest sandbox API host (trial/demo mode). */
   pinterestSandbox?: boolean;
-  /** TikTok video: required for Direct Post (composer modal + scheduled JSON on Post). */
+  /** TikTok Direct Post: required when publishing video or photo (composer modal + stored JSON on Post). */
   tiktokDirectPost?: TikTokDirectPostPayload;
+  /** TikTok: which Direct Post API path to use (default `video`). */
+  tiktokPostMediaKind?: 'video' | 'photo';
   /** Instagram/Facebook: publish as a Story instead of a feed post. */
   isStory?: boolean;
 };
@@ -1449,10 +1452,6 @@ export async function publishTarget(
     }
 
     if (platform === 'TIKTOK') {
-      const videoUrl = firstMediaUrl;
-      if (!videoUrl) {
-        return { ok: false, error: 'TikTok requires a video file to publish.' };
-      }
       const tiktokBase = 'https://open.tiktokapis.com';
       const headers = {
         'Authorization': `Bearer ${token}`,
@@ -1489,6 +1488,17 @@ export async function publishTarget(
         };
       }
 
+      const tiktokMediaKind = options.tiktokPostMediaKind ?? 'video';
+      if (!firstMediaUrl) {
+        return {
+          ok: false,
+          error:
+            tiktokMediaKind === 'photo'
+              ? 'TikTok photo post requires image media.'
+              : 'TikTok requires a video file to publish.',
+        };
+      }
+
       const creatorRes = await axiosInstance.post(
         `${tiktokBase}/v2/post/publish/creator_info/query/`,
         {},
@@ -1500,6 +1510,110 @@ export async function publishTarget(
       }
       const creatorPrivacyOptions = parsedCi.data.privacy_level_options ?? [];
 
+      if (tiktokMediaKind === 'photo') {
+        const photoUrl = firstMediaUrl;
+        const payloadForPhoto: TikTokDirectPostPayload = {
+          ...options.tiktokDirectPost,
+          title: (options.tiktokDirectPost.title || caption || '').trim().slice(0, 2200),
+        };
+        const builtPhoto = buildTikTokPhotoPostInfoFromPayload(payloadForPhoto, parsedCi.data, (caption || '').trim());
+        if ('error' in builtPhoto) {
+          return { ok: false, error: `TikTok: ${builtPhoto.error}`.slice(0, 350) };
+        }
+        let photoPostInfo: Record<string, unknown> = { ...builtPhoto.post_info };
+        const photoPostInfoSelfOnly = creatorPrivacyOptions.includes('SELF_ONLY')
+          ? ({ ...photoPostInfo, privacy_level: 'SELF_ONLY' } as Record<string, unknown>)
+          : null;
+        const creatorUsername = parsedCi.data.creator_username;
+        const creatorNickname = parsedCi.data.creator_nickname;
+        const tiktokIdentity = creatorUsername ? `@${creatorUsername}` : creatorNickname ? creatorNickname : '';
+
+        const requestPhotoInit = (postInfo: Record<string, unknown>) =>
+          tiktokPostWithRetry(
+            `${tiktokBase}/v2/post/publish/content/init/`,
+            {
+              post_info: postInfo,
+              source_info: {
+                source: 'PULL_FROM_URL',
+                photo_images: [photoUrl],
+                photo_cover_index: 0,
+              },
+              post_mode: 'DIRECT_POST',
+              media_type: 'PHOTO',
+            },
+            30_000,
+            'photo DIRECT_POST content/init'
+          );
+
+        let photoRes = (await requestPhotoInit(photoPostInfo)) as {
+          data?: { data?: { publish_id?: string }; error?: { code?: string; message?: string } };
+        };
+        let photoBody = photoRes.data ?? {};
+        let photoErr = photoBody.error;
+        if (photoErr?.code === 'unaudited_client_can_only_post_to_private_accounts' && photoPostInfoSelfOnly) {
+          console.log('[TikTok] photo init: retrying with SELF_ONLY');
+          photoPostInfo = { ...photoPostInfoSelfOnly };
+          photoRes = (await requestPhotoInit(photoPostInfo)) as {
+            data?: { data?: { publish_id?: string }; error?: { code?: string; message?: string } };
+          };
+          photoBody = photoRes.data ?? {};
+          photoErr = photoBody.error;
+        }
+        if (photoErr && photoErr.code !== 'ok') {
+          if (photoErr.code === 'spam_risk_too_many_pending_share') {
+            return {
+              ok: false,
+              error:
+                `TikTok sandbox${tiktokIdentity ? ` (${tiktokIdentity})` : ''}: too many pending posts. Open TikTok mobile app on the SAME connected account, check Inbox and Drafts, then accept or delete all pending items and retry.`,
+            };
+          }
+          return { ok: false, error: `TikTok: ${photoErr.message || photoErr.code || 'Photo init failed'}`.slice(0, 300) };
+        }
+        let publishId = photoBody.data?.publish_id;
+        if (!publishId) {
+          return { ok: false, error: 'TikTok photo init did not return publish_id.' };
+        }
+
+        const maxWait = 45_000;
+        const pollInterval = 2_000;
+        let platformPostId: string | undefined;
+        for (let elapsed = 0; elapsed < maxWait; elapsed += pollInterval) {
+          await new Promise((r) => setTimeout(r, pollInterval));
+          const statusRes = await tiktokPostWithRetry(
+            `${tiktokBase}/v2/post/publish/status/fetch/`,
+            { publish_id: publishId },
+            10_000,
+            'photo status fetch'
+          ) as { data?: { data?: { status?: string; fail_reason?: string; publicly_available_post_id?: string }; error?: { code?: string; message?: string } } };
+          const statusBody = statusRes.data ?? {};
+          const statusErr = statusBody.error;
+          if (statusErr && statusErr.code !== 'ok') {
+            return { ok: false, error: `TikTok status: ${statusErr.message || statusErr.code}`.slice(0, 300) };
+          }
+          const status = statusBody.data?.status;
+          console.log('[TikTok] photo status poll', { publishId, status, fail_reason: statusBody.data?.fail_reason, error: statusErr });
+          if (status === 'PUBLISH_COMPLETE') {
+            platformPostId = statusBody.data?.publicly_available_post_id;
+            break;
+          }
+          if (status === 'SEND_TO_USER_INBOX') {
+            return { ok: true, platformPostId: publishId, sentToInbox: true };
+          }
+          if (status === 'FAILED') {
+            const reason = statusBody.data?.fail_reason ?? 'Publish failed';
+            return { ok: false, error: `TikTok: ${reason}`.slice(0, 300) };
+          }
+        }
+        if (!platformPostId) {
+          return {
+            ok: false,
+            error: `TikTok photo is still processing (publish_id: ${publishId}). Check the TikTok app Inbox or retry shortly.`,
+          };
+        }
+        return { ok: true, platformPostId };
+      }
+
+      const videoUrl = firstMediaUrl;
       const payloadForTikTok: TikTokDirectPostPayload = {
         ...options.tiktokDirectPost,
         title: (options.tiktokDirectPost.title || caption || '').trim().slice(0, 2200),

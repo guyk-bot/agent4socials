@@ -51,6 +51,9 @@ type Props = {
   onConfirm: (payloads: Record<string, TikTokDirectPostPayload>) => void;
   accounts: TikTokModalAccount[];
   defaultCaption: string;
+  /** `photo`: TikTok photo Direct Post (Duet/Stitch hidden per TikTok UX). `video`: video/reel. */
+  previewKind?: 'photo' | 'video';
+  /** Media URL for the left preview (video src or photo image URL). */
   videoPreviewSrc: string;
   /** Optional poster (e.g. custom thumbnail) so preview shows an image before video loads. */
   videoPosterSrc?: string;
@@ -63,6 +66,7 @@ export function TikTokPublishModal({
   onConfirm,
   accounts,
   defaultCaption,
+  previewKind,
   videoPreviewSrc,
   videoPosterSrc,
   initialByAccountId,
@@ -80,7 +84,8 @@ export function TikTokPublishModal({
   const activeAccount = accounts[activeIdx];
   const activeId = activeAccount?.id;
   const accountIdsKey = useMemo(() => accounts.map((a) => a.id).join(','), [accounts]);
-  const isPhotoPost = !videoPreviewSrc;
+  const isPhotoPost = previewKind === 'photo' || (!previewKind && !videoPreviewSrc);
+  const captionMax = isPhotoPost ? 90 : 2200;
 
   const loadCreator = useCallback(async (accountId: string) => {
     setLoadingCreatorById((prev) => ({ ...prev, [accountId]: true }));
@@ -133,7 +138,7 @@ export function TikTokPublishModal({
     initializedAccountsKeyRef.current = accountIdsKey;
     setActiveIdx(0);
     setSubmitError(null);
-    const seed = defaultCaption.trim().slice(0, 2200);
+    const seed = defaultCaption.trim().slice(0, captionMax);
     const initial: Record<string, FormState> = {};
     for (const a of accounts) {
       const existing = initialByAccountId?.[a.id];
@@ -156,10 +161,10 @@ export function TikTokPublishModal({
     setLoadingCreatorById({});
     setShowCaptionById({});
     void Promise.all(accounts.map((a) => loadCreator(a.id)));
-  }, [open, accountIdsKey, accounts, defaultCaption, initialByAccountId, loadCreator]);
+  }, [open, accountIdsKey, accounts, defaultCaption, initialByAccountId, loadCreator, captionMax]);
 
   useEffect(() => {
-    if (!open || !videoPreviewSrc) return;
+    if (!open || !videoPreviewSrc || isPhotoPost) return;
     const v = document.createElement('video');
     v.preload = 'metadata';
     v.muted = true;
@@ -173,7 +178,7 @@ export function TikTokPublishModal({
       v.removeEventListener('loadedmetadata', onMeta);
       v.remove();
     };
-  }, [open, videoPreviewSrc]);
+  }, [open, videoPreviewSrc, isPhotoPost]);
 
   useEffect(() => {
     if (!activeId || !isPhotoPost) return;
@@ -226,13 +231,15 @@ export function TikTokPublishModal({
         setSubmitError('Comments are disabled for this TikTok account. Turn off Allow comments.');
         return;
       }
-      if (f.allowDuet && ci.duet_disabled) {
-        setSubmitError('Duets are disabled for this TikTok account. Turn off Allow duet.');
-        return;
-      }
-      if (f.allowStitch && ci.stitch_disabled) {
-        setSubmitError('Stitch is disabled for this TikTok account. Turn off Allow stitch.');
-        return;
+      if (!isPhotoPost) {
+        if (f.allowDuet && ci.duet_disabled) {
+          setSubmitError('Duets are disabled for this TikTok account. Turn off Allow duet.');
+          return;
+        }
+        if (f.allowStitch && ci.stitch_disabled) {
+          setSubmitError('Stitch is disabled for this TikTok account. Turn off Allow stitch.');
+          return;
+        }
       }
       const maxDur = ci.max_video_post_duration_sec;
       if (!isPhotoPost && typeof maxDur === 'number' && maxDur > 0) {
@@ -270,18 +277,18 @@ export function TikTokPublishModal({
     (activeAccount?.username && `@${activeAccount.username.replace(/^@/, '')}`) ||
     'this TikTok account';
   const captionLength = f?.title?.length ?? 0;
-  const captionMax = 2200;
   const showCaptionEditor = Boolean(activeId && showCaptionById[activeId]);
   const brandedRequiresNonPrivate = Boolean(f?.commercialDisclosureOn && f?.brandedContent);
   const disclosureSelectionCount = Number(Boolean(f?.yourBrand)) + Number(Boolean(f?.brandedContent));
   const disclosureNeedsSelection = Boolean(f?.commercialDisclosureOn && disclosureSelectionCount === 0);
+  const mediaWord = isPhotoPost ? 'post' : 'video';
   const disclosureLabelNotice = !f?.commercialDisclosureOn
     ? null
     : f.brandedContent
-      ? "Your video will be labeled as 'Paid partnership' by TikTok. This cannot be changed once your video is posted."
+      ? `Your ${mediaWord} will be labeled as 'Paid partnership' by TikTok. This cannot be changed once your ${mediaWord} is posted.`
       : f.yourBrand
-        ? "Your video will be labeled as 'Promotional content' by TikTok. This cannot be changed once your video is posted."
-        : "Choose Your brand, Branded content, or both to continue.";
+        ? `Your ${mediaWord} will be labeled as 'Promotional content' by TikTok. This cannot be changed once your ${mediaWord} is posted.`
+        : 'Choose Your brand, Branded content, or both to continue.';
 
   return createPortal(
     <>
@@ -335,7 +342,9 @@ export function TikTokPublishModal({
           ) : f && activeId ? (
             <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-4 md:gap-6">
               <div className="rounded-xl overflow-hidden border border-neutral-200 bg-neutral-950 flex items-center justify-center min-h-[300px] md:min-h-[560px]">
-                {videoPreviewSrc ? (
+                {videoPreviewSrc && isPhotoPost ? (
+                  <img src={videoPreviewSrc} alt="" className="h-full w-full object-contain" />
+                ) : videoPreviewSrc ? (
                   <video
                     src={videoPreviewSrc}
                     poster={videoPosterSrc || undefined}
@@ -346,7 +355,7 @@ export function TikTokPublishModal({
                     preload="metadata"
                   />
                 ) : (
-                  <p className="text-xs text-neutral-400">No video preview</p>
+                  <p className="text-xs text-neutral-400">No media preview</p>
                 )}
               </div>
 
@@ -382,7 +391,7 @@ export function TikTokPublishModal({
                         onChange={(e) => updateForm(activeId, { title: e.target.value.slice(0, captionMax) })}
                         rows={3}
                         className="w-full rounded-lg border border-neutral-200 px-3 py-2 pr-14 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
-                        placeholder="Add a title that describes your video"
+                        placeholder={isPhotoPost ? 'Add a short title (up to 90 characters for TikTok photos)' : 'Add a title that describes your video'}
                       />
                       <span className="absolute right-3 bottom-2 text-[11px] text-neutral-500">
                         {captionLength}/{captionMax}
@@ -392,7 +401,9 @@ export function TikTokPublishModal({
                 ) : null}
 
                 <label className="block">
-                  <span className="text-sm font-semibold text-neutral-900">Who can view this video</span>
+                  <span className="text-sm font-semibold text-neutral-900">
+                    {isPhotoPost ? 'Who can view this post' : 'Who can view this video'}
+                  </span>
                   <select
                     value={f.privacyLevel}
                     onChange={(e) => {
