@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -108,7 +108,30 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const setSelectedPlatformForConnect = ctx?.setSelectedPlatformForConnect ?? (() => {});
   const initialFetchDone = useRef(false);
   const missingAvatarRefreshDone = useRef(false);
+  const refreshingAvatarIds = useRef<Set<string>>(new Set());
   const [brokenAvatarIds, setBrokenAvatarIds] = useState<Record<string, true>>({});
+
+  const refreshAvatar = useCallback(async (accountId: string, platform: string) => {
+    if (refreshingAvatarIds.current.has(accountId)) return;
+    if (platform !== 'INSTAGRAM' && platform !== 'FACEBOOK' && platform !== 'TIKTOK' && platform !== 'TWITTER') return;
+    refreshingAvatarIds.current.add(accountId);
+    try {
+      await api.patch(`/social/accounts/${accountId}/refresh`);
+      const refreshed = await api.get('/social/accounts');
+      const refreshedData = Array.isArray(refreshed.data) ? refreshed.data : [];
+      setCachedAccounts(refreshedData);
+      // Clear the broken flag so the fresh URL can be tried
+      setBrokenAvatarIds((prev) => {
+        const next = { ...prev };
+        delete next[accountId];
+        return next;
+      });
+    } catch {
+      // leave platform icon as fallback
+    } finally {
+      refreshingAvatarIds.current.delete(accountId);
+    }
+  }, [setCachedAccounts]);
   useEffect(() => {
     if (initialFetchDone.current) return;
     initialFetchDone.current = true;
@@ -286,7 +309,10 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                           src={acc.profilePicture}
                           alt=""
                           className="w-full h-full object-cover"
-                          onError={() => setBrokenAvatarIds((prev) => ({ ...prev, [acc.id]: true }))}
+                          onError={() => {
+                            setBrokenAvatarIds((prev) => ({ ...prev, [acc.id]: true }));
+                            void refreshAvatar(acc.id, platform);
+                          }}
                         />
                       ) : (
                         PLATFORM_ICON[platform] ?? <span className="font-bold text-xs text-neutral-500">?</span>

@@ -323,6 +323,10 @@ export default function DashboardPage() {
   /** True while manual sync runs but we already had posts — UI keeps tables/charts; button still shows activity. */
   const [postsSoftSyncing, setPostsSoftSyncing] = useState(false);
   const manualPostsSyncInFlightRef = useRef(false);
+  // Track the account for which the manual sync was started. If the user navigates
+  // to a different account while a sync is in flight, do NOT show "Syncing…" for
+  // the new account — just cancel the visual state for the old one.
+  const syncingForAccountIdRef = useRef<string | null>(null);
   const [postsSyncError, setPostsSyncError] = useState<string | null>(null);
   const [allPostsSyncError, setAllPostsSyncError] = useState<string | null>(null);
   const [syncAllTrigger, setSyncAllTrigger] = useState(0);
@@ -341,6 +345,16 @@ export default function DashboardPage() {
     if (stored) setDateRange(stored);
     dateRangeHydratedRef.current = true;
   }, [user?.id]);
+
+  // When the selected account changes, stop showing "Syncing…" for the previous account.
+  useEffect(() => {
+    if (!selectedAccount?.id) return;
+    if (syncingForAccountIdRef.current && syncingForAccountIdRef.current !== selectedAccount.id) {
+      setPostsSoftSyncing(false);
+      manualPostsSyncInFlightRef.current = false;
+      syncingForAccountIdRef.current = null;
+    }
+  }, [selectedAccount?.id]);
   const handleAnalyticsDateRangeChange = useCallback(
     (r: { start: string; end: string }) => {
       setDateRange(r);
@@ -1926,6 +1940,7 @@ export default function DashboardPage() {
               if (importedPostsLoading && prevForPlatform.length === 0) return;
               const useBlockingPostsLoader = prevForPlatform.length === 0;
               manualPostsSyncInFlightRef.current = true;
+              syncingForAccountIdRef.current = selectedAccount.id;
               if (useBlockingPostsLoader) setImportedPostsLoading(true);
               else setPostsSoftSyncing(true);
               try {
@@ -1983,6 +1998,7 @@ export default function DashboardPage() {
                 if (useBlockingPostsLoader) setImportedPostsLoading(false);
                 setPostsSoftSyncing(false);
                 manualPostsSyncInFlightRef.current = false;
+                syncingForAccountIdRef.current = null;
               }
             }}
             onReconnectFacebook={
