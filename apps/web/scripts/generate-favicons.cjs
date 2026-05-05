@@ -13,14 +13,33 @@ if (!fs.existsSync(svgPath)) {
 
 const svg = fs.readFileSync(svgPath);
 
-Promise.all([
-  sharp(svg).resize(48, 48).png().toFile(path.join(publicDir, "logo-48.png")),
-  sharp(svg).resize(192, 192).png().toFile(path.join(publicDir, "logo-192.png")),
-  sharp(svg).resize(48, 48).png().toFile(path.join(publicDir, "favicon-48.png")),
-  sharp(svg).resize(192, 192).png().toFile(path.join(publicDir, "favicon-192.png")),
-])
-  .then(() => console.log("Generated logo-48/192 and favicon PNGs from a4s-tab.svg"))
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  });
+const whiteBg = { background: { r: 255, g: 255, b: 255 } };
+
+/** Flatten transparency onto white so browser tabs and Google show a solid background. */
+function rasterize(svgBuffer, size, outPath) {
+  return sharp(svgBuffer)
+    .resize(size, size)
+    .flatten(whiteBg)
+    .png()
+    .toFile(outPath);
+}
+
+(async () => {
+  const { default: pngToIco } = await import("png-to-ico");
+
+  await Promise.all([
+    rasterize(svg, 48, path.join(publicDir, "logo-48.png")),
+    rasterize(svg, 192, path.join(publicDir, "logo-192.png")),
+    rasterize(svg, 48, path.join(publicDir, "favicon-48.png")),
+    rasterize(svg, 192, path.join(publicDir, "favicon-192.png")),
+  ]);
+
+  const faviconPng = await sharp(svg).resize(48, 48).flatten(whiteBg).png().toBuffer();
+  const icoBuffer = await pngToIco(faviconPng);
+  fs.writeFileSync(path.join(publicDir, "favicon.ico"), icoBuffer);
+
+  console.log("Generated logo-48/192, favicon PNGs, and favicon.ico from a4s-tab.svg");
+})().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
