@@ -3885,6 +3885,31 @@ export function FacebookAnalyticsView({
     });
   }, [postsInRangeForPostsTabUi]);
 
+  const resolveUploadedPostThumbnail = useCallback((post: FacebookPost): string | null => {
+    const direct = (post.thumbnailUrl ?? '').trim();
+    if (direct) return direct;
+    const meta =
+      post.platformMetadata && typeof post.platformMetadata === 'object' && !Array.isArray(post.platformMetadata)
+        ? (post.platformMetadata as Record<string, unknown>)
+        : null;
+    if (!meta) return null;
+    const candidates: string[] = [];
+    const pushIfUrl = (v: unknown) => {
+      if (typeof v !== 'string') return;
+      const s = v.trim();
+      if (!s) return;
+      if (s.startsWith('http://') || s.startsWith('https://')) candidates.push(s);
+    };
+    pushIfUrl(meta.thumbnailUrl);
+    pushIfUrl(meta.cover_image_url);
+    pushIfUrl(meta.coverImageUrl);
+    pushIfUrl(meta.poster_url);
+    pushIfUrl(meta.posterUrl);
+    pushIfUrl(meta.preview_image_url);
+    pushIfUrl(meta.previewImageUrl);
+    return candidates[0] ?? null;
+  }, []);
+
 type PostsUploadTooltipItem = {
   id: string;
   thumbnailUrl: string | null;
@@ -3926,7 +3951,7 @@ type PostsUploadDayTooltipAgg = {
         agg.views += r.views;
         agg.interactions += r.clicks;
         agg.reactions += r.reactionsTotal;
-        const u = (r.rawPost.thumbnailUrl ?? '').trim();
+        const u = resolveUploadedPostThumbnail(r.rawPost) ?? '';
         if (u && agg.thumbnails.length < 6 && !agg.thumbnails.includes(u)) agg.thumbnails.push(u);
         if (!agg.items.some((x) => x.id === r.id)) {
           agg.items.push({
@@ -3948,7 +3973,19 @@ type PostsUploadDayTooltipAgg = {
       apply(row[bucket]);
     }
     return map;
-  }, [isTikTok, postsRows]);
+  }, [isTikTok, postsRows, resolveUploadedPostThumbnail]);
+
+  const tiktokUploadedPreviewThumbnails = useMemo(() => {
+    if (!isTikTok) return [] as string[];
+    const out: string[] = [];
+    for (const p of postsInRangeForPostsTabUi) {
+      const t = resolveUploadedPostThumbnail(p);
+      if (!t) continue;
+      if (!out.includes(t)) out.push(t);
+      if (out.length >= 8) break;
+    }
+    return out;
+  }, [isTikTok, postsInRangeForPostsTabUi, resolveUploadedPostThumbnail]);
 
   const reelsRows = useMemo(() => {
     return postsRows
@@ -5807,6 +5844,20 @@ type PostsUploadDayTooltipAgg = {
             <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <h4 className="text-base font-semibold" style={{ color: COLOR.text }}>Uploaded posts</h4>
+                {isTikTok && tiktokUploadedPreviewThumbnails.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {tiktokUploadedPreviewThumbnails.map((url) => (
+                      <img
+                        key={url}
+                        src={url}
+                        alt=""
+                        className="h-10 w-10 rounded-md object-cover border"
+                        style={{ borderColor: COLOR.border }}
+                        {...pinterestCdnImgProps(url)}
+                      />
+                    ))}
+                  </div>
+                ) : null}
               </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {(
