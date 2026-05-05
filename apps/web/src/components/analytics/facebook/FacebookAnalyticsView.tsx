@@ -19,6 +19,7 @@ import {
   YAxis,
 } from 'recharts';
 import { ArrowRight, ChevronRight, ExternalLink, MessageSquare, RefreshCw, Sparkles, Star } from 'lucide-react';
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 import { AnalyticsDateRangePicker } from '../AnalyticsDateRangePicker';
 import { LinkedInCommunityApiJsonPanel } from '../LinkedInCommunityApiJsonPanel';
 import { AnalyticsLocalJsonPanel } from '../AnalyticsLocalJsonPanel';
@@ -4697,30 +4698,17 @@ type PostsUploadDayTooltipAgg = {
               </div>
             )}
             <div
-              className="h-11 w-11 rounded-full items-center justify-center text-base font-semibold"
-              style={{
-                background: '#eef2ff',
-                color: COLOR.violet,
-                display: headerAvatarUrl ? 'none' : 'flex',
-              }}
+              className="h-11 w-11 rounded-full items-center justify-center shrink-0 overflow-hidden"
+              style={{ display: headerAvatarUrl ? 'none' : 'flex' }}
             >
-              {(
-                profile?.name ||
-                resolvedUsername ||
-                (insights?.platform === 'PINTEREST'
-                  ? 'PI'
-                  : insights?.platform === 'INSTAGRAM'
-                    ? 'IG'
-                    : insights?.platform === 'YOUTUBE'
-                      ? 'YT'
-                      : insights?.platform === 'TIKTOK'
-                        ? 'TT'
-                        : insights?.platform === 'LINKEDIN'
-                          ? 'LI'
-                          : insights?.platform === 'TWITTER'
-                            ? 'X'
-                        : 'FB')
-              ).slice(0, 2).toUpperCase()}
+              {insights?.platform === 'INSTAGRAM' ? <InstagramIcon size={44} />
+                : insights?.platform === 'FACEBOOK' ? <FacebookIcon size={44} />
+                : insights?.platform === 'TIKTOK' ? <TikTokIcon size={44} />
+                : insights?.platform === 'YOUTUBE' ? <YoutubeIcon size={44} />
+                : insights?.platform === 'TWITTER' ? <XTwitterIcon size={44} className="text-neutral-800" />
+                : insights?.platform === 'LINKEDIN' ? <LinkedinIcon size={44} />
+                : insights?.platform === 'PINTEREST' ? <PinterestIcon size={44} />
+                : <FacebookIcon size={44} />}
             </div>
             <div className="flex items-center gap-3">
               <div className="min-w-0">
