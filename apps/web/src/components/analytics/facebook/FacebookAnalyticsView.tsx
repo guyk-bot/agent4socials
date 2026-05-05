@@ -1985,6 +1985,11 @@ export function resolvedPostPermalink(row: {
   if (plat === 'YOUTUBE' && pid) {
     return `https://www.youtube.com/watch?v=${pid}`;
   }
+  if (plat === 'PINTEREST' && pid) {
+    // Pin ids are sufficient to build a stable public URL even if permalinkUrl
+    // wasn't persisted for this imported row.
+    return `https://www.pinterest.com/pin/${encodeURIComponent(pid)}/`;
+  }
   if (plat === 'LINKEDIN' && pid) {
     return `https://www.linkedin.com/feed/update/${encodeURIComponent(pid)}`;
   }
