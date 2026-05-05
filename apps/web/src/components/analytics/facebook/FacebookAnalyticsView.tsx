@@ -2721,11 +2721,6 @@ export function FacebookAnalyticsView({
   const isTwitter = insights?.platform?.toUpperCase() === 'TWITTER';
 
   useEffect(() => {
-    if (!isTikTok) return;
-    setSelectedPostsUploadTypes((prev) => prev.filter((k) => k !== 'image'));
-  }, [isTikTok]);
-
-  useEffect(() => {
     if (!isFacebook && !isInstagram) return;
     setReelPreset((p) => (p === 'watch' ? 'performance' : p));
     setSelectedReelMetrics((prev) => {
@@ -2856,14 +2851,12 @@ export function FacebookAnalyticsView({
       }
       if (isCarouselAlbumMedia(p.mediaType)) {
         counts.carousel += 1;
-      } else if (isTikTok) {
-        counts.reels += 1;
       } else {
         counts.image += 1;
       }
     }
     return counts;
-  }, [isTikTok, postsInRangeForPostsTabUi]);
+  }, [postsInRangeForPostsTabUi]);
   const postsUploadChartPresets = useMemo(() => {
     if (isYouTube) {
       return [
@@ -2877,9 +2870,8 @@ export function FacebookAnalyticsView({
       { key: 'image' as const, label: 'Image', color: CONTENT_TYPE_COLOR.image },
       { key: 'carousel' as const, label: 'Carousel', color: CONTENT_TYPE_COLOR.carousel },
     ];
-    if (isTikTok) return base.filter((p) => p.key !== 'image');
     return base;
-  }, [isYouTube, isPinterest, isTikTok]);
+  }, [isYouTube, isPinterest]);
   const postsUploadByDay = useMemo(() => {
     const axis = buildDateAxis(dateRange.start, dateRange.end);
     const byDate = new Map<string, {
@@ -2903,11 +2895,10 @@ export function FacebookAnalyticsView({
         continue;
       }
       if (isCarouselAlbumMedia(p.mediaType)) row.carousel += 1;
-      else if (isTikTok) row.reels += 1;
       else row.image += 1;
     }
     return axis.map((d) => byDate.get(d)!);
-  }, [dateRange.end, dateRange.start, isTikTok, isYouTube, postsInRangeForPostsTabUi]);
+  }, [dateRange.end, dateRange.start, isYouTube, postsInRangeForPostsTabUi]);
 
   const postsUploadChartYMax = useMemo(() => {
     if (postsUploadByDay.length === 0) return 1;
@@ -2920,9 +2911,9 @@ export function FacebookAnalyticsView({
   }, [postsUploadByDay]);
 
   const postsUploadVisibleKeys = useMemo(() => {
-    const base = (isTikTok ? ['reels', 'carousel'] : ['reels', 'image', 'carousel']) as ContentTypeKey[];
+    const base = ['reels', 'image', 'carousel'] as ContentTypeKey[];
     return base.filter((k) => selectedPostsUploadTypes.includes(k));
-  }, [isTikTok, selectedPostsUploadTypes]);
+  }, [selectedPostsUploadTypes]);
   const tiktokViewsInRange = useMemo(
     () => postsInRange.reduce((s, p) => s + (p.impressions ?? bestPostPlayCount(p)), 0),
     [postsInRange]
@@ -5875,20 +5866,6 @@ type PostsUploadDayTooltipAgg = {
             <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <h4 className="text-base font-semibold" style={{ color: COLOR.text }}>Uploaded posts</h4>
-                {isTikTok && tiktokUploadedPreviewThumbnails.length > 0 ? (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {tiktokUploadedPreviewThumbnails.map((url) => (
-                      <img
-                        key={url}
-                        src={url}
-                        alt=""
-                        className="h-10 w-10 rounded-md object-cover border"
-                        style={{ borderColor: COLOR.border }}
-                        {...pinterestCdnImgProps(url)}
-                      />
-                    ))}
-                  </div>
-                ) : null}
               </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {(
