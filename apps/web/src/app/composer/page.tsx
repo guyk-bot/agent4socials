@@ -1750,10 +1750,14 @@ export default function ComposerPage() {
 
     const runComposerCommit = async (saveAsDraft: boolean) => {
         saveAsDraftRef.current = saveAsDraft;
+        const tiktokProcessingNotice = 'API Clients must clearly notify users that after they finish publishing their content, it may take a few minutes for the content to process and be visible on their profile.';
         if (platforms.length === 0) {
             setAlertMessage('Select at least one platform');
             return;
         }
+        const includesTikTokTarget = platforms.some((p) => p === 'TIKTOK');
+        const withTikTokProcessingNotice = (base: string) =>
+            includesTikTokTarget ? `${base}\n\n${tiktokProcessingNotice}` : base;
         const hasMedia =
             mediaList.length > 0 ||
             Object.values(mediaByPlatform).some((arr) => Array.isArray(arr) && arr.length > 0);
@@ -2050,7 +2054,7 @@ export default function ComposerPage() {
                         const results = publishRes.data?.results;
                         if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
                         if (results?.some((r) => !r.ok)) {
-                            setAlertMessage(buildPublishFailureAlert('updated', results));
+                            setAlertMessage(withTikTokProcessingNotice(buildPublishFailureAlert('updated', results)));
                             return;
                         }
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -2098,7 +2102,7 @@ export default function ComposerPage() {
                         const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : undefined;
                         const isTimeout = code === 'ECONNABORTED' || (typeof (err as Error)?.message === 'string' && (err as Error).message.includes('timeout'));
                         const msg = res?.data?.message ?? (status === 401 ? 'Session expired. Sign in again, then open the post from History and try Post now.' : isTimeout ? 'Publish is taking longer than usual (e.g. uploading media). Open the post from History and try Post now again; it may have already gone through.' : 'Publish failed. Open the post from History and try Post now again.');
-                        setAlertMessage(msg);
+                        setAlertMessage(withTikTokProcessingNotice(msg));
                         return;
                     }
                 }
@@ -2125,7 +2129,7 @@ export default function ComposerPage() {
                     const results = publishRes.data?.results;
                         if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
                     if (results?.some((r) => !r.ok)) {
-                            setAlertMessage(buildPublishFailureAlert('created', results));
+                            setAlertMessage(withTikTokProcessingNotice(buildPublishFailureAlert('created', results)));
                             return;
                         }
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -2165,12 +2169,12 @@ export default function ComposerPage() {
                         const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : undefined;
                         const isTimeout = code === 'ECONNABORTED' || (typeof (err as Error)?.message === 'string' && (err as Error).message.includes('timeout'));
                         const msg = res?.data?.message ?? (status === 401 ? 'Session expired. Sign in again, then open the post from History and try Post now.' : isTimeout ? 'Publish is taking longer than usual (e.g. uploading media). Open the post from History and try Post now again; it may have already gone through.' : 'Publish failed. Open the post from History and try Post now again.');
-                        setAlertMessage(msg);
+                        setAlertMessage(withTikTokProcessingNotice(msg));
                         return;
                     }
                 }
                 if (!postId && !scheduledAt) {
-                    setAlertMessage('Post was created but we could not publish it. Open it from History and try Post now.');
+                    setAlertMessage(withTikTokProcessingNotice('Post was created but we could not publish it. Open it from History and try Post now.'));
                     router.push('/posts');
                     void api
                         .get('/posts')
@@ -2216,7 +2220,7 @@ export default function ComposerPage() {
                 if (typeof window !== 'undefined') console.error('[Composer] Create post error (no response):', err);
             }
             if (msg === 'Failed to create post') msg += ' Open the browser console (F12 → Console) for details.';
-            setAlertMessage(msg);
+            setAlertMessage(withTikTokProcessingNotice(msg));
         } finally {
             saveAsDraftRef.current = false;
             setLoading(false);
