@@ -973,7 +973,13 @@ export default function ComposerPage() {
                     }
                 }
                 setEditPostAlreadyPosted(p.status === 'POSTED');
-                const plats = [...new Set((p.targets ?? []).map((t) => t.socialAccount?.platform ?? t.platform ?? '').filter(Boolean))];
+                const plats = [
+                    ...new Set(
+                        (p.targets ?? [])
+                            .map((t) => String(t.socialAccount?.platform ?? t.platform ?? '').toUpperCase())
+                            .filter(Boolean)
+                    ),
+                ];
                 setPlatforms(plats);
                 const cp = p.contentByPlatform && typeof p.contentByPlatform === 'object' ? p.contentByPlatform : {};
                 const hasPerPlatform = Object.keys(cp).some((k) => (cp[k] ?? '').trim());
@@ -1331,9 +1337,9 @@ export default function ComposerPage() {
     // disabled gray, so they look "off" while previews still map `platforms` and show ghost cards.
     useEffect(() => {
         if (!accountsFetched) return;
-        const allowed = new Set(accounts.map((a) => a.platform));
+        const allowed = new Set(accounts.map((a) => String(a.platform).toUpperCase()));
         setPlatforms((prev) => {
-            const next = prev.filter((p) => allowed.has(p));
+            const next = prev.map((p) => String(p).toUpperCase()).filter((p) => allowed.has(p));
             if (next.length === prev.length && next.every((p, i) => p === prev[i])) return prev;
             return next;
         });
@@ -1771,12 +1777,9 @@ export default function ComposerPage() {
             })
             .map((t) => t.socialAccountId);
         if (!saveAsDraft && tiktokAccountIdsNeedingUi.length > 0 && !skipTiktokGateRef.current) {
-            const complete = tiktokAccountIdsNeedingUi.every((id) => isTikTokDirectPostPayload(tiktokPublishByAccountId[id]));
-            if (!complete) {
-                setTiktokModalAccountIds(tiktokAccountIdsNeedingUi);
-                setTiktokPublishModalOpen(true);
-                return;
-            }
+            setTiktokModalAccountIds(tiktokAccountIdsNeedingUi);
+            setTiktokPublishModalOpen(true);
+            return;
         }
         skipTiktokGateRef.current = false;
 
