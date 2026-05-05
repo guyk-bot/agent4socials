@@ -1929,7 +1929,13 @@ export default function DashboardPage() {
               if (useBlockingPostsLoader) setImportedPostsLoading(true);
               else setPostsSoftSyncing(true);
               try {
-                const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1, force: 1 } });
+                // Sync only the currently selected account/platform.
+                await api.post(`/social/accounts/${selectedAccount.id}/sync`, {
+                  scope: 'full',
+                  syncType: 'manual',
+                  force: true,
+                });
+                const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { force: 1 } });
                 const list = res.data?.posts ?? [];
                 const syncErr = res.data?.syncError as string | undefined;
                 const aid = selectedAccount.id;

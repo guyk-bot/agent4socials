@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -108,6 +108,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const setSelectedPlatformForConnect = ctx?.setSelectedPlatformForConnect ?? (() => {});
   const initialFetchDone = useRef(false);
   const missingAvatarRefreshDone = useRef(false);
+  const [brokenAvatarIds, setBrokenAvatarIds] = useState<Record<string, true>>({});
   useEffect(() => {
     if (initialFetchDone.current) return;
     initialFetchDone.current = true;
@@ -279,9 +280,14 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium">{acc.username || PLATFORM_LABELS[platform]}</div>
                     </div>
-                    <div className={`w-8 h-8 flex items-center justify-center shrink-0 rounded-full overflow-hidden ${acc.profilePicture ? '' : 'bg-neutral-200'}`}>
-                      {acc.profilePicture ? (
-                        <img src={acc.profilePicture} alt="" className="w-full h-full object-cover" />
+                    <div className={`w-8 h-8 flex items-center justify-center shrink-0 rounded-full overflow-hidden ${acc.profilePicture && !brokenAvatarIds[acc.id] ? '' : 'bg-neutral-200'}`}>
+                      {acc.profilePicture && !brokenAvatarIds[acc.id] ? (
+                        <img
+                          src={acc.profilePicture}
+                          alt=""
+                          className="w-full h-full object-cover"
+                          onError={() => setBrokenAvatarIds((prev) => ({ ...prev, [acc.id]: true }))}
+                        />
                       ) : (
                         PLATFORM_ICON[platform] ?? <span className="font-bold text-xs text-neutral-500">?</span>
                       )}
