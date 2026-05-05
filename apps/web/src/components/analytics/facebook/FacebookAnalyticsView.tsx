@@ -62,6 +62,8 @@ export interface FacebookAnalyticsViewProps {
   accountUsername?: string | null;
   /** LinkedIn: used to load raw Community Management API debug JSON on the analytics page. */
   socialAccountId?: string | null;
+  /** Called when the header avatar image fails to load so the parent can refresh the URL. */
+  onAvatarError?: () => void;
 }
 
 type SectionId = (typeof FACEBOOK_ANALYTICS_SECTION_IDS)[keyof typeof FACEBOOK_ANALYTICS_SECTION_IDS];
@@ -2496,6 +2498,7 @@ export function FacebookAnalyticsView({
   accountAvatarUrl,
   accountUsername,
   socialAccountId = null,
+  onAvatarError,
 }: FacebookAnalyticsViewProps) {
   /**
    * Full analytics shell (Overview, Traffic, Posts, Reels, History): first insights fetch (hasApiInsightsFetched false), or Facebook Page waiting for Graph bundle.
@@ -2507,6 +2510,9 @@ export function FacebookAnalyticsView({
    */
   const accountSwitchKey = `${insights?.platform ?? ''}:${accountUsername ?? ''}`;
   const [skipOverviewSkeleton, setSkipOverviewSkeleton] = useState(false);
+  // Track avatar load failure so we use React state (not DOM mutations) to toggle visibility.
+  // Resets whenever headerAvatarUrl changes so a fresh URL always gets a fair try.
+  const [headerAvatarFailed, setHeaderAvatarFailed] = useState(false);
   useEffect(() => {
     setSkipOverviewSkeleton(false);
   }, [accountSwitchKey]);
@@ -2752,6 +2758,13 @@ export function FacebookAnalyticsView({
       : isLinkedIn && linkedInExtras?.profile?.picture
         ? linkedInExtras.profile.picture
         : accountAvatarUrl;
+
+  // Reset failed state whenever the URL changes so a fresh URL always gets a try.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setHeaderAvatarFailed(false); }, [headerAvatarUrl]);
+
+  // Whether to show the image: only when we have a URL AND it hasn't errored.
+  const showHeaderAvatar = Boolean(headerAvatarUrl) && !headerAvatarFailed;
 
   const profileUrl = useMemo(() => {
     const plat = insights?.platform?.toUpperCase();
@@ -4658,58 +4671,39 @@ type PostsUploadDayTooltipAgg = {
                 }
                 className="shrink-0"
               >
-                <div
-                  className="h-11 w-11 overflow-hidden rounded-full"
-                  style={{ display: headerAvatarUrl ? 'block' : 'none' }}
-                >
-                  {headerAvatarUrl ? (
+                {showHeaderAvatar && (
+                  <div className="h-11 w-11 overflow-hidden rounded-full">
                     <img
-                      src={headerAvatarUrl}
+                      src={headerAvatarUrl!}
                       alt={profile?.name ? `${profile.name} avatar` : 'Account avatar'}
                       className="h-full w-full object-cover"
-                      onError={(e) => {
-                        const wrap = e.currentTarget.parentElement as HTMLElement | null;
-                        if (wrap) wrap.style.display = 'none';
-                        const fallback = wrap?.parentElement?.nextElementSibling as HTMLElement | null;
-                        if (fallback) fallback.style.display = 'flex';
-                      }}
+                      onError={() => { setHeaderAvatarFailed(true); onAvatarError?.(); }}
                     />
-                  ) : null}
-                </div>
+                  </div>
+                )}
               </a>
-            ) : (
-              <div
-                className="h-11 w-11 shrink-0 overflow-hidden rounded-full"
-                style={{ display: headerAvatarUrl ? 'block' : 'none' }}
-              >
-                {headerAvatarUrl ? (
-                  <img
-                    src={headerAvatarUrl}
-                    alt={profile?.name ? `${profile.name} avatar` : 'Account avatar'}
-                    className="h-full w-full object-cover"
-                    onError={(e) => {
-                      const wrap = e.currentTarget.parentElement as HTMLElement | null;
-                      if (wrap) wrap.style.display = 'none';
-                      const fallback = wrap?.nextElementSibling as HTMLElement | null;
-                      if (fallback) fallback.style.display = 'flex';
-                    }}
-                  />
-                ) : null}
+            ) : showHeaderAvatar ? (
+              <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full">
+                <img
+                  src={headerAvatarUrl!}
+                  alt={profile?.name ? `${profile.name} avatar` : 'Account avatar'}
+                  className="h-full w-full object-cover"
+                  onError={() => { setHeaderAvatarFailed(true); onAvatarError?.(); }}
+                />
+              </div>
+            ) : null}
+            {!showHeaderAvatar && (
+              <div className="h-11 w-11 rounded-full items-center justify-center shrink-0 overflow-hidden flex">
+                {insights?.platform === 'INSTAGRAM' ? <InstagramIcon size={44} />
+                  : insights?.platform === 'FACEBOOK' ? <FacebookIcon size={44} />
+                  : insights?.platform === 'TIKTOK' ? <TikTokIcon size={44} />
+                  : insights?.platform === 'YOUTUBE' ? <YoutubeIcon size={44} />
+                  : insights?.platform === 'TWITTER' ? <XTwitterIcon size={44} className="text-neutral-800" />
+                  : insights?.platform === 'LINKEDIN' ? <LinkedinIcon size={44} />
+                  : insights?.platform === 'PINTEREST' ? <PinterestIcon size={44} />
+                  : <FacebookIcon size={44} />}
               </div>
             )}
-            <div
-              className="h-11 w-11 rounded-full items-center justify-center shrink-0 overflow-hidden"
-              style={{ display: headerAvatarUrl ? 'none' : 'flex' }}
-            >
-              {insights?.platform === 'INSTAGRAM' ? <InstagramIcon size={44} />
-                : insights?.platform === 'FACEBOOK' ? <FacebookIcon size={44} />
-                : insights?.platform === 'TIKTOK' ? <TikTokIcon size={44} />
-                : insights?.platform === 'YOUTUBE' ? <YoutubeIcon size={44} />
-                : insights?.platform === 'TWITTER' ? <XTwitterIcon size={44} className="text-neutral-800" />
-                : insights?.platform === 'LINKEDIN' ? <LinkedinIcon size={44} />
-                : insights?.platform === 'PINTEREST' ? <PinterestIcon size={44} />
-                : <FacebookIcon size={44} />}
-            </div>
             <div className="flex items-center gap-3">
               <div className="min-w-0">
                 <h1 className="text-xl font-semibold" style={{ color: COLOR.text }}>

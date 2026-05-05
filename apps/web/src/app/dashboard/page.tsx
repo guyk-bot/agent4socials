@@ -357,28 +357,30 @@ export default function DashboardPage() {
     }
   }, [selectedAccount?.id]);
 
-  // Ensure FB/IG header avatar uses a fresh URL in analytics (Meta picture URLs expire often).
-  // This runs once per selected account id to avoid repeated refresh calls while browsing tabs.
-  useEffect(() => {
+  // Platforms the /refresh endpoint supports (returns a fresh profilePicture URL).
+  const REFRESH_SUPPORTED_PLATFORMS = new Set(['FACEBOOK', 'INSTAGRAM', 'TWITTER', 'TIKTOK']);
+
+  // Called by FacebookAnalyticsView when the header avatar image fails to load.
+  // Triggers a background refresh to get a fresh URL, then updates the accounts cache
+  // so the component re-renders with the new src and gets another chance to show the image.
+  const handleAvatarError = useCallback(() => {
     if (!selectedAccount?.id) return;
-    if (selectedAccount.platform !== 'FACEBOOK' && selectedAccount.platform !== 'INSTAGRAM') return;
+    if (!REFRESH_SUPPORTED_PLATFORMS.has(selectedAccount.platform ?? '')) return;
     if (avatarRefreshDoneForAccountRef.current[selectedAccount.id]) return;
     avatarRefreshDoneForAccountRef.current[selectedAccount.id] = true;
-    let cancelled = false;
     void (async () => {
       try {
         await api.patch(`/social/accounts/${selectedAccount.id}/refresh`);
         const refreshed = await api.get('/social/accounts');
-        if (cancelled) return;
         const refreshedData = Array.isArray(refreshed.data) ? refreshed.data : [];
         setCachedAccounts(refreshedData);
+        // Allow a retry next time the avatar errors (in case the fresh URL also expires).
+        delete avatarRefreshDoneForAccountRef.current[selectedAccount.id];
       } catch {
-        // Keep current avatar/icon fallback when refresh fails.
+        // Keep current fallback icon when refresh fails.
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAccount?.id, selectedAccount?.platform, setCachedAccounts]);
   const handleAnalyticsDateRangeChange = useCallback(
     (r: { start: string; end: string }) => {
@@ -2045,6 +2047,7 @@ export default function DashboardPage() {
             accountUsername={selectedAccount.username ?? null}
             hasApiInsightsFetched={displayInsights != null}
             socialAccountId={selectedAccount.platform === 'LINKEDIN' ? selectedAccount.id : null}
+            onAvatarError={handleAvatarError}
           />
         </div>
       )}
