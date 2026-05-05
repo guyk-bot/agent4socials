@@ -327,6 +327,7 @@ export default function DashboardPage() {
   // to a different account while a sync is in flight, do NOT show "Syncing…" for
   // the new account — just cancel the visual state for the old one.
   const syncingForAccountIdRef = useRef<string | null>(null);
+  const avatarRefreshDoneForAccountRef = useRef<Record<string, true>>({});
   const [postsSyncError, setPostsSyncError] = useState<string | null>(null);
   const [allPostsSyncError, setAllPostsSyncError] = useState<string | null>(null);
   const [syncAllTrigger, setSyncAllTrigger] = useState(0);
@@ -355,6 +356,30 @@ export default function DashboardPage() {
       syncingForAccountIdRef.current = null;
     }
   }, [selectedAccount?.id]);
+
+  // Ensure FB/IG header avatar uses a fresh URL in analytics (Meta picture URLs expire often).
+  // This runs once per selected account id to avoid repeated refresh calls while browsing tabs.
+  useEffect(() => {
+    if (!selectedAccount?.id) return;
+    if (selectedAccount.platform !== 'FACEBOOK' && selectedAccount.platform !== 'INSTAGRAM') return;
+    if (avatarRefreshDoneForAccountRef.current[selectedAccount.id]) return;
+    avatarRefreshDoneForAccountRef.current[selectedAccount.id] = true;
+    let cancelled = false;
+    void (async () => {
+      try {
+        await api.patch(`/social/accounts/${selectedAccount.id}/refresh`);
+        const refreshed = await api.get('/social/accounts');
+        if (cancelled) return;
+        const refreshedData = Array.isArray(refreshed.data) ? refreshed.data : [];
+        setCachedAccounts(refreshedData);
+      } catch {
+        // Keep current avatar/icon fallback when refresh fails.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAccount?.id, selectedAccount?.platform, setCachedAccounts]);
   const handleAnalyticsDateRangeChange = useCallback(
     (r: { start: string; end: string }) => {
       setDateRange(r);
