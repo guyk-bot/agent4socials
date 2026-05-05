@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import api from '@/lib/api';
 import type { TikTokCreatorInfoData, TikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
 import { TIKTOK_MAX_VIDEO_DURATION_EXCEEDED_MESSAGE, TIKTOK_PRIVACY_LABELS } from '@/lib/tiktok/tiktok-publish-compliance';
-import { X, Loader2, ChevronDown } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
 
 export type TikTokModalAccount = { id: string; username?: string | null };
 
@@ -78,7 +78,6 @@ export function TikTokPublishModal({
   const [formById, setFormById] = useState<Record<string, FormState>>({});
   const [videoDurationSec, setVideoDurationSec] = useState<number | undefined>(undefined);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [showCaptionById, setShowCaptionById] = useState<Record<string, boolean>>({});
   const initializedAccountsKeyRef = useRef<string | null>(null);
 
   const activeAccount = accounts[activeIdx];
@@ -159,7 +158,6 @@ export function TikTokPublishModal({
     setCreatorById({});
     setCreatorErrorById({});
     setLoadingCreatorById({});
-    setShowCaptionById({});
     void Promise.all(accounts.map((a) => loadCreator(a.id)));
   }, [open, accountIdsKey, accounts, defaultCaption, initialByAccountId, loadCreator, captionMax]);
 
@@ -277,7 +275,6 @@ export function TikTokPublishModal({
     (activeAccount?.username && `@${activeAccount.username.replace(/^@/, '')}`) ||
     'this TikTok account';
   const captionLength = f?.title?.length ?? 0;
-  const showCaptionEditor = Boolean(activeId && showCaptionById[activeId]);
   const brandedRequiresNonPrivate = Boolean(f?.commercialDisclosureOn && f?.brandedContent);
   const disclosureSelectionCount = Number(Boolean(f?.yourBrand)) + Number(Boolean(f?.brandedContent));
   const disclosureNeedsSelection = Boolean(f?.commercialDisclosureOn && disclosureSelectionCount === 0);
@@ -376,11 +373,7 @@ export function TikTokPublishModal({
                     <span>Loading TikTok options...</span>
                   </div>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={() => activeId && setShowCaptionById((prev) => ({ ...prev, [activeId]: !prev[activeId] }))}
-                  className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 flex items-center justify-between hover:bg-orange-50 transition-colors"
-                >
+                <div className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0">
                     {creatorAvatarUrl ? (
                       <img src={creatorAvatarUrl} alt="" className="h-6 w-6 rounded-full object-cover border border-neutral-200" />
@@ -389,26 +382,23 @@ export function TikTokPublishModal({
                     )}
                     <span className="text-sm font-medium text-neutral-900 truncate">{creatorDisplayName}</span>
                   </div>
-                  <ChevronDown size={16} className={`text-neutral-500 transition-transform ${showCaptionEditor ? 'rotate-180' : ''}`} />
-                </button>
+                </div>
 
-                {showCaptionEditor ? (
-                  <label className="block">
-                    <span className="text-sm font-semibold text-neutral-900">Caption</span>
-                    <div className="relative mt-1">
-                      <textarea
-                        value={f.title}
-                        onChange={(e) => updateForm(activeId, { title: e.target.value.slice(0, captionMax) })}
-                        rows={3}
-                        className="w-full rounded-lg border border-neutral-200 px-3 py-2 pr-14 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
-                        placeholder={isPhotoPost ? 'Add a short title (up to 90 characters for TikTok photos)' : 'Add a title that describes your video'}
-                      />
-                      <span className="absolute right-3 bottom-2 text-[11px] text-neutral-500">
-                        {captionLength}/{captionMax}
-                      </span>
-                    </div>
-                  </label>
-                ) : null}
+                <label className="block">
+                  <span className="text-sm font-semibold text-neutral-900">Caption</span>
+                  <div className="relative mt-1">
+                    <textarea
+                      value={f.title}
+                      onChange={(e) => updateForm(activeId, { title: e.target.value.slice(0, captionMax) })}
+                      rows={3}
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 pr-14 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                      placeholder={isPhotoPost ? 'Add a short title (up to 90 characters for TikTok photos)' : 'Add a title that describes your video'}
+                    />
+                    <span className="absolute right-3 bottom-2 text-[11px] text-neutral-500">
+                      {captionLength}/{captionMax}
+                    </span>
+                  </div>
+                </label>
 
                 <label className="block">
                   <span className="text-sm font-semibold text-neutral-900">
