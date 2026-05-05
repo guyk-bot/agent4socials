@@ -35,6 +35,22 @@ export async function PATCH(
     if (account.platform === 'FACEBOOK') {
       const isPlaceholderId = account.platformUserId.startsWith('fb-');
       let pages: Array<{ id: string; name?: string; picture?: { data?: { url?: string } }; access_token?: string }> = [];
+      const hydrateFacebookPageById = async (pageId: string, tokenToUse: string) => {
+        try {
+          const pageRes = await axios.get<{ name?: string; picture?: { data?: { url?: string } } }>(
+            `${facebookGraphBaseUrl}/${pageId}`,
+            { params: { fields: 'name,picture.type(large)', access_token: tokenToUse } }
+          );
+          if (pageRes.data?.name) username = pageRes.data.name;
+          if (pageRes.data?.picture?.data?.url) profilePicture = pageRes.data.picture.data.url;
+        } catch (_) {
+          // keep existing values on Graph fetch errors
+        }
+        // Last-resort deterministic URL. Works for many page/profile ids even when Graph fields fail.
+        if (!profilePicture) {
+          profilePicture = `${facebookGraphBaseUrl}/${encodeURIComponent(pageId)}/picture?type=large`;
+        }
+      };
       try {
         const pagesRes = await axios.get<{ data?: typeof pages; error?: { message?: string; code?: number } }>(
           `${facebookGraphBaseUrl}/me/accounts`,
@@ -51,7 +67,22 @@ export async function PATCH(
           fbMsg.includes('Tried accessing nonexisting field (accounts)') ||
           fbMsg.includes('"code":100');
         if (unsupportedAccountsField) {
-          // Some tokens (page-scoped) cannot call /me/accounts. Keep existing account values without failing refresh.
+          // Some tokens (page-scoped) cannot call /me/accounts.
+          // Fall back to the currently connected page id and still refresh avatar/name.
+          if (!isPlaceholderId) {
+            platformUserId = account.platformUserId;
+            await hydrateFacebookPageById(account.platformUserId, token);
+            const data: { username?: string; profilePicture?: string; platformUserId?: string } = {};
+            if (username) data.username = username;
+            if (profilePicture !== undefined) data.profilePicture = profilePicture;
+            if (platformUserId) data.platformUserId = platformUserId;
+            if (Object.keys(data).length > 0) {
+              await prisma.socialAccount.update({
+                where: { id: account.id },
+                data,
+              });
+            }
+          }
           return NextResponse.json({ ok: true, warning: 'Facebook token cannot query /me/accounts for this connection.' });
         }
         console.warn('[Social accounts] Facebook me/accounts request failed:', err.response?.status, err.response?.data ?? (meErr as Error)?.message);
@@ -61,11 +92,16 @@ export async function PATCH(
         );
       }
       if (pages.length === 0) {
-        console.warn('[Social accounts] Facebook me/accounts returned no pages. User may need to reconnect and grant business_management.');
-        return NextResponse.json(
-          { message: 'Facebook returned no Pages. Reconnect Facebook and when asked, allow "Manage your business and its assets" so we can load your Page name and picture.' },
-          { status: 400 }
-        );
+        if (!isPlaceholderId) {
+          platformUserId = account.platformUserId;
+          await hydrateFacebookPageById(account.platformUserId, token);
+        } else {
+          console.warn('[Social accounts] Facebook me/accounts returned no pages and account has placeholder id.');
+          return NextResponse.json(
+            { message: 'Facebook returned no Pages. Reconnect Facebook and when asked, allow "Manage your business and its assets" so we can load your Page name and picture.' },
+            { status: 400 }
+          );
+        }
       }
       const page = isPlaceholderId ? pages[0] : (pages.find((p) => p.id === account.platformUserId) ?? pages[0]);
       if (page?.id) {
