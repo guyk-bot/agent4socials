@@ -154,7 +154,7 @@ export async function fetchYouTubeExtended(
   const headers = { Authorization: `Bearer ${accessToken}` };
 
   try {
-    const [viewsByCountryRes, viewsByAgeRes, viewsByGenderRes, viewsByAgeGenderRes, trafficRes, watchTimeRes, subsRes, dislikesRes] = await Promise.allSettled([
+    const [viewsByCountryRes, viewsByAgeRes, viewsByGenderRes, viewsByAgeGenderRes, trafficRes, watchTimeRes, subsRes, dislikesRes, sharesRes] = await Promise.allSettled([
       axios.get<{ rows?: Array<(string | number)[]>; error?: { message?: string } }>('https://youtubeanalytics.googleapis.com/v2/reports', {
         params: { ids: 'channel==MINE', startDate, endDate, metrics: 'views', dimensions: 'country', sort: '-views' },
         headers,
@@ -199,6 +199,12 @@ export async function fetchYouTubeExtended(
       }),
       axios.get<{ rows?: Array<(string | number)[]>; error?: { message?: string } }>('https://youtubeanalytics.googleapis.com/v2/reports', {
         params: { ids: 'channel==MINE', startDate, endDate, metrics: 'dislikes', dimensions: 'day', sort: 'day' },
+        headers,
+        timeout: 12_000,
+        validateStatus: () => true,
+      }),
+      axios.get<{ rows?: Array<(string | number)[]>; error?: { message?: string } }>('https://youtubeanalytics.googleapis.com/v2/reports', {
+        params: { ids: 'channel==MINE', startDate, endDate, metrics: 'shares', dimensions: 'day', sort: 'day' },
         headers,
         timeout: 12_000,
         validateStatus: () => true,
@@ -279,6 +285,13 @@ export async function fetchYouTubeExtended(
     const dislikesRows = getRows(dislikesRes, 'dislikes');
     if (dislikesRows.length) {
       extra.youtubeDislikesTimeSeries = dislikesRows.map((row) => ({
+        date: String(row[0] ?? '').slice(0, 10),
+        value: Math.max(0, Number(row[1] ?? 0)),
+      }));
+    }
+    const sharesRows = getRows(sharesRes, 'shares');
+    if (sharesRows.length) {
+      extra.youtubeSharesTimeSeries = sharesRows.map((row) => ({
         date: String(row[0] ?? '').slice(0, 10),
         value: Math.max(0, Number(row[1] ?? 0)),
       }));

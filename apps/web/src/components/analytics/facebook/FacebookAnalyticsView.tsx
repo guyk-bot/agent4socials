@@ -2972,6 +2972,26 @@ export function FacebookAnalyticsView({
     }
     return m;
   }, [isYouTube, insights?.extra?.youtubeDislikesTimeSeries]);
+  /** YouTube Analytics (extended=1): channel shares per calendar day. */
+  const youtubeSharesByDate = useMemo(() => {
+    if (!isYouTube) return {} as Record<string, number>;
+    const raw = insights?.extra?.youtubeSharesTimeSeries;
+    if (!Array.isArray(raw)) return {};
+    const m: Record<string, number> = {};
+    for (const pt of raw) {
+      if (!pt || typeof pt !== 'object') continue;
+      const o = pt as { date?: unknown; value?: unknown };
+      const d = typeof o.date === 'string' ? o.date.slice(0, 10) : '';
+      if (!d) continue;
+      const v = Number(o.value);
+      m[d] = (m[d] ?? 0) + (Number.isFinite(v) ? Math.max(0, v) : 0);
+    }
+    return m;
+  }, [isYouTube, insights?.extra?.youtubeSharesTimeSeries]);
+  const youtubeSharesTotal = useMemo(
+    () => (isYouTube ? Object.values(youtubeSharesByDate).reduce((s, v) => s + v, 0) : 0),
+    [isYouTube, youtubeSharesByDate]
+  );
   const dislikesTotal = useMemo(
     () => (isYouTube ? Object.values(youtubeDislikesByDate).reduce((s, v) => s + v, 0) : 0),
     [isYouTube, youtubeDislikesByDate]
@@ -4281,11 +4301,12 @@ type PostsUploadDayTooltipAgg = {
   }, [postsInRange, isTwitter, twitterRecentTweets]);
   const sharesTotal = useMemo(() => {
     const fromPosts = postsInRange.reduce((sum, post) => sum + bestShareCount(post), 0);
+    if (isYouTube) return Math.max(fromPosts, youtubeSharesTotal);
     if (isTwitter && twitterRecentTweets.length > 0) {
       return Math.max(fromPosts, twitterRecentTweets.reduce((s, t) => s + (t.retweet_count ?? 0) + (t.quote_count ?? 0), 0));
     }
     return fromPosts;
-  }, [postsInRange, isTwitter, twitterRecentTweets]);
+  }, [postsInRange, isYouTube, youtubeSharesTotal, isTwitter, twitterRecentTweets]);
   const repostsTotal = useMemo(() => {
     const fromPosts = postsInRange.reduce((sum, post) => sum + bestRepostCount(post), 0);
     if (isTwitter && twitterRecentTweets.length > 0) {
@@ -4310,6 +4331,11 @@ type PostsUploadDayTooltipAgg = {
       acc[d] = (acc[d] ?? 0) + bestShareCount(post);
       return acc;
     }, {});
+    if (isYouTube) {
+      for (const d of Object.keys(youtubeSharesByDate)) {
+        sharesByDate[d] = Math.max(sharesByDate[d] ?? 0, youtubeSharesByDate[d] ?? 0);
+      }
+    }
     const repostsByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
       const d = localCalendarDateFromIso(post.publishedAt);
       acc[d] = (acc[d] ?? 0) + bestRepostCount(post);
@@ -4345,7 +4371,7 @@ type PostsUploadDayTooltipAgg = {
       reposts: repostsByDate[date] ?? 0,
       dislikes: isYouTube ? (youtubeDislikesByDate[date] ?? 0) : 0,
     }));
-  }, [dateAxis, postsInRange, isTwitter, twitterRecentTweets, isYouTube, youtubeDislikesByDate]);
+  }, [dateAxis, postsInRange, isTwitter, twitterRecentTweets, isYouTube, youtubeDislikesByDate, youtubeSharesByDate]);
   const engagementTicks = useMemo(
     () =>
       buildKeyDateTicks(
