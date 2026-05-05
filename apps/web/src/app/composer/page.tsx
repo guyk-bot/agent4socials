@@ -2046,8 +2046,35 @@ export default function ComposerPage() {
                         if (debug) sessionStorage.removeItem('publish_debug');
                         const publishBody =
                             Object.keys(tiktokPublishByAccountId).length > 0 ? { tiktokPublishByAccountId } : {};
+                        const publishPath = `/posts/${editPostId}/publish${debug ? '?debug=1' : ''}`;
+                        if (includesTikTokTarget) {
+                            tiktokPostPublishFollowUpPostIdRef.current = editPostId;
+                            setTiktokPostPublishFollowUp({ open: true });
+                            void api
+                                .post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(
+                                    publishPath,
+                                    publishBody,
+                                    { timeout: 330_000 }
+                                )
+                                .then((publishRes) => {
+                                    const results = publishRes.data?.results;
+                                    if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
+                                    if (results?.some((r) => !r.ok)) {
+                                        setAlertMessage(withTikTokProcessingNotice(buildPublishFailureAlert('updated', results)));
+                                    }
+                                })
+                                .catch((err: unknown) => {
+                                    const res = err && typeof err === 'object' && 'response' in err ? (err as { response?: { status?: number; data?: { message?: string } } }).response : undefined;
+                                    const status = res?.status;
+                                    const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : undefined;
+                                    const isTimeout = code === 'ECONNABORTED' || (typeof (err as Error)?.message === 'string' && (err as Error).message.includes('timeout'));
+                                    const msg = res?.data?.message ?? (status === 401 ? 'Session expired. Sign in again, then open the post from History and try Post now.' : isTimeout ? 'Publish is taking longer than usual (e.g. uploading media). Open the post from History and try Post now again; it may have already gone through.' : 'Publish failed. Open the post from History and try Post now again.');
+                                    setAlertMessage(withTikTokProcessingNotice(msg));
+                                });
+                            return;
+                        }
                         const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(
-                            `/posts/${editPostId}/publish${debug ? '?debug=1' : ''}`,
+                            publishPath,
                             publishBody,
                             { timeout: 330_000 }
                         );
@@ -2059,16 +2086,9 @@ export default function ComposerPage() {
                         }
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const mediaSkipped = (results as any[])?.filter((r) => r.mediaSkipped).map((r) => r.platform as string);
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const inboxPlatforms = (results as any[])?.filter((r) => r.sentToInbox).map((r) => r.platform as string);
                         const detailLines: string[] = [];
                         if (mediaSkipped?.length) {
                             detailLines.push(`Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).`);
-                        }
-                        if (inboxPlatforms?.length) {
-                            detailLines.push(
-                                'TikTok: this may appear as Private first (unaudited app). Open the TikTok app, Profile, tap the post and set visibility to Public if you want it public.'
-                            );
                         }
                         const followDetail = detailLines.length > 0 ? detailLines.join('\n\n') : undefined;
                         const tiktokPublishedOk = results?.some((r) => String(r.platform).toUpperCase() === 'TIKTOK' && r.ok);
@@ -2086,7 +2106,6 @@ export default function ComposerPage() {
                         }
                         let msg = 'Post updated and published.';
                         if (mediaSkipped?.length) msg += ` Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).`;
-                        if (inboxPlatforms?.length) msg += ` TikTok: video posted as Private (TikTok restricts unaudited apps to private only). Open TikTok app, Profile, tap the video and set visibility to Public. After app approval, posts can go public automatically.`;
                         setAlertMessage(msg);
                         router.push(`/posts?published=1&highlight=${encodeURIComponent(editPostId)}`);
                         void api
@@ -2121,8 +2140,35 @@ export default function ComposerPage() {
                         if (debug) sessionStorage.removeItem('publish_debug');
                         const publishBodyCreate =
                             Object.keys(tiktokPublishByAccountId).length > 0 ? { tiktokPublishByAccountId } : {};
+                        const publishPathCreate = `/posts/${postId}/publish${debug ? '?debug=1' : ''}`;
+                        if (includesTikTokTarget) {
+                            tiktokPostPublishFollowUpPostIdRef.current = postId;
+                            setTiktokPostPublishFollowUp({ open: true });
+                            void api
+                                .post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(
+                                    publishPathCreate,
+                                    publishBodyCreate,
+                                    { timeout: 330_000 }
+                                )
+                                .then((publishRes) => {
+                                    const results = publishRes.data?.results;
+                                    if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
+                                    if (results?.some((r) => !r.ok)) {
+                                        setAlertMessage(withTikTokProcessingNotice(buildPublishFailureAlert('created', results)));
+                                    }
+                                })
+                                .catch((err: unknown) => {
+                                    const res = err && typeof err === 'object' && 'response' in err ? (err as { response?: { status?: number; data?: { message?: string } } }).response : undefined;
+                                    const status = res?.status;
+                                    const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : undefined;
+                                    const isTimeout = code === 'ECONNABORTED' || (typeof (err as Error)?.message === 'string' && (err as Error).message.includes('timeout'));
+                                    const msg = res?.data?.message ?? (status === 401 ? 'Session expired. Sign in again, then open the post from History and try Post now.' : isTimeout ? 'Publish is taking longer than usual (e.g. uploading media). Open the post from History and try Post now again; it may have already gone through.' : 'Publish failed. Open the post from History and try Post now again.');
+                                    setAlertMessage(withTikTokProcessingNotice(msg));
+                                });
+                            return;
+                        }
                         const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(
-                            `/posts/${postId}/publish${debug ? '?debug=1' : ''}`,
+                            publishPathCreate,
                             publishBodyCreate,
                             { timeout: 330_000 }
                         );
@@ -2134,16 +2180,9 @@ export default function ComposerPage() {
                         }
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         const mediaSkippedCreate = (results as any[])?.filter((r) => r.mediaSkipped).map((r) => r.platform as string);
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const inboxCreate = (results as any[])?.filter((r) => r.sentToInbox).map((r) => r.platform as string);
                         const createDetailLines: string[] = [];
                         if (mediaSkippedCreate?.length) {
                             createDetailLines.push(`Note: ${mediaSkippedCreate.join(', ')} posted as text only (image upload was not allowed).`);
-                        }
-                        if (inboxCreate?.length) {
-                            createDetailLines.push(
-                                'TikTok: this may appear as Private first (unaudited app). Open the TikTok app, Profile, tap the post and set visibility to Public if you want it public.'
-                            );
                         }
                         const createFollowDetail = createDetailLines.length > 0 ? createDetailLines.join('\n\n') : undefined;
                         const tiktokCreatePublishedOk = results?.some((r) => String(r.platform).toUpperCase() === 'TIKTOK' && r.ok);
@@ -2161,7 +2200,6 @@ export default function ComposerPage() {
                         }
                         let createMsg = 'Post published.';
                         if (mediaSkippedCreate?.length) createMsg += ` Note: ${mediaSkippedCreate.join(', ')} posted as text only (image upload was not allowed).`;
-                        if (inboxCreate?.length) createMsg += ` TikTok: video posted as Private (TikTok restricts unaudited apps to private only). Open TikTok app, Profile, tap the video and set visibility to Public. After app approval, posts can go public automatically.`;
                         setAlertMessage(createMsg);
                     } catch (err: unknown) {
                         const res = err && typeof err === 'object' && 'response' in err ? (err as { response?: { status?: number; data?: { message?: string } } }).response : undefined;
