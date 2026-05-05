@@ -2370,6 +2370,13 @@ export async function GET(
       const token = await getValidYoutubeToken(account);
       // Fetch channel-level totals (subscribers + total views)
       try {
+        const applyChannelStats = (channel?: { statistics?: { subscriberCount?: string; viewCount?: string; videoCount?: string } }) => {
+          if (!channel?.statistics) return;
+          const sub = channel.statistics.subscriberCount;
+          const views = channel.statistics.viewCount;
+          if (sub != null && sub !== '') out.followers = parseInt(sub, 10) || 0;
+          if (views != null && views !== '') out.impressionsTotal = parseInt(views, 10) || 0;
+        };
         const chRes = await axios.get<{
           items?: Array<{
             id: string;
@@ -2380,11 +2387,44 @@ export async function GET(
           headers: { Authorization: `Bearer ${token}` },
         });
         const channel = chRes.data?.items?.[0];
-        if (channel?.statistics) {
-          const sub = channel.statistics.subscriberCount;
-          const views = channel.statistics.viewCount;
-          if (sub != null && sub !== '') out.followers = parseInt(sub, 10) || 0;
-          if (views != null && views !== '') out.impressionsTotal = parseInt(views, 10) || 0;
+        applyChannelStats(channel);
+
+        // Fallback for connections where "mine=true" returns empty or partial stats:
+        // use the connected channel id and then username handle when available.
+        if ((out.followers === 0 || out.impressionsTotal === 0) && account.platformUserId?.trim()) {
+          try {
+            const byIdRes = await axios.get<{
+              items?: Array<{
+                id: string;
+                statistics?: { subscriberCount?: string; viewCount?: string; videoCount?: string };
+              }>;
+            }>('https://www.googleapis.com/youtube/v3/channels', {
+              params: { part: 'statistics', id: account.platformUserId.trim() },
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            applyChannelStats(byIdRes.data?.items?.[0]);
+          } catch (_) {
+            // keep current values
+          }
+        }
+        if ((out.followers === 0 || out.impressionsTotal === 0) && account.username?.trim()) {
+          try {
+            const uname = account.username.trim().replace(/^@/, '');
+            if (uname) {
+              const byUserRes = await axios.get<{
+                items?: Array<{
+                  id: string;
+                  statistics?: { subscriberCount?: string; viewCount?: string; videoCount?: string };
+                }>;
+              }>('https://www.googleapis.com/youtube/v3/channels', {
+                params: { part: 'statistics', forUsername: uname },
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              applyChannelStats(byUserRes.data?.items?.[0]);
+            }
+          } catch (_) {
+            // keep current values
+          }
         }
       } catch (e) {
         console.warn('[Insights] YouTube channels:', (e as Error)?.message ?? e);
