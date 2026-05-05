@@ -107,31 +107,48 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const setSelectedAccount = ctx?.setSelectedAccount ?? (() => {});
   const setSelectedPlatformForConnect = ctx?.setSelectedPlatformForConnect ?? (() => {});
   const initialFetchDone = useRef(false);
+  const missingAvatarRefreshDone = useRef(false);
   useEffect(() => {
     if (initialFetchDone.current) return;
     initialFetchDone.current = true;
     let cancelled = false;
-    const fetchAccounts = (retry = false) => {
-      api.get('/social/accounts')
-        .then((res) => {
-          if (cancelled) return;
-          const data = Array.isArray(res.data) ? res.data : [];
-          setCachedAccounts(data);
-          setAccountsLoadError(null);
-        })
-        .catch((err: { response?: { status?: number }; message?: string }) => {
-          if (cancelled) return;
-          const status = err?.response?.status;
-          const msg = status === 401
-            ? 'Session may have expired. Sign out and sign in again.'
-            : status === 503
-              ? 'Database connection issue. If you use Supabase: use the Transaction pooler (port 6543), then redeploy.'
-              : 'Could not load accounts. Check your connection and refresh the page.';
-          setAccountsLoadError(msg);
-          if (!retry) setTimeout(() => fetchAccounts(true), 2500);
-        });
+    const fetchAccounts = async (retry = false) => {
+      try {
+        const res = await api.get('/social/accounts');
+        if (cancelled) return;
+        const data = Array.isArray(res.data) ? res.data : [];
+        setCachedAccounts(data);
+        setAccountsLoadError(null);
+
+        // Backfill missing IG/FB avatars once so sidebar logos do not stay blank.
+        if (!missingAvatarRefreshDone.current) {
+          missingAvatarRefreshDone.current = true;
+          const missingAvatarIds = data
+            .filter((a) => (a?.platform === 'INSTAGRAM' || a?.platform === 'FACEBOOK') && !a?.profilePicture)
+            .map((a) => a.id)
+            .filter((id): id is string => typeof id === 'string' && id.length > 0);
+          if (missingAvatarIds.length > 0) {
+            await Promise.allSettled(missingAvatarIds.map((id) => api.patch(`/social/accounts/${id}/refresh`)));
+            if (cancelled) return;
+            const refreshed = await api.get('/social/accounts');
+            if (cancelled) return;
+            const refreshedData = Array.isArray(refreshed.data) ? refreshed.data : [];
+            setCachedAccounts(refreshedData);
+          }
+        }
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const status = (err as { response?: { status?: number } })?.response?.status;
+        const msg = status === 401
+          ? 'Session may have expired. Sign out and sign in again.'
+          : status === 503
+            ? 'Database connection issue. If you use Supabase: use the Transaction pooler (port 6543), then redeploy.'
+            : 'Could not load accounts. Check your connection and refresh the page.';
+        setAccountsLoadError(msg);
+        if (!retry) setTimeout(() => { void fetchAccounts(true); }, 2500);
+      }
     };
-    fetchAccounts();
+    void fetchAccounts();
     return () => { cancelled = true; };
   }, [setCachedAccounts, setAccountsLoadError]);
 

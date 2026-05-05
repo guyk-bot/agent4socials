@@ -160,12 +160,21 @@ export function resolveUnifiedPeriod(params: {
 }
 
 function sumEngagement(p: {
+  interactions?: number | null;
   likeCount: number | null;
   commentsCount: number | null;
   sharesCount: number | null;
   repostsCount: number | null;
 }): number {
-  return (p.likeCount ?? 0) + (p.commentsCount ?? 0) + (p.sharesCount ?? 0) + (p.repostsCount ?? 0);
+  const detailed =
+    (p.likeCount ?? 0) +
+    (p.commentsCount ?? 0) +
+    (p.sharesCount ?? 0) +
+    (p.repostsCount ?? 0);
+  // Some platform sync paths only persist aggregate interactions.
+  // Use it as a fallback so engagement does not appear as zero.
+  const aggregate = p.interactions ?? 0;
+  return detailed > 0 ? detailed : Math.max(0, aggregate);
 }
 
 // ─── KPI Summary ─────────────────────────────────────────────────────────────
@@ -203,6 +212,7 @@ export async function getUnifiedKpiSummary(userId: string, period: UnifiedPeriod
       where: { socialAccount: { userId }, publishedAt: { gte: since, lte: until } },
       select: {
         impressions: true,
+        interactions: true,
         likeCount: true,
         commentsCount: true,
         sharesCount: true,
@@ -213,6 +223,7 @@ export async function getUnifiedKpiSummary(userId: string, period: UnifiedPeriod
       where: { socialAccount: { userId }, publishedAt: { gte: prevSince, lte: prevUntil } },
       select: {
         impressions: true,
+        interactions: true,
         likeCount: true,
         commentsCount: true,
         sharesCount: true,
@@ -387,6 +398,7 @@ export async function getUnifiedEngagementChartData(userId: string, period: Unif
       select: {
         publishedAt: true,
         platform: true,
+        interactions: true,
         likeCount: true,
         commentsCount: true,
         sharesCount: true,
@@ -433,6 +445,7 @@ export async function getUnifiedTopPosts(userId: string, period: UnifiedPeriod, 
       permalinkUrl: true,
       thumbnailUrl: true,
       impressions: true,
+      interactions: true,
       likeCount: true,
       commentsCount: true,
       sharesCount: true,
@@ -480,6 +493,7 @@ export async function getUnifiedPostsHistory(
       permalinkUrl: true,
       thumbnailUrl: true,
       impressions: true,
+      interactions: true,
       likeCount: true,
       commentsCount: true,
       sharesCount: true,
