@@ -459,7 +459,7 @@ export default function AccountPage() {
     setCreateBrandModalOpen(true);
   };
 
-  const handleCreateBrand = () => {
+  const handleCreateBrand = async () => {
     const trimmed = newBrandName.trim();
     if (!trimmed) return;
     const createdId = createBrand(trimmed, newBrandImageUrl);
@@ -467,13 +467,43 @@ export default function AccountPage() {
     if (newBrandMembers.length > 0) {
       setTeamMembersByBrand((prev) => ({ ...prev, [createdId]: newBrandMembers }));
     }
+    setCreateBrandInviteSending(true);
+    setCreateBrandInviteError('');
+    setCreateBrandInviteFeedback('');
+    setCreateBrandInviteLink('');
+    try {
+      const inviteResults = await Promise.allSettled(
+        newBrandMembers
+          .filter((member) => member.email?.trim())
+          .map((member) =>
+            api.post('/brands/invite-friend', {
+              email: member.email.trim(),
+              friendName: member.name,
+              role: member.role,
+              brandName: trimmed,
+            })
+          )
+      );
+      const firstSuccess = inviteResults.find((r) => r.status === 'fulfilled') as PromiseFulfilledResult<{ data?: { inviteLink?: string } }> | undefined;
+      const failedCount = inviteResults.filter((r) => r.status === 'rejected').length;
+      if (firstSuccess?.value?.data?.inviteLink) {
+        setCreateBrandInviteLink(String(firstSuccess.value.data.inviteLink));
+      }
+      if (failedCount > 0) {
+        setCreateBrandInviteError(`${failedCount} invitation${failedCount > 1 ? 's' : ''} failed to send.`);
+      } else if (newBrandMembers.length > 0) {
+        setCreateBrandInviteFeedback('Invitations sent. If teammates cannot find them, ask them to check spam.');
+      }
+    } finally {
+      setCreateBrandInviteSending(false);
+    }
     clearSelection();
     setCreateBrandModalOpen(false);
     setNewBrandName('');
     router.push('/dashboard/console');
   };
 
-  const handleAddNewBrandMember = async () => {
+  const handleAddNewBrandMember = () => {
     const firstName = newBrandMemberFirstName.trim();
     const lastName = newBrandMemberLastName.trim();
     const name = `${firstName} ${lastName}`.trim();
@@ -489,7 +519,6 @@ export default function AccountPage() {
     }
     setCreateBrandInviteFeedback('');
     setCreateBrandInviteError('');
-    setCreateBrandInviteLink('');
     const member: TeamMember = {
       id: `member-${Date.now().toString(36)}`,
       firstName,
@@ -500,23 +529,8 @@ export default function AccountPage() {
       imageUrl: null,
     };
     setNewBrandMembers((prev) => [...prev, member]);
-    setCreateBrandInviteSending(true);
-    try {
-      const response = await api.post('/brands/invite-friend', {
-        email,
-        friendName: name,
-        role: newBrandMemberRole,
-        brandName: newBrandName.trim() || 'New brand',
-      });
-      const generatedLink = String(response?.data?.inviteLink || '');
-      setCreateBrandInviteLink(generatedLink);
-      setCreateBrandInviteFeedback(`Invite sent to ${email}. If they cannot find it, ask them to check spam.`);
-    } catch (err) {
-      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setCreateBrandInviteError(message || 'Team member added, but invite email failed to send.');
-    } finally {
-      setCreateBrandInviteSending(false);
-    }
+    setCreateBrandInviteFeedback('Team member added. Invitations will be sent when you click Create brand.');
+    setCreateBrandInviteLink('');
     setNewBrandMemberFirstName('');
     setNewBrandMemberLastName('');
     setNewBrandMemberEmail('');
@@ -794,7 +808,7 @@ export default function AccountPage() {
             </button>
           </div>
           <p className="mt-2 text-[11px] text-neutral-500 leading-relaxed">
-            Invitations are sent from <span className="font-semibold">noreply@agent4social.com</span>. If they cannot find it, ask them to check spam.
+            Invitations will be sent from <span className="font-semibold">noreply@agent4social.com</span> after you click <span className="font-semibold">Create brand</span>. If they cannot find it, ask them to check spam.
           </p>
           {createBrandInviteLink ? (
             <p className="mt-1 text-[11px] text-neutral-500 leading-relaxed">
