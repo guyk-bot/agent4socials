@@ -243,12 +243,15 @@ function buildConsoleAxisTicks(series: Array<{ date: string }>, metricKeys: stri
   return Array.from(out).sort((a, b) => a.localeCompare(b));
 }
 
-/** Label: long month on the 1st; shorter label on other tick days (event days). */
+/** Label: month on the 1st, with year once at each new year boundary. */
 function formatConsoleAxisTickLabel(ymd: string): string {
   const d = new Date(`${ymd}T12:00:00`);
   if (Number.isNaN(d.getTime())) return ymd;
   if (d.getDate() === 1) {
-    // Show month label only once per month across the axis.
+    // Show year once per year on January 1, keep other month starts concise.
+    if (d.getMonth() === 0) {
+      return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    }
     return d.toLocaleDateString('en-US', { month: 'long' });
   }
   // For non-month-start ticks, show only day number to avoid repeated month text.
