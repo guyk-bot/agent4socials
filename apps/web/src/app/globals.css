@@ -117,6 +117,16 @@
   color: var(--foreground);
 }
 
+/* Account page brand section contrast tuning (requested): darker frame, lighter cards in dark mode. */
+[data-theme='dark'] .brand-section-frame {
+  background: #0b0b0b !important;
+  border-color: #1f1f1f !important;
+}
+[data-theme='dark'] .brand-section-box {
+  background: #323232 !important;
+  border-color: #4b5563 !important;
+}
+
 .upgrade-badge-warm {
   color: #ff7a00;
 }
