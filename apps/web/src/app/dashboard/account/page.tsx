@@ -314,6 +314,14 @@ export default function AccountPage() {
   const userIdShort = userId.length >= 7 ? userId.slice(0, 7) : userId;
   const editingBrand = brands.find((b) => b.id === editingBrandId) ?? null;
   const editingMembers = editingBrand ? (teamMembersByBrand[editingBrand.id] ?? []) : [];
+  const activeBrandMembers = teamMembersByBrand[activeBrandId] ?? [];
+  const currentUserMemberRole = activeBrandMembers.find((m) => {
+    const memberEmail = (m.email || '').toLowerCase().trim();
+    const userEmail = (user?.email || '').toLowerCase().trim();
+    return memberEmail.length > 0 && memberEmail === userEmail;
+  })?.role;
+  // If user is owner/creator or the only user configured, default role to Admin.
+  const currentUserRoleLabel = currentUserMemberRole || 'Admin';
 
   const openCreateBrandModal = () => {
     setNewBrandName('');
@@ -597,32 +605,32 @@ export default function AccountPage() {
               ))
             )}
           </div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto_auto]">
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             <input
               type="text"
               value={newBrandMemberFirstName}
               onChange={(e) => setNewBrandMemberFirstName(e.target.value)}
               placeholder="First name"
-              className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
+              className="min-w-0 flex-[1_1_160px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
             />
             <input
               type="text"
               value={newBrandMemberLastName}
               onChange={(e) => setNewBrandMemberLastName(e.target.value)}
               placeholder="Last name"
-              className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
+              className="min-w-0 flex-[1_1_160px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
             />
             <input
               type="email"
               value={newBrandMemberEmail}
               onChange={(e) => setNewBrandMemberEmail(e.target.value)}
               placeholder="Email"
-              className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
+              className="min-w-0 flex-[1_1_180px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
             />
             <select
               value={newBrandMemberRole}
               onChange={(e) => setNewBrandMemberRole(e.target.value as TeamRole)}
-              className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-2 py-2 text-sm text-neutral-900"
+              className="flex-[0_1_120px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-2 py-2 text-sm text-neutral-900"
             >
               <option value="Admin">Admin</option>
               <option value="Editor">Editor</option>
@@ -632,7 +640,7 @@ export default function AccountPage() {
               type="button"
               onClick={handleAddNewBrandMember}
               disabled={!newBrandMemberFirstName.trim() || !newBrandMemberLastName.trim() || !newBrandMemberEmail.trim() || createBrandInviteSending}
-              className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+              className="flex-[0_0_auto] rounded-lg bg-neutral-900 px-3 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
             >
               {createBrandInviteSending ? 'Sending...' : 'Add friend'}
             </button>
@@ -821,32 +829,32 @@ export default function AccountPage() {
             )}
           </div>
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto_auto]">
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             <input
               type="text"
               value={newMemberFirstName}
               onChange={(e) => setNewMemberFirstName(e.target.value)}
               placeholder="First name"
-              className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
+              className="min-w-0 flex-[1_1_160px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
             />
             <input
               type="text"
               value={newMemberLastName}
               onChange={(e) => setNewMemberLastName(e.target.value)}
               placeholder="Last name"
-              className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
+              className="min-w-0 flex-[1_1_160px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
             />
             <input
               type="email"
               value={newMemberEmail}
               onChange={(e) => setNewMemberEmail(e.target.value)}
               placeholder="Email"
-              className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
+              className="min-w-0 flex-[1_1_180px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
             />
             <select
               value={newMemberRole}
               onChange={(e) => setNewMemberRole(e.target.value as TeamRole)}
-              className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-2 py-2 text-sm text-neutral-900"
+              className="flex-[0_1_120px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-2 py-2 text-sm text-neutral-900"
             >
               <option value="Admin">Admin</option>
               <option value="Editor">Editor</option>
@@ -856,7 +864,7 @@ export default function AccountPage() {
               type="button"
               onClick={handleAddTeamMember}
               disabled={!newMemberFirstName.trim() || !newMemberLastName.trim() || !newMemberEmail.trim() || inviteSending}
-              className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+              className="flex-[0_0_auto] rounded-lg bg-neutral-900 px-3 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
             >
               {inviteSending ? 'Sending...' : 'Add friend'}
             </button>
@@ -924,7 +932,12 @@ export default function AccountPage() {
               </span>
             </div>
             <div className="min-w-0 space-y-1">
-              <p className="font-semibold text-neutral-900 truncate">{user?.name || 'User'}</p>
+              <div className="flex items-center gap-2 min-w-0">
+                <p className="font-semibold text-neutral-900 truncate">{user?.name || 'User'}</p>
+                <span className="shrink-0 inline-flex items-center rounded-full border border-orange-300 bg-orange-100/90 px-2 py-0.5 text-[11px] font-semibold text-orange-700">
+                  {currentUserRoleLabel}
+                </span>
+              </div>
               <p className="text-sm text-neutral-500 truncate">{user?.email}</p>
               {userId ? (
                 <div className="flex flex-wrap items-center gap-1.5 pt-2 text-xs text-neutral-600">
