@@ -14,6 +14,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PlatformIcon, PLATFORM_ICON_MAP } from '@/components/SocialPlatformIcons';
 import { useAppData } from '@/context/AppDataContext';
+import { useTheme } from '@/context/ThemeContext';
 
 const STATUS_STYLE: Record<string, { bg: string; border: string; text: string; label: string }> = {
     SCHEDULED: { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-800', label: 'Pending' },
@@ -70,7 +71,8 @@ function toSafeImageSrc(url: string | null): string | null {
     return url;
 }
 
-function getPrimaryPlatformStyle(platforms: string[]) {
+function getPrimaryPlatformStyle(platforms: string[], isDark: boolean) {
+    if (isDark) return { bg: 'bg-neutral-900', border: 'border-neutral-700', text: 'text-neutral-100' };
     if (!platforms.length) return STATUS_STYLE.SCHEDULED;
     return PLATFORM_CARD_STYLE[platforms[0]] ?? STATUS_STYLE.SCHEDULED;
 }
@@ -111,6 +113,8 @@ const HOURS_END = 24;
 const CALENDAR_POSTS_CACHE_KEY = 'calendar_posts_cache_v1';
 
 export default function CalendarPage() {
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
     const searchParams = useSearchParams();
     const router = useRouter();
     const appData = useAppData();
@@ -347,12 +351,12 @@ export default function CalendarPage() {
                                             return (
                                                 <div
                                                     key={dayIndex}
-                                                    className="p-1 border-r border-gray-100 last:border-r-0 bg-white min-h-[52px] overflow-hidden"
+                                                    className={`p-1 border-r border-gray-100 last:border-r-0 min-h-[52px] overflow-hidden ${isDark ? 'bg-neutral-900' : 'bg-white'}`}
                                                 >
                                                     <div className="space-y-1 max-h-[152px] overflow-y-auto pr-0.5">
                                                         {slotPosts.map((p: any) => {
                                                             const platforms = getPostPlatforms(p);
-                                                            const style = getPrimaryPlatformStyle(platforms);
+                                                            const style = getPrimaryPlatformStyle(platforms, isDark);
                                                             const thumb = toSafeImageSrc(getPostThumbnail(p));
                                                             return (
                                                                 <Link
@@ -421,14 +425,14 @@ export default function CalendarPage() {
                     </div>
                     <div className="grid grid-cols-7">
                         {days.map((day, i) => (
-                            <div key={i} className={`min-h-[168px] border-b border-r border-gray-100 p-2 overflow-hidden ${day === null ? 'bg-gray-50' : 'bg-white'}`}>
+                            <div key={i} className={`min-h-[168px] border-b border-r border-gray-100 p-2 overflow-hidden ${day === null ? (isDark ? 'bg-neutral-900' : 'bg-gray-50') : (isDark ? 'bg-neutral-900' : 'bg-white')}`}>
                                 {day && (
                                     <>
                                         <span className="text-sm font-medium text-gray-400">{day}</span>
                                         <div className="mt-2 space-y-1.5 max-h-[140px] overflow-y-auto overflow-x-hidden pr-0.5">
                                             {getPostsForDay(day).map((p: any) => {
                                                 const platforms = getPostPlatforms(p);
-                                                const style = getPrimaryPlatformStyle(platforms);
+                                                const style = getPrimaryPlatformStyle(platforms, isDark);
                                                 const thumb = toSafeImageSrc(getPostThumbnail(p));
                                                 return (
                                                     <Link
