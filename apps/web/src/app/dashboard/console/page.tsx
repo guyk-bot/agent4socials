@@ -310,6 +310,18 @@ function chunkIntoPairs<T>(items: readonly T[]): Array<[T, T | undefined]> {
   return out;
 }
 
+function colorizeTooltipMetric(
+  valueText: string,
+  labelText: string,
+  entry?: { color?: string; stroke?: string; fill?: string }
+): [React.ReactNode, React.ReactNode] {
+  const metricColor = entry?.color || entry?.stroke || entry?.fill || COLOR.text;
+  return [
+    <span style={{ color: metricColor, fontWeight: 700 }}>{valueText}</span>,
+    <span style={{ color: metricColor }}>{labelText}</span>,
+  ];
+}
+
 type PlatformLiveFallback = {
   viewsSeries?: Array<{ date: string; value: number }>;
   engagementSeries?: Array<{ date: string; value: number }>;
@@ -636,7 +648,7 @@ function PlatformMixChart({
             contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
             labelFormatter={(v) => fmtTooltipDate(String(v))}
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            formatter={(value: any, name: any) => [valueFmt(Number(value) ?? 0), consolePlatformDisplayName(String(name ?? ''))]}
+            formatter={(value: any, name: any, entry: any) => colorizeTooltipMetric(valueFmt(Number(value) ?? 0), consolePlatformDisplayName(String(name ?? '')), entry)}
             cursor={{ fill: 'rgba(107,114,128,0.08)' }}
           />
           {activePlatforms.map((p) => {
@@ -683,7 +695,7 @@ function PlatformMixChart({
           contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
           labelFormatter={(v) => fmtTooltipDate(String(v))}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          formatter={(value: any, name: any) => [valueFmt(Number(value) ?? 0), name ?? '']}
+          formatter={(value: any, name: any, entry: any) => colorizeTooltipMetric(valueFmt(Number(value) ?? 0), String(name ?? ''), entry)}
         />
         {activePlatforms.map((p) => (
           <Line
@@ -1968,7 +1980,7 @@ export default function UnifiedSummaryPage() {
                       contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
                       labelFormatter={(v) => fmtTooltipDate(String(v))}
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      formatter={(value: any, name: any) => [fmtExactInt(Number(value) || 0), String(name ?? '')]}
+                      formatter={(value: any, name: any, entry: any) => colorizeTooltipMetric(fmtExactInt(Number(value) || 0), String(name ?? ''), entry)}
                     />
                     {selectedOverviewMetrics.includes('followers') && (
                       <Line type="monotone" dataKey="followers" name="Followers" stroke={COLOR.mint} strokeWidth={2} dot={false} isAnimationActive={false} />
@@ -2226,7 +2238,7 @@ export default function UnifiedSummaryPage() {
                       tickLine={false}
                     />
                     <Tooltip contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12 }} // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    formatter={(v: any, n: any) => [fmtExactInt(Number(v) || 0), consolePlatformDisplayName(String(n ?? ''))]} labelFormatter={(l) => fmtTooltipDate(String(l))} />
+                    formatter={(v: any, n: any, entry: any) => colorizeTooltipMetric(fmtExactInt(Number(v) || 0), consolePlatformDisplayName(String(n ?? '')), entry)} labelFormatter={(l) => fmtTooltipDate(String(l))} />
                     {postsEligiblePlatforms
                       .filter((p) => postsActivePlatforms.includes(p))
                       .map((p) => (
@@ -2278,12 +2290,13 @@ export default function UnifiedSummaryPage() {
                           </Pie>
                           <Tooltip
                             contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
-                            formatter={(value, name) => {
+                            formatter={(value, name, entry) => {
                               const v = Number(value) || 0;
-                              return [
+                              return colorizeTooltipMetric(
                                 `${fmtExactInt(v)} (${postsPresetPlatformPieTotal > 0 ? ((v / postsPresetPlatformPieTotal) * 100).toFixed(1) : 0}%)`,
                                 String(name ?? ''),
-                              ];
+                                entry as { color?: string; stroke?: string; fill?: string }
+                              );
                             }}
                           />
                         </PieChart>

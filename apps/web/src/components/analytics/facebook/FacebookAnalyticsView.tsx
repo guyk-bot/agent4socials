@@ -116,6 +116,18 @@ const COLOR = {
   coral: '#ff8b7b',
 };
 
+function colorizeTooltipMetric(
+  valueText: string,
+  labelText: string,
+  entry?: { color?: string; stroke?: string; fill?: string }
+): [React.ReactNode, React.ReactNode] {
+  const metricColor = entry?.color || entry?.stroke || entry?.fill || COLOR.text;
+  return [
+    <span style={{ color: metricColor, fontWeight: 700 }}>{valueText}</span>,
+    <span style={{ color: metricColor }}>{labelText}</span>,
+  ];
+}
+
 const CONTENT_TYPE_COLOR: Record<ContentTypeKey, string> = {
   reels: '#22d3ee',
   image: '#ec4899',
@@ -1639,8 +1651,13 @@ export function StackedTrafficChart({ data }: { data: Array<{ date: string; nonv
         <XAxis dataKey="date" ticks={trafficTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} minTickGap={18} axisLine={false} tickLine={false} />
         <YAxis domain={[0, trafficYMax]} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
         <Tooltip
-          contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
-          formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n === 'nonviral' ? 'Non-viral' : 'Viral']}
+          contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
+          formatter={(v: number | string | undefined, n?: string, entry?: { color?: string; stroke?: string; fill?: string }) =>
+            colorizeTooltipMetric(
+              formatNumber(Number(v) || 0),
+              n === 'nonviral' ? 'Non-viral' : 'Viral',
+              entry
+            )}
           labelFormatter={(l) => formatShortDate(String(l))}
         />
         <Bar dataKey="nonviral" stackId="a" fill={COLOR.trafficNonviralCyan} shape={TRAFFIC_STACK_BAR_SHAPE} isAnimationActive={false} />
@@ -5318,8 +5335,8 @@ type PostsUploadDayTooltipAgg = {
                   />
                 ) : null}
                 <Tooltip
-                  contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
-                  formatter={(v: number | string | undefined, n?: string) => {
+                  contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
+                  formatter={(v: number | string | undefined, n?: string, entry?: { color?: string; stroke?: string; fill?: string }) => {
                     const key = n as StoryMetricKey | undefined;
                     const label =
                       isTikTok && key && key in TIKTOK_PERFORMANCE_LABELS
@@ -5333,7 +5350,7 @@ type PostsUploadDayTooltipAgg = {
                               : key && key in STORY_METRIC_CONFIG
                                 ? STORY_METRIC_CONFIG[key].label
                                 : String(n ?? '');
-                    return [formatNumber(Number(v) || 0), label];
+                    return colorizeTooltipMetric(formatNumber(Number(v) || 0), label, entry);
                   }}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
@@ -5512,19 +5529,21 @@ type PostsUploadDayTooltipAgg = {
                 <Tooltip
                   shared
                   cursor={{ fill: 'rgba(107,114,128,0.20)' }}
-                  contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
-                  formatter={(v: number | string | undefined, n?: string) => [
-                    formatNumber(Number(v) || 0),
-                    n === 'likes'
-                      ? 'Likes'
-                      : n === 'comments'
-                        ? 'Comments'
-                        : n === 'reposts'
-                          ? 'Reposts'
-                          : n === 'dislikes'
-                            ? 'Dislikes'
-                          : 'Shares',
-                  ]}
+                  contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
+                  formatter={(v: number | string | undefined, n?: string, entry?: { color?: string; stroke?: string; fill?: string }) =>
+                    colorizeTooltipMetric(
+                      formatNumber(Number(v) || 0),
+                      n === 'likes'
+                        ? 'Likes'
+                        : n === 'comments'
+                          ? 'Comments'
+                          : n === 'reposts'
+                            ? 'Reposts'
+                            : n === 'dislikes'
+                              ? 'Dislikes'
+                            : 'Shares',
+                      entry
+                    )}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
                 {selectedEngagementMetrics.includes('likes') ? (
@@ -5818,8 +5837,13 @@ type PostsUploadDayTooltipAgg = {
                   <XAxis dataKey="date" ticks={trafficTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
                   <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                   <Tooltip
-                    contentStyle={{ background: '#ffffff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
-                    formatter={(v: number | string | undefined, n?: string) => [formatNumber(Number(v) || 0), n && n in TRAFFIC_METRIC_CONFIG ? TRAFFIC_METRIC_CONFIG[n as TrafficMetricKey].label : String(n ?? '')]}
+                    contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
+                    formatter={(v: number | string | undefined, n?: string, entry?: { color?: string; stroke?: string; fill?: string }) =>
+                      colorizeTooltipMetric(
+                        formatNumber(Number(v) || 0),
+                        n && n in TRAFFIC_METRIC_CONFIG ? TRAFFIC_METRIC_CONFIG[n as TrafficMetricKey].label : String(n ?? ''),
+                        entry
+                      )}
                     labelFormatter={(l) => formatShortDate(String(l))}
                   />
                   {selectedTrafficMetrics.includes('postImpressions') ? <Bar dataKey="postImpressions" fill={COLOR.cyan} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} /> : null}
