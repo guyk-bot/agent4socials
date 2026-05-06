@@ -23,8 +23,15 @@ export async function PATCH(
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
   }
-  if (account.platform !== 'INSTAGRAM' && account.platform !== 'FACEBOOK' && account.platform !== 'TWITTER' && account.platform !== 'TIKTOK') {
-    return NextResponse.json({ message: 'Refresh supported for Instagram, Facebook, Twitter, and TikTok only' }, { status: 400 });
+  if (
+    account.platform !== 'INSTAGRAM' &&
+    account.platform !== 'FACEBOOK' &&
+    account.platform !== 'TWITTER' &&
+    account.platform !== 'TIKTOK' &&
+    account.platform !== 'YOUTUBE' &&
+    account.platform !== 'PINTEREST'
+  ) {
+    return NextResponse.json({ message: 'Refresh supported for Instagram, Facebook, Twitter, TikTok, YouTube, and Pinterest only' }, { status: 400 });
   }
   const token = account.accessToken;
   let username: string | undefined;
@@ -200,6 +207,32 @@ export async function PATCH(
           if (user?.avatar_large_url) profilePicture = user.avatar_large_url;
           else if (user?.avatar_url) profilePicture = user.avatar_url;
         }
+      } catch (_) {}
+    } else if (account.platform === 'YOUTUBE') {
+      try {
+        const chRes = await axios.get<{
+          items?: Array<{
+            id?: string;
+            snippet?: { title?: string; customUrl?: string; thumbnails?: { default?: { url?: string }; medium?: { url?: string } } };
+          }>;
+        }>('https://www.googleapis.com/youtube/v3/channels', {
+          params: { part: 'snippet', mine: 'true' },
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const ch = chRes.data?.items?.[0];
+        if (ch?.id) platformUserId = ch.id;
+        if (ch?.snippet?.title) username = ch.snippet.title;
+        profilePicture = ch?.snippet?.thumbnails?.medium?.url ?? ch?.snippet?.thumbnails?.default?.url ?? undefined;
+      } catch (_) {}
+    } else if (account.platform === 'PINTEREST') {
+      try {
+        const ua = await axios.get<{ username?: string; business_name?: string; profile_image?: string }>(
+          'https://api.pinterest.com/v5/user_account',
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (ua.data?.business_name) username = ua.data.business_name;
+        else if (ua.data?.username) username = ua.data.username;
+        if (ua.data?.profile_image) profilePicture = ua.data.profile_image;
       } catch (_) {}
     }
     const data: { username?: string; profilePicture?: string; platformUserId?: string } = {};

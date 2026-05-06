@@ -2008,6 +2008,16 @@ export default function DashboardPage() {
               if (useBlockingPostsLoader) setImportedPostsLoading(true);
               else setPostsSoftSyncing(true);
               try {
+                // Also refresh account identity (username/profilePicture) so avatar changes
+                // on the platform are picked up by a regular Sync click.
+                try {
+                  await api.patch(`/social/accounts/${selectedAccount.id}/refresh`);
+                  const refreshedAccounts = await api.get('/social/accounts');
+                  const refreshedData = Array.isArray(refreshedAccounts.data) ? refreshedAccounts.data : [];
+                  setCachedAccounts(refreshedData);
+                } catch {
+                  // Keep sync path working even if profile refresh fails.
+                }
                 // Sync only the currently selected account/platform.
                 await api.post(`/social/accounts/${selectedAccount.id}/sync`, {
                   scope: 'full',
@@ -2060,7 +2070,8 @@ export default function DashboardPage() {
                 setPostsSyncError(null);
               } finally {
                 if (useBlockingPostsLoader) setImportedPostsLoading(false);
-                setPostsSoftSyncing(false);
+                // Do not force-stop soft syncing here. Backend sync continues in background,
+                // and the sync-status poller will set this false when the job actually ends.
                 manualPostsSyncInFlightRef.current = false;
                 syncingForAccountIdRef.current = null;
               }
