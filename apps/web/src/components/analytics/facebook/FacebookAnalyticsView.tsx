@@ -4827,14 +4827,12 @@ type PostsUploadDayTooltipAgg = {
         <div className="mt-2">
           <StickySectionNav sections={sections} activeSection={activeSection} ariaLabel="Facebook analytics sections" />
         </div>
-        {(postsLoading || postsSyncActive) && !insightsLoading ? (
+        {(postsLoading || postsSyncActive) && !insightsLoading && posts.length === 0 ? (
           <p
             className={`mt-2.5 text-xs font-medium${posts.length === 0 ? ' animate-pulse' : ''}`}
             style={{ color: COLOR.textSecondary }}
           >
-            {posts.length > 0
-              ? 'Refreshing your post inventory in the background. Metrics and tables update as new data arrives — nothing is cleared while sync runs.'
-              : insights?.platform === 'PINTEREST'
+            {insights?.platform === 'PINTEREST'
                 ? 'Updating pins from Pinterest, tables will fill in as the sync completes.'
                 : insights?.platform === 'TIKTOK'
                   ? 'Syncing videos from TikTok, tables will fill in as the sync completes.'
