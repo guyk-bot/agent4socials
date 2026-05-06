@@ -488,6 +488,25 @@ progress {
   color: #1f2937;
 }
 
+/* Dark mode: chart hover popups should be dark grey, not white. */
+[data-theme='dark'] .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background-color: #2a2a2a !important;
+  border: 1px solid #3f3f46 !important;
+  color: #f4f4f5 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+[data-theme='dark'] .recharts-tooltip-wrapper .recharts-tooltip-label,
+[data-theme='dark'] .recharts-tooltip-wrapper .recharts-tooltip-item {
+  color: #e5e7eb !important;
+}
+[data-theme='dark'] .recharts-tooltip-wrapper [style*="#ffffff"],
+[data-theme='dark'] .recharts-tooltip-wrapper [style*="#fff"],
+[data-theme='dark'] .recharts-tooltip-wrapper [style*="rgb(255, 255, 255)"] {
+  background: #2a2a2a !important;
+  color: #f4f4f5 !important;
+  border-color: #3f3f46 !important;
+}
+
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
   font-weight: 600;
