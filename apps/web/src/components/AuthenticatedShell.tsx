@@ -7,6 +7,7 @@ import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
+import { useTheme } from '@/context/ThemeContext';
 
 /** Above in-page overlays (e.g. z-300 loaders); below portaled modals (8.5k+). */
 const CHROME_Z = 8000;
@@ -21,13 +22,18 @@ function AuthenticatedContent({
     children: React.ReactNode;
 }) {
     const { backgroundColor, primaryColor, textColor } = useWhiteLabel();
+    const { theme } = useTheme();
+    const usingDefaultWhiteLabelBg = !backgroundColor || backgroundColor.toLowerCase() === '#f5f5f5';
+    const usingDefaultWhiteLabelText = !textColor || textColor.toLowerCase() === '#171717';
+    const resolvedBackground = theme === 'dark' && usingDefaultWhiteLabelBg ? 'var(--background)' : (backgroundColor || 'var(--background)');
+    const resolvedText = theme === 'dark' && usingDefaultWhiteLabelText ? 'var(--foreground)' : (textColor || undefined);
 
     const chromeStyle: React.CSSProperties = {
-        color: textColor || undefined,
+        color: resolvedText,
         ['--wl-primary' as string]: primaryColor || undefined,
         ['--primary' as string]: primaryColor || undefined,
-        ['--wl-text' as string]: textColor || undefined,
-        ['--wl-sidebar-bg' as string]: backgroundColor || '#f5f5f5',
+        ['--wl-text' as string]: resolvedText,
+        ['--wl-sidebar-bg' as string]: resolvedBackground,
         pointerEvents: 'auto',
     };
 
@@ -35,12 +41,12 @@ function AuthenticatedContent({
         <div
             className="min-h-screen bg-neutral-100"
             style={{
-                backgroundColor: backgroundColor || 'var(--background)',
-                color: textColor || undefined,
+                backgroundColor: resolvedBackground,
+                color: resolvedText,
                 ['--wl-primary' as string]: primaryColor || undefined,
                 ['--primary' as string]: primaryColor || undefined,
-                ['--wl-text' as string]: textColor || undefined,
-                ['--wl-sidebar-bg' as string]: backgroundColor || '#f5f5f5',
+                ['--wl-text' as string]: resolvedText,
+                ['--wl-sidebar-bg' as string]: resolvedBackground,
             }}
         >
             {/* Main content: low stacking order so chrome can sit on top */}

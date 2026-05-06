@@ -22,6 +22,10 @@ import {
   ArrowRight,
   Plus,
   Image,
+  MoreHorizontal,
+  Users,
+  Shield,
+  PencilLine,
 } from 'lucide-react';
 
 const CONFIRM_TEXT = 'CONFIRM';
@@ -94,6 +98,7 @@ export default function AccountPage() {
     activeBrandId,
     setActiveBrandId,
     createBrand,
+    renameBrand,
     setBrandImage,
     allCachedAccounts,
     getAccountBrandId,
@@ -102,6 +107,7 @@ export default function AccountPage() {
     activeBrandId: '',
     setActiveBrandId: () => {},
     createBrand: () => '',
+    renameBrand: () => {},
     setBrandImage: () => {},
     allCachedAccounts: [],
     getAccountBrandId: () => 'brand-default',
@@ -116,8 +122,43 @@ export default function AccountPage() {
   const [mounted, setMounted] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [brandImageTargetId, setBrandImageTargetId] = useState<string | null>(null);
+  const [createBrandModalOpen, setCreateBrandModalOpen] = useState(false);
+  const [newBrandName, setNewBrandName] = useState('');
+  const [brandMenuOpenId, setBrandMenuOpenId] = useState<string | null>(null);
+  const [editBrandModalOpen, setEditBrandModalOpen] = useState(false);
+  const [editingBrandId, setEditingBrandId] = useState<string | null>(null);
+  const [editingBrandName, setEditingBrandName] = useState('');
+  const [teamMembersByBrand, setTeamMembersByBrand] = useState<Record<string, Array<{ id: string; name: string; email: string; role: 'Owner' | 'Admin' | 'Editor' | 'Viewer' }>>>({});
+  const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberEmail, setNewMemberEmail] = useState('');
+  const [newMemberRole, setNewMemberRole] = useState<'Owner' | 'Admin' | 'Editor' | 'Viewer'>('Editor');
 
   useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    if (!brandMenuOpenId) return;
+    const onDocClick = () => setBrandMenuOpenId(null);
+    document.addEventListener('click', onDocClick);
+    return () => document.removeEventListener('click', onDocClick);
+  }, [brandMenuOpenId]);
+  useEffect(() => {
+    if (!mounted || typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem('agent4socials_brand_team_members_v1');
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Record<string, Array<{ id: string; name: string; email: string; role: 'Owner' | 'Admin' | 'Editor' | 'Viewer' }>>;
+      if (parsed && typeof parsed === 'object') setTeamMembersByBrand(parsed);
+    } catch {
+      // Ignore bad local data
+    }
+  }, [mounted]);
+  useEffect(() => {
+    if (!mounted || typeof window === 'undefined') return;
+    try {
+      localStorage.setItem('agent4socials_brand_team_members_v1', JSON.stringify(teamMembersByBrand));
+    } catch {
+      // Ignore storage errors
+    }
+  }, [teamMembersByBrand, mounted]);
 
   const userId = user?.id ?? '';
   const copyUserId = () => {
@@ -240,6 +281,273 @@ export default function AccountPage() {
   );
 
   const userIdShort = userId.length >= 7 ? userId.slice(0, 7) : userId;
+  const editingBrand = brands.find((b) => b.id === editingBrandId) ?? null;
+  const editingMembers = editingBrand ? (teamMembersByBrand[editingBrand.id] ?? []) : [];
+
+  const openCreateBrandModal = () => {
+    setNewBrandName('');
+    setCreateBrandModalOpen(true);
+  };
+
+  const handleCreateBrand = () => {
+    const trimmed = newBrandName.trim();
+    if (!trimmed) return;
+    const createdId = createBrand(trimmed);
+    if (!createdId) return;
+    clearSelection();
+    setCreateBrandModalOpen(false);
+    setNewBrandName('');
+    router.push('/dashboard');
+  };
+
+  const openEditBrandModal = (brandId: string) => {
+    const brand = brands.find((b) => b.id === brandId);
+    if (!brand) return;
+    setEditingBrandId(brand.id);
+    setEditingBrandName(brand.name);
+    setEditBrandModalOpen(true);
+    setBrandMenuOpenId(null);
+  };
+
+  const handleSaveBrandSettings = () => {
+    if (!editingBrand) return;
+    renameBrand(editingBrand.id, editingBrandName);
+    setEditBrandModalOpen(false);
+  };
+
+  const handleAddTeamMember = () => {
+    if (!editingBrand) return;
+    const name = newMemberName.trim();
+    const email = newMemberEmail.trim();
+    if (!name || !email) return;
+    setTeamMembersByBrand((prev) => {
+      const existing = prev[editingBrand.id] ?? [];
+      return {
+        ...prev,
+        [editingBrand.id]: [
+          ...existing,
+          { id: `member-${Date.now().toString(36)}`, name, email, role: newMemberRole },
+        ],
+      };
+    });
+    setNewMemberName('');
+    setNewMemberEmail('');
+    setNewMemberRole('Editor');
+  };
+
+  const handleDeleteTeamMember = (memberId: string) => {
+    if (!editingBrand) return;
+    setTeamMembersByBrand((prev) => {
+      const existing = prev[editingBrand.id] ?? [];
+      return {
+        ...prev,
+        [editingBrand.id]: existing.filter((m) => m.id !== memberId),
+      };
+    });
+  };
+
+  const createBrandModal = createBrandModalOpen && mounted && createPortal(
+    <div
+      className="fixed inset-0 z-[320] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      onClick={() => setCreateBrandModalOpen(false)}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Create brand"
+    >
+      <div
+        className="relative w-full max-w-md rounded-2xl border border-neutral-200 bg-[var(--card-bg)] p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={() => setCreateBrandModalOpen(false)}
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800/70"
+          aria-label="Close"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        <h3 className="text-lg font-semibold text-neutral-900">Create brand</h3>
+        <p className="mt-1 text-sm text-neutral-500">Add a brand workspace to organize accounts and analytics.</p>
+        <div className="mt-4 space-y-2">
+          <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">Brand name</label>
+          <input
+            type="text"
+            value={newBrandName}
+            onChange={(e) => setNewBrandName(e.target.value)}
+            placeholder="Enter brand name"
+            className="w-full rounded-xl border border-neutral-300 bg-[var(--background)] px-3 py-2.5 text-sm text-neutral-900"
+            autoFocus
+          />
+        </div>
+        <div className="mt-6 flex gap-3">
+          <button
+            type="button"
+            onClick={() => setCreateBrandModalOpen(false)}
+            className="flex-1 rounded-xl border border-neutral-300 bg-[var(--background)] px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100/70"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleCreateBrand}
+            disabled={!newBrandName.trim()}
+            className="flex-1 rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+          >
+            Create brand
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+
+  const editBrandModal = editBrandModalOpen && editingBrand && mounted && createPortal(
+    <div
+      className="fixed inset-0 z-[320] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      onClick={() => setEditBrandModalOpen(false)}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Edit brand settings"
+    >
+      <div
+        className="relative w-full max-w-2xl rounded-2xl border border-neutral-200 bg-[var(--card-bg)] p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={() => setEditBrandModalOpen(false)}
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800/70"
+          aria-label="Close"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        <h3 className="text-lg font-semibold text-neutral-900">Edit brand</h3>
+        <p className="mt-1 text-sm text-neutral-500">Update brand details, image, and team roles.</p>
+
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">Brand name</label>
+            <input
+              type="text"
+              value={editingBrandName}
+              onChange={(e) => setEditingBrandName(e.target.value)}
+              className="w-full rounded-xl border border-neutral-300 bg-[var(--background)] px-3 py-2.5 text-sm text-neutral-900"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">Brand image</label>
+            <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-neutral-300 bg-[var(--background)] px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100/70">
+              <Image size={14} />
+              Upload image
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file || !editingBrand) return;
+                  setBrandImageTargetId(editingBrand.id);
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    if (typeof reader.result === 'string') setBrandImage(editingBrand.id, reader.result);
+                    setBrandImageTargetId(null);
+                  };
+                  reader.readAsDataURL(file);
+                  e.currentTarget.value = '';
+                }}
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-xl border border-neutral-200 bg-[var(--background)] p-4">
+          <div className="flex items-center gap-2">
+            <Users size={15} className="text-neutral-500" />
+            <h4 className="text-sm font-semibold text-neutral-900">Team members & roles</h4>
+          </div>
+          <div className="mt-3 space-y-2">
+            {editingMembers.length === 0 ? (
+              <p className="text-sm text-neutral-500">No team members yet.</p>
+            ) : (
+              editingMembers.map((member) => (
+                <div key={member.id} className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-[var(--card-bg)] px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-neutral-900">{member.name}</p>
+                    <p className="truncate text-xs text-neutral-500">{member.email}</p>
+                  </div>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-neutral-300 px-2 py-0.5 text-xs text-neutral-700">
+                    <Shield size={11} />
+                    {member.role}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteTeamMember(member.id)}
+                    className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto]">
+            <input
+              type="text"
+              value={newMemberName}
+              onChange={(e) => setNewMemberName(e.target.value)}
+              placeholder="Member name"
+              className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
+            />
+            <input
+              type="email"
+              value={newMemberEmail}
+              onChange={(e) => setNewMemberEmail(e.target.value)}
+              placeholder="Member email"
+              className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
+            />
+            <select
+              value={newMemberRole}
+              onChange={(e) => setNewMemberRole(e.target.value as 'Owner' | 'Admin' | 'Editor' | 'Viewer')}
+              className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-2 py-2 text-sm text-neutral-900"
+            >
+              <option value="Owner">Owner</option>
+              <option value="Admin">Admin</option>
+              <option value="Editor">Editor</option>
+              <option value="Viewer">Viewer</option>
+            </select>
+            <button
+              type="button"
+              onClick={handleAddTeamMember}
+              disabled={!newMemberName.trim() || !newMemberEmail.trim()}
+              className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+            >
+              Add
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-6 flex gap-3">
+          <button
+            type="button"
+            onClick={() => setEditBrandModalOpen(false)}
+            className="flex-1 rounded-xl border border-neutral-300 bg-[var(--background)] px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100/70"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSaveBrandSettings}
+            disabled={!editingBrandName.trim()}
+            className="flex-1 rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+          >
+            Save changes
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -301,25 +609,7 @@ export default function AccountPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-neutral-900 tracking-tight">Brands</h2>
-                <p className="text-xs sm:text-sm text-neutral-500">
-                  Add a new brand workspace. Each brand keeps its own connected accounts and analytics context.
-                </p>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const name = typeof window !== 'undefined' ? window.prompt('Brand name') : null;
-                  if (!name) return;
-                  const createdId = createBrand(name);
-                  if (!createdId) return;
-                  clearSelection();
-                  router.push('/dashboard');
-                }}
-                className="shrink-0 inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-              >
-                <Plus size={14} />
-                Add brand
-              </button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               {brands.map((brand) => {
@@ -342,7 +632,37 @@ export default function AccountPage() {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-neutral-900">{brand.name}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="truncate text-sm font-semibold text-neutral-900">{brand.name}</p>
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setBrandMenuOpenId((prev) => (prev === brand.id ? null : brand.id));
+                              }}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-500 hover:bg-neutral-100"
+                              aria-label="Brand actions"
+                            >
+                              <MoreHorizontal size={14} />
+                            </button>
+                            {brandMenuOpenId === brand.id ? (
+                              <div
+                                className="absolute right-0 top-8 z-20 min-w-36 rounded-lg border border-neutral-200 bg-white p-1.5 shadow-lg"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => openEditBrandModal(brand.id)}
+                                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-neutral-700 hover:bg-neutral-100"
+                                >
+                                  <PencilLine size={12} />
+                                  Edit
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
                         <p className="mt-0.5 text-xs text-neutral-500">{mappedCount} connected accounts</p>
                         <div className="mt-3 flex flex-wrap gap-2">
                           <button
@@ -358,29 +678,8 @@ export default function AccountPage() {
                                 : 'border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
                             }`}
                           >
-                            {isActive ? 'Current brand' : 'Open dashboard'}
+                            Open dashboard
                           </button>
-                          <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50">
-                            <Image size={12} />
-                            Brand image
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (!file) return;
-                                setBrandImageTargetId(brand.id);
-                                const reader = new FileReader();
-                                reader.onload = () => {
-                                  if (typeof reader.result === 'string') setBrandImage(brand.id, reader.result);
-                                  setBrandImageTargetId(null);
-                                };
-                                reader.readAsDataURL(file);
-                                e.currentTarget.value = '';
-                              }}
-                            />
-                          </label>
                           {brandImageTargetId === brand.id ? (
                             <span className="text-xs text-neutral-500">Uploading...</span>
                           ) : null}
@@ -390,6 +689,17 @@ export default function AccountPage() {
                   </div>
                 );
               })}
+              <button
+                type="button"
+                onClick={openCreateBrandModal}
+                className="rounded-xl border border-dashed border-neutral-300 bg-white p-3 sm:p-4 text-left hover:border-neutral-400 hover:bg-neutral-50 transition-colors"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-100 text-neutral-600">
+                  <Plus size={18} />
+                </div>
+                <p className="mt-3 text-sm font-semibold text-neutral-900">Add brand</p>
+                <p className="mt-0.5 text-xs text-neutral-500">Create another brand workspace.</p>
+              </button>
             </div>
           </div>
         </div>
@@ -544,6 +854,8 @@ export default function AccountPage() {
       </div>
 
       {cancelModal}
+      {createBrandModal}
+      {editBrandModal}
     </div>
   );
 }

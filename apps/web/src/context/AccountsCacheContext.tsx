@@ -94,6 +94,7 @@ type AccountsCacheContextType = {
   activeBrandId: string;
   setActiveBrandId: (id: string) => void;
   createBrand: (name: string, imageUrl?: string | null) => string;
+  renameBrand: (brandId: string, name: string) => void;
   setBrandImage: (brandId: string, imageUrl: string | null) => void;
   getAccountBrandId: (accountId: string) => string;
 };
@@ -189,6 +190,12 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
     setBrands((prev) => prev.map((b) => (b.id === brandId ? { ...b, imageUrl } : b)));
   }, []);
 
+  const renameBrand = useCallback((brandId: string, name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setBrands((prev) => prev.map((b) => (b.id === brandId ? { ...b, name: trimmed } : b)));
+  }, []);
+
   const getAccountBrandId = useCallback((accountId: string) => {
     return accountBrandMap[accountId] ?? DEFAULT_BRAND_ID;
   }, [accountBrandMap]);
@@ -204,6 +211,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       activeBrandId,
       setActiveBrandId,
       createBrand,
+      renameBrand,
       setBrandImage,
       getAccountBrandId,
     }),
@@ -217,6 +225,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       activeBrandId,
       setActiveBrandId,
       createBrand,
+      renameBrand,
       setBrandImage,
       getAccountBrandId,
     ]

@@ -75,13 +75,13 @@ import {
 // ─── Shared color tokens (identical to FacebookAnalyticsView COLOR) ───────────
 
 const COLOR = {
-  pageBg: '#f6f7fb',
-  section: '#ffffff',
-  card: '#ffffff',
-  border: 'rgba(17,24,39,0.06)',
-  text: '#111827',
-  textSecondary: '#667085',
-  textMuted: '#98a2b3',
+  pageBg: 'var(--background)',
+  section: 'var(--card-bg)',
+  card: 'var(--card-bg)',
+  border: 'var(--border)',
+  text: 'var(--foreground)',
+  textSecondary: 'var(--muted)',
+  textMuted: 'var(--muted)',
   violet: '#ff7a00',
   mint: '#31c48d',
   amber: '#f5b942',
@@ -544,7 +544,7 @@ function KpiCard({ label, value, growthPct, icon, accent, active, onClick }: {
           display: 'flex', alignItems: 'center', justifyContent: 'center', color: accent,
         }}>{icon}</div>
       </div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', lineHeight: 1.1, letterSpacing: '-0.02em' }}>{value}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: COLOR.text, lineHeight: 1.1, letterSpacing: '-0.02em' }}>{value}</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
         {noChange ? <Minus size={12} color="#94a3b8" /> : positive ? <TrendingUp size={12} color="#22c55e" /> : <TrendingDown size={12} color="#ef4444" />}
         <span style={{ fontSize: 11, fontWeight: 600, color: noChange ? '#94a3b8' : positive ? '#22c55e' : '#ef4444' }}>
@@ -631,7 +631,7 @@ function PlatformMixChart({
             width={56}
           />
           <Tooltip
-            contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
+            contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
             labelFormatter={(v) => fmtTooltipDate(String(v))}
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             formatter={(value: any, name: any) => [valueFmt(Number(value) ?? 0), consolePlatformDisplayName(String(name ?? ''))]}
@@ -678,7 +678,7 @@ function PlatformMixChart({
           width={56}
         />
         <Tooltip
-          contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
+          contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
           labelFormatter={(v) => fmtTooltipDate(String(v))}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           formatter={(value: any, name: any) => [valueFmt(Number(value) ?? 0), name ?? '']}
@@ -933,7 +933,7 @@ function ConsoleTopPostsHighlights({
                 <div className="relative isolate mt-1 shrink-0 pt-1" style={{ width: TH, height: TH }}>
                   <div
                     className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-xl border"
-                    style={{ borderColor: COLOR.border, background: '#f3f4f6' }}
+                    style={{ borderColor: COLOR.border, background: COLOR.pageBg }}
                   >
                     <FileText size={22} style={{ color: COLOR.textMuted }} />
                   </div>
@@ -947,7 +947,7 @@ function ConsoleTopPostsHighlights({
                 <div className="relative isolate mt-1 shrink-0 pt-1" style={{ width: TH, height: TH }}>
                   <div
                     className="absolute inset-0 overflow-hidden rounded-xl border"
-                    style={{ borderColor: COLOR.border, background: '#f3f4f6' }}
+                    style={{ borderColor: COLOR.border, background: COLOR.pageBg }}
                   >
                     {r.thumbnailUrl ? (
                       <img src={r.thumbnailUrl} alt="" className="h-full w-full object-cover" />
@@ -1140,7 +1140,7 @@ function HistoryTable({ rows }: { rows: UnifiedHistoryPost[] }) {
                       {row.url && <a href={row.url} target="_blank" rel="noopener noreferrer"><ExternalLink size={11} color={COLOR.textMuted} /></a>}
                     </span>
                   </td>
-                  <td className="py-2.5 px-3"><span className="inline-flex items-center gap-1 text-[11px] rounded-md px-1.5 py-0.5" style={{ background: '#f1f5f9', color: COLOR.textSecondary }}>{MEDIA_ICON[row.mediaType ?? ''] ?? <FileText size={12} />}{row.mediaType ?? 'Post'}</span></td>
+                  <td className="py-2.5 px-3"><span className="inline-flex items-center gap-1 text-[11px] rounded-md px-1.5 py-0.5" style={{ background: COLOR.pageBg, color: COLOR.textSecondary }}>{MEDIA_ICON[row.mediaType ?? ''] ?? <FileText size={12} />}{row.mediaType ?? 'Post'}</span></td>
                   <td className="py-2.5 px-3 whitespace-nowrap text-xs" style={{ color: COLOR.textSecondary }}><span className="flex items-center gap-1"><Calendar size={11} />{fmtDate(row.postedAt)}</span></td>
                   {[row.impressions, row.likes, row.comments, row.shares, row.totalEngagement].map((v, i) => (
                     <td key={i} className="py-2.5 px-3 tabular-nums" style={{ color: COLOR.text, fontWeight: i === 4 ? 600 : 400 }}>{fmt(v)}</td>
@@ -1963,7 +1963,7 @@ export default function UnifiedSummaryPage() {
                       width={56}
                     />
                     <Tooltip
-                      contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
+                      contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
                       labelFormatter={(v) => fmtTooltipDate(String(v))}
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       formatter={(value: any, name: any) => [fmtExactInt(Number(value) || 0), String(name ?? '')]}
@@ -2002,7 +2002,7 @@ export default function UnifiedSummaryPage() {
                     <button key={mode} type="button" onClick={() => setPerformanceMode(mode)} aria-pressed={active}
                       className="rounded-lg px-3 py-1.5 text-sm"
                       style={{
-                        background: active ? 'linear-gradient(135deg, #ffffff 0%, #f8fafc 42%, #f1f5f9 100%)' : 'rgba(0,0,0,0)',
+                        background: active ? COLOR.card : 'rgba(0,0,0,0)',
                         color: active ? COLOR.text : COLOR.textSecondary,
                         border: `1px solid ${COLOR.border}`,
                         boxShadow: active ? '0 1px 2px rgba(15,23,42,0.06), 0 0 0 1px rgba(148,163,184,0.28)' : 'none',
@@ -2076,7 +2076,7 @@ export default function UnifiedSummaryPage() {
                           ))}
                         </Pie>
                         <Tooltip
-                          contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
+                          contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
                           formatter={(value, name) => {
                             const v = Number(value) || 0;
                             return [
@@ -2160,7 +2160,7 @@ export default function UnifiedSummaryPage() {
                       aria-pressed={active}
                       className="rounded-lg px-3 py-1.5 text-sm"
                       style={{
-                        background: active ? 'linear-gradient(135deg, #ffffff 0%, #f8fafc 42%, #f1f5f9 100%)' : 'rgba(0,0,0,0)',
+                        background: active ? COLOR.card : 'rgba(0,0,0,0)',
                         color: active ? COLOR.text : COLOR.textSecondary,
                         border: `1px solid ${COLOR.border}`,
                         boxShadow: active ? '0 1px 2px rgba(15,23,42,0.06), 0 0 0 1px rgba(148,163,184,0.28)' : 'none',
@@ -2223,7 +2223,7 @@ export default function UnifiedSummaryPage() {
                       axisLine={false}
                       tickLine={false}
                     />
-                    <Tooltip contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12 }} // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    <Tooltip contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12 }} // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     formatter={(v: any, n: any) => [fmtExactInt(Number(v) || 0), consolePlatformDisplayName(String(n ?? ''))]} labelFormatter={(l) => fmtTooltipDate(String(l))} />
                     {postsEligiblePlatforms
                       .filter((p) => postsActivePlatforms.includes(p))
@@ -2275,7 +2275,7 @@ export default function UnifiedSummaryPage() {
                             ))}
                           </Pie>
                           <Tooltip
-                            contentStyle={{ background: '#fff', border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
+                            contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12, fontSize: 12 }}
                             formatter={(value, name) => {
                               const v = Number(value) || 0;
                               return [
