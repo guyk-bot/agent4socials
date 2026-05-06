@@ -3,6 +3,7 @@
 import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Gem } from 'lucide-react';
 import { toLocalCalendarDate } from '@/lib/calendar-date';
+import { useTheme } from '@/context/ThemeContext';
 
 /** Presets; anything beyond 30 days is premium (diamond). highlight = default purple tint for paid periods. */
 const PRESETS = [
@@ -83,6 +84,7 @@ function CalendarGrid({
   compact = false,
   title,
   showMonthTitle = true,
+  isDark = false,
 }: {
   year: number;
   month: number;
@@ -93,6 +95,7 @@ function CalendarGrid({
   compact?: boolean;
   title?: string;
   showMonthTitle?: boolean;
+  isDark?: boolean;
 }) {
   const first = new Date(year, month, 1);
   const last = new Date(year, month + 1, 0);
@@ -140,13 +143,13 @@ function CalendarGrid({
   return (
     <div className="calendar-grid shrink-0 w-full min-w-[308px]">
       {showMonthTitle && (title || !compact) && (
-        <div className={`flex items-center justify-center font-semibold text-neutral-700 mb-2 ${compact ? 'text-xs' : 'text-base'}`}>
+        <div className={`flex items-center justify-center font-semibold mb-2 ${compact ? 'text-xs' : 'text-base'} ${isDark ? 'text-neutral-100' : 'text-neutral-700'}`}>
           {title ?? new Date(year, month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
         </div>
       )}
       <div className={`grid grid-cols-7 ${gapX} mb-1`}>
         {WEEKDAYS.map((w, i) => (
-          <div key={i} className={`${headerSize} flex items-center justify-center font-semibold text-neutral-500`}>
+          <div key={i} className={`${headerSize} flex items-center justify-center font-semibold ${isDark ? 'text-neutral-400' : 'text-neutral-500'}`}>
             {w}
           </div>
         ))}
@@ -166,11 +169,11 @@ function CalendarGrid({
               className={`
                 ${cellSize} rounded-lg font-semibold
                 flex items-center justify-center p-0 leading-none tabular-nums
-                ${!currentMonth ? 'text-neutral-300' : 'text-neutral-800'}
-                ${inRange && !startOrEnd ? 'bg-orange-100' : ''}
-                ${!inRange && !startOrEnd ? 'hover:bg-neutral-100' : ''}
+                ${!currentMonth ? (isDark ? 'text-neutral-600' : 'text-neutral-300') : (isDark ? 'text-neutral-100' : 'text-neutral-800')}
+                ${inRange && !startOrEnd ? (isDark ? 'bg-orange-900/35' : 'bg-orange-100') : ''}
+                ${!inRange && !startOrEnd ? (isDark ? 'hover:bg-neutral-800' : 'hover:bg-neutral-100') : ''}
                 ${startOrEnd ? 'bg-orange-600 text-white hover:bg-orange-700' : ''}
-                ${isToday && !startOrEnd ? 'ring-2 ring-orange-400 ring-offset-1' : ''}
+                ${isToday && !startOrEnd ? `ring-2 ring-orange-400 ${isDark ? 'ring-offset-0' : 'ring-offset-1'}` : ''}
               `}
             >
               {new Date(dateStr + 'T12:00:00').getDate()}
@@ -199,6 +202,8 @@ export function AnalyticsDateRangePicker({
   defaultOpen = false,
   className = '',
 }: AnalyticsDateRangePickerProps) {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [open, setOpen] = useState(defaultOpen);
   const containerRef = useRef<HTMLDivElement>(null);
   const now = useMemo(() => new Date(), []);
@@ -281,16 +286,22 @@ export function AnalyticsDateRangePicker({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm font-medium text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300 transition-colors min-w-0"
+        className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium transition-colors min-w-0 ${
+          isDark
+            ? 'bg-neutral-900 border-neutral-700 text-neutral-100 hover:bg-neutral-800 hover:border-neutral-600'
+            : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300'
+        }`}
       >
-        <Calendar size={16} className="text-neutral-500 shrink-0" />
+        <Calendar size={16} className={`shrink-0 ${isDark ? 'text-neutral-300' : 'text-neutral-500'}`} />
         <span className="truncate max-w-[220px]">{formatRange()}</span>
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 z-50 flex gap-8 p-6 bg-white border border-neutral-200 rounded-2xl shadow-xl min-w-[580px] max-w-[96vw] overflow-visible">
+        <div className={`absolute right-0 top-full mt-2 z-50 flex gap-8 p-6 border rounded-2xl shadow-xl min-w-[580px] max-w-[96vw] overflow-visible ${
+          isDark ? 'bg-neutral-900 border-neutral-700' : 'bg-white border-neutral-200'
+        }`}>
           <div className="min-w-[200px] w-56 shrink-0">
-            <p className="px-0 py-2 text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-3">Presets</p>
+            <p className={`px-0 py-2 text-sm font-semibold uppercase tracking-wider mb-3 ${isDark ? 'text-neutral-300' : 'text-neutral-500'}`}>Presets</p>
             <div className="space-y-1">
               {PRESETS.map((p) => (
                 <button
@@ -299,8 +310,8 @@ export function AnalyticsDateRangePicker({
                   onClick={() => handlePreset(p.id)}
                   className={`w-full text-left px-4 py-3 text-base font-medium rounded-lg transition-colors flex items-center justify-between gap-2 ${
                     p.highlight
-                      ? 'bg-orange-50 text-orange-800 hover:bg-orange-100 hover:text-orange-900'
-                      : 'text-neutral-800 hover:bg-neutral-100 hover:text-neutral-700'
+                      ? (isDark ? 'bg-orange-900/30 text-orange-200 hover:bg-orange-900/40 hover:text-orange-100' : 'bg-orange-50 text-orange-800 hover:bg-orange-100 hover:text-orange-900')
+                      : (isDark ? 'text-neutral-100 hover:bg-neutral-800 hover:text-neutral-100' : 'text-neutral-800 hover:bg-neutral-100 hover:text-neutral-700')
                   }`}
                 >
                   <span>{p.label}</span>
@@ -312,8 +323,8 @@ export function AnalyticsDateRangePicker({
             </div>
           </div>
 
-          <div className="border-l border-neutral-100 pl-6 flex-1 min-w-[360px] overflow-visible">
-            <p className="text-sm font-semibold text-neutral-500 uppercase tracking-wider mb-3">Custom range</p>
+          <div className={`border-l pl-6 flex-1 min-w-[360px] overflow-visible ${isDark ? 'border-neutral-700' : 'border-neutral-100'}`}>
+            <p className={`text-sm font-semibold uppercase tracking-wider mb-3 ${isDark ? 'text-neutral-300' : 'text-neutral-500'}`}>Custom range</p>
             <div className="flex items-center gap-3 flex-wrap mb-5">
               <input
                 type="date"
@@ -323,9 +334,11 @@ export function AnalyticsDateRangePicker({
                   setTempStart(v);
                   if (displayEnd && v <= displayEnd) onChange({ start: v, end: displayEnd });
                 }}
-                className="flex-1 min-w-[140px] text-base border border-neutral-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                className={`flex-1 min-w-[140px] text-base border rounded-xl px-4 py-3 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 ${
+                  isDark ? 'bg-neutral-950 border-neutral-700 text-neutral-100' : 'bg-white border-neutral-200 text-neutral-900'
+                }`}
               />
-              <span className="text-neutral-400 text-base">–</span>
+              <span className={`text-base ${isDark ? 'text-neutral-500' : 'text-neutral-400'}`}>-</span>
               <input
                 type="date"
                 value={displayEnd}
@@ -335,26 +348,30 @@ export function AnalyticsDateRangePicker({
                   setTempEnd(v);
                   if (displayStart && v >= displayStart) onChange({ start: displayStart, end: v });
                 }}
-                className="flex-1 min-w-[140px] text-base border border-neutral-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                className={`flex-1 min-w-[140px] text-base border rounded-xl px-4 py-3 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 ${
+                  isDark ? 'bg-neutral-950 border-neutral-700 text-neutral-100' : 'bg-white border-neutral-200 text-neutral-900'
+                }`}
               />
             </div>
-            <div className="border border-neutral-200 rounded-xl p-4 bg-neutral-50/50 min-h-0 flex flex-col w-full">
+            <div className={`border rounded-xl p-4 min-h-0 flex flex-col w-full ${
+              isDark ? 'border-neutral-700 bg-neutral-950/80' : 'border-neutral-200 bg-neutral-50/50'
+            }`}>
               <div className="flex items-center justify-between mb-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setCalendarMonth((m) => (m.month === 0 ? { year: m.year - 1, month: 11 } : { year: m.year, month: m.month - 1 }))}
-                  className="p-2.5 rounded-lg text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800"
+                  className={`p-2.5 rounded-lg ${isDark ? 'text-neutral-300 hover:bg-neutral-800 hover:text-neutral-100' : 'text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800'}`}
                   aria-label="Previous month"
                 >
                   <ChevronLeft size={24} />
                 </button>
-                <span className="text-lg font-semibold text-neutral-800">
+                <span className={`text-lg font-semibold ${isDark ? 'text-neutral-100' : 'text-neutral-800'}`}>
                   {new Date(calendarMonth.year, calendarMonth.month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
                 </span>
                 <button
                   type="button"
                   onClick={() => setCalendarMonth((m) => (m.month === 11 ? { year: m.year + 1, month: 0 } : { year: m.year, month: m.month + 1 }))}
-                  className="p-2.5 rounded-lg text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800"
+                  className={`p-2.5 rounded-lg ${isDark ? 'text-neutral-300 hover:bg-neutral-800 hover:text-neutral-100' : 'text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800'}`}
                   aria-label="Next month"
                 >
                   <ChevronRight size={24} />
@@ -369,9 +386,10 @@ export function AnalyticsDateRangePicker({
                   onSelectDay={handleCalendarDay}
                   today={todayStr}
                   showMonthTitle={false}
+                  isDark={isDark}
                 />
               </div>
-              <div className="flex items-center justify-between mt-4 pt-3 border-t border-neutral-200 shrink-0">
+              <div className={`flex items-center justify-between mt-4 pt-3 border-t shrink-0 ${isDark ? 'border-neutral-700' : 'border-neutral-200'}`}>
                 <button
                   type="button"
                   onClick={() => {
@@ -379,7 +397,7 @@ export function AnalyticsDateRangePicker({
                     setTempEnd(null);
                     setRangeSelectPhase('start');
                   }}
-                  className="text-sm font-medium text-neutral-500 hover:text-neutral-700"
+                  className={`text-sm font-medium ${isDark ? 'text-neutral-300 hover:text-neutral-100' : 'text-neutral-500 hover:text-neutral-700'}`}
                 >
                   Clear
                 </button>
