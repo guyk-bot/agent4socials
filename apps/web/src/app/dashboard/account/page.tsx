@@ -1264,6 +1264,7 @@ export default function AccountPage() {
               {brands.map((brand) => {
                 const isActive = brand.id === activeBrandId;
                 const mappedCount = allCachedAccounts.filter((a) => getAccountBrandId(a.id) === brand.id).length;
+                const memberCount = (teamMembersByBrand[brand.id] ?? []).length;
                 return (
                   <div
                     key={brand.id}
@@ -1321,6 +1322,7 @@ export default function AccountPage() {
                           </div>
                         </div>
                         <p className="mt-0.5 text-xs text-neutral-500">{mappedCount} connected accounts</p>
+                        <p className="mt-0.5 text-xs text-neutral-500">{memberCount} team members</p>
                         <div className="mt-3 flex flex-wrap gap-2">
                           <button
                             type="button"
@@ -1349,7 +1351,8 @@ export default function AccountPage() {
               <button
                 type="button"
                 onClick={openCreateBrandModal}
-                className="brand-section-box rounded-xl border border-neutral-200 p-3 sm:p-4 text-left hover:bg-neutral-50 transition-colors"
+                className="brand-section-box rounded-xl border border-neutral-200 bg-white p-3 sm:p-4 text-left shadow-sm hover:bg-neutral-50 transition-colors"
+                style={{ borderColor: 'rgba(15,23,42,0.12)' }}
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-100 text-neutral-600">
                   <Plus size={18} />
