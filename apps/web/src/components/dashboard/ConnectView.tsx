@@ -201,9 +201,9 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
   // ── INSTAGRAM (two options: IG-only vs Facebook) ──────────────────────────
   if (platform === 'INSTAGRAM') {
     return (
-      <div className="min-h-[calc(100vh-6rem)] flex items-start justify-center pt-16 sm:pt-20">
+      <div className="connect-view-scope min-h-[calc(100vh-6rem)] flex items-start justify-center pt-16 sm:pt-20">
         <div className="max-w-2xl mx-auto px-4 w-full">
-        <div className={`rounded-2xl border-2 p-6 sm:p-8 ${info.accentBorder} bg-gradient-to-b from-white to-pink-50/30 shadow-sm mb-6`}>
+        <div className={`connect-surface rounded-2xl border-2 p-6 sm:p-8 ${info.accentBorder} bg-gradient-to-b from-white to-pink-50/30 shadow-sm mb-6`}>
           <div className="text-center pt-2 pb-4">
             <div className="inline-flex mb-3">{info.headerIcon}</div>
             <h1 className="text-2xl font-bold text-neutral-900">Connect Instagram</h1>
@@ -225,7 +225,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
             type="button"
             onClick={() => onConnect('instagram', 'instagram')}
             disabled={connecting}
-            className={`text-left p-5 rounded-2xl border-2 ${info.accentBorder} ${info.accentHover} transition-all flex flex-col bg-white`}
+            className={`connect-option text-left p-5 rounded-2xl border-2 ${info.accentBorder} ${info.accentHover} transition-all flex flex-col bg-white`}
           >
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-neutral-400 bg-neutral-100 px-2 py-0.5 rounded-full uppercase tracking-wide">Limited</span>
@@ -246,7 +246,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
             type="button"
             onClick={() => onConnect('instagram')}
             disabled={connecting}
-            className="text-left p-5 rounded-2xl border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50/30 transition-all flex flex-col bg-white relative"
+            className="connect-option text-left p-5 rounded-2xl border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50/30 transition-all flex flex-col bg-white relative"
           >
             <div className="flex items-center justify-between mb-3">
               <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
@@ -274,9 +274,9 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
   // ── TIKTOK (two account type buttons) ─────────────────────────────────────
   if (platform === 'TIKTOK') {
     return (
-      <div className="min-h-[calc(100vh-6rem)] flex items-start justify-center pt-16 sm:pt-20">
+      <div className="connect-view-scope min-h-[calc(100vh-6rem)] flex items-start justify-center pt-16 sm:pt-20">
         <div className="max-w-lg mx-auto px-4 w-full">
-        <div className={`rounded-2xl border-2 p-6 sm:p-8 ${info.accentBorder} bg-gradient-to-b from-white to-neutral-100/80 shadow-sm`}>
+        <div className={`connect-surface rounded-2xl border-2 p-6 sm:p-8 ${info.accentBorder} bg-gradient-to-b from-white to-neutral-100/80 shadow-sm`}>
           <div className="text-center pt-2 pb-4">
             <div className="inline-flex mb-3">{info.headerIcon}</div>
             <h1 className="text-2xl font-bold text-neutral-900">Connect TikTok</h1>
@@ -316,9 +316,9 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
 
   // ── GENERIC (Facebook, YouTube, Twitter, LinkedIn) ────────────────────────
   return (
-    <div className="min-h-[calc(100vh-6rem)] flex items-start justify-center pt-16 sm:pt-20">
+    <div className="connect-view-scope min-h-[calc(100vh-6rem)] flex items-start justify-center pt-16 sm:pt-20">
       <div className="max-w-lg mx-auto px-4 w-full">
-      <div className={`rounded-2xl border-2 p-6 sm:p-8 ${info.accentBorder} bg-gradient-to-b from-white to-neutral-50/80 shadow-sm`}>
+      <div className={`connect-surface rounded-2xl border-2 p-6 sm:p-8 ${info.accentBorder} bg-gradient-to-b from-white to-neutral-50/80 shadow-sm`}>
         <div className="text-center pt-2 pb-4">
           <div className="inline-flex mb-3">{info.headerIcon}</div>
           <h1 className="text-2xl font-bold text-neutral-900">Connect {info.name}</h1>

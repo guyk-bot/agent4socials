@@ -156,10 +156,14 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
   const setCachedAccounts = useCallback((arg: React.SetStateAction<CachedAccount[]>) => {
     setAllCachedAccountsState((prev) => {
       const next = typeof arg === 'function' ? arg(prev) : arg;
+      const prevIds = new Set(prev.map((a) => a.id));
       setAccountBrandMap((prevMap) => {
         const map = { ...prevMap };
         for (const account of next) {
-          if (!map[account.id]) map[account.id] = activeBrandId || DEFAULT_BRAND_ID;
+          if (!map[account.id]) {
+            const isNewlyConnectedAccount = !prevIds.has(account.id);
+            map[account.id] = isNewlyConnectedAccount ? (activeBrandId || DEFAULT_BRAND_ID) : DEFAULT_BRAND_ID;
+          }
         }
         return map;
       });

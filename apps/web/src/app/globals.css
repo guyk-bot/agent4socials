@@ -143,6 +143,25 @@
   background-color: #111315 !important;
   border-color: #3f3f46 !important;
 }
+[data-theme='dark'] .connect-view-scope .connect-surface {
+  background: #1a1a1a !important;
+  border-color: #3f3f46 !important;
+}
+[data-theme='dark'] .connect-view-scope .connect-option {
+  background: #242424 !important;
+  border-color: #52525b !important;
+}
+[data-theme='dark'] .connect-view-scope .connect-option:hover {
+  background: #2b2b2b !important;
+}
+[data-theme='dark'] .connect-view-scope .text-neutral-900 {
+  color: #fafafa !important;
+}
+[data-theme='dark'] .connect-view-scope .text-neutral-600,
+[data-theme='dark'] .connect-view-scope .text-neutral-500,
+[data-theme='dark'] .connect-view-scope .text-neutral-400 {
+  color: #d4d4d8 !important;
+}
 
 .upgrade-badge-warm {
   color: #ff7a00;
