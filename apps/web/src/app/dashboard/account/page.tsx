@@ -92,11 +92,13 @@ const sharePlatforms = [
 ];
 
 export default function AccountPage() {
-  type TeamRole = 'Owner' | 'Admin' | 'Editor' | 'Viewer';
+  type TeamRole = 'Admin' | 'Editor' | 'Viewer';
   type TeamMember = {
     id: string;
+    firstName: string;
+    lastName: string;
     name: string;
-    email?: string;
+    email: string;
     role: TeamRole;
     imageUrl?: string | null;
   };
@@ -138,10 +140,10 @@ export default function AccountPage() {
   const [newBrandName, setNewBrandName] = useState('');
   const [newBrandImageUrl, setNewBrandImageUrl] = useState<string | null>(null);
   const [newBrandMembers, setNewBrandMembers] = useState<TeamMember[]>([]);
-  const [newBrandMemberName, setNewBrandMemberName] = useState('');
+  const [newBrandMemberFirstName, setNewBrandMemberFirstName] = useState('');
+  const [newBrandMemberLastName, setNewBrandMemberLastName] = useState('');
   const [newBrandMemberEmail, setNewBrandMemberEmail] = useState('');
   const [newBrandMemberRole, setNewBrandMemberRole] = useState<TeamRole>('Editor');
-  const [newBrandMemberImageUrl, setNewBrandMemberImageUrl] = useState<string | null>(null);
   const [createBrandInviteFeedback, setCreateBrandInviteFeedback] = useState('');
   const [createBrandInviteError, setCreateBrandInviteError] = useState('');
   const [createBrandInviteSending, setCreateBrandInviteSending] = useState(false);
@@ -154,10 +156,10 @@ export default function AccountPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleteBrandError, setDeleteBrandError] = useState('');
   const [teamMembersByBrand, setTeamMembersByBrand] = useState<Record<string, TeamMember[]>>({});
-  const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberFirstName, setNewMemberFirstName] = useState('');
+  const [newMemberLastName, setNewMemberLastName] = useState('');
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [newMemberRole, setNewMemberRole] = useState<TeamRole>('Editor');
-  const [newMemberImageUrl, setNewMemberImageUrl] = useState<string | null>(null);
   const [inviteFeedback, setInviteFeedback] = useState<string>('');
   const [inviteError, setInviteError] = useState<string>('');
   const [inviteSending, setInviteSending] = useState(false);
@@ -317,10 +319,10 @@ export default function AccountPage() {
     setNewBrandName('');
     setNewBrandImageUrl(null);
     setNewBrandMembers([]);
-    setNewBrandMemberName('');
+    setNewBrandMemberFirstName('');
+    setNewBrandMemberLastName('');
     setNewBrandMemberEmail('');
     setNewBrandMemberRole('Editor');
-    setNewBrandMemberImageUrl(null);
     setCreateBrandInviteFeedback('');
     setCreateBrandInviteError('');
     setCreateBrandModalOpen(true);
@@ -337,49 +339,54 @@ export default function AccountPage() {
     clearSelection();
     setCreateBrandModalOpen(false);
     setNewBrandName('');
-    router.push('/dashboard');
+    router.push('/dashboard/console');
   };
 
   const handleAddNewBrandMember = async () => {
-    const name = newBrandMemberName.trim();
+    const firstName = newBrandMemberFirstName.trim();
+    const lastName = newBrandMemberLastName.trim();
+    const name = `${firstName} ${lastName}`.trim();
     const email = newBrandMemberEmail.trim();
-    if (!name) return;
+    if (!firstName || !lastName || !email) {
+      setCreateBrandInviteError('First name, last name, and email are required.');
+      return;
+    }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (email && !emailRegex.test(email)) {
-      setCreateBrandInviteError('Enter a valid email or leave it empty.');
+    if (!emailRegex.test(email)) {
+      setCreateBrandInviteError('Enter a valid email.');
       return;
     }
     setCreateBrandInviteFeedback('');
     setCreateBrandInviteError('');
     const member: TeamMember = {
       id: `member-${Date.now().toString(36)}`,
+      firstName,
+      lastName,
       name,
-      email: email || undefined,
+      email,
       role: newBrandMemberRole,
-      imageUrl: newBrandMemberImageUrl || null,
+      imageUrl: null,
     };
     setNewBrandMembers((prev) => [...prev, member]);
-    if (email) {
-      setCreateBrandInviteSending(true);
-      try {
-        await api.post('/brands/invite-friend', {
-          email,
-          friendName: name,
-          role: newBrandMemberRole,
-          brandName: newBrandName.trim() || 'New brand',
-        });
-        setCreateBrandInviteFeedback(`Invite sent to ${email}.`);
-      } catch (err) {
-        const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-        setCreateBrandInviteError(message || 'Friend added, but invite email failed to send.');
-      } finally {
-        setCreateBrandInviteSending(false);
-      }
+    setCreateBrandInviteSending(true);
+    try {
+      await api.post('/brands/invite-friend', {
+        email,
+        friendName: name,
+        role: newBrandMemberRole,
+        brandName: newBrandName.trim() || 'New brand',
+      });
+      setCreateBrandInviteFeedback(`Invite sent to ${email}.`);
+    } catch (err) {
+      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setCreateBrandInviteError(message || 'Team member added, but invite email failed to send.');
+    } finally {
+      setCreateBrandInviteSending(false);
     }
-    setNewBrandMemberName('');
+    setNewBrandMemberFirstName('');
+    setNewBrandMemberLastName('');
     setNewBrandMemberEmail('');
     setNewBrandMemberRole('Editor');
-    setNewBrandMemberImageUrl(null);
   };
 
   const handleRemoveNewBrandMember = (memberId: string) => {
@@ -433,20 +440,27 @@ export default function AccountPage() {
     if (!editingBrand) return;
     setInviteFeedback('');
     setInviteError('');
-    const name = newMemberName.trim();
+    const firstName = newMemberFirstName.trim();
+    const lastName = newMemberLastName.trim();
+    const name = `${firstName} ${lastName}`.trim();
     const email = newMemberEmail.trim();
-    if (!name) return;
+    if (!firstName || !lastName || !email) {
+      setInviteError('First name, last name, and email are required.');
+      return;
+    }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (email && !emailRegex.test(email)) {
-      setInviteError('Enter a valid email or leave it empty.');
+    if (!emailRegex.test(email)) {
+      setInviteError('Enter a valid email.');
       return;
     }
     const friend: TeamMember = {
       id: `member-${Date.now().toString(36)}`,
+      firstName,
+      lastName,
       name,
-      email: email || undefined,
+      email,
       role: newMemberRole,
-      imageUrl: newMemberImageUrl || null,
+      imageUrl: null,
     };
     setTeamMembersByBrand((prev) => {
       const existing = prev[editingBrand.id] ?? [];
@@ -455,29 +469,25 @@ export default function AccountPage() {
         [editingBrand.id]: [...existing, friend],
       };
     });
-    if (email) {
-      setInviteSending(true);
-      try {
-        await api.post('/brands/invite-friend', {
-          email,
-          friendName: name,
-          role: newMemberRole,
-          brandName: editingBrand.name,
-        });
-        setInviteFeedback(`Invite sent to ${email}.`);
-      } catch (err) {
-        const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-        setInviteError(message || 'Friend added, but invite email failed to send.');
-      } finally {
-        setInviteSending(false);
-      }
-    } else {
-      setInviteFeedback('Friend added without email invite.');
+    setInviteSending(true);
+    try {
+      await api.post('/brands/invite-friend', {
+        email,
+        friendName: name,
+        role: newMemberRole,
+        brandName: editingBrand.name,
+      });
+      setInviteFeedback(`Invite sent to ${email}.`);
+    } catch (err) {
+      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setInviteError(message || 'Team member added, but invite email failed to send.');
+    } finally {
+      setInviteSending(false);
     }
-    setNewMemberName('');
+    setNewMemberFirstName('');
+    setNewMemberLastName('');
     setNewMemberEmail('');
     setNewMemberRole('Editor');
-    setNewMemberImageUrl(null);
   };
 
   const handleDeleteTeamMember = (memberId: string) => {
@@ -587,38 +597,26 @@ export default function AccountPage() {
               ))
             )}
           </div>
-          <div className="mt-4 grid gap-2 sm:grid-cols-[auto_1fr_1fr_auto_auto]">
-            <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100/70">
-              <Image size={14} />
-              {newBrandMemberImageUrl ? 'Change image' : 'Employee image'}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  const reader = new FileReader();
-                  reader.onload = () => {
-                    if (typeof reader.result === 'string') setNewBrandMemberImageUrl(reader.result);
-                  };
-                  reader.readAsDataURL(file);
-                  e.currentTarget.value = '';
-                }}
-              />
-            </label>
+          <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto_auto]">
             <input
               type="text"
-              value={newBrandMemberName}
-              onChange={(e) => setNewBrandMemberName(e.target.value)}
-              placeholder="Employee name"
+              value={newBrandMemberFirstName}
+              onChange={(e) => setNewBrandMemberFirstName(e.target.value)}
+              placeholder="First name"
+              className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
+            />
+            <input
+              type="text"
+              value={newBrandMemberLastName}
+              onChange={(e) => setNewBrandMemberLastName(e.target.value)}
+              placeholder="Last name"
               className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
             />
             <input
               type="email"
               value={newBrandMemberEmail}
               onChange={(e) => setNewBrandMemberEmail(e.target.value)}
-              placeholder="Email (optional)"
+              placeholder="Email"
               className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
             />
             <select
@@ -626,7 +624,6 @@ export default function AccountPage() {
               onChange={(e) => setNewBrandMemberRole(e.target.value as TeamRole)}
               className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-2 py-2 text-sm text-neutral-900"
             >
-              <option value="Owner">Owner</option>
               <option value="Admin">Admin</option>
               <option value="Editor">Editor</option>
               <option value="Viewer">Viewer</option>
@@ -634,10 +631,10 @@ export default function AccountPage() {
             <button
               type="button"
               onClick={handleAddNewBrandMember}
-              disabled={!newBrandMemberName.trim() || createBrandInviteSending}
+              disabled={!newBrandMemberFirstName.trim() || !newBrandMemberLastName.trim() || !newBrandMemberEmail.trim() || createBrandInviteSending}
               className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
             >
-              {createBrandInviteSending ? 'Sending...' : 'Add employee'}
+              {createBrandInviteSending ? 'Sending...' : 'Add friend'}
             </button>
           </div>
           {createBrandInviteFeedback ? <p className="mt-2 text-xs text-emerald-600">{createBrandInviteFeedback}</p> : null}
@@ -824,38 +821,26 @@ export default function AccountPage() {
             )}
           </div>
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-[auto_1fr_1fr_auto_auto]">
-            <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100/70">
-              <Image size={14} />
-              {newMemberImageUrl ? 'Change image' : 'Friend image'}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  const reader = new FileReader();
-                  reader.onload = () => {
-                    if (typeof reader.result === 'string') setNewMemberImageUrl(reader.result);
-                  };
-                  reader.readAsDataURL(file);
-                  e.currentTarget.value = '';
-                }}
-              />
-            </label>
+          <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto_auto]">
             <input
               type="text"
-              value={newMemberName}
-              onChange={(e) => setNewMemberName(e.target.value)}
-              placeholder="Friend name"
+              value={newMemberFirstName}
+              onChange={(e) => setNewMemberFirstName(e.target.value)}
+              placeholder="First name"
+              className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
+            />
+            <input
+              type="text"
+              value={newMemberLastName}
+              onChange={(e) => setNewMemberLastName(e.target.value)}
+              placeholder="Last name"
               className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
             />
             <input
               type="email"
               value={newMemberEmail}
               onChange={(e) => setNewMemberEmail(e.target.value)}
-              placeholder="Email (optional)"
+              placeholder="Email"
               className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
             />
             <select
@@ -863,7 +848,6 @@ export default function AccountPage() {
               onChange={(e) => setNewMemberRole(e.target.value as TeamRole)}
               className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-2 py-2 text-sm text-neutral-900"
             >
-              <option value="Owner">Owner</option>
               <option value="Admin">Admin</option>
               <option value="Editor">Editor</option>
               <option value="Viewer">Viewer</option>
@@ -871,7 +855,7 @@ export default function AccountPage() {
             <button
               type="button"
               onClick={handleAddTeamMember}
-              disabled={!newMemberName.trim() || inviteSending}
+              disabled={!newMemberFirstName.trim() || !newMemberLastName.trim() || !newMemberEmail.trim() || inviteSending}
               className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
             >
               {inviteSending ? 'Sending...' : 'Add friend'}
@@ -976,7 +960,7 @@ export default function AccountPage() {
                     style={{ borderColor: 'rgba(15,23,42,0.08)' }}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-neutral-100 flex items-center justify-center">
+                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-neutral-100 flex items-center justify-center">
                         {brand.imageUrl ? (
                           <img src={brand.imageUrl} alt="" className="h-full w-full object-cover" />
                         ) : (
@@ -1032,7 +1016,7 @@ export default function AccountPage() {
                             onClick={() => {
                               setActiveBrandId(brand.id);
                               clearSelection();
-                              router.push('/dashboard');
+                              router.push('/dashboard/console');
                             }}
                             className={`rounded-lg px-2.5 py-1.5 text-xs font-medium ${
                               isActive
@@ -1054,7 +1038,7 @@ export default function AccountPage() {
               <button
                 type="button"
                 onClick={openCreateBrandModal}
-                className="brand-section-box sidebar-item-selected rounded-xl border border-dashed border-neutral-300 p-3 sm:p-4 text-left hover:border-neutral-400 transition-colors"
+                className="brand-section-box rounded-xl border border-neutral-200 p-3 sm:p-4 text-left hover:bg-neutral-50 transition-colors"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-100 text-neutral-600">
                   <Plus size={18} />
