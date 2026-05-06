@@ -6000,7 +6000,11 @@ type PostsUploadDayTooltipAgg = {
                     key={c.label}
                     className="rounded-[12px] border px-3 py-2 text-left"
                     title={c.title}
-                    style={{ borderColor: COLOR.border, background: '#ffffff', boxShadow: '0 2px 16px rgba(15,23,42,0.05)' }}
+                    style={{
+                      borderColor: COLOR.border,
+                      background: COLOR.elevated,
+                      boxShadow: '0 2px 16px rgba(15,23,42,0.12)',
+                    }}
                   >
                     <p className="text-[11px] font-medium" style={{ color: COLOR.textMuted }}>
                       {c.label}
