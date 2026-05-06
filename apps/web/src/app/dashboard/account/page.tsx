@@ -172,6 +172,8 @@ export default function AccountPage() {
   const [inviteError, setInviteError] = useState<string>('');
   const [inviteSending, setInviteSending] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
+  const [createRolesTooltipOpen, setCreateRolesTooltipOpen] = useState(false);
+  const [editRolesTooltipOpen, setEditRolesTooltipOpen] = useState(false);
   const [userAvatarOverride, setUserAvatarOverride] = useState<string | null>(null);
   const userAvatarInputRef = useRef<HTMLInputElement | null>(null);
   const createBrandImageInputRef = useRef<HTMLInputElement | null>(null);
@@ -722,14 +724,23 @@ export default function AccountPage() {
           <div className="flex items-center gap-2">
             <Users size={15} className="text-neutral-500" />
             <h4 className="text-sm font-semibold text-neutral-900">Employees & roles</h4>
-            <div className="relative group">
+            <div
+              className="relative"
+              onMouseEnter={() => setCreateRolesTooltipOpen(true)}
+              onMouseLeave={() => setCreateRolesTooltipOpen(false)}
+            >
               <span
                 className="inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-orange-300 bg-orange-100 text-orange-700"
                 aria-label="Role permissions"
               >
                 <HelpCircle size={12} />
               </span>
-              <div className="pointer-events-none absolute left-1/2 top-7 z-30 w-[330px] -translate-x-1/2 rounded-xl border border-orange-200 bg-white p-3 text-xs text-neutral-700 shadow-2xl opacity-0 transition-opacity duration-75 group-hover:opacity-100">
+              <div className="absolute left-1/2 top-5 z-20 h-4 w-[330px] -translate-x-1/2" />
+              <div
+                className={`absolute left-1/2 top-7 z-30 w-[330px] -translate-x-1/2 rounded-xl border border-orange-200 bg-white p-3 text-xs text-neutral-700 shadow-2xl transition-opacity duration-75 ${
+                  createRolesTooltipOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+                }`}
+              >
                 <p className="font-semibold text-neutral-900">Roles and permissions</p>
                 <p className="mt-1"><strong>Admin:</strong> Manage team members, edit brand details, update brand image, and manage content and analytics.</p>
                 <p className="mt-1"><strong>Editor:</strong> Add and edit content, view analytics, and collaborate with team members. Cannot manage brand settings or team access.</p>
@@ -738,7 +749,7 @@ export default function AccountPage() {
                   href={ROLE_GUIDE_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="pointer-events-auto mt-2 inline-block font-semibold text-orange-700 underline hover:text-orange-800"
+                  className="mt-2 inline-block font-semibold text-orange-700 underline hover:text-orange-800"
                 >
                   Check all roles and permissions
                 </a>
@@ -1053,14 +1064,23 @@ export default function AccountPage() {
           <div className="flex items-center gap-2">
             <Users size={15} className="text-neutral-500" />
             <h4 className="text-sm font-semibold text-neutral-900">Team members & roles</h4>
-            <div className="relative group">
+            <div
+              className="relative"
+              onMouseEnter={() => setEditRolesTooltipOpen(true)}
+              onMouseLeave={() => setEditRolesTooltipOpen(false)}
+            >
               <span
                 className="inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-orange-300 bg-orange-100 text-orange-700"
                 aria-label="Role permissions"
               >
                 <HelpCircle size={12} />
               </span>
-              <div className="pointer-events-none absolute left-1/2 top-7 z-30 w-[330px] -translate-x-1/2 rounded-xl border border-orange-200 bg-white p-3 text-xs text-neutral-700 shadow-2xl opacity-0 transition-opacity duration-75 group-hover:opacity-100">
+              <div className="absolute left-1/2 top-5 z-20 h-4 w-[330px] -translate-x-1/2" />
+              <div
+                className={`absolute left-1/2 top-7 z-30 w-[330px] -translate-x-1/2 rounded-xl border border-orange-200 bg-white p-3 text-xs text-neutral-700 shadow-2xl transition-opacity duration-75 ${
+                  editRolesTooltipOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+                }`}
+              >
                 <p className="font-semibold text-neutral-900">Roles and permissions</p>
                 <p className="mt-1"><strong>Admin:</strong> Manage team members, edit brand details, update brand image, and manage content and analytics.</p>
                 <p className="mt-1"><strong>Editor:</strong> Add and edit content, view analytics, and collaborate with team members. Cannot manage brand settings or team access.</p>
@@ -1069,7 +1089,7 @@ export default function AccountPage() {
                   href={ROLE_GUIDE_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="pointer-events-auto mt-2 inline-block font-semibold text-orange-700 underline hover:text-orange-800"
+                  className="mt-2 inline-block font-semibold text-orange-700 underline hover:text-orange-800"
                 >
                   Check all roles and permissions
                 </a>
