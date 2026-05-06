@@ -707,32 +707,32 @@ export default function AccountPage() {
               ))
             )}
           </div>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
+          <div className="mt-4 grid gap-2 sm:grid-cols-4 sm:items-start">
             <input
               type="text"
               value={newBrandMemberFirstName}
               onChange={(e) => setNewBrandMemberFirstName(e.target.value)}
               placeholder="First name"
-              className="min-w-0 flex-[1_1_160px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
+              className="min-w-0 rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
             />
             <input
               type="text"
               value={newBrandMemberLastName}
               onChange={(e) => setNewBrandMemberLastName(e.target.value)}
               placeholder="Last name"
-              className="min-w-0 flex-[1_1_160px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
+              className="min-w-0 rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
             />
             <input
               type="email"
               value={newBrandMemberEmail}
               onChange={(e) => setNewBrandMemberEmail(e.target.value)}
               placeholder="Email"
-              className="min-w-0 flex-[1_1_180px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
+              className="min-w-0 rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
             />
             <select
               value={newBrandMemberRole}
               onChange={(e) => setNewBrandMemberRole(e.target.value as TeamRole)}
-              className="flex-[0_1_120px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-2 py-2 text-sm text-neutral-900"
+              className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-2 py-2 text-sm text-neutral-900"
             >
               <option value="Admin">Admin</option>
               <option value="Editor">Editor</option>
@@ -742,11 +742,19 @@ export default function AccountPage() {
               type="button"
               onClick={handleAddNewBrandMember}
               disabled={!newBrandMemberFirstName.trim() || !newBrandMemberLastName.trim() || !newBrandMemberEmail.trim() || createBrandInviteSending}
-              className="create-brand-hover-dark flex-[0_0_auto] rounded-lg bg-neutral-900 px-3 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+              className="create-brand-hover-dark rounded-lg bg-neutral-700 px-3 py-2 text-sm font-semibold text-white hover:bg-neutral-600 disabled:opacity-50 sm:col-start-4"
             >
               {createBrandInviteSending ? 'Sending...' : 'Add friend'}
             </button>
           </div>
+          <p className="mt-2 text-[11px] text-neutral-500 leading-relaxed">
+            An email invitation will be sent from <span className="font-semibold">noreply@agent4social.com</span>. Please check spam if the user did not receive the invite, or send this join link:
+            {' '}
+            <a href="https://agent4socials.com/signup" target="_blank" rel="noopener noreferrer" className="underline text-neutral-600 hover:text-neutral-700">
+              https://agent4socials.com/signup
+            </a>
+            .
+          </p>
           {createBrandInviteFeedback ? <p className="mt-2 text-xs text-emerald-600">{createBrandInviteFeedback}</p> : null}
           {createBrandInviteError ? <p className="mt-2 text-xs text-red-600">{createBrandInviteError}</p> : null}
         </div>
@@ -762,7 +770,7 @@ export default function AccountPage() {
             type="button"
             onClick={handleCreateBrand}
             disabled={!newBrandName.trim()}
-            className="flex-1 rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+            className="flex-1 rounded-xl bg-[var(--button)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--button-hover)] disabled:opacity-50"
           >
             Create brand
           </button>

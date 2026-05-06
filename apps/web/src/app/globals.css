@@ -134,6 +134,15 @@
   background: #323232 !important;
   border-color: #4b5563 !important;
 }
+[data-theme='dark'] .create-brand-hover-dark:hover {
+  background-color: #3f3f46 !important;
+}
+[data-theme='dark'] .create-brand-modal-scope input[type='text'],
+[data-theme='dark'] .create-brand-modal-scope input[type='email'],
+[data-theme='dark'] .create-brand-modal-scope select {
+  background-color: #111315 !important;
+  border-color: #3f3f46 !important;
+}
 
 .upgrade-badge-warm {
   color: #ff7a00;
