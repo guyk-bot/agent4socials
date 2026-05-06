@@ -1192,7 +1192,7 @@ export default function AccountPage() {
           <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Account</h1>
 
           <div className="flex items-start gap-4 min-w-0 pt-0">
-            <div className="relative">
+            <div className="flex flex-col items-center gap-2 shrink-0">
               <div className="flex items-stretch w-16 h-16 rounded-full overflow-hidden shrink-0 bg-neutral-100 text-neutral-700 border border-neutral-200">
                 {userAvatarOverride || user?.avatarUrl ? (
                   <img
@@ -1206,25 +1206,20 @@ export default function AccountPage() {
                   </span>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => userAvatarInputRef.current?.click()}
-                className="absolute -top-1 -right-1 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-sm hover:bg-neutral-50"
-                aria-label="Upload profile image"
-                title="Change profile image"
-              >
-                <Plus size={15} />
-              </button>
-              <input
-                ref={userAvatarInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  handleUserAvatarUpload(e.target.files?.[0] ?? null);
-                  e.currentTarget.value = '';
-                }}
-              />
+              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-2.5 py-1 text-[11px] font-medium text-neutral-700 hover:bg-neutral-50">
+                <Image size={12} />
+                {userAvatarOverride || user?.avatarUrl ? 'Change image' : 'Upload image'}
+                <input
+                  ref={userAvatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    handleUserAvatarUpload(e.target.files?.[0] ?? null);
+                    e.currentTarget.value = '';
+                  }}
+                />
+              </label>
             </div>
             <div className="min-w-0 space-y-1">
               <div className="flex items-center gap-2 min-w-0">
