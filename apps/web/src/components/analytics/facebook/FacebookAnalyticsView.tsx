@@ -1801,7 +1801,7 @@ function YoutubeVideosAnalyticsPanel({
               }}
               className="rounded-lg px-3 py-1.5 text-sm"
               style={{
-                background: reelPreset === preset.id ? 'linear-gradient(135deg, #ffffff 0%, #f8fafc 42%, #f1f5f9 100%)' : 'rgba(0,0,0,0)',
+                background: reelPreset === preset.id ? COLOR.elevated : 'rgba(0,0,0,0)',
                 boxShadow: reelPreset === preset.id ? '0 1px 2px rgba(15,23,42,0.06), 0 0 0 1px rgba(148,163,184,0.28)' : 'none',
                 color: reelPreset === preset.id ? COLOR.text : COLOR.textSecondary,
                 border: `1px solid ${COLOR.border}`,
@@ -2452,8 +2452,8 @@ export function StickySectionNav({
 }) {
   return (
     <nav
-      className="sticky z-30 rounded-2xl px-2 py-2 backdrop-blur-[10px]"
-      style={{ top: 72, background: 'rgba(255,255,255,0.92)', boxShadow: '0 1px 10px rgba(15,23,42,0.06)' }}
+      className="sticky z-30 rounded-2xl px-2 py-2 backdrop-blur-[10px] border"
+      style={{ top: 72, background: COLOR.elevated, borderColor: COLOR.border, boxShadow: '0 1px 10px rgba(15,23,42,0.06)' }}
       aria-label={ariaLabel}
     >
       <div className="flex flex-wrap gap-2">
@@ -4936,7 +4936,7 @@ type PostsUploadDayTooltipAgg = {
                     aria-pressed={active}
                     className="rounded-lg px-3 py-1.5 text-sm"
                     style={{
-                      background: active ? 'linear-gradient(135deg, #ffffff 0%, #f8fafc 42%, #f1f5f9 100%)' : 'rgba(0,0,0,0)',
+                      background: active ? COLOR.elevated : 'rgba(0,0,0,0)',
                       color: active ? COLOR.text : COLOR.textSecondary,
                       border: `1px solid ${COLOR.border}`,
                       boxShadow: active ? '0 1px 2px rgba(15,23,42,0.06), 0 0 0 1px rgba(148,163,184,0.28)' : 'none',
@@ -4959,7 +4959,7 @@ type PostsUploadDayTooltipAgg = {
                   aria-label={`${mode === 'views' ? 'Views' : mode === 'engagement' ? 'Engagement' : 'Growth'} mode. Change in selected range: ${storyModeHoverHint[mode]}`}
                   className="rounded-lg px-3 py-1.5 text-sm"
                   style={{
-                    background: storyMode === mode ? 'linear-gradient(135deg, #ffffff 0%, #f8fafc 42%, #f1f5f9 100%)' : 'rgba(0,0,0,0)',
+                    background: storyMode === mode ? COLOR.elevated : 'rgba(0,0,0,0)',
                     color: storyMode === mode ? COLOR.text : COLOR.textSecondary,
                     border: `1px solid ${COLOR.border}`,
                     boxShadow: storyMode === mode ? '0 1px 2px rgba(15,23,42,0.06), 0 0 0 1px rgba(148,163,184,0.28)' : 'none',
@@ -6295,7 +6295,7 @@ type PostsUploadDayTooltipAgg = {
               }}
               className="rounded-lg px-3 py-1.5 text-sm"
               style={{
-                background: reelPreset === preset.id ? 'linear-gradient(135deg, #ffffff 0%, #f8fafc 42%, #f1f5f9 100%)' : 'rgba(0,0,0,0)',
+                background: reelPreset === preset.id ? COLOR.elevated : 'rgba(0,0,0,0)',
                 boxShadow: reelPreset === preset.id ? '0 1px 2px rgba(15,23,42,0.06), 0 0 0 1px rgba(148,163,184,0.28)' : 'none',
                 color: reelPreset === preset.id ? COLOR.text : COLOR.textSecondary,
                 border: `1px solid ${COLOR.border}`,
@@ -6486,7 +6486,7 @@ type PostsUploadDayTooltipAgg = {
                 onClick={() => setHistoryFilter(f.id)}
                 className="rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
                 style={{
-                  background: historyFilter === f.id ? 'linear-gradient(135deg, #ffffff 0%, #f8fafc 42%, #f1f5f9 100%)' : '#ffffff',
+                  background: historyFilter === f.id ? COLOR.elevated : COLOR.card,
                   color: historyFilter === f.id ? COLOR.text : COLOR.textSecondary,
                   boxShadow: historyFilter === f.id ? '0 1px 2px rgba(15,23,42,0.06), 0 0 0 1px rgba(148,163,184,0.28)' : 'none',
                 }}
