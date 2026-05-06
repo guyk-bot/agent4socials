@@ -1033,7 +1033,7 @@ export default function AccountPage() {
                             }}
                             className={`rounded-lg px-2.5 py-1.5 text-xs font-medium ${
                               isActive
-                                ? 'bg-neutral-900 text-white'
+                                ? 'bg-neutral-700 text-white hover:bg-neutral-600'
                                 : 'border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
                             }`}
                           >
