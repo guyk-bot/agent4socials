@@ -4827,20 +4827,7 @@ type PostsUploadDayTooltipAgg = {
         <div className="mt-2">
           <StickySectionNav sections={sections} activeSection={activeSection} ariaLabel="Facebook analytics sections" />
         </div>
-        {(postsLoading || postsSyncActive) && !insightsLoading && posts.length === 0 ? (
-          <p
-            className={`mt-2.5 text-xs font-medium${posts.length === 0 ? ' animate-pulse' : ''}`}
-            style={{ color: COLOR.textSecondary }}
-          >
-            {insights?.platform === 'PINTEREST'
-                ? 'Updating pins from Pinterest, tables will fill in as the sync completes.'
-                : insights?.platform === 'TIKTOK'
-                  ? 'Syncing videos from TikTok, tables will fill in as the sync completes.'
-                  : insights?.platform === 'LINKEDIN'
-                    ? 'Syncing posts from LinkedIn, tables will fill in as the sync completes.'
-                  : 'Updating posts and reels from Facebook, tables will fill in as the sync completes.'}
-          </p>
-        ) : null}
+        {null}
       </section>
 
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.overview} className="scroll-mt-28 space-y-4">
