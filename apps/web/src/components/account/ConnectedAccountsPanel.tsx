@@ -32,6 +32,16 @@ const CONNECT_GRID_ICON: Record<string, React.ReactNode> = {
   PINTEREST: <PinterestIcon size={26} />,
 };
 
+const CONNECT_LABEL_ICON: Record<string, React.ReactNode> = {
+  FACEBOOK: <FacebookIcon size={14} />,
+  INSTAGRAM: <InstagramIcon size={14} />,
+  TIKTOK: <TikTokIcon size={14} />,
+  YOUTUBE: <YoutubeIcon size={14} />,
+  TWITTER: <XTwitterIcon size={14} className="text-neutral-800" />,
+  LINKEDIN: <LinkedinIcon size={14} />,
+  PINTEREST: <PinterestIcon size={14} />,
+};
+
 /**
  * Connected social accounts management (reconnect, disconnect).
  * Rendered on `/dashboard/account` and legacy `/dashboard/accounts` redirects here.
@@ -124,8 +134,11 @@ export function ConnectedAccountsPanel() {
                   )}
                 </div>
               </div>
-              <div className="mt-2 text-xs sm:text-sm font-semibold text-neutral-800">
-                {acc.platform === 'TWITTER' ? 'Twitter/X' : acc.platform.charAt(0) + acc.platform.slice(1).toLowerCase()}
+              <div className="mt-2 inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm font-semibold text-neutral-800">
+                <span className="inline-flex h-4 w-4 items-center justify-center shrink-0">
+                  {CONNECT_LABEL_ICON[acc.platform] ?? <FacebookIcon size={14} />}
+                </span>
+                <span>{acc.platform === 'TWITTER' ? 'Twitter/X' : acc.platform.charAt(0) + acc.platform.slice(1).toLowerCase()}</span>
               </div>
               <div className="text-[10px] sm:text-xs text-neutral-500 truncate">
                 {(acc.username || '').replace(/^@/, '') || 'Connected'}
