@@ -313,12 +313,20 @@ function chunkIntoPairs<T>(items: readonly T[]): Array<[T, T | undefined]> {
 function colorizeTooltipMetric(
   valueText: string,
   labelText: string,
-  entry?: { color?: string; stroke?: string; fill?: string }
+  entry?: { color?: string; stroke?: string; fill?: string; name?: string; dataKey?: string }
 ): [React.ReactNode, React.ReactNode] {
   const metricColor = entry?.color || entry?.stroke || entry?.fill || COLOR.text;
+  const fallbackRaw = entry?.name || entry?.dataKey || '';
+  const normalizedLabel = (labelText || fallbackRaw || 'Metric')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .map((part) => (part ? part.charAt(0).toUpperCase() + part.slice(1) : part))
+    .join(' ');
   return [
     <span style={{ color: metricColor, fontWeight: 700 }}>{valueText}</span>,
-    <span style={{ color: metricColor }}>{labelText}</span>,
+    <span style={{ color: metricColor }}>{normalizedLabel}</span>,
   ];
 }
 
