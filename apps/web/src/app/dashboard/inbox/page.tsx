@@ -1985,7 +1985,7 @@ function InboxPage() {
       </div>
 
       {/* Main content - conversation or comment reply */}
-      <div className="flex-1 flex flex-col min-w-0 bg-neutral-50/50 min-h-0">
+      <div className="flex-1 flex flex-col min-w-0 bg-[var(--background)] min-h-0">
         {!selectedPlatform ? (
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="text-center max-w-sm">
