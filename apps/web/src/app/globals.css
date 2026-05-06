@@ -411,6 +411,24 @@
   box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.3);
 }
 
+/* Analytics dark-mode hardening for remaining inline light styles. */
+[data-theme='dark'] .analytics-dark-scope .ring-white {
+  --tw-ring-color: var(--border) !important;
+}
+[data-theme='dark'] .analytics-dark-scope [style*="#ffffff"],
+[data-theme='dark'] .analytics-dark-scope [style*="#f8fafc"],
+[data-theme='dark'] .analytics-dark-scope [style*="#f6f7fb"],
+[data-theme='dark'] .analytics-dark-scope [style*="rgba(255,255,255"],
+[data-theme='dark'] .analytics-dark-scope [style*="rgba(248,250,252"] {
+  background: var(--card-bg) !important;
+}
+[data-theme='dark'] .analytics-dark-scope .hover\:bg-\[\#f8fafc\]:hover {
+  background-color: var(--surface-soft) !important;
+}
+[data-theme='dark'] .analytics-dark-scope .recharts-cartesian-grid line {
+  stroke: var(--chart-grid) !important;
+}
+
 * {
   box-sizing: border-box;
 }
