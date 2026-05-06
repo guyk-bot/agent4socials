@@ -327,6 +327,7 @@ export default function DashboardPage() {
   // to a different account while a sync is in flight, do NOT show "Syncing…" for
   // the new account — just cancel the visual state for the old one.
   const syncingForAccountIdRef = useRef<string | null>(null);
+  const syncStatusPollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const avatarRefreshDoneForAccountRef = useRef<Record<string, true>>({});
   const [postsSyncError, setPostsSyncError] = useState<string | null>(null);
   const [allPostsSyncError, setAllPostsSyncError] = useState<string | null>(null);
@@ -355,6 +356,42 @@ export default function DashboardPage() {
       manualPostsSyncInFlightRef.current = false;
       syncingForAccountIdRef.current = null;
     }
+  }, [selectedAccount?.id]);
+
+  // Keep sync state alive across page navigation:
+  // when the user comes back to analytics, resume from backend sync-status
+  // instead of resetting to "Sync now".
+  useEffect(() => {
+    if (!selectedAccount?.id) return;
+    let cancelled = false;
+    const accountId = selectedAccount.id;
+
+    const pollSyncStatus = async () => {
+      try {
+        const res = await api.get(`/social/accounts/${accountId}/sync-status`);
+        if (cancelled) return;
+        const d = (res.data ?? {}) as { status?: string; activeJob?: unknown };
+        const isActive = d.status === 'syncing' || !!d.activeJob;
+        if (selectedAccountIdRef.current !== accountId) return;
+        setPostsSoftSyncing(isActive);
+      } catch {
+        // ignore intermittent status failures; keep current UI state
+      } finally {
+        if (!cancelled && selectedAccountIdRef.current === accountId) {
+          if (syncStatusPollTimerRef.current) clearTimeout(syncStatusPollTimerRef.current);
+          syncStatusPollTimerRef.current = setTimeout(pollSyncStatus, 3000);
+        }
+      }
+    };
+
+    void pollSyncStatus();
+    return () => {
+      cancelled = true;
+      if (syncStatusPollTimerRef.current) {
+        clearTimeout(syncStatusPollTimerRef.current);
+        syncStatusPollTimerRef.current = null;
+      }
+    };
   }, [selectedAccount?.id]);
 
   // Platforms the /refresh endpoint supports (returns a fresh profilePicture URL).
