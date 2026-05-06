@@ -15,6 +15,7 @@ import {
   Rectangle,
   ResponsiveContainer,
   Tooltip,
+  type TooltipPayloadEntry,
   XAxis,
   YAxis,
 } from 'recharts';
@@ -116,17 +117,13 @@ const COLOR = {
   coral: '#ff8b7b',
 };
 
-/** Recharts formatter payload item: `name` is sometimes empty; `dataKey` is reliable for stacked bars. */
-type TooltipFormatterEntry = {
-  color?: string;
-  stroke?: string;
-  fill?: string;
-  name?: string;
-  dataKey?: string;
-};
+/** Recharts tooltip formatter item for this file's charts (matches Tooltip `formatter` third argument). */
+type TooltipFormatterEntry = TooltipPayloadEntry<string | number, string>;
 
 function tooltipSeriesKeyFromEntry(name: string | undefined, entry?: TooltipFormatterEntry): string {
-  return String(name ?? entry?.name ?? entry?.dataKey ?? '').trim();
+  const dk = entry?.dataKey;
+  const fromDataKey = typeof dk === 'function' ? '' : dk != null ? String(dk) : '';
+  return String(name ?? entry?.name ?? fromDataKey).trim();
 }
 
 function colorizeTooltipMetric(
