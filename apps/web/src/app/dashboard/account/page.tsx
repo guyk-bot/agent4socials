@@ -1290,7 +1290,7 @@ export default function AccountPage() {
                 return (
                   <div
                     key={brand.id}
-                    className={`brand-section-box rounded-xl border p-3 sm:p-4 ${isActive ? 'bg-white' : 'sidebar-item-selected'}`}
+                    className={`brand-section-box rounded-xl border p-3 sm:p-4 ${isActive ? 'brand-card-selected' : 'bg-white'}`}
                     style={{ borderColor: 'rgba(15,23,42,0.08)' }}
                   >
                     <div className="flex items-start gap-3">
@@ -1353,11 +1353,7 @@ export default function AccountPage() {
                               clearSelection();
                               router.push('/dashboard/console');
                             }}
-                            className={`rounded-lg px-2.5 py-1.5 text-xs font-medium ${
-                              isActive
-                                ? 'bg-neutral-700 text-white hover:bg-neutral-600'
-                                : 'border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
-                            }`}
+                            className="brand-open-dashboard-btn rounded-lg border px-2.5 py-1.5 text-xs font-medium"
                           >
                             Open dashboard
                           </button>

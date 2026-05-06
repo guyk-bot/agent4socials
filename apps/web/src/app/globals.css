@@ -137,6 +137,21 @@
 [data-theme='dark'] .create-brand-hover-dark:hover {
   background-color: #3f3f46 !important;
 }
+[data-theme='dark'] .brand-card-selected {
+  background: linear-gradient(135deg, #2d2d2d 0%, #27272a 42%, #1f1f1f 100%) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+}
+[data-theme='dark'] .brand-open-dashboard-btn {
+  background: #3f3f46 !important;
+  border-color: #52525b !important;
+  color: #fafafa !important;
+}
+[data-theme='dark'] .brand-open-dashboard-btn:hover {
+  background: #52525b !important;
+}
+[data-theme='dark'] .brand-open-dashboard-btn:active {
+  background: #3f3f46 !important;
+}
 [data-theme='dark'] .create-brand-modal-scope input[type='text'],
 [data-theme='dark'] .create-brand-modal-scope input[type='email'],
 [data-theme='dark'] .create-brand-modal-scope select {
@@ -165,6 +180,25 @@
 
 .upgrade-badge-warm {
   color: #ff7a00;
+}
+
+.brand-card-selected {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 42%, #f1f5f9 100%);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(148, 163, 184, 0.35);
+}
+
+.brand-open-dashboard-btn {
+  background: #e5e7eb;
+  border-color: #d1d5db;
+  color: #374151;
+}
+
+.brand-open-dashboard-btn:hover {
+  background: #d1d5db;
+}
+
+.brand-open-dashboard-btn:active {
+  background: #cbd5e1;
 }
 
 /* Branded loading logo (SVG stroke draw + sparkle), replaces legacy MP4 loader. */
