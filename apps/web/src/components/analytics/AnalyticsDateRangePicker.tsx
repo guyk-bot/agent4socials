@@ -288,8 +288,8 @@ export function AnalyticsDateRangePicker({
         onClick={() => setOpen((o) => !o)}
         className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium transition-colors min-w-0 ${
           isDark
-            ? 'bg-neutral-900 border-neutral-700 text-neutral-100 hover:bg-neutral-800 hover:border-neutral-600'
-            : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300'
+            ? 'bg-neutral-900 border-orange-500 text-neutral-100 hover:bg-neutral-800 hover:border-orange-400'
+            : 'bg-white border-orange-400 text-neutral-700 hover:bg-neutral-50 hover:border-orange-500'
         }`}
       >
         <Calendar size={16} className={`shrink-0 ${isDark ? 'text-neutral-300' : 'text-neutral-500'}`} />
