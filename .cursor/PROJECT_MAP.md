@@ -82,6 +82,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | `/login`, `/signup` | `(auth)/login/page.tsx`, `(auth)/signup/page.tsx` |
 | `/pricing` | `pricing/page.tsx` |
 | `/help` | `help/page.tsx`, `help/support/page.tsx` |
+| `/help/roles-permissions` | `help/roles-permissions/page.tsx` |
 | `/reel-analyzer` | `reel-analyzer/page.tsx` |
 | `/[username]` link-in-bio | `[username]/page.tsx` |
 | `/post/[id]/open` email open | `post/[id]/open/page.tsx` |

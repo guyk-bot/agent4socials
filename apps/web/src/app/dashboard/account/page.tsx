@@ -34,6 +34,7 @@ const CONFIRM_TEXT = 'CONFIRM';
 const SHARE_URL = 'https://agent4socials.com';
 const SHARE_TEXT = 'Check out Agent4Socials: schedule posts and analytics for Instagram, YouTube, TikTok, Facebook and more.';
 const USER_AVATAR_STORAGE_KEY = 'agent4socials-user-avatar-v1';
+const ROLE_GUIDE_URL = '/help/roles-permissions';
 
 const sharePlatforms = [
   {
@@ -171,7 +172,6 @@ export default function AccountPage() {
   const [inviteError, setInviteError] = useState<string>('');
   const [inviteSending, setInviteSending] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
-  const [showRoleGuide, setShowRoleGuide] = useState(false);
   const [userAvatarOverride, setUserAvatarOverride] = useState<string | null>(null);
   const userAvatarInputRef = useRef<HTMLInputElement | null>(null);
   const createBrandImageInputRef = useRef<HTMLInputElement | null>(null);
@@ -722,13 +722,28 @@ export default function AccountPage() {
           <div className="flex items-center gap-2">
             <Users size={15} className="text-neutral-500" />
             <h4 className="text-sm font-semibold text-neutral-900">Employees & roles</h4>
-            <span
-              className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-orange-300 bg-orange-100 text-orange-700"
-              title="Admin can manage members and settings. Editor can create and edit content. Viewer can view analytics and content only."
-              aria-label="Role permissions"
-            >
-              <HelpCircle size={12} />
-            </span>
+            <div className="relative group">
+              <span
+                className="inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-orange-300 bg-orange-100 text-orange-700"
+                aria-label="Role permissions"
+              >
+                <HelpCircle size={12} />
+              </span>
+              <div className="pointer-events-none absolute left-1/2 top-7 z-30 w-[330px] -translate-x-1/2 rounded-xl border border-orange-200 bg-white p-3 text-xs text-neutral-700 shadow-2xl opacity-0 transition-opacity duration-75 group-hover:opacity-100">
+                <p className="font-semibold text-neutral-900">Roles and permissions</p>
+                <p className="mt-1"><strong>Admin:</strong> Manage team members, edit brand details, update brand image, and manage content and analytics.</p>
+                <p className="mt-1"><strong>Editor:</strong> Add and edit content, view analytics, and collaborate with team members. Cannot manage brand settings or team access.</p>
+                <p className="mt-1"><strong>Viewer:</strong> Read-only access to analytics and content visibility. Cannot create, edit, publish, or manage settings.</p>
+                <a
+                  href={ROLE_GUIDE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="pointer-events-auto mt-2 inline-block font-semibold text-orange-700 underline hover:text-orange-800"
+                >
+                  Check all roles and permissions
+                </a>
+              </div>
+            </div>
           </div>
           <div className="mt-3 space-y-2">
             {newBrandMembers.length === 0 ? (
@@ -1038,13 +1053,28 @@ export default function AccountPage() {
           <div className="flex items-center gap-2">
             <Users size={15} className="text-neutral-500" />
             <h4 className="text-sm font-semibold text-neutral-900">Team members & roles</h4>
-            <span
-              className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-orange-300 bg-orange-100 text-orange-700"
-              title="Admin can manage members and settings. Editor can create and edit content. Viewer can view analytics and content only."
-              aria-label="Role permissions"
-            >
-              <HelpCircle size={12} />
-            </span>
+            <div className="relative group">
+              <span
+                className="inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-orange-300 bg-orange-100 text-orange-700"
+                aria-label="Role permissions"
+              >
+                <HelpCircle size={12} />
+              </span>
+              <div className="pointer-events-none absolute left-1/2 top-7 z-30 w-[330px] -translate-x-1/2 rounded-xl border border-orange-200 bg-white p-3 text-xs text-neutral-700 shadow-2xl opacity-0 transition-opacity duration-75 group-hover:opacity-100">
+                <p className="font-semibold text-neutral-900">Roles and permissions</p>
+                <p className="mt-1"><strong>Admin:</strong> Manage team members, edit brand details, update brand image, and manage content and analytics.</p>
+                <p className="mt-1"><strong>Editor:</strong> Add and edit content, view analytics, and collaborate with team members. Cannot manage brand settings or team access.</p>
+                <p className="mt-1"><strong>Viewer:</strong> Read-only access to analytics and content visibility. Cannot create, edit, publish, or manage settings.</p>
+                <a
+                  href={ROLE_GUIDE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="pointer-events-auto mt-2 inline-block font-semibold text-orange-700 underline hover:text-orange-800"
+                >
+                  Check all roles and permissions
+                </a>
+              </div>
+            </div>
           </div>
           <div className="mt-3 space-y-2">
             {editingMembers.length === 0 ? (
@@ -1227,25 +1257,8 @@ export default function AccountPage() {
                 <span className="shrink-0 inline-flex items-center rounded-full border border-orange-300 bg-orange-100/90 px-2 py-0.5 text-[11px] font-semibold text-orange-700">
                   {currentUserRoleLabel}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setShowRoleGuide((prev) => !prev)}
-                  className="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full border border-orange-300 bg-orange-100 text-orange-700 hover:bg-orange-200/90"
-                  aria-label="Show role permissions"
-                  title="Show role permissions"
-                >
-                  <HelpCircle size={12} />
-                </button>
               </div>
               <p className="text-sm text-neutral-500 truncate">{user?.email}</p>
-              {showRoleGuide ? (
-                <div className="mt-2 rounded-xl border border-orange-200 bg-orange-50/80 p-3 text-xs text-orange-900">
-                  <p className="font-semibold">Role permissions and limitations</p>
-                  <p className="mt-1"><strong>Admin:</strong> Full access to team, brand settings, and content actions.</p>
-                  <p className="mt-1"><strong>Editor:</strong> Can create and edit content, cannot manage admin-level settings.</p>
-                  <p className="mt-1"><strong>Viewer:</strong> Read-only access for analytics and content visibility.</p>
-                </div>
-              ) : null}
               {userId ? (
                 <div className="flex flex-wrap items-center gap-1.5 pt-2 text-xs text-neutral-600">
                   <span className="text-neutral-500">User ID:</span>
