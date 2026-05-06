@@ -2,8 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/context/AuthContext';
+import { useAccountsCache } from '@/context/AccountsCacheContext';
+import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { ConnectedAccountsPanel } from '@/components/account/ConnectedAccountsPanel';
 import {
   Trash2,
@@ -17,6 +20,8 @@ import {
   LogOut,
   Sparkles,
   ArrowRight,
+  Plus,
+  Image,
 } from 'lucide-react';
 
 const CONFIRM_TEXT = 'CONFIRM';
@@ -82,7 +87,26 @@ const sharePlatforms = [
 ];
 
 export default function AccountPage() {
+  const router = useRouter();
   const { user, logout } = useAuth();
+  const {
+    brands,
+    activeBrandId,
+    setActiveBrandId,
+    createBrand,
+    setBrandImage,
+    allCachedAccounts,
+    getAccountBrandId,
+  } = useAccountsCache() ?? {
+    brands: [],
+    activeBrandId: '',
+    setActiveBrandId: () => {},
+    createBrand: () => '',
+    setBrandImage: () => {},
+    allCachedAccounts: [],
+    getAccountBrandId: () => 'brand-default',
+  };
+  const { clearSelection } = useSelectedAccount() ?? { clearSelection: () => {} };
 
   const [shareOpen, setShareOpen] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
@@ -91,6 +115,7 @@ export default function AccountPage() {
   const [cancelSuccess, setCancelSuccess] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
+  const [brandImageTargetId, setBrandImageTargetId] = useState<string | null>(null);
 
   useEffect(() => setMounted(true), []);
 
@@ -269,6 +294,102 @@ export default function AccountPage() {
                   </button>
                 </div>
               ) : null}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-neutral-200 bg-neutral-50/40 p-4 sm:p-5 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base sm:text-lg font-bold text-neutral-900 tracking-tight">Brands</h2>
+                <p className="text-xs sm:text-sm text-neutral-500">
+                  Add a new brand workspace. Each brand keeps its own connected accounts and analytics context.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const name = typeof window !== 'undefined' ? window.prompt('Brand name') : null;
+                  if (!name) return;
+                  const createdId = createBrand(name);
+                  if (!createdId) return;
+                  clearSelection();
+                  router.push('/dashboard');
+                }}
+                className="shrink-0 inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+              >
+                <Plus size={14} />
+                Add brand
+              </button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {brands.map((brand) => {
+                const isActive = brand.id === activeBrandId;
+                const mappedCount = allCachedAccounts.filter((a) => getAccountBrandId(a.id) === brand.id).length;
+                return (
+                  <div
+                    key={brand.id}
+                    className={`rounded-xl border p-3 sm:p-4 ${isActive ? 'sidebar-item-selected' : 'bg-white'}`}
+                    style={{ borderColor: 'rgba(15,23,42,0.08)' }}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-neutral-100 flex items-center justify-center">
+                        {brand.imageUrl ? (
+                          <img src={brand.imageUrl} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="text-sm font-semibold text-neutral-500">
+                            {(brand.name || 'B').slice(0, 1).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-neutral-900">{brand.name}</p>
+                        <p className="mt-0.5 text-xs text-neutral-500">{mappedCount} connected accounts</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveBrandId(brand.id);
+                              clearSelection();
+                              router.push('/dashboard');
+                            }}
+                            className={`rounded-lg px-2.5 py-1.5 text-xs font-medium ${
+                              isActive
+                                ? 'bg-neutral-900 text-white'
+                                : 'border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
+                            }`}
+                          >
+                            {isActive ? 'Current brand' : 'Open dashboard'}
+                          </button>
+                          <label className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50">
+                            <Image size={12} />
+                            Brand image
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                setBrandImageTargetId(brand.id);
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                  if (typeof reader.result === 'string') setBrandImage(brand.id, reader.result);
+                                  setBrandImageTargetId(null);
+                                };
+                                reader.readAsDataURL(file);
+                                e.currentTarget.value = '';
+                              }}
+                            />
+                          </label>
+                          {brandImageTargetId === brand.id ? (
+                            <span className="text-xs text-neutral-500">Uploading...</span>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
