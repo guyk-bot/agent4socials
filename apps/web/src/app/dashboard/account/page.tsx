@@ -1123,11 +1123,11 @@ export default function AccountPage() {
               <button
                 type="button"
                 onClick={() => userAvatarInputRef.current?.click()}
-                className="absolute -bottom-1 -right-1 inline-flex h-6 w-6 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-sm hover:bg-neutral-50"
+                className="absolute -top-1 -right-1 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-sm hover:bg-neutral-50"
                 aria-label="Upload profile image"
-                title="Upload profile image"
+                title="Change profile image"
               >
-                <Plus size={14} />
+                <Plus size={15} />
               </button>
               <input
                 ref={userAvatarInputRef}
