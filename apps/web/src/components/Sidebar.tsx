@@ -100,15 +100,39 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const pathname = usePathname();
   const router = useRouter();
   const { textColor } = useWhiteLabel();
-  const { cachedAccounts, setCachedAccounts, setAccountsLoadError } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {}, setAccountsLoadError: () => {} };
+  const {
+    cachedAccounts,
+    allCachedAccounts,
+    setCachedAccounts,
+    setAccountsLoadError,
+    brands,
+    activeBrandId,
+    setActiveBrandId,
+    createBrand,
+    setBrandImage,
+    getAccountBrandId,
+  } = useAccountsCache() ?? {
+    cachedAccounts: [],
+    allCachedAccounts: [],
+    setCachedAccounts: () => {},
+    setAccountsLoadError: () => {},
+    brands: [],
+    activeBrandId: null,
+    setActiveBrandId: () => {},
+    createBrand: () => '',
+    setBrandImage: () => {},
+    getAccountBrandId: () => 'brand-default',
+  };
   const ctx = useSelectedAccount();
   const selectedAccountId = ctx?.selectedAccountId ?? null;
   const selectedPlatformForConnect = ctx?.selectedPlatformForConnect ?? null;
   const setSelectedAccount = ctx?.setSelectedAccount ?? (() => {});
   const setSelectedPlatformForConnect = ctx?.setSelectedPlatformForConnect ?? (() => {});
+  const clearSelection = ctx?.clearSelection ?? (() => {});
   const initialFetchDone = useRef(false);
   const missingAvatarRefreshDone = useRef(false);
   const refreshingAvatarIds = useRef<Set<string>>(new Set());
+  const brandImageInputRef = useRef<HTMLInputElement | null>(null);
   const [brokenAvatarIds, setBrokenAvatarIds] = useState<Record<string, true>>({});
 
   const refreshAvatar = useCallback(async (accountId: string, platform: string) => {
@@ -203,6 +227,97 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           Console
           {isMainAnalyticsView && <ChevronRight size={14} className="ml-auto opacity-70" />}
         </Link>
+        <div className="mt-2 rounded-lg border border-neutral-200 p-2">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Brands</p>
+            <button
+              type="button"
+              onClick={() => {
+                const name = typeof window !== 'undefined' ? window.prompt('Brand name') : null;
+                if (!name) return;
+                const createdId = createBrand(name);
+                if (!createdId) return;
+                clearSelection();
+                router.push('/dashboard');
+              }}
+              className="inline-flex h-6 w-6 items-center justify-center rounded-md hover:bg-neutral-100"
+              aria-label="Add brand"
+              title="Add brand"
+            >
+              <Plus size={14} className="text-neutral-600" />
+            </button>
+          </div>
+          <div className="space-y-1.5">
+            {brands.map((brand) => {
+              const isActive = brand.id === activeBrandId;
+              const mappedCount = (allCachedAccounts as SocialAccount[]).filter((a) => getAccountBrandId(a.id) === brand.id).length;
+              return (
+                <div
+                  key={brand.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    setActiveBrandId(brand.id);
+                    clearSelection();
+                    router.push('/dashboard');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setActiveBrandId(brand.id);
+                      clearSelection();
+                      router.push('/dashboard');
+                    }
+                  }}
+                  className={`w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-left ${isActive ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80'} cursor-pointer`}
+                >
+                  <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-neutral-100 flex items-center justify-center">
+                    {brand.imageUrl ? (
+                      <img src={brand.imageUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-[11px] font-semibold text-neutral-500">
+                        {(brand.name || 'B').slice(0, 1).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium text-neutral-800">{brand.name}</p>
+                    <p className="text-[10px] text-neutral-500">{mappedCount} connected</p>
+                  </div>
+                  {isActive ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        brandImageInputRef.current?.click();
+                      }}
+                      className="rounded-md px-1.5 py-1 text-[10px] text-neutral-600 hover:bg-neutral-100"
+                      title="Set brand image"
+                    >
+                      Image
+                    </button>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+          <input
+            ref={brandImageInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file || !activeBrandId) return;
+              const reader = new FileReader();
+              reader.onload = () => {
+                if (typeof reader.result === 'string') setBrandImage(activeBrandId, reader.result);
+              };
+              reader.readAsDataURL(file);
+              e.currentTarget.value = '';
+            }}
+          />
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 space-y-1">

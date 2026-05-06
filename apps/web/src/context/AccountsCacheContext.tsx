@@ -1,10 +1,20 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 type CachedAccount = { id: string; platform: string; username?: string; profilePicture?: string | null; [key: string]: unknown };
+export type BrandWorkspace = {
+  id: string;
+  name: string;
+  imageUrl?: string | null;
+  createdAt: string;
+};
 
 const STORAGE_KEY = 'agent4socials_cached_accounts_v2';
+const BRANDS_KEY = 'agent4socials_brands_v1';
+const ACTIVE_BRAND_KEY = 'agent4socials_active_brand_v1';
+const ACCOUNT_BRAND_MAP_KEY = 'agent4socials_account_brand_map_v1';
+const DEFAULT_BRAND_ID = 'brand-default';
 
 function readAccountsFromStorage(): CachedAccount[] {
   if (typeof window === 'undefined') return [];
@@ -18,42 +28,198 @@ function readAccountsFromStorage(): CachedAccount[] {
   }
 }
 
+function defaultBrands(): BrandWorkspace[] {
+  return [{ id: DEFAULT_BRAND_ID, name: 'Agent4socials', imageUrl: null, createdAt: new Date().toISOString() }];
+}
+
+function readBrandsFromStorage(): BrandWorkspace[] {
+  if (typeof window === 'undefined') return defaultBrands();
+  try {
+    const raw = localStorage.getItem(BRANDS_KEY) || sessionStorage.getItem(BRANDS_KEY);
+    if (!raw) return defaultBrands();
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed) || parsed.length === 0) return defaultBrands();
+    const rows = parsed
+      .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
+      .map((x) => ({
+        id: String(x.id ?? ''),
+        name: String(x.name ?? 'Untitled brand'),
+        imageUrl: typeof x.imageUrl === 'string' ? x.imageUrl : null,
+        createdAt: String(x.createdAt ?? new Date().toISOString()),
+      }))
+      .filter((x) => x.id.length > 0);
+    return rows.length ? rows : defaultBrands();
+  } catch {
+    return defaultBrands();
+  }
+}
+
+function readActiveBrandIdFromStorage(brands: BrandWorkspace[]): string {
+  if (typeof window === 'undefined') return brands[0]?.id ?? DEFAULT_BRAND_ID;
+  try {
+    const raw = localStorage.getItem(ACTIVE_BRAND_KEY) || sessionStorage.getItem(ACTIVE_BRAND_KEY);
+    if (!raw) return brands[0]?.id ?? DEFAULT_BRAND_ID;
+    return brands.some((b) => b.id === raw) ? raw : (brands[0]?.id ?? DEFAULT_BRAND_ID);
+  } catch {
+    return brands[0]?.id ?? DEFAULT_BRAND_ID;
+  }
+}
+
+function readAccountBrandMapFromStorage(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(ACCOUNT_BRAND_MAP_KEY) || sessionStorage.getItem(ACCOUNT_BRAND_MAP_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof k === 'string' && typeof v === 'string' && k && v) out[k] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 type AccountsCacheContextType = {
+  /** Accounts visible for the currently active brand only. */
   cachedAccounts: CachedAccount[];
+  /** All connected accounts across brands (for admin utilities and brand assignment). */
+  allCachedAccounts: CachedAccount[];
   setCachedAccounts: React.Dispatch<React.SetStateAction<CachedAccount[]>>;
   accountsLoadError: string | null;
   setAccountsLoadError: React.Dispatch<React.SetStateAction<string | null>>;
+  brands: BrandWorkspace[];
+  activeBrandId: string;
+  setActiveBrandId: (id: string) => void;
+  createBrand: (name: string, imageUrl?: string | null) => string;
+  setBrandImage: (brandId: string, imageUrl: string | null) => void;
+  getAccountBrandId: (accountId: string) => string;
 };
 
 const AccountsCacheContext = createContext<AccountsCacheContextType | undefined>(undefined);
 
 export function AccountsCacheProvider({ children }: { children: React.ReactNode }) {
-  const [cachedAccounts, setCachedAccountsState] = useState<CachedAccount[]>(readAccountsFromStorage);
+  const [allCachedAccounts, setAllCachedAccountsState] = useState<CachedAccount[]>(readAccountsFromStorage);
   const [accountsLoadError, setAccountsLoadError] = useState<string | null>(null);
+  const [brands, setBrands] = useState<BrandWorkspace[]>(readBrandsFromStorage);
+  const [accountBrandMap, setAccountBrandMap] = useState<Record<string, string>>(readAccountBrandMapFromStorage);
+  const [activeBrandId, setActiveBrandIdState] = useState<string>(() => readActiveBrandIdFromStorage(readBrandsFromStorage()));
+
+  const persist = useCallback((key: string, value: unknown) => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = typeof value === 'string' ? value : JSON.stringify(value);
+      sessionStorage.setItem(key, raw);
+      localStorage.setItem(key, raw);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => { persist(STORAGE_KEY, allCachedAccounts); }, [allCachedAccounts, persist]);
+  useEffect(() => { persist(BRANDS_KEY, brands); }, [brands, persist]);
+  useEffect(() => { persist(ACCOUNT_BRAND_MAP_KEY, accountBrandMap); }, [accountBrandMap, persist]);
+  useEffect(() => { persist(ACTIVE_BRAND_KEY, activeBrandId); }, [activeBrandId, persist]);
+  useEffect(() => {
+    // If a brand has no image yet, default it from one of its connected account avatars.
+    setBrands((prev) => {
+      let changed = false;
+      const next = prev.map((brand) => {
+        if (brand.imageUrl) return brand;
+        const pick =
+          allCachedAccounts.find(
+            (a) =>
+              (accountBrandMap[a.id] ?? DEFAULT_BRAND_ID) === brand.id &&
+              typeof a.profilePicture === 'string' &&
+              a.profilePicture
+          )?.profilePicture ?? null;
+        if (!pick) return brand;
+        changed = true;
+        return { ...brand, imageUrl: pick };
+      });
+      return changed ? next : prev;
+    });
+  }, [allCachedAccounts, accountBrandMap]);
+
+  const cachedAccounts = useMemo(
+    () =>
+      allCachedAccounts.filter(
+        (a) => (accountBrandMap[a.id] ?? DEFAULT_BRAND_ID) === activeBrandId
+      ),
+    [allCachedAccounts, accountBrandMap, activeBrandId]
+  );
 
   const setCachedAccounts = useCallback((arg: React.SetStateAction<CachedAccount[]>) => {
-    setCachedAccountsState((prev) => {
+    setAllCachedAccountsState((prev) => {
       const next = typeof arg === 'function' ? arg(prev) : arg;
-      if (typeof window !== 'undefined' && Array.isArray(next)) {
-        try {
-          sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        } catch {
-          // ignore
+      setAccountBrandMap((prevMap) => {
+        const map = { ...prevMap };
+        for (const account of next) {
+          if (!map[account.id]) map[account.id] = activeBrandId || DEFAULT_BRAND_ID;
         }
-      }
+        return map;
+      });
       return next;
     });
+  }, [activeBrandId]);
+
+  const setActiveBrandId = useCallback((id: string) => {
+    if (!id) return;
+    setActiveBrandIdState(id);
   }, []);
+
+  const createBrand = useCallback((name: string, imageUrl?: string | null) => {
+    const trimmed = name.trim();
+    const id = `brand-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+    const fallbackImageFromConnected = allCachedAccounts.find((a) => typeof a.profilePicture === 'string' && a.profilePicture)?.profilePicture ?? null;
+    const next: BrandWorkspace = {
+      id,
+      name: trimmed || 'New brand',
+      imageUrl: imageUrl ?? fallbackImageFromConnected ?? null,
+      createdAt: new Date().toISOString(),
+    };
+    setBrands((prev) => [...prev, next]);
+    setActiveBrandIdState(id);
+    return id;
+  }, [allCachedAccounts]);
+
+  const setBrandImage = useCallback((brandId: string, imageUrl: string | null) => {
+    setBrands((prev) => prev.map((b) => (b.id === brandId ? { ...b, imageUrl } : b)));
+  }, []);
+
+  const getAccountBrandId = useCallback((accountId: string) => {
+    return accountBrandMap[accountId] ?? DEFAULT_BRAND_ID;
+  }, [accountBrandMap]);
 
   const value = useMemo(
     () => ({
       cachedAccounts,
+      allCachedAccounts,
       setCachedAccounts,
       accountsLoadError,
       setAccountsLoadError,
+      brands,
+      activeBrandId,
+      setActiveBrandId,
+      createBrand,
+      setBrandImage,
+      getAccountBrandId,
     }),
-    [cachedAccounts, accountsLoadError, setCachedAccounts, setAccountsLoadError]
+    [
+      cachedAccounts,
+      allCachedAccounts,
+      accountsLoadError,
+      setCachedAccounts,
+      setAccountsLoadError,
+      brands,
+      activeBrandId,
+      setActiveBrandId,
+      createBrand,
+      setBrandImage,
+      getAccountBrandId,
+    ]
   );
 
   return <AccountsCacheContext.Provider value={value}>{children}</AccountsCacheContext.Provider>;
