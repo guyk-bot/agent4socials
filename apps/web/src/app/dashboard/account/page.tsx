@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
+import api from '@/lib/api';
 import { ConnectedAccountsPanel } from '@/components/account/ConnectedAccountsPanel';
 import {
   Trash2,
@@ -91,6 +92,15 @@ const sharePlatforms = [
 ];
 
 export default function AccountPage() {
+  type TeamRole = 'Owner' | 'Admin' | 'Editor' | 'Viewer';
+  type TeamMember = {
+    id: string;
+    name: string;
+    email?: string;
+    role: TeamRole;
+    imageUrl?: string | null;
+  };
+
   const router = useRouter();
   const { user, logout } = useAuth();
   const {
@@ -128,10 +138,14 @@ export default function AccountPage() {
   const [editBrandModalOpen, setEditBrandModalOpen] = useState(false);
   const [editingBrandId, setEditingBrandId] = useState<string | null>(null);
   const [editingBrandName, setEditingBrandName] = useState('');
-  const [teamMembersByBrand, setTeamMembersByBrand] = useState<Record<string, Array<{ id: string; name: string; email: string; role: 'Owner' | 'Admin' | 'Editor' | 'Viewer' }>>>({});
+  const [teamMembersByBrand, setTeamMembersByBrand] = useState<Record<string, TeamMember[]>>({});
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberEmail, setNewMemberEmail] = useState('');
-  const [newMemberRole, setNewMemberRole] = useState<'Owner' | 'Admin' | 'Editor' | 'Viewer'>('Editor');
+  const [newMemberRole, setNewMemberRole] = useState<TeamRole>('Editor');
+  const [newMemberImageUrl, setNewMemberImageUrl] = useState<string | null>(null);
+  const [inviteFeedback, setInviteFeedback] = useState<string>('');
+  const [inviteError, setInviteError] = useState<string>('');
+  const [inviteSending, setInviteSending] = useState(false);
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -145,7 +159,7 @@ export default function AccountPage() {
     try {
       const raw = localStorage.getItem('agent4socials_brand_team_members_v1');
       if (!raw) return;
-      const parsed = JSON.parse(raw) as Record<string, Array<{ id: string; name: string; email: string; role: 'Owner' | 'Admin' | 'Editor' | 'Viewer' }>>;
+      const parsed = JSON.parse(raw) as Record<string, TeamMember[]>;
       if (parsed && typeof parsed === 'object') setTeamMembersByBrand(parsed);
     } catch {
       // Ignore bad local data
@@ -315,24 +329,55 @@ export default function AccountPage() {
     setEditBrandModalOpen(false);
   };
 
-  const handleAddTeamMember = () => {
+  const handleAddTeamMember = async () => {
     if (!editingBrand) return;
+    setInviteFeedback('');
+    setInviteError('');
     const name = newMemberName.trim();
     const email = newMemberEmail.trim();
-    if (!name || !email) return;
+    if (!name) return;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (email && !emailRegex.test(email)) {
+      setInviteError('Enter a valid email or leave it empty.');
+      return;
+    }
+    const friend: TeamMember = {
+      id: `member-${Date.now().toString(36)}`,
+      name,
+      email: email || undefined,
+      role: newMemberRole,
+      imageUrl: newMemberImageUrl || null,
+    };
     setTeamMembersByBrand((prev) => {
       const existing = prev[editingBrand.id] ?? [];
       return {
         ...prev,
-        [editingBrand.id]: [
-          ...existing,
-          { id: `member-${Date.now().toString(36)}`, name, email, role: newMemberRole },
-        ],
+        [editingBrand.id]: [...existing, friend],
       };
     });
+    if (email) {
+      setInviteSending(true);
+      try {
+        await api.post('/brands/invite-friend', {
+          email,
+          friendName: name,
+          role: newMemberRole,
+          brandName: editingBrand.name,
+        });
+        setInviteFeedback(`Invite sent to ${email}.`);
+      } catch (err) {
+        const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+        setInviteError(message || 'Friend added, but invite email failed to send.');
+      } finally {
+        setInviteSending(false);
+      }
+    } else {
+      setInviteFeedback('Friend added without email invite.');
+    }
     setNewMemberName('');
     setNewMemberEmail('');
     setNewMemberRole('Editor');
+    setNewMemberImageUrl(null);
   };
 
   const handleDeleteTeamMember = (memberId: string) => {
@@ -471,9 +516,18 @@ export default function AccountPage() {
             ) : (
               editingMembers.map((member) => (
                 <div key={member.id} className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-[var(--card-bg)] px-3 py-2">
+                  <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-neutral-100 flex items-center justify-center">
+                    {member.imageUrl ? (
+                      <img src={member.imageUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-xs font-semibold text-neutral-500">
+                        {(member.name || 'F').slice(0, 1).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-neutral-900">{member.name}</p>
-                    <p className="truncate text-xs text-neutral-500">{member.email}</p>
+                    <p className="truncate text-xs text-neutral-500">{member.email || 'No email'}</p>
                   </div>
                   <span className="inline-flex items-center gap-1 rounded-full border border-neutral-300 px-2 py-0.5 text-xs text-neutral-700">
                     <Shield size={11} />
@@ -491,24 +545,43 @@ export default function AccountPage() {
             )}
           </div>
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto_auto]">
+          <div className="mt-4 grid gap-2 sm:grid-cols-[auto_1fr_1fr_auto_auto]">
+            <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100/70">
+              <Image size={14} />
+              {newMemberImageUrl ? 'Change image' : 'Friend image'}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    if (typeof reader.result === 'string') setNewMemberImageUrl(reader.result);
+                  };
+                  reader.readAsDataURL(file);
+                  e.currentTarget.value = '';
+                }}
+              />
+            </label>
             <input
               type="text"
               value={newMemberName}
               onChange={(e) => setNewMemberName(e.target.value)}
-              placeholder="Member name"
+              placeholder="Friend name"
               className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
             />
             <input
               type="email"
               value={newMemberEmail}
               onChange={(e) => setNewMemberEmail(e.target.value)}
-              placeholder="Member email"
+              placeholder="Email (optional)"
               className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
             />
             <select
               value={newMemberRole}
-              onChange={(e) => setNewMemberRole(e.target.value as 'Owner' | 'Admin' | 'Editor' | 'Viewer')}
+              onChange={(e) => setNewMemberRole(e.target.value as TeamRole)}
               className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-2 py-2 text-sm text-neutral-900"
             >
               <option value="Owner">Owner</option>
@@ -519,12 +592,14 @@ export default function AccountPage() {
             <button
               type="button"
               onClick={handleAddTeamMember}
-              disabled={!newMemberName.trim() || !newMemberEmail.trim()}
+              disabled={!newMemberName.trim() || inviteSending}
               className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
             >
-              Add
+              {inviteSending ? 'Sending...' : 'Add friend'}
             </button>
           </div>
+          {inviteFeedback ? <p className="mt-2 text-xs text-emerald-600">{inviteFeedback}</p> : null}
+          {inviteError ? <p className="mt-2 text-xs text-red-600">{inviteError}</p> : null}
         </div>
 
         <div className="mt-6 flex gap-3">
@@ -605,7 +680,7 @@ export default function AccountPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-neutral-200 bg-neutral-50/40 p-4 sm:p-5 space-y-3">
+          <div className="brand-section-frame rounded-2xl border border-neutral-200 bg-neutral-50/40 p-4 sm:p-5 space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-base sm:text-lg font-bold text-neutral-900 tracking-tight">Brands</h2>
@@ -618,7 +693,7 @@ export default function AccountPage() {
                 return (
                   <div
                     key={brand.id}
-                    className={`rounded-xl border p-3 sm:p-4 ${isActive ? 'sidebar-item-selected' : 'bg-white'}`}
+                    className={`brand-section-box rounded-xl border p-3 sm:p-4 ${isActive ? 'sidebar-item-selected' : 'bg-white'}`}
                     style={{ borderColor: 'rgba(15,23,42,0.08)' }}
                   >
                     <div className="flex items-start gap-3">
@@ -692,7 +767,7 @@ export default function AccountPage() {
               <button
                 type="button"
                 onClick={openCreateBrandModal}
-                className="rounded-xl border border-dashed border-neutral-300 bg-white p-3 sm:p-4 text-left hover:border-neutral-400 hover:bg-neutral-50 transition-colors"
+                className="brand-section-box rounded-xl border border-dashed border-neutral-300 bg-white p-3 sm:p-4 text-left hover:border-neutral-400 hover:bg-neutral-50 transition-colors"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-100 text-neutral-600">
                   <Plus size={18} />

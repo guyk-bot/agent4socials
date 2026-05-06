@@ -215,6 +215,48 @@ export async function sendScheduledPublishFailureEmail(
   }
 }
 
+/**
+ * Sends a brand team invitation email.
+ */
+export async function sendBrandFriendInviteEmail(params: {
+  to: string;
+  inviterName: string;
+  brandName: string;
+  role: 'Owner' | 'Admin' | 'Editor' | 'Viewer';
+  friendName?: string | null;
+}): Promise<{ ok: boolean; error?: string }> {
+  if (!resend) {
+    return { ok: false, error: 'Email service is not configured' };
+  }
+  const from = getGeneralFrom();
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+  const safeFriendName = (params.friendName || '').trim();
+  const greeting = safeFriendName ? `Hi ${safeFriendName},` : 'Hi there,';
+  try {
+    const { error } = await resend.emails.send({
+      from,
+      to: [params.to],
+      subject: `${params.inviterName} invited you to ${params.brandName}`,
+      html: `
+        <p>${greeting}</p>
+        <p><strong>${params.inviterName}</strong> invited you to join the <strong>${params.brandName}</strong> workspace on Agent4Socials.</p>
+        <p>Your role: <strong>${params.role}</strong></p>
+        <p><a href="${baseUrl}/dashboard/account" style="color:#ff7a00;font-weight:600">Open Agent4Socials</a></p>
+        <p>If you do not have an account yet, sign up with this same email address first.</p>
+        <p>Cheers,<br>The Agent4Socials team</p>
+      `,
+    });
+    if (error) {
+      const errMsg = typeof error === 'object' && error !== null && 'message' in error ? String((error as { message?: unknown }).message) : String(error);
+      return { ok: false, error: errMsg };
+    }
+    return { ok: true };
+  } catch (e) {
+    const errMsg = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: errMsg };
+  }
+}
+
 const SUPPORT_EMAIL_TO = process.env.SUPPORT_EMAIL || 'support@agent4socials.com';
 
 /**
