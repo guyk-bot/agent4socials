@@ -4798,9 +4798,9 @@ type PostsUploadDayTooltipAgg = {
                   disabled={postsSyncActive}
                   className="inline-flex items-center gap-2 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                   style={{
-                    color: COLOR.textSecondary,
+                    color: COLOR.text,
                     borderColor: COLOR.border,
-                    background: 'rgba(255,255,255,0.75)',
+                    background: COLOR.elevated,
                   }}
                 >
                   <RefreshCw size={13} className={postsSyncActive ? 'animate-spin opacity-75' : 'opacity-75'} />
