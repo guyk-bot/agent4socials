@@ -170,6 +170,8 @@ export default function AccountPage() {
   const [inviteSending, setInviteSending] = useState(false);
   const [userAvatarOverride, setUserAvatarOverride] = useState<string | null>(null);
   const userAvatarInputRef = useRef<HTMLInputElement | null>(null);
+  const createBrandImageInputRef = useRef<HTMLInputElement | null>(null);
+  const editBrandImageInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => setMounted(true), []);
   useEffect(() => {
@@ -266,13 +268,32 @@ export default function AccountPage() {
       image.src = src;
     });
 
-  const openBrandImageAdjuster = async (file: File, target: 'create' | 'edit') => {
+  const openBrandImageAdjusterFromSource = (source: string, target: 'create' | 'edit') => {
+    setBrandImageAdjustSource(source);
+    setBrandImageAdjustScale(1);
+    setBrandImageAdjustTarget(target);
+    setBrandImageAdjustOpen(true);
+  };
+
+  const handleCreateBrandImagePick = async (file?: File | null) => {
+    if (!file) return;
     try {
       const dataUrl = await readFileAsDataUrl(file);
-      setBrandImageAdjustSource(dataUrl);
-      setBrandImageAdjustScale(1);
-      setBrandImageAdjustTarget(target);
-      setBrandImageAdjustOpen(true);
+      // Always update preview immediately so users see the selected image right away.
+      setNewBrandImageUrl(dataUrl);
+      openBrandImageAdjusterFromSource(dataUrl, 'create');
+    } catch {
+      // Ignore unreadable file errors for now.
+    }
+  };
+
+  const handleEditBrandImagePick = async (file?: File | null) => {
+    if (!file || !editingBrand) return;
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      // Show immediate preview on edit form, then open adjust modal.
+      setBrandImage(editingBrand.id, dataUrl);
+      openBrandImageAdjusterFromSource(dataUrl, 'edit');
     } catch {
       // Ignore unreadable file errors for now.
     }
@@ -641,20 +662,24 @@ export default function AccountPage() {
           </div>
           <div className="space-y-2">
             <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">Brand image</label>
-            <label className="create-brand-hover-dark inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-neutral-300 bg-[var(--background)] px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100/70">
+            <button
+              type="button"
+              onClick={() => createBrandImageInputRef.current?.click()}
+              className="create-brand-hover-dark inline-flex w-full items-center justify-center gap-2 rounded-xl border border-neutral-300 bg-[var(--background)] px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100/70"
+            >
               <Image size={14} />
               {newBrandImageUrl ? 'Change image' : 'Upload image'}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (file) await openBrandImageAdjuster(file, 'create');
-                  e.currentTarget.value = '';
-                }}
-              />
-            </label>
+            </button>
+            <input
+              ref={createBrandImageInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async (e) => {
+                await handleCreateBrandImagePick(e.target.files?.[0] ?? null);
+                e.currentTarget.value = '';
+              }}
+            />
             {newBrandImageUrl ? (
               <div className="rounded-xl border border-neutral-200 bg-[var(--background)] p-3">
                 <div className="flex items-center gap-3">
@@ -941,24 +966,26 @@ export default function AccountPage() {
           </div>
           <div className="space-y-2">
             <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">Brand image</label>
-            <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-neutral-300 bg-[var(--background)] px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100/70">
+            <button
+              type="button"
+              onClick={() => editBrandImageInputRef.current?.click()}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-neutral-300 bg-[var(--background)] px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100/70"
+            >
               <Image size={14} />
               {editingBrand?.imageUrl ? 'Change image' : 'Upload image'}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (file && editingBrand) {
-                    setBrandImageTargetId(editingBrand.id);
-                    await openBrandImageAdjuster(file, 'edit');
-                    setBrandImageTargetId(null);
-                  }
-                  e.currentTarget.value = '';
-                }}
-              />
-            </label>
+            </button>
+            <input
+              ref={editBrandImageInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async (e) => {
+                if (editingBrand) setBrandImageTargetId(editingBrand.id);
+                await handleEditBrandImagePick(e.target.files?.[0] ?? null);
+                if (editingBrand) setBrandImageTargetId(null);
+                e.currentTarget.value = '';
+              }}
+            />
             {editingBrand?.imageUrl ? (
               <div className="rounded-xl border border-neutral-200 bg-[var(--background)] p-3">
                 <div className="h-16 w-16 overflow-hidden rounded-full border border-neutral-300 bg-neutral-100">
