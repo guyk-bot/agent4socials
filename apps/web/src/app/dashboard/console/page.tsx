@@ -325,8 +325,8 @@ function colorizeTooltipMetric(
     .map((part) => (part ? part.charAt(0).toUpperCase() + part.slice(1) : part))
     .join(' ');
   return [
-    <span style={{ color: metricColor, fontWeight: 700 }}>{valueText}</span>,
-    <span style={{ color: metricColor }}>{normalizedLabel}</span>,
+    <span style={{ color: metricColor, fontWeight: 700 }}>{`${normalizedLabel}: ${valueText}`}</span>,
+    '',
   ];
 }
 
