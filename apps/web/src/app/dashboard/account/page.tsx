@@ -136,6 +136,15 @@ export default function AccountPage() {
   const [brandImageTargetId, setBrandImageTargetId] = useState<string | null>(null);
   const [createBrandModalOpen, setCreateBrandModalOpen] = useState(false);
   const [newBrandName, setNewBrandName] = useState('');
+  const [newBrandImageUrl, setNewBrandImageUrl] = useState<string | null>(null);
+  const [newBrandMembers, setNewBrandMembers] = useState<TeamMember[]>([]);
+  const [newBrandMemberName, setNewBrandMemberName] = useState('');
+  const [newBrandMemberEmail, setNewBrandMemberEmail] = useState('');
+  const [newBrandMemberRole, setNewBrandMemberRole] = useState<TeamRole>('Editor');
+  const [newBrandMemberImageUrl, setNewBrandMemberImageUrl] = useState<string | null>(null);
+  const [createBrandInviteFeedback, setCreateBrandInviteFeedback] = useState('');
+  const [createBrandInviteError, setCreateBrandInviteError] = useState('');
+  const [createBrandInviteSending, setCreateBrandInviteSending] = useState(false);
   const [brandMenuOpenId, setBrandMenuOpenId] = useState<string | null>(null);
   const [editBrandModalOpen, setEditBrandModalOpen] = useState(false);
   const [editingBrandId, setEditingBrandId] = useState<string | null>(null);
@@ -306,18 +315,75 @@ export default function AccountPage() {
 
   const openCreateBrandModal = () => {
     setNewBrandName('');
+    setNewBrandImageUrl(null);
+    setNewBrandMembers([]);
+    setNewBrandMemberName('');
+    setNewBrandMemberEmail('');
+    setNewBrandMemberRole('Editor');
+    setNewBrandMemberImageUrl(null);
+    setCreateBrandInviteFeedback('');
+    setCreateBrandInviteError('');
     setCreateBrandModalOpen(true);
   };
 
   const handleCreateBrand = () => {
     const trimmed = newBrandName.trim();
     if (!trimmed) return;
-    const createdId = createBrand(trimmed);
+    const createdId = createBrand(trimmed, newBrandImageUrl);
     if (!createdId) return;
+    if (newBrandMembers.length > 0) {
+      setTeamMembersByBrand((prev) => ({ ...prev, [createdId]: newBrandMembers }));
+    }
     clearSelection();
     setCreateBrandModalOpen(false);
     setNewBrandName('');
     router.push('/dashboard');
+  };
+
+  const handleAddNewBrandMember = async () => {
+    const name = newBrandMemberName.trim();
+    const email = newBrandMemberEmail.trim();
+    if (!name) return;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (email && !emailRegex.test(email)) {
+      setCreateBrandInviteError('Enter a valid email or leave it empty.');
+      return;
+    }
+    setCreateBrandInviteFeedback('');
+    setCreateBrandInviteError('');
+    const member: TeamMember = {
+      id: `member-${Date.now().toString(36)}`,
+      name,
+      email: email || undefined,
+      role: newBrandMemberRole,
+      imageUrl: newBrandMemberImageUrl || null,
+    };
+    setNewBrandMembers((prev) => [...prev, member]);
+    if (email) {
+      setCreateBrandInviteSending(true);
+      try {
+        await api.post('/brands/invite-friend', {
+          email,
+          friendName: name,
+          role: newBrandMemberRole,
+          brandName: newBrandName.trim() || 'New brand',
+        });
+        setCreateBrandInviteFeedback(`Invite sent to ${email}.`);
+      } catch (err) {
+        const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+        setCreateBrandInviteError(message || 'Friend added, but invite email failed to send.');
+      } finally {
+        setCreateBrandInviteSending(false);
+      }
+    }
+    setNewBrandMemberName('');
+    setNewBrandMemberEmail('');
+    setNewBrandMemberRole('Editor');
+    setNewBrandMemberImageUrl(null);
+  };
+
+  const handleRemoveNewBrandMember = (memberId: string) => {
+    setNewBrandMembers((prev) => prev.filter((m) => m.id !== memberId));
   };
 
   const openEditBrandModal = (brandId: string) => {
@@ -434,7 +500,7 @@ export default function AccountPage() {
       aria-label="Create brand"
     >
       <div
-        className="relative w-full max-w-md rounded-2xl border border-neutral-200 bg-[var(--card-bg)] p-6 shadow-2xl"
+        className="relative w-full max-w-2xl rounded-2xl border border-neutral-200 bg-[var(--card-bg)] p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -446,8 +512,8 @@ export default function AccountPage() {
           <X className="w-5 h-5" />
         </button>
         <h3 className="text-lg font-semibold text-neutral-900">Create brand</h3>
-        <p className="mt-1 text-sm text-neutral-500">Add a brand workspace to organize accounts and analytics.</p>
-        <div className="mt-4 space-y-2">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
           <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">Brand name</label>
           <input
             type="text"
@@ -457,6 +523,125 @@ export default function AccountPage() {
             className="w-full rounded-xl border border-neutral-300 bg-[var(--background)] px-3 py-2.5 text-sm text-neutral-900"
             autoFocus
           />
+          </div>
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">Brand image</label>
+            <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-neutral-300 bg-[var(--background)] px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100/70">
+              <Image size={14} />
+              {newBrandImageUrl ? 'Change image' : 'Upload image'}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    if (typeof reader.result === 'string') setNewBrandImageUrl(reader.result);
+                  };
+                  reader.readAsDataURL(file);
+                  e.currentTarget.value = '';
+                }}
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-xl border border-neutral-200 bg-[var(--background)] p-4">
+          <div className="flex items-center gap-2">
+            <Users size={15} className="text-neutral-500" />
+            <h4 className="text-sm font-semibold text-neutral-900">Employees & roles</h4>
+          </div>
+          <div className="mt-3 space-y-2">
+            {newBrandMembers.length === 0 ? (
+              <p className="text-sm text-neutral-500">No employees added yet.</p>
+            ) : (
+              newBrandMembers.map((member) => (
+                <div key={member.id} className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-[var(--card-bg)] px-3 py-2">
+                  <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-neutral-100 flex items-center justify-center">
+                    {member.imageUrl ? (
+                      <img src={member.imageUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-xs font-semibold text-neutral-500">
+                        {(member.name || 'E').slice(0, 1).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-neutral-900">{member.name}</p>
+                    <p className="truncate text-xs text-neutral-500">{member.email || 'No email'}</p>
+                  </div>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-neutral-300 px-2 py-0.5 text-xs text-neutral-700">
+                    <Shield size={11} />
+                    {member.role}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveNewBrandMember(member.id)}
+                    className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-[auto_1fr_1fr_auto_auto]">
+            <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100/70">
+              <Image size={14} />
+              {newBrandMemberImageUrl ? 'Change image' : 'Employee image'}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    if (typeof reader.result === 'string') setNewBrandMemberImageUrl(reader.result);
+                  };
+                  reader.readAsDataURL(file);
+                  e.currentTarget.value = '';
+                }}
+              />
+            </label>
+            <input
+              type="text"
+              value={newBrandMemberName}
+              onChange={(e) => setNewBrandMemberName(e.target.value)}
+              placeholder="Employee name"
+              className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
+            />
+            <input
+              type="email"
+              value={newBrandMemberEmail}
+              onChange={(e) => setNewBrandMemberEmail(e.target.value)}
+              placeholder="Email (optional)"
+              className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
+            />
+            <select
+              value={newBrandMemberRole}
+              onChange={(e) => setNewBrandMemberRole(e.target.value as TeamRole)}
+              className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-2 py-2 text-sm text-neutral-900"
+            >
+              <option value="Owner">Owner</option>
+              <option value="Admin">Admin</option>
+              <option value="Editor">Editor</option>
+              <option value="Viewer">Viewer</option>
+            </select>
+            <button
+              type="button"
+              onClick={handleAddNewBrandMember}
+              disabled={!newBrandMemberName.trim() || createBrandInviteSending}
+              className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+            >
+              {createBrandInviteSending ? 'Sending...' : 'Add employee'}
+            </button>
+          </div>
+          {createBrandInviteFeedback ? <p className="mt-2 text-xs text-emerald-600">{createBrandInviteFeedback}</p> : null}
+          {createBrandInviteError ? <p className="mt-2 text-xs text-red-600">{createBrandInviteError}</p> : null}
         </div>
         <div className="mt-6 flex gap-3">
           <button

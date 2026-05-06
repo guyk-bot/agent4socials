@@ -479,6 +479,14 @@ progress {
   background: #d1d5db;
   color: inherit;
 }
+[data-theme='dark'] ::selection {
+  background: #9ca3af;
+  color: #1f2937;
+}
+[data-theme='dark'] ::-moz-selection {
+  background: #9ca3af;
+  color: #1f2937;
+}
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
