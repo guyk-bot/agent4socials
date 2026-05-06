@@ -1,15 +1,18 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
-    router.replace('/?auth=signup');
-  }, [router]);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('auth', 'signup');
+    router.replace(`/?${params.toString()}`);
+  }, [router, searchParams]);
 
   return (
     <>

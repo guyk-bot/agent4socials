@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from 'lucide-react';
@@ -38,6 +38,7 @@ export default function SignupFormContent() {
   const { signInWithEmail, signInWithGoogle } = useAuth();
   const { openLogin, closeModal } = useAuthModal();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const code = digits.join('');
 
@@ -64,6 +65,12 @@ export default function SignupFormContent() {
   useEffect(() => {
     if (lockoutUntilMs && Date.now() >= lockoutUntilMs) setLockoutUntilMs(null);
   }, [lockoutUntilMs, tick]);
+
+  useEffect(() => {
+    const invitedEmail = (searchParams.get('email') || '').trim().toLowerCase();
+    if (!invitedEmail) return;
+    setEmail((prev) => (prev ? prev : invitedEmail));
+  }, [searchParams]);
 
   const setDigitAt = useCallback((index: number, digit: string) => {
     const d = digit.replace(/\D/g, '').slice(-1);

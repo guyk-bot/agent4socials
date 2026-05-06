@@ -27,6 +27,7 @@ import {
   Users,
   Shield,
   PencilLine,
+  HelpCircle,
 } from 'lucide-react';
 
 const CONFIRM_TEXT = 'CONFIRM';
@@ -152,6 +153,7 @@ export default function AccountPage() {
   const [createBrandInviteFeedback, setCreateBrandInviteFeedback] = useState('');
   const [createBrandInviteError, setCreateBrandInviteError] = useState('');
   const [createBrandInviteSending, setCreateBrandInviteSending] = useState(false);
+  const [createBrandInviteLink, setCreateBrandInviteLink] = useState('');
   const [brandMenuOpenId, setBrandMenuOpenId] = useState<string | null>(null);
   const [editBrandModalOpen, setEditBrandModalOpen] = useState(false);
   const [editingBrandId, setEditingBrandId] = useState<string | null>(null);
@@ -168,6 +170,8 @@ export default function AccountPage() {
   const [inviteFeedback, setInviteFeedback] = useState<string>('');
   const [inviteError, setInviteError] = useState<string>('');
   const [inviteSending, setInviteSending] = useState(false);
+  const [inviteLink, setInviteLink] = useState('');
+  const [showRoleGuide, setShowRoleGuide] = useState(false);
   const [userAvatarOverride, setUserAvatarOverride] = useState<string | null>(null);
   const userAvatarInputRef = useRef<HTMLInputElement | null>(null);
   const createBrandImageInputRef = useRef<HTMLInputElement | null>(null);
@@ -451,6 +455,7 @@ export default function AccountPage() {
     setNewBrandMemberRole('Editor');
     setCreateBrandInviteFeedback('');
     setCreateBrandInviteError('');
+    setCreateBrandInviteLink('');
     setCreateBrandModalOpen(true);
   };
 
@@ -484,6 +489,7 @@ export default function AccountPage() {
     }
     setCreateBrandInviteFeedback('');
     setCreateBrandInviteError('');
+    setCreateBrandInviteLink('');
     const member: TeamMember = {
       id: `member-${Date.now().toString(36)}`,
       firstName,
@@ -496,13 +502,15 @@ export default function AccountPage() {
     setNewBrandMembers((prev) => [...prev, member]);
     setCreateBrandInviteSending(true);
     try {
-      await api.post('/brands/invite-friend', {
+      const response = await api.post('/brands/invite-friend', {
         email,
         friendName: name,
         role: newBrandMemberRole,
         brandName: newBrandName.trim() || 'New brand',
       });
-      setCreateBrandInviteFeedback(`Invite sent to ${email}.`);
+      const generatedLink = String(response?.data?.inviteLink || '');
+      setCreateBrandInviteLink(generatedLink);
+      setCreateBrandInviteFeedback(`Invite sent to ${email}. If they cannot find it, ask them to check spam.`);
     } catch (err) {
       const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setCreateBrandInviteError(message || 'Team member added, but invite email failed to send.');
@@ -566,6 +574,7 @@ export default function AccountPage() {
     if (!editingBrand) return;
     setInviteFeedback('');
     setInviteError('');
+    setInviteLink('');
     const firstName = newMemberFirstName.trim();
     const lastName = newMemberLastName.trim();
     const name = `${firstName} ${lastName}`.trim();
@@ -597,13 +606,15 @@ export default function AccountPage() {
     });
     setInviteSending(true);
     try {
-      await api.post('/brands/invite-friend', {
+      const response = await api.post('/brands/invite-friend', {
         email,
         friendName: name,
         role: newMemberRole,
         brandName: editingBrand.name,
       });
-      setInviteFeedback(`Invite sent to ${email}.`);
+      const generatedLink = String(response?.data?.inviteLink || '');
+      setInviteLink(generatedLink);
+      setInviteFeedback(`Invite sent to ${email}. If they cannot find it, ask them to check spam.`);
     } catch (err) {
       const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setInviteError(message || 'Team member added, but invite email failed to send.');
@@ -697,6 +708,13 @@ export default function AccountPage() {
           <div className="flex items-center gap-2">
             <Users size={15} className="text-neutral-500" />
             <h4 className="text-sm font-semibold text-neutral-900">Employees & roles</h4>
+            <span
+              className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-orange-300 bg-orange-100 text-orange-700"
+              title="Admin can manage members and settings. Editor can create and edit content. Viewer can view analytics and content only."
+              aria-label="Role permissions"
+            >
+              <HelpCircle size={12} />
+            </span>
           </div>
           <div className="mt-3 space-y-2">
             {newBrandMembers.length === 0 ? (
@@ -763,23 +781,29 @@ export default function AccountPage() {
               <option value="Editor">Editor</option>
               <option value="Viewer">Viewer</option>
             </select>
+          </div>
+          <div className="mt-3 flex justify-end">
             <button
               type="button"
               onClick={handleAddNewBrandMember}
               disabled={!newBrandMemberFirstName.trim() || !newBrandMemberLastName.trim() || !newBrandMemberEmail.trim() || createBrandInviteSending}
-              className="create-brand-hover-dark rounded-lg bg-neutral-700 px-3 py-2 text-sm font-semibold text-white hover:bg-neutral-600 disabled:opacity-50 sm:col-start-4"
+              className="create-brand-hover-dark inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-[var(--card-bg)] px-3.5 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-100/70 disabled:opacity-50"
             >
-              {createBrandInviteSending ? 'Sending...' : 'Add friend'}
+              <Plus size={14} />
+              {createBrandInviteSending ? 'Sending...' : 'Add another team member'}
             </button>
           </div>
           <p className="mt-2 text-[11px] text-neutral-500 leading-relaxed">
-            An email invitation will be sent from <span className="font-semibold">noreply@agent4social.com</span>. Please check spam if the user did not receive the invite, or send this join link:
-            {' '}
-            <a href="https://agent4socials.com/signup" target="_blank" rel="noopener noreferrer" className="underline text-neutral-600 hover:text-neutral-700">
-              https://agent4socials.com/signup
-            </a>
-            .
+            Invitations are sent from <span className="font-semibold">noreply@agent4social.com</span>. If they cannot find it, ask them to check spam.
           </p>
+          {createBrandInviteLink ? (
+            <p className="mt-1 text-[11px] text-neutral-500 leading-relaxed">
+              Invitation link:{' '}
+              <a href={createBrandInviteLink} target="_blank" rel="noopener noreferrer" className="underline text-neutral-600 hover:text-neutral-700 break-all">
+                {createBrandInviteLink}
+              </a>
+            </p>
+          ) : null}
           {createBrandInviteFeedback ? <p className="mt-2 text-xs text-emerald-600">{createBrandInviteFeedback}</p> : null}
           {createBrandInviteError ? <p className="mt-2 text-xs text-red-600">{createBrandInviteError}</p> : null}
         </div>
@@ -1000,6 +1024,13 @@ export default function AccountPage() {
           <div className="flex items-center gap-2">
             <Users size={15} className="text-neutral-500" />
             <h4 className="text-sm font-semibold text-neutral-900">Team members & roles</h4>
+            <span
+              className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-orange-300 bg-orange-100 text-orange-700"
+              title="Admin can manage members and settings. Editor can create and edit content. Viewer can view analytics and content only."
+              aria-label="Role permissions"
+            >
+              <HelpCircle size={12} />
+            </span>
           </div>
           <div className="mt-3 space-y-2">
             {editingMembers.length === 0 ? (
@@ -1067,15 +1098,29 @@ export default function AccountPage() {
               <option value="Editor">Editor</option>
               <option value="Viewer">Viewer</option>
             </select>
+          </div>
+          <div className="mt-3 flex justify-end">
             <button
               type="button"
               onClick={handleAddTeamMember}
               disabled={!newMemberFirstName.trim() || !newMemberLastName.trim() || !newMemberEmail.trim() || inviteSending}
-              className="flex-[0_0_auto] rounded-lg bg-neutral-900 px-3 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-[var(--card-bg)] px-3.5 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-100/70 disabled:opacity-50"
             >
-              {inviteSending ? 'Sending...' : 'Add friend'}
+              <Plus size={14} />
+              {inviteSending ? 'Sending...' : 'Add another team member'}
             </button>
           </div>
+          <p className="mt-2 text-[11px] text-neutral-500 leading-relaxed">
+            Invitations are sent from <span className="font-semibold">noreply@agent4social.com</span>. If they cannot find it, ask them to check spam.
+          </p>
+          {inviteLink ? (
+            <p className="mt-1 text-[11px] text-neutral-500 leading-relaxed">
+              Invitation link:{' '}
+              <a href={inviteLink} target="_blank" rel="noopener noreferrer" className="underline text-neutral-600 hover:text-neutral-700 break-all">
+                {inviteLink}
+              </a>
+            </p>
+          ) : null}
           {inviteFeedback ? <p className="mt-2 text-xs text-emerald-600">{inviteFeedback}</p> : null}
           {inviteError ? <p className="mt-2 text-xs text-red-600">{inviteError}</p> : null}
         </div>
@@ -1173,8 +1218,25 @@ export default function AccountPage() {
                 <span className="shrink-0 inline-flex items-center rounded-full border border-orange-300 bg-orange-100/90 px-2 py-0.5 text-[11px] font-semibold text-orange-700">
                   {currentUserRoleLabel}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setShowRoleGuide((prev) => !prev)}
+                  className="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full border border-orange-300 bg-orange-100 text-orange-700 hover:bg-orange-200/90"
+                  aria-label="Show role permissions"
+                  title="Show role permissions"
+                >
+                  <HelpCircle size={12} />
+                </button>
               </div>
               <p className="text-sm text-neutral-500 truncate">{user?.email}</p>
+              {showRoleGuide ? (
+                <div className="mt-2 rounded-xl border border-orange-200 bg-orange-50/80 p-3 text-xs text-orange-900">
+                  <p className="font-semibold">Role permissions and limitations</p>
+                  <p className="mt-1"><strong>Admin:</strong> Full access to team, brand settings, and content actions.</p>
+                  <p className="mt-1"><strong>Editor:</strong> Can create and edit content, cannot manage admin-level settings.</p>
+                  <p className="mt-1"><strong>Viewer:</strong> Read-only access for analytics and content visibility.</p>
+                </div>
+              ) : null}
               {userId ? (
                 <div className="flex flex-wrap items-center gap-1.5 pt-2 text-xs text-neutral-600">
                   <span className="text-neutral-500">User ID:</span>

@@ -49,15 +49,23 @@ export async function POST(request: NextRequest) {
   }
 
   const inviterName = (user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'A teammate').toString();
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+  const inviteParams = new URLSearchParams({
+    email: to,
+    brand: brandName,
+    role,
+  });
+  const inviteLink = `${baseUrl}/signup?${inviteParams.toString()}`;
   const sent = await sendBrandFriendInviteEmail({
     to,
     inviterName,
     brandName,
     role,
     friendName,
+    inviteLink,
   });
   if (!sent.ok) {
     return NextResponse.json({ message: sent.error || 'Failed to send invite email' }, { status: 500 });
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, inviteLink });
 }

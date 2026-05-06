@@ -224,12 +224,14 @@ export async function sendBrandFriendInviteEmail(params: {
   brandName: string;
   role: 'Owner' | 'Admin' | 'Editor' | 'Viewer';
   friendName?: string | null;
+  inviteLink?: string | null;
 }): Promise<{ ok: boolean; error?: string }> {
   if (!resend) {
     return { ok: false, error: 'Email service is not configured' };
   }
   const from = getGeneralFrom();
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+  const inviteUrl = (params.inviteLink || `${baseUrl}/signup`).trim();
   const safeFriendName = (params.friendName || '').trim();
   const greeting = safeFriendName ? `Hi ${safeFriendName},` : 'Hi there,';
   try {
@@ -241,8 +243,9 @@ export async function sendBrandFriendInviteEmail(params: {
         <p>${greeting}</p>
         <p><strong>${params.inviterName}</strong> invited you to join the <strong>${params.brandName}</strong> workspace on Agent4Socials.</p>
         <p>Your role: <strong>${params.role}</strong></p>
-        <p><a href="${baseUrl}/dashboard/account" style="color:#ff7a00;font-weight:600">Open Agent4Socials</a></p>
-        <p>If you do not have an account yet, sign up with this same email address first.</p>
+        <p><a href="${inviteUrl}" style="color:#ff7a00;font-weight:600">Accept invitation and create account</a></p>
+        <p>If you already have an account, log in with this same email address.</p>
+        <p>If you cannot find this invitation, check your spam folder.</p>
         <p>Cheers,<br>The Agent4Socials team</p>
       `,
     });
