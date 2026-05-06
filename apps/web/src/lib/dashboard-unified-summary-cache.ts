@@ -3,18 +3,19 @@ import type { UnifiedSummaryResponse } from '@/lib/analytics/unified-metrics-typ
 const PREFIX = 'agent4socials.unifiedSummary.v4';
 const memoryCache = new Map<string, { at: number; data: UnifiedSummaryResponse }>();
 
-function key(userId: string, start: string, end: string): string {
-  return `${PREFIX}:${userId}:${start}:${end}`;
+function key(userId: string, start: string, end: string, scopeKey?: string): string {
+  return `${PREFIX}:${userId}:${start}:${end}:${scopeKey || 'all'}`;
 }
 
 /** Returns cached summary if present. Entries are not expired on read so the Console can stale-while-revalidate. */
 export function readUnifiedSummaryCache(
   userId: string,
   start: string,
-  end: string
+  end: string,
+  scopeKey?: string
 ): UnifiedSummaryResponse | null {
   if (typeof window === 'undefined' || !userId) return null;
-  const cacheKey = key(userId, start, end);
+  const cacheKey = key(userId, start, end, scopeKey);
   const mem = memoryCache.get(cacheKey);
   if (mem?.data) return mem.data;
   try {
@@ -33,10 +34,11 @@ export function writeUnifiedSummaryCache(
   userId: string,
   start: string,
   end: string,
-  data: UnifiedSummaryResponse
+  data: UnifiedSummaryResponse,
+  scopeKey?: string
 ): void {
   if (typeof window === 'undefined' || !userId) return;
-  const cacheKey = key(userId, start, end);
+  const cacheKey = key(userId, start, end, scopeKey);
   const payload = JSON.stringify({ at: Date.now(), data });
   memoryCache.set(cacheKey, { at: Date.now(), data });
   try {

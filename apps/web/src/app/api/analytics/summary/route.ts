@@ -22,6 +22,13 @@ export async function GET(req: NextRequest) {
   const until = sp.get('until') ?? sp.get('end');
   const rawDays = sp.get('days');
   const days = [7, 30, 90].includes(Number(rawDays)) ? Number(rawDays) : undefined;
+  const rawAccountIds = sp.get('accountIds');
+  const accountIds = rawAccountIds
+    ? rawAccountIds
+        .split(',')
+        .map((id) => id.trim())
+        .filter(Boolean)
+    : undefined;
 
   const period = resolveUnifiedPeriod({
     days,
@@ -40,15 +47,15 @@ export async function GET(req: NextRequest) {
     topPosts,
     history,
   ] = await Promise.all([
-    getUnifiedKpiSummary(userId, period),
-    getUnifiedChartData(userId, period),
-    getUnifiedAudienceChartData(userId, period),
-    getUnifiedEngagementChartData(userId, period),
-    getUnifiedEngagementBreakdown(userId, period),
-    getUnifiedActivityBreakdown(userId, period),
-    getUnifiedPostsBreakdown(userId, period),
-    getUnifiedTopPosts(userId, period, 5),
-    getUnifiedPostsHistory(userId, period, 60),
+    getUnifiedKpiSummary(userId, period, accountIds),
+    getUnifiedChartData(userId, period, accountIds),
+    getUnifiedAudienceChartData(userId, period, accountIds),
+    getUnifiedEngagementChartData(userId, period, accountIds),
+    getUnifiedEngagementBreakdown(userId, period, accountIds),
+    getUnifiedActivityBreakdown(userId, period, accountIds),
+    getUnifiedPostsBreakdown(userId, period, accountIds),
+    getUnifiedTopPosts(userId, period, 5, accountIds),
+    getUnifiedPostsHistory(userId, period, 60, accountIds),
   ]);
 
   return NextResponse.json({

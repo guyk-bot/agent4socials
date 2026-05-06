@@ -179,12 +179,13 @@ function sumEngagement(p: {
 
 // ─── KPI Summary ─────────────────────────────────────────────────────────────
 
-export async function getUnifiedKpiSummary(userId: string, period: UnifiedPeriod): Promise<UnifiedKpiSummary> {
+export async function getUnifiedKpiSummary(userId: string, period: UnifiedPeriod, accountIds?: string[]): Promise<UnifiedKpiSummary> {
   const { since, until, prevSince, prevUntil } = period;
+  const scoped = Array.isArray(accountIds) && accountIds.length > 0;
 
   // Latest follower count per social account (most recent snapshot overall)
   const allSnapshots = await prisma.accountMetricSnapshot.findMany({
-    where: { userId },
+    where: { userId, ...(scoped ? { socialAccountId: { in: accountIds } } : {}) },
     select: { socialAccountId: true, followersCount: true, fansCount: true, metricDate: true },
     orderBy: { metricDate: 'desc' },
   });
@@ -209,7 +210,7 @@ export async function getUnifiedKpiSummary(userId: string, period: UnifiedPeriod
   // Current period posts
   const [currentPosts, prevPosts, linkedinCurrent, linkedinPrev] = await Promise.all([
     prisma.importedPost.findMany({
-      where: { socialAccount: { userId }, publishedAt: { gte: since, lte: until } },
+      where: { socialAccount: scoped ? { userId, id: { in: accountIds } } : { userId }, publishedAt: { gte: since, lte: until } },
       select: {
         impressions: true,
         interactions: true,
@@ -220,7 +221,7 @@ export async function getUnifiedKpiSummary(userId: string, period: UnifiedPeriod
       },
     }),
     prisma.importedPost.findMany({
-      where: { socialAccount: { userId }, publishedAt: { gte: prevSince, lte: prevUntil } },
+      where: { socialAccount: scoped ? { userId, id: { in: accountIds } } : { userId }, publishedAt: { gte: prevSince, lte: prevUntil } },
       select: {
         impressions: true,
         interactions: true,
@@ -231,11 +232,11 @@ export async function getUnifiedKpiSummary(userId: string, period: UnifiedPeriod
       },
     }),
     prisma.postPerformance.findMany({
-      where: { userId, fetchedAt: { gte: since, lte: until } },
+      where: { userId, ...(scoped ? { socialAccountId: { in: accountIds } } : {}), fetchedAt: { gte: since, lte: until } },
       select: { impressions: true, comments: true, shares: true },
     }),
     prisma.postPerformance.findMany({
-      where: { userId, fetchedAt: { gte: prevSince, lte: prevUntil } },
+      where: { userId, ...(scoped ? { socialAccountId: { in: accountIds } } : {}), fetchedAt: { gte: prevSince, lte: prevUntil } },
       select: { impressions: true, comments: true, shares: true },
     }),
   ]);
@@ -295,17 +296,18 @@ function buildEmptyDateRangeMap(since: Date, until: Date): Record<string, Unifie
   return dateMap;
 }
 
-export async function getUnifiedChartData(userId: string, period: UnifiedPeriod): Promise<UnifiedChartData> {
+export async function getUnifiedChartData(userId: string, period: UnifiedPeriod, accountIds?: string[]): Promise<UnifiedChartData> {
   const { since, until } = period;
+  const scoped = Array.isArray(accountIds) && accountIds.length > 0;
 
   const [posts, linkedinPosts] = await Promise.all([
     prisma.importedPost.findMany({
-      where: { socialAccount: { userId }, publishedAt: { gte: since, lte: until } },
+      where: { socialAccount: scoped ? { userId, id: { in: accountIds } } : { userId }, publishedAt: { gte: since, lte: until } },
       select: { publishedAt: true, impressions: true, platform: true },
       orderBy: { publishedAt: 'asc' },
     }),
     prisma.postPerformance.findMany({
-      where: { userId, fetchedAt: { gte: since, lte: until } },
+      where: { userId, ...(scoped ? { socialAccountId: { in: accountIds } } : {}), fetchedAt: { gte: since, lte: until } },
       select: { fetchedAt: true, impressions: true },
     }),
   ]);
@@ -364,14 +366,15 @@ function forwardFillAudienceSnapshotGaps(sortedRows: UnifiedChartData): UnifiedC
 }
 
 /** Daily audience (followers or fans) from metric snapshots, summed across accounts per platform. */
-export async function getUnifiedAudienceChartData(userId: string, period: UnifiedPeriod): Promise<UnifiedChartData> {
+export async function getUnifiedAudienceChartData(userId: string, period: UnifiedPeriod, accountIds?: string[]): Promise<UnifiedChartData> {
   const { since, until } = period;
+  const scoped = Array.isArray(accountIds) && accountIds.length > 0;
   const dateMap = buildEmptyDateRangeMap(since, until);
   const keys = Object.keys(dateMap).sort();
   if (keys.length === 0) return [];
 
   const snapshots = await prisma.accountMetricSnapshot.findMany({
-    where: { userId, metricDate: { gte: keys[0], lte: keys[keys.length - 1] } },
+    where: { userId, ...(scoped ? { socialAccountId: { in: accountIds } } : {}), metricDate: { gte: keys[0], lte: keys[keys.length - 1] } },
     select: { metricDate: true, platform: true, followersCount: true, fansCount: true },
   });
 
@@ -389,12 +392,13 @@ export async function getUnifiedAudienceChartData(userId: string, period: Unifie
 }
 
 /** Daily engagement from synced posts (and LinkedIn PostPerformance rows) by platform. */
-export async function getUnifiedEngagementChartData(userId: string, period: UnifiedPeriod): Promise<UnifiedChartData> {
+export async function getUnifiedEngagementChartData(userId: string, period: UnifiedPeriod, accountIds?: string[]): Promise<UnifiedChartData> {
   const { since, until } = period;
+  const scoped = Array.isArray(accountIds) && accountIds.length > 0;
 
   const [posts, linkedinPosts] = await Promise.all([
     prisma.importedPost.findMany({
-      where: { socialAccount: { userId }, publishedAt: { gte: since, lte: until } },
+      where: { socialAccount: scoped ? { userId, id: { in: accountIds } } : { userId }, publishedAt: { gte: since, lte: until } },
       select: {
         publishedAt: true,
         platform: true,
@@ -407,7 +411,7 @@ export async function getUnifiedEngagementChartData(userId: string, period: Unif
       orderBy: { publishedAt: 'asc' },
     }),
     prisma.postPerformance.findMany({
-      where: { userId, fetchedAt: { gte: since, lte: until } },
+      where: { userId, ...(scoped ? { socialAccountId: { in: accountIds } } : {}), fetchedAt: { gte: since, lte: until } },
       select: { fetchedAt: true, comments: true, shares: true },
     }),
   ]);
@@ -434,11 +438,12 @@ export async function getUnifiedEngagementChartData(userId: string, period: Unif
 
 // ─── Top Posts ────────────────────────────────────────────────────────────────
 
-export async function getUnifiedTopPosts(userId: string, period: UnifiedPeriod, limit = 5): Promise<UnifiedTopPost[]> {
+export async function getUnifiedTopPosts(userId: string, period: UnifiedPeriod, limit = 5, accountIds?: string[]): Promise<UnifiedTopPost[]> {
   const { since, until } = period;
+  const scoped = Array.isArray(accountIds) && accountIds.length > 0;
 
   const posts = await prisma.importedPost.findMany({
-    where: { socialAccount: { userId }, publishedAt: { gte: since, lte: until } },
+    where: { socialAccount: scoped ? { userId, id: { in: accountIds } } : { userId }, publishedAt: { gte: since, lte: until } },
     select: {
       id: true,
       content: true,
@@ -481,12 +486,14 @@ export async function getUnifiedTopPosts(userId: string, period: UnifiedPeriod, 
 export async function getUnifiedPostsHistory(
   userId: string,
   period: UnifiedPeriod,
-  limit = 60
+  limit = 60,
+  accountIds?: string[]
 ): Promise<UnifiedHistoryPost[]> {
   const { since, until } = period;
+  const scoped = Array.isArray(accountIds) && accountIds.length > 0;
 
   const posts = await prisma.importedPost.findMany({
-    where: { socialAccount: { userId }, publishedAt: { gte: since, lte: until } },
+    where: { socialAccount: scoped ? { userId, id: { in: accountIds } } : { userId }, publishedAt: { gte: since, lte: until } },
     select: {
       id: true,
       content: true,
@@ -529,12 +536,14 @@ import type { UnifiedEngagementDay, UnifiedActivityDay } from './unified-metrics
 
 export async function getUnifiedEngagementBreakdown(
   userId: string,
-  period: UnifiedPeriod
+  period: UnifiedPeriod,
+  accountIds?: string[]
 ): Promise<UnifiedEngagementDay[]> {
   const { since, until } = period;
+  const scoped = Array.isArray(accountIds) && accountIds.length > 0;
 
   const posts = await prisma.importedPost.findMany({
-    where: { socialAccount: { userId }, publishedAt: { gte: since, lte: until } },
+    where: { socialAccount: scoped ? { userId, id: { in: accountIds } } : { userId }, publishedAt: { gte: since, lte: until } },
     select: {
       publishedAt: true,
       likeCount: true,
@@ -600,12 +609,14 @@ function classifyPostBucket(
 
 export async function getUnifiedPostsBreakdown(
   userId: string,
-  period: UnifiedPeriod
+  period: UnifiedPeriod,
+  accountIds?: string[]
 ): Promise<import('./unified-metrics-types').UnifiedPostsBreakdownDay[]> {
   const { since, until } = period;
+  const scoped = Array.isArray(accountIds) && accountIds.length > 0;
 
   const posts = await prisma.importedPost.findMany({
-    where: { socialAccount: { userId }, publishedAt: { gte: since, lte: until } },
+    where: { socialAccount: scoped ? { userId, id: { in: accountIds } } : { userId }, publishedAt: { gte: since, lte: until } },
     select: {
       publishedAt: true,
       platform: true,
@@ -653,12 +664,14 @@ export async function getUnifiedPostsBreakdown(
 
 export async function getUnifiedActivityBreakdown(
   userId: string,
-  period: UnifiedPeriod
+  period: UnifiedPeriod,
+  accountIds?: string[]
 ): Promise<UnifiedActivityDay[]> {
   const { since, until } = period;
+  const scoped = Array.isArray(accountIds) && accountIds.length > 0;
 
   const posts = await prisma.importedPost.findMany({
-    where: { socialAccount: { userId }, publishedAt: { gte: since, lte: until } },
+    where: { socialAccount: scoped ? { userId, id: { in: accountIds } } : { userId }, publishedAt: { gte: since, lte: until } },
     select: { publishedAt: true },
     orderBy: { publishedAt: 'asc' },
   });

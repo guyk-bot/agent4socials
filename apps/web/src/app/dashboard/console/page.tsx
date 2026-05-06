@@ -502,6 +502,18 @@ const EMPTY_KPI: UnifiedKpiSummary = {
   postsGrowthPercentage: 0,
 };
 
+const EMPTY_UNIFIED_SUMMARY: UnifiedSummaryResponse = {
+  kpi: EMPTY_KPI,
+  chart: [],
+  audienceChart: [],
+  engagementChart: [],
+  engagementBreakdown: [],
+  activityBreakdown: [],
+  postsBreakdown: [],
+  topPosts: [],
+  history: [],
+};
+
 function normalizeUnifiedSummary(d: UnifiedSummaryResponse): UnifiedSummaryResponse {
   return {
     ...d,
@@ -1229,6 +1241,8 @@ export default function UnifiedSummaryPage() {
     return list;
     // accountsKey captures account set; read latest cachedAccounts from render closure
   }, [accountsKey]);
+  const accountIdsCsv = useMemo(() => orderedAccounts.map((a) => a.id).sort().join(','), [orderedAccounts]);
+  const summaryScopeKey = accountIdsCsv || 'no-accounts';
 
   const goToAccountDashboard = useCallback((acc: SocialAccount) => {
     setSelectedAccount?.(acc);
@@ -1350,7 +1364,14 @@ export default function UnifiedSummaryPage() {
       lastSummaryRangeRef.current !== null && lastSummaryRangeRef.current !== rangeSig;
     lastSummaryRangeRef.current = rangeSig;
 
-    const cachedRaw = readUnifiedSummaryCache(user.id, dateRange.start, dateRange.end);
+    if (orderedAccounts.length === 0) {
+      setData(EMPTY_UNIFIED_SUMMARY);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    const cachedRaw = readUnifiedSummaryCache(user.id, dateRange.start, dateRange.end, summaryScopeKey);
     const cached = cachedRaw ? normalizeUnifiedSummary(cachedRaw) : null;
     const hadCache = !!cached;
     const sameRangeAlreadyHydrated = lastHydratedSummaryRangeRef.current === rangeSig;
@@ -1370,14 +1391,14 @@ export default function UnifiedSummaryPage() {
     (async () => {
       try {
         const res = await api.get<UnifiedSummaryResponse>('/analytics/summary', {
-          params: { since: dateRange.start, until: dateRange.end },
+          params: { since: dateRange.start, until: dateRange.end, accountIds: accountIdsCsv },
         });
         if (cancelled) return;
         const normalized = normalizeUnifiedSummary(res.data);
         setData(normalized);
         setError(null);
         lastHydratedSummaryRangeRef.current = rangeSig;
-        writeUnifiedSummaryCache(user.id, dateRange.start, dateRange.end, normalized);
+        writeUnifiedSummaryCache(user.id, dateRange.start, dateRange.end, normalized, summaryScopeKey);
       } catch {
         if (!cancelled && !hadCache && !sameRangeAlreadyHydrated) {
           setError('Failed to load analytics. Please try again.');
@@ -1389,7 +1410,7 @@ export default function UnifiedSummaryPage() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, dateRange.start, dateRange.end]);
+  }, [user?.id, dateRange.start, dateRange.end, orderedAccounts.length, accountIdsCsv, summaryScopeKey]);
 
   // Twitter and Pinterest are not covered by the scheduled cron (genericAdapter is a no-op), so
   // importedPost rows only exist for accounts the user manually opened. Kick off a one-shot
@@ -1423,12 +1444,12 @@ export default function UnifiedSummaryPage() {
       if (cancelled || !user?.id) return;
       try {
         const res = await api.get<UnifiedSummaryResponse>('/analytics/summary', {
-          params: { since: dateRange.start, until: dateRange.end },
+          params: { since: dateRange.start, until: dateRange.end, accountIds: accountIdsCsv },
         });
         if (cancelled) return;
         const normalized = normalizeUnifiedSummary(res.data);
         setData(normalized);
-        writeUnifiedSummaryCache(user.id, dateRange.start, dateRange.end, normalized);
+        writeUnifiedSummaryCache(user.id, dateRange.start, dateRange.end, normalized, summaryScopeKey);
       } catch {
         /* Keep whatever we already rendered. */
       }
@@ -1438,7 +1459,7 @@ export default function UnifiedSummaryPage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, accountsKey, dateRange.start, dateRange.end]);
+  }, [user?.id, accountsKey, dateRange.start, dateRange.end, accountIdsCsv, summaryScopeKey]);
 
   useEffect(() => {
     if (!user?.id) {
