@@ -48,6 +48,7 @@ import {
 
 /** Instagram hits many Meta endpoints; default axios 25s often aborts before the API route finishes. */
 const INSIGHTS_HTTP_MS = 70_000;
+const MANUAL_SYNC_PENDING_KEY = 'a4s_manual_sync_pending_account_id';
 
 function Skeleton({ className = '', style }: { className?: string; style?: React.CSSProperties }) {
   return (
@@ -365,6 +366,14 @@ export default function DashboardPage() {
     if (!selectedAccount?.id) return;
     let cancelled = false;
     const accountId = selectedAccount.id;
+    // Rehydrate pending manual sync flag after navigation/remount.
+    try {
+      if (typeof window !== 'undefined' && sessionStorage.getItem(MANUAL_SYNC_PENDING_KEY) === accountId) {
+        setPostsSoftSyncing(true);
+      }
+    } catch {
+      // ignore storage errors
+    }
 
     const pollSyncStatus = async () => {
       try {
@@ -374,6 +383,21 @@ export default function DashboardPage() {
         const isActive = d.status === 'syncing' || !!d.activeJob;
         if (selectedAccountIdRef.current !== accountId) return;
         setPostsSoftSyncing(isActive);
+        if (isActive) {
+          try {
+            if (typeof window !== 'undefined') sessionStorage.setItem(MANUAL_SYNC_PENDING_KEY, accountId);
+          } catch {
+            // ignore storage errors
+          }
+        } else {
+          try {
+            if (typeof window !== 'undefined' && sessionStorage.getItem(MANUAL_SYNC_PENDING_KEY) === accountId) {
+              sessionStorage.removeItem(MANUAL_SYNC_PENDING_KEY);
+            }
+          } catch {
+            // ignore storage errors
+          }
+        }
       } catch {
         // ignore intermittent status failures; keep current UI state
       } finally {
@@ -2005,6 +2029,13 @@ export default function DashboardPage() {
               const useBlockingPostsLoader = prevForPlatform.length === 0;
               manualPostsSyncInFlightRef.current = true;
               syncingForAccountIdRef.current = selectedAccount.id;
+              try {
+                if (typeof window !== 'undefined') {
+                  sessionStorage.setItem(MANUAL_SYNC_PENDING_KEY, selectedAccount.id);
+                }
+              } catch {
+                // ignore storage errors
+              }
               if (useBlockingPostsLoader) setImportedPostsLoading(true);
               else setPostsSoftSyncing(true);
               try {
