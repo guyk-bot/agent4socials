@@ -28,6 +28,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppData } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
+import { useTheme } from '@/context/ThemeContext';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 import { TikTokPublishModal } from '@/components/composer/TikTokPublishModal';
@@ -603,6 +604,8 @@ function MediaRequirementsHint({ mediaType }: { mediaType: keyof typeof MEDIA_SP
 }
 
 export default function ComposerPage() {
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
     const router = useRouter();
     const appData = useAppData();
     const accountsCache = useAccountsCache();
@@ -2573,7 +2576,7 @@ export default function ComposerPage() {
                         {!differentMediaPerPlatform ? (
                             <>
                                 <p className="text-sm font-medium text-neutral-700">Choose what to upload</p>
-                                <div className="flex flex-wrap gap-2 p-1 bg-neutral-100/80 rounded-xl w-fit">
+                                <div className={`flex flex-wrap gap-2 p-1 rounded-xl w-fit ${isDark ? 'bg-neutral-800/90' : 'bg-neutral-100/80'}`}>
                                     {(['photo', 'reel', 'video', 'carousel', 'story'] as const).map((type) => (
                                         <button
                                             key={type}
@@ -2590,8 +2593,8 @@ export default function ComposerPage() {
                                                 }
                                             }}
                                             className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${mediaType === type
-                                                ? 'sidebar-item-selected text-neutral-900 shadow-sm'
-                                                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/80'
+                                                ? (isDark ? 'bg-neutral-700 text-neutral-100 shadow-sm' : 'sidebar-item-selected text-neutral-900 shadow-sm')
+                                                : (isDark ? 'text-neutral-300 hover:text-white hover:bg-neutral-700/80' : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/80')
                                                 }`}
                                         >
                                             {MEDIA_RECOMMENDATIONS[type].label}
@@ -3294,7 +3297,10 @@ export default function ComposerPage() {
                                                 value={selectedDate}
                                                 min={scheduleDatePart(minLocal)}
                                                 onChange={(e) => updateDateTime(e.target.value || selectedDate, selectedHour, selectedMinute)}
-                                                className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-neutral-400 focus:border-neutral-400"
+                                                className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 ${
+                                                    isDark ? 'bg-neutral-900 border-neutral-700 text-neutral-100' : 'border-neutral-200 text-neutral-900'
+                                                }`}
+                                                style={{ accentColor: '#ff7a00' }}
                                             />
                                             <div className="grid grid-cols-2 gap-2">
                                                 <div className="text-xs font-medium text-neutral-500">Hour (00-23)</div>
@@ -3302,7 +3308,9 @@ export default function ComposerPage() {
                                                 <select
                                                     value={selectedHour}
                                                     onChange={(e) => updateDateTime(selectedDate, e.target.value, selectedMinute)}
-                                                    className="w-full max-h-40 overflow-y-auto p-3 border border-neutral-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-neutral-400 focus:border-neutral-400"
+                                                    className={`w-full max-h-40 overflow-y-auto p-3 border rounded-xl focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 ${
+                                                        isDark ? 'bg-neutral-900 border-neutral-700 text-neutral-100' : 'border-neutral-200 text-neutral-900'
+                                                    }`}
                                                 >
                                                     {HOUR_OPTIONS_24H.map((hh) => (
                                                         <option key={hh} value={hh}>{hh}</option>
@@ -3311,7 +3319,9 @@ export default function ComposerPage() {
                                                 <select
                                                     value={selectedMinute}
                                                     onChange={(e) => updateDateTime(selectedDate, selectedHour, e.target.value)}
-                                                    className="w-full max-h-40 overflow-y-auto p-3 border border-neutral-200 rounded-xl text-neutral-900 focus:ring-2 focus:ring-neutral-400 focus:border-neutral-400"
+                                                    className={`w-full max-h-40 overflow-y-auto p-3 border rounded-xl focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 ${
+                                                        isDark ? 'bg-neutral-900 border-neutral-700 text-neutral-100' : 'border-neutral-200 text-neutral-900'
+                                                    }`}
                                                 >
                                                     {SCHEDULE_TEN_MINUTE_OPTIONS.map((mm) => (
                                                         <option key={mm} value={mm}>{mm}</option>
