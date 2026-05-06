@@ -119,7 +119,14 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
 
   const refreshAvatar = useCallback(async (accountId: string, platform: string) => {
     if (refreshingAvatarIds.current.has(accountId)) return;
-    if (platform !== 'INSTAGRAM' && platform !== 'FACEBOOK' && platform !== 'TIKTOK' && platform !== 'TWITTER') return;
+    if (
+      platform !== 'INSTAGRAM' &&
+      platform !== 'FACEBOOK' &&
+      platform !== 'TIKTOK' &&
+      platform !== 'TWITTER' &&
+      platform !== 'YOUTUBE' &&
+      platform !== 'PINTEREST'
+    ) return;
     refreshingAvatarIds.current.add(accountId);
     try {
       await api.patch(`/social/accounts/${accountId}/refresh`);
@@ -150,15 +157,22 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         setCachedAccounts(data);
         setAccountsLoadError(null);
 
-        // Backfill missing IG/FB avatars once so sidebar logos do not stay blank.
+        // Run one metadata/avatar refresh pass so profile changes on platforms
+        // are picked up in sidebar without forcing reconnect.
         if (!missingAvatarRefreshDone.current) {
           missingAvatarRefreshDone.current = true;
-          const missingAvatarIds = data
-            .filter((a) => (a?.platform === 'INSTAGRAM' || a?.platform === 'FACEBOOK') && !a?.profilePicture)
+          const refreshCandidateIds = data
+            .filter((a) =>
+              a?.platform === 'INSTAGRAM' ||
+              a?.platform === 'FACEBOOK' ||
+              a?.platform === 'TWITTER' ||
+              a?.platform === 'YOUTUBE' ||
+              a?.platform === 'PINTEREST'
+            )
             .map((a) => a.id)
             .filter((id): id is string => typeof id === 'string' && id.length > 0);
-          if (missingAvatarIds.length > 0) {
-            await Promise.allSettled(missingAvatarIds.map((id) => api.patch(`/social/accounts/${id}/refresh`)));
+          if (refreshCandidateIds.length > 0) {
+            await Promise.allSettled(refreshCandidateIds.map((id) => api.patch(`/social/accounts/${id}/refresh`)));
             if (cancelled) return;
             const refreshed = await api.get('/social/accounts');
             if (cancelled) return;
