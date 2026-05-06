@@ -116,15 +116,36 @@ const COLOR = {
   coral: '#ff8b7b',
 };
 
+/** Recharts formatter payload item: `name` is sometimes empty; `dataKey` is reliable for stacked bars. */
+type TooltipFormatterEntry = {
+  color?: string;
+  stroke?: string;
+  fill?: string;
+  name?: string;
+  dataKey?: string;
+};
+
+function tooltipSeriesKeyFromEntry(name: string | undefined, entry?: TooltipFormatterEntry): string {
+  return String(name ?? entry?.name ?? entry?.dataKey ?? '').trim();
+}
+
 function colorizeTooltipMetric(
   valueText: string,
   labelText: string,
-  entry?: { color?: string; stroke?: string; fill?: string }
+  entry?: TooltipFormatterEntry
 ): [React.ReactNode, React.ReactNode] {
   const metricColor = entry?.color || entry?.stroke || entry?.fill || COLOR.text;
+  const raw = (labelText || tooltipSeriesKeyFromEntry(undefined, entry) || 'Metric').trim();
+  const normalizedLabel = raw
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .map((part) => (part ? part.charAt(0).toUpperCase() + part.slice(1) : part))
+    .join(' ');
   return [
-    <span style={{ color: metricColor, fontWeight: 700 }}>{valueText}</span>,
-    <span style={{ color: metricColor }}>{labelText}</span>,
+    <span style={{ color: metricColor, fontWeight: 700 }}>{`${normalizedLabel} ${valueText}`}</span>,
+    '',
   ];
 }
 
@@ -1652,16 +1673,35 @@ export function StackedTrafficChart({ data }: { data: Array<{ date: string; nonv
         <YAxis domain={[0, trafficYMax]} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
         <Tooltip
           contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
-          formatter={(v: number | string | undefined, n?: string, entry?: { color?: string; stroke?: string; fill?: string }) =>
-            colorizeTooltipMetric(
-              formatNumber(Number(v) || 0),
-              n === 'nonviral' ? 'Non-viral' : 'Viral',
-              entry
-            )}
+          separator=""
+          formatter={(v: number | string | undefined, n?: string, entry?: TooltipFormatterEntry) => {
+            const key = tooltipSeriesKeyFromEntry(n, entry);
+            const label =
+              key === 'nonviral'
+                ? TRAFFIC_METRIC_CONFIG.nonviral.label
+                : key === 'viral'
+                  ? TRAFFIC_METRIC_CONFIG.viral.label
+                  : key;
+            return colorizeTooltipMetric(formatNumber(Number(v) || 0), label, entry);
+          }}
           labelFormatter={(l) => formatShortDate(String(l))}
         />
-        <Bar dataKey="nonviral" stackId="a" fill={COLOR.trafficNonviralCyan} shape={TRAFFIC_STACK_BAR_SHAPE} isAnimationActive={false} />
-        <Bar dataKey="viral" stackId="a" fill={COLOR.magenta} shape={TRAFFIC_STACK_BAR_SHAPE} isAnimationActive={false} />
+        <Bar
+          dataKey="nonviral"
+          name={TRAFFIC_METRIC_CONFIG.nonviral.label}
+          stackId="a"
+          fill={COLOR.trafficNonviralCyan}
+          shape={TRAFFIC_STACK_BAR_SHAPE}
+          isAnimationActive={false}
+        />
+        <Bar
+          dataKey="viral"
+          name={TRAFFIC_METRIC_CONFIG.viral.label}
+          stackId="a"
+          fill={COLOR.magenta}
+          shape={TRAFFIC_STACK_BAR_SHAPE}
+          isAnimationActive={false}
+        />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -5336,8 +5376,9 @@ type PostsUploadDayTooltipAgg = {
                 ) : null}
                 <Tooltip
                   contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
-                  formatter={(v: number | string | undefined, n?: string, entry?: { color?: string; stroke?: string; fill?: string }) => {
-                    const key = n as StoryMetricKey | undefined;
+                  separator=""
+                  formatter={(v: number | string | undefined, n?: string, entry?: TooltipFormatterEntry) => {
+                    const key = tooltipSeriesKeyFromEntry(n, entry) as StoryMetricKey;
                     const label =
                       isTikTok && key && key in TIKTOK_PERFORMANCE_LABELS
                         ? TIKTOK_PERFORMANCE_LABELS[key]
@@ -5530,25 +5571,19 @@ type PostsUploadDayTooltipAgg = {
                   shared
                   cursor={{ fill: 'rgba(107,114,128,0.20)' }}
                   contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
-                  formatter={(v: number | string | undefined, n?: string, entry?: { color?: string; stroke?: string; fill?: string }) =>
-                    colorizeTooltipMetric(
-                      formatNumber(Number(v) || 0),
-                      n === 'likes'
-                        ? 'Likes'
-                        : n === 'comments'
-                          ? 'Comments'
-                          : n === 'reposts'
-                            ? 'Reposts'
-                            : n === 'dislikes'
-                              ? 'Dislikes'
-                            : 'Shares',
-                      entry
-                    )}
+                  separator=""
+                  formatter={(v: number | string | undefined, n?: string, entry?: TooltipFormatterEntry) => {
+                    const key = tooltipSeriesKeyFromEntry(n, entry) as EngagementMetricKey;
+                    const label =
+                      key && key in ENGAGEMENT_METRIC_CONFIG ? ENGAGEMENT_METRIC_CONFIG[key].label : String(key || n || '');
+                    return colorizeTooltipMetric(formatNumber(Number(v) || 0), label, entry);
+                  }}
                   labelFormatter={(l) => formatShortDate(String(l))}
                 />
                 {selectedEngagementMetrics.includes('likes') ? (
                   <Bar
                     dataKey="likes"
+                    name="Likes"
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.likes.color}
                     barSize={UNIFIED_BAR_SIZE}
@@ -5559,6 +5594,7 @@ type PostsUploadDayTooltipAgg = {
                 {selectedEngagementMetrics.includes('comments') ? (
                   <Bar
                     dataKey="comments"
+                    name="Comments"
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.comments.color}
                     barSize={UNIFIED_BAR_SIZE}
@@ -5569,6 +5605,7 @@ type PostsUploadDayTooltipAgg = {
                 {selectedEngagementMetrics.includes('shares') ? (
                   <Bar
                     dataKey="shares"
+                    name="Shares"
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.shares.color}
                     barSize={UNIFIED_BAR_SIZE}
@@ -5579,6 +5616,7 @@ type PostsUploadDayTooltipAgg = {
                 {isYouTube && selectedEngagementMetrics.includes('dislikes') ? (
                   <Bar
                     dataKey="dislikes"
+                    name="Dislikes"
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.dislikes.color}
                     barSize={UNIFIED_BAR_SIZE}
@@ -5589,6 +5627,7 @@ type PostsUploadDayTooltipAgg = {
                 {(isTwitter || isInstagram) && selectedEngagementMetrics.includes('reposts') ? (
                   <Bar
                     dataKey="reposts"
+                    name="Reposts"
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.reposts.color}
                     barSize={UNIFIED_BAR_SIZE}
@@ -5838,18 +5877,59 @@ type PostsUploadDayTooltipAgg = {
                   <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                   <Tooltip
                     contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
-                    formatter={(v: number | string | undefined, n?: string, entry?: { color?: string; stroke?: string; fill?: string }) =>
-                      colorizeTooltipMetric(
-                        formatNumber(Number(v) || 0),
-                        n && n in TRAFFIC_METRIC_CONFIG ? TRAFFIC_METRIC_CONFIG[n as TrafficMetricKey].label : String(n ?? ''),
-                        entry
-                      )}
+                    separator=""
+                    formatter={(v: number | string | undefined, n?: string, entry?: TooltipFormatterEntry) => {
+                      const key = tooltipSeriesKeyFromEntry(n, entry) as TrafficMetricKey;
+                      const label =
+                        key && key in TRAFFIC_METRIC_CONFIG ? TRAFFIC_METRIC_CONFIG[key].label : String(key || n || '');
+                      return colorizeTooltipMetric(formatNumber(Number(v) || 0), label, entry);
+                    }}
                     labelFormatter={(l) => formatShortDate(String(l))}
                   />
-                  {selectedTrafficMetrics.includes('postImpressions') ? <Bar dataKey="postImpressions" fill={COLOR.cyan} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} /> : null}
-                  {selectedTrafficMetrics.includes('nonviral') ? <Bar dataKey="nonviral" fill={COLOR.trafficNonviralCyan} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} /> : null}
-                  {selectedTrafficMetrics.includes('uniqueReachProxy') ? <Bar dataKey="uniqueReachProxy" fill={COLOR.amber} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} /> : null}
-                  {selectedTrafficMetrics.includes('viral') ? <Bar dataKey="viral" fill={COLOR.magenta} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} /> : null}
+                  {selectedTrafficMetrics.includes('postImpressions') ? (
+                    <Bar
+                      dataKey="postImpressions"
+                      name={TRAFFIC_METRIC_CONFIG.postImpressions.label}
+                      fill={COLOR.cyan}
+                      radius={[6, 6, 0, 0]}
+                      barSize={UNIFIED_BAR_SIZE}
+                      shape={<MinWidthBarShape />}
+                      isAnimationActive={false}
+                    />
+                  ) : null}
+                  {selectedTrafficMetrics.includes('nonviral') ? (
+                    <Bar
+                      dataKey="nonviral"
+                      name={TRAFFIC_METRIC_CONFIG.nonviral.label}
+                      fill={COLOR.trafficNonviralCyan}
+                      radius={[6, 6, 0, 0]}
+                      barSize={UNIFIED_BAR_SIZE}
+                      shape={<MinWidthBarShape />}
+                      isAnimationActive={false}
+                    />
+                  ) : null}
+                  {selectedTrafficMetrics.includes('uniqueReachProxy') ? (
+                    <Bar
+                      dataKey="uniqueReachProxy"
+                      name={TRAFFIC_METRIC_CONFIG.uniqueReachProxy.label}
+                      fill={COLOR.amber}
+                      radius={[6, 6, 0, 0]}
+                      barSize={UNIFIED_BAR_SIZE}
+                      shape={<MinWidthBarShape />}
+                      isAnimationActive={false}
+                    />
+                  ) : null}
+                  {selectedTrafficMetrics.includes('viral') ? (
+                    <Bar
+                      dataKey="viral"
+                      name={TRAFFIC_METRIC_CONFIG.viral.label}
+                      fill={COLOR.magenta}
+                      radius={[6, 6, 0, 0]}
+                      barSize={UNIFIED_BAR_SIZE}
+                      shape={<MinWidthBarShape />}
+                      isAnimationActive={false}
+                    />
+                  ) : null}
                 </BarChart>
               </ResponsiveContainer>
             )}

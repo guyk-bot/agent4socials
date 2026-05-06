@@ -1188,7 +1188,7 @@ function HistoryTable({ rows }: { rows: UnifiedHistoryPost[] }) {
                   <td className="py-2.5 px-3 whitespace-nowrap"><span className="flex items-center gap-1.5"><PlatformIcon platform={row.platform} size={13} /><span className="text-xs font-medium" style={{ color: c }}>{row.platform}</span></span></td>
                   <td className="py-2.5 px-3 max-w-[240px]">
                     <span className="flex items-center gap-2">
-                      {row.thumbnailUrl ? <img src={row.thumbnailUrl} alt="" className="w-8 h-8 rounded-md object-cover shrink-0" /> : <div className="flex w-8 h-8 rounded-md items-center justify-center shrink-0" style={{ background: `${c}12`, color: c }}><FileText size={13} /></div>}
+                      {row.thumbnailUrl ? <img src={row.thumbnailUrl} alt="" className="w-8 h-8 rounded-md object-cover shrink-0" /> : <div className="flex w-8 h-8 rounded-md items-center justify-center shrink-0 border" style={{ background: COLOR.elevated, borderColor: COLOR.border, color: COLOR.textMuted }}><FileText size={13} /></div>}
                       <span className="truncate max-w-[180px] block" style={{ color: COLOR.text }}>{row.caption || '(no caption)'}</span>
                       {row.url && (
                         <a
@@ -1196,7 +1196,7 @@ function HistoryTable({ rows }: { rows: UnifiedHistoryPost[] }) {
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex h-5 w-5 items-center justify-center rounded-full border"
-                          style={{ background: COLOR.pageBg, borderColor: COLOR.border, color: COLOR.textSecondary }}
+                          style={{ background: COLOR.elevated, borderColor: COLOR.border, color: COLOR.textSecondary }}
                           aria-label="Open post"
                         >
                           <ExternalLink size={11} />
@@ -1882,6 +1882,10 @@ export default function UnifiedSummaryPage() {
     }
     return Array.from(map.values());
   }, [data]);
+  const historyRowsForTable = useMemo(
+    () => [...consoleTopPostsPool].sort((a, b) => new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime()),
+    [consoleTopPostsPool]
+  );
 
   const consoleLeaderRows = useMemo(
     () => consoleTopPostsPool.map(historyPostToHighlightRow),
@@ -2453,7 +2457,7 @@ export default function UnifiedSummaryPage() {
         {data ? (
           <ShellCard>
             <h3 className="text-lg font-semibold mb-3" style={{ color: COLOR.text }}>History</h3>
-            <HistoryTable rows={data.history} />
+            <HistoryTable rows={historyRowsForTable} />
           </ShellCard>
         ) : loading ? (
           <ShellCard><Skeleton className="h-96 rounded-xl" /></ShellCard>
