@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
@@ -32,6 +32,7 @@ import {
 const CONFIRM_TEXT = 'CONFIRM';
 const SHARE_URL = 'https://agent4socials.com';
 const SHARE_TEXT = 'Check out Agent4Socials: schedule posts and analytics for Instagram, YouTube, TikTok, Facebook and more.';
+const USER_AVATAR_STORAGE_KEY = 'agent4socials-user-avatar-v1';
 
 const sharePlatforms = [
   {
@@ -139,6 +140,10 @@ export default function AccountPage() {
   const [createBrandModalOpen, setCreateBrandModalOpen] = useState(false);
   const [newBrandName, setNewBrandName] = useState('');
   const [newBrandImageUrl, setNewBrandImageUrl] = useState<string | null>(null);
+  const [brandImageAdjustOpen, setBrandImageAdjustOpen] = useState(false);
+  const [brandImageAdjustSource, setBrandImageAdjustSource] = useState<string | null>(null);
+  const [brandImageAdjustScale, setBrandImageAdjustScale] = useState(1);
+  const [brandImageAdjustTarget, setBrandImageAdjustTarget] = useState<'create' | 'edit' | null>(null);
   const [newBrandMembers, setNewBrandMembers] = useState<TeamMember[]>([]);
   const [newBrandMemberFirstName, setNewBrandMemberFirstName] = useState('');
   const [newBrandMemberLastName, setNewBrandMemberLastName] = useState('');
@@ -163,8 +168,19 @@ export default function AccountPage() {
   const [inviteFeedback, setInviteFeedback] = useState<string>('');
   const [inviteError, setInviteError] = useState<string>('');
   const [inviteSending, setInviteSending] = useState(false);
+  const [userAvatarOverride, setUserAvatarOverride] = useState<string | null>(null);
+  const userAvatarInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    if (!mounted || typeof window === 'undefined') return;
+    try {
+      const stored = localStorage.getItem(USER_AVATAR_STORAGE_KEY);
+      if (stored) setUserAvatarOverride(stored);
+    } catch {
+      // Ignore local storage read errors
+    }
+  }, [mounted]);
   useEffect(() => {
     if (!brandMenuOpenId) return;
     const onDocClick = () => setBrandMenuOpenId(null);
@@ -197,6 +213,87 @@ export default function AccountPage() {
     navigator.clipboard.writeText(userId);
     setCopiedId(true);
     setTimeout(() => setCopiedId(false), 2000);
+  };
+
+  const handleUserAvatarUpload = (file?: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== 'string') return;
+      setUserAvatarOverride(reader.result);
+      try {
+        localStorage.setItem(USER_AVATAR_STORAGE_KEY, reader.result);
+      } catch {
+        // Ignore local storage write errors
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const readFileAsDataUrl = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') resolve(reader.result);
+        else reject(new Error('Could not read image file.'));
+      };
+      reader.onerror = () => reject(new Error('Could not read image file.'));
+      reader.readAsDataURL(file);
+    });
+
+  const exportCircularAvatarDataUrl = (src: string, scale: number): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const image = new window.Image();
+      image.onload = () => {
+        const canvas = document.createElement('canvas');
+        const size = 512;
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Could not prepare image.'));
+          return;
+        }
+        const safeScale = Math.min(3, Math.max(1, scale));
+        const side = Math.min(image.width, image.height) / safeScale;
+        const sx = Math.max(0, (image.width - side) / 2);
+        const sy = Math.max(0, (image.height - side) / 2);
+        ctx.clearRect(0, 0, size, size);
+        ctx.drawImage(image, sx, sy, side, side, 0, 0, size, size);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      image.onerror = () => reject(new Error('Could not load image.'));
+      image.src = src;
+    });
+
+  const openBrandImageAdjuster = async (file: File, target: 'create' | 'edit') => {
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      setBrandImageAdjustSource(dataUrl);
+      setBrandImageAdjustScale(1);
+      setBrandImageAdjustTarget(target);
+      setBrandImageAdjustOpen(true);
+    } catch {
+      // Ignore unreadable file errors for now.
+    }
+  };
+
+  const applyBrandImageAdjustment = async () => {
+    if (!brandImageAdjustSource || !brandImageAdjustTarget) return;
+    try {
+      const processed = await exportCircularAvatarDataUrl(brandImageAdjustSource, brandImageAdjustScale);
+      if (brandImageAdjustTarget === 'create') {
+        setNewBrandImageUrl(processed);
+      } else if (brandImageAdjustTarget === 'edit' && editingBrand) {
+        setBrandImage(editingBrand.id, processed);
+      }
+      setBrandImageAdjustOpen(false);
+      setBrandImageAdjustSource(null);
+      setBrandImageAdjustTarget(null);
+      setBrandImageAdjustScale(1);
+    } catch {
+      // Keep modal open on processing errors.
+    }
   };
 
   const handleSharePlatform = (getHref: () => string) => {
@@ -518,7 +615,7 @@ export default function AccountPage() {
       aria-label="Create brand"
     >
       <div
-        className="relative w-full max-w-2xl rounded-2xl border border-neutral-200 bg-[var(--card-bg)] p-6 shadow-2xl"
+        className="create-brand-modal-scope relative w-full max-w-2xl rounded-2xl border border-neutral-200 bg-[var(--card-bg)] p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -544,25 +641,30 @@ export default function AccountPage() {
           </div>
           <div className="space-y-2">
             <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">Brand image</label>
-            <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-neutral-300 bg-[var(--background)] px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100/70">
+            <label className="create-brand-hover-dark inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-neutral-300 bg-[var(--background)] px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100/70">
               <Image size={14} />
               {newBrandImageUrl ? 'Change image' : 'Upload image'}
               <input
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={(e) => {
+                onChange={async (e) => {
                   const file = e.target.files?.[0];
-                  if (!file) return;
-                  const reader = new FileReader();
-                  reader.onload = () => {
-                    if (typeof reader.result === 'string') setNewBrandImageUrl(reader.result);
-                  };
-                  reader.readAsDataURL(file);
+                  if (file) await openBrandImageAdjuster(file, 'create');
                   e.currentTarget.value = '';
                 }}
               />
             </label>
+            {newBrandImageUrl ? (
+              <div className="rounded-xl border border-neutral-200 bg-[var(--background)] p-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-full border border-neutral-300 bg-neutral-100">
+                    <img src={newBrandImageUrl} alt="Brand preview" className="h-full w-full object-cover" />
+                  </div>
+                  <p className="text-xs text-neutral-500">Image selected. Click Change image to adjust again.</p>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -597,7 +699,7 @@ export default function AccountPage() {
                   <button
                     type="button"
                     onClick={() => handleRemoveNewBrandMember(member.id)}
-                    className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                    className="create-brand-hover-dark rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-50"
                   >
                     Remove
                   </button>
@@ -640,7 +742,7 @@ export default function AccountPage() {
               type="button"
               onClick={handleAddNewBrandMember}
               disabled={!newBrandMemberFirstName.trim() || !newBrandMemberLastName.trim() || !newBrandMemberEmail.trim() || createBrandInviteSending}
-              className="flex-[0_0_auto] rounded-lg bg-neutral-900 px-3 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+              className="create-brand-hover-dark flex-[0_0_auto] rounded-lg bg-neutral-900 px-3 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
             >
               {createBrandInviteSending ? 'Sending...' : 'Add friend'}
             </button>
@@ -652,7 +754,7 @@ export default function AccountPage() {
           <button
             type="button"
             onClick={() => setCreateBrandModalOpen(false)}
-            className="flex-1 rounded-xl border border-neutral-300 bg-[var(--background)] px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100/70"
+            className="create-brand-hover-dark flex-1 rounded-xl border border-neutral-300 bg-[var(--background)] px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100/70"
           >
             Cancel
           </button>
@@ -663,6 +765,72 @@ export default function AccountPage() {
             className="flex-1 rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
           >
             Create brand
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+
+  const brandImageAdjustModal = brandImageAdjustOpen && mounted && createPortal(
+    <div
+      className="fixed inset-0 z-[330] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      onClick={() => setBrandImageAdjustOpen(false)}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Adjust brand image"
+    >
+      <div
+        className="relative w-full max-w-md rounded-2xl border border-neutral-200 bg-[var(--card-bg)] p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={() => setBrandImageAdjustOpen(false)}
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800/70"
+          aria-label="Close"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        <h3 className="text-lg font-semibold text-neutral-900">Adjust brand image</h3>
+        <p className="mt-1 text-sm text-neutral-500">Zoom to fit the image inside the circle.</p>
+        <div className="mt-4 flex items-center justify-center">
+          <div className="h-44 w-44 overflow-hidden rounded-full border border-neutral-300 bg-neutral-100">
+            {brandImageAdjustSource ? (
+              <img
+                src={brandImageAdjustSource}
+                alt="Adjust brand preview"
+                className="h-full w-full object-cover"
+                style={{ transform: `scale(${brandImageAdjustScale})`, transformOrigin: 'center' }}
+              />
+            ) : null}
+          </div>
+        </div>
+        <div className="mt-4">
+          <input
+            type="range"
+            min={1}
+            max={2.8}
+            step={0.05}
+            value={brandImageAdjustScale}
+            onChange={(e) => setBrandImageAdjustScale(Number(e.target.value))}
+            className="w-full"
+          />
+        </div>
+        <div className="mt-6 flex gap-3">
+          <button
+            type="button"
+            onClick={() => setBrandImageAdjustOpen(false)}
+            className="flex-1 rounded-xl border border-neutral-300 bg-[var(--background)] px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100/70"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={applyBrandImageAdjustment}
+            className="flex-1 rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800"
+          >
+            Use image
           </button>
         </div>
       </div>
@@ -767,25 +935,29 @@ export default function AccountPage() {
             <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">Brand image</label>
             <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-neutral-300 bg-[var(--background)] px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100/70">
               <Image size={14} />
-              Upload image
+              {editingBrand?.imageUrl ? 'Change image' : 'Upload image'}
               <input
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={(e) => {
+                onChange={async (e) => {
                   const file = e.target.files?.[0];
-                  if (!file || !editingBrand) return;
-                  setBrandImageTargetId(editingBrand.id);
-                  const reader = new FileReader();
-                  reader.onload = () => {
-                    if (typeof reader.result === 'string') setBrandImage(editingBrand.id, reader.result);
+                  if (file && editingBrand) {
+                    setBrandImageTargetId(editingBrand.id);
+                    await openBrandImageAdjuster(file, 'edit');
                     setBrandImageTargetId(null);
-                  };
-                  reader.readAsDataURL(file);
+                  }
                   e.currentTarget.value = '';
                 }}
               />
             </label>
+            {editingBrand?.imageUrl ? (
+              <div className="rounded-xl border border-neutral-200 bg-[var(--background)] p-3">
+                <div className="h-16 w-16 overflow-hidden rounded-full border border-neutral-300 bg-neutral-100">
+                  <img src={editingBrand.imageUrl} alt="Brand preview" className="h-full w-full object-cover" />
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -926,10 +1098,39 @@ export default function AccountPage() {
           <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Account</h1>
 
           <div className="flex items-start gap-4 min-w-0 pt-0">
-            <div className="flex items-stretch w-16 h-16 rounded-xl overflow-hidden shrink-0 bg-neutral-100 text-neutral-700">
-              <span className="flex flex-1 min-h-0 min-w-0 items-center justify-center text-xl font-bold leading-none">
-                {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
-              </span>
+            <div className="relative">
+              <div className="flex items-stretch w-16 h-16 rounded-full overflow-hidden shrink-0 bg-neutral-100 text-neutral-700 border border-neutral-200">
+                {userAvatarOverride || user?.avatarUrl ? (
+                  <img
+                    src={userAvatarOverride || user?.avatarUrl || ''}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="flex flex-1 min-h-0 min-w-0 items-center justify-center text-xl font-bold leading-none">
+                    {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => userAvatarInputRef.current?.click()}
+                className="absolute -bottom-1 -right-1 inline-flex h-6 w-6 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-700 shadow-sm hover:bg-neutral-50"
+                aria-label="Upload profile image"
+                title="Upload profile image"
+              >
+                <Plus size={14} />
+              </button>
+              <input
+                ref={userAvatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  handleUserAvatarUpload(e.target.files?.[0] ?? null);
+                  e.currentTarget.value = '';
+                }}
+              />
             </div>
             <div className="min-w-0 space-y-1">
               <div className="flex items-center gap-2 min-w-0">
@@ -1214,6 +1415,7 @@ export default function AccountPage() {
 
       {cancelModal}
       {createBrandModal}
+      {brandImageAdjustModal}
       {editBrandModal}
       {deleteBrandModal}
     </div>
