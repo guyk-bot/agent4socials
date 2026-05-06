@@ -95,6 +95,7 @@ type AccountsCacheContextType = {
   setActiveBrandId: (id: string) => void;
   createBrand: (name: string, imageUrl?: string | null) => string;
   renameBrand: (brandId: string, name: string) => void;
+  deleteBrand: (brandId: string) => boolean;
   setBrandImage: (brandId: string, imageUrl: string | null) => void;
   getAccountBrandId: (accountId: string) => string;
 };
@@ -196,6 +197,26 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
     setBrands((prev) => prev.map((b) => (b.id === brandId ? { ...b, name: trimmed } : b)));
   }, []);
 
+  const deleteBrand = useCallback((brandId: string): boolean => {
+    const brandExists = brands.some((b) => b.id === brandId);
+    if (!brandExists || brands.length <= 1) return false;
+    const remaining = brands.filter((b) => b.id !== brandId);
+    if (remaining.length === 0) return false;
+    const fallbackBrandId = remaining.find((b) => b.id === DEFAULT_BRAND_ID)?.id ?? remaining[0].id;
+    setBrands(remaining);
+    setAccountBrandMap((prev) => {
+      const next = { ...prev };
+      for (const [accountId, mappedBrandId] of Object.entries(next)) {
+        if (mappedBrandId === brandId) next[accountId] = fallbackBrandId;
+      }
+      return next;
+    });
+    if (activeBrandId === brandId) {
+      setActiveBrandIdState(fallbackBrandId);
+    }
+    return true;
+  }, [brands, activeBrandId]);
+
   const getAccountBrandId = useCallback((accountId: string) => {
     return accountBrandMap[accountId] ?? DEFAULT_BRAND_ID;
   }, [accountBrandMap]);
@@ -212,6 +233,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       setActiveBrandId,
       createBrand,
       renameBrand,
+      deleteBrand,
       setBrandImage,
       getAccountBrandId,
     }),
@@ -226,6 +248,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       setActiveBrandId,
       createBrand,
       renameBrand,
+      deleteBrand,
       setBrandImage,
       getAccountBrandId,
     ]

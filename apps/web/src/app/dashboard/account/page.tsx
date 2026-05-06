@@ -109,6 +109,7 @@ export default function AccountPage() {
     setActiveBrandId,
     createBrand,
     renameBrand,
+    deleteBrand,
     setBrandImage,
     allCachedAccounts,
     getAccountBrandId,
@@ -118,6 +119,7 @@ export default function AccountPage() {
     setActiveBrandId: () => {},
     createBrand: () => '',
     renameBrand: () => {},
+    deleteBrand: () => false,
     setBrandImage: () => {},
     allCachedAccounts: [],
     getAccountBrandId: () => 'brand-default',
@@ -138,6 +140,10 @@ export default function AccountPage() {
   const [editBrandModalOpen, setEditBrandModalOpen] = useState(false);
   const [editingBrandId, setEditingBrandId] = useState<string | null>(null);
   const [editingBrandName, setEditingBrandName] = useState('');
+  const [deleteBrandModalOpen, setDeleteBrandModalOpen] = useState(false);
+  const [deletingBrandId, setDeletingBrandId] = useState<string | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteBrandError, setDeleteBrandError] = useState('');
   const [teamMembersByBrand, setTeamMembersByBrand] = useState<Record<string, TeamMember[]>>({});
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberEmail, setNewMemberEmail] = useState('');
@@ -329,6 +335,34 @@ export default function AccountPage() {
     setEditBrandModalOpen(false);
   };
 
+  const openDeleteBrandModal = (brandId: string) => {
+    setDeletingBrandId(brandId);
+    setDeleteConfirmText('');
+    setDeleteBrandError('');
+    setDeleteBrandModalOpen(true);
+    setBrandMenuOpenId(null);
+  };
+
+  const handleDeleteBrand = () => {
+    if (!deletingBrandId) return;
+    if (deleteConfirmText.trim().toLowerCase() !== 'delete') return;
+    const targetBrandId = deletingBrandId;
+    const deleted = deleteBrand(targetBrandId);
+    if (!deleted) {
+      setDeleteBrandError('Cannot delete this brand. Keep at least one brand workspace.');
+      return;
+    }
+    setTeamMembersByBrand((prev) => {
+      const next = { ...prev };
+      delete next[targetBrandId];
+      return next;
+    });
+    setDeleteBrandModalOpen(false);
+    setDeletingBrandId(null);
+    setDeleteConfirmText('');
+    setDeleteBrandError('');
+  };
+
   const handleAddTeamMember = async () => {
     if (!editingBrand) return;
     setInviteFeedback('');
@@ -439,6 +473,66 @@ export default function AccountPage() {
             className="flex-1 rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
           >
             Create brand
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+
+  const deletingBrandName = brands.find((b) => b.id === deletingBrandId)?.name ?? 'this brand';
+  const deleteBrandModal = deleteBrandModalOpen && mounted && createPortal(
+    <div
+      className="fixed inset-0 z-[320] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      onClick={() => setDeleteBrandModalOpen(false)}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Delete brand"
+    >
+      <div
+        className="relative w-full max-w-md rounded-2xl border border-neutral-200 bg-[var(--card-bg)] p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={() => setDeleteBrandModalOpen(false)}
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800/70"
+          aria-label="Close"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        <h3 className="text-lg font-semibold text-neutral-900">Delete brand</h3>
+        <p className="mt-1 text-sm text-neutral-500">
+          You are deleting <strong>{deletingBrandName}</strong>. This action cannot be undone.
+        </p>
+        <p className="mt-3 text-sm text-neutral-500">Type <strong>delete</strong> to confirm.</p>
+        <input
+          type="text"
+          value={deleteConfirmText}
+          onChange={(e) => {
+            setDeleteConfirmText(e.target.value);
+            setDeleteBrandError('');
+          }}
+          placeholder="type delete"
+          className="mt-3 w-full rounded-xl border border-neutral-300 bg-[var(--background)] px-3 py-2.5 text-sm text-neutral-900"
+          autoFocus
+        />
+        {deleteBrandError ? <p className="mt-2 text-xs text-red-600">{deleteBrandError}</p> : null}
+        <div className="mt-6 flex gap-3">
+          <button
+            type="button"
+            onClick={() => setDeleteBrandModalOpen(false)}
+            className="flex-1 rounded-xl border border-neutral-300 bg-[var(--background)] px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100/70"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleDeleteBrand}
+            disabled={deleteConfirmText.trim().toLowerCase() !== 'delete'}
+            className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50"
+          >
+            Delete brand
           </button>
         </div>
       </div>
@@ -734,6 +828,14 @@ export default function AccountPage() {
                                   <PencilLine size={12} />
                                   Edit
                                 </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openDeleteBrandModal(brand.id)}
+                                  className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-red-600 hover:bg-red-50"
+                                >
+                                  <Trash2 size={12} />
+                                  Delete
+                                </button>
                               </div>
                             ) : null}
                           </div>
@@ -931,6 +1033,7 @@ export default function AccountPage() {
       {cancelModal}
       {createBrandModal}
       {editBrandModal}
+      {deleteBrandModal}
     </div>
   );
 }
