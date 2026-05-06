@@ -126,6 +126,14 @@
   background: #323232 !important;
   border-color: #4b5563 !important;
 }
+[data-theme='dark'] .account-connect-frame {
+  background: #0b0b0b !important;
+  border-color: #1f1f1f !important;
+}
+[data-theme='dark'] .account-connect-card {
+  background: #323232 !important;
+  border-color: #4b5563 !important;
+}
 
 .upgrade-badge-warm {
   color: #ff7a00;
