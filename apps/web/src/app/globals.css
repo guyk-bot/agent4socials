@@ -98,9 +98,12 @@
 }
 [data-theme='dark'] .upgrade-banner-warm {
   border-color: var(--border);
-  background: linear-gradient(135deg, #171717 0%, #131313 42%, #101010 100%);
+  background: linear-gradient(135deg, #171717 0%, #131313 42%, #101010 100%) !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
   color: var(--foreground);
+}
+[data-theme='dark'] .ring-slate-200\/70 {
+  --tw-ring-color: rgba(63, 63, 70, 0.8) !important;
 }
 
 /* Sidebar selected account row — same glass-grey gradient as upgrade banner. */
@@ -259,6 +262,8 @@
   --gradient-glow: radial-gradient(circle, rgba(255, 122, 0, 0.35), transparent);
   --shadow-glow: 0 0 20px rgba(255, 122, 0, 0.45);
   --shadow-glow-soft: 0 0 10px rgba(255, 122, 0, 0.3);
+  --surface-soft: #f8fafc;
+  --chart-grid: rgba(15, 23, 42, 0.08);
 }
 
 
@@ -268,6 +273,8 @@
   --foreground: #fafafa;
   --muted: #d4d4d8;
   --border: #27272a;
+  --surface-soft: #1f1f1f;
+  --chart-grid: rgba(212, 212, 216, 0.18);
   --wl-sidebar-bg: #000000;
   --dark: #000000;
   color-scheme: dark;

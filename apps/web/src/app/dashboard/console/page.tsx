@@ -77,7 +77,9 @@ import {
 const COLOR = {
   pageBg: 'var(--background)',
   section: 'var(--card-bg)',
+  sectionAlt: 'var(--surface-soft)',
   card: 'var(--card-bg)',
+  elevated: 'var(--surface-soft)',
   border: 'var(--border)',
   text: 'var(--foreground)',
   textSecondary: 'var(--muted)',
@@ -439,7 +441,7 @@ function Skeleton({ className = '' }: { className?: string }) {
     <div
       className={`rounded-xl ${className}`}
       style={{
-        background: 'linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%)',
+        background: 'linear-gradient(90deg, var(--border) 25%, var(--surface-soft) 50%, var(--border) 75%)',
         backgroundSize: '200% 100%',
         animation: 'shimmer 1.6s ease-in-out infinite',
       }}
@@ -706,7 +708,7 @@ function LegendPill({ label, color, active, onClick }: { label: string; color: s
   return (
     <button type="button" onClick={onClick} className="rounded-full border px-2.5 py-1 text-xs transition-colors" style={{
       borderColor: active ? color : COLOR.border, color: active ? color : COLOR.textMuted,
-      background: active ? `${color}12` : 'rgba(255,255,255,0.02)',
+      background: active ? `${color}12` : COLOR.elevated,
     }}>
       <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: active ? color : '#d1d5db' }} />
       {label}
@@ -718,7 +720,7 @@ function DotLegendPill({ label, color }: { label: string; color: string }) {
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
-      style={{ borderColor: COLOR.border, background: 'rgba(255,255,255,0.02)', color: COLOR.textSecondary }}
+      style={{ borderColor: COLOR.border, background: COLOR.elevated, color: COLOR.textSecondary }}
     >
       <span className="inline-block h-2 w-2 rounded-full" style={{ background: color }} />
       {label}
@@ -1079,7 +1081,7 @@ function HistoryTable({ rows }: { rows: UnifiedHistoryPost[] }) {
     'rounded-full border px-2.5 py-1.5 text-xs transition-[opacity,transform,box-shadow] hover:scale-[1.02] active:scale-[0.98]';
   const pillStyle = (selected: boolean) => ({
     borderColor: COLOR.border,
-    background: selected ? 'rgba(255,255,255,0.98)' : 'rgba(248,250,252,0.72)',
+    background: selected ? COLOR.card : COLOR.elevated,
     opacity: selected ? 1 : 0.3,
     color: selected ? COLOR.text : COLOR.textMuted,
     fontWeight: selected ? 600 : 500,
@@ -1852,7 +1854,7 @@ export default function UnifiedSummaryPage() {
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5">
             <div className="flex flex-wrap items-center gap-2">
               {orderedAccounts.length === 0 ? (
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold" style={{ background: '#fff7ed', color: COLOR.violet }} aria-hidden>{emptyAccountsInitials}</div>
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold" style={{ background: `${COLOR.violet}22`, color: COLOR.violet }} aria-hidden>{emptyAccountsInitials}</div>
               ) : orderedAccounts.map((acc) => {
                 const label = acc.username || acc.platform || 'Account';
                 const initials = label.replace(/^@/, '').slice(0, 2).toUpperCase() || '?';
@@ -1860,7 +1862,7 @@ export default function UnifiedSummaryPage() {
                   <button key={acc.id} type="button" onClick={() => goToAccountDashboard(acc)} className="group relative shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2" title={`Open ${label} dashboard`}>
                     <span className="relative block h-11 w-11 transition-transform group-hover:scale-[1.03] group-active:scale-[0.98]">
                       <span className="block h-11 w-11 overflow-hidden rounded-full bg-neutral-100 shadow-sm ring-2 ring-white">
-                        {acc.profilePicture ? <img src={acc.profilePicture} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-xs font-semibold" style={{ background: '#fff7ed', color: COLOR.violet }}>{initials}</span>}
+                        {acc.profilePicture ? <img src={acc.profilePicture} alt="" className="h-full w-full object-cover" /> : <span className="flex h-full w-full items-center justify-center text-xs font-semibold" style={{ background: `${COLOR.violet}22`, color: COLOR.violet }}>{initials}</span>}
                       </span>
                       <span className="pointer-events-none absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center [&>svg]:h-5 [&>svg]:w-5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]" aria-hidden><AccountBadgeIcon platform={acc.platform} /></span>
                     </span>
@@ -1943,7 +1945,7 @@ export default function UnifiedSummaryPage() {
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={overviewTrendData} margin={{ top: 8, right: 8, left: -12, bottom: 22 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
                     <XAxis
                       dataKey="date"
                       ticks={overviewAxisTicks}
@@ -2204,7 +2206,7 @@ export default function UnifiedSummaryPage() {
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={postsTimelineData} barCategoryGap="18%" margin={{ top: 16, right: 8, left: 0, bottom: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" vertical={false} />
                     <XAxis
                       dataKey="date"
                       ticks={postsAxisTicks}

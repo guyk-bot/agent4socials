@@ -96,15 +96,15 @@ type ReelPresetKey = 'performance' | 'engagement' | 'watch';
 type ContentHistoryFilter = 'all' | 'posts' | 'reels';
 
 const COLOR = {
-  pageBg: '#f6f7fb',
-  section: '#ffffff',
-  sectionAlt: '#f8fafc',
-  card: '#ffffff',
-  elevated: '#f8fafc',
-  border: 'rgba(17,24,39,0.06)',
-  text: '#111827',
-  textSecondary: '#667085',
-  textMuted: '#98a2b3',
+  pageBg: 'var(--background)',
+  section: 'var(--card-bg)',
+  sectionAlt: 'var(--surface-soft)',
+  card: 'var(--card-bg)',
+  elevated: 'var(--surface-soft)',
+  border: 'var(--border)',
+  text: 'var(--foreground)',
+  textSecondary: 'var(--muted)',
+  textMuted: 'var(--muted)',
   /** Former “cyan” analytics accent; kept as key `cyan` for metric map compatibility. */
   cyan: '#6366f1',
   /** True cyan for non-viral traffic (distinct from post impressions indigo above). */
