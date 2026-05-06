@@ -693,7 +693,7 @@ export default function AccountPage() {
                 return (
                   <div
                     key={brand.id}
-                    className={`brand-section-box rounded-xl border p-3 sm:p-4 ${isActive ? 'sidebar-item-selected' : 'bg-white'}`}
+                    className={`brand-section-box rounded-xl border p-3 sm:p-4 ${isActive ? 'bg-white' : 'sidebar-item-selected'}`}
                     style={{ borderColor: 'rgba(15,23,42,0.08)' }}
                   >
                     <div className="flex items-start gap-3">
@@ -767,7 +767,7 @@ export default function AccountPage() {
               <button
                 type="button"
                 onClick={openCreateBrandModal}
-                className="brand-section-box rounded-xl border border-dashed border-neutral-300 bg-white p-3 sm:p-4 text-left hover:border-neutral-400 hover:bg-neutral-50 transition-colors"
+                className="brand-section-box sidebar-item-selected rounded-xl border border-dashed border-neutral-300 p-3 sm:p-4 text-left hover:border-neutral-400 transition-colors"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-100 text-neutral-600">
                   <Plus size={18} />
