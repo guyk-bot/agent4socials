@@ -1243,7 +1243,13 @@ export default function DashboardPage() {
       return data;
     }
 
-    // If we already have cached data for this range (or prefetched default range), show it immediately and keep it stable.
+    const forceRangeRefreshForPlatform =
+      isDateRangeChange &&
+      (selectedAccount?.platform === 'TWITTER' ||
+        selectedAccount?.platform === 'PINTEREST' ||
+        selectedAccount?.platform === 'TIKTOK');
+
+    // If we already have cached data for this range (or prefetched default range), show it immediately.
     if (exactCached) {
       let patchedExact = patchYouTubeExtended(exactCached as Record<string, unknown>);
       if (selectedAccount?.platform === 'FACEBOOK') {
@@ -1257,9 +1263,9 @@ export default function DashboardPage() {
       setInsights(patchedExact as NonNullable<Parameters<typeof setInsights>[0]>);
       if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, patchedExact, dateRange);
       setInsightsLoading(false);
-      // Keep charts stable when we already have cached insights for this range.
-      // We intentionally skip background SWR here to avoid visible graph drift a few
-      // seconds after opening Analytics. Data will update on explicit sync/refresh.
+      // Default behavior: keep charts stable when cache exists.
+      // For TWITTER/PINTEREST/TIKTOK range changes we still continue to refetch in background
+      // so switching 30d -> 6m (or back) rehydrates full range immediately from DB/API.
       if (!accountTabOwnsPosts) {
         if (postsCached !== undefined && postsCached !== null) {
           setImportedPosts(postsCached);
@@ -1285,7 +1291,7 @@ export default function DashboardPage() {
             .finally(() => setImportedPostsLoading(false));
         }
       }
-      return;
+      if (!forceRangeRefreshForPlatform) return;
     }
 
     // No exact range match: show last successful payload when switching accounts, or when the
@@ -1299,7 +1305,9 @@ export default function DashboardPage() {
       const patchedStale = patchYouTubeExtended(staleCandidate);
       lastInsightsByAccountIdRef.current[accountId] = patchedStale;
       setInsights(patchedStale as NonNullable<Parameters<typeof setInsights>[0]>);
-      if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, patchedStale, dateRange);
+      if (userIdRef.current && !isDateRangeChange) {
+        writeDashboardInsightsSession(userIdRef.current, accountId, patchedStale, dateRange);
+      }
       // Refresh silently in background without showing a loading skeleton
       setInsightsLoading(false);
     } else {
