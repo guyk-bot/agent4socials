@@ -415,9 +415,9 @@ const REEL_PRESET_METRICS_YOUTUBE: Record<ReelPresetKey, ReelMetricKey[]> = {
 };
 
 const REEL_PRESET_METRICS_TIKTOK: Record<ReelPresetKey, ReelMetricKey[]> = {
-  performance: ['views'],
+  performance: ['views', 'watchTime', 'avgWatch'],
   engagement: ['likes', 'comments', 'shares'],
-  watch: ['views'],
+  watch: ['watchTime', 'avgWatch'],
 };
 
 /** Facebook & Instagram Reels: no Watch tab; Performance excludes shares (shares stay on Engagement). */
@@ -605,8 +605,10 @@ function getWatchTimes(post: FacebookPost): { watchTimeMs: number; avgWatchMs: n
         : {};
     const sec = typeof meta.tiktokDurationSec === 'number' && Number.isFinite(meta.tiktokDurationSec) ? meta.tiktokDurationSec : 0;
     if (sec > 0) {
-      // TikTok Display API video.list does not expose total or average watch time; show clip length here.
-      return { watchTimeMs: 0, avgWatchMs: sec * 1000 };
+      // TikTok Display API video.list does not expose true watch-time metrics; estimate from clip length × views.
+      const avgWatchMs = sec * 1000;
+      const views = Math.max(0, bestPostPlayCount(post));
+      return { watchTimeMs: views > 0 ? avgWatchMs * views : 0, avgWatchMs };
     }
     return { watchTimeMs: 0, avgWatchMs: 0 };
   }
@@ -2142,7 +2144,7 @@ export function PostsPerformanceTable({
   sharesColumnLabel?: string;
 }) {
   const platUpper = (platform ?? '').toUpperCase();
-  const compactVideoTable = platUpper === 'TIKTOK' || platUpper === 'LINKEDIN' || platUpper === 'TWITTER';
+  const compactVideoTable = platUpper === 'LINKEDIN' || platUpper === 'TWITTER';
   const hideWatchMetrics = compactVideoTable || platUpper === 'PINTEREST';
   // Disabled hover-zoom preview in Content History rows per UX request.
 
@@ -2814,13 +2816,13 @@ export function FacebookAnalyticsView({
     }
     if (insights?.platform?.toUpperCase() !== 'TIKTOK') return;
     const engAllowed = new Set<EngagementMetricKey>(['likes', 'comments', 'shares']);
-    const reelAllowed = new Set<ReelMetricKey>(['views', 'clicks', 'likes', 'comments', 'shares']);
+    const reelAllowed = new Set<ReelMetricKey>(['views', 'watchTime', 'avgWatch', 'clicks', 'likes', 'comments', 'shares']);
     setSelectedEngagementMetrics((prev) => prev.filter((m) => engAllowed.has(m)));
     setSelectedReelMetrics((prev) => {
       const next = prev.filter((m) => reelAllowed.has(m));
-      return next.length ? next : ['views'];
+      return next.length ? next : ['views', 'watchTime', 'avgWatch'];
     });
-    setReelPreset((p) => (p === 'watch' ? 'performance' : p));
+    setReelPreset((p) => p);
   }, [insights?.platform]);
   useEffect(() => {
     if (insights?.platform?.toUpperCase() !== 'YOUTUBE') return;
@@ -6511,7 +6513,7 @@ type PostsUploadDayTooltipAgg = {
           {([
             { id: 'performance' as const, label: 'Performance' },
             { id: 'engagement' as const, label: 'Engagement' },
-            ...(!isTikTok && !isFacebook && !isInstagram && !isTwitter && !isPinterest ? [{ id: 'watch' as const, label: 'Watch' }] : []),
+            ...(!isFacebook && !isInstagram && !isTwitter && !isPinterest ? [{ id: 'watch' as const, label: 'Watch' }] : []),
           ]).map((preset) => (
             <button
               key={preset.id}
@@ -6558,11 +6560,17 @@ type PostsUploadDayTooltipAgg = {
             active={selectedReelMetrics.includes('views')}
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('views') ? prev.filter((m) => m !== 'views') : [...prev, 'views'])}
           />
-          {!isTikTok && !isTwitter && !isPinterest ? (
+          {!isTwitter && !isPinterest ? (
             <>
               <MetricCard
                 label="Watch Time"
-                source={isPinterest ? 'Pinterest pin_metrics · VIDEO_V50_WATCH_TIME (fallback: VIDEO_AVG_WATCH_TIME × plays)' : 'post_video_view_time'}
+                source={
+                  isTikTok
+                    ? 'Estimated from TikTok video duration × views (video.list does not expose watch-time metrics)'
+                    : isPinterest
+                      ? 'Pinterest pin_metrics · VIDEO_V50_WATCH_TIME (fallback: VIDEO_AVG_WATCH_TIME × plays)'
+                      : 'post_video_view_time'
+                }
                 color={REEL_METRIC_CONFIG.watchTime.color}
                 value={formatDurationMs(totalReelWatchTimeMsDisplay)}
                 active={selectedReelMetrics.includes('watchTime')}
@@ -6571,7 +6579,9 @@ type PostsUploadDayTooltipAgg = {
               <MetricCard
                 label="Avg Watch Time"
                 source={
-                  isPinterest
+                  isTikTok
+                    ? 'Estimated from TikTok clip duration (video.list)'
+                    : isPinterest
                     ? 'Pinterest pin_metrics · VIDEO_AVG_WATCH_TIME (mapped to post_video_avg_time_watched)'
                     : 'Mean post_video_avg_time_watched'
                 }
