@@ -505,7 +505,6 @@ function extractPinterestImportedPostMetrics(args: {
   facebookInsightsCompat: Record<string, number>;
 } {
   const mt = String(args.mediaType ?? '').toUpperCase();
-  const isVideo = mt === 'VIDEO';
   const lifetime = pickPinterestPinMetricsLifetimeBucket(args.pinMetrics);
   const d90 = pickPinterestPinMetrics90dBucket(args.pinMetrics);
 
@@ -530,6 +529,15 @@ function extractPinterestImportedPostMetrics(args: {
     pinterestMetricFromBucket(lifetime, ['VIDEO_AVG_WATCH_TIME']) || pinterestMetricFromBucket(d90, ['VIDEO_AVG_WATCH_TIME']);
   const videoV50WatchRaw =
     pinterestMetricFromBucket(lifetime, ['VIDEO_V50_WATCH_TIME']) || pinterestMetricFromBucket(d90, ['VIDEO_V50_WATCH_TIME']);
+
+  // Pinterest can sometimes return image-like media metadata for video Pins.
+  // If video metric families are present, treat the pin as video even when mediaType is not VIDEO.
+  const hasVideoMetricSignal =
+    videoMrc > 0 ||
+    videoStarts > 0 ||
+    videoAvgWatchRaw > 0 ||
+    videoV50WatchRaw > 0;
+  const isVideo = mt === 'VIDEO' || hasVideoMetricSignal;
 
   const plays = isVideo ? Math.max(videoMrc, videoStarts, impressionImage) : impressionImage;
 
