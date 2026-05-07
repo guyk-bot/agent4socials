@@ -2900,6 +2900,7 @@ export function FacebookAnalyticsView({
     () => posts.filter((p) => inRange(p.publishedAt, dateRange.start, dateRange.end)),
     [posts, dateRange.end, dateRange.start]
   );
+  const dateAxis = useMemo(() => buildDateAxis(dateRange.start, dateRange.end), [dateRange.end, dateRange.start]);
   // TikTok dashboard should follow the selected date range like all other platforms.
   // Keep calculations strictly scoped to posts published inside the current window.
   const tiktokEffectivePosts = postsInRange;
@@ -3130,7 +3131,6 @@ export function FacebookAnalyticsView({
       .map(([date, value]) => ({ date, value }))
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [postsInRange]);
-  const dateAxis = useMemo(() => buildDateAxis(dateRange.start, dateRange.end), [dateRange.end, dateRange.start]);
   const bundle = useMemo(() => {
     const native = insights?.facebookAnalytics;
     if (native) return native;
