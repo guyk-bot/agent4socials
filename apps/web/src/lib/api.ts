@@ -48,9 +48,15 @@ function releaseSlot(): void {
 api.interceptors.request.use(async (config) => {
   if (typeof window !== 'undefined') {
     const supabase = getSupabaseBrowser();
+    let accessToken: string | null = null;
     const { data: { session } } = await supabase.auth.getSession();
-    if (session?.access_token) {
-      config.headers.Authorization = `Bearer ${session.access_token}`;
+    accessToken = session?.access_token ?? null;
+    if (!accessToken) {
+      const refreshed = await supabase.auth.refreshSession();
+      accessToken = refreshed.data.session?.access_token ?? null;
+    }
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
     }
   }
 

@@ -2900,6 +2900,15 @@ export function FacebookAnalyticsView({
     () => posts.filter((p) => inRange(p.publishedAt, dateRange.start, dateRange.end)),
     [posts, dateRange.end, dateRange.start]
   );
+  // TikTok metrics (view_count, like_count, etc.) are lifetime totals per video, not time-ranged.
+  // When no videos were published within the selected window, fall back to the full synced catalog
+  // so the dashboard isn't blank for accounts that posted before the current range.
+  const tiktokEffectivePosts = useMemo(() => {
+    if (!isTikTok) return postsInRange;
+    if (postsInRange.length > 0) return postsInRange;
+    return posts.filter((p) => (p.platform ?? '').toUpperCase() === 'TIKTOK');
+  }, [isTikTok, postsInRange, posts]);
+  const usingTikTokAllTimeFallback = isTikTok && postsInRange.length === 0 && tiktokEffectivePosts.length > 0;
   const twitterRecentTweets = useMemo(
     () => (isTwitter ? (insights?.recentTweets ?? []) : []),
     [isTwitter, insights?.recentTweets]
@@ -3018,16 +3027,16 @@ export function FacebookAnalyticsView({
     return base.filter((k) => selectedPostsUploadTypes.includes(k));
   }, [selectedPostsUploadTypes]);
   const tiktokViewsInRange = useMemo(
-    () => postsInRange.reduce((s, p) => s + (p.impressions ?? bestPostPlayCount(p)), 0),
-    [postsInRange]
+    () => tiktokEffectivePosts.reduce((s, p) => s + (p.impressions ?? bestPostPlayCount(p)), 0),
+    [tiktokEffectivePosts]
   );
   const tiktokEngagementsInRange = useMemo(
     () =>
-      postsInRange.reduce(
+      tiktokEffectivePosts.reduce(
         (s, p) => s + (p.likeCount ?? 0) + (p.commentsCount ?? 0) + bestShareCount(p),
         0
       ),
-    [postsInRange]
+    [tiktokEffectivePosts]
   );
   const twitterEngagementsTotal = useMemo(() => {
     const t = twitterTotals;
@@ -3255,7 +3264,7 @@ export function FacebookAnalyticsView({
     if (isTikTok) {
       const viewsByDate: Record<string, number> = {};
       const engagementByDate: Record<string, number> = {};
-      for (const p of postsInRange) {
+      for (const p of tiktokEffectivePosts) {
         const d = localCalendarDateFromIso(p.publishedAt);
         if (!d) continue;
         viewsByDate[d] = (viewsByDate[d] ?? 0) + (p.impressions ?? bestPostPlayCount(p));
@@ -3661,6 +3670,7 @@ export function FacebookAnalyticsView({
     insights?.growthTimeSeries,
     videoPlaysDailySeries,
     postsInRange,
+    tiktokEffectivePosts,
     dateRange.end,
     dateRange.start,
     totalFollowers,
@@ -3958,7 +3968,8 @@ export function FacebookAnalyticsView({
   }, [insights?.extra]);
 
   const postsRows = useMemo(() => {
-    return postsInRangeForPostsTabUi.map((p) => {
+    const src = isTikTok ? tiktokEffectivePosts : postsInRangeForPostsTabUi;
+    return src.map((p) => {
       const fi = p.facebookInsights ?? {};
       const reactions = parseReactionTotal(fi.post_reactions_by_type_total);
       const isReel = isReelPost(p);
@@ -3998,7 +4009,7 @@ export function FacebookAnalyticsView({
         rawPost: p,
       };
     });
-  }, [postsInRangeForPostsTabUi]);
+  }, [isTikTok, tiktokEffectivePosts, postsInRangeForPostsTabUi]);
 
   const resolveUploadedPostThumbnail = useCallback((post: FacebookPost): string | null => {
     const direct = (post.thumbnailUrl ?? '').trim();
@@ -4100,7 +4111,7 @@ type PostsUploadDayTooltipAgg = {
       if (out.length >= 8) break;
     }
     return out;
-  }, [isTikTok, postsInRangeForPostsTabUi, resolveUploadedPostThumbnail]);
+  }, [isTikTok, tiktokEffectivePosts, postsInRangeForPostsTabUi, resolveUploadedPostThumbnail]);
 
   const reelsRows = useMemo(() => {
     return postsRows
@@ -4296,7 +4307,7 @@ type PostsUploadDayTooltipAgg = {
       const total = twitterRecentTweets.reduce((s, t) => s + (t.like_count ?? 0) + (t.reply_count ?? 0) + (t.retweet_count ?? 0) + (t.quote_count ?? 0), 0);
       return total / twitterRecentTweets.length;
     }
-    const listForAvg = isTwitter ? postsInRangeForPostsTabUi : postsInRange;
+    const listForAvg = isTikTok ? tiktokEffectivePosts : isTwitter ? postsInRangeForPostsTabUi : postsInRange;
     const sum = listForAvg.reduce((acc, post) => {
       if (isInstagram) return acc + bestInstagramInteractionCount(post);
       if (isPinterest) return acc + bestPostInteractionCount(post);
@@ -4381,27 +4392,30 @@ type PostsUploadDayTooltipAgg = {
     } as const;
   }, [growthSparklineSeries, isTikTok, isTwitter, isYouTube, isLinkedIn]);
   const likesTotal = useMemo(() => {
-    const fromPosts = postsInRange.reduce((sum, post) => sum + bestCount(post.facebookInsights?.post_reactions_like_total, post.likeCount ?? post.engagementBreakdown?.reactions), 0);
+    const src = isTikTok ? tiktokEffectivePosts : postsInRange;
+    const fromPosts = src.reduce((sum, post) => sum + bestCount(post.facebookInsights?.post_reactions_like_total, post.likeCount ?? post.engagementBreakdown?.reactions), 0);
     if (isTwitter && twitterRecentTweets.length > 0) {
       return Math.max(fromPosts, twitterRecentTweets.reduce((s, t) => s + (t.like_count ?? 0), 0));
     }
     return fromPosts;
-  }, [postsInRange, isTwitter, twitterRecentTweets]);
+  }, [isTikTok, tiktokEffectivePosts, postsInRange, isTwitter, twitterRecentTweets]);
   const commentsTotal = useMemo(() => {
-    const fromPosts = postsInRange.reduce((sum, post) => sum + (post.facebookInsights?.post_comments ?? post.commentsCount ?? post.engagementBreakdown?.comments ?? 0), 0);
+    const src = isTikTok ? tiktokEffectivePosts : postsInRange;
+    const fromPosts = src.reduce((sum, post) => sum + (post.facebookInsights?.post_comments ?? post.commentsCount ?? post.engagementBreakdown?.comments ?? 0), 0);
     if (isTwitter && twitterRecentTweets.length > 0) {
       return Math.max(fromPosts, twitterRecentTweets.reduce((s, t) => s + (t.reply_count ?? 0), 0));
     }
     return fromPosts;
-  }, [postsInRange, isTwitter, twitterRecentTweets]);
+  }, [isTikTok, tiktokEffectivePosts, postsInRange, isTwitter, twitterRecentTweets]);
   const sharesTotal = useMemo(() => {
-    const fromPosts = postsInRange.reduce((sum, post) => sum + bestShareCount(post), 0);
+    const src = isTikTok ? tiktokEffectivePosts : postsInRange;
+    const fromPosts = src.reduce((sum, post) => sum + bestShareCount(post), 0);
     if (isYouTube) return Math.max(fromPosts, youtubeSharesTotal);
     if (isTwitter && twitterRecentTweets.length > 0) {
       return Math.max(fromPosts, twitterRecentTweets.reduce((s, t) => s + (t.retweet_count ?? 0) + (t.quote_count ?? 0), 0));
     }
     return fromPosts;
-  }, [postsInRange, isYouTube, youtubeSharesTotal, isTwitter, twitterRecentTweets]);
+  }, [isTikTok, tiktokEffectivePosts, postsInRange, isYouTube, youtubeSharesTotal, isTwitter, twitterRecentTweets]);
   const repostsTotal = useMemo(() => {
     const fromPosts = postsInRange.reduce((sum, post) => sum + bestRepostCount(post), 0);
     if (isTwitter && twitterRecentTweets.length > 0) {
@@ -5954,9 +5968,15 @@ type PostsUploadDayTooltipAgg = {
                     {
                       label: isTwitter ? 'Total Tweets' : isPinterest ? 'Total Pins' : 'Total Posts',
                       value: formatNumber(
-                        isTwitter ? Math.max(postsInRange.length, twitterRecentTweets.length) : postsInRange.length
+                        isTwitter
+                          ? Math.max(postsInRange.length, twitterRecentTweets.length)
+                          : isTikTok
+                            ? tiktokEffectivePosts.length
+                            : postsInRange.length
                       ),
-                      title: `Synced ${postsExplainerPublishedPlural} whose publish time is in the selected range (${postsExplainerDateRangeLabel}).`,
+                      title: isTikTok && usingTikTokAllTimeFallback
+                        ? `All synced TikTok videos (no videos published in the selected range; showing all-time data).`
+                        : `Synced ${postsExplainerPublishedPlural} whose publish time is in the selected range (${postsExplainerDateRangeLabel}).`,
                     },
                     {
                       label: 'Avg views per post',
@@ -6657,6 +6677,13 @@ type PostsUploadDayTooltipAgg = {
               Reconnect <ChevronRight size={14} />
             </button>
           ) : null}
+        </div>
+      ) : null}
+      {isTikTok && (insights?.insightsHint || usingTikTokAllTimeFallback) ? (
+        <div className="rounded-[16px] border px-4 py-3 text-sm" style={{ borderColor: 'rgba(255,138,122,0.45)', color: COLOR.coral, background: 'rgba(255,138,122,0.08)' }}>
+          {usingTikTokAllTimeFallback
+            ? `No TikTok videos published in the selected date range. Showing all-time data from ${tiktokEffectivePosts.length} synced video${tiktokEffectivePosts.length !== 1 ? 's' : ''}.`
+            : insights?.insightsHint}
         </div>
       ) : null}
     </div>

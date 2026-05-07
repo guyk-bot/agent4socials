@@ -2384,10 +2384,14 @@ export async function GET(
         const untilDay = untilParam.slice(0, 10);
         const allPosts = await prisma.importedPost.findMany({
           where: { socialAccountId: account.id, platform: 'TIKTOK' },
-          select: { impressions: true, publishedAt: true },
+          select: { impressions: true, publishedAt: true, likeCount: true, commentsCount: true, sharesCount: true, interactions: true },
         });
         hasSyncedTikTokPosts = allPosts.length > 0;
         const lifetimeViews = allPosts.reduce((s, p) => s + (p.impressions ?? 0), 0);
+        const lifetimeLikes = allPosts.reduce((s, p) => s + (p.likeCount ?? 0), 0);
+        const lifetimeComments = allPosts.reduce((s, p) => s + (p.commentsCount ?? 0), 0);
+        const lifetimeShares = allPosts.reduce((s, p) => s + (p.sharesCount ?? 0), 0);
+        const lifetimeEngagement = lifetimeLikes + lifetimeComments + lifetimeShares;
         const inRange = allPosts.filter((p) => {
           const d = p.publishedAt.toISOString().slice(0, 10);
           return d >= sinceDay && d <= untilDay;
@@ -2403,6 +2407,13 @@ export async function GET(
         out.impressionsTimeSeries = Object.entries(viewsByDate)
           .map(([date, value]) => ({ date, value }))
           .sort((a, b) => a.date.localeCompare(b.date));
+        // Expose total engagement so the dashboard can fall back to all-time when no posts are in range.
+        if (lifetimeEngagement > 0) {
+          (out as Record<string, unknown>).tiktokLifetimeEngagement = lifetimeEngagement;
+          (out as Record<string, unknown>).tiktokLifetimeLikes = lifetimeLikes;
+          (out as Record<string, unknown>).tiktokLifetimeComments = lifetimeComments;
+          (out as Record<string, unknown>).tiktokLifetimeShares = lifetimeShares;
+        }
         if (lifetimeViews > rangeViews && rangeViews > 0) {
           (out as Record<string, unknown>).tiktokLifetimeViewCount = lifetimeViews;
         } else if (lifetimeViews > 0 && rangeViews === 0) {
