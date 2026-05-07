@@ -29,46 +29,17 @@ function cronSyncTotalBudgetMs(): number {
   return Math.min(120_000, Math.max(5_000, n));
 }
 
-function checkAuthorization(request: NextRequest): {
-  ok: boolean;
-  reason: 'ok' | 'missing_env' | 'missing_provided' | 'mismatch';
-} {
-  const rawEnvSecret = process.env.CRON_SECRET;
-  if (!rawEnvSecret) return { ok: false, reason: 'missing_env' };
-
-  const cronSecret = rawEnvSecret.trim().replace(/^['"]|['"]$/g, '');
-  const provided =
-    request.headers.get('X-Cron-Secret') ||
-    request.headers.get('x-cron-secret') ||
-    request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ||
-    request.nextUrl.searchParams.get('secret') ||
-    '';
-
-  if (!provided.trim()) return { ok: false, reason: 'missing_provided' };
-  if (provided.trim() !== cronSecret) return { ok: false, reason: 'mismatch' };
-  return { ok: true, reason: 'ok' };
-}
-
 async function handle(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
     return NextResponse.json({ message: 'DATABASE_URL required' }, { status: 503 });
   }
-  const auth = checkAuthorization(request);
-  if (!auth.ok) {
-    console.warn('[Cron] sync-platform-data auth failed:', auth.reason,
-      auth.reason === 'mismatch'
-        ? '— CRON_SECRET in Vercel does not match X-Cron-Secret header sent by cron-job.org'
-        : auth.reason === 'missing_env'
-        ? '— CRON_SECRET env var is not set in Vercel'
-        : '— No X-Cron-Secret header was provided'
-    );
-    return NextResponse.json(
-      {
-        message: 'Unauthorized',
-        reason: auth.reason,
-      },
-      { status: 401 }
-    );
+  const cronSecret =
+    request.headers.get('X-Cron-Secret') ||
+    request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ||
+    request.nextUrl.searchParams.get('secret');
+  if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
+    console.warn('[Cron] sync-platform-data unauthorized — CRON_SECRET env:', !!process.env.CRON_SECRET, 'header provided:', !!cronSecret);
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
   const scopes = ['account_overview', 'posts', 'post_metrics'] as const;
