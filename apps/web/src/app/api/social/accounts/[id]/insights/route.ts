@@ -29,6 +29,7 @@ import {
   fetchLinkedInMemberFollowersCountMe,
   fetchLinkedInOrganizationalEntityFollowerStatistics,
 } from '@/lib/linkedin/community-analytics';
+import type { DemographicBreakdownItem, Demographics } from '@/types/analytics';
 
 export const maxDuration = 60;
 
@@ -2718,13 +2719,27 @@ export async function GET(
                   : undefined;
               const rowHasCountry = Array.isArray(d?.byCountry) && d.byCountry.length > 0;
               if (!rowHasCountry) continue;
-              const existingDemo =
+              const fallbackByCountry: DemographicBreakdownItem[] = Array.isArray(d?.byCountry)
+                ? d.byCountry
+                    .map((row) => {
+                      if (!row || typeof row !== 'object') return null;
+                      const rec = row as Record<string, unknown>;
+                      const dimensionValue = typeof rec.dimensionValue === 'string' ? rec.dimensionValue : '';
+                      const value = Number(rec.value ?? 0);
+                      if (!dimensionValue || !Number.isFinite(value)) return null;
+                      const label = typeof rec.label === 'string' ? rec.label : undefined;
+                      return { dimensionValue, value, ...(label ? { label } : {}) };
+                    })
+                    .filter((row): row is DemographicBreakdownItem => row !== null)
+                : [];
+              if (fallbackByCountry.length === 0) continue;
+              const existingDemo: Demographics =
                 out.demographics && typeof out.demographics === 'object'
-                  ? (out.demographics as Record<string, unknown>)
+                  ? (out.demographics as Demographics)
                   : {};
               out.demographics = {
                 ...existingDemo,
-                byCountry: d?.byCountry as unknown[],
+                byCountry: fallbackByCountry,
                 hint:
                   'Using last available YouTube geography breakdown because this selected range returned no country rows yet.',
               };
