@@ -4557,6 +4557,21 @@ type PostsUploadDayTooltipAgg = {
     () => [...engagementTicks].sort((a, b) => a.localeCompare(b)),
     [engagementTicks]
   );
+  /** Keep Engagement KPI consistent with the Engagement section graph breakdown. */
+  const engagementBreakdownTotal = useMemo(
+    () =>
+      engagementData.reduce(
+        (s, d) =>
+          s +
+          (Number(d.likes) || 0) +
+          (Number(d.comments) || 0) +
+          (Number(d.shares) || 0) +
+          (Number(d.reposts) || 0) +
+          (Number(d.dislikes) || 0),
+        0
+      ),
+    [engagementData]
+  );
   const engagementStackKeysInRenderOrder = useMemo((): EngagementMetricKey[] => {
     const order = isTikTok
       ? ENGAGEMENT_STACK_ORDER_TIKTOK
@@ -5282,12 +5297,11 @@ type PostsUploadDayTooltipAgg = {
                 />
                 <SparklineMetricCard
                   label="Engagements (range)"
-                  source="Synced posts · likes + comments + shares, or stored interactions when present"
+                  source="Synced posts breakdown in selected range: likes + comments + shares (and reposts/dislikes when available)"
                   color={COLOR.coral}
                   value={formatNumber(
                     Math.max(
-                      performanceTotalsFromChart.engagements,
-                      insights?.reachTotal ?? 0,
+                      engagementBreakdownTotal,
                       linkedInEngagementsInRange
                     )
                   )}
@@ -5322,7 +5336,7 @@ type PostsUploadDayTooltipAgg = {
                   label="Engagements"
                   source="Synced videos · likes + comments + shares"
                   color={COLOR.coral}
-                  value={formatNumber(performanceTotalsFromChart.engagements)}
+                  value={formatNumber(engagementBreakdownTotal)}
                   series={growthSparklineSeries.engagement}
                   active={isCardSelected('engagements')}
                   onClick={() => toggleStoryMetric('engagements')}
@@ -5350,9 +5364,9 @@ type PostsUploadDayTooltipAgg = {
             />
             <SparklineMetricCard
               label="Engagements"
-              source={isInstagram ? 'accounts_engaged' : 'page_post_engagements'}
+              source="Selected-range engagement breakdown: likes + comments + shares (plus reposts/dislikes when available)"
               color={COLOR.violet}
-              value={formatNumber(performanceTotalsFromChart.engagements)}
+              value={formatNumber(engagementBreakdownTotal)}
               series={growthSparklineSeries.engagement}
               active={isCardSelected('engagements')}
               onClick={() => toggleStoryMetric('engagements')}
