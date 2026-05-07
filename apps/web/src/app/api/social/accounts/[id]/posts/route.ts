@@ -1715,9 +1715,13 @@ export async function GET(
       });
     }
 
-    // App-published targets not yet in importedPosts
+    // App-published targets not yet in importedPosts.
+    // TikTok: do NOT synthesize fallback rows from PostTarget when there is no matching imported row yet.
+    // Composer can store a temporary publish/inbox id, which is not the public video id and has no metrics.
+    // Showing that synthetic row makes the newest TikTok reel appear as 0 views/likes/watch stats.
+    // We rely on TikTok video.list imported rows only so analytics always reflect real API metrics.
     const appExtra = appTargets
-      .filter((t) => !importedPostIds.has(t.platformPostId!))
+      .filter((t) => account.platform !== 'TIKTOK' && !importedPostIds.has(t.platformPostId!))
       .map((t) => {
         const pid = t.platformPostId ?? null;
         const twE = account.platform === 'TWITTER' && pid ? twitterEnrich[pid] : undefined;
