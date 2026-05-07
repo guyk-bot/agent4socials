@@ -1570,7 +1570,9 @@ export function MetricCard({
 }) {
   const hint = `Source metric: ${source}${typeof trendPercent === 'number' && Number.isFinite(trendPercent) ? `. Change in selected range: ${trendPercent >= 0 ? '+' : ''}${trendPercent.toFixed(1)}%.` : ''}`;
   const hasApiRing = false;
-  const tintBg = active ? `${color}22` : `${color}14`;
+  // Default state: neutral card surface (light mode gray / dark mode dark gray via theme token).
+  // Selected state: apply metric color tint so selection is visually clear.
+  const cardBg = active ? `${color}22` : COLOR.elevated;
   return (
     <button
       type="button"
@@ -1578,7 +1580,7 @@ export function MetricCard({
       title={hint}
       className="rounded-[14px] px-3 py-2 text-left transition-all hover:-translate-y-[1px]"
       style={{
-        ...(tintBg ? { background: tintBg } : {}),
+        background: cardBg,
         ...(!hasApiRing ? { border: `1px solid ${COLOR.border}` } : {}),
         boxShadow: hasApiRing
           ? undefined
