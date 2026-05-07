@@ -1722,9 +1722,9 @@ function InboxPage() {
     <div className="relative flex h-[calc(100vh-3.5rem-3rem)] md:h-[calc(100vh-3.5rem-4rem)] bg-white flex-col md:flex-row -mx-4 sm:-mx-6 md:-mx-8 -mb-6 md:-mb-8">
       <LoadingVideoOverlay contained loading={conversationsLoading && conversations.length === 0} />
       {/* Left column: platform filters, search, list */}
-      <div className="w-full md:w-80 border-r border-neutral-200 flex flex-col shrink-0 bg-white">
+      <div className="w-full md:w-80 border-r border-neutral-200 dark:border-neutral-800 flex flex-col shrink-0 bg-white dark:bg-black">
         {/* Platform icons + Connect */}
-        <div className="p-3 border-b border-neutral-100 shrink-0">
+        <div className="p-3 border-b border-neutral-100 dark:border-neutral-800 shrink-0">
           <div className="flex items-center gap-2 flex-wrap">
             {platformsToShow.map((p) => {
               const Icon = p.icon;
@@ -1739,7 +1739,7 @@ function InboxPage() {
                     handlePlatformClick(p.id);
                   }}
                   className={`w-10 h-10 rounded-lg flex items-center justify-center border cursor-pointer focus:outline-none select-none ${
-                    isSelected ? 'bg-neutral-300 border-neutral-400' : 'bg-white border-neutral-200 hover:bg-neutral-100'
+                    isSelected ? 'bg-neutral-300 border-neutral-400 dark:bg-neutral-800 dark:border-neutral-700' : 'bg-white border-neutral-200 hover:bg-neutral-100 dark:bg-neutral-950 dark:border-neutral-800 dark:hover:bg-neutral-900'
                   }`}
                   title={isSelected ? `Hide ${p.label}` : `Show ${p.label}`}
                 >
@@ -1751,7 +1751,7 @@ function InboxPage() {
         </div>
 
         {/* Search */}
-        <div className="p-2 border-b border-neutral-100">
+        <div className="p-2 border-b border-neutral-100 dark:border-neutral-800">
           <div className="relative">
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
             <input
@@ -1765,7 +1765,7 @@ function InboxPage() {
         </div>
 
         {/* Messages / Comments */}
-        <div className="flex border-b border-neutral-200 bg-neutral-50/50">
+        <div className="flex border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-950">
           <button
             type="button"
             onClick={() => { setInboxMode('messages'); setSelectedComment(null); setSelectMode(false); setSelectedConversationIds(new Set()); setSelectedCommentIds(new Set()); }}
@@ -1801,7 +1801,7 @@ function InboxPage() {
         </div>
 
         {inboxMode === 'messages' && (
-          <div className="flex flex-col border-b border-neutral-200">
+          <div className="flex flex-col border-b border-neutral-200 dark:border-neutral-800">
             <div className="flex">
           <button
             type="button"
@@ -1826,7 +1826,7 @@ function InboxPage() {
           </button>
         </div>
             {/* Select toolbar: select conversations then mark as read */}
-            <div className="flex items-center gap-2 px-2 py-1.5 bg-neutral-50/70 border-t border-neutral-100">
+            <div className="flex items-center gap-2 px-2 py-1.5 bg-neutral-50/70 dark:bg-neutral-950 border-t border-neutral-100 dark:border-neutral-800">
               <button
                 type="button"
                 onClick={toggleSelectMode}
@@ -1887,8 +1887,8 @@ function InboxPage() {
         )}
 
         {inboxMode === 'comments' && commentsSupportedPlatforms.length > 0 && (
-          <div className="flex flex-col border-b border-neutral-200">
-            <div className="flex border-b border-neutral-100">
+          <div className="flex flex-col border-b border-neutral-200 dark:border-neutral-800">
+            <div className="flex border-b border-neutral-100 dark:border-neutral-800">
               <button
                 type="button"
                 onClick={() => setCommentsFilter('all')}
@@ -1911,7 +1911,7 @@ function InboxPage() {
                 Didn&apos;t reply
               </button>
             </div>
-            <div className="flex items-center gap-2 px-2 py-1.5 bg-neutral-50/70 border-t border-neutral-100">
+            <div className="flex items-center gap-2 px-2 py-1.5 bg-neutral-50/70 dark:bg-neutral-950 border-t border-neutral-100 dark:border-neutral-800">
               <button
                 type="button"
                 onClick={toggleSelectMode}
@@ -2309,8 +2309,8 @@ function InboxPage() {
           <>
             <div className="flex-1 overflow-y-auto p-6 min-h-0">
               <div className="max-w-2xl mx-auto">
-                <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
-                  <div className="p-4 border-b border-neutral-100 flex items-center gap-3">
+                <div className="bg-white dark:bg-neutral-950 rounded-xl border border-neutral-200 dark:border-neutral-800 shadow-sm overflow-hidden">
+                  <div className="p-4 border-b border-neutral-100 dark:border-neutral-800 flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-neutral-200 shrink-0 overflow-hidden">
                       {selectedComment.authorPictureUrl ? (
                         <img src={selectedComment.authorPictureUrl} alt="" className="w-full h-full object-cover" />
@@ -2661,8 +2661,8 @@ function InboxPage() {
               </div>
             ) : (
               <div className="max-w-2xl mx-auto w-full">
-                <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
-                  <div className="p-4 border-b border-neutral-100 bg-neutral-50/50">
+                <div className="bg-white dark:bg-neutral-950 rounded-xl border border-neutral-200 dark:border-neutral-800 shadow-sm overflow-hidden">
+                  <div className="p-4 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900">
                     <p className="text-sm font-medium text-neutral-800">Engagement</p>
                     <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5">
                       {(() => {
@@ -2720,8 +2720,8 @@ function InboxPage() {
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <div className="flex-1 overflow-y-auto p-6 min-h-0">
                 <div className="max-w-2xl mx-auto h-full flex flex-col min-h-0">
-                  <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden flex-1 flex flex-col min-h-0">
-                    <div className="p-4 border-b border-neutral-100 bg-neutral-50/50 shrink-0">
+                  <div className="bg-white dark:bg-neutral-950 rounded-xl border border-neutral-200 dark:border-neutral-800 shadow-sm overflow-hidden flex-1 flex flex-col min-h-0">
+                    <div className="p-4 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900 shrink-0">
                       {(() => {
                         const selectedConv = conversations.find((c) => c.id === selectedConversationId);
                         const cached = selectedConversationId ? conversationMessagesCache[selectedConversationId] : undefined;
