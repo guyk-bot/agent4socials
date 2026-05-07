@@ -3210,27 +3210,6 @@ export function FacebookAnalyticsView({
     const sorted = [...ts].sort((a, b) => String(a.date).localeCompare(String(b.date)));
     return (sorted[sorted.length - 1]?.value ?? 0) - (sorted[0]?.value ?? 0);
   }, [isInstagram, insights?.followersTimeSeries]);
-  /** Unified "new followers in selected range" for every platform card. */
-  const followersIncreaseInSelectedRange = useMemo(() => {
-    if (isFacebook) return fbNetNewFollowersInPeriod;
-    if (isInstagram) return igNetNewFollowersInPeriod;
-    if (isYouTube) return youtubeNetNewFollowersInPeriod;
-
-    const follows = growthSparklineSeries.follows ?? [];
-    if (follows.length < 2) return 0;
-    const sorted = [...follows].sort((a, b) => String(a.date).localeCompare(String(b.date)));
-    const first = Number(sorted[0]?.value ?? 0);
-    const last = Number(sorted[sorted.length - 1]?.value ?? 0);
-    return last - first;
-  }, [
-    isFacebook,
-    isInstagram,
-    isYouTube,
-    fbNetNewFollowersInPeriod,
-    igNetNewFollowersInPeriod,
-    youtubeNetNewFollowersInPeriod,
-    growthSparklineSeries.follows,
-  ]);
 
   const derivedPostViewsInRange = useMemo(
     () => postsInRange.reduce((s, p) => s + bestPostPlayCount(p), 0),
@@ -3739,6 +3718,28 @@ export function FacebookAnalyticsView({
     totalFollowers,
     dateAxis,
     youtubeGrowthNetByDate,
+  ]);
+
+  /** Unified "new followers in selected range" for every platform card. */
+  const followersIncreaseInSelectedRange = useMemo(() => {
+    if (isFacebook) return fbNetNewFollowersInPeriod;
+    if (isInstagram) return igNetNewFollowersInPeriod;
+    if (isYouTube) return youtubeNetNewFollowersInPeriod;
+
+    const follows = growthSparklineSeries.follows ?? [];
+    if (follows.length < 2) return 0;
+    const sorted = [...follows].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    const first = Number(sorted[0]?.value ?? 0);
+    const last = Number(sorted[sorted.length - 1]?.value ?? 0);
+    return last - first;
+  }, [
+    isFacebook,
+    isInstagram,
+    isYouTube,
+    fbNetNewFollowersInPeriod,
+    igNetNewFollowersInPeriod,
+    youtubeNetNewFollowersInPeriod,
+    growthSparklineSeries.follows,
   ]);
 
   const stackedTraffic = useMemo(() => {
