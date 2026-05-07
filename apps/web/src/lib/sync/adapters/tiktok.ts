@@ -10,14 +10,6 @@ import axios from 'axios';
 
 const TIKTOK_API = 'https://open.tiktokapis.com/v2';
 
-function isMissingImportedPostSavesCountColumn(error: unknown): boolean {
-  const e = error as { code?: string; message?: string; meta?: { column?: string } };
-  const msg = (e?.message ?? '').toLowerCase();
-  const col = (e?.meta?.column ?? '').toLowerCase();
-  if (msg.includes('savescount') || col.includes('savescount')) return true;
-  return e?.code === 'P2022' && msg.includes('column');
-}
-
 type AccountRow = {
   id: string;
   userId: string;
@@ -120,7 +112,6 @@ async function syncRecentContent(account: AccountRow) {
         durationSec != null ? ({ tiktokDurationSec: durationSec } as Record<string, unknown>) : undefined;
       const likes = typeof v.like_count === 'number' ? v.like_count : 0;
       const comments = typeof v.comment_count === 'number' ? v.comment_count : 0;
-      const savesVal = saveCount != null ? saveCount : undefined;
       const interactions = likes + comments + shareCount + (saveCount ?? 0);
       const where = {
         socialAccountId_platformPostId: {
@@ -141,7 +132,6 @@ async function syncRecentContent(account: AccountRow) {
             commentsCount: comments,
             sharesCount: shareCount,
             repostsCount: 0,
-            ...(savesVal !== undefined ? { savesCount: savesVal } : {}),
             ...(tiktokMeta ? { platformMetadata: tiktokMeta as object } : {}),
             syncedAt: new Date(),
           },
@@ -160,52 +150,12 @@ async function syncRecentContent(account: AccountRow) {
             commentsCount: comments,
             sharesCount: shareCount,
             repostsCount: 0,
-            savesCount: saveCount ?? 0,
             ...(tiktokMeta ? { platformMetadata: tiktokMeta as object } : {}),
           },
         });
         items++;
-      } catch (e) {
-        if (!isMissingImportedPostSavesCountColumn(e)) continue;
-        const interactionsNoSaves = likes + comments + shareCount;
-        try {
-          await prisma.importedPost.upsert({
-            where,
-            update: {
-              content: v.video_description ?? v.title ?? undefined,
-              thumbnailUrl: v.cover_image_url ?? undefined,
-              permalinkUrl: v.share_url ?? undefined,
-              impressions: v.view_count ?? 0,
-              interactions: interactionsNoSaves,
-              likeCount: likes,
-              commentsCount: comments,
-              sharesCount: shareCount,
-              repostsCount: 0,
-              ...(tiktokMeta ? { platformMetadata: tiktokMeta as object } : {}),
-              syncedAt: new Date(),
-            },
-            create: {
-              socialAccountId: account.id,
-              platformPostId: v.id,
-              platform: 'TIKTOK',
-              content: v.video_description ?? v.title ?? null,
-              thumbnailUrl: v.cover_image_url ?? null,
-              permalinkUrl: v.share_url ?? null,
-              publishedAt: v.create_time ? new Date(v.create_time * 1000) : new Date(),
-              mediaType: 'VIDEO',
-              impressions: v.view_count ?? 0,
-              interactions: interactionsNoSaves,
-              likeCount: likes,
-              commentsCount: comments,
-              sharesCount: shareCount,
-              repostsCount: 0,
-              ...(tiktokMeta ? { platformMetadata: tiktokMeta as object } : {}),
-            },
-          });
-          items++;
-        } catch {
-          /* skip */
-        }
+      } catch {
+        /* skip */
       }
     }
 

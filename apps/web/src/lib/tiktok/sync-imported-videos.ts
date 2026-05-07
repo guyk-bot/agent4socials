@@ -2,15 +2,6 @@ import axios from 'axios';
 import { prisma } from '@/lib/db';
 import { parseTikTokVideoEngagement, parseTikTokVideoDurationSec } from '@/lib/tiktok/video-engagement';
 
-/** Deploys before migration `20260408153000_imported_post_saves_count` have no column; Prisma P2022 would 500 the whole posts list. */
-function isMissingImportedPostSavesCountColumn(error: unknown): boolean {
-  const e = error as { code?: string; message?: string; meta?: { column?: string } };
-  const msg = (e?.message ?? '').toLowerCase();
-  const col = (e?.meta?.column ?? '').toLowerCase();
-  if (msg.includes('savescount') || col.includes('savescount')) return true;
-  return e?.code === 'P2022' && msg.includes('column');
-}
-
 /**
  * Pull TikTok `video.list` into `ImportedPost` for analytics (views, likes, etc.).
  * Shared by GET `/social/accounts/[id]/posts?sync=1` and OAuth callback so new connects have DB rows before the dashboard loads.
@@ -83,88 +74,45 @@ export async function syncTikTokImportedVideos(params: {
       const { shareCount, saveCount } = parseTikTokVideoEngagement(raw);
       const durationSec = parseTikTokVideoDurationSec(raw);
       const sharesCount = shareCount;
-      const savesVal = saveCount != null ? saveCount : undefined;
       const interactions = likeCount + commentsCount + sharesCount + (saveCount ?? 0);
       const tiktokMeta =
         durationSec != null ? ({ tiktokDurationSec: durationSec } as Record<string, unknown>) : undefined;
       const whereTt = { socialAccountId_platformPostId: { socialAccountId, platformPostId: videoId } };
-      try {
-        await prisma.importedPost.upsert({
-          where: whereTt,
-          update: {
-            content: title,
-            thumbnailUrl,
-            permalinkUrl,
-            publishedAt,
-            mediaType: 'VIDEO',
-            impressions,
-            interactions,
-            likeCount,
-            commentsCount,
-            sharesCount,
-            repostsCount: 0,
-            ...(savesVal !== undefined ? { savesCount: savesVal } : {}),
-            ...(tiktokMeta ? { platformMetadata: tiktokMeta as object } : {}),
-            syncedAt: new Date(),
-          },
-          create: {
-            socialAccountId,
-            platformPostId: videoId,
-            platform: 'TIKTOK',
-            content: title,
-            thumbnailUrl,
-            permalinkUrl,
-            publishedAt,
-            mediaType: 'VIDEO',
-            impressions,
-            interactions,
-            likeCount,
-            commentsCount,
-            sharesCount,
-            repostsCount: 0,
-            savesCount: saveCount ?? 0,
-            ...(tiktokMeta ? { platformMetadata: tiktokMeta as object } : {}),
-          },
-        });
-      } catch (upErr) {
-        if (!isMissingImportedPostSavesCountColumn(upErr)) throw upErr;
-        const interactionsNoSaves = likeCount + commentsCount + sharesCount;
-        await prisma.importedPost.upsert({
-          where: whereTt,
-          update: {
-            content: title,
-            thumbnailUrl,
-            permalinkUrl,
-            publishedAt,
-            mediaType: 'VIDEO',
-            impressions,
-            interactions: interactionsNoSaves,
-            likeCount,
-            commentsCount,
-            sharesCount,
-            repostsCount: 0,
-            ...(tiktokMeta ? { platformMetadata: tiktokMeta as object } : {}),
-            syncedAt: new Date(),
-          },
-          create: {
-            socialAccountId,
-            platformPostId: videoId,
-            platform: 'TIKTOK',
-            content: title,
-            thumbnailUrl,
-            permalinkUrl,
-            publishedAt,
-            mediaType: 'VIDEO',
-            impressions,
-            interactions: interactionsNoSaves,
-            likeCount,
-            commentsCount,
-            sharesCount,
-            repostsCount: 0,
-            ...(tiktokMeta ? { platformMetadata: tiktokMeta as object } : {}),
-          },
-        });
-      }
+      await prisma.importedPost.upsert({
+        where: whereTt,
+        update: {
+          content: title,
+          thumbnailUrl,
+          permalinkUrl,
+          publishedAt,
+          mediaType: 'VIDEO',
+          impressions,
+          interactions,
+          likeCount,
+          commentsCount,
+          sharesCount,
+          repostsCount: 0,
+          ...(tiktokMeta ? { platformMetadata: tiktokMeta as object } : {}),
+          syncedAt: new Date(),
+        },
+        create: {
+          socialAccountId,
+          platformPostId: videoId,
+          platform: 'TIKTOK',
+          content: title,
+          thumbnailUrl,
+          permalinkUrl,
+          publishedAt,
+          mediaType: 'VIDEO',
+          impressions,
+          interactions,
+          likeCount,
+          commentsCount,
+          sharesCount,
+          repostsCount: 0,
+          ...(tiktokMeta ? { platformMetadata: tiktokMeta as object } : {}),
+        },
+      });
     }
     return undefined;
   } catch (e) {
