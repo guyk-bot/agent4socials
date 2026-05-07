@@ -49,27 +49,28 @@ function AuthenticatedContent({
                 ['--wl-sidebar-bg' as string]: resolvedBackground,
             }}
         >
-            {/* Main content: low stacking order so chrome can sit on top */}
+            {/* Main content sits below the fixed chrome (chrome is rendered in fixed wrappers above) */}
             <div
                 className={`pt-14 transition-[padding] duration-200 ${sidebarOpen ? 'md:pl-64' : 'pl-0'}`}
-                style={{ position: 'relative', zIndex: 0 }}
             >
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6 md:py-8">
                     {children}
                 </div>
             </div>
-            {/* Header and sidebar: fixed, rendered after content so they stack on top and stay clickable */}
+            {/* Header wrapper: fixed at top, fills full width, high z-index so it is always clickable */}
             <div
-                className="fixed top-0 left-0 right-0 h-14"
+                className="fixed top-0 left-0 right-0 h-14 flex"
                 style={{ ...chromeStyle, zIndex: CHROME_Z }}
                 data-chrome="header"
             >
-                <Suspense fallback={<div className="h-14 bg-[var(--dark)]" />}>
+                <Suspense fallback={<div className="h-14 w-full bg-[var(--dark)]" />}>
                     <AppHeader sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
                 </Suspense>
             </div>
+            {/* Sidebar wrapper: fixed on the left, fills height below header, high z-index.
+                Visibility mirrors sidebarOpen (hidden on mobile when closed, always visible on md+). */}
             <div
-                className="fixed left-0 top-14 bottom-0 w-64"
+                className={`${sidebarOpen ? 'flex' : 'hidden'} md:flex fixed left-0 top-14 bottom-0 w-64 flex-col`}
                 style={{ ...chromeStyle, zIndex: CHROME_Z }}
                 data-chrome="sidebar"
             >

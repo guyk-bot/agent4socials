@@ -57,7 +57,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
     }`;
 
   return (
-    <header className="h-14 flex items-center justify-between px-4 sm:px-6 bg-[var(--dark)] text-white border-b border-white/10 fixed top-0 left-0 right-0 z-[100] pointer-events-auto">
+    <header className="h-full w-full flex items-center justify-between px-4 sm:px-6 bg-[var(--dark)] text-white border-b border-white/10 pointer-events-auto">
       <div className="flex items-center gap-2 md:gap-8 min-w-0">
         {onSidebarToggle && (
           <button
