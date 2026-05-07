@@ -1762,7 +1762,7 @@ function InboxPage() {
   };
 
   return (
-    <div className="relative flex h-[calc(100vh-3.5rem-3rem)] md:h-[calc(100vh-3.5rem-4rem)] bg-white flex-col md:flex-row -mx-4 sm:-mx-6 md:-mx-8 -mb-6 md:-mb-8">
+    <div className="relative flex h-[calc(100vh-3.5rem-3rem)] md:h-[calc(100vh-3.5rem-4rem)] bg-white flex-col md:flex-row">
       <LoadingVideoOverlay contained loading={conversationsLoading && conversations.length === 0} />
       {/* Left column: platform filters, search, list */}
       <div className="w-full md:w-80 border-r border-neutral-200 dark:border-neutral-800 flex flex-col shrink-0 bg-white dark:bg-black">
