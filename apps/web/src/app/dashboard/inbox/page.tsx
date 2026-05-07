@@ -222,7 +222,11 @@ function MessagesConversationList({
             }}
             className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
               selectMode && selectedConversationIds.has(c.id) ? 'bg-orange-50 border border-orange-200' :
-              selectedConversationId === c.id ? 'sidebar-item-selected border-slate-200/60' : unreadConversationIds.has(c.id) ? 'bg-orange-50/80 hover:bg-orange-100/80' : 'hover:bg-neutral-50'
+              selectedConversationId === c.id
+                ? 'sidebar-item-selected border-slate-200/60'
+                : unreadConversationIds.has(c.id)
+                  ? 'bg-orange-50/80 hover:bg-orange-100/80 dark:bg-neutral-900 dark:hover:bg-neutral-800'
+                  : 'hover:bg-neutral-50 dark:hover:bg-neutral-800'
             }`}
           >
             {selectMode ? (
@@ -1413,7 +1417,11 @@ function InboxPage() {
                     }}
                     className={`w-full px-3 py-3 text-left transition-colors flex items-center gap-2 cursor-pointer ${
                       isSelected ? 'sidebar-item-selected border-l-2 border-l-slate-400' :
-                      selectedComment?.commentId === c.commentId ? 'sidebar-item-selected border-l-2 border-l-slate-400' : isUnread ? 'bg-orange-50/80 hover:bg-orange-100/80' : 'hover:bg-neutral-50'
+                      selectedComment?.commentId === c.commentId
+                        ? 'sidebar-item-selected border-l-2 border-l-slate-400'
+                        : isUnread
+                          ? 'bg-orange-50/80 hover:bg-orange-100/80 dark:bg-neutral-900 dark:hover:bg-neutral-800'
+                          : 'hover:bg-neutral-50 dark:hover:bg-neutral-800'
                     }`}
                   >
                     {selectMode ? (
