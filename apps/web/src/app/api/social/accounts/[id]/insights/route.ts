@@ -128,6 +128,13 @@ function sumMergedDailyOverCalendarRange(
   return sum;
 }
 
+function dayRangeToUtcBounds(sinceDay: string, untilDay: string): { gte: Date; lt: Date } {
+  const gte = new Date(`${sinceDay}T00:00:00.000Z`);
+  const ltBase = new Date(`${untilDay}T00:00:00.000Z`);
+  const lt = new Date(ltBase.getTime() + 24 * 60 * 60 * 1000);
+  return { gte, lt };
+}
+
 type AudienceCountryRow = { country: string; value: number; percent: number };
 
 function normalizeAudienceCountryRows(
@@ -2136,6 +2143,86 @@ export async function GET(
       out.twitterTotals = tw.totals;
       out.twitterEngagementTimeSeries = tw.engagementTimeSeries;
       out.recentTweets = tw.recentTweets;
+      try {
+        const bounds = dayRangeToUtcBounds(sinceDay, untilDay);
+        const importedTweets = await prisma.importedPost.findMany({
+          where: {
+            socialAccountId: account.id,
+            platform: 'TWITTER',
+            publishedAt: { gte: bounds.gte, lt: bounds.lt },
+          },
+          select: {
+            platformPostId: true,
+            content: true,
+            publishedAt: true,
+            impressions: true,
+            likeCount: true,
+            commentsCount: true,
+            repostsCount: true,
+            sharesCount: true,
+            thumbnailUrl: true,
+            mediaType: true,
+          },
+          orderBy: { publishedAt: 'desc' },
+          take: 400,
+        });
+        if (importedTweets.length > 0) {
+          const mergedById = new Map<string, TwitterRecentTweetRow>();
+          for (const row of tw.recentTweets) mergedById.set(row.id, row);
+          for (const row of importedTweets) {
+            if (!row.platformPostId || mergedById.has(row.platformPostId)) continue;
+            mergedById.set(row.platformPostId, {
+              id: row.platformPostId,
+              text: row.content ?? '',
+              created_at: row.publishedAt.toISOString(),
+              like_count: row.likeCount ?? 0,
+              reply_count: row.commentsCount ?? 0,
+              retweet_count: row.repostsCount ?? 0,
+              quote_count: row.sharesCount ?? 0,
+              bookmark_count: 0,
+              impression_count: row.impressions ?? 0,
+              thumbnailUrl: row.thumbnailUrl ?? null,
+              mediaType: row.mediaType?.toLowerCase() ?? null,
+            });
+          }
+          const merged = [...mergedById.values()]
+            .filter((t) => {
+              const day = t.created_at?.slice(0, 10);
+              return !!day && day >= sinceDay && day <= untilDay;
+            })
+            .sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime());
+          const totals: TwitterTotals = { impressions: 0, likes: 0, replies: 0, retweets: 0, quotes: 0, bookmarks: 0 };
+          const impressionsByDate: Record<string, number> = {};
+          const engagementByDate: Record<string, number> = {};
+          for (const t of merged) {
+            totals.impressions += t.impression_count;
+            totals.likes += t.like_count;
+            totals.replies += t.reply_count;
+            totals.retweets += t.retweet_count;
+            totals.quotes += t.quote_count;
+            totals.bookmarks += t.bookmark_count;
+            const day = t.created_at?.slice(0, 10);
+            if (!day) continue;
+            impressionsByDate[day] = (impressionsByDate[day] ?? 0) + t.impression_count;
+            engagementByDate[day] =
+              (engagementByDate[day] ?? 0) +
+              (t.like_count + t.reply_count + t.retweet_count + t.quote_count + t.bookmark_count);
+          }
+          if (merged.length > tw.recentTweets.length || tw.truncated) {
+            out.recentTweets = merged.slice(0, 200);
+            out.impressionsTotal = totals.impressions;
+            out.impressionsTimeSeries = Object.entries(impressionsByDate)
+              .map(([date, value]) => ({ date, value }))
+              .sort((a, b) => a.date.localeCompare(b.date));
+            out.twitterTotals = totals;
+            out.twitterEngagementTimeSeries = Object.entries(engagementByDate)
+              .map(([date, value]) => ({ date, value }))
+              .sort((a, b) => a.date.localeCompare(b.date));
+          }
+        }
+      } catch {
+        // DB fallback is best effort.
+      }
       const tweetCount = tw.twitterUser?.tweet_count ?? 0;
       const hintParts: string[] = [];
       if (tw.hint) hintParts.push(tw.hint);
@@ -2812,6 +2899,38 @@ export async function GET(
         (s, p) => s + (Number(p.value) || 0),
         0
       );
+      try {
+        const bounds = dayRangeToUtcBounds(sinceParam.slice(0, 10), untilParam.slice(0, 10));
+        const importedPinsInRange = await prisma.importedPost.findMany({
+          where: {
+            socialAccountId: account.id,
+            platform: 'PINTEREST',
+            publishedAt: { gte: bounds.gte, lt: bounds.lt },
+          },
+          select: { impressions: true, publishedAt: true },
+          orderBy: { publishedAt: 'desc' },
+          take: 400,
+        });
+        if (importedPinsInRange.length > 0 && impressionsTotalFromDaily === 0) {
+          const byDate: Record<string, number> = {};
+          let total = 0;
+          for (const p of importedPinsInRange) {
+            const day = p.publishedAt.toISOString().slice(0, 10);
+            const imp = Number(p.impressions ?? 0);
+            total += imp;
+            byDate[day] = (byDate[day] ?? 0) + imp;
+          }
+          out.impressionsTotal = total;
+          out.impressionsTimeSeries = Object.entries(byDate)
+            .map(([date, value]) => ({ date, value }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+          out.insightsHint =
+            out.insightsHint ??
+            'Using synced Pinterest pins from your database for this date range while account-level analytics is limited.';
+        }
+      } catch {
+        // DB fallback is best effort.
+      }
       const monthlyViews = Number(uaBody?.monthly_views ?? 0);
       if (impressionsTotalFromDaily === 0 && monthlyViews > 0) {
         out.impressionsTotal = Math.max(Number(out.impressionsTotal ?? 0), monthlyViews);
