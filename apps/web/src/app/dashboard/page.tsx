@@ -272,6 +272,13 @@ function postImportSyncOnFirstLoad(platform: string | undefined): boolean {
   );
 }
 
+/** TikTok needs force=1 more often so latest video.list metrics appear right after upload. */
+function postsSyncParamsForPlatform(platform: string | undefined): { sync?: 1; force?: 1 } {
+  if (!postImportSyncOnFirstLoad(platform)) return {};
+  if (platform === 'TIKTOK') return { sync: 1, force: 1 };
+  return { sync: 1 };
+}
+
 /** Keep Page-level chart bundles when a refresh omits them (same idea as manual Sync merge). */
 function mergeFacebookPageInsightsPreserve(
   data: Record<string, unknown>,
@@ -764,8 +771,7 @@ export default function DashboardPage() {
         // in the background; updates should come from explicit sync actions.
         if (hasAnyCachedPosts) return;
         if (skipInstagramAutoRefresh && hasAnyCachedPosts && !shouldBackgroundSyncPosts()) return;
-        const bgParams =
-          shouldBackgroundSyncPosts() ? { sync: 1 } : postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {};
+        const bgParams = postsSyncParamsForPlatform(selectedAccount?.platform);
         api.get(`/social/accounts/${accountId}/posts`, { params: bgParams })
           .then((res) => {
             const list = res.data?.posts ?? [];
@@ -816,7 +822,7 @@ export default function DashboardPage() {
         return;
       }
       setImportedPostsLoading(true);
-      const primaryPostsParams = postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {};
+      const primaryPostsParams = postsSyncParamsForPlatform(selectedAccount?.platform);
       api.get(`/social/accounts/${accountId}/posts`, { params: primaryPostsParams })
         .then((res) => {
           const list = res.data?.posts ?? [];
@@ -854,7 +860,7 @@ export default function DashboardPage() {
       (async () => {
         for (const acc of accounts) {
           try {
-            const multiParams = withSync ? { sync: 1 } : {};
+            const multiParams = withSync ? postsSyncParamsForPlatform(acc.platform) : {};
             const r = await api.get(`/social/accounts/${acc.id}/posts`, { params: multiParams, timeout: timeoutMs });
             const posts = r.data?.posts ?? [];
             results.push({ posts, syncError: r.data?.syncError as string | undefined });
@@ -1260,7 +1266,7 @@ export default function DashboardPage() {
           setImportedPostsLoading(false);
         } else {
           setImportedPostsLoading(true);
-          const insightsPostsParams = postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {};
+          const insightsPostsParams = postsSyncParamsForPlatform(selectedAccount?.platform);
           api.get(`/social/accounts/${accountId}/posts`, { params: insightsPostsParams })
             .then((postsRes) => {
               const list = postsRes.data?.posts ?? [];
@@ -1414,7 +1420,7 @@ export default function DashboardPage() {
         setImportedPosts(postsCached);
       } else {
         // Fetch posts in background
-        const fastPostsParams = postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {};
+        const fastPostsParams = postsSyncParamsForPlatform(selectedAccount?.platform);
         const fastPostsPromise = api.get(`/social/accounts/${accountId}/posts`, { params: fastPostsParams });
         fastPostsPromise
           .then((postsRes) => {
