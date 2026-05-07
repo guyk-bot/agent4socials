@@ -3210,6 +3210,27 @@ export function FacebookAnalyticsView({
     const sorted = [...ts].sort((a, b) => String(a.date).localeCompare(String(b.date)));
     return (sorted[sorted.length - 1]?.value ?? 0) - (sorted[0]?.value ?? 0);
   }, [isInstagram, insights?.followersTimeSeries]);
+  /** Unified "new followers in selected range" for every platform card. */
+  const followersIncreaseInSelectedRange = useMemo(() => {
+    if (isFacebook) return fbNetNewFollowersInPeriod;
+    if (isInstagram) return igNetNewFollowersInPeriod;
+    if (isYouTube) return youtubeNetNewFollowersInPeriod;
+
+    const follows = growthSparklineSeries.follows ?? [];
+    if (follows.length < 2) return 0;
+    const sorted = [...follows].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    const first = Number(sorted[0]?.value ?? 0);
+    const last = Number(sorted[sorted.length - 1]?.value ?? 0);
+    return last - first;
+  }, [
+    isFacebook,
+    isInstagram,
+    isYouTube,
+    fbNetNewFollowersInPeriod,
+    igNetNewFollowersInPeriod,
+    youtubeNetNewFollowersInPeriod,
+    growthSparklineSeries.follows,
+  ]);
 
   const derivedPostViewsInRange = useMemo(
     () => postsInRange.reduce((s, p) => s + bestPostPlayCount(p), 0),
@@ -5112,10 +5133,10 @@ type PostsUploadDayTooltipAgg = {
             <>
               <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <SparklineMetricCard
-                  label="Followers"
-                  source="user.info (stats) · follower_count"
+                  label="New Followers"
+                  source={`Follower increase in selected period from synced timeline. Current total: ${formatNumber(totalFollowers)}`}
                   color={COLOR.mint}
-                  value={formatNumber(totalFollowers)}
+                  value={formatNumber(followersIncreaseInSelectedRange)}
                   series={growthSparklineSeries.follows}
                   active={isCardSelected('followers')}
                   onClick={() => toggleStoryMetric('followers')}
@@ -5156,10 +5177,10 @@ type PostsUploadDayTooltipAgg = {
               ) : null}
               <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <SparklineMetricCard
-                  label="Followers"
-                  source="X API v2 · users lookup · public_metrics.followers_count"
+                  label="New Followers"
+                  source={`Follower increase in selected period from available timeline/snapshot data. Current total: ${formatNumber(totalFollowers)}`}
                   color={COLOR.mint}
-                  value={formatNumber(totalFollowers)}
+                  value={formatNumber(followersIncreaseInSelectedRange)}
                   series={growthSparklineSeries.follows}
                   active={isCardSelected('followers')}
                   onClick={() => toggleStoryMetric('followers')}
@@ -5263,10 +5284,10 @@ type PostsUploadDayTooltipAgg = {
               ) : null}
               <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <SparklineMetricCard
-                  label="Connections"
-                  source="LinkedIn · networkSizes (first degree when available)"
+                  label="New Connections"
+                  source={`Connection increase in selected period from synced history. Current total: ${formatNumber(totalFollowers)}`}
                   color={COLOR.mint}
-                  value={formatNumber(totalFollowers)}
+                  value={formatNumber(followersIncreaseInSelectedRange)}
                   series={growthSparklineSeries.follows}
                   active={isCardSelected('followers')}
                   onClick={() => toggleStoryMetric('followers')}
@@ -5318,7 +5339,7 @@ type PostsUploadDayTooltipAgg = {
                   label="New Subscribers"
                   source={`Net subscribers gained in selected period (YouTube Analytics: subscribersGained - subscribersLost). Total: ${formatNumber(totalFollowers)}`}
                   color={COLOR.mint}
-                  value={formatNumber(youtubeNetNewFollowersInPeriod !== 0 ? youtubeNetNewFollowersInPeriod : totalFollowers)}
+                  value={formatNumber(followersIncreaseInSelectedRange)}
                   series={growthSparklineSeries.follows}
                   active={isCardSelected('followers')}
                   onClick={() => toggleStoryMetric('followers')}
@@ -5353,11 +5374,7 @@ type PostsUploadDayTooltipAgg = {
                   : `Net new followers in selected period (snapshot delta). Total: ${formatNumber(totalFollowers)}`
               }
               color={COLOR.mint}
-              value={formatNumber(
-                isFacebook
-                  ? (fbNetNewFollowersInPeriod !== 0 ? fbNetNewFollowersInPeriod : totalFollowers)
-                  : (igNetNewFollowersInPeriod !== 0 ? igNetNewFollowersInPeriod : totalFollowers)
-              )}
+              value={formatNumber(followersIncreaseInSelectedRange)}
               series={growthSparklineSeries.follows}
               active={isCardSelected('followers')}
               onClick={() => toggleStoryMetric('followers')}
