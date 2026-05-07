@@ -36,37 +36,62 @@ export async function GET(req: NextRequest) {
     until: until?.trim() || null,
   });
 
-  const [
-    kpi,
-    chart,
-    audienceChart,
-    engagementChart,
-    engagementBreakdown,
-    activityBreakdown,
-    postsBreakdown,
-    topPosts,
-    history,
-  ] = await Promise.all([
-    getUnifiedKpiSummary(userId, period, accountIds),
-    getUnifiedChartData(userId, period, accountIds),
-    getUnifiedAudienceChartData(userId, period, accountIds),
-    getUnifiedEngagementChartData(userId, period, accountIds),
-    getUnifiedEngagementBreakdown(userId, period, accountIds),
-    getUnifiedActivityBreakdown(userId, period, accountIds),
-    getUnifiedPostsBreakdown(userId, period, accountIds),
-    getUnifiedTopPosts(userId, period, 5, accountIds),
-    getUnifiedPostsHistory(userId, period, 60, accountIds),
-  ]);
+  try {
+    const [
+      kpi,
+      chart,
+      audienceChart,
+      engagementChart,
+      engagementBreakdown,
+      activityBreakdown,
+      postsBreakdown,
+      topPosts,
+      history,
+    ] = await Promise.all([
+      getUnifiedKpiSummary(userId, period, accountIds),
+      getUnifiedChartData(userId, period, accountIds),
+      getUnifiedAudienceChartData(userId, period, accountIds),
+      getUnifiedEngagementChartData(userId, period, accountIds),
+      getUnifiedEngagementBreakdown(userId, period, accountIds),
+      getUnifiedActivityBreakdown(userId, period, accountIds),
+      getUnifiedPostsBreakdown(userId, period, accountIds),
+      getUnifiedTopPosts(userId, period, 5, accountIds),
+      getUnifiedPostsHistory(userId, period, 60, accountIds),
+    ]);
 
-  return NextResponse.json({
-    kpi,
-    chart,
-    audienceChart,
-    engagementChart,
-    engagementBreakdown,
-    activityBreakdown,
-    postsBreakdown,
-    topPosts,
-    history,
-  });
+    return NextResponse.json({
+      kpi,
+      chart,
+      audienceChart,
+      engagementChart,
+      engagementBreakdown,
+      activityBreakdown,
+      postsBreakdown,
+      topPosts,
+      history,
+    });
+  } catch (error) {
+    console.error('[analytics/summary] failed:', error);
+    return NextResponse.json({
+      kpi: {
+        totalAudience: 0,
+        totalImpressions: 0,
+        totalEngagement: 0,
+        totalPosts: 0,
+        audienceGrowthPercentage: 0,
+        impressionsGrowthPercentage: 0,
+        engagementGrowthPercentage: 0,
+        postsGrowthPercentage: 0,
+      },
+      chart: [],
+      audienceChart: [],
+      engagementChart: [],
+      engagementBreakdown: [],
+      activityBreakdown: [],
+      postsBreakdown: [],
+      topPosts: [],
+      history: [],
+      warning: 'Analytics summary temporarily unavailable',
+    });
+  }
 }
