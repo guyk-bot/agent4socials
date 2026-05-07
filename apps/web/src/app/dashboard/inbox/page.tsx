@@ -1348,7 +1348,7 @@ function InboxPage() {
                       if (url) window.location.href = url;
                     } catch { /* ignore */ }
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-800 text-white text-sm font-medium hover:opacity-90"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-white text-sm font-medium hover:opacity-90"
                 >
                   Reconnect X (Twitter)
                 </button>
@@ -2974,7 +2974,7 @@ function InboxPage() {
                     {aiReplyLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
                 </button>
                   {!hasInboxExamples && inboxExamplesLoaded && (
-                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap px-2.5 py-1.5 rounded-lg bg-neutral-800 text-white text-xs pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap px-2.5 py-1.5 rounded-lg bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-white text-xs pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-10 border border-neutral-200 dark:border-neutral-700">
                       Add reply examples in AI Assistant to unlock
               </div>
                   )}
