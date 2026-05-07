@@ -223,7 +223,7 @@ function MessagesConversationList({
             className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
               selectMode && selectedConversationIds.has(c.id) ? 'bg-orange-50 border border-orange-200' :
               selectedConversationId === c.id
-                ? 'sidebar-item-selected border-slate-200/60'
+                ? 'sidebar-item-selected border-slate-200/60 dark:bg-neutral-700 dark:border-neutral-600'
                 : unreadConversationIds.has(c.id)
                   ? 'bg-orange-50/80 hover:bg-orange-100/80 dark:bg-neutral-900 dark:hover:bg-neutral-700'
                   : 'hover:bg-neutral-50 dark:hover:bg-neutral-700'
@@ -1259,7 +1259,11 @@ function InboxPage() {
                     });
                   }}
                   className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
-                    selectedEngagement?.platformPostId === e.platformPostId ? 'sidebar-item-selected border border-slate-200/60' : isUnread ? 'bg-orange-50/80 hover:bg-orange-100/80' : 'hover:bg-neutral-50'
+                    selectedEngagement?.platformPostId === e.platformPostId
+                      ? 'sidebar-item-selected border border-slate-200/60 dark:bg-neutral-700 dark:border-neutral-600'
+                      : isUnread
+                        ? 'bg-orange-50/80 hover:bg-orange-100/80 dark:bg-neutral-900 dark:hover:bg-neutral-700'
+                        : 'hover:bg-neutral-50 dark:hover:bg-neutral-700'
                   }`}
                 >
                   <div className="w-12 h-12 rounded-lg bg-neutral-100 shrink-0 overflow-hidden flex items-center justify-center">
@@ -1451,9 +1455,9 @@ function InboxPage() {
                       }
                     }}
                     className={`w-full px-3 py-3 text-left transition-colors flex items-center gap-2 cursor-pointer ${
-                      isSelected ? 'sidebar-item-selected border-l-2 border-l-slate-400' :
+                      isSelected ? 'sidebar-item-selected border-l-2 border-l-slate-400 dark:bg-neutral-700' :
                       selectedComment?.commentId === c.commentId
-                        ? 'sidebar-item-selected border-l-2 border-l-slate-400'
+                        ? 'sidebar-item-selected border-l-2 border-l-slate-400 dark:bg-neutral-700'
                         : isUnread
                           ? 'bg-orange-50/80 hover:bg-orange-100/80 dark:bg-neutral-900 dark:hover:bg-neutral-700'
                           : 'hover:bg-neutral-50 dark:hover:bg-neutral-700'
@@ -1908,7 +1912,7 @@ function InboxPage() {
                     <button
                       type="button"
                       onClick={markSelectedAsRead}
-                      className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-neutral-800 text-white hover:bg-neutral-700"
+                      className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700"
                     >
                       <Check size={12} />
                       Mark {selectedConversationIds.size} as read
@@ -1995,7 +1999,7 @@ function InboxPage() {
                     <button
                       type="button"
                       onClick={markSelectedCommentsAsRead}
-                      className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-neutral-800 text-white hover:bg-neutral-700"
+                      className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700"
                     >
                       <Check size={12} />
                       Mark {selectedCommentIds.size} as read
@@ -2650,7 +2654,7 @@ function InboxPage() {
                       setReplySending(false);
                     }
                   }}
-                  className="p-3 rounded-xl bg-neutral-700 text-white hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  className="p-3 rounded-xl bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-700 dark:text-white dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                   title="Send reply"
                   >
                     {replySending ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
@@ -2836,8 +2840,8 @@ function InboxPage() {
                             <div
                               className={`max-w-[80%] rounded-2xl px-4 py-2 ${
                                 msg.isFromPage
-                                  ? 'bg-neutral-700 text-white rounded-br-md'
-                                  : 'bg-neutral-100 text-neutral-900 rounded-bl-md'
+                                  ? 'bg-neutral-100 text-neutral-900 rounded-br-md dark:bg-neutral-700 dark:text-white'
+                                  : 'bg-neutral-100 text-neutral-900 rounded-bl-md dark:bg-neutral-100 dark:text-neutral-900'
                               }`}
                             >
                               {!msg.isFromPage && (
@@ -3026,7 +3030,7 @@ function InboxPage() {
                       setDmReplySending(false);
                     }
                   }}
-                  className="p-3 rounded-xl bg-neutral-700 text-white hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  className="p-3 rounded-xl bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-700 dark:text-white dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                   title="Send"
                 >
                   {dmReplySending ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
