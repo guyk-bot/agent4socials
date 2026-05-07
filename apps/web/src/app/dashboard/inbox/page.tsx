@@ -225,8 +225,8 @@ function MessagesConversationList({
               selectedConversationId === c.id
                 ? 'sidebar-item-selected border-slate-200/60'
                 : unreadConversationIds.has(c.id)
-                  ? 'bg-orange-50/80 hover:bg-orange-100/80 dark:bg-neutral-900 dark:hover:bg-neutral-800'
-                  : 'hover:bg-neutral-50 dark:hover:bg-neutral-800'
+                  ? 'bg-orange-50/80 hover:bg-orange-100/80 dark:bg-neutral-900 dark:hover:bg-neutral-700'
+                  : 'hover:bg-neutral-50 dark:hover:bg-neutral-700'
             }`}
           >
             {selectMode ? (
@@ -1455,8 +1455,8 @@ function InboxPage() {
                       selectedComment?.commentId === c.commentId
                         ? 'sidebar-item-selected border-l-2 border-l-slate-400'
                         : isUnread
-                          ? 'bg-orange-50/80 hover:bg-orange-100/80 dark:bg-neutral-900 dark:hover:bg-neutral-800'
-                          : 'hover:bg-neutral-50 dark:hover:bg-neutral-800'
+                          ? 'bg-orange-50/80 hover:bg-orange-100/80 dark:bg-neutral-900 dark:hover:bg-neutral-700'
+                          : 'hover:bg-neutral-50 dark:hover:bg-neutral-700'
                     }`}
                   >
                     {selectMode ? (
