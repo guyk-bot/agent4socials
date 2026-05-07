@@ -2700,6 +2700,40 @@ export async function GET(
               (Array.isArray((out.extra as Record<string, unknown>).youtubeDislikesTimeSeries) ||
                 Array.isArray((out.extra as Record<string, unknown>).youtubeSharesTimeSeries))
           );
+        // Geography can be empty for a selected range while other YouTube extended sections
+        // (traffic sources / growth) are present. In that case, preserve UX by pulling the
+        // most recent non-empty country breakdown from cache instead of showing a blank panel.
+        if (!hasCountryRows) {
+          try {
+            const recent = await prisma.youtubeExtendedInsightsCache.findMany({
+              where: { socialAccountId: account.id },
+              orderBy: { updatedAt: 'desc' },
+              take: 12,
+            });
+            for (const row of recent) {
+              const p = row.payload as { demographics?: unknown };
+              const d =
+                p.demographics && typeof p.demographics === 'object'
+                  ? (p.demographics as { byCountry?: unknown; hint?: unknown })
+                  : undefined;
+              const rowHasCountry = Array.isArray(d?.byCountry) && d.byCountry.length > 0;
+              if (!rowHasCountry) continue;
+              const existingDemo =
+                out.demographics && typeof out.demographics === 'object'
+                  ? (out.demographics as Record<string, unknown>)
+                  : {};
+              out.demographics = {
+                ...existingDemo,
+                byCountry: d?.byCountry as unknown[],
+                hint:
+                  'Using last available YouTube geography breakdown because this selected range returned no country rows yet.',
+              };
+              break;
+            }
+          } catch (e) {
+            console.warn('[Insights] YouTube geography fallback cache:', (e as Error)?.message ?? e);
+          }
+        }
         if (!hasCountryRows && !hasTrafficRows && !hasGrowthRows && !hasExtraSeries) {
           try {
             const recent = await prisma.youtubeExtendedInsightsCache.findMany({
