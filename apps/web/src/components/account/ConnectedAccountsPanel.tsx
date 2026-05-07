@@ -95,6 +95,12 @@ export function ConnectedAccountsPanel() {
     }
   };
 
+  // Build a lookup from platform id → connected account
+  const accountByPlatform = accounts.reduce<Record<string, SocialAccount>>((map, acc) => {
+    map[acc.platform] = acc;
+    return map;
+  }, {});
+
   return (
     <div className="space-y-4">
       {alertMessage && (
@@ -103,11 +109,66 @@ export function ConnectedAccountsPanel() {
         </div>
       )}
 
-      {accounts.length === 0 ? (
-        <div className="account-connect-frame rounded-xl border border-neutral-200 bg-neutral-50/40 p-4 sm:p-5">
+      <div className="account-connect-frame rounded-xl border border-neutral-200 bg-neutral-50/40 p-4 sm:p-5">
+        {accounts.length === 0 && (
           <p className="text-sm text-neutral-600 text-center mb-4">No accounts connected yet.</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-            {CONNECT_PLATFORM_CARDS.map(({ id, name, slug, border, bg }) => (
+        )}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+          {CONNECT_PLATFORM_CARDS.map(({ id, name, slug, border, bg }) => {
+            const acc = accountByPlatform[id];
+            if (acc) {
+              return (
+                <div key={acc.id} className="account-connect-card rounded-xl border border-neutral-200 bg-white p-3 sm:p-4 text-center">
+                  <div className="flex justify-center">
+                    <div className="w-9 h-9 rounded-full overflow-hidden bg-neutral-100 flex items-center justify-center">
+                      {acc.profilePicture ? (
+                        <img src={acc.profilePicture} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="w-9 h-9 flex items-center justify-center">{CONNECT_GRID_ICON[acc.platform] ?? <FacebookIcon size={24} />}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-2 inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm font-semibold text-neutral-800">
+                    <span className="inline-flex h-4 w-4 items-center justify-center shrink-0">
+                      {CONNECT_LABEL_ICON[acc.platform] ?? <FacebookIcon size={14} />}
+                    </span>
+                    <span>{acc.platform === 'TWITTER' ? 'Twitter/X' : acc.platform.charAt(0) + acc.platform.slice(1).toLowerCase()}</span>
+                  </div>
+                  <div className="text-[10px] sm:text-xs text-neutral-500 truncate">
+                    {(acc.username || '').replace(/^@/, '') || 'Connected'}
+                  </div>
+                  <div className="mt-2 flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (reconnectingId) return;
+                        setReconnectingId(acc.id);
+                        try {
+                          const res = await api.get(`/social/oauth/${acc.platform.toLowerCase()}/start`);
+                          const url = res?.data?.url;
+                          if (url && typeof url === 'string') window.location.href = url;
+                        } catch (_) {}
+                        setReconnectingId(null);
+                      }}
+                      disabled={reconnectingId === acc.id}
+                      className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-[10px] sm:text-xs text-neutral-700 hover:bg-neutral-50 disabled:opacity-60"
+                    >
+                      {reconnectingId === acc.id ? <RefreshCw size={12} className="animate-spin" /> : null}
+                      Reconnect
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDisconnectClick(acc)}
+                      disabled={disconnectingId === acc.id}
+                      className="rounded-md border border-red-200 bg-white px-2 py-1 text-[10px] sm:text-xs text-red-600 hover:bg-red-50 disabled:opacity-60"
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+            return (
               <Link
                 key={id}
                 href={`/dashboard?connect=${slug}`}
@@ -117,65 +178,10 @@ export function ConnectedAccountsPanel() {
                 <span className="text-xs sm:text-sm font-semibold text-neutral-800">{name}</span>
                 <span className="text-[10px] sm:text-xs text-neutral-500 group-hover:text-neutral-700">Connect</span>
               </Link>
-            ))}
-          </div>
+            );
+          })}
         </div>
-      ) : (
-        <div className="account-connect-frame rounded-xl border border-neutral-200 bg-neutral-50/40 p-4 sm:p-5">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-          {accounts.map((acc) => (
-            <div key={acc.id} className="account-connect-card rounded-xl border border-neutral-200 bg-white p-3 sm:p-4 text-center">
-              <div className="flex justify-center">
-                <div className="w-9 h-9 rounded-full overflow-hidden bg-neutral-100 flex items-center justify-center">
-                  {acc.profilePicture ? (
-                    <img src={acc.profilePicture} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="w-9 h-9 flex items-center justify-center">{CONNECT_GRID_ICON[acc.platform] ?? <FacebookIcon size={24} />}</span>
-                  )}
-                </div>
-              </div>
-              <div className="mt-2 inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm font-semibold text-neutral-800">
-                <span className="inline-flex h-4 w-4 items-center justify-center shrink-0">
-                  {CONNECT_LABEL_ICON[acc.platform] ?? <FacebookIcon size={14} />}
-                </span>
-                <span>{acc.platform === 'TWITTER' ? 'Twitter/X' : acc.platform.charAt(0) + acc.platform.slice(1).toLowerCase()}</span>
-              </div>
-              <div className="text-[10px] sm:text-xs text-neutral-500 truncate">
-                {(acc.username || '').replace(/^@/, '') || 'Connected'}
-              </div>
-              <div className="mt-2 flex items-center justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (reconnectingId) return;
-                    setReconnectingId(acc.id);
-                    try {
-                      const res = await api.get(`/social/oauth/${acc.platform.toLowerCase()}/start`);
-                      const url = res?.data?.url;
-                      if (url && typeof url === 'string') window.location.href = url;
-                    } catch (_) {}
-                    setReconnectingId(null);
-                  }}
-                  disabled={reconnectingId === acc.id}
-                  className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-[10px] sm:text-xs text-neutral-700 hover:bg-neutral-50 disabled:opacity-60"
-                >
-                  {reconnectingId === acc.id ? <RefreshCw size={12} className="animate-spin" /> : null}
-                  Reconnect
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDisconnectClick(acc)}
-                  disabled={disconnectingId === acc.id}
-                  className="rounded-md border border-red-200 bg-white px-2 py-1 text-[10px] sm:text-xs text-red-600 hover:bg-red-50 disabled:opacity-60"
-                >
-                  Disconnect
-                </button>
-              </div>
-            </div>
-          ))}
-          </div>
-        </div>
-      )}
+      </div>
 
       <ConfirmModal
         open={disconnectConfirmOpen}
