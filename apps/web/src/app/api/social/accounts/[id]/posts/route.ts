@@ -465,6 +465,48 @@ function pinterestMetricFromBucket(bucket: PinterestPinMetricsBucket | null | un
   return 0;
 }
 
+/**
+ * Pinterest can return pin_metrics in different nested shapes across endpoints/versions.
+ * Fallback scan: walk entire object and pick the max value for matching metric keys.
+ */
+function pinterestMetricFromAny(pinMetrics: unknown, keys: string[]): number {
+  if (!pinMetrics || typeof pinMetrics !== 'object') return 0;
+  const wanted = new Set(keys.map((k) => k.toLowerCase()));
+  let best = 0;
+  const seen = new WeakSet<object>();
+
+  const visit = (node: unknown) => {
+    if (!node || typeof node !== 'object') return;
+    const obj = node as Record<string, unknown>;
+    if (seen.has(obj)) return;
+    seen.add(obj);
+    for (const [k, v] of Object.entries(obj)) {
+      const lk = k.toLowerCase();
+      if (wanted.has(lk)) {
+        if (typeof v === 'number' && Number.isFinite(v)) {
+          best = Math.max(best, Math.max(0, Math.round(v)));
+        } else if (typeof v === 'string' && v.trim() !== '' && !Number.isNaN(Number(v))) {
+          best = Math.max(best, Math.max(0, Math.round(Number(v))));
+        } else if (v && typeof v === 'object' && !Array.isArray(v)) {
+          const vv = (v as Record<string, unknown>).value;
+          if (typeof vv === 'number' && Number.isFinite(vv)) best = Math.max(best, Math.max(0, Math.round(vv)));
+          if (typeof vv === 'string' && vv.trim() !== '' && !Number.isNaN(Number(vv))) {
+            best = Math.max(best, Math.max(0, Math.round(Number(vv))));
+          }
+        }
+      }
+      if (Array.isArray(v)) {
+        for (const item of v) visit(item);
+      } else if (v && typeof v === 'object') {
+        visit(v);
+      }
+    }
+  };
+
+  visit(pinMetrics);
+  return best;
+}
+
 function pickPinterestPinMetricsLifetimeBucket(pinMetrics: unknown): PinterestPinMetricsBucket | null {
   if (!pinMetrics || typeof pinMetrics !== 'object' || Array.isArray(pinMetrics)) return null;
   const pm = pinMetrics as Record<string, unknown>;
@@ -508,27 +550,64 @@ function extractPinterestImportedPostMetrics(args: {
   const lifetime = pickPinterestPinMetricsLifetimeBucket(args.pinMetrics);
   const d90 = pickPinterestPinMetrics90dBucket(args.pinMetrics);
 
-  const reactions = pinterestMetricFromBucket(lifetime, ['TOTAL_REACTIONS', 'REACTION', 'reaction']) ||
-    pinterestMetricFromBucket(d90, ['reaction']);
-  const comments = pinterestMetricFromBucket(lifetime, ['TOTAL_COMMENTS', 'COMMENT', 'comment']) ||
-    pinterestMetricFromBucket(d90, ['comment']);
-  const saves = pinterestMetricFromBucket(lifetime, ['SAVE', 'save']) || pinterestMetricFromBucket(d90, ['save']);
-  const pinClicks = pinterestMetricFromBucket(lifetime, ['PIN_CLICK', 'pin_click']) || pinterestMetricFromBucket(d90, ['pin_click']);
+  const reactions = Math.max(
+    pinterestMetricFromBucket(lifetime, ['TOTAL_REACTIONS', 'REACTION', 'reaction']),
+    pinterestMetricFromBucket(d90, ['reaction']),
+    pinterestMetricFromAny(args.pinMetrics, ['TOTAL_REACTIONS', 'REACTION', 'reaction']),
+  );
+  const comments = Math.max(
+    pinterestMetricFromBucket(lifetime, ['TOTAL_COMMENTS', 'COMMENT', 'comment']),
+    pinterestMetricFromBucket(d90, ['comment']),
+    pinterestMetricFromAny(args.pinMetrics, ['TOTAL_COMMENTS', 'COMMENT', 'comment']),
+  );
+  const saves = Math.max(
+    pinterestMetricFromBucket(lifetime, ['SAVE', 'save']),
+    pinterestMetricFromBucket(d90, ['save']),
+    pinterestMetricFromAny(args.pinMetrics, ['SAVE', 'save']),
+  );
+  const pinClicks = Math.max(
+    pinterestMetricFromBucket(lifetime, ['PIN_CLICK', 'pin_click']),
+    pinterestMetricFromBucket(d90, ['pin_click']),
+    pinterestMetricFromAny(args.pinMetrics, ['PIN_CLICK', 'pin_click']),
+  );
   const outboundClicks =
-    pinterestMetricFromBucket(lifetime, ['OUTBOUND_CLICK', 'OUTBOUND_CLICKS', 'outbound_click']) ||
-    pinterestMetricFromBucket(d90, ['clickthrough', 'OUTBOUND_CLICK']);
+    Math.max(
+      pinterestMetricFromBucket(lifetime, ['OUTBOUND_CLICK', 'OUTBOUND_CLICKS', 'outbound_click']),
+      pinterestMetricFromBucket(d90, ['clickthrough', 'OUTBOUND_CLICK']),
+      pinterestMetricFromAny(args.pinMetrics, ['OUTBOUND_CLICK', 'OUTBOUND_CLICKS', 'outbound_click', 'clickthrough']),
+    );
 
   const impressionImage =
-    pinterestMetricFromBucket(lifetime, ['IMPRESSION', 'impression']) || pinterestMetricFromBucket(d90, ['impression']);
+    Math.max(
+      pinterestMetricFromBucket(lifetime, ['IMPRESSION', 'impression']),
+      pinterestMetricFromBucket(d90, ['impression']),
+      pinterestMetricFromAny(args.pinMetrics, ['IMPRESSION', 'impression']),
+    );
 
   const videoMrc =
-    pinterestMetricFromBucket(lifetime, ['VIDEO_MRC_VIEW', 'VIDEO_MRC_VIEWS']) || pinterestMetricFromBucket(d90, ['VIDEO_MRC_VIEW']);
+    Math.max(
+      pinterestMetricFromBucket(lifetime, ['VIDEO_MRC_VIEW', 'VIDEO_MRC_VIEWS']),
+      pinterestMetricFromBucket(d90, ['VIDEO_MRC_VIEW']),
+      pinterestMetricFromAny(args.pinMetrics, ['VIDEO_MRC_VIEW', 'VIDEO_MRC_VIEWS']),
+    );
   const videoStarts =
-    pinterestMetricFromBucket(lifetime, ['VIDEO_START', 'VIDEO_STARTS']) || pinterestMetricFromBucket(d90, ['VIDEO_START']);
+    Math.max(
+      pinterestMetricFromBucket(lifetime, ['VIDEO_START', 'VIDEO_STARTS']),
+      pinterestMetricFromBucket(d90, ['VIDEO_START']),
+      pinterestMetricFromAny(args.pinMetrics, ['VIDEO_START', 'VIDEO_STARTS']),
+    );
   const videoAvgWatchRaw =
-    pinterestMetricFromBucket(lifetime, ['VIDEO_AVG_WATCH_TIME']) || pinterestMetricFromBucket(d90, ['VIDEO_AVG_WATCH_TIME']);
+    Math.max(
+      pinterestMetricFromBucket(lifetime, ['VIDEO_AVG_WATCH_TIME']),
+      pinterestMetricFromBucket(d90, ['VIDEO_AVG_WATCH_TIME']),
+      pinterestMetricFromAny(args.pinMetrics, ['VIDEO_AVG_WATCH_TIME']),
+    );
   const videoV50WatchRaw =
-    pinterestMetricFromBucket(lifetime, ['VIDEO_V50_WATCH_TIME']) || pinterestMetricFromBucket(d90, ['VIDEO_V50_WATCH_TIME']);
+    Math.max(
+      pinterestMetricFromBucket(lifetime, ['VIDEO_V50_WATCH_TIME']),
+      pinterestMetricFromBucket(d90, ['VIDEO_V50_WATCH_TIME']),
+      pinterestMetricFromAny(args.pinMetrics, ['VIDEO_V50_WATCH_TIME']),
+    );
 
   // Pinterest can sometimes return image-like media metadata for video Pins.
   // If video metric families are present, treat the pin as video even when mediaType is not VIDEO.
