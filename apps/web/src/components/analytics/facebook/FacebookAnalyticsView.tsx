@@ -2900,15 +2900,10 @@ export function FacebookAnalyticsView({
     () => posts.filter((p) => inRange(p.publishedAt, dateRange.start, dateRange.end)),
     [posts, dateRange.end, dateRange.start]
   );
-  // TikTok metrics (view_count, like_count, etc.) are lifetime totals per video, not time-ranged.
-  // When no videos were published within the selected window, fall back to the full synced catalog
-  // so the dashboard isn't blank for accounts that posted before the current range.
-  const tiktokEffectivePosts = useMemo(() => {
-    if (!isTikTok) return postsInRange;
-    if (postsInRange.length > 0) return postsInRange;
-    return posts.filter((p) => (p.platform ?? '').toUpperCase() === 'TIKTOK');
-  }, [isTikTok, postsInRange, posts]);
-  const usingTikTokAllTimeFallback = isTikTok && postsInRange.length === 0 && tiktokEffectivePosts.length > 0;
+  // TikTok dashboard should follow the selected date range like all other platforms.
+  // Keep calculations strictly scoped to posts published inside the current window.
+  const tiktokEffectivePosts = postsInRange;
+  const usingTikTokAllTimeFallback = false;
   const twitterRecentTweets = useMemo(
     () => (isTwitter ? (insights?.recentTweets ?? []) : []),
     [isTwitter, insights?.recentTweets]
@@ -3118,10 +3113,7 @@ export function FacebookAnalyticsView({
     }
     return m;
   }, [insights?.growthTimeSeries]);
-  const tiktokTotalVideoViewsValue = useMemo(
-    () => Math.max(0, insights?.impressionsTotal ?? 0, tiktokViewsInRange),
-    [insights?.impressionsTotal, tiktokViewsInRange]
-  );
+  const tiktokTotalVideoViewsValue = useMemo(() => Math.max(0, tiktokViewsInRange), [tiktokViewsInRange]);
   const videoPlaysDailySeries = useMemo(() => {
     const map: Record<string, number> = {};
     for (const p of postsInRange) {
@@ -5106,7 +5098,7 @@ type PostsUploadDayTooltipAgg = {
                 />
                 <SparklineMetricCard
                   label="Views"
-                  source="video/list · view_count summed from synced videos (all-time)"
+                  source="video/list · view_count summed from synced videos in selected range"
                   color={COLOR.amber}
                   value={formatNumber(tiktokTotalVideoViewsValue)}
                   series={growthSparklineSeries.videoViews}
@@ -6044,9 +6036,7 @@ type PostsUploadDayTooltipAgg = {
                             ? tiktokEffectivePosts.length
                             : postsInRange.length
                       ),
-                      title: isTikTok && usingTikTokAllTimeFallback
-                        ? `All synced TikTok videos (no videos published in the selected range; showing all-time data).`
-                        : `Synced ${postsExplainerPublishedPlural} whose publish time is in the selected range (${postsExplainerDateRangeLabel}).`,
+                      title: `Synced ${postsExplainerPublishedPlural} whose publish time is in the selected range (${postsExplainerDateRangeLabel}).`,
                     },
                     {
                       label: 'Avg views per post',
@@ -6749,11 +6739,9 @@ type PostsUploadDayTooltipAgg = {
           ) : null}
         </div>
       ) : null}
-      {isTikTok && (insights?.insightsHint || usingTikTokAllTimeFallback) ? (
+      {isTikTok && insights?.insightsHint ? (
         <div className="rounded-[16px] border px-4 py-3 text-sm" style={{ borderColor: 'rgba(255,138,122,0.45)', color: COLOR.coral, background: 'rgba(255,138,122,0.08)' }}>
-          {usingTikTokAllTimeFallback
-            ? `No TikTok videos published in the selected date range. Showing all-time data from ${tiktokEffectivePosts.length} synced video${tiktokEffectivePosts.length !== 1 ? 's' : ''}.`
-            : insights?.insightsHint}
+          {insights?.insightsHint}
         </div>
       ) : null}
     </div>
