@@ -1196,7 +1196,7 @@ function HistoryTable({ rows }: { rows: UnifiedHistoryPost[] }) {
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex h-5 w-5 items-center justify-center rounded-full border"
-                          style={{ background: COLOR.elevated, borderColor: COLOR.border, color: COLOR.textSecondary }}
+                          style={{ background: COLOR.elevated, borderColor: COLOR.border, color: COLOR.text }}
                           aria-label="Open post"
                         >
                           <ExternalLink size={11} />

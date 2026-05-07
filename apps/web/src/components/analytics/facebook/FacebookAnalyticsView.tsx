@@ -173,6 +173,13 @@ const INSTAGRAM_GRAPH_API_CARD_CLASS =
 const ANALYTICS_OPEN_ON_PLATFORM_BTN_CLASS =
   'mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border transition-colors hover:opacity-90';
 
+/** Theme tokens so dark mode uses a gray chip + light icon (never hardcoded white). */
+const ANALYTICS_OPEN_ON_PLATFORM_BTN_STYLE = {
+  borderColor: COLOR.border,
+  background: COLOR.elevated,
+  color: COLOR.text,
+} as const;
+
 type MetricDef = {
   key: string;
   label: string;
@@ -1736,7 +1743,7 @@ export function TopPostsGrid({
                       target="_blank"
                       rel="noopener noreferrer"
                       className={ANALYTICS_OPEN_ON_PLATFORM_BTN_CLASS}
-                      style={{ borderColor: COLOR.border, background: '#ffffff', color: COLOR.textSecondary }}
+                      style={ANALYTICS_OPEN_ON_PLATFORM_BTN_STYLE}
                       aria-label="Open post on platform"
                       title="Open on platform"
                     >
@@ -2151,7 +2158,7 @@ export function PostsPerformanceTable({
               return (
               <tr
                 key={r.id}
-                className="border-t hover:bg-[#f8fafc]"
+                className="border-t hover:bg-[var(--surface-soft)]"
                 style={{ borderColor: COLOR.border }}
               >
                 <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>
@@ -2162,7 +2169,7 @@ export function PostsPerformanceTable({
                         target="_blank"
                         rel="noopener noreferrer"
                         className={ANALYTICS_OPEN_ON_PLATFORM_BTN_CLASS}
-                        style={{ borderColor: COLOR.border, background: '#ffffff', color: COLOR.textSecondary }}
+                        style={ANALYTICS_OPEN_ON_PLATFORM_BTN_STYLE}
                         aria-label="Open post on platform"
                         title="Open on platform"
                       >
@@ -2260,7 +2267,7 @@ export function PostsPerformanceTable({
                   target="_blank"
                   rel="noopener noreferrer"
                   className={ANALYTICS_OPEN_ON_PLATFORM_BTN_CLASS}
-                  style={{ borderColor: COLOR.border, background: '#ffffff', color: COLOR.textSecondary }}
+                  style={ANALYTICS_OPEN_ON_PLATFORM_BTN_STYLE}
                   aria-label="Open post on platform"
                   title="Open on platform"
                 >
