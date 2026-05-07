@@ -37,8 +37,12 @@ import {
   classifyYoutubeVideoFormat,
   hasYoutubeShortsCreatorSignals,
 } from '@/lib/youtube-video-format';
+import { useTheme } from '@/context/ThemeContext';
 
 export { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
+
+/** Uploaded-posts KPI pills: inline CSS vars were still rendering light in some builds; use explicit surfaces in dark mode. */
+const POSTS_STAT_CARD_SURFACE_DARK = '#2a2a2a';
 
 export interface FacebookAnalyticsViewProps {
   insights: FacebookInsights | null;
@@ -2559,6 +2563,8 @@ export function FacebookAnalyticsView({
   socialAccountId = null,
   onAvatarError,
 }: FacebookAnalyticsViewProps) {
+  const { theme } = useTheme();
+  const isAnalyticsDark = theme === 'dark';
   /**
    * Full analytics shell (Overview, Traffic, Posts, Reels, History): first insights fetch (hasApiInsightsFetched false), or Facebook Page waiting for Graph bundle.
    * When the parent still has insights === null from the API, hasApiInsightsFetched is false so we do not flash zeros on any section.
@@ -6002,8 +6008,10 @@ type PostsUploadDayTooltipAgg = {
                     title={c.title}
                     style={{
                       borderColor: COLOR.border,
-                      background: COLOR.elevated,
-                      boxShadow: '0 2px 16px rgba(15,23,42,0.12)',
+                      background: isAnalyticsDark ? POSTS_STAT_CARD_SURFACE_DARK : COLOR.elevated,
+                      boxShadow: isAnalyticsDark
+                        ? '0 2px 12px rgba(0,0,0,0.35)'
+                        : '0 2px 16px rgba(15,23,42,0.05)',
                     }}
                   >
                     <p className="text-[11px] font-medium" style={{ color: COLOR.textMuted }}>
