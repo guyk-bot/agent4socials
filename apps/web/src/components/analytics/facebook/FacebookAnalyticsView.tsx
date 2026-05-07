@@ -3181,36 +3181,6 @@ export function FacebookAnalyticsView({
     }
     return null;
   }, [isYouTube, selectedStoryMetrics]);
-  const newFollowers = bundle?.totals.dailyFollows ?? 0;
-
-  /** Net new followers/fans gained during the selected period (Facebook: from fan_adds - fan_removes daily data). */
-  const fbNetNewFollowersInPeriod = useMemo(() => {
-    if (!isFacebook) return 0;
-    const gt = insights?.growthTimeSeries;
-    if (!Array.isArray(gt) || gt.length === 0) return newFollowers;
-    return gt.reduce((s, p) => {
-      const net = typeof p.net === 'number' && Number.isFinite(p.net)
-        ? p.net
-        : (Number(p.gained) || 0) - (Number(p.lost) || 0);
-      return s + net;
-    }, 0);
-  }, [isFacebook, insights?.growthTimeSeries, newFollowers]);
-
-  /** Net new subscribers gained during the selected period (YouTube: summed from daily gained-lost data). */
-  const youtubeNetNewFollowersInPeriod = useMemo(() => {
-    if (!isYouTube) return 0;
-    return Object.values(youtubeGrowthNetByDate).reduce((s, v) => s + v, 0);
-  }, [isYouTube, youtubeGrowthNetByDate]);
-
-  /** Net new followers gained during the selected period (Instagram: last followersTimeSeries point minus first). */
-  const igNetNewFollowersInPeriod = useMemo(() => {
-    if (!isInstagram) return 0;
-    const ts = insights?.followersTimeSeries;
-    if (!Array.isArray(ts) || ts.length < 2) return 0;
-    const sorted = [...ts].sort((a, b) => String(a.date).localeCompare(String(b.date)));
-    return (sorted[sorted.length - 1]?.value ?? 0) - (sorted[0]?.value ?? 0);
-  }, [isInstagram, insights?.followersTimeSeries]);
-
   const derivedPostViewsInRange = useMemo(
     () => postsInRange.reduce((s, p) => s + bestPostPlayCount(p), 0),
     [postsInRange]
@@ -3530,6 +3500,18 @@ export function FacebookAnalyticsView({
       { engagements: 0, videoViews: 0, contentViews: 0, pageVisits: 0 }
     );
   }, [chartByMode]);
+  /**
+   * Followers KPI must be the fluctuation inside the selected timeframe only.
+   * Use the same series rendered in the chart (first/last point within range),
+   * which avoids platform API ambiguities (absolute totals vs daily deltas).
+   */
+  const followersIncreaseInSelectedRange = useMemo(() => {
+    if (!Array.isArray(chartByMode) || chartByMode.length < 2) return 0;
+    const sorted = [...chartByMode].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    const first = Number(sorted[0]?.followers ?? 0);
+    const last = Number(sorted[sorted.length - 1]?.followers ?? 0);
+    return last - first;
+  }, [chartByMode]);
 
   const growthSparklineSeries = useMemo(() => {
     if (isTikTok) {
@@ -3720,27 +3702,6 @@ export function FacebookAnalyticsView({
     youtubeGrowthNetByDate,
   ]);
 
-  /** Unified "new followers in selected range" for every platform card. */
-  const followersIncreaseInSelectedRange = useMemo(() => {
-    if (isFacebook) return fbNetNewFollowersInPeriod;
-    if (isInstagram) return igNetNewFollowersInPeriod;
-    if (isYouTube) return youtubeNetNewFollowersInPeriod;
-
-    const follows = growthSparklineSeries.follows ?? [];
-    if (follows.length < 2) return 0;
-    const sorted = [...follows].sort((a, b) => String(a.date).localeCompare(String(b.date)));
-    const first = Number(sorted[0]?.value ?? 0);
-    const last = Number(sorted[sorted.length - 1]?.value ?? 0);
-    return last - first;
-  }, [
-    isFacebook,
-    isInstagram,
-    isYouTube,
-    fbNetNewFollowersInPeriod,
-    igNetNewFollowersInPeriod,
-    youtubeNetNewFollowersInPeriod,
-    growthSparklineSeries.follows,
-  ]);
 
   const stackedTraffic = useMemo(() => {
     const nonviral = seriesToMap(series?.postImpressionsNonviral ?? []);
