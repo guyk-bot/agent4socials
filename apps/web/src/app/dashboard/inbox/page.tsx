@@ -1819,7 +1819,7 @@ function InboxPage() {
             className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors rounded-t-lg mx-0.5 mt-0.5 ${
               inboxMode === 'messages'
                 ? 'text-orange-900 bg-white border border-b-0 border-orange-200 shadow-sm'
-                : 'text-neutral-500 border border-transparent hover:text-neutral-800 hover:bg-white/60 dark:hover:text-neutral-100 dark:hover:bg-neutral-700'
+                : 'text-neutral-500 border border-transparent hover:text-neutral-800 hover:bg-neutral-100 dark:hover:text-neutral-100 dark:hover:bg-neutral-700'
             }`}
           >
             Messages
@@ -1835,7 +1835,7 @@ function InboxPage() {
             className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors rounded-t-lg mx-0.5 mt-0.5 ${
               inboxMode === 'comments'
                 ? 'text-orange-900 bg-white border border-b-0 border-orange-200 shadow-sm'
-                : 'text-neutral-500 border border-transparent hover:text-neutral-800 hover:bg-white/60 dark:hover:text-neutral-100 dark:hover:bg-neutral-700'
+                : 'text-neutral-500 border border-transparent hover:text-neutral-800 hover:bg-neutral-100 dark:hover:text-neutral-100 dark:hover:bg-neutral-700'
             }`}
           >
             Comments
