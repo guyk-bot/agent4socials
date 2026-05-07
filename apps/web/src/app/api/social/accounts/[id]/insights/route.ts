@@ -2247,6 +2247,14 @@ export async function GET(
     }
 
     if (account.platform === 'TIKTOK') {
+      // Hard budget for the entire TikTok block — must finish well under the 60s maxDuration.
+      const tikTokBlockStart = Date.now();
+      const tikTokBudgetMs = 25_000;
+      const tikTokBudgetExpired = () => Date.now() - tikTokBlockStart > tikTokBudgetMs;
+      // Wrap a Prisma promise with a fallback so a hung DB connection can't blow the budget.
+      const withPrismaTimeout = <T>(p: Promise<T>, fallback: T, ms = 8_000): Promise<T> =>
+        Promise.race([p, new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))]);
+
       const parseTk = (v: unknown): number | undefined => {
         if (v == null) return undefined;
         if (typeof v === 'number' && Number.isFinite(v)) return v;
@@ -2292,7 +2300,7 @@ export async function GET(
           },
           // Don't throw on 401/403 — sandbox tokens may lack user.info.basic scope
           validateStatus: () => true,
-          timeout: 15_000,
+          timeout: 7_000,
         });
         tiktokUserInfoHttpStatus = userRes.status;
         const user = userRes.data?.data?.user;
@@ -2327,30 +2335,12 @@ export async function GET(
       } catch (e) {
         console.warn('[Insights] TikTok user/info:', (e as Error)?.message ?? e);
       }
-      try {
-        const creatorRes = await axios.post<{
-          data?: {
-            creator_nickname?: string;
-            creator_username?: string;
-            creator_avatar_url?: string;
-            max_video_post_duration_sec?: number;
-            privacy_level_options?: string[];
-            duet_disabled?: boolean;
-            stitch_disabled?: boolean;
-            comment_disabled?: boolean;
-          };
-          error?: { code?: string; message?: string };
-        }>('https://open.tiktokapis.com/v2/post/publish/creator_info/query/', {}, {
-          headers: {
-            Authorization: `Bearer ${account.accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          timeout: 15_000,
-          validateStatus: () => true,
-        });
-        const err = creatorRes.data?.error;
-        const raw = creatorRes.data?.data as
-          | ({
+      // Skip creator_info when the token is unauthorised (it will fail too) or budget is tight.
+      const tiktokUserUnauthorized = tiktokUserInfoHttpStatus === 401 || tiktokUserInfoHttpStatus === 403;
+      if (!tiktokUserUnauthorized && !tikTokBudgetExpired()) {
+        try {
+          const creatorRes = await axios.post<{
+            data?: {
               creator_nickname?: string;
               creator_username?: string;
               creator_avatar_url?: string;
@@ -2359,33 +2349,58 @@ export async function GET(
               duet_disabled?: boolean;
               stitch_disabled?: boolean;
               comment_disabled?: boolean;
-            } & { data?: Record<string, unknown> })
-          | undefined;
-        const d = raw?.creator_nickname != null || raw?.creator_username != null ? raw : (raw?.data as typeof raw | undefined);
-        if (creatorRes.status === 200 && err?.code === 'ok' && d) {
-          (out as Record<string, unknown>).tiktokCreatorInfo = {
-            creatorNickname: d.creator_nickname,
-            creatorUsername: d.creator_username,
-            creatorAvatarUrl: d.creator_avatar_url,
-            maxVideoPostDurationSec: d.max_video_post_duration_sec,
-            privacyLevelOptions: d.privacy_level_options,
-            duetDisabled: d.duet_disabled,
-            stitchDisabled: d.stitch_disabled,
-            commentDisabled: d.comment_disabled,
-          };
+            };
+            error?: { code?: string; message?: string };
+          }>('https://open.tiktokapis.com/v2/post/publish/creator_info/query/', {}, {
+            headers: {
+              Authorization: `Bearer ${account.accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            timeout: 7_000,
+            validateStatus: () => true,
+          });
+          const err = creatorRes.data?.error;
+          const raw = creatorRes.data?.data as
+            | ({
+                creator_nickname?: string;
+                creator_username?: string;
+                creator_avatar_url?: string;
+                max_video_post_duration_sec?: number;
+                privacy_level_options?: string[];
+                duet_disabled?: boolean;
+                stitch_disabled?: boolean;
+                comment_disabled?: boolean;
+              } & { data?: Record<string, unknown> })
+            | undefined;
+          const d = raw?.creator_nickname != null || raw?.creator_username != null ? raw : (raw?.data as typeof raw | undefined);
+          if (creatorRes.status === 200 && err?.code === 'ok' && d) {
+            (out as Record<string, unknown>).tiktokCreatorInfo = {
+              creatorNickname: d.creator_nickname,
+              creatorUsername: d.creator_username,
+              creatorAvatarUrl: d.creator_avatar_url,
+              maxVideoPostDurationSec: d.max_video_post_duration_sec,
+              privacyLevelOptions: d.privacy_level_options,
+              duetDisabled: d.duet_disabled,
+              stitchDisabled: d.stitch_disabled,
+              commentDisabled: d.comment_disabled,
+            };
+          }
+        } catch (_) {
+          // creator_info is optional for dashboard totals
         }
-      } catch (_) {
-        // creator_info is optional for dashboard totals
       }
       // TikTok: daily views in the selected range (by publish date) + lifetime total for hints.
       let hasSyncedTikTokPosts = false;
       try {
         const sinceDay = sinceParam.slice(0, 10);
         const untilDay = untilParam.slice(0, 10);
-        const allPosts = await prisma.importedPost.findMany({
-          where: { socialAccountId: account.id, platform: 'TIKTOK' },
-          select: { impressions: true, publishedAt: true, likeCount: true, commentsCount: true, sharesCount: true, interactions: true },
-        });
+        const allPosts = await withPrismaTimeout(
+          prisma.importedPost.findMany({
+            where: { socialAccountId: account.id, platform: 'TIKTOK' },
+            select: { impressions: true, publishedAt: true, likeCount: true, commentsCount: true, sharesCount: true, interactions: true },
+          }),
+          []
+        );
         hasSyncedTikTokPosts = allPosts.length > 0;
         const lifetimeViews = allPosts.reduce((s, p) => s + (p.impressions ?? 0), 0);
         const lifetimeLikes = allPosts.reduce((s, p) => s + (p.likeCount ?? 0), 0);
@@ -2427,15 +2442,19 @@ export async function GET(
       // Follower count from last scheduled sync when live user.info omits it (same API; snapshot may still have a value).
       if (out.followers === 0) {
         try {
-          const snap = await prisma.accountMetricSnapshot.findFirst({
-            where: {
-              socialAccountId: account.id,
-              platform: 'TIKTOK',
-              followersCount: { not: null, gt: 0 },
-            },
-            orderBy: { metricDate: 'desc' },
-            select: { followersCount: true },
-          });
+          const snap = await withPrismaTimeout(
+            prisma.accountMetricSnapshot.findFirst({
+              where: {
+                socialAccountId: account.id,
+                platform: 'TIKTOK',
+                followersCount: { not: null, gt: 0 },
+              },
+              orderBy: { metricDate: 'desc' },
+              select: { followersCount: true },
+            }),
+            null,
+            5_000
+          );
           if (snap?.followersCount != null) {
             out.followers = snap.followersCount;
             const existing = (out as Record<string, unknown>).tiktokUser as Record<string, unknown> | undefined;
@@ -2449,7 +2468,6 @@ export async function GET(
           // optional
         }
       }
-      const tiktokUserUnauthorized = tiktokUserInfoHttpStatus === 401 || tiktokUserInfoHttpStatus === 403;
       // Dashboard "Profile likes" / "Public videos" can come from synced posts even when user.info returns no stats fields,
       // so do not show the user.info.stats reconnect banner in that case (it is a false positive).
       if (tiktokUserUnauthorized) {

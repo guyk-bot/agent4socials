@@ -321,6 +321,12 @@ export function extractFacebookCanonicalVideoIdFromPermalink(url: string | null 
   if (reelPath?.[2]) return reelPath[2];
   const vParam = u.match(/[?&]v=(\d{6,})/);
   if (vParam?.[1]) return vParam[1];
+  // permalink.php?story_fbid=<video_id>&id=<page_id> — used by Graph API for scheduled video/reel posts
+  const storyFbid = u.match(/[?&]story_fbid=(\d{6,})/);
+  if (storyFbid?.[1]) return storyFbid[1];
+  // /videos/<video_id> path
+  const videosPath = u.match(/\/videos\/(\d{6,})/i);
+  if (videosPath?.[1]) return videosPath[1];
   return null;
 }
 

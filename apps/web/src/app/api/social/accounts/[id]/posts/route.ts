@@ -79,6 +79,8 @@ function isFacebookVideoLikeImportedRow(p: ImportedPostListRow): boolean {
   if (url.includes('/reel/') || url.includes('/reels/')) return true;
   if (url.includes('/videos/')) return true;
   if (url.includes('fb.watch')) return true;
+  if (url.includes('facebook.com/watch')) return true;
+  if (url.includes('story_fbid=')) return true;
   const meta =
     p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
       ? (p.platformMetadata as Record<string, unknown>)
@@ -178,7 +180,12 @@ async function fetchFacebookPostSnapshotMap(postId: string, pageAccessToken: str
     out.post_shares = Math.max(sharesFromObject, sharesFromInsights);
 
     const permalinkUrl = typeof res.data.permalink_url === 'string' ? res.data.permalink_url : '';
-    const vid = extractFacebookCanonicalVideoIdFromPermalink(permalinkUrl);
+    let vid = extractFacebookCanonicalVideoIdFromPermalink(permalinkUrl);
+    // Fallback: Facebook post IDs are often "{page_id}_{video_id}"; try the numeric suffix as the video ID.
+    if (!vid && postId.includes('_')) {
+      const suffix = postId.split('_').pop() ?? '';
+      if (/^\d{6,}$/.test(suffix)) vid = suffix;
+    }
     if (vid && facebookInsightMapMaxViewSignal(out) === 0) {
       try {
         const rawVid = await fetchFacebookVideoInsightsLifetimeMap(vid, pageAccessToken);
