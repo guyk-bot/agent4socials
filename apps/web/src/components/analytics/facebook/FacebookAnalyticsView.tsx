@@ -2023,15 +2023,17 @@ function YoutubeVideosAnalyticsPanel({
                     if (!active || !payload?.length) return null;
                     const row = payload[0]?.payload;
                     const rowAny = row as Record<string, unknown> | undefined;
-                    const kv = [
+                    const allMetricRows = [
                       { key: 'views', label: 'Total Video Views', value: Number(rowAny?.views ?? 0) },
-                      { key: 'watchTimeMinutes', label: 'Watch Time', value: Number(rowAny?.watchTimeMinutes ?? 0) },
-                      { key: 'avgWatchSeconds', label: 'Avg Watch Time', value: Number(rowAny?.avgWatchSeconds ?? 0) },
+                      { key: 'watchTime', label: 'Watch Time', value: Number(rowAny?.watchTimeMinutes ?? 0) },
+                      { key: 'avgWatch', label: 'Avg Watch Time', value: Number(rowAny?.avgWatchSeconds ?? 0) },
                       { key: 'likes', label: 'Likes', value: Number(rowAny?.likes ?? 0) },
                       { key: 'comments', label: 'Comments', value: Number(rowAny?.comments ?? 0) },
                       { key: 'shares', label: 'Shares', value: Number(rowAny?.shares ?? 0) },
                       { key: 'dislikes', label: 'Dislikes', value: Number(rowAny?.dislikes ?? 0) },
-                    ];
+                    ] as const;
+                    const selected = new Set<ReelMetricKey>(selectedReelMetrics);
+                    const kv = allMetricRows.filter((item) => selected.has(item.key as ReelMetricKey));
                     return (
                       <div className="rounded-xl border px-3 py-2 text-xs shadow-lg" style={{ background: '#ffffff', borderColor: COLOR.border }}>
                         <p className="font-medium mb-1.5" style={{ color: COLOR.text }}>{formatShortDate(String(label ?? ''))}</p>
@@ -2040,9 +2042,9 @@ function YoutubeVideosAnalyticsPanel({
                           <p key={item.key} style={{ color: COLOR.textSecondary }}>
                             {item.label}
                             :{' '}
-                            {item.key === 'watchTimeMinutes'
+                            {item.key === 'watchTime'
                               ? `${item.value.toFixed(1)}m`
-                              : item.key === 'avgWatchSeconds'
+                              : item.key === 'avgWatch'
                                 ? `${item.value.toFixed(1)}s`
                                 : formatNumber(item.value)}
                           </p>
