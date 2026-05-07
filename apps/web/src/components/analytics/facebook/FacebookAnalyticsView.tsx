@@ -44,6 +44,11 @@ export { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids
 /** Uploaded-posts KPI pills: inline CSS vars were still rendering light in some builds; use explicit surfaces in dark mode. */
 const POSTS_STAT_CARD_SURFACE_DARK = '#2a2a2a';
 
+/** Recharts bar `Tooltip` cursor band: default fill is too light on dark analytics backgrounds (matches uploaded-posts chart). */
+function analyticsBarTooltipCursorFill(isDark: boolean): string {
+  return isDark ? 'rgba(107, 114, 128, 0.12)' : 'rgba(107, 114, 128, 0.14)';
+}
+
 export interface FacebookAnalyticsViewProps {
   insights: FacebookInsights | null;
   posts: FacebookPost[];
@@ -1693,6 +1698,7 @@ function AnalyticsChartSelectMetricPlaceholder() {
 }
 
 export function StackedTrafficChart({ data }: { data: Array<{ date: string; nonviral: number; viral: number }> }) {
+  const { theme } = useTheme();
   const trafficTicks = buildKeyDateTicks(data, (d) => (d.nonviral ?? 0) > 0 || (d.viral ?? 0) > 0, 10);
   const trafficYMax = useMemo(() => {
     let max = 0;
@@ -1708,6 +1714,7 @@ export function StackedTrafficChart({ data }: { data: Array<{ date: string; nonv
         <XAxis dataKey="date" ticks={trafficTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} minTickGap={18} axisLine={false} tickLine={false} />
         <YAxis domain={[0, trafficYMax]} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
         <Tooltip
+          cursor={{ fill: analyticsBarTooltipCursorFill(theme === 'dark') }}
           contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
           separator=""
           formatter={(v: number | string | undefined, n?: string, entry?: TooltipFormatterEntry) => {
@@ -1870,6 +1877,7 @@ function YoutubeVideosAnalyticsPanel({
   selectedReelMetrics,
   setSelectedReelMetrics,
 }: YoutubeVideosAnalyticsPanelProps) {
+  const { theme } = useTheme();
   return (
     <section id={sectionId} className="scroll-mt-28 space-y-6">
       <div
@@ -1999,7 +2007,7 @@ function YoutubeVideosAnalyticsPanel({
                 />
                 <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip
-                  cursor={{ fill: 'rgba(107,114,128,0.20)' }}
+                  cursor={{ fill: analyticsBarTooltipCursorFill(theme === 'dark') }}
                   content={(props) => {
                     const { active, payload, label } = props as unknown as {
                       active?: boolean;
@@ -5607,7 +5615,7 @@ type PostsUploadDayTooltipAgg = {
                 <YAxis domain={[0, engagementChartYMax]} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip
                   shared
-                  cursor={{ fill: 'rgba(107,114,128,0.20)' }}
+                  cursor={{ fill: analyticsBarTooltipCursorFill(isAnalyticsDark) }}
                   contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
                   separator=""
                   formatter={(v: number | string | undefined, n?: string, entry?: TooltipFormatterEntry) => {
@@ -5914,6 +5922,7 @@ type PostsUploadDayTooltipAgg = {
                   <XAxis dataKey="date" ticks={trafficTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
                   <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                   <Tooltip
+                    cursor={{ fill: analyticsBarTooltipCursorFill(isAnalyticsDark) }}
                     contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
                     separator=""
                     formatter={(v: number | string | undefined, n?: string, entry?: TooltipFormatterEntry) => {
@@ -6131,7 +6140,7 @@ type PostsUploadDayTooltipAgg = {
                       tickLine={false}
                     />
                     <Tooltip
-                      cursor={{ fill: 'rgba(107,114,128,0.12)' }}
+                      cursor={{ fill: analyticsBarTooltipCursorFill(isAnalyticsDark) }}
                       content={(tp) => {
                         const { active, label, payload } = tp as unknown as {
                           active?: boolean;
@@ -6350,7 +6359,7 @@ type PostsUploadDayTooltipAgg = {
                   />
                   <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                   <Tooltip
-                    cursor={{ fill: 'rgba(107,114,128,0.20)' }}
+                    cursor={{ fill: analyticsBarTooltipCursorFill(isAnalyticsDark) }}
                     content={(props) => {
                       const { active, payload, label } = props as unknown as { active?: boolean; payload?: Array<{ dataKey?: string; value?: number }>; label?: string };
                       if (!active || !payload?.length) return null;
@@ -6576,7 +6585,7 @@ type PostsUploadDayTooltipAgg = {
                 />
                 <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip
-                  cursor={{ fill: 'rgba(107,114,128,0.20)' }}
+                  cursor={{ fill: analyticsBarTooltipCursorFill(isAnalyticsDark) }}
                   content={(props) => {
                     const { active, payload, label } = props as unknown as { active?: boolean; payload?: Array<{ dataKey?: string; value?: number; payload?: { thumbnailUrl?: string | null } }>; label?: string };
                     if (!active || !payload?.length) return null;
