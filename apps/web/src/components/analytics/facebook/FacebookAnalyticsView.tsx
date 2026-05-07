@@ -4396,6 +4396,18 @@ type PostsUploadDayTooltipAgg = {
     if (isYouTube || isPinterest) return reelChartSourceRows.reduce((s, r) => s + r.watchTimeMs, 0);
     return postsRows.filter((r) => r.type === 'Reel').reduce((s, r) => s + r.watchTimeMs, 0);
   }, [isYouTube, isPinterest, reelChartSourceRows, postsRows]);
+  // Fallback: when APIs omit total watch-time but provide avg watch + views, estimate watch-time as avg * views.
+  const totalReelWatchTimeMsEstimated = useMemo(
+    () =>
+      reelsChartData.reduce((s, row) => {
+        const watchMsFromRow = Math.round((Number(row.watchTimeMinutes ?? 0) || 0) * 60_000);
+        if (watchMsFromRow > 0) return s + watchMsFromRow;
+        const avgSec = Number(row.avgWatchSeconds ?? 0) || 0;
+        const views = Number(row.views ?? 0) || 0;
+        return s + (avgSec > 0 && views > 0 ? Math.round(avgSec * views * 1000) : 0);
+      }, 0),
+    [reelsChartData]
+  );
   const reelClicks = reelChartSourceRows.reduce((s, r) => {
     const plat = String(r.post.platform ?? '').toUpperCase();
     if (plat === 'INSTAGRAM') return s + bestInstagramInteractionCount(r.post);
@@ -4412,7 +4424,9 @@ type PostsUploadDayTooltipAgg = {
   const totalReelWatchTimeMsDisplay =
     isYouTube && totalReelWatchTimeMs <= 0 && typeof youtubeEstimatedWatchMinutes === 'number' && youtubeEstimatedWatchMinutes > 0
       ? Math.round(youtubeEstimatedWatchMinutes * 60000)
-      : totalReelWatchTimeMs;
+      : totalReelWatchTimeMs > 0
+        ? totalReelWatchTimeMs
+        : totalReelWatchTimeMsEstimated;
   const avgWatchMsDisplay =
     isYouTube && avgWatchMs <= 0 && typeof youtubeAvgViewDurationSec === 'number' && youtubeAvgViewDurationSec > 0
       ? Math.round(youtubeAvgViewDurationSec * 1000)
@@ -6651,11 +6665,23 @@ type PostsUploadDayTooltipAgg = {
                       <div className="rounded-xl border px-3 py-2 text-xs shadow-lg" style={{ background: '#ffffff', borderColor: COLOR.border }}>
                         <p className="font-medium mb-1.5" style={{ color: COLOR.text }}>{formatShortDate(String(label ?? ''))}</p>
                         {row?.thumbnailUrl ? <img src={row.thumbnailUrl} alt="" className="mb-2 h-10 w-10 rounded object-cover" /> : null}
-                        {kv.map((item) => (
+                        {kv.map((item) => {
+                          const rowAny = row as { views?: number; avgWatchSeconds?: number; watchTimeMinutes?: number } | undefined;
+                          const watchMinutesRaw = Number(item.value ?? 0) || 0;
+                          const watchMinutesComputed =
+                            watchMinutesRaw > 0
+                              ? watchMinutesRaw
+                              : (() => {
+                                  const avgSec = Number(rowAny?.avgWatchSeconds ?? 0) || 0;
+                                  const views = Number(rowAny?.views ?? 0) || 0;
+                                  return avgSec > 0 && views > 0 ? (avgSec * views) / 60 : 0;
+                                })();
+                          return (
                           <p key={item.key} style={{ color: COLOR.textSecondary }}>
-                            {(item.key === 'watchTimeMinutes' ? 'Watch Time' : item.key === 'avgWatchSeconds' ? 'Avg Watch' : REEL_METRIC_CONFIG[item.key as ReelMetricKey]?.label ?? item.key)}: {item.key === 'watchTimeMinutes' ? `${item.value.toFixed(1)}m` : item.key === 'avgWatchSeconds' ? `${item.value.toFixed(1)}s` : formatNumber(item.value)}
+                            {(item.key === 'watchTimeMinutes' ? 'Watch Time' : item.key === 'avgWatchSeconds' ? 'Avg Watch' : REEL_METRIC_CONFIG[item.key as ReelMetricKey]?.label ?? item.key)}: {item.key === 'watchTimeMinutes' ? `${watchMinutesComputed.toFixed(1)}m` : item.key === 'avgWatchSeconds' ? `${item.value.toFixed(1)}s` : formatNumber(item.value)}
                           </p>
-                        ))}
+                          );
+                        })}
                       </div>
                     );
                   }}
