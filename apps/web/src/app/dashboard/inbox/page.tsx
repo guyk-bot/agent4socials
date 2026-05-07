@@ -552,6 +552,41 @@ function InboxPage() {
     return effectiveAccounts.find((a) => a.platform === dmThreadPlatform) ?? null;
   }, [dmThreadPlatform, selectedConversation?.messageAccountId, effectiveAccounts]);
 
+  const dmSendBlockedReason = useMemo(() => {
+    if (!selectedConversationId) return 'Select a conversation to send a message.';
+    if (!currentAccountForDmThread || !dmThreadPlatform) {
+      return 'Select an account with DM support (Instagram, Facebook, or X).';
+    }
+    // If loading this thread already reported an error, fail fast instead of attempting POST.
+    if (conversationMessagesError) {
+      return conversationMessagesError;
+    }
+    // X DMs require explicit recipient id.
+    if (dmThreadPlatform === 'TWITTER' && !conversationRecipientId) {
+      return 'Recipient not detected for this X conversation. Use "Look up" first, then send.';
+    }
+    // Meta 24h messaging window: if latest incoming message is older than 24h, sending is blocked.
+    if (dmThreadPlatform === 'INSTAGRAM' || dmThreadPlatform === 'FACEBOOK') {
+      const latestIncoming = [...conversationMessages]
+        .filter((m) => !m.isFromPage && Boolean(m.createdTime))
+        .sort((a, b) => new Date(b.createdTime ?? 0).getTime() - new Date(a.createdTime ?? 0).getTime())[0];
+      if (latestIncoming?.createdTime) {
+        const ageMs = Date.now() - new Date(latestIncoming.createdTime).getTime();
+        if (Number.isFinite(ageMs) && ageMs > 24 * 60 * 60 * 1000) {
+          return 'FB and IG allow sending messages only within 24 hours of the customer\'s last message.';
+        }
+      }
+    }
+    return null;
+  }, [
+    selectedConversationId,
+    currentAccountForDmThread,
+    dmThreadPlatform,
+    conversationMessagesError,
+    conversationRecipientId,
+    conversationMessages,
+  ]);
+
   useEffect(() => {
     if (
       !selectedConversationId ||
@@ -2890,6 +2925,12 @@ function InboxPage() {
                 {aiReplyError && (
                   <p className="text-sm text-amber-700 mb-2">{aiReplyError}</p>
                 )}
+                {dmSendBlockedReason && (
+                  <div className="mb-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <span className="shrink-0 mt-0.5">&#x26a0;</span>
+                    <span>{dmSendBlockedReason}</span>
+                  </div>
+                )}
                 <div className="flex items-end gap-2">
                 <textarea
                   placeholder="Type a reply..."
@@ -2935,9 +2976,13 @@ function InboxPage() {
                   )}
                 <button
                   type="button"
-                  disabled={dmReplySending || !dmReplyText.trim()}
+                  disabled={dmReplySending || !dmReplyText.trim() || !!dmSendBlockedReason}
                   onClick={async () => {
                     const account = currentAccountForDmThread;
+                    if (dmSendBlockedReason) {
+                      setDmSendError(dmSendBlockedReason);
+                      return;
+                    }
                     if (!account || !selectedConversationId || !dmReplyText.trim()) return;
                     setDmReplySending(true);
                     try {
