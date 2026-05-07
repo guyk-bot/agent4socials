@@ -6,11 +6,20 @@ import { parseTikTokVideoEngagement, parseTikTokVideoDurationSec } from '@/lib/t
  * Pull TikTok `video.list` into `ImportedPost` for analytics (views, likes, etc.).
  * Shared by GET `/social/accounts/[id]/posts?sync=1` and OAuth callback so new connects have DB rows before the dashboard loads.
  */
+async function ensureSavesCountColumn() {
+  try {
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "ImportedPost" ADD COLUMN IF NOT EXISTS "savesCount" INTEGER DEFAULT 0`
+    );
+  } catch { /* non-fatal */ }
+}
+
 export async function syncTikTokImportedVideos(params: {
   socialAccountId: string;
   accessToken: string;
 }): Promise<string | undefined> {
   const { socialAccountId, accessToken } = params;
+  await ensureSavesCountColumn();
   try {
     type TikTokVideo = {
       id?: string;

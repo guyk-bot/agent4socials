@@ -144,5 +144,13 @@ async function run(request: NextRequest) {
     results.push('sync_jobs scope idx');
   } catch (e) { /* non-fatal */ }
 
+  // ImportedPost extra columns
+  try {
+    await prisma.$executeRawUnsafe(`ALTER TABLE "ImportedPost" ADD COLUMN IF NOT EXISTS "savesCount" INTEGER DEFAULT 0`);
+    results.push('ImportedPost.savesCount');
+  } catch (e) {
+    results.push(`ImportedPost.savesCount: ${(e as Error)?.message?.slice(0, 80)}`);
+  }
+
   return NextResponse.json({ ok: true, results });
 }

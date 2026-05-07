@@ -520,8 +520,13 @@ export async function getAccountSyncStatus(socialAccountId: string): Promise<{
     ? Date.now() - account.lastSuccessfulSyncAt.getTime()
     : null;
 
+  // If no active job found (nothing started in last 90s) but the DB still says 'syncing',
+  // the previous run was killed by the server (e.g. Vercel timeout). Treat as idle/error so
+  // the UI spinner never gets stuck indefinitely.
   const derivedStatus = activeJob
     ? 'syncing'
+    : account.lastSyncStatus === 'syncing'
+    ? 'error'
     : account.lastSyncStatus ?? 'idle';
 
   return {

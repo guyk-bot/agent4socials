@@ -51,7 +51,16 @@ async function syncAccountOverview(account: AccountRow) {
   }
 }
 
+async function ensureTikTokColumns() {
+  try {
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "ImportedPost" ADD COLUMN IF NOT EXISTS "savesCount" INTEGER DEFAULT 0`
+    );
+  } catch { /* non-fatal — column may already exist */ }
+}
+
 async function syncRecentContent(account: AccountRow) {
+  await ensureTikTokColumns();
   try {
     type TikTokVideoRow = {
       id?: string;
