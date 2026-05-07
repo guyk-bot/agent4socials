@@ -2165,7 +2165,7 @@ export function PostsPerformanceTable({
             className: 'w-[84px]',
             title:
               platUpper === 'YOUTUBE'
-                ? 'YouTube Data API does not expose per-video watch time here (studio-only).'
+                ? 'Estimated per video as Duration × Views when direct watch time is unavailable from YouTube Data API.'
                 : undefined,
           },
           { label: platUpper === 'YOUTUBE' ? 'Duration' : 'Avg watch', className: 'w-[80px]' },
@@ -2276,7 +2276,15 @@ export function PostsPerformanceTable({
                           : undefined
                       }
                     >
-                      {platUpper === 'YOUTUBE' ? '—' : r.watchTimeMs > 0 ? formatDurationMs(r.watchTimeMs) : ' - '}
+                      {(() => {
+                        const watchTimeMsDisplay =
+                          r.watchTimeMs > 0
+                            ? r.watchTimeMs
+                            : platUpper === 'YOUTUBE' && r.avgWatchMs > 0 && r.views > 0
+                              ? Math.round(r.avgWatchMs * r.views)
+                              : 0;
+                        return watchTimeMsDisplay > 0 ? formatDurationMs(watchTimeMsDisplay) : ' - ';
+                      })()}
                     </td>
                     <td className="px-3 py-3" style={{ color: COLOR.textSecondary }}>
                       {platUpper === 'YOUTUBE'
@@ -2348,8 +2356,16 @@ export function PostsPerformanceTable({
               {!compactVideoTable ? <span>Reach {formatNumber(r.uniqueReach)}</span> : null}
               {!hideWatchMetrics ? (
                 <>
-                  <span title={platUpper === 'YOUTUBE' ? 'Not available per video from YouTube Data API' : undefined}>
-                    {platUpper === 'YOUTUBE' ? 'Watch —' : r.watchTimeMs > 0 ? `Watch ${formatDurationMs(r.watchTimeMs)}` : 'Watch -'}
+                  <span title={platUpper === 'YOUTUBE' ? 'Estimated as Duration × Views when direct watch time is unavailable' : undefined}>
+                    {(() => {
+                      const watchTimeMsDisplay =
+                        r.watchTimeMs > 0
+                          ? r.watchTimeMs
+                          : platUpper === 'YOUTUBE' && r.avgWatchMs > 0 && r.views > 0
+                            ? Math.round(r.avgWatchMs * r.views)
+                            : 0;
+                      return watchTimeMsDisplay > 0 ? `Watch ${formatDurationMs(watchTimeMsDisplay)}` : 'Watch -';
+                    })()}
                   </span>
                   <span>
                     {platUpper === 'YOUTUBE'
