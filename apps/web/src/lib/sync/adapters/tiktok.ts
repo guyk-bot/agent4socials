@@ -14,7 +14,8 @@ function isMissingImportedPostSavesCountColumn(error: unknown): boolean {
   const e = error as { code?: string; message?: string; meta?: { column?: string } };
   const msg = (e?.message ?? '').toLowerCase();
   const col = (e?.meta?.column ?? '').toLowerCase();
-  return e?.code === 'P2022' && (msg.includes('savescount') || col.includes('savescount'));
+  if (msg.includes('savescount') || col.includes('savescount')) return true;
+  return e?.code === 'P2022' && msg.includes('column');
 }
 
 type AccountRow = {
