@@ -3518,6 +3518,19 @@ export function FacebookAnalyticsView({
     youtubeGrowthNetByDate,
   ]);
 
+  /** KPI cards should always match the currently rendered date-axis series. */
+  const performanceTotalsFromChart = useMemo(() => {
+    return chartByMode.reduce(
+      (acc, row) => ({
+        engagements: acc.engagements + (Number(row.engagements) || 0),
+        videoViews: acc.videoViews + (Number(row.videoViews) || 0),
+        contentViews: acc.contentViews + (Number(row.contentViews) || 0),
+        pageVisits: acc.pageVisits + (Number(row.pageVisits) || 0),
+      }),
+      { engagements: 0, videoViews: 0, contentViews: 0, pageVisits: 0 }
+    );
+  }, [chartByMode]);
+
   const growthSparklineSeries = useMemo(() => {
     if (isTikTok) {
       const viewsSeries = aggregatePostsByDayValue(postsInRange, (p) => p.impressions ?? bestPostPlayCount(p));
@@ -3791,6 +3804,21 @@ export function FacebookAnalyticsView({
     isPinterest,
     postImpressions,
   ]);
+
+  /** Traffic cards must reflect only the selected date range (same source as the traffic chart). */
+  const trafficTotalsFromTimeline = useMemo(
+    () =>
+      trafficTimelineData.reduce(
+        (acc, row) => ({
+          postImpressions: acc.postImpressions + (Number(row.postImpressions) || 0),
+          nonviral: acc.nonviral + (Number(row.nonviral) || 0),
+          viral: acc.viral + (Number(row.viral) || 0),
+          uniqueReachProxy: acc.uniqueReachProxy + (Number(row.uniqueReachProxy) || 0),
+        }),
+        { postImpressions: 0, nonviral: 0, viral: 0, uniqueReachProxy: 0 }
+      ),
+    [trafficTimelineData]
+  );
 
   /** Pie slices must be `{ name, value }` only: a `percent` field breaks Recharts labels (conflicts with internal `percent`). */
   const youtubeGeoBreakdown = useMemo(() => {
@@ -5241,7 +5269,13 @@ type PostsUploadDayTooltipAgg = {
                   label="Impressions (synced)"
                   source="Sum of stored impressions on synced posts in range"
                   color={TIKTOK_PERFORMANCE_LINE_COLORS.videoViews}
-                  value={formatNumber(Math.max(insights?.impressionsTotal ?? 0, linkedInImpressionsInRange))}
+                  value={formatNumber(
+                    Math.max(
+                      performanceTotalsFromChart.videoViews,
+                      insights?.impressionsTotal ?? 0,
+                      linkedInImpressionsInRange
+                    )
+                  )}
                   series={growthSparklineSeries.videoViews}
                   active={isCardSelected('videoViews')}
                   onClick={() => toggleStoryMetric('videoViews')}
@@ -5250,7 +5284,13 @@ type PostsUploadDayTooltipAgg = {
                   label="Engagements (range)"
                   source="Synced posts · likes + comments + shares, or stored interactions when present"
                   color={COLOR.coral}
-                  value={formatNumber(Math.max(insights?.reachTotal ?? 0, linkedInEngagementsInRange))}
+                  value={formatNumber(
+                    Math.max(
+                      performanceTotalsFromChart.engagements,
+                      insights?.reachTotal ?? 0,
+                      linkedInEngagementsInRange
+                    )
+                  )}
                   series={growthSparklineSeries.engagement}
                   active={isCardSelected('engagements')}
                   onClick={() => toggleStoryMetric('engagements')}
@@ -5273,7 +5313,7 @@ type PostsUploadDayTooltipAgg = {
                   label="Views"
                   source="YouTube Analytics API · views by day"
                   color={COLOR.amber}
-                  value={formatNumber(youTubeViewsInRange)}
+                  value={formatNumber(performanceTotalsFromChart.videoViews)}
                   series={growthSparklineSeries.videoViews}
                   active={isCardSelected('videoViews')}
                   onClick={() => toggleStoryMetric('videoViews')}
@@ -5282,7 +5322,7 @@ type PostsUploadDayTooltipAgg = {
                   label="Engagements"
                   source="Synced videos · likes + comments + shares"
                   color={COLOR.coral}
-                  value={formatNumber(youTubeEngagementsInRange)}
+                  value={formatNumber(performanceTotalsFromChart.engagements)}
                   series={growthSparklineSeries.engagement}
                   active={isCardSelected('engagements')}
                   onClick={() => toggleStoryMetric('engagements')}
@@ -5312,7 +5352,7 @@ type PostsUploadDayTooltipAgg = {
               label="Engagements"
               source={isInstagram ? 'accounts_engaged' : 'page_post_engagements'}
               color={COLOR.violet}
-              value={formatNumber(engagements)}
+              value={formatNumber(performanceTotalsFromChart.engagements)}
               series={growthSparklineSeries.engagement}
               active={isCardSelected('engagements')}
               onClick={() => toggleStoryMetric('engagements')}
@@ -5325,7 +5365,7 @@ type PostsUploadDayTooltipAgg = {
                   : 'page_video_views, post_video_views, post_media_view'
               }
               color={COLOR.magenta}
-              value={formatNumber(videoViews)}
+              value={formatNumber(performanceTotalsFromChart.videoViews)}
               series={growthSparklineSeries.videoViews}
               active={isCardSelected('videoViews')}
               onClick={() => toggleStoryMetric('videoViews')}
@@ -5338,7 +5378,7 @@ type PostsUploadDayTooltipAgg = {
                   : 'page_media_view (and legacy page_impressions when Meta still returns it)'
               }
               color={COLOR.amber}
-              value={formatNumber(contentViews)}
+              value={formatNumber(performanceTotalsFromChart.contentViews)}
               series={growthSparklineSeries.contentViews}
               active={isCardSelected('contentViews')}
               onClick={() => toggleStoryMetric('contentViews')}
@@ -5347,7 +5387,7 @@ type PostsUploadDayTooltipAgg = {
               label="Page Visits"
               source={isInstagram ? 'profile_views' : 'page_views_total'}
               color={COLOR.coral}
-              value={formatNumber(pageVisits)}
+              value={formatNumber(performanceTotalsFromChart.pageVisits)}
               series={growthSparklineSeries.pageVisits}
               active={isCardSelected('pageVisits')}
               onClick={() => toggleStoryMetric('pageVisits')}
@@ -5848,7 +5888,7 @@ type PostsUploadDayTooltipAgg = {
               label="Post Impressions"
               source="page_posts_impressions"
               color={COLOR.cyan}
-              value={formatNumber(postImpressions)}
+              value={formatNumber(trafficTotalsFromTimeline.postImpressions)}
               active={selectedTrafficMetrics.includes('postImpressions')}
               onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('postImpressions') ? prev.filter((m) => m !== 'postImpressions') : [...prev, 'postImpressions'])}
             />
@@ -5858,7 +5898,7 @@ type PostsUploadDayTooltipAgg = {
                   label="Non-viral Impressions"
                   source="page_posts_impressions_nonviral"
                   color={COLOR.trafficNonviralCyan}
-                  value={formatNumber(nonviralImpressions)}
+                  value={formatNumber(trafficTotalsFromTimeline.nonviral)}
                   active={selectedTrafficMetrics.includes('nonviral')}
                   onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('nonviral') ? prev.filter((m) => m !== 'nonviral') : [...prev, 'nonviral'])}
                 />
@@ -5866,7 +5906,7 @@ type PostsUploadDayTooltipAgg = {
                   label="Viral Impressions"
                   source="page_posts_impressions_viral"
                   color={COLOR.magenta}
-                  value={formatNumber(viralImpressions)}
+                  value={formatNumber(trafficTotalsFromTimeline.viral)}
                   active={selectedTrafficMetrics.includes('viral')}
                   onClick={() => setSelectedTrafficMetrics((prev) => prev.includes('viral') ? prev.filter((m) => m !== 'viral') : [...prev, 'viral'])}
                 />
@@ -5878,7 +5918,7 @@ type PostsUploadDayTooltipAgg = {
                   label="Unique Reach"
                   source="Sum of post_total_media_view_unique when available, else post_impressions_unique"
                   color={COLOR.amber}
-                  value={formatNumber(uniqueReachProxy)}
+                  value={formatNumber(trafficTotalsFromTimeline.uniqueReachProxy)}
                   active={selectedTrafficMetrics.includes('uniqueReachProxy')}
                   onClick={() =>
                     setSelectedTrafficMetrics((prev) =>
