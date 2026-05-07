@@ -4635,7 +4635,7 @@ type PostsUploadDayTooltipAgg = {
   const topByClicks = [...effectivePostsRows].sort((a, b) => b.clicks - a.clicks).slice(0, 3).map((p) => ({ ...p, value: p.clicks, content: p.rawPost.content, thumbnailUrl: p.rawPost.thumbnailUrl }));
   const topByReactions = [...effectivePostsRows].sort((a, b) => b.reactionsTotal - a.reactionsTotal).slice(0, 3).map((p) => ({ ...p, value: p.reactionsTotal, content: p.rawPost.content, thumbnailUrl: p.rawPost.thumbnailUrl }));
   const allPostsRows = useMemo(() => {
-    return posts.map((p) => {
+    return postsInRangeForPostsTabUi.map((p) => {
       const fi = p.facebookInsights ?? {};
       const pinMeta = pinterestMetricsFromPostMetadata(p);
       const reactions = parseReactionTotal(fi.post_reactions_by_type_total);
@@ -4685,59 +4685,12 @@ type PostsUploadDayTooltipAgg = {
         rawPost: { ...p, platformPostId: withPid.platformPostId ?? null },
       };
     });
-  }, [posts]);
+  }, [postsInRangeForPostsTabUi]);
 
-  /** X: merge live timeline rows from insights so Content History matches Tweet graph before post sync catches up. */
+  /** Rows are already range-scoped (including Twitter timeline extras via postsInRangeForPostsTabUi). */
   const allPostsRowsWithTwitterExtras = useMemo(() => {
-    if (!isTwitter || !twitterRecentTweets.length) return allPostsRows;
-    const knownIds = new Set(
-      posts
-        .map((p) => (p as FacebookPost & { platformPostId?: string | null }).platformPostId)
-        .filter((id): id is string => typeof id === 'string' && id.length > 0)
-    );
-    const extras = twitterRecentTweets
-      .filter((t) => t.id && !knownIds.has(t.id))
-      .map((t) => {
-        const rawMt = (t.mediaType ?? '').toLowerCase();
-        const isVideo = rawMt === 'video' || rawMt === 'animated_gif';
-        const impressions = t.impression_count ?? 0;
-        const rawPost = {
-          content: t.text,
-          thumbnailUrl: t.thumbnailUrl,
-          mediaType: t.mediaType,
-          platform: 'TWITTER' as const,
-          platformPostId: t.id,
-          permalinkUrl: `https://x.com/i/web/status/${t.id}`,
-          publishedAt: t.created_at ?? '',
-          impressions,
-          likeCount: t.like_count,
-          commentsCount: t.reply_count,
-          repostsCount: t.retweet_count,
-          sharesCount: t.quote_count,
-          interactions:
-            (t.like_count ?? 0) + (t.reply_count ?? 0) + (t.retweet_count ?? 0) + (t.quote_count ?? 0),
-        } as FacebookPost;
-        return {
-          id: `tw-insights-${t.id}`,
-          date: t.created_at ?? '',
-          type: isVideo ? ('Reel' as const) : ('Post' as const),
-          preview: t.text,
-          permalink: rawPost.permalinkUrl,
-          views: Math.max(impressions, bestPostPlayCount(rawPost)),
-          uniqueReach: 0,
-          clicks: bestPostInteractionCount(rawPost),
-          likes: t.like_count ?? 0,
-          reactionsTotal: t.like_count ?? 0,
-          watchTimeMs: 0,
-          avgWatchMs: 0,
-          reactionBreakdownRaw: undefined,
-          status: 'Ready' as const,
-          rawPost,
-        };
-      });
-    if (!extras.length) return allPostsRows;
-    return [...allPostsRows, ...extras].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [isTwitter, twitterRecentTweets, posts, allPostsRows]);
+    return allPostsRows;
+  }, [allPostsRows]);
 
   const allReelsRows = useMemo(() => {
     return allPostsRowsWithTwitterExtras
