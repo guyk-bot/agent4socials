@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import {
   MessageCircle,
   Search,
@@ -267,7 +267,6 @@ function MessagesConversationList({
 }
 
 function InboxPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const platformFromUrl = searchParams.get('platform')?.toUpperCase();
@@ -3065,9 +3064,5 @@ function InboxPage() {
 }
 
 export default function InboxPageWrapper() {
-  return (
-    <React.Suspense>
-      <InboxPage />
-    </React.Suspense>
-  );
+  return <InboxPage />;
 }

@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
     BarChart3,
     FileText,
@@ -99,7 +99,6 @@ type SidebarProps = {
 
 export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {} }: SidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const { textColor } = useWhiteLabel();
   const { theme } = useTheme();
   const { cachedAccounts, setCachedAccounts, setAccountsLoadError } = useAccountsCache() ?? {
@@ -292,7 +291,9 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 );
                 const goToAccountDashboard = () => {
                   setSelectedAccount(acc);
-                  router.push(dashboardUrl);
+                  // Use window.location.href so navigation works even when the Next.js
+                  // router is busy (e.g. from the inbox with many concurrent effects).
+                  window.location.href = dashboardUrl;
                 };
                 return (
                   <div
@@ -412,7 +413,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
 
   return (
     <div
-      className="flex w-full h-full border-r border-neutral-200 flex-col bg-white min-h-0 pointer-events-auto"
+      className="flex flex-1 border-r border-neutral-200 flex-col bg-white min-h-0 pointer-events-auto overflow-hidden"
       style={{ backgroundColor: 'var(--wl-sidebar-bg, #ffffff)', color: text }}
     >
       {onSidebarToggle && (
