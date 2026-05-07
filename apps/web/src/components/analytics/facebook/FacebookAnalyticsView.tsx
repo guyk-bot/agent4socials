@@ -3021,10 +3021,16 @@ export function FacebookAnalyticsView({
     const base = ['reels', 'image', 'carousel'] as ContentTypeKey[];
     return base.filter((k) => selectedPostsUploadTypes.includes(k));
   }, [selectedPostsUploadTypes]);
-  const tiktokViewsInRange = useMemo(
-    () => tiktokEffectivePosts.reduce((s, p) => s + (p.impressions ?? bestPostPlayCount(p)), 0),
-    [tiktokEffectivePosts]
-  );
+  const tiktokViewsInRange = useMemo(() => {
+    if (!isTikTok) return 0;
+    const postViewsByDate = seriesToMap(
+      aggregatePostsByDayValue(tiktokEffectivePosts, (p) => p.impressions ?? bestPostPlayCount(p))
+    );
+    const apiViewsByDate = seriesToMap(insights?.impressionsTimeSeries ?? []);
+    const merged = mergeSeriesMapsMax(apiViewsByDate, postViewsByDate);
+    const onAxis = dailyValuesOnAxis(dateAxis, merged);
+    return dateAxis.reduce((sum, d) => sum + (onAxis[d] ?? 0), 0);
+  }, [isTikTok, tiktokEffectivePosts, insights?.impressionsTimeSeries, dateAxis]);
   const tiktokEngagementsInRange = useMemo(
     () =>
       tiktokEffectivePosts.reduce(
@@ -3267,10 +3273,7 @@ export function FacebookAnalyticsView({
       }
       const apiViewsMap = seriesToMap(insights?.impressionsTimeSeries ?? []);
       const mergedViewsByDate = mergeSeriesMapsMax(apiViewsMap, viewsByDate);
-      const followsRaw: Record<string, number> = {};
-      dateAxis.forEach((d) => {
-        followsRaw[d] = totalFollowers;
-      });
+      const followsRaw = seriesToMap(insights?.followersTimeSeries ?? []);
       const videoViewsSeries = dailyValuesOnAxis(dateAxis, mergedViewsByDate);
       const engagement = carryForwardSeries(dateAxis, engagementByDate, 0);
       const follows = carryForwardSeries(dateAxis, followsRaw, totalFollowers, true);
@@ -6737,11 +6740,6 @@ type PostsUploadDayTooltipAgg = {
               Reconnect <ChevronRight size={14} />
             </button>
           ) : null}
-        </div>
-      ) : null}
-      {isTikTok && insights?.insightsHint ? (
-        <div className="rounded-[16px] border px-4 py-3 text-sm" style={{ borderColor: 'rgba(255,138,122,0.45)', color: COLOR.coral, background: 'rgba(255,138,122,0.08)' }}>
-          {insights?.insightsHint}
         </div>
       ) : null}
     </div>
