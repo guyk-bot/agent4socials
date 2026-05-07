@@ -2487,6 +2487,23 @@ export async function GET(
               growthTimeSeries?: unknown;
               extra?: Record<string, number | Array<{ date: string; value: number }>>;
             };
+            const cachedDemographics =
+              p.demographics && typeof p.demographics === 'object'
+                ? (p.demographics as { byCountry?: unknown })
+                : undefined;
+            const cachedHasCountry =
+              Array.isArray(cachedDemographics?.byCountry) && cachedDemographics.byCountry.length > 0;
+            const cachedHasTraffic = Array.isArray(p.trafficSources) && p.trafficSources.length > 0;
+            const cachedHasGrowth = Array.isArray(p.growthTimeSeries) && p.growthTimeSeries.length > 0;
+            const cachedHasExtraSeries =
+              Boolean(
+                p.extra &&
+                  typeof p.extra === 'object' &&
+                  (Array.isArray((p.extra as Record<string, unknown>).youtubeDislikesTimeSeries) ||
+                    Array.isArray((p.extra as Record<string, unknown>).youtubeSharesTimeSeries))
+              );
+            const hasUsableCachedExtended =
+              cachedHasCountry || cachedHasTraffic || cachedHasGrowth || cachedHasExtraSeries;
             if (p.demographics && typeof p.demographics === 'object') {
               (out as Record<string, unknown>).demographics = p.demographics;
             }
@@ -2499,7 +2516,9 @@ export async function GET(
             if (p.extra && typeof p.extra === 'object') {
               out.extra = { ...(out.extra ?? {}), ...p.extra };
             }
-            usedExtendedCache = true;
+            // Empty cached payloads can be produced by temporary quota/auth/API issues.
+            // Treat those as stale so we can immediately attempt a fresh fetch.
+            usedExtendedCache = hasUsableCachedExtended;
           }
         } catch (e) {
           console.warn('[Insights] YouTube extended cache (read):', (e as Error)?.message ?? e);

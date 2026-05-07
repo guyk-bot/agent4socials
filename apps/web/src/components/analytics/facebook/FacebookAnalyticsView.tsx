@@ -3124,10 +3124,6 @@ export function FacebookAnalyticsView({
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [postsInRange]);
   const dateAxis = useMemo(() => buildDateAxis(dateRange.start, dateRange.end), [dateRange.end, dateRange.start]);
-  const youTubeSubscriberNetInRange = useMemo(
-    () => dateAxis.reduce((s, d) => s + (youtubeGrowthNetByDate[d] ?? 0), 0),
-    [dateAxis, youtubeGrowthNetByDate]
-  );
   const bundle = useMemo(() => {
     const native = insights?.facebookAnalytics;
     if (native) return native;
@@ -5269,14 +5265,10 @@ type PostsUploadDayTooltipAgg = {
             <>
               <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <SparklineMetricCard
-                  label="Subscribers"
-                  source="Net change in subscribers over the selected range (YouTube Analytics · gained minus lost per day)"
+                  label="Subscribers (total)"
+                  source="Current channel subscribers from YouTube channel statistics. Sparkline shows net gained minus lost per day in selected range."
                   color={COLOR.mint}
-                  value={
-                    youTubeSubscriberNetInRange > 0
-                      ? `+${formatNumber(youTubeSubscriberNetInRange)}`
-                      : formatNumber(youTubeSubscriberNetInRange)
-                  }
+                  value={formatNumber(totalFollowers)}
                   series={growthSparklineSeries.follows}
                   active={isCardSelected('followers')}
                   onClick={() => toggleStoryMetric('followers')}
