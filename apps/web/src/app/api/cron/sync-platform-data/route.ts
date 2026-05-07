@@ -55,6 +55,13 @@ async function handle(request: NextRequest) {
   }
   const auth = checkAuthorization(request);
   if (!auth.ok) {
+    console.warn('[Cron] sync-platform-data auth failed:', auth.reason,
+      auth.reason === 'mismatch'
+        ? '— CRON_SECRET in Vercel does not match X-Cron-Secret header sent by cron-job.org'
+        : auth.reason === 'missing_env'
+        ? '— CRON_SECRET env var is not set in Vercel'
+        : '— No X-Cron-Secret header was provided'
+    );
     return NextResponse.json(
       {
         message: 'Unauthorized',
