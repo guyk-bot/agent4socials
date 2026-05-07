@@ -731,8 +731,35 @@ function isYouTubeShortPost(p: FacebookPost): boolean {
 }
 
 /**
- * True only for actual Reels (Reels tab / chart). Do not treat photos or plain feed videos as reels
- * just because insights include numeric post_video_* fields (often 0).
+ * Facebook Page “feed” videos use `facebook.com/watch/?v=…` and `mediaType` VIDEO / `added_video`, while
+ * Reels product links use `/reel/`. The dashboard Reels tab is the video surface for Facebook (like YouTube’s Videos section).
+ */
+function isFacebookPageNativeVideoPost(p: FacebookPost): boolean {
+  if ((p.platform ?? '').toUpperCase() !== 'FACEBOOK') return false;
+  const mt = (p.mediaType ?? '').toUpperCase();
+  if (mt === 'VIDEO' || mt === 'REEL' || mt === 'ADDED_VIDEO') return true;
+  const meta =
+    p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
+      ? (p.platformMetadata as Record<string, unknown>)
+      : {};
+  const st = String(meta.status_type ?? '').toUpperCase();
+  if (st.includes('ADDED_VIDEO')) return true;
+  const rawAtt = meta.attachmentTypes;
+  if (Array.isArray(rawAtt)) {
+    for (const t of rawAtt) {
+      if (String(t).toLowerCase() === 'video') return true;
+    }
+  }
+  const url = (p.permalinkUrl ?? '').toLowerCase();
+  return (
+    (url.includes('/watch') && (url.includes('v=') || url.includes('/videos/'))) ||
+    url.includes('fb.watch')
+  );
+}
+
+/**
+ * “Reel” in the analytics UI: TikTok / Short-form video surfaces. For Facebook, includes Page feed videos
+ * (watch URLs + VIDEO mediaType), not only `/reel/` links. Photos and link-only posts stay in Posts.
  */
 function isReelPost(p: FacebookPost): boolean {
   if ((p.platform ?? '').toUpperCase() === 'TIKTOK') return true;
@@ -745,6 +772,7 @@ function isReelPost(p: FacebookPost): boolean {
   }
   const url = (p.permalinkUrl ?? '').toLowerCase();
   if (url.includes('/reel/') || url.includes('/reels/')) return true;
+  if (isFacebookPageNativeVideoPost(p)) return true;
   const mt = (p.mediaType ?? '').toUpperCase();
   // Pinterest uses VIDEO instead of REEL semantics.
   if ((p.platform ?? '').toUpperCase() === 'PINTEREST' && mt === 'VIDEO') return true;
