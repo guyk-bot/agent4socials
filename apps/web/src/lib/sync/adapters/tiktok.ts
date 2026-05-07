@@ -71,11 +71,10 @@ async function syncRecentContent(account: AccountRow) {
       comment_count?: number;
       share_count?: number;
       view_count?: number;
-      play_count?: number;
       [key: string]: unknown;
     };
     const fields =
-      'id,title,video_description,cover_image_url,share_url,create_time,like_count,comment_count,share_count,view_count,play_count,favorites_count,duration';
+      'id,title,video_description,cover_image_url,share_url,create_time,like_count,comment_count,share_count,view_count,duration';
     const allVideos: TikTokVideoRow[] = [];
     let cursor: number | string | undefined;
     let hasMore = true;
@@ -135,7 +134,7 @@ async function syncRecentContent(account: AccountRow) {
             content: v.video_description ?? v.title ?? undefined,
             thumbnailUrl: v.cover_image_url ?? undefined,
             permalinkUrl: v.share_url ?? undefined,
-            impressions: v.view_count ?? v.play_count ?? 0,
+            impressions: v.view_count ?? 0,
             interactions,
             likeCount: likes,
             commentsCount: comments,
@@ -154,7 +153,7 @@ async function syncRecentContent(account: AccountRow) {
             permalinkUrl: v.share_url ?? null,
             publishedAt: v.create_time ? new Date(v.create_time * 1000) : new Date(),
             mediaType: 'VIDEO',
-            impressions: v.view_count ?? v.play_count ?? 0,
+            impressions: v.view_count ?? 0,
             interactions,
             likeCount: likes,
             commentsCount: comments,
@@ -175,7 +174,7 @@ async function syncRecentContent(account: AccountRow) {
               content: v.video_description ?? v.title ?? undefined,
               thumbnailUrl: v.cover_image_url ?? undefined,
               permalinkUrl: v.share_url ?? undefined,
-              impressions: v.view_count ?? v.play_count ?? 0,
+              impressions: v.view_count ?? 0,
               interactions: interactionsNoSaves,
               likeCount: likes,
               commentsCount: comments,
@@ -193,7 +192,7 @@ async function syncRecentContent(account: AccountRow) {
               permalinkUrl: v.share_url ?? null,
               publishedAt: v.create_time ? new Date(v.create_time * 1000) : new Date(),
               mediaType: 'VIDEO',
-              impressions: v.view_count ?? v.play_count ?? 0,
+              impressions: v.view_count ?? 0,
               interactions: interactionsNoSaves,
               likeCount: likes,
               commentsCount: comments,

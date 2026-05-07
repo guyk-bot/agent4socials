@@ -33,7 +33,7 @@ export async function syncTikTokImportedVideos(params: {
       [key: string]: unknown;
     };
     const fields =
-      'cover_image_url,id,title,create_time,share_url,like_count,comment_count,share_count,view_count,favorites_count,duration';
+      'cover_image_url,id,title,create_time,share_url,like_count,comment_count,share_count,view_count,duration';
     const allVideos: TikTokVideo[] = [];
     let cursor: number | string | undefined;
     let hasMore = true;

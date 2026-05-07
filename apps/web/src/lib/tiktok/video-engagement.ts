@@ -1,12 +1,12 @@
 /**
  * TikTok Display API video.list / video.query items: documented fields plus optional extras.
- * Saves may appear as favorites_count (Research API naming); we request it on video.list when supported.
+ * Some accounts may still expose save-style counters (collect/save) in payload metadata.
  * @see https://developers.tiktok.com/doc/tiktok-api-v2-video-object
  */
 
 export function parseTikTokVideoEngagement(video: Record<string, unknown>): {
   shareCount: number;
-  /** Saves/favorites when TikTok returns a supported field (often favorites_count). */
+  /** Saves/favorites when TikTok returns a supported field in payload metadata. */
   saveCount: number | null;
 } {
   const num = (v: unknown): number | undefined => {
