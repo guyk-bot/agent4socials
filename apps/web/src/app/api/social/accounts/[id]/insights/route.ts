@@ -2470,6 +2470,7 @@ export async function GET(
         /** Geo + traffic sources + growth rarely need sub-hour freshness; DB cache makes repeat dashboard opens instant. */
         const YT_EXT_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
         let usedExtendedCache = false;
+        let usedRangeFallbackCache = false;
         try {
           const row = await prisma.youtubeExtendedInsightsCache.findUnique({
             where: {
@@ -2571,6 +2572,68 @@ export async function GET(
           } catch (e) {
             console.warn('[Insights] YouTube extended analytics:', (e as Error)?.message ?? e);
           }
+        }
+        const hasCountryRows =
+          Array.isArray(out.demographics?.byCountry) && out.demographics.byCountry.length > 0;
+        const hasTrafficRows = Array.isArray(out.trafficSources) && out.trafficSources.length > 0;
+        const hasGrowthRows = Array.isArray(out.growthTimeSeries) && out.growthTimeSeries.length > 0;
+        const hasExtraSeries =
+          Boolean(
+            out.extra &&
+              typeof out.extra === 'object' &&
+              (Array.isArray((out.extra as Record<string, unknown>).youtubeDislikesTimeSeries) ||
+                Array.isArray((out.extra as Record<string, unknown>).youtubeSharesTimeSeries))
+          );
+        if (!hasCountryRows && !hasTrafficRows && !hasGrowthRows && !hasExtraSeries) {
+          try {
+            const recent = await prisma.youtubeExtendedInsightsCache.findMany({
+              where: { socialAccountId: account.id },
+              orderBy: { updatedAt: 'desc' },
+              take: 12,
+            });
+            for (const row of recent) {
+              const p = row.payload as {
+                demographics?: unknown;
+                trafficSources?: unknown;
+                growthTimeSeries?: unknown;
+                extra?: Record<string, number | Array<{ date: string; value: number }>>;
+              };
+              const d = p.demographics && typeof p.demographics === 'object'
+                ? (p.demographics as { byCountry?: unknown })
+                : undefined;
+              const rowHasCountry = Array.isArray(d?.byCountry) && d.byCountry.length > 0;
+              const rowHasTraffic = Array.isArray(p.trafficSources) && p.trafficSources.length > 0;
+              const rowHasGrowth = Array.isArray(p.growthTimeSeries) && p.growthTimeSeries.length > 0;
+              const rowHasExtra =
+                Boolean(
+                  p.extra &&
+                    typeof p.extra === 'object' &&
+                    (Array.isArray((p.extra as Record<string, unknown>).youtubeDislikesTimeSeries) ||
+                      Array.isArray((p.extra as Record<string, unknown>).youtubeSharesTimeSeries))
+                );
+              if (!rowHasCountry && !rowHasTraffic && !rowHasGrowth && !rowHasExtra) continue;
+              if (p.demographics && typeof p.demographics === 'object') {
+                (out as Record<string, unknown>).demographics = p.demographics;
+              }
+              if (Array.isArray(p.trafficSources)) {
+                out.trafficSources = p.trafficSources as typeof out.trafficSources;
+              }
+              if (Array.isArray(p.growthTimeSeries)) {
+                out.growthTimeSeries = p.growthTimeSeries as typeof out.growthTimeSeries;
+              }
+              if (p.extra && typeof p.extra === 'object') {
+                out.extra = { ...(out.extra ?? {}), ...p.extra };
+              }
+              usedRangeFallbackCache = true;
+              break;
+            }
+          } catch (e) {
+            console.warn('[Insights] YouTube extended range fallback cache:', (e as Error)?.message ?? e);
+          }
+        }
+        if (usedRangeFallbackCache && !out.insightsHint) {
+          out.insightsHint =
+            'Using last available YouTube traffic breakdown because this selected range returned no country/source rows yet.';
         }
       }
 
