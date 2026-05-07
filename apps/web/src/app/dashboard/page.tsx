@@ -1246,8 +1246,7 @@ export default function DashboardPage() {
     const forceRangeRefreshForPlatform =
       isDateRangeChange &&
       (selectedAccount?.platform === 'TWITTER' ||
-        selectedAccount?.platform === 'PINTEREST' ||
-        selectedAccount?.platform === 'TIKTOK');
+        selectedAccount?.platform === 'PINTEREST');
 
     // If we already have cached data for this range (or prefetched default range), show it immediately.
     if (exactCached) {
@@ -1264,7 +1263,7 @@ export default function DashboardPage() {
       if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, patchedExact, dateRange);
       setInsightsLoading(false);
       // Default behavior: keep charts stable when cache exists.
-      // For TWITTER/PINTEREST/TIKTOK range changes we still continue to refetch in background
+      // For TWITTER/PINTEREST range changes we still continue to refetch in background
       // so switching 30d -> 6m (or back) rehydrates full range immediately from DB/API.
       if (!accountTabOwnsPosts) {
         if (postsCached !== undefined && postsCached !== null) {
