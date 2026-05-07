@@ -309,6 +309,99 @@ export async function fetchPostLifetimeInsightMap(
   return out;
 }
 
+const VIDEO_INSIGHT_PARALLEL = 4;
+
+/** Numeric video id from Page reel/watch permalinks for `/{video-id}/video_insights`. */
+export function extractFacebookCanonicalVideoIdFromPermalink(url: string | null | undefined): string | null {
+  if (!url || typeof url !== 'string') return null;
+  const u = url.trim();
+  const reelHosted = u.match(/facebook\.com\/reels?\/(\d{6,})/i);
+  if (reelHosted?.[1]) return reelHosted[1];
+  const reelPath = u.match(/(^|\/)reels?\/(\d{6,})/i);
+  if (reelPath?.[2]) return reelPath[2];
+  const vParam = u.match(/[?&]v=(\d{6,})/);
+  if (vParam?.[1]) return vParam[1];
+  return null;
+}
+
+/**
+ * Facebook Reels and many Page videos expose plays on `/{video-id}/video_insights` (e.g. fb_reels_total_plays),
+ * while `/{post-id}/insights` often returns empty/zero for the same content.
+ */
+export async function fetchFacebookVideoInsightsLifetimeMap(
+  videoId: string,
+  accessToken: string
+): Promise<Record<string, number>> {
+  const metricNames = [
+    'fb_reels_total_plays',
+    'blue_reels_play_count',
+    'fb_reels_replay_count',
+    'post_impressions_unique',
+    'post_video_avg_time_watched',
+    'post_video_view_time',
+    'total_video_views',
+    'total_video_views_unique',
+    'total_video_views_organic',
+    'total_video_views_organic_unique',
+  ];
+  const unique = [...new Set(metricNames)];
+  const out: Record<string, number> = {};
+  for (let i = 0; i < unique.length; i += VIDEO_INSIGHT_PARALLEL) {
+    const chunk = unique.slice(i, i + VIDEO_INSIGHT_PARALLEL);
+    await Promise.all(
+      chunk.map(async (metric) => {
+        try {
+          const res = await axios.get(`${metaGraphInsightsBaseUrl}/${videoId}/video_insights`, {
+            params: { metric, period: 'lifetime', access_token: accessToken },
+            timeout: 12_000,
+            validateStatus: () => true,
+          });
+          const body = res.data as {
+            data?: Array<{ name: string; values?: Array<{ value?: unknown }>; total_value?: { value?: unknown } }>;
+            error?: { message?: string };
+          };
+          if (body.error || res.status !== 200) return;
+          const row = body.data?.find((d) => d.name === metric);
+          const v = extractPostInsightMetricValue(row);
+          if (v != null && v >= 0) out[metric] = v;
+        } catch {
+          /* skip */
+        }
+      })
+    );
+  }
+  return out;
+}
+
+/** Map video_insights metric names into post-insight compat keys used by the dashboard. */
+export function facebookVideoInsightsToPostCompat(raw: Record<string, number>): Record<string, number> {
+  const plays = Math.max(
+    raw.fb_reels_total_plays ?? 0,
+    raw.blue_reels_play_count ?? 0,
+    raw.total_video_views ?? 0,
+    raw.total_video_views_organic ?? 0
+  );
+  const reachU = Math.max(
+    raw.post_impressions_unique ?? 0,
+    raw.total_video_views_unique ?? 0,
+    raw.total_video_views_organic_unique ?? 0
+  );
+  const out: Record<string, number> = {};
+  if (plays > 0) {
+    out.post_video_views = plays;
+    out.post_media_view = plays;
+  }
+  if (reachU > 0) {
+    out.post_impressions_unique = reachU;
+    out.post_total_media_view_unique = reachU;
+  }
+  const avg = raw.post_video_avg_time_watched;
+  if (typeof avg === 'number' && avg >= 0) out.post_video_avg_time_watched = avg;
+  const vt = raw.post_video_view_time;
+  if (typeof vt === 'number' && vt >= 0) out.post_video_view_time = vt;
+  return out;
+}
+
 export function pickFacebookPostImpressionsFromInsightMap(m: Record<string, number>): {
   impressions: number;
   metricUsed: string | null;

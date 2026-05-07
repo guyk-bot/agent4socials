@@ -5,8 +5,11 @@ import { Platform, PostStatus } from '@prisma/client';
 import axios, { type AxiosResponse } from 'axios';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
 import {
+  extractFacebookCanonicalVideoIdFromPermalink,
+  facebookVideoInsightsToPostCompat,
   fetchAllPublishedPostsForPage,
   fetchAllPostsFeedForPage,
+  fetchFacebookVideoInsightsLifetimeMap,
   fetchPostLifetimeInsightMap,
   pickFacebookPostImpressionsFromInsightMap,
   sortFbPublishedPostsNewestFirst,
@@ -91,19 +94,22 @@ function isFacebookVideoLikeImportedRow(p: ImportedPostListRow): boolean {
   return false;
 }
 
-/** True when stored Graph lifetime map has no usable view signal (common when sync hit the insight cap on older ordering). */
-function facebookStoredInsightsLackViewSignal(meta: Record<string, unknown>): boolean {
-  const fi = meta.facebookInsights;
-  if (!fi || typeof fi !== 'object' || Array.isArray(fi)) return true;
-  const m = fi as Record<string, number>;
-  const signal = Math.max(
+function facebookInsightMapMaxViewSignal(m: Record<string, number> | undefined | null): number {
+  if (!m || typeof m !== 'object') return 0;
+  return Math.max(
     m.post_media_view ?? 0,
     m.post_total_media_view_unique ?? 0,
     m.post_video_views ?? 0,
     m.post_impressions ?? 0,
     m.post_impressions_unique ?? 0
   );
-  return signal === 0;
+}
+
+/** True when stored Graph lifetime map has no usable view signal (common when sync hit the insight cap on older ordering). */
+function facebookStoredInsightsLackViewSignal(meta: Record<string, unknown>): boolean {
+  const fi = meta.facebookInsights;
+  if (!fi || typeof fi !== 'object' || Array.isArray(fi)) return true;
+  return facebookInsightMapMaxViewSignal(fi as Record<string, number>) === 0;
 }
 
 function parseGraphInsightRowsToMap(
@@ -143,6 +149,7 @@ async function fetchFacebookPostSnapshotMap(postId: string, pageAccessToken: str
   const out: Record<string, number> = {};
   try {
     const res = await axios.get<{
+      permalink_url?: string;
       reactions?: { summary?: { total_count?: number } };
       comments?: { summary?: { total_count?: number } };
       shares?: { count?: number };
@@ -152,7 +159,7 @@ async function fetchFacebookPostSnapshotMap(postId: string, pageAccessToken: str
     }>(`${fbRestBaseUrl}/${postId}`, {
       params: {
         fields:
-          'reactions.summary(1),comments.summary(1),shares,insights.metric(post_media_view,post_total_media_view_unique,post_video_views,post_impressions,post_impressions_unique,post_reactions_like_total,post_comments,post_shares)',
+          'permalink_url,reactions.summary(1),comments.summary(1),shares,insights.metric(post_media_view,post_total_media_view_unique,post_video_views,post_impressions,post_impressions_unique,post_reactions_like_total,post_comments,post_shares)',
         access_token: pageAccessToken,
       },
       timeout: 12_000,
@@ -169,6 +176,17 @@ async function fetchFacebookPostSnapshotMap(postId: string, pageAccessToken: str
     const sharesFromInsights = typeof out.post_shares === 'number' && out.post_shares >= 0 ? out.post_shares : 0;
     /** Reels often omit or zero `post_shares` in insights while `shares.count` on the node is correct. */
     out.post_shares = Math.max(sharesFromObject, sharesFromInsights);
+
+    const permalinkUrl = typeof res.data.permalink_url === 'string' ? res.data.permalink_url : '';
+    const vid = extractFacebookCanonicalVideoIdFromPermalink(permalinkUrl);
+    if (vid && facebookInsightMapMaxViewSignal(out) === 0) {
+      try {
+        const rawVid = await fetchFacebookVideoInsightsLifetimeMap(vid, pageAccessToken);
+        Object.assign(out, facebookVideoInsightsToPostCompat(rawVid));
+      } catch {
+        /* best effort */
+      }
+    }
   } catch {
     // best effort
   }
@@ -673,6 +691,8 @@ async function upsertImportedPostWithFallback(args: {
  * - `liveEnrich=1`: opt-in live Facebook/Instagram Graph calls to fill missing post metrics on read
  *   (otherwise we only use DB + sync; avoids ShadowIGMedia/insights bursts on dashboard prefetch).
  *   Instagram media insights on read require `liveEnrich=1` (never implied by missing fields alone).
+ * - Facebook (default GET): capped snapshot + `video_insights` merge for video/Reels rows that still lack view
+ *   signals in DB, so Reel plays show without `liveEnrich=1`.
  */
 export async function GET(
   request: NextRequest,
@@ -1068,14 +1088,49 @@ export async function GET(
           await runWithConcurrency(candidates, 5, async (row) => {
             try {
               const map = await fetchPostLifetimeInsightMap(row.platformPostId, fbPageToken, [...metrics]);
-              const fallbackMap =
-                Object.keys(map).length > 0
-                  ? {}
-                  : await fetchFacebookPostSnapshotMap(row.platformPostId, fbPageToken);
-              const merged = mergeFacebookInsightMaps(map, fallbackMap);
+              let merged = mergeFacebookInsightMaps(map, {});
+              if (facebookInsightMapMaxViewSignal(merged) === 0) {
+                merged = mergeFacebookInsightMaps(merged, await fetchFacebookPostSnapshotMap(row.platformPostId, fbPageToken));
+              }
               if (merged && Object.keys(merged).length > 0) {
                 liveFacebookInsightsByPostId[row.platformPostId] = merged;
               }
+            } catch {
+              /* per-post best effort */
+            }
+          });
+        }
+      } catch {
+        /* best effort */
+      }
+    }
+
+    /**
+     * Facebook: ordinary dashboard reads skip `liveEnrich=1`, but Reels often only populate plays on
+     * `/{video-id}/video_insights`. Snapshot merge (above) handles that when live enrich runs; this capped path
+     * fixes zeros on default GET so charts update without a manual sync.
+     */
+    let facebookVideoReadMergeByPostId: Record<string, Record<string, number>> = {};
+    if (!liveEnrich && account.platform === 'FACEBOOK' && importedRows.length > 0) {
+      try {
+        const fbPageTokenRead = await resolveFacebookPageAccessToken(account.platformUserId, account.accessToken);
+        const videoReadCandidates = importedRows
+          .filter((p) => {
+            if (p.platform !== 'FACEBOOK') return false;
+            const meta =
+              p.platformMetadata && typeof p.platformMetadata === 'object' && !Array.isArray(p.platformMetadata)
+                ? (p.platformMetadata as Record<string, unknown>)
+                : {};
+            if (!facebookStoredInsightsLackViewSignal(meta)) return false;
+            return isFacebookVideoLikeImportedRow(p);
+          })
+          .slice(0, 14);
+
+        if (videoReadCandidates.length > 0) {
+          await runWithConcurrency(videoReadCandidates, 4, async (row) => {
+            try {
+              const snap = await fetchFacebookPostSnapshotMap(row.platformPostId, fbPageTokenRead);
+              if (Object.keys(snap).length > 0) facebookVideoReadMergeByPostId[row.platformPostId] = snap;
             } catch {
               /* per-post best effort */
             }
@@ -1464,7 +1519,10 @@ export async function GET(
           : undefined;
       const mergedFacebookInsights =
         p.platform === 'FACEBOOK'
-          ? mergeFacebookInsightMaps(dbFacebookInsights, liveFacebookInsightsByPostId[p.platformPostId])
+          ? mergeFacebookInsightMaps(
+              mergeFacebookInsightMaps(dbFacebookInsights, liveFacebookInsightsByPostId[p.platformPostId]),
+              facebookVideoReadMergeByPostId[p.platformPostId],
+            )
           : undefined;
       const facebookInsights =
         p.platform === 'FACEBOOK'
@@ -2217,11 +2275,29 @@ async function syncImportedPosts(
 
       let impressions = 0;
       let insightMap: Record<string, number> = {};
+      const videoLikeSync =
+        Boolean(p.status_type?.toUpperCase().includes('VIDEO')) ||
+        Boolean(p.status_type?.toUpperCase().includes('REEL')) ||
+        Boolean(p.attachments?.data?.some((a) => String(a.media_type ?? '').toLowerCase() === 'video'));
+
       if (idx < POST_INSIGHT_FETCH_CAP && postMetricsSlice.length > 0 && Date.now() < budgetDeadline) {
         try {
           insightMap = await fetchPostLifetimeInsightMap(p.id, fbPageToken, postMetricsSlice);
         } catch { /* best-effort */ }
         impressions = pickFacebookPostImpressionsFromInsightMap(insightMap).impressions;
+
+        if (videoLikeSync && facebookInsightMapMaxViewSignal(insightMap) === 0 && Date.now() < budgetDeadline) {
+          try {
+            const snap = await fetchFacebookPostSnapshotMap(p.id, fbPageToken);
+            const mergedInsights = mergeFacebookInsightMaps(insightMap, snap);
+            if (mergedInsights) {
+              insightMap = mergedInsights;
+              impressions = pickFacebookPostImpressionsFromInsightMap(insightMap).impressions;
+            }
+          } catch {
+            /* best-effort */
+          }
+        }
       } else if (idx >= POST_INSIGHT_FETCH_CAP) {
         const prev = await findImportedPostPrevSafe(socialAccountId, p.id);
         impressions = prev?.impressions ?? 0;
