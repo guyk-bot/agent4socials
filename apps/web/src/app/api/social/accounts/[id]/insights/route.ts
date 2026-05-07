@@ -29,6 +29,7 @@ import {
   fetchLinkedInMemberFollowersCountMe,
   fetchLinkedInOrganizationalEntityFollowerStatistics,
 } from '@/lib/linkedin/community-analytics';
+import { syncTikTokImportedVideos } from '@/lib/tiktok/sync-imported-videos';
 
 export const maxDuration = 60;
 
@@ -2380,6 +2381,19 @@ export async function GET(
       // TikTok: daily views in the selected range (by publish date) + lifetime total for hints.
       let hasSyncedTikTokPosts = false;
       try {
+        const existingTiktokPosts = await prisma.importedPost.count({
+          where: { socialAccountId: account.id, platform: 'TIKTOK' },
+        });
+        // Auto-heal: if analytics opens before posts sync filled ImportedPost, pull video.list now.
+        if (existingTiktokPosts === 0 && account.accessToken) {
+          const syncErr = await syncTikTokImportedVideos({
+            socialAccountId: account.id,
+            accessToken: account.accessToken,
+          });
+          if (syncErr) {
+            console.warn('[Insights] TikTok auto-sync:', syncErr);
+          }
+        }
         const sinceDay = sinceParam.slice(0, 10);
         const untilDay = untilParam.slice(0, 10);
         const allPosts = await prisma.importedPost.findMany({
