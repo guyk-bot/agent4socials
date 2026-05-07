@@ -1518,7 +1518,7 @@ function InboxPage() {
                             }
                           })();
                         }}
-                        className="shrink-0 p-1.5 rounded text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                        className="shrink-0 p-1.5 rounded text-neutral-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-neutral-700 transition-colors disabled:opacity-50"
                         title="Delete comment"
                       >
                         {deletingCommentId === c.commentId ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
@@ -2468,7 +2468,7 @@ function InboxPage() {
                             setDeletingCommentId(null);
                           }
                         }}
-                        className="shrink-0 p-1.5 rounded-md text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="shrink-0 p-1.5 rounded-md text-neutral-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-neutral-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Delete comment"
                       >
                         {deletingCommentId === selectedComment.commentId ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
@@ -2525,7 +2525,7 @@ function InboxPage() {
                                         setDeletingCommentId(null);
                                       }
                                     }}
-                                    className="shrink-0 p-1 rounded text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                                    className="shrink-0 p-1 rounded text-neutral-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-neutral-700 transition-colors disabled:opacity-50"
                                     title="Delete reply"
                                   >
                                     {deletingCommentId === r.commentId ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
