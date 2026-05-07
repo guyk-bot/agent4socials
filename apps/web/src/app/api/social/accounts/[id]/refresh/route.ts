@@ -3,6 +3,7 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
+import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 
 export async function PATCH(
   request: NextRequest,
@@ -29,9 +30,10 @@ export async function PATCH(
     account.platform !== 'TWITTER' &&
     account.platform !== 'TIKTOK' &&
     account.platform !== 'YOUTUBE' &&
-    account.platform !== 'PINTEREST'
+    account.platform !== 'PINTEREST' &&
+    account.platform !== 'LINKEDIN'
   ) {
-    return NextResponse.json({ message: 'Refresh supported for Instagram, Facebook, Twitter, TikTok, YouTube, and Pinterest only' }, { status: 400 });
+    return NextResponse.json({ message: 'Refresh supported for Instagram, Facebook, Twitter, TikTok, YouTube, LinkedIn, and Pinterest only' }, { status: 400 });
   }
   const token = account.accessToken;
   let username: string | undefined;
@@ -233,6 +235,16 @@ export async function PATCH(
         if (ua.data?.business_name) username = ua.data.business_name;
         else if (ua.data?.username) username = ua.data.username;
         if (ua.data?.profile_image) profilePicture = ua.data.profile_image;
+      } catch (_) {}
+    } else if (account.platform === 'LINKEDIN') {
+      try {
+        const userRes = await axios.get<{ sub?: string; name?: string; picture?: string }>(
+          'https://api.linkedin.com/v2/userinfo',
+          { headers: linkedInRestCommunityHeaders(token) }
+        );
+        if (userRes.data?.sub) platformUserId = userRes.data.sub;
+        if (userRes.data?.name) username = userRes.data.name;
+        if (userRes.data?.picture) profilePicture = userRes.data.picture;
       } catch (_) {}
     }
     const data: { username?: string; profilePicture?: string; platformUserId?: string } = {};
