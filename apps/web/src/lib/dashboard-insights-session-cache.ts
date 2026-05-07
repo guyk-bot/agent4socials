@@ -195,3 +195,14 @@ export function writeDashboardInsightsSession(
     // quota or private mode
   }
 }
+
+/** Drop persisted insights for one account (e.g. after TikTok video sync fills ImportedPost so the next insights fetch includes views). */
+export function clearStoredInsightsForAccount(userId: string, accountId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(sessionKey(userId, accountId));
+    localStorage.removeItem(lsKey(accountId));
+  } catch {
+    // ignore
+  }
+}

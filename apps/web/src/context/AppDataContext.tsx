@@ -88,6 +88,8 @@ type AppDataContextType = {
   getEngagement: (accountId: string) => CachedEngagement[] | undefined;
   setPostsForAccount: (accountId: string, posts: CachedPost[]) => void;
   setInsightsForAccount: (accountId: string, insights: CachedInsights) => void;
+  /** Remove cached insights for one account without clearing posts/comments (dashboard TikTok refresh after video.list). */
+  clearInsightsForAccount: (accountId: string) => void;
   clearAccountData: (accountId: string) => void;
   setCommentsForAccount: (accountId: string, comments: CachedComment[]) => void;
   setConversationsForAccount: (accountId: string, conversations: CachedConversation[]) => void;
@@ -206,6 +208,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       [accountId]: stripLegacyInsightsHint(insights) as CachedInsights,
     }));
+  }, []);
+
+  const clearInsightsForAccount = useCallback((accountId: string) => {
+    setInsightsByAccountId((prev) => {
+      const next = { ...prev };
+      delete next[accountId];
+      return next;
+    });
   }, []);
 
   const clearAccountData = useCallback((accountId: string) => {
@@ -528,6 +538,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       getEngagement,
       setPostsForAccount,
       setInsightsForAccount,
+      clearInsightsForAccount,
       clearAccountData,
       setCommentsForAccount,
       setConversationsForAccount,
@@ -557,6 +568,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       getEngagement,
       setPostsForAccount,
       setInsightsForAccount,
+      clearInsightsForAccount,
       clearAccountData,
       setCommentsForAccount,
       setConversationsForAccount,

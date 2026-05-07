@@ -11,7 +11,15 @@ import { useAppData, getDefaultDateRange } from '@/context/AppDataContext';
 import { useSelectedAccount, useResolvedSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import api from '@/lib/api';
-import { readDashboardInsightsSession, writeDashboardInsightsSession, readInsightsFromLocalStorage, readYouTubeExtendedCache, writeYouTubeExtendedCache, STALE_CACHE_MAX_AGE_MS } from '@/lib/dashboard-insights-session-cache';
+import {
+  readDashboardInsightsSession,
+  writeDashboardInsightsSession,
+  readInsightsFromLocalStorage,
+  readYouTubeExtendedCache,
+  writeYouTubeExtendedCache,
+  STALE_CACHE_MAX_AGE_MS,
+  clearStoredInsightsForAccount,
+} from '@/lib/dashboard-insights-session-cache';
 import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
 import {
   localCalendarDateFromIso,
@@ -294,8 +302,21 @@ export default function DashboardPage() {
   appDataRef.current = appData;
   const userIdRef = useRef<string | undefined>(undefined);
   userIdRef.current = user?.id;
+  /** Keeps posts-fetch callbacks aligned with the selected analytics account for TikTok insights invalidation. */
+  const selectedAccountRef = useRef<SocialAccount | null>(null);
+  /** TikTok: after `video.list` ingest, bump seal so insights cache locks reopen and stored zeros refresh. */
+  const invalidateInsightsCachesAfterTikTokSyncRef = useRef<(accountId: string) => void>(() => {});
+  const afterTikTokPostsImportIfNeededRef = useRef<
+    (
+      accountId: string,
+      platform: string | undefined,
+      requestParams: { sync?: number },
+      syncError: string | null | undefined
+    ) => void
+  >(() => {});
   const { selectedPlatformForConnect, clearSelection, setSelectedAccountId, setSelectedPlatformForConnect } = useSelectedAccount() ?? { selectedPlatformForConnect: null, clearSelection: () => {}, setSelectedAccountId: () => {}, setSelectedPlatformForConnect: () => {} };
   const selectedAccount = useResolvedSelectedAccount(cachedAccounts as SocialAccount[]);
+  selectedAccountRef.current = selectedAccount;
   const [justConnected, setJustConnected] = useState(false);
   const connectingParam = searchParams.get('connecting');
 
@@ -333,6 +354,8 @@ export default function DashboardPage() {
   const [postsSyncError, setPostsSyncError] = useState<string | null>(null);
   const [allPostsSyncError, setAllPostsSyncError] = useState<string | null>(null);
   const [syncAllTrigger, setSyncAllTrigger] = useState(0);
+  /** Increments when TikTok posts sync completes for the selected account so insights refetch includes ImportedPost metrics. */
+  const [tiktokInsightsResyncSeal, setTiktokInsightsResyncSeal] = useState(0);
   const [dateRange, setDateRange] = useState(() => getDefaultDateRange());
   /**
    * Hydrate date range from session storage only once per mounted dashboard.
@@ -741,9 +764,9 @@ export default function DashboardPage() {
         // in the background; updates should come from explicit sync actions.
         if (hasAnyCachedPosts) return;
         if (skipInstagramAutoRefresh && hasAnyCachedPosts && !shouldBackgroundSyncPosts()) return;
-        api.get(`/social/accounts/${accountId}/posts`, {
-          params: shouldBackgroundSyncPosts() ? { sync: 1 } : (postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {}),
-        })
+        const bgParams =
+          shouldBackgroundSyncPosts() ? { sync: 1 } : postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {};
+        api.get(`/social/accounts/${accountId}/posts`, { params: bgParams })
           .then((res) => {
             const list = res.data?.posts ?? [];
             postsCacheRef.current[accountId] = list;
@@ -751,6 +774,12 @@ export default function DashboardPage() {
             accountPostsLastSyncAtRef.current[accountId] = Date.now();
             appDataRef.current?.setPostsForAccount(accountId, list);
             if (shouldApplyVisibleChartUpdate() && selectedAccountIdRef.current === accountId) setImportedPosts(list);
+            afterTikTokPostsImportIfNeededRef.current(
+              accountId,
+              selectedAccount?.platform,
+              bgParams,
+              res.data?.syncError ?? null
+            );
           })
           .catch(() => {});
       };
@@ -787,9 +816,8 @@ export default function DashboardPage() {
         return;
       }
       setImportedPostsLoading(true);
-      api.get(`/social/accounts/${accountId}/posts`, {
-        params: postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {},
-      })
+      const primaryPostsParams = postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {};
+      api.get(`/social/accounts/${accountId}/posts`, { params: primaryPostsParams })
         .then((res) => {
           const list = res.data?.posts ?? [];
           postsCacheRef.current[accountId] = list;
@@ -798,6 +826,12 @@ export default function DashboardPage() {
           appDataRef.current?.setPostsForAccount(accountId, list);
           if (shouldApplyVisibleChartUpdate()) setImportedPosts(list);
           setPostsSyncError(res.data?.syncError ?? null);
+          afterTikTokPostsImportIfNeededRef.current(
+            accountId,
+            selectedAccount?.platform,
+            primaryPostsParams,
+            res.data?.syncError ?? null
+          );
         })
         .catch(() => { setPostsSyncError(null); })
         .finally(() => setImportedPostsLoading(false));
@@ -820,11 +854,13 @@ export default function DashboardPage() {
       (async () => {
         for (const acc of accounts) {
           try {
-            const r = await api.get(`/social/accounts/${acc.id}/posts`, { params: withSync ? { sync: 1 } : {}, timeout: timeoutMs });
+            const multiParams = withSync ? { sync: 1 } : {};
+            const r = await api.get(`/social/accounts/${acc.id}/posts`, { params: multiParams, timeout: timeoutMs });
             const posts = r.data?.posts ?? [];
             results.push({ posts, syncError: r.data?.syncError as string | undefined });
             if (r.data?.syncError) errors.push(r.data.syncError as string);
             appDataRef.current?.setPostsForAccount(acc.id, posts);
+            afterTikTokPostsImportIfNeededRef.current(acc.id, acc.platform, multiParams, r.data?.syncError ?? null);
           } catch (err: unknown) {
             const e = err as { response?: { status?: number; data?: { message?: string } }; message?: string };
             const msg = e?.response?.data?.message ?? e?.message ?? 'Request failed';
@@ -895,6 +931,28 @@ export default function DashboardPage() {
   const insightsRunKeyRef = useRef<string>('');
   const aggregatedCacheRef = useRef<{ key: string; data: { totalFollowers: number; totalImpressions: number; totalReach: number; totalProfileViews: number; totalPageViews: number; byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>; combinedTimeSeries: Array<{ date: string; value: number }> } } | null>(null);
 
+  invalidateInsightsCachesAfterTikTokSyncRef.current = (accountId: string) => {
+    const uid = userIdRef.current;
+    if (uid) clearStoredInsightsForAccount(uid, accountId);
+    Object.keys(insightsCacheRef.current).forEach((k) => {
+      if (k.startsWith(accountId + '-')) delete insightsCacheRef.current[k];
+    });
+    delete lastInsightsByAccountIdRef.current[accountId];
+    appDataRef.current?.clearInsightsForAccount(accountId);
+    setTiktokInsightsResyncSeal((n) => n + 1);
+  };
+
+  afterTikTokPostsImportIfNeededRef.current = (
+    accountId: string,
+    platform: string | undefined,
+    requestParams: { sync?: number },
+    syncError: string | null | undefined
+  ) => {
+    if (platform !== 'TIKTOK' || Number(requestParams.sync) !== 1 || syncError) return;
+    if (selectedAccountRef.current?.id !== accountId) return;
+    invalidateInsightsCachesAfterTikTokSyncRef.current(accountId);
+  };
+
   // Seed range cache + last-insights from AppData as soon as it exists (localStorage rehydrate or prefetch), no need to wait for prefetchStatus.
   useEffect(() => {
     if (!accounts.length) return;
@@ -924,7 +982,7 @@ export default function DashboardPage() {
     // `insightsRunKeyRef` above for the reasoning. This prevents Phase 2 /
     // prefetchStatus flips from replaying the effect and swapping the
     // already-rendered chart data.
-    const runKey = `${selectedAccount.id}:${dateRange.start}:${dateRange.end}:${syncAllTrigger}:${justConnected ? 1 : 0}`;
+    const runKey = `${selectedAccount.id}:${dateRange.start}:${dateRange.end}:${syncAllTrigger}:${justConnected ? 1 : 0}:${tiktokInsightsResyncSeal}`;
     if (insightsRunKeyRef.current === runKey) return;
     insightsRunKeyRef.current = runKey;
     const prevAccountId = selectedAccountIdRef.current;
@@ -1202,15 +1260,20 @@ export default function DashboardPage() {
           setImportedPostsLoading(false);
         } else {
           setImportedPostsLoading(true);
-          api.get(`/social/accounts/${accountId}/posts`, {
-            params: postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {},
-          })
+          const insightsPostsParams = postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {};
+          api.get(`/social/accounts/${accountId}/posts`, { params: insightsPostsParams })
             .then((postsRes) => {
               const list = postsRes.data?.posts ?? [];
               postsCacheRef.current[accountId] = list;
               appDataRef.current?.setPostsForAccount(accountId, list);
               if (selectedAccountIdRef.current === accountId) setImportedPosts(list);
               setPostsSyncError(postsRes.data?.syncError ?? null);
+              afterTikTokPostsImportIfNeededRef.current(
+                accountId,
+                selectedAccount?.platform,
+                insightsPostsParams,
+                postsRes.data?.syncError ?? null
+              );
             })
             .catch(() => setPostsSyncError(null))
             .finally(() => setImportedPostsLoading(false));
@@ -1351,13 +1414,20 @@ export default function DashboardPage() {
         setImportedPosts(postsCached);
       } else {
         // Fetch posts in background
-        const fastPostsPromise = api.get(`/social/accounts/${accountId}/posts`);
+        const fastPostsParams = postImportSyncOnFirstLoad(selectedAccount?.platform) ? { sync: 1 } : {};
+        const fastPostsPromise = api.get(`/social/accounts/${accountId}/posts`, { params: fastPostsParams });
         fastPostsPromise
           .then((postsRes) => {
             const list = postsRes.data?.posts ?? [];
             postsCacheRef.current[accountId] = list;
             appDataRef.current?.setPostsForAccount(accountId, list);
             if (shouldApplyVisibleChartUpdate() && selectedAccountIdRef.current === accountId) setImportedPosts(list);
+            afterTikTokPostsImportIfNeededRef.current(
+              accountId,
+              selectedAccount?.platform,
+              fastPostsParams,
+              postsRes.data?.syncError ?? null
+            );
           })
           .catch(() => {})
           .finally(() => setImportedPostsLoading(false));
@@ -1366,7 +1436,18 @@ export default function DashboardPage() {
 
   // `appData?.prefetchPhase2Done` is intentionally omitted: its flip should not auto-swap
   // the insights we already rendered. The user sees fresh data only after explicit sync.
-  }, [analyticsTab, selectedAccount?.id, selectedAccount?.platform, dateRange.start, dateRange.end, syncAllTrigger, justConnected, appData?.prefetchStatus, appData?.cacheRehydrated]);
+  }, [
+    analyticsTab,
+    selectedAccount?.id,
+    selectedAccount?.platform,
+    dateRange.start,
+    dateRange.end,
+    syncAllTrigger,
+    justConnected,
+    tiktokInsightsResyncSeal,
+    appData?.prefetchStatus,
+    appData?.cacheRehydrated,
+  ]);
 
   // Facebook Page reviews (pages_read_user_content)
   useEffect(() => {
@@ -2055,7 +2136,7 @@ export default function DashboardPage() {
                   syncType: 'manual',
                   force: true,
                 });
-                const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { force: 1 } });
+                const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1, force: 1 } });
                 const list = res.data?.posts ?? [];
                 const syncErr = res.data?.syncError as string | undefined;
                 const aid = selectedAccount.id;

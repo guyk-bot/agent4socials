@@ -18,7 +18,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | Publish to platforms (incl. Pinterest, TikTok Direct Post video + photo `/content/init`) | `apps/web/src/lib/publish-target.ts`, `apps/web/src/lib/tiktok/tiktok-publish-compliance.ts`, `apps/web/src/app/api/posts/[id]/publish/route.ts` |
 | TikTok creator_info for composer | `apps/web/src/app/api/social/accounts/[id]/tiktok-creator-info/route.ts` |
 | Imported posts list, sync, Pinterest thumbnails | `apps/web/src/app/api/social/accounts/[id]/posts/route.ts` (YouTube: live `videos.list` refresh + `lib/youtube/fetch-video-stats-batch.ts`) |
-| TikTok video.list engagement parsing (shares; favorites_count parsed but optional in DB) | `apps/web/src/lib/tiktok/video-engagement.ts`, `apps/web/src/lib/sync/adapters/tiktok.ts` |
+| TikTok video.list → `ImportedPost` (OAuth + GET posts sync), engagement parsing | `apps/web/src/lib/tiktok/sync-imported-videos.ts`, `apps/web/src/lib/tiktok/video-engagement.ts`, `apps/web/src/lib/sync/adapters/tiktok.ts` |
 | Insights JSON for dashboard | `apps/web/src/app/api/social/accounts/[id]/insights/route.ts` |
 | Facebook / IG / TikTok analytics UI (TikTok hides Traffic; engagement is likes, comments, shares) | `apps/web/src/components/analytics/facebook/FacebookAnalyticsView.tsx`, `types.ts` |
 | YouTube analytics: expandable raw JSON (synced videos + insights) | `apps/web/src/components/analytics/AnalyticsLocalJsonPanel.tsx` (used from `FacebookAnalyticsView.tsx`) |

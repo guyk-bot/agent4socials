@@ -6,6 +6,7 @@ import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { ensureBootstrapSnapshotForToday } from '@/lib/analytics/metric-snapshots';
 import { ensurePinterestPlatformEnum } from '@/lib/ensure-pinterest-platform-enum';
 import { ensureSocialAccountOAuthSchema } from '@/lib/ensure-social-account-oauth-schema';
+import { syncTikTokImportedVideos } from '@/lib/tiktok/sync-imported-videos';
 import { fetchLinkedInRestPersonUrn } from '@/lib/linkedin/rest-person';
 import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'PINTEREST'] as const;
@@ -1188,6 +1189,16 @@ export async function GET(
     where: { userId, platform: plat, platformUserId: tokenData.platformUserId },
     select: { id: true, userId: true, platform: true, platformUserId: true, accessToken: true, credentialsJson: true },
   });
+  if (mainAccount?.accessToken && plat === 'TIKTOK') {
+    try {
+      await syncTikTokImportedVideos({
+        socialAccountId: mainAccount.id,
+        accessToken: mainAccount.accessToken,
+      });
+    } catch (e) {
+      console.warn('[OAuth] TikTok video.list ingest:', (e as Error)?.message ?? e);
+    }
+  }
   // Bootstrap follower/following snapshot for Instagram and Facebook only (YouTube excluded).
   if (mainAccount && (plat === 'INSTAGRAM' || plat === 'FACEBOOK')) {
     try {
