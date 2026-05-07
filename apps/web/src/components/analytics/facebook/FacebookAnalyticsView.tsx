@@ -425,6 +425,10 @@ const REEL_PRESET_METRICS_FB_IG: Record<'performance' | 'engagement', ReelMetric
   performance: ['views', 'watchTime', 'avgWatch'],
   engagement: ['likes', 'comments', 'shares'],
 };
+const REEL_PRESET_METRICS_PINTEREST: Record<'performance' | 'engagement', ReelMetricKey[]> = {
+  performance: ['views', 'shares'],
+  engagement: ['likes', 'comments', 'shares'],
+};
 
 function formatPercent(v: number): string {
   return `${(v * 100).toFixed(v < 0.1 ? 2 : 1)}%`;
@@ -2135,6 +2139,7 @@ export function PostsPerformanceTable({
 }) {
   const platUpper = (platform ?? '').toUpperCase();
   const compactVideoTable = platUpper === 'TIKTOK' || platUpper === 'LINKEDIN' || platUpper === 'TWITTER';
+  const hideWatchMetrics = compactVideoTable || platUpper === 'PINTEREST';
   // Disabled hover-zoom preview in Content History rows per UX request.
 
   const tableHeaders: Array<{ label: string; className: string; title?: string }> = [
@@ -2148,7 +2153,7 @@ export function PostsPerformanceTable({
     { label: 'Reactions', className: 'w-[88px]' },
     ...(showCommentsColumn ? [{ label: 'Comments', className: 'w-[88px]' }] : []),
     ...(showSharesColumn ? [{ label: sharesColumnLabel, className: 'w-[92px]' }] : []),
-    ...(compactVideoTable
+    ...(hideWatchMetrics
       ? []
       : [
           {
@@ -2256,7 +2261,7 @@ export function PostsPerformanceTable({
                 {showSharesColumn ? (
                   <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(bestShareCount(r.rawPost))}</td>
                 ) : null}
-                {!compactVideoTable ? (
+                {!hideWatchMetrics ? (
                   <>
                     <td
                       className="pl-5 pr-3 py-3"
@@ -2337,7 +2342,7 @@ export function PostsPerformanceTable({
               </span>
               <span>Views {formatNumber(r.views)}</span>
               {!compactVideoTable ? <span>Reach {formatNumber(r.uniqueReach)}</span> : null}
-              {!compactVideoTable ? (
+              {!hideWatchMetrics ? (
                 <>
                   <span title={platUpper === 'YOUTUBE' ? 'Not available per video from YouTube Data API' : undefined}>
                     {platUpper === 'YOUTUBE' ? 'Watch —' : r.watchTimeMs > 0 ? `Watch ${formatDurationMs(r.watchTimeMs)}` : 'Watch -'}
@@ -2783,6 +2788,8 @@ export function FacebookAnalyticsView({
     }
     if (insights?.platform?.toUpperCase() === 'PINTEREST') {
       setSelectedEngagementMetrics(['likes', 'comments', 'shares']);
+      setReelPreset('performance');
+      setSelectedReelMetrics([...REEL_PRESET_METRICS_PINTEREST.performance]);
       return;
     }
     if (insights?.platform?.toUpperCase() !== 'TIKTOK') return;
@@ -6470,7 +6477,7 @@ type PostsUploadDayTooltipAgg = {
           {([
             { id: 'performance' as const, label: 'Performance' },
             { id: 'engagement' as const, label: 'Engagement' },
-            ...(!isTikTok && !isFacebook && !isInstagram && !isTwitter ? [{ id: 'watch' as const, label: 'Watch' }] : []),
+            ...(!isTikTok && !isFacebook && !isInstagram && !isTwitter && !isPinterest ? [{ id: 'watch' as const, label: 'Watch' }] : []),
           ]).map((preset) => (
             <button
               key={preset.id}
@@ -6484,6 +6491,12 @@ type PostsUploadDayTooltipAgg = {
                     preset.id === 'performance'
                       ? [...REEL_PRESET_METRICS_FB_IG.performance]
                       : [...REEL_PRESET_METRICS_FB_IG.engagement]
+                  );
+                } else if (isPinterest) {
+                  setSelectedReelMetrics(
+                    preset.id === 'performance'
+                      ? [...REEL_PRESET_METRICS_PINTEREST.performance]
+                      : [...REEL_PRESET_METRICS_PINTEREST.engagement]
                   );
                 } else {
                   setSelectedReelMetrics([...REEL_PRESET_METRICS[preset.id]]);
@@ -6511,7 +6524,7 @@ type PostsUploadDayTooltipAgg = {
             active={selectedReelMetrics.includes('views')}
             onClick={() => setSelectedReelMetrics((prev) => prev.includes('views') ? prev.filter((m) => m !== 'views') : [...prev, 'views'])}
           />
-          {!isTikTok && !isTwitter ? (
+          {!isTikTok && !isTwitter && !isPinterest ? (
             <>
               <MetricCard
                 label="Watch Time"
@@ -6650,8 +6663,8 @@ type PostsUploadDayTooltipAgg = {
                 {selectedReelMetrics.includes('comments') ? <Bar dataKey="comments" fill={REEL_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} /> : null}
                 {selectedReelMetrics.includes('shares') ? <Bar dataKey="shares" fill={REEL_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} /> : null}
                 {isInstagram && selectedReelMetrics.includes('reposts') ? <Bar dataKey="reposts" fill={REEL_METRIC_CONFIG.reposts.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} /> : null}
-                {selectedReelMetrics.includes('watchTime') ? <Bar dataKey="watchTimeMinutes" fill={REEL_METRIC_CONFIG.watchTime.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} /> : null}
-                {selectedReelMetrics.includes('avgWatch') ? <Bar dataKey="avgWatchSeconds" fill={REEL_METRIC_CONFIG.avgWatch.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} /> : null}
+                {selectedReelMetrics.includes('watchTime') && !isPinterest ? <Bar dataKey="watchTimeMinutes" fill={REEL_METRIC_CONFIG.watchTime.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} /> : null}
+                {selectedReelMetrics.includes('avgWatch') && !isPinterest ? <Bar dataKey="avgWatchSeconds" fill={REEL_METRIC_CONFIG.avgWatch.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} /> : null}
               </BarChart>
             </ResponsiveContainer>
           )}
