@@ -16,6 +16,8 @@ import { syncAccount } from '@/lib/sync/engine';
 import type { SyncScope, SyncType } from '@/lib/sync/config';
 import { trackUsage } from '@/lib/usage-tracking';
 
+export const maxDuration = 60;
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

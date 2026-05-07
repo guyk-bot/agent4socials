@@ -72,7 +72,8 @@ async function syncRecentContent(account: AccountRow) {
     let cursor: number | string | undefined;
     let hasMore = true;
     let pages = 0;
-    while (hasMore && pages < 10) {
+    // Keep to 3 pages (60 most-recent videos) so the call fits within Vercel's 60s function limit.
+    while (hasMore && pages < 3) {
       const body: { max_count: number; cursor?: number | string } = { max_count: 20 };
       if (cursor != null) body.cursor = cursor;
       const res = await axios.post<{
@@ -86,7 +87,7 @@ async function syncRecentContent(account: AccountRow) {
             Authorization: `Bearer ${account.accessToken}`,
             'Content-Type': 'application/json',
           },
-          timeout: 20_000,
+          timeout: 8_000,
           validateStatus: () => true,
         }
       );

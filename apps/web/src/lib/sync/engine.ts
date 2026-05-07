@@ -506,7 +506,9 @@ export async function getAccountSyncStatus(socialAccountId: string): Promise<{
       where: {
         socialAccountId,
         status: { in: ['queued', 'running'] },
-        createdAt: { gte: new Date(Date.now() - 10 * 60_000) }, // only jobs from last 10 min
+        // Vercel functions are killed after 60s; treat any job older than 90s as dead
+        // so the UI spinner clears automatically instead of staying stuck for 10 minutes.
+        createdAt: { gte: new Date(Date.now() - 90_000) },
       },
       orderBy: { createdAt: 'desc' },
       select: { id: true, scope: true, syncType: true, startedAt: true },
