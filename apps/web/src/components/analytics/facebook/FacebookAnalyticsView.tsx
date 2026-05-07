@@ -2016,23 +2016,23 @@ function YoutubeVideosAnalyticsPanel({
                     };
                     if (!active || !payload?.length) return null;
                     const row = payload[0]?.payload;
-                    const kv = payload
-                      .filter((p) => typeof p.value === 'number' && typeof p.dataKey === 'string')
-                      .map((p) => ({
-                        key: p.dataKey as ReelMetricKey | 'watchTimeMinutes' | 'avgWatchSeconds' | 'dislikes',
-                        value: p.value ?? 0,
-                      }));
+                    const rowAny = row as Record<string, unknown> | undefined;
+                    const kv = [
+                      { key: 'views', label: 'Total Video Views', value: Number(rowAny?.views ?? 0) },
+                      { key: 'watchTimeMinutes', label: 'Watch Time', value: Number(rowAny?.watchTimeMinutes ?? 0) },
+                      { key: 'avgWatchSeconds', label: 'Avg Watch Time', value: Number(rowAny?.avgWatchSeconds ?? 0) },
+                      { key: 'likes', label: 'Likes', value: Number(rowAny?.likes ?? 0) },
+                      { key: 'comments', label: 'Comments', value: Number(rowAny?.comments ?? 0) },
+                      { key: 'shares', label: 'Shares', value: Number(rowAny?.shares ?? 0) },
+                      { key: 'dislikes', label: 'Dislikes', value: Number(rowAny?.dislikes ?? 0) },
+                    ];
                     return (
                       <div className="rounded-xl border px-3 py-2 text-xs shadow-lg" style={{ background: '#ffffff', borderColor: COLOR.border }}>
                         <p className="font-medium mb-1.5" style={{ color: COLOR.text }}>{formatShortDate(String(label ?? ''))}</p>
                         {row?.thumbnailUrl ? <img src={row.thumbnailUrl} alt="" className="mb-2 h-10 w-10 rounded object-cover" /> : null}
                         {kv.map((item) => (
                           <p key={item.key} style={{ color: COLOR.textSecondary }}>
-                            {item.key === 'watchTimeMinutes'
-                              ? 'Watch Time'
-                              : item.key === 'avgWatchSeconds'
-                                ? 'Avg Watch'
-                                : REEL_METRIC_CONFIG[item.key as ReelMetricKey]?.label ?? item.key}
+                            {item.label}
                             :{' '}
                             {item.key === 'watchTimeMinutes'
                               ? `${item.value.toFixed(1)}m`
@@ -3288,7 +3288,11 @@ export function FacebookAnalyticsView({
       }));
     }
     if (isYouTube) {
-      const viewsMap = seriesToMap(insights?.impressionsTimeSeries ?? []);
+      const apiViewsMap = seriesToMap(insights?.impressionsTimeSeries ?? []);
+      const postViewsMap = seriesToMap(
+        aggregatePostsByDayValue(postsInRange, (p) => p.impressions ?? bestPostPlayCount(p))
+      );
+      const viewsMap = mergeSeriesMapsMax(apiViewsMap, postViewsMap);
       const engagementByDate: Record<string, number> = {};
       for (const p of postsInRange) {
         const d = localCalendarDateFromIso(p.publishedAt);
@@ -4270,15 +4274,22 @@ type PostsUploadDayTooltipAgg = {
 
   const youtubeUnifiedPanelKpis = useMemo(() => {
     if (!isYouTube) return null;
-    const tot = youtubeAllVideoRows.reduce((s, r) => s + r.views, 0);
-    return buildYoutubeReelPanelKpis(youtubeAllVideoRows, {
-      viewShare: 1,
-      dislikesTotal,
-      bothViewsSum: tot,
-      youtubeEstimatedWatchMinutes,
-      youtubeAvgViewDurationSec,
-    });
-  }, [isYouTube, youtubeAllVideoRows, dislikesTotal, youtubeEstimatedWatchMinutes, youtubeAvgViewDurationSec]);
+    const totalViews = youtubeUnifiedVideoChartData.reduce((s, r) => s + (r.views ?? 0), 0);
+    const totalWatchMinutes = youtubeUnifiedVideoChartData.reduce((s, r) => s + (r.watchTimeMinutes ?? 0), 0);
+    const weightedAvgWatchSeconds =
+      totalViews > 0
+        ? youtubeUnifiedVideoChartData.reduce((s, r) => s + (r.avgWatchSeconds ?? 0) * (r.views ?? 0), 0) / totalViews
+        : 0;
+    return {
+      totalViews,
+      totalWatchMsDisplay: Math.round(totalWatchMinutes * 60000),
+      avgWatchMsDisplay: Math.round(weightedAvgWatchSeconds * 1000),
+      likes: youtubeUnifiedVideoChartData.reduce((s, r) => s + (r.likes ?? 0), 0),
+      comments: youtubeUnifiedVideoChartData.reduce((s, r) => s + (r.comments ?? 0), 0),
+      shares: youtubeUnifiedVideoChartData.reduce((s, r) => s + (r.shares ?? 0), 0),
+      dislikesKpi: Math.round(youtubeUnifiedVideoChartData.reduce((s, r) => s + (r.dislikes ?? 0), 0)),
+    } as YoutubeReelPanelKpis;
+  }, [isYouTube, youtubeUnifiedVideoChartData]);
 
   const reelPerformanceChartHeightPx = useMemo(() => {
     const n = reelsChartData.length;
