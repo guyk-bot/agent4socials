@@ -279,7 +279,11 @@ function postsSyncParamsForPlatform(platform: string | undefined): { sync?: 1; f
   return { sync: 1 };
 }
 
-/** Keep Page-level chart bundles when a refresh omits them (same idea as manual Sync merge). */
+/**
+ * Keep Page-level chart bundles when a same-range refresh omits them (e.g. transient API error).
+ * NEVER called when the date range has changed — stale period-specific data from the previous
+ * window would cause engagement / impressions / traffic to appear stuck.
+ */
 function mergeFacebookPageInsightsPreserve(
   data: Record<string, unknown>,
   prev: Record<string, unknown> | null | undefined
@@ -1134,6 +1138,11 @@ export default function DashboardPage() {
       }
 
       if (selectedAccount?.platform === 'FACEBOOK') {
+        // When the date range changed, never carry period-specific data (engagement, impressions,
+        // traffic) from a different time window — it would appear stuck even though the API
+        // already returned new data for the new range.  Same-range refreshes (manual sync,
+        // background poll) still get the preserve treatment to prevent chart blanking.
+        if (isDateRangeChange) return { ...data };
         return mergeFacebookPageInsightsPreserve({ ...data }, prev);
       }
 

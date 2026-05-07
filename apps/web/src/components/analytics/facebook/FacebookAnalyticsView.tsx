@@ -3182,6 +3182,35 @@ export function FacebookAnalyticsView({
     return null;
   }, [isYouTube, selectedStoryMetrics]);
   const newFollowers = bundle?.totals.dailyFollows ?? 0;
+
+  /** Net new followers/fans gained during the selected period (Facebook: from fan_adds - fan_removes daily data). */
+  const fbNetNewFollowersInPeriod = useMemo(() => {
+    if (!isFacebook) return 0;
+    const gt = insights?.growthTimeSeries;
+    if (!Array.isArray(gt) || gt.length === 0) return newFollowers;
+    return gt.reduce((s, p) => {
+      const net = typeof p.net === 'number' && Number.isFinite(p.net)
+        ? p.net
+        : (Number(p.gained) || 0) - (Number(p.lost) || 0);
+      return s + net;
+    }, 0);
+  }, [isFacebook, insights?.growthTimeSeries, newFollowers]);
+
+  /** Net new subscribers gained during the selected period (YouTube: summed from daily gained-lost data). */
+  const youtubeNetNewFollowersInPeriod = useMemo(() => {
+    if (!isYouTube) return 0;
+    return Object.values(youtubeGrowthNetByDate).reduce((s, v) => s + v, 0);
+  }, [isYouTube, youtubeGrowthNetByDate]);
+
+  /** Net new followers gained during the selected period (Instagram: last followersTimeSeries point minus first). */
+  const igNetNewFollowersInPeriod = useMemo(() => {
+    if (!isInstagram) return 0;
+    const ts = insights?.followersTimeSeries;
+    if (!Array.isArray(ts) || ts.length < 2) return 0;
+    const sorted = [...ts].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    return (sorted[sorted.length - 1]?.value ?? 0) - (sorted[0]?.value ?? 0);
+  }, [isInstagram, insights?.followersTimeSeries]);
+
   const derivedPostViewsInRange = useMemo(
     () => postsInRange.reduce((s, p) => s + bestPostPlayCount(p), 0),
     [postsInRange]
@@ -5232,10 +5261,10 @@ type PostsUploadDayTooltipAgg = {
             <>
               <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <SparklineMetricCard
-                  label="Subscribers (total)"
-                  source="Current channel subscribers from YouTube channel statistics. Sparkline shows net gained minus lost per day in selected range."
+                  label="New Subscribers"
+                  source={`Net subscribers gained in selected period (YouTube Analytics: subscribersGained - subscribersLost). Total: ${formatNumber(totalFollowers)}`}
                   color={COLOR.mint}
-                  value={formatNumber(totalFollowers)}
+                  value={formatNumber(youtubeNetNewFollowersInPeriod !== 0 ? youtubeNetNewFollowersInPeriod : totalFollowers)}
                   series={growthSparklineSeries.follows}
                   active={isCardSelected('followers')}
                   onClick={() => toggleStoryMetric('followers')}
@@ -5263,10 +5292,18 @@ type PostsUploadDayTooltipAgg = {
           ) : (
           <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <SparklineMetricCard
-              label="Followers"
-              source={isInstagram ? 'Instagram profile (followers_count)' : 'fan_count/followers_count'}
+              label={isFacebook ? 'New Followers' : 'New Followers'}
+              source={
+                isFacebook
+                  ? `Net new fans in selected period (page_fan_adds - page_fan_removes). Total: ${formatNumber(totalFollowers)}`
+                  : `Net new followers in selected period (snapshot delta). Total: ${formatNumber(totalFollowers)}`
+              }
               color={COLOR.mint}
-              value={formatNumber(totalFollowers)}
+              value={formatNumber(
+                isFacebook
+                  ? (fbNetNewFollowersInPeriod !== 0 ? fbNetNewFollowersInPeriod : totalFollowers)
+                  : (igNetNewFollowersInPeriod !== 0 ? igNetNewFollowersInPeriod : totalFollowers)
+              )}
               series={growthSparklineSeries.follows}
               active={isCardSelected('followers')}
               onClick={() => toggleStoryMetric('followers')}
