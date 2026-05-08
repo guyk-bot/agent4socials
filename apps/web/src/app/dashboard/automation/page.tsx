@@ -575,19 +575,6 @@ export default function AutomationPage() {
         </Link>
       </div>
 
-      {/* Introduction DM: LinkedIn / new connections */}
-      <div className="card border border-neutral-200 bg-neutral-50/50">
-        <h2 className="font-semibold text-neutral-900 flex items-center gap-2">
-          <UserPlus size={20} className="text-neutral-500" />
-          Introduction DM for new LinkedIn connections or followers
-        </h2>
-        <p className="text-sm text-neutral-600 mt-1">
-          <strong>X (Twitter) new followers:</strong> Use the &quot;Welcome message to new followers&quot; section above. Enable it, set your message, and add a cron for <code className="bg-neutral-100 px-1 rounded text-xs">/api/cron/welcome-followers</code> (same X-Cron-Secret, e.g. every 15 minutes).
-        </p>
-        <p className="text-sm text-neutral-600 mt-2">
-          <strong>LinkedIn new connections:</strong> LinkedIn&apos;s API does not expose a way for apps to detect when someone connects with you or to send an automatic intro DM to new connections. So we cannot offer &quot;auto-DM when someone connects on LinkedIn&quot; at this time. When LinkedIn adds support, we can add it here.
-        </p>
-      </div>
     </div>
   );
 }
