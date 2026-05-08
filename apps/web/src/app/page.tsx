@@ -101,6 +101,8 @@ const MOBILE_ICON_SLOTS = [
 const STATIC_ICON_ROTATIONS = [-14, 9, -18, 6, 12, -9, 16] as const;
 // Randomised notification counts (mixed realistic spread).
 const LOGO_NOTIFICATIONS = [7, 23, 41, 15, 38, 12, 29] as const;
+// Keep the roadmap/funnel neutral segment fixed across themes.
+const FUNNEL_NEUTRAL = '#9ca3af';
 
 function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -119,11 +121,11 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   const desktopLeftRoadSegments = [
     { id: 'dl-0', d: 'M 1 15 C 12 20, -3 28, 9 37', from: '#1877f2', to: '#fd1d8e', x1: 1, y1: 15, x2: 9, y2: 37 },
     { id: 'dl-1', d: 'M 9 37 C 20 44, -2 52, 10 63', from: '#fd1d8e', to: '#ff0000', x1: 9, y1: 37, x2: 10, y2: 63 },
-    { id: 'dl-2', d: 'M 10 63 C 18 68, 20 72, 22 75', from: '#ff0000', to: '#111111', x1: 10, y1: 63, x2: 22, y2: 75 },
-    { id: 'dl-3', d: 'M 22 75 C 24 82, 36 94, 50 103', from: '#111111', to: '#111111', x1: 22, y1: 75, x2: 50, y2: 103 },
+    { id: 'dl-2', d: 'M 10 63 C 18 68, 20 72, 22 75', from: '#ff0000', to: FUNNEL_NEUTRAL, x1: 10, y1: 63, x2: 22, y2: 75 },
+    { id: 'dl-3', d: 'M 22 75 C 24 82, 36 94, 50 103', from: FUNNEL_NEUTRAL, to: FUNNEL_NEUTRAL, x1: 22, y1: 75, x2: 50, y2: 103 },
   ] as const;
   const desktopRightRoadSegments = [
-    { id: 'dr-0', d: 'M 97 12 C 84 18, 102 32, 91 42', from: '#111111', to: '#0a66c2', x1: 97, y1: 12, x2: 91, y2: 42 },
+    { id: 'dr-0', d: 'M 97 12 C 84 18, 102 32, 91 42', from: FUNNEL_NEUTRAL, to: '#0a66c2', x1: 97, y1: 12, x2: 91, y2: 42 },
     { id: 'dr-1', d: 'M 91 42 C 80 52, 100 60, 76 69', from: '#0a66c2', to: '#e60023', x1: 91, y1: 42, x2: 76, y2: 69 },
     { id: 'dr-2', d: 'M 76 69 C 66 78, 68 90, 70 103', from: '#e60023', to: '#e60023', x1: 76, y1: 69, x2: 70, y2: 103 },
   ] as const;
@@ -131,11 +133,11 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   const mobileLeftRoadSegments = [
     { id: 'ml-0', d: 'M 7 5 C 12 10, 3 16, 7 20', from: '#1877f2', to: '#fd1d8e', x1: 7, y1: 5, x2: 7, y2: 20 },
     { id: 'ml-1', d: 'M 7 20 C 15 26, 5 32, 12 35', from: '#fd1d8e', to: '#ff0000', x1: 7, y1: 20, x2: 12, y2: 35 },
-    { id: 'ml-2', d: 'M 12 35 C 16 40, 10 48, 8 52', from: '#ff0000', to: '#111111', x1: 12, y1: 35, x2: 8, y2: 52 },
-    { id: 'ml-3', d: 'M 8 52 C 10 58, 28 78, 46 88 C 48 94, 49 99, 49 103', from: '#111111', to: '#111111', x1: 8, y1: 52, x2: 49, y2: 103 },
+    { id: 'ml-2', d: 'M 12 35 C 16 40, 10 48, 8 52', from: '#ff0000', to: FUNNEL_NEUTRAL, x1: 12, y1: 35, x2: 8, y2: 52 },
+    { id: 'ml-3', d: 'M 8 52 C 10 58, 28 78, 46 88 C 48 94, 49 99, 49 103', from: FUNNEL_NEUTRAL, to: FUNNEL_NEUTRAL, x1: 8, y1: 52, x2: 49, y2: 103 },
   ] as const;
   const mobileRightRoadSegments = [
-    { id: 'mr-0', d: 'M 94 4 C 85 10, 98 17, 91 20', from: '#111111', to: '#0a66c2', x1: 94, y1: 4, x2: 91, y2: 20 },
+    { id: 'mr-0', d: 'M 94 4 C 85 10, 98 17, 91 20', from: FUNNEL_NEUTRAL, to: '#0a66c2', x1: 94, y1: 4, x2: 91, y2: 20 },
     { id: 'mr-1', d: 'M 91 20 C 96 27, 98 38, 87 45', from: '#0a66c2', to: '#e60023', x1: 91, y1: 20, x2: 87, y2: 45 },
     { id: 'mr-2', d: 'M 87 45 C 79 54, 60 79, 52 88 C 51 94, 50 99, 50 103', from: '#e60023', to: '#e60023', x1: 87, y1: 45, x2: 50, y2: 103 },
   ] as const;
