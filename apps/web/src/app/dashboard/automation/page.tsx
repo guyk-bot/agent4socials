@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Send, UserPlus, MessageSquare, Loader2, Sparkles, ArrowRight } from 'lucide-react';
 import api from '@/lib/api';
@@ -38,6 +38,10 @@ const defaultSettings: AutomationSettings = {
 const AUTOMATION_SETTINGS_CACHE_KEY = 'agent4socials.automation.settings.v1';
 const AUTOMATION_DM_PLATFORM_KEY = 'agent4socials.automation.dmWelcome.platform.v1';
 const AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY = 'agent4socials.automation.newFollowerDm.platform.v1';
+const AUTOMATION_FIRST_DM_MESSAGES_KEY = 'agent4socials.automation.firstDm.messages.v1';
+const AUTOMATION_NEW_FOLLOWER_MESSAGES_KEY = 'agent4socials.automation.newFollower.messages.v1';
+const FIRST_DM_SUPPORTED_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)', 'TikTok'] as const;
+const NEW_FOLLOWER_SUPPORTED_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)'] as const;
 
 const PLATFORM_CAPABILITIES: PlatformCapability[] = [
   {
@@ -100,9 +104,14 @@ export default function AutomationPage() {
   const [settings, setSettings] = useState<AutomationSettings>(defaultSettings);
   const [dmWelcomePlatform, setDmWelcomePlatform] = useState<string | null>(null);
   const [dmNewFollowerPlatform, setDmNewFollowerPlatform] = useState<string | null>(null);
+  const [firstIncomingMessages, setFirstIncomingMessages] = useState<Record<string, string>>({});
+  const [newFollowerMessages, setNewFollowerMessages] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [setupMessage, setSetupMessage] = useState<string | null>(null);
+  const firstDmSectionRef = useRef<HTMLDivElement | null>(null);
+  const newFollowerSectionRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     // Render instantly from local cache when possible, then refresh in background.
@@ -130,6 +139,28 @@ export default function AutomationPage() {
           sessionStorage.getItem(AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY) ??
           localStorage.getItem(AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY);
         if (savedNewFollowerDmPlatform) setDmNewFollowerPlatform(savedNewFollowerDmPlatform);
+        const savedFirstIncomingMessages =
+          sessionStorage.getItem(AUTOMATION_FIRST_DM_MESSAGES_KEY) ??
+          localStorage.getItem(AUTOMATION_FIRST_DM_MESSAGES_KEY);
+        if (savedFirstIncomingMessages) {
+          try {
+            const parsed = JSON.parse(savedFirstIncomingMessages) as Record<string, string>;
+            if (parsed && typeof parsed === 'object') setFirstIncomingMessages(parsed);
+          } catch {
+            // ignore parse issues
+          }
+        }
+        const savedNewFollowerMessages =
+          sessionStorage.getItem(AUTOMATION_NEW_FOLLOWER_MESSAGES_KEY) ??
+          localStorage.getItem(AUTOMATION_NEW_FOLLOWER_MESSAGES_KEY);
+        if (savedNewFollowerMessages) {
+          try {
+            const parsed = JSON.parse(savedNewFollowerMessages) as Record<string, string>;
+            if (parsed && typeof parsed === 'object') setNewFollowerMessages(parsed);
+          } catch {
+            // ignore parse issues
+          }
+        }
       }
     } catch {
       setLoading(true);
@@ -230,6 +261,33 @@ export default function AutomationPage() {
     }
   }, [settings.dmNewFollowerEnabled, dmNewFollowerPlatform]);
 
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      const str = JSON.stringify(firstIncomingMessages);
+      sessionStorage.setItem(AUTOMATION_FIRST_DM_MESSAGES_KEY, str);
+      localStorage.setItem(AUTOMATION_FIRST_DM_MESSAGES_KEY, str);
+    } catch {
+      // ignore storage errors
+    }
+  }, [firstIncomingMessages]);
+
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      const str = JSON.stringify(newFollowerMessages);
+      sessionStorage.setItem(AUTOMATION_NEW_FOLLOWER_MESSAGES_KEY, str);
+      localStorage.setItem(AUTOMATION_NEW_FOLLOWER_MESSAGES_KEY, str);
+    } catch {
+      // ignore storage errors
+    }
+  }, [newFollowerMessages]);
+
+  const hasSetupMessage = (kind: 'first' | 'follower', platform: string) => {
+    const source = kind === 'first' ? firstIncomingMessages : newFollowerMessages;
+    return Boolean(source[platform]?.trim());
+  };
+
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-10">
       {loading && (
@@ -241,6 +299,11 @@ export default function AutomationPage() {
       {loadError && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           {loadError}
+        </div>
+      )}
+      {setupMessage && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {setupMessage}
         </div>
       )}
       <div>
@@ -314,6 +377,12 @@ export default function AutomationPage() {
                         checked={settings.dmWelcomeEnabled && dmWelcomePlatform === row.platform}
                         onChange={(e) => {
                           const checked = e.target.checked;
+                          if (checked && !hasSetupMessage('first', row.platform)) {
+                            setSetupMessage('Please set up the auto DM message first before enabling it.');
+                            firstDmSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            return;
+                          }
+                          setSetupMessage(null);
                           setDmWelcomePlatform(checked ? row.platform : null);
                           try {
                             if (typeof window !== 'undefined') {
@@ -328,7 +397,12 @@ export default function AutomationPage() {
                           } catch {
                             // ignore storage errors
                           }
-                          update({ dmWelcomeEnabled: checked });
+                          update({
+                            dmWelcomeEnabled: checked,
+                            ...(checked
+                              ? { dmWelcomeMessage: firstIncomingMessages[row.platform]?.trim() || null }
+                              : {}),
+                          });
                         }}
                         className="rounded border-neutral-300 text-[var(--button)] focus:ring-[var(--button)]/50"
                       />
@@ -343,6 +417,12 @@ export default function AutomationPage() {
                         checked={settings.dmNewFollowerEnabled && dmNewFollowerPlatform === row.platform}
                         onChange={(e) => {
                           const checked = e.target.checked;
+                          if (checked && !hasSetupMessage('follower', row.platform)) {
+                            setSetupMessage('Please set up the welcome message first before enabling it.');
+                            newFollowerSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            return;
+                          }
+                          setSetupMessage(null);
                           setDmNewFollowerPlatform(checked ? row.platform : null);
                           try {
                             if (typeof window !== 'undefined') {
@@ -357,7 +437,12 @@ export default function AutomationPage() {
                           } catch {
                             // ignore storage errors
                           }
-                          update({ dmNewFollowerEnabled: checked });
+                          update({
+                            dmNewFollowerEnabled: checked,
+                            ...(checked
+                              ? { dmNewFollowerMessage: newFollowerMessages[row.platform]?.trim() || null }
+                              : {}),
+                          });
                         }}
                         className="rounded border-neutral-300 text-[var(--button)] focus:ring-[var(--button)]/50"
                       />
@@ -377,6 +462,66 @@ export default function AutomationPage() {
                 </div>
               );
           })}
+        </div>
+      </div>
+
+      <div ref={firstDmSectionRef} className="card space-y-4">
+        <h2 className="font-semibold text-neutral-900 flex items-center gap-2">
+          <Send size={20} className="text-neutral-500" />
+          Auto DM for first incoming message
+        </h2>
+        <p className="text-sm text-neutral-600">
+          Set your first incoming DM message per platform. You must set a message here before enabling it in the platform card.
+        </p>
+        <div className="space-y-3">
+          {FIRST_DM_SUPPORTED_PLATFORMS.map((platform) => (
+            <div key={`first-dm-${platform}`} className="rounded-xl border border-neutral-200 bg-white p-3">
+              <label className="block text-sm font-medium text-neutral-800 mb-1.5">{platform}</label>
+              <textarea
+                value={firstIncomingMessages[platform] ?? ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFirstIncomingMessages((prev) => ({ ...prev, [platform]: value }));
+                  if (settings.dmWelcomeEnabled && dmWelcomePlatform === platform) {
+                    update({ dmWelcomeMessage: value || null });
+                  }
+                }}
+                placeholder={`Enter auto DM for ${platform}`}
+                rows={3}
+                className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--button)]/30 focus:border-[var(--button)] text-sm"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div ref={newFollowerSectionRef} className="card space-y-4">
+        <h2 className="font-semibold text-neutral-900 flex items-center gap-2">
+          <UserPlus size={20} className="text-neutral-500" />
+          Welcome DM to new follower
+        </h2>
+        <p className="text-sm text-neutral-600">
+          Set your welcome DM for each supported platform. You must set a message here before enabling it in the platform card.
+        </p>
+        <div className="space-y-3">
+          {NEW_FOLLOWER_SUPPORTED_PLATFORMS.map((platform) => (
+            <div key={`new-follower-dm-${platform}`} className="rounded-xl border border-neutral-200 bg-white p-3">
+              <label className="block text-sm font-medium text-neutral-800 mb-1.5">{platform}</label>
+              <textarea
+                value={newFollowerMessages[platform] ?? ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setNewFollowerMessages((prev) => ({ ...prev, [platform]: value }));
+                  if (settings.dmNewFollowerEnabled && dmNewFollowerPlatform === platform) {
+                    update({ dmNewFollowerMessage: value || null });
+                  }
+                }}
+                placeholder={`Enter welcome DM for new followers on ${platform}`}
+                rows={3}
+                className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--button)]/30 focus:border-[var(--button)] text-sm"
+              />
+            </div>
+          ))}
         </div>
       </div>
 
@@ -421,73 +566,6 @@ export default function AutomationPage() {
         >
           Open Composer
         </Link>
-      </div>
-
-      {/* Auto-DM: welcome when someone DMs first */}
-      <div className="card space-y-4">
-        <h2 className="font-semibold text-neutral-900 flex items-center gap-2">
-          <Send size={20} className="text-neutral-500" />
-          Auto-DM when someone messages you first
-        </h2>
-        <p className="text-sm text-neutral-500">
-          Send a welcome message automatically when someone starts a new conversation with you (Instagram, Facebook Page, or X). Messages are only sent within the platform&apos;s allowed window (e.g. 24 hours after they message).
-        </p>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={settings.dmWelcomeEnabled}
-            onChange={(e) => update({ dmWelcomeEnabled: e.target.checked })}
-            className="rounded border-neutral-300 text-[var(--button)] focus:ring-[var(--button)]/50"
-          />
-          <span className="text-sm font-medium text-neutral-700">Enable welcome message</span>
-        </label>
-        {settings.dmWelcomeEnabled && (
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1.5">Welcome message</label>
-            <textarea
-              value={settings.dmWelcomeMessage ?? ''}
-              onChange={(e) => update({ dmWelcomeMessage: e.target.value || null })}
-              placeholder="Hi! Thanks for reaching out. We'll get back to you soon."
-              rows={4}
-              className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--button)]/30 focus:border-[var(--button)] text-sm"
-            />
-          </div>
-        )}
-        {saving && <p className="text-xs text-neutral-400 flex items-center gap-1"><Loader2 size={14} className="animate-spin" /> Saving...</p>}
-      </div>
-
-      {/* Auto-DM new followers (Twitter/X) */}
-      <div className="card space-y-4">
-        <h2 className="font-semibold text-neutral-900 flex items-center gap-2">
-          <UserPlus size={20} className="text-neutral-500" />
-          Welcome message to new followers (Twitter/X)
-        </h2>
-        <p className="text-sm text-neutral-600">
-          When someone follows your X (Twitter) account, they will receive this message as a direct message. Set up a cron to call <code className="bg-neutral-100 px-1 rounded text-xs">/api/cron/welcome-followers</code> with the same <strong>X-Cron-Secret</strong> header (e.g. every 15 minutes) so new followers get the DM.
-        </p>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={settings.dmNewFollowerEnabled}
-            onChange={(e) => update({ dmNewFollowerEnabled: e.target.checked })}
-            className="rounded border-neutral-300 text-[var(--button)] focus:ring-[var(--button)]/50"
-          />
-          <span className="text-sm font-medium text-neutral-700">Send welcome DM to new followers</span>
-        </label>
-        {settings.dmNewFollowerEnabled && (
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1.5">Welcome message (sent once per new follower)</label>
-            <textarea
-              value={settings.dmNewFollowerMessage ?? ''}
-              onChange={(e) => update({ dmNewFollowerMessage: e.target.value || null })}
-              placeholder="Thanks for following! Here's what we share..."
-              rows={4}
-              className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--button)]/30 focus:border-[var(--button)] text-sm"
-            />
-            <p className="mt-2 text-xs text-neutral-500">Add a cron (e.g. every 15 min) calling <code className="bg-neutral-100 px-1 rounded">/api/cron/welcome-followers</code> with header <code className="bg-neutral-100 px-1 rounded">X-Cron-Secret: YOUR_CRON_SECRET</code>.</p>
-          </div>
-        )}
-        {saving && <p className="text-xs text-neutral-400 flex items-center gap-1"><Loader2 size={14} className="animate-spin" /> Saving...</p>}
       </div>
 
       {/* Introduction DM: LinkedIn / new connections */}
