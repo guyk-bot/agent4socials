@@ -34,13 +34,13 @@ const PLATFORM_CAPABILITIES: PlatformCapability[] = [
     platform: 'Instagram',
     keywordCommentAutomation: 'native',
     autoDmWhenMessagedFirst: 'native',
-    welcomeMessageToNewFollower: 'none',
+    welcomeMessageToNewFollower: 'native',
   },
   {
     platform: 'Facebook',
     keywordCommentAutomation: 'native',
     autoDmWhenMessagedFirst: 'native',
-    welcomeMessageToNewFollower: 'none',
+    welcomeMessageToNewFollower: 'native',
   },
   {
     platform: 'X (Twitter)',
@@ -49,27 +49,11 @@ const PLATFORM_CAPABILITIES: PlatformCapability[] = [
     welcomeMessageToNewFollower: 'native',
   },
   {
-    platform: 'LinkedIn',
-    keywordCommentAutomation: 'none',
-    autoDmWhenMessagedFirst: 'none',
-    welcomeMessageToNewFollower: 'none',
-    notes: ['LinkedIn automation for keyword replies and connection DMs is not available in this app yet.'],
-  },
-  {
-    platform: 'Pinterest',
-    keywordCommentAutomation: 'none',
-    autoDmWhenMessagedFirst: 'none',
-    welcomeMessageToNewFollower: 'none',
-  },
-  {
     platform: 'TikTok',
-    keywordCommentAutomation: 'partner',
-    autoDmWhenMessagedFirst: 'partner',
+    keywordCommentAutomation: 'native',
+    autoDmWhenMessagedFirst: 'native',
     welcomeMessageToNewFollower: 'none',
-    notes: [
-      'TikTok keyword and DM automations are available via authorized partner messaging platforms.',
-      'Availability is region-limited and requires a TikTok Business or Creator account plus partner compliance.',
-    ],
+    notes: ['Keyword comment automation and auto-DM for first incoming message are available on supported TikTok Business or Creator setups.'],
   },
   {
     platform: 'YouTube',
@@ -77,11 +61,18 @@ const PLATFORM_CAPABILITIES: PlatformCapability[] = [
     autoDmWhenMessagedFirst: 'none',
     welcomeMessageToNewFollower: 'none',
   },
+  {
+    platform: 'LinkedIn',
+    keywordCommentAutomation: 'native',
+    autoDmWhenMessagedFirst: 'none',
+    welcomeMessageToNewFollower: 'none',
+    notes: ['Keyword comment automation is available for LinkedIn.'],
+  },
 ];
 
 function levelBadge(level: SupportLevel): { label: string; className: string } {
   if (level === 'native') return { label: 'Available', className: 'bg-green-100 text-green-800 border-green-200' };
-  if (level === 'partner') return { label: 'Partner integration', className: 'bg-orange-100 text-orange-800 border-orange-200' };
+  if (level === 'partner') return { label: 'Available', className: 'bg-green-100 text-green-800 border-green-200' };
   return { label: 'Not available', className: 'bg-neutral-200 text-neutral-700 border-neutral-300' };
 }
 
