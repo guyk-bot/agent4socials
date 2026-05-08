@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 
 const STORAGE_KEY = 'agent4socials-theme';
 
@@ -31,6 +32,7 @@ function applyTheme(theme: Theme) {
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('light');
   const [mounted, setMounted] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     const value = readTheme();
@@ -38,6 +40,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyTheme(value);
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    // Keep marketing landing page visuals fixed to light mode.
+    if (pathname === '/') {
+      applyTheme('light');
+      return;
+    }
+    applyTheme(theme);
+  }, [mounted, pathname, theme]);
 
   const setTheme = (value: Theme) => {
     setThemeState(value);
