@@ -1770,7 +1770,7 @@ function InboxPage() {
       {/* Left column: platform filters, search, list */}
       <div className="w-full md:w-80 border-r border-neutral-200 flex flex-col shrink-0 bg-white">
         {/* Platform icons + Connect */}
-        <div className="p-3 border-b border-neutral-100 shrink-0">
+        <div className="p-3 border-b border-neutral-100 dark:border-neutral-800 shrink-0">
           <div className="flex items-center gap-2 flex-wrap">
             {platformsToShow.map((p) => {
               const Icon = p.icon;
@@ -1797,7 +1797,7 @@ function InboxPage() {
         </div>
 
         {/* Search */}
-        <div className="p-2 border-b border-neutral-100">
+        <div className="p-2 border-b border-neutral-100 dark:border-neutral-800">
           <div className="relative">
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
             <input
@@ -1811,13 +1811,13 @@ function InboxPage() {
         </div>
 
         {/* Messages / Comments */}
-        <div className="flex border-b border-neutral-200 bg-neutral-50/50">
+        <div className="flex border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900">
           <button
             type="button"
             onClick={() => { setInboxMode('messages'); setSelectedComment(null); setSelectMode(false); setSelectedConversationIds(new Set()); setSelectedCommentIds(new Set()); }}
             className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors rounded-t-lg mx-0.5 mt-0.5 ${
               inboxMode === 'messages'
-                ? 'text-orange-900 bg-white border border-b-0 border-orange-200 shadow-sm'
+                ? 'text-orange-900 bg-white border border-b-0 border-orange-200 shadow-sm dark:text-orange-200 dark:bg-neutral-800 dark:border-neutral-700'
                 : 'text-neutral-500 border border-transparent hover:text-neutral-800 hover:bg-neutral-100 dark:hover:text-neutral-100 dark:hover:bg-neutral-700'
             }`}
           >
@@ -1833,7 +1833,7 @@ function InboxPage() {
             onClick={() => { setInboxMode('comments'); setSelectedConversationId(null); setSelectMode(false); setSelectedConversationIds(new Set()); setSelectedCommentIds(new Set()); }}
             className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors rounded-t-lg mx-0.5 mt-0.5 ${
               inboxMode === 'comments'
-                ? 'text-orange-900 bg-white border border-b-0 border-orange-200 shadow-sm'
+                ? 'text-orange-900 bg-white border border-b-0 border-orange-200 shadow-sm dark:text-orange-200 dark:bg-neutral-800 dark:border-neutral-700'
                 : 'text-neutral-500 border border-transparent hover:text-neutral-800 hover:bg-neutral-100 dark:hover:text-neutral-100 dark:hover:bg-neutral-700'
             }`}
           >
@@ -1847,32 +1847,32 @@ function InboxPage() {
         </div>
 
         {inboxMode === 'messages' && (
-          <div className="flex flex-col border-b border-neutral-200">
+          <div className="flex flex-col border-b border-neutral-200 dark:border-neutral-800">
             <div className="flex">
           <button
             type="button"
             onClick={() => setInboxFilter('all')}
-            className={`flex-1 py-2 text-xs font-medium ${inboxFilter === 'all' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
+            className={`flex-1 py-2 text-xs font-medium ${inboxFilter === 'all' ? 'text-neutral-900 border-b-2 border-neutral-900 dark:text-neutral-100 dark:border-neutral-100' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700 dark:hover:text-neutral-100'}`}
           >
             All
           </button>
           <button
             type="button"
             onClick={() => setInboxFilter('read')}
-            className={`flex-1 py-2 text-xs font-medium ${inboxFilter === 'read' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
+            className={`flex-1 py-2 text-xs font-medium ${inboxFilter === 'read' ? 'text-neutral-900 border-b-2 border-neutral-900 dark:text-neutral-100 dark:border-neutral-100' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700 dark:hover:text-neutral-100'}`}
           >
             Read
           </button>
           <button
             type="button"
             onClick={() => setInboxFilter('unread')}
-            className={`flex-1 py-2 text-xs font-medium ${inboxFilter === 'unread' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
+            className={`flex-1 py-2 text-xs font-medium ${inboxFilter === 'unread' ? 'text-neutral-900 border-b-2 border-neutral-900 dark:text-neutral-100 dark:border-neutral-100' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700 dark:hover:text-neutral-100'}`}
           >
             Unread
           </button>
         </div>
             {/* Select toolbar: select conversations then mark as read */}
-            <div className="flex items-center gap-2 px-2 py-1.5 bg-neutral-50/70 border-t border-neutral-100">
+            <div className="flex items-center gap-2 px-2 py-1.5 bg-neutral-50/70 dark:bg-neutral-900 border-t border-neutral-100 dark:border-neutral-800">
               <button
                 type="button"
                 onClick={toggleSelectMode}
@@ -1933,31 +1933,31 @@ function InboxPage() {
         )}
 
         {inboxMode === 'comments' && commentsSupportedPlatforms.length > 0 && (
-          <div className="flex flex-col border-b border-neutral-200">
-            <div className="flex border-b border-neutral-100">
+          <div className="flex flex-col border-b border-neutral-200 dark:border-neutral-800">
+            <div className="flex border-b border-neutral-100 dark:border-neutral-800">
               <button
                 type="button"
                 onClick={() => setCommentsFilter('all')}
-                className={`flex-1 py-2 text-xs font-medium ${commentsFilter === 'all' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
+                className={`flex-1 py-2 text-xs font-medium ${commentsFilter === 'all' ? 'text-neutral-900 border-b-2 border-neutral-900 dark:text-neutral-100 dark:border-neutral-100' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700 dark:hover:text-neutral-100'}`}
               >
                 All
               </button>
               <button
                 type="button"
                 onClick={() => setCommentsFilter('replied')}
-                className={`flex-1 py-2 text-xs font-medium ${commentsFilter === 'replied' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
+                className={`flex-1 py-2 text-xs font-medium ${commentsFilter === 'replied' ? 'text-neutral-900 border-b-2 border-neutral-900 dark:text-neutral-100 dark:border-neutral-100' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700 dark:hover:text-neutral-100'}`}
               >
                 Replied
               </button>
               <button
                 type="button"
                 onClick={() => setCommentsFilter('didnt_reply')}
-                className={`flex-1 py-2 text-xs font-medium ${commentsFilter === 'didnt_reply' ? 'text-neutral-900 border-b-2 border-neutral-900' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700'}`}
+                className={`flex-1 py-2 text-xs font-medium ${commentsFilter === 'didnt_reply' ? 'text-neutral-900 border-b-2 border-neutral-900 dark:text-neutral-100 dark:border-neutral-100' : 'text-neutral-500 border-b-2 border-transparent hover:text-neutral-700 dark:hover:text-neutral-100'}`}
               >
                 Didn&apos;t reply
               </button>
             </div>
-            <div className="flex items-center gap-2 px-2 py-1.5 bg-neutral-50/70 border-t border-neutral-100">
+            <div className="flex items-center gap-2 px-2 py-1.5 bg-neutral-50/70 dark:bg-neutral-900 border-t border-neutral-100 dark:border-neutral-800">
               <button
                 type="button"
                 onClick={toggleSelectMode}
@@ -2840,7 +2840,7 @@ function InboxPage() {
                               className={`max-w-[80%] rounded-2xl px-4 py-2 ${
                                 msg.isFromPage
                                   ? 'bg-neutral-100 text-neutral-900 rounded-br-md dark:bg-neutral-700 dark:text-white'
-                                  : 'bg-neutral-100 text-neutral-900 rounded-bl-md dark:bg-neutral-100 dark:text-neutral-900'
+                                  : 'bg-neutral-100 text-neutral-900 rounded-bl-md dark:bg-neutral-800 dark:text-neutral-100'
                               }`}
                             >
                               {!msg.isFromPage && (
