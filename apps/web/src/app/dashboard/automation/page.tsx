@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { MessageCircle, Send, UserPlus, MessageSquare, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
-import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 
 type AutomationSettings = {
   dmWelcomeEnabled: boolean;
@@ -103,7 +102,8 @@ export default function AutomationPage() {
     }
 
     const ctrl = new AbortController();
-    const t = window.setTimeout(() => ctrl.abort(), 45_000);
+    // Fail fast so this page never stays blocked behind a full-screen loader.
+    const t = window.setTimeout(() => ctrl.abort(), 12_000);
     let cancelled = false;
     api
       .get<AutomationSettings>('/automation/settings', { signal: ctrl.signal })
@@ -166,12 +166,14 @@ export default function AutomationPage() {
       .finally(() => setSaving(false));
   };
 
-  if (loading) {
-    return <LoadingVideoOverlay loading={true} />;
-  }
-
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-10">
+      {loading && (
+        <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-600 inline-flex items-center gap-2">
+          <Loader2 size={14} className="animate-spin" />
+          Loading automation settings…
+        </div>
+      )}
       {loadError && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           {loadError}
