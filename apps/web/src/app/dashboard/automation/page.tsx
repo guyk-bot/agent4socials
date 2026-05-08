@@ -20,7 +20,6 @@ type PlatformCapability = {
   welcomeMessageToNewFollower: SupportLevel;
   notes?: string[];
 };
-type SocialAccountLite = { id: string; platform: string; status?: string | null };
 
 const defaultSettings: AutomationSettings = {
   dmWelcomeEnabled: false,
@@ -80,16 +79,6 @@ const PLATFORM_CAPABILITIES: PlatformCapability[] = [
   },
 ];
 
-const PLATFORM_FROM_ACCOUNT: Record<string, PlatformCapability['platform']> = {
-  INSTAGRAM: 'Instagram',
-  FACEBOOK: 'Facebook',
-  TWITTER: 'X (Twitter)',
-  LINKEDIN: 'LinkedIn',
-  PINTEREST: 'Pinterest',
-  TIKTOK: 'TikTok',
-  YOUTUBE: 'YouTube',
-};
-
 function levelBadge(level: SupportLevel): { label: string; className: string } {
   if (level === 'native') return { label: 'Available', className: 'bg-green-100 text-green-800 border-green-200' };
   if (level === 'partner') return { label: 'Partner integration', className: 'bg-orange-100 text-orange-800 border-orange-200' };
@@ -101,7 +90,6 @@ export default function AutomationPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [connectedCapabilities, setConnectedCapabilities] = useState<PlatformCapability[]>([]);
 
   useEffect(() => {
     // Render instantly from local cache when possible, then refresh in background.
@@ -171,34 +159,6 @@ export default function AutomationPage() {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    api.get<SocialAccountLite[]>('/social/accounts')
-      .then((res) => {
-        if (cancelled) return;
-        const rows = Array.isArray(res.data) ? res.data : [];
-        const connected = rows.filter((a) => (a.status ?? 'connected') === 'connected');
-        const labels = new Set(
-          connected
-            .map((a) => PLATFORM_FROM_ACCOUNT[(a.platform || '').toUpperCase()])
-            .filter((v): v is PlatformCapability['platform'] => Boolean(v))
-        );
-        const caps = PLATFORM_CAPABILITIES.filter((c) => labels.has(c.platform)).filter(
-          (c) =>
-            c.keywordCommentAutomation !== 'none' ||
-            c.autoDmWhenMessagedFirst !== 'none' ||
-            c.welcomeMessageToNewFollower !== 'none'
-        );
-        setConnectedCapabilities(caps);
-      })
-      .catch(() => {
-        if (!cancelled) setConnectedCapabilities([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const update = (patch: Partial<AutomationSettings>) => {
     const next = { ...settings, ...patch };
     setSettings(next);
@@ -220,7 +180,7 @@ export default function AutomationPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-10">
+    <div className="max-w-6xl mx-auto p-6 space-y-10">
       {loading && (
         <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-600 inline-flex items-center gap-2">
           <Loader2 size={14} className="animate-spin" />
@@ -255,13 +215,8 @@ export default function AutomationPage() {
           </Link>
         </div>
 
-        {connectedCapabilities.length === 0 ? (
-          <div className="mt-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-600">
-            Connect a platform to see its automation capabilities and controls here.
-          </div>
-        ) : (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {connectedCapabilities.map((row) => {
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {PLATFORM_CAPABILITIES.map((row) => {
               const keyword = levelBadge(row.keywordCommentAutomation);
               const dmFirst = levelBadge(row.autoDmWhenMessagedFirst);
               const newFollower = levelBadge(row.welcomeMessageToNewFollower);
@@ -320,9 +275,8 @@ export default function AutomationPage() {
                   )}
                 </div>
               );
-            })}
-          </div>
-        )}
+          })}
+        </div>
       </div>
 
       {/* Comment automation: set in Composer */}
