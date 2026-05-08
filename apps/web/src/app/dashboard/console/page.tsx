@@ -1426,18 +1426,31 @@ export default function UnifiedSummaryPage() {
 
     (async () => {
       try {
-        const res = await api.get<UnifiedSummaryResponse>('/analytics/summary', {
-          params: { since: dateRange.start, until: dateRange.end, accountIds: accountIdsCsv },
-        });
-        if (cancelled) return;
+        let res: { data: UnifiedSummaryResponse } | null = null;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            res = await api.get<UnifiedSummaryResponse>('/analytics/summary', {
+              params: { since: dateRange.start, until: dateRange.end, accountIds: accountIdsCsv },
+              timeout: 45_000,
+            });
+            break;
+          } catch {
+            if (attempt === 1) throw new Error('summary_fetch_failed');
+            await new Promise((resolve) => setTimeout(resolve, 1200));
+          }
+        }
+        if (!res || cancelled) return;
         const normalized = normalizeUnifiedSummary(res.data);
         setData(normalized);
         setError(null);
         lastHydratedSummaryRangeRef.current = rangeSig;
         writeUnifiedSummaryCache(user.id, dateRange.start, dateRange.end, normalized, summaryScopeKey);
       } catch {
-        if (!cancelled && !hadCache && !sameRangeAlreadyHydrated) {
-          setError('Failed to load analytics. Please try again.');
+        if (cancelled) return;
+        if (!hadCache && !sameRangeAlreadyHydrated) {
+          setData(EMPTY_UNIFIED_SUMMARY);
+          setError('Analytics are temporarily delayed. Showing a fallback snapshot, please refresh shortly.');
+          lastHydratedSummaryRangeRef.current = rangeSig;
         }
       } finally {
         if (!cancelled) setLoading(false);
