@@ -4961,14 +4961,7 @@ type PostsUploadDayTooltipAgg = {
                   </p>
                 ) : null}
               </div>
-              <span className="text-sm inline-flex items-center gap-2" style={{ color: COLOR.textSecondary }}>
-                {postsSyncActive ? (
-                  <RefreshCw size={13} className="animate-spin opacity-75" />
-                ) : (
-                  <RefreshCw size={13} className="opacity-75" />
-                )}
-                {postsSyncActive ? 'Syncing...' : 'Updated just now'}
-              </span>
+              <span className="text-sm" style={{ color: COLOR.textSecondary }} />
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">

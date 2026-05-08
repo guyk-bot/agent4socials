@@ -1401,7 +1401,9 @@ export default function UnifiedSummaryPage() {
       return;
     }
 
-    const cachedRaw = readUnifiedSummaryCache(user.id, dateRange.start, dateRange.end, summaryScopeKey);
+    const cachedRaw =
+      readUnifiedSummaryCache(user.id, dateRange.start, dateRange.end, summaryScopeKey) ??
+      readUnifiedSummaryCache(user.id, dateRange.start, dateRange.end);
     const cached = cachedRaw ? normalizeUnifiedSummary(cachedRaw) : null;
     const hadCache = !!cached;
     const sameRangeAlreadyHydrated = lastHydratedSummaryRangeRef.current === rangeSig;
@@ -1445,6 +1447,8 @@ export default function UnifiedSummaryPage() {
         setError(null);
         lastHydratedSummaryRangeRef.current = rangeSig;
         writeUnifiedSummaryCache(user.id, dateRange.start, dateRange.end, normalized, summaryScopeKey);
+        // Also keep a range-only cache so reopening Console can render instantly even if account scope key changed.
+        writeUnifiedSummaryCache(user.id, dateRange.start, dateRange.end, normalized);
       } catch {
         if (cancelled) return;
         if (!hadCache && !sameRangeAlreadyHydrated) {
@@ -1918,19 +1922,7 @@ export default function UnifiedSummaryPage() {
                 );
               })}
             </div>
-            <div className="flex min-w-0 flex-wrap items-center gap-3">
-              {loading ? (
-                <span className="inline-flex items-center gap-2 text-sm font-medium" style={{ color: COLOR.textSecondary }}>
-                  <RefreshCw size={13} className="animate-spin opacity-75" aria-hidden />
-                  Loading…
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-2 text-sm" style={{ color: COLOR.textSecondary }}>
-                  <RefreshCw size={13} className="opacity-75" aria-hidden />
-                  Ready
-                </span>
-              )}
-            </div>
+            <div className="flex min-w-0 flex-wrap items-center gap-3" />
           </div>
           <div className="flex flex-wrap items-center gap-2"><AnalyticsDateRangePicker start={dateRange.start} end={dateRange.end} onChange={onDateRangeChange} /></div>
         </div>
