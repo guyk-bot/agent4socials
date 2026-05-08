@@ -15,7 +15,6 @@ import {
     ImageIcon,
 } from 'lucide-react';
 import { useAppData } from '@/context/AppDataContext';
-import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 import { InstagramIcon, YoutubeIcon, TikTokIcon, FacebookIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 
 function postMediaThumbUrl(mediaItem: { fileUrl: string; type: string; metadata?: { thumbnailUrl?: string } | null } | undefined): string | null {
@@ -70,7 +69,8 @@ export default function PostsPage() {
     const appDataRef = useRef(appData);
     appDataRef.current = appData;
     const [posts, setPosts] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [filter, setFilter] = useState('ALL');
 
     const draftSavedParam = searchParams.get('draft_saved');
@@ -90,7 +90,7 @@ export default function PostsPage() {
         }
 
         const ctrl = new AbortController();
-        const t = window.setTimeout(() => ctrl.abort(), 45_000);
+        const t = window.setTimeout(() => ctrl.abort(), 12_000);
 
         (async () => {
             try {
@@ -100,8 +100,12 @@ export default function PostsPage() {
                 const list = Array.isArray(res.data) ? res.data : [];
                 setPosts(list);
                 appDataRef.current?.setScheduledPosts?.(list);
+                setLoadError(null);
             } catch {
-                if (!cancelled) console.error('Failed to fetch posts');
+                if (!cancelled) {
+                    console.error('Failed to fetch posts');
+                    setLoadError('Could not refresh history right now. Showing latest available data.');
+                }
             } finally {
                 window.clearTimeout(t);
                 if (!cancelled) setLoading(false);
@@ -155,7 +159,11 @@ export default function PostsPage() {
 
     return (
         <div className="space-y-8">
-            <LoadingVideoOverlay loading={loading} />
+            {loadError && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    {loadError}
+                </div>
+            )}
             {showDraftSavedBanner && (
                 <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 flex items-center justify-between">
                     <span>Draft saved. Find it in History below.</span>
