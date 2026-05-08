@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db';
 import { PostStatus, Prisma } from '@prisma/client';
 import axios, { type AxiosResponse } from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
+import { getValidYoutubeToken } from '@/lib/youtube-token';
 import {
   postScalarsSelectWithMediaType,
   postScalarsSelectWithoutMediaType,
@@ -92,6 +93,7 @@ export type CommentAutomationSummary = {
       maxMetaCommentPages: number;
       maxRepliesPerTargetPerRun: number;
       maxTwitterSearchPages: number;
+      maxYoutubeCommentPages: number;
       interPageDelayMs: number;
       interReplyDelayMs: number;
     };
@@ -110,6 +112,7 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
   const maxMetaCommentPages = envInt('COMMENT_AUTOMATION_MAX_META_COMMENT_PAGES', 8);
   const maxRepliesPerTargetPerRun = envInt('COMMENT_AUTOMATION_MAX_REPLIES_PER_TARGET', 40);
   const maxTwitterSearchPages = envInt('COMMENT_AUTOMATION_MAX_TWITTER_PAGES', 8);
+  const maxYoutubeCommentPages = envInt('COMMENT_AUTOMATION_MAX_YOUTUBE_COMMENT_PAGES', 5);
   const interPageDelayMs = envInt('COMMENT_AUTOMATION_INTER_PAGE_DELAY_MS', 120);
   const interReplyDelayMs = envInt('COMMENT_AUTOMATION_INTER_REPLY_DELAY_MS', 150);
 
@@ -130,7 +133,17 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
         targets: {
           where: { platformPostId: { not: null }, status: PostStatus.POSTED },
           include: {
-            socialAccount: { select: { id: true, platform: true, accessToken: true, platformUserId: true, credentialsJson: true } },
+            socialAccount: {
+              select: {
+                id: true,
+                platform: true,
+                accessToken: true,
+                refreshToken: true,
+                expiresAt: true,
+                platformUserId: true,
+                credentialsJson: true,
+              },
+            },
           },
         },
       },
@@ -396,6 +409,91 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
               errors.push((e as Error)?.message ?? String(e));
             }
           }
+        } else if (platform === 'YOUTUBE') {
+          const tokenForYouTube = await getValidYoutubeToken({
+            id: target.socialAccount.id,
+            accessToken: target.socialAccount.accessToken ?? '',
+            refreshToken: target.socialAccount.refreshToken ?? null,
+            expiresAt: target.socialAccount.expiresAt ?? null,
+          });
+          const topLevelComments: Array<{ id: string; text: string }> = [];
+          let pageToken: string | undefined;
+          for (let page = 0; page < maxYoutubeCommentPages; page++) {
+            if (budgetExpired()) {
+              stoppedForCronBudget = true;
+              break automation;
+            }
+            try {
+              const listRes = await axios.get<{
+                items?: Array<{
+                  snippet?: {
+                    topLevelComment?: {
+                      id?: string;
+                      snippet?: { textDisplay?: string; textOriginal?: string };
+                    };
+                  };
+                }>;
+                nextPageToken?: string;
+              }>('https://www.googleapis.com/youtube/v3/commentThreads', {
+                params: {
+                  part: 'snippet',
+                  videoId: platformPostId,
+                  textFormat: 'plainText',
+                  maxResults: 100,
+                  order: 'time',
+                  ...(pageToken ? { pageToken } : {}),
+                },
+                headers: { Authorization: `Bearer ${tokenForYouTube}` },
+                timeout: 15_000,
+              });
+              for (const item of listRes.data?.items ?? []) {
+                const top = item?.snippet?.topLevelComment;
+                const cid = top?.id;
+                if (!cid) continue;
+                const text = (top?.snippet?.textDisplay ?? top?.snippet?.textOriginal ?? '').trim();
+                topLevelComments.push({ id: cid, text });
+              }
+              pageToken = listRes.data?.nextPageToken ?? undefined;
+              if (!pageToken) break;
+              if (interPageDelayMs > 0) await delay(interPageDelayMs);
+            } catch (e) {
+              errors.push(`YouTube list comments: ${(e as Error)?.message ?? String(e)}`.slice(0, 300));
+              break;
+            }
+          }
+
+          for (const c of topLevelComments) {
+            if (budgetExpired()) {
+              stoppedForCronBudget = true;
+              break automation;
+            }
+            if (replied >= maxRepliesPerTargetPerRun) break;
+            if (repliedSet.has(c.id)) continue;
+            const text = c.text.toLowerCase();
+            if (!keywords.some((k) => text.includes(k))) continue;
+            try {
+              await prisma.commentAutomationReply.create({
+                data: { postTargetId: target.id, platformCommentId: c.id },
+              });
+              repliedSet.add(c.id);
+              await axios.post(
+                'https://www.googleapis.com/youtube/v3/comments',
+                { snippet: { parentId: c.id, textOriginal: replyText } },
+                {
+                  params: { part: 'snippet' },
+                  headers: { Authorization: `Bearer ${tokenForYouTube}` },
+                  timeout: 15_000,
+                }
+              );
+              replied++;
+              if (interReplyDelayMs > 0) await delay(interReplyDelayMs);
+            } catch (e) {
+              await prisma.commentAutomationReply.deleteMany({
+                where: { postTargetId: target.id, platformCommentId: c.id },
+              }).catch(() => {});
+              errors.push(`YouTube reply: ${(e as Error)?.message ?? String(e)}`.slice(0, 300));
+            }
+          }
         }
       } catch (e) {
         errors.push((e as Error)?.message ?? String(e));
@@ -411,6 +509,7 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
     maxMetaCommentPages,
     maxRepliesPerTargetPerRun,
     maxTwitterSearchPages,
+    maxYoutubeCommentPages,
     interPageDelayMs,
     interReplyDelayMs,
   };
