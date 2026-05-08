@@ -343,9 +343,6 @@ export default function AutomationPage() {
       )}
       <div>
         <h1 className="text-2xl font-bold text-neutral-900">Automation</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Auto-reply to comments with keywords (set per post in the Composer) and welcome DMs when someone messages you first.
-        </p>
       </div>
 
       <div className="card border border-neutral-200 bg-neutral-50/50">
