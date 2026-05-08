@@ -43,32 +43,32 @@ const HOUR = 60 * MINUTE;
  */
 export const STALE_THRESHOLDS: Record<string, Partial<Record<SyncScope, number>>> = {
   // Meta platforms share a single Application Rate Limit bucket.
-  // Conservative thresholds keep us well within Meta's ~200 calls/DAU/hour cap.
+  // Thresholds are set to 30 min minimum to match the cron cadence and keep Meta API usage low.
   INSTAGRAM: {
     account_overview: 12 * HOUR,
     posts:            4 * HOUR,
     /** One GET /{media-id}/insights per post; keep infrequent to protect shared Meta app rate limit. */
-    post_metrics:     12 * HOUR,
-    comments:         15 * MINUTE,
-    messages:         10 * MINUTE,
+    post_metrics:     24 * HOUR,
+    comments:         30 * MINUTE,
+    messages:         30 * MINUTE,
     demographics:     24 * HOUR,
     full:             12 * HOUR,
   },
   FACEBOOK: {
     account_overview: 12 * HOUR,
     posts:            4 * HOUR,
-    post_metrics:     12 * HOUR,
-    comments:         15 * MINUTE,
-    messages:         10 * MINUTE,
+    post_metrics:     24 * HOUR,
+    comments:         30 * MINUTE,
+    messages:         30 * MINUTE,
     demographics:     24 * HOUR,
     full:             12 * HOUR,
   },
   TIKTOK: {
     account_overview: 12 * HOUR,
     posts:            60 * MINUTE,
-    post_metrics:     4 * HOUR,
-    comments:         10 * MINUTE,
-    messages:         10 * MINUTE,
+    post_metrics:     6 * HOUR,
+    comments:         30 * MINUTE,
+    messages:         30 * MINUTE,
     demographics:     24 * HOUR,
     full:             12 * HOUR,
   },
@@ -76,7 +76,7 @@ export const STALE_THRESHOLDS: Record<string, Partial<Record<SyncScope, number>>
     account_overview: 12 * HOUR,
     posts:            60 * MINUTE,
     post_metrics:     6 * HOUR,
-    comments:         10 * MINUTE,
+    comments:         30 * MINUTE,
     demographics:     24 * HOUR,
     full:             12 * HOUR,
   },
@@ -85,8 +85,8 @@ export const STALE_THRESHOLDS: Record<string, Partial<Record<SyncScope, number>>
     posts:            30 * MINUTE,
     /** X: cron `post_metrics` should not hammer the API — align with product “12h analytics” policy. */
     post_metrics:     12 * HOUR,
-    comments:         5 * MINUTE,
-    messages:         5 * MINUTE,
+    comments:         30 * MINUTE,
+    messages:         30 * MINUTE,
     full:             6 * HOUR,
   },
   LINKEDIN: {

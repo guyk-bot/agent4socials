@@ -12,7 +12,7 @@ import {
   toLocalCalendarDate,
   writeStoredAnalyticsDateRange,
 } from '@/lib/calendar-date';
-import { readUnifiedSummaryCache, writeUnifiedSummaryCache } from '@/lib/dashboard-unified-summary-cache';
+import { readUnifiedSummaryCache, writeUnifiedSummaryCache, getUnifiedSummaryCacheAge, UNIFIED_SUMMARY_FRESH_MS } from '@/lib/dashboard-unified-summary-cache';
 import { createMinWidthStackedBarShape } from '@/lib/recharts-stacked-bar-shape';
 import {
   XAxis,
@@ -1405,6 +1405,8 @@ export default function UnifiedSummaryPage() {
     const cached = cachedRaw ? normalizeUnifiedSummary(cachedRaw) : null;
     const hadCache = !!cached;
     const sameRangeAlreadyHydrated = lastHydratedSummaryRangeRef.current === rangeSig;
+    const cacheAge = getUnifiedSummaryCacheAge(user.id, dateRange.start, dateRange.end, summaryScopeKey);
+    const cacheIsFresh = hadCache && (Date.now() - cacheAge) < UNIFIED_SUMMARY_FRESH_MS;
 
     if (cached) {
       setData(cached);
@@ -1417,6 +1419,10 @@ export default function UnifiedSummaryPage() {
       else setLoading(false);
     }
     setError(null);
+
+    // Skip background re-fetch when cache is fresh (< 30 min) — avoids hammering Meta APIs every page open.
+    if (cacheIsFresh && sameRangeAlreadyHydrated) return;
+    if (cacheIsFresh && !rangeChanged) return;
 
     (async () => {
       try {
@@ -1442,54 +1448,8 @@ export default function UnifiedSummaryPage() {
     };
   }, [user?.id, dateRange.start, dateRange.end, orderedAccounts.length, accountIdsCsv, summaryScopeKey]);
 
-  // Twitter and Pinterest are not covered by the scheduled cron (genericAdapter is a no-op), so
-  // importedPost rows only exist for accounts the user manually opened. Kick off a one-shot
-  // background sync for each such account when the Console loads, then re-fetch the summary so
-  // posts that just landed in the DB appear in the charts without requiring a manual refresh.
-  useEffect(() => {
-    if (!user?.id) return;
-    const targets = orderedAccounts.filter(
-      (a) => a.platform === 'TWITTER' || a.platform === 'PINTEREST'
-    );
-    if (targets.length === 0) return;
-
-    let cancelled = false;
-    const pendingSyncs: Promise<unknown>[] = [];
-    for (const acc of targets) {
-      if (consolePostsSyncedRef.current.has(acc.id)) continue;
-      consolePostsSyncedRef.current.add(acc.id);
-      pendingSyncs.push(
-        api
-          .get(`/social/accounts/${encodeURIComponent(acc.id)}/posts`, {
-            params: { sync: 1, force: 1 },
-            timeout: 45_000,
-          })
-          .catch(() => undefined)
-      );
-    }
-    if (pendingSyncs.length === 0) return;
-
-    (async () => {
-      await Promise.all(pendingSyncs);
-      if (cancelled || !user?.id) return;
-      try {
-        const res = await api.get<UnifiedSummaryResponse>('/analytics/summary', {
-          params: { since: dateRange.start, until: dateRange.end, accountIds: accountIdsCsv },
-        });
-        if (cancelled) return;
-        const normalized = normalizeUnifiedSummary(res.data);
-        setData(normalized);
-        writeUnifiedSummaryCache(user.id, dateRange.start, dateRange.end, normalized, summaryScopeKey);
-      } catch {
-        /* Keep whatever we already rendered. */
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, accountsKey, dateRange.start, dateRange.end, accountIdsCsv, summaryScopeKey]);
+  // NOTE: Twitter/Pinterest auto-sync on console open was removed.
+  // All platform syncs happen exclusively via the backend cron job every 30 minutes.
 
   useEffect(() => {
     if (!user?.id) {

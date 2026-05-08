@@ -4961,27 +4961,14 @@ type PostsUploadDayTooltipAgg = {
                   </p>
                 ) : null}
               </div>
-              {onSync ? (
-                <button
-                  type="button"
-                  onClick={onSync}
-                  disabled={postsSyncActive}
-                  className="inline-flex items-center gap-2 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-                  style={{
-                    color: COLOR.text,
-                    borderColor: COLOR.border,
-                    background: COLOR.elevated,
-                  }}
-                >
-                  <RefreshCw size={13} className={postsSyncActive ? 'animate-spin opacity-75' : 'opacity-75'} />
-                  {postsSyncActive ? 'Syncing...' : 'Sync now'}
-                </button>
-              ) : (
-                <span className="text-sm inline-flex items-center gap-2" style={{ color: COLOR.textSecondary }}>
+              <span className="text-sm inline-flex items-center gap-2" style={{ color: COLOR.textSecondary }}>
+                {postsSyncActive ? (
+                  <RefreshCw size={13} className="animate-spin opacity-75" />
+                ) : (
                   <RefreshCw size={13} className="opacity-75" />
-                  Updated just now
-                </span>
-              )}
+                )}
+                {postsSyncActive ? 'Syncing...' : 'Updated just now'}
+              </span>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">

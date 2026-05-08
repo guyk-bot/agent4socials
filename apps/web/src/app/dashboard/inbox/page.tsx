@@ -633,7 +633,7 @@ function InboxPage() {
     setConversationMessagesError(null);
     const convForRecipient = conversations.find((c) => c.id === convId);
     const recipientFromConv = convForRecipient?.senders?.[0]?.id ?? null;
-    api.get(`/social/accounts/${accountIdForFetch}/conversations/${convId}/messages`)
+    api.get(`/social/accounts/${accountIdForFetch}/conversations/${convId}/messages`, { timeout: 15_000 })
       .then((res) => {
         const messages = res.data?.messages ?? [];
         const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
@@ -658,8 +658,10 @@ function InboxPage() {
           setConversationMessagesError(error);
         }
       })
-      .catch((e: { response?: { data?: { error?: string } }; message?: string }) => {
-        const apiError = e?.response?.data?.error ?? e?.message ?? 'Could not load messages.';
+      .catch((e: { response?: { data?: { error?: string } }; message?: string; code?: string }) => {
+        const isTimeout = e?.code === 'ECONNABORTED' || /timeout/i.test(e?.message ?? '');
+        const apiError = e?.response?.data?.error ??
+          (isTimeout ? 'The platform is taking too long to respond. Messages will load once the connection recovers.' : (e?.message ?? 'Could not load messages.'));
         const fallback = {
           messages: [] as ConversationMessage[],
           recipientId: recipientFromConv ?? null,
@@ -872,9 +874,14 @@ function InboxPage() {
           }
         }
       }
-      // Even when cache exists, always refresh in background so recent conversations appear.
-      needsFetch = true;
-      platformsToFetch.push({ platform, account });
+      if (!useCache) {
+        // No cache: fetch live and decrement pending inside the .then/.catch.
+        needsFetch = true;
+        platformsToFetch.push({ platform, account });
+      } else {
+        // Cache hit: decrement pending now so finishConversationMerge fires correctly.
+        if (--pending === 0 && !cancelled) finishConversationMerge();
+      }
     });
 
     // Show cached conversations immediately so inbox opens faster; then fetch missing platforms in background
@@ -1124,12 +1131,8 @@ function InboxPage() {
     previousTopLevelCommentIdsRef.current = topLevelIds;
   }, [comments, user?.id]);
 
-  // Auto-refresh comments every 5 minutes when Comments tab is active
-  useEffect(() => {
-    if (inboxMode !== 'comments' || commentsSupportedPlatforms.length === 0) return;
-    const interval = setInterval(() => setCommentsRefreshKey((k) => k + 1), 5 * 60_000);
-    return () => clearInterval(interval);
-  }, [inboxMode, commentsSupportedPlatforms.length]);
+  // NOTE: Auto-refresh for comments was removed. Comments are now refreshed only via the
+  // backend cron job every 30 minutes to avoid hammering Meta's API rate limits.
 
   // For engagement, always show all connected IG+FB accounts regardless of platform filter
   const allEngagementAccounts = effectiveAccounts.filter(

@@ -201,16 +201,6 @@ export function FacebookPostsTab({
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               className="px-3 py-2 border border-neutral-200 rounded-lg text-sm w-44"
             />
-            {onSync && (
-              <button
-                type="button"
-                onClick={onSync}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-              >
-                <RefreshCw size={16} />
-                Sync
-              </button>
-            )}
           </div>
         </div>
 

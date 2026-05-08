@@ -353,13 +353,8 @@ export default function DashboardPage() {
     }
   });
   const [importedPostsLoading, setImportedPostsLoading] = useState(false);
-  /** True while manual sync runs but we already had posts — UI keeps tables/charts; button still shows activity. */
+  /** True while a backend sync is in progress for the selected account. */
   const [postsSoftSyncing, setPostsSoftSyncing] = useState(false);
-  const manualPostsSyncInFlightRef = useRef(false);
-  // Track the account for which the manual sync was started. If the user navigates
-  // to a different account while a sync is in flight, do NOT show "Syncing…" for
-  // the new account — just cancel the visual state for the old one.
-  const syncingForAccountIdRef = useRef<string | null>(null);
   const syncStatusPollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const avatarRefreshDoneForAccountRef = useRef<Record<string, true>>({});
   const [postsSyncError, setPostsSyncError] = useState<string | null>(null);
@@ -383,14 +378,10 @@ export default function DashboardPage() {
     dateRangeHydratedRef.current = true;
   }, [user?.id]);
 
-  // When the selected account changes, stop showing "Syncing…" for the previous account.
+  // When the selected account changes, reset the syncing indicator.
   useEffect(() => {
     if (!selectedAccount?.id) return;
-    if (syncingForAccountIdRef.current && syncingForAccountIdRef.current !== selectedAccount.id) {
-      setPostsSoftSyncing(false);
-      manualPostsSyncInFlightRef.current = false;
-      syncingForAccountIdRef.current = null;
-    }
+    setPostsSoftSyncing(false);
   }, [selectedAccount?.id]);
 
   // Keep sync state alive across page navigation:
@@ -2127,92 +2118,6 @@ export default function DashboardPage() {
             postsLoading={importedPostsLoading}
             postsSyncActive={importedPostsLoading || postsSoftSyncing}
             onUpgrade={openPricingPopup}
-            onSync={async () => {
-              if (!selectedAccount?.id || manualPostsSyncInFlightRef.current) return;
-              const plat = selectedAccount.platform;
-              const prevForPlatform = importedPosts.filter((p: { platform: string }) => p.platform === plat);
-              if (importedPostsLoading && prevForPlatform.length === 0) return;
-              const useBlockingPostsLoader = prevForPlatform.length === 0;
-              manualPostsSyncInFlightRef.current = true;
-              syncingForAccountIdRef.current = selectedAccount.id;
-              try {
-                if (typeof window !== 'undefined') {
-                  sessionStorage.setItem(MANUAL_SYNC_PENDING_KEY, selectedAccount.id);
-                }
-              } catch {
-                // ignore storage errors
-              }
-              if (useBlockingPostsLoader) setImportedPostsLoading(true);
-              else setPostsSoftSyncing(true);
-              try {
-                // Also refresh account identity (username/profilePicture) so avatar changes
-                // on the platform are picked up by a regular Sync click.
-                try {
-                  await api.patch(`/social/accounts/${selectedAccount.id}/refresh`);
-                  const refreshedAccounts = await api.get('/social/accounts');
-                  const refreshedData = Array.isArray(refreshedAccounts.data) ? refreshedAccounts.data : [];
-                  setCachedAccounts(refreshedData);
-                } catch {
-                  // Keep sync path working even if profile refresh fails.
-                }
-                // Sync only the currently selected account/platform.
-                await api.post(`/social/accounts/${selectedAccount.id}/sync`, {
-                  scope: 'full',
-                  syncType: 'manual',
-                  force: true,
-                });
-                const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1, force: 1 } });
-                const list = res.data?.posts ?? [];
-                const syncErr = res.data?.syncError as string | undefined;
-                const aid = selectedAccount.id;
-                const useList =
-                  list.length > 0 ? list : syncErr && prevForPlatform.length > 0 ? prevForPlatform : list;
-                postsCacheRef.current[aid] = useList;
-                accountPostsHydratedRef.current[aid] = true;
-                accountPostsLastSyncAtRef.current[aid] = Date.now();
-                appDataRef.current?.setPostsForAccount(aid, useList);
-                try {
-                  const refreshedInsights = await api.get(`/social/accounts/${aid}/insights`, {
-                    params:
-                      selectedAccount.platform === 'FACEBOOK'
-                        ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 }
-                        : selectedAccount.platform === 'YOUTUBE'
-                          ? { since: dateRange.start, until: dateRange.end, extended: 1 }
-                          : { since: dateRange.start, until: dateRange.end },
-                    timeout: INSIGHTS_HTTP_MS,
-                  });
-                  const nextInsights = refreshedInsights.data ?? null;
-                  if (nextInsights) {
-                    const cacheKey = `${aid}-${dateRange.start}-${dateRange.end}`;
-                    const prevInsights = insightsCacheRef.current[cacheKey] ?? lastInsightsByAccountIdRef.current[aid];
-                    const prevRec = prevInsights && typeof prevInsights === 'object' ? (prevInsights as Record<string, unknown>) : null;
-                    const merged =
-                      selectedAccount.platform === 'FACEBOOK'
-                        ? mergeFacebookPageInsightsPreserve(nextInsights as Record<string, unknown>, prevRec)
-                        : nextInsights;
-                    insightsCacheRef.current[cacheKey] = merged as typeof nextInsights;
-                    lastInsightsByAccountIdRef.current[aid] = merged as Record<string, unknown>;
-                    appDataRef.current?.setInsightsForAccount(aid, merged as typeof nextInsights);
-                    if (selectedAccountIdRef.current === aid) {
-                      setInsights(merged as NonNullable<Parameters<typeof setInsights>[0]>);
-                      if (userIdRef.current) writeDashboardInsightsSession(userIdRef.current, aid, merged as typeof nextInsights);
-                    }
-                  }
-                } catch {
-                  // Keep current insights if refresh fails.
-                }
-                setImportedPosts((prev) => prev.filter((p: { platform: string }) => p.platform !== plat).concat(useList));
-                setPostsSyncError(syncErr ?? null);
-              } catch (_) {
-                setPostsSyncError(null);
-              } finally {
-                if (useBlockingPostsLoader) setImportedPostsLoading(false);
-                // Do not force-stop soft syncing here. Backend sync continues in background,
-                // and the sync-status poller will set this false when the job actually ends.
-                manualPostsSyncInFlightRef.current = false;
-                syncingForAccountIdRef.current = null;
-              }
-            }}
             onReconnectFacebook={
               selectedAccount?.platform === 'FACEBOOK'
                 ? () => router.push('/dashboard?connect=facebook')
@@ -2387,39 +2292,12 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
                 <p className="text-sm font-semibold text-[#111827]">List of posts</p>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setImportedPostsLoading(true);
-                      try {
-                        if (selectedAccount?.id) {
-                          const res = await api.get(`/social/accounts/${selectedAccount.id}/posts`, { params: { sync: 1, force: 1 } });
-                          setImportedPosts(res.data?.posts ?? []);
-                          setPostsSyncError(res.data?.syncError ?? null);
-                        } else if (accounts.length > 0) {
-                          const allPosts: Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }> = [];
-                          for (const acc of accounts) {
-                            try {
-                              await api.get(`/social/accounts/${acc.id}/posts`, { params: { sync: 1, force: 1 } });
-                              const r = await api.get(`/social/accounts/${acc.id}/posts`);
-                              allPosts.push(...(r.data?.posts ?? []));
-                            } catch { /* skip failed account */ }
-                          }
-                          setImportedPosts(allPosts.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()));
-                        }
-                        setPostsPage(1);
-                      } catch (_) {
-                        setImportedPosts([]);
-                      } finally {
-                        setImportedPostsLoading(false);
-                      }
-                    }}
-                    disabled={importedPostsLoading || !hasAccounts}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
-                  >
-                    <RefreshCw size={16} className={importedPostsLoading ? 'animate-spin' : ''} />
-                    {importedPostsLoading ? 'Syncing…' : 'Sync posts'}
-                  </button>
+                  {importedPostsLoading && (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-neutral-500">
+                      <RefreshCw size={13} className="animate-spin opacity-75" />
+                      Syncing...
+                    </span>
+                  )}
                 </div>
               </div>
               {postsSyncError && (

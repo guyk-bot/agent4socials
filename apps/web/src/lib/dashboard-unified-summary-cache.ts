@@ -7,6 +7,9 @@ function key(userId: string, start: string, end: string, scopeKey?: string): str
   return `${PREFIX}:${userId}:${start}:${end}:${scopeKey || 'all'}`;
 }
 
+/** How long a unified summary cache entry is considered fresh (no background re-fetch). */
+export const UNIFIED_SUMMARY_FRESH_MS = 30 * 60 * 1000; // 30 minutes
+
 /** Returns cached summary if present. Entries are not expired on read so the Console can stale-while-revalidate. */
 export function readUnifiedSummaryCache(
   userId: string,
@@ -27,6 +30,27 @@ export function readUnifiedSummaryCache(
     return parsed.data;
   } catch {
     return null;
+  }
+}
+
+/** Returns the timestamp (ms) when a cache entry was last written, or 0 if missing. */
+export function getUnifiedSummaryCacheAge(
+  userId: string,
+  start: string,
+  end: string,
+  scopeKey?: string
+): number {
+  if (typeof window === 'undefined' || !userId) return 0;
+  const cacheKey = key(userId, start, end, scopeKey);
+  const mem = memoryCache.get(cacheKey);
+  if (mem?.at) return mem.at;
+  try {
+    const raw = localStorage.getItem(cacheKey) || sessionStorage.getItem(cacheKey);
+    if (!raw) return 0;
+    const parsed = JSON.parse(raw) as { at?: number };
+    return typeof parsed.at === 'number' ? parsed.at : 0;
+  } catch {
+    return 0;
   }
 }
 
