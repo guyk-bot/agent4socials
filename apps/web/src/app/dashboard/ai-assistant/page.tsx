@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import { Sparkles, Loader2, MessageCircle, MessagesSquare } from 'lucide-react';
 import api from '@/lib/api';
-import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 
 type BrandContextPayload = {
   id?: string;
@@ -38,7 +37,7 @@ const MAX_LENGTH = {
 
 export default function AIAssistantPage() {
   const [form, setForm] = useState<BrandContextPayload>(defaultForm);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
 
@@ -128,19 +127,14 @@ export default function AIAssistantPage() {
       });
   };
 
-  if (loading) {
-    return (
-      <>
-        <LoadingVideoOverlay loading={true} />
-        <div className="flex items-center justify-center min-h-[200px]">
-          <Loader2 className="w-8 h-8 animate-spin text-neutral-400" />
-        </div>
-      </>
-    );
-  }
-
   return (
       <div className="w-full min-h-[calc(100vh-5.5rem)] flex flex-col -mx-8 -my-8 px-8 py-8">
+      {loading && (
+        <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-2 text-xs text-neutral-500 inline-flex items-center gap-2 mb-3">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          Loading your saved AI context in the background...
+        </div>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">

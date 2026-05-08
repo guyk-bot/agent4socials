@@ -9,7 +9,6 @@ import {
 import api from '@/lib/api';
 import { LinkPageRenderer } from '@/components/smart-links/LinkPageRenderer';
 import { THEME_PRESETS, FONT_OPTIONS, type LinkPageDesign } from '@/components/smart-links/themes';
-import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 
 type LinkItem = {
   id: string;
@@ -125,7 +124,7 @@ function clearDraft() {
 }
 
 export default function SmartLinksPage() {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -429,17 +428,6 @@ export default function SmartLinksPage() {
     }
   }, []);
 
-  if (loading) {
-    return (
-      <>
-        <LoadingVideoOverlay loading={true} />
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
-        </div>
-      </>
-    );
-  }
-
   return (
     <div className="flex flex-col lg:flex-row gap-6 p-6 min-h-[calc(100vh-80px)]">
       {/* Editor Panel */}
@@ -458,13 +446,19 @@ export default function SmartLinksPage() {
             </div>
             <button
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || loading}
               className="px-4 py-2 bg-[var(--button)] text-white rounded-lg font-medium text-sm hover:bg-[var(--button-hover)] transition-colors flex items-center gap-2 disabled:opacity-50"
             >
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Save
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {loading ? 'Loading...' : 'Save'}
             </button>
           </div>
+          {loading && (
+            <div className="px-5 py-2 border-t border-slate-100 bg-slate-50 text-xs text-slate-500 inline-flex items-center gap-2">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--primary)]" />
+              Loading your latest Smart Links data in the background...
+            </div>
+          )}
 
           {/* URL Bar */}
           <div className="p-4 border-b border-slate-100 bg-slate-50">
