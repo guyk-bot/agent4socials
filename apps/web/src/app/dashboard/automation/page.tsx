@@ -4,6 +4,14 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Send, UserPlus, MessageSquare, Loader2, Sparkles, ArrowRight } from 'lucide-react';
 import api from '@/lib/api';
+import {
+  InstagramIcon,
+  FacebookIcon,
+  XTwitterIcon,
+  TikTokIcon,
+  YoutubeIcon,
+  LinkedinIcon,
+} from '@/components/SocialPlatformIcons';
 
 type AutomationSettings = {
   dmWelcomeEnabled: boolean;
@@ -76,6 +84,16 @@ function levelBadge(level: SupportLevel): { label: string; className: string } {
   if (level === 'native') return { label: 'Available', className: 'bg-green-100 text-green-800 border-green-200' };
   if (level === 'partner') return { label: 'Available', className: 'bg-green-100 text-green-800 border-green-200' };
   return { label: 'Not available', className: 'bg-neutral-200 text-neutral-700 border-neutral-300' };
+}
+
+function platformIcon(platform: string) {
+  if (platform === 'Instagram') return <InstagramIcon size={16} />;
+  if (platform === 'Facebook') return <FacebookIcon size={16} />;
+  if (platform === 'X (Twitter)') return <XTwitterIcon size={16} className="text-neutral-900" />;
+  if (platform === 'TikTok') return <TikTokIcon size={16} />;
+  if (platform === 'YouTube') return <YoutubeIcon size={16} />;
+  if (platform === 'LinkedIn') return <LinkedinIcon size={16} />;
+  return null;
 }
 
 export default function AutomationPage() {
@@ -257,7 +275,10 @@ export default function AutomationPage() {
               const supportsNewFollowerNative = row.welcomeMessageToNewFollower === 'native';
               return (
                 <div key={row.platform} className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
-                  <h3 className="text-base font-semibold text-neutral-900">{row.platform}</h3>
+                  <h3 className="text-base font-semibold text-neutral-900 inline-flex items-center gap-2">
+                    {platformIcon(row.platform)}
+                    {row.platform}
+                  </h3>
                   <div className="mt-3 space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs text-neutral-600">Keyword comment automation</span>
