@@ -1314,7 +1314,7 @@ function InboxPage() {
                     .catch(() => { if (--pending === 0) { setEngagement(merge); setEngagementLoading(false); } });
                 });
               }}
-              className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+              className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700"
             >
               <RefreshCw size={14} />
               Refresh engagement
@@ -1417,7 +1417,7 @@ function InboxPage() {
               <button
                 type="button"
                 onClick={() => setCommentsRefreshKey((k) => k + 1)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700"
               >
                 <RefreshCw size={14} />
                 Retry
@@ -1465,7 +1465,7 @@ function InboxPage() {
             <button
               type="button"
               onClick={() => setCommentsRefreshKey((k) => k + 1)}
-              className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+              className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700"
             >
               <RefreshCw size={14} />
               Refresh comments
@@ -1771,7 +1771,7 @@ function InboxPage() {
                 setConversationsRefreshKey((k) => k + 1);
                 setConversationsLoading(true);
               }}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700"
             >
               <RefreshCw size={16} />
               Refresh conversations
@@ -1850,10 +1850,10 @@ function InboxPage() {
   };
 
   return (
-    <div className="relative flex h-[calc(100vh-3.5rem-3rem)] md:h-[calc(100vh-3.5rem-4rem)] bg-white flex-col md:flex-row">
+    <div className="relative flex h-[calc(100vh-3.5rem-3rem)] md:h-[calc(100vh-3.5rem-4rem)] bg-white dark:bg-neutral-950 flex-col md:flex-row">
       <LoadingVideoOverlay contained loading={conversationsLoading && conversations.length === 0} />
       {/* Left column: platform filters, search, list */}
-      <div className="w-full md:w-80 border-r border-neutral-200 flex flex-col shrink-0 bg-white">
+      <div className="w-full md:w-80 border-r border-neutral-200 dark:border-neutral-800 flex flex-col shrink-0 bg-white dark:bg-neutral-950">
         {/* Platform icons + Connect */}
         <div className="p-3 border-b border-neutral-100 dark:border-neutral-800 shrink-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -1870,7 +1870,7 @@ function InboxPage() {
                     handlePlatformClick(p.id);
                   }}
                   className={`w-10 h-10 rounded-lg flex items-center justify-center border cursor-pointer focus:outline-none select-none ${
-                    isSelected ? 'bg-neutral-300 border-neutral-400' : 'bg-white border-neutral-200 hover:bg-neutral-100'
+                    isSelected ? 'bg-neutral-300 border-neutral-400 dark:bg-neutral-600 dark:border-neutral-500' : 'bg-white border-neutral-200 hover:bg-neutral-100 dark:bg-neutral-800 dark:border-neutral-700 dark:hover:bg-neutral-700'
                   }`}
                   title={isSelected ? `Hide ${p.label}` : `Show ${p.label}`}
                 >
@@ -1890,7 +1890,7 @@ function InboxPage() {
               placeholder={inboxMode === 'comments' ? 'Search comments...' : 'Search conversation...'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 border border-neutral-200 rounded-lg text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+              className="w-full pl-9 pr-3 py-2 border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white dark:bg-neutral-800 dark:text-neutral-100"
             />
           </div>
         </div>
@@ -2166,7 +2166,7 @@ function InboxPage() {
                       const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === c.platform);
                       const Icon = plat?.icon;
                       return (
-                        <div key={c.commentId} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+                        <div key={c.commentId} className="rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4 shadow-sm">
                           <div className="flex items-start gap-3">
                             <div className="w-10 h-10 rounded-full bg-neutral-200 shrink-0 overflow-hidden flex items-center justify-center">
                               {c.authorPictureUrl ? (
@@ -2227,7 +2227,7 @@ function InboxPage() {
                       rows={3}
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
-                      className="w-full px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none"
+                      className="w-full px-4 py-3 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none bg-white dark:bg-neutral-800 dark:text-neutral-100"
                     />
                     {aiReplyError && <p className="text-sm text-amber-700 mt-2">{aiReplyError}</p>}
                     <button
@@ -2626,7 +2626,7 @@ function InboxPage() {
                 </div>
               </div>
             </div>
-            <div className="border-t border-neutral-200 bg-white p-4 shrink-0 pb-6">
+            <div className="border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-4 shrink-0 pb-6">
               <div className="max-w-2xl mx-auto">
                 {aiReplyError && (
                   <p className="text-sm text-amber-700 mb-2">{aiReplyError}</p>
@@ -2851,8 +2851,8 @@ function InboxPage() {
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <div className="flex-1 overflow-y-auto p-6 min-h-0">
                 <div className="max-w-2xl mx-auto h-full flex flex-col min-h-0">
-                  <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden flex-1 flex flex-col min-h-0">
-                    <div className="p-4 border-b border-neutral-100 bg-neutral-50/50 shrink-0">
+                  <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm overflow-hidden flex-1 flex flex-col min-h-0">
+                    <div className="p-4 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/50 shrink-0">
                       {(() => {
                         const selectedConv = conversations.find((c) => c.id === selectedConversationId);
                         const cached = selectedConversationId ? conversationMessagesCache[selectedConversationId] : undefined;
@@ -2950,7 +2950,7 @@ function InboxPage() {
               </div>
             </div>
             </div>
-            <div className="border-t border-neutral-200 bg-white p-4 shrink-0">
+            <div className="border-t border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-4 shrink-0">
               <div className="max-w-2xl mx-auto">
                 {dmThreadPlatform === 'TWITTER' && !conversationRecipientId && currentAccountForDmThread && (
                   <div className="mb-3 p-3 rounded-xl border border-amber-200 bg-amber-50">
@@ -3026,7 +3026,7 @@ function InboxPage() {
                     value={dmReplyText}
                     onChange={(e) => setDmReplyText(e.target.value)}
                     disabled={dmReplySending}
-                    className="flex-1 px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="flex-1 px-4 py-3 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none disabled:opacity-60 disabled:cursor-not-allowed bg-white dark:bg-neutral-800 dark:text-neutral-100"
                 />
                 <button
                   type="button"

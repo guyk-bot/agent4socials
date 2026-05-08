@@ -363,10 +363,14 @@
 /* Dark mode: override common Tailwind backgrounds and borders so dashboard/cards flip */
 [data-theme='dark'] .bg-white,
 [data-theme='dark'] .bg-neutral-50,
+[data-theme='dark'] .bg-neutral-50\/50,
+[data-theme='dark'] .bg-neutral-50\/70,
+[data-theme='dark'] .bg-neutral-50\/80,
 [data-theme='dark'] .bg-slate-50,
 [data-theme='dark'] .bg-gray-50,
 [data-theme='dark'] .bg-zinc-50,
-[data-theme='dark'] .bg-stone-50 {
+[data-theme='dark'] .bg-stone-50,
+[data-theme='dark'] .bg-orange-50\/80 {
   background-color: var(--card-bg) !important;
 }
 [data-theme='dark'] .bg-neutral-100,
@@ -397,6 +401,7 @@
 }
 [data-theme='dark'] .hover\:bg-neutral-100:hover,
 [data-theme='dark'] .hover\:bg-neutral-100\/80:hover,
+[data-theme='dark'] .hover\:bg-neutral-50:hover,
 [data-theme='dark'] .hover\:bg-slate-100:hover,
 [data-theme='dark'] .hover\:bg-slate-50:hover,
 [data-theme='dark'] .hover\:bg-gray-100:hover,
@@ -404,7 +409,8 @@
 [data-theme='dark'] .hover\:bg-zinc-100:hover,
 [data-theme='dark'] .hover\:bg-zinc-50:hover,
 [data-theme='dark'] .hover\:bg-stone-100:hover,
-[data-theme='dark'] .hover\:bg-stone-50:hover {
+[data-theme='dark'] .hover\:bg-stone-50:hover,
+[data-theme='dark'] .hover\:bg-white:hover {
   background-color: #1f1f1f !important;
 }
 [data-theme='dark'] .hover\:text-neutral-700:hover,
