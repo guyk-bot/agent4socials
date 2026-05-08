@@ -829,7 +829,7 @@ function InboxPage() {
     const debugs: Array<{ rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string }> = [];
     let pending = messageFetchPlatformIds.length;
     let needsFetch = false;
-    const platformsToFetch: Array<{ platform: string; account: { id: string; platform: string } }> = [];
+    const platformsToFetch: Array<{ platform: string; account: { id: string; platform: string }; since?: string }> = [];
 
     const finishConversationMerge = () => {
       const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
@@ -854,8 +854,9 @@ function InboxPage() {
       }
       const fromCache = appData?.getConversations(account.id);
       const useCache = fromCache !== undefined && fromCache !== null;
+      const fromCacheList = useCache ? (fromCache as Conversation[]) : [];
       if (useCache) {
-        const list: Array<Conversation & { platform: string; messageAccountId: string }> = fromCache.map((c: Conversation) => ({
+        const list: Array<Conversation & { platform: string; messageAccountId: string }> = fromCacheList.map((c: Conversation) => ({
           ...c,
           platform,
           messageAccountId: account.id,
@@ -874,10 +875,22 @@ function InboxPage() {
           }
         }
       }
-      if (!useCache) {
-        // No cache: fetch live and decrement pending inside the .then/.catch.
+      const newestCachedUpdatedAt =
+        fromCacheList
+          .map((c) => c.updatedTime)
+          .filter((v): v is string => typeof v === 'string' && v.length > 0)
+          .sort((a, b) => b.localeCompare(a))[0] ?? undefined;
+      const shouldDeltaFetch = useCache && conversationsRefreshKey > 0;
+
+      if (!useCache || shouldDeltaFetch) {
+        // No cache: fetch live.
+        // Cache exists and refresh key changed: fetch only new/changed conversations since latest cached item.
         needsFetch = true;
-        platformsToFetch.push({ platform, account });
+        platformsToFetch.push({
+          platform,
+          account,
+          ...(shouldDeltaFetch && newestCachedUpdatedAt ? { since: newestCachedUpdatedAt } : {}),
+        });
       } else {
         // Cache hit: decrement pending now so finishConversationMerge fires correctly.
         if (--pending === 0 && !cancelled) finishConversationMerge();
@@ -892,10 +905,13 @@ function InboxPage() {
       setConversationsLoading(false);
     }
 
-    platformsToFetch.forEach(({ platform, account }) => {
+    platformsToFetch.forEach(({ platform, account, since }) => {
       const wantManual = platform === 'TWITTER' && pendingManualInboxByAccountRef.current.has(account.id);
       if (wantManual) pendingManualInboxByAccountRef.current.delete(account.id);
-      const convUrl = `/social/accounts/${account.id}/conversations?includeMessageCounts=1${wantManual ? '&manualInboxSync=1' : ''}`;
+      const convUrl =
+        `/social/accounts/${account.id}/conversations?includeMessageCounts=1` +
+        `${wantManual ? '&manualInboxSync=1' : ''}` +
+        `${since ? `&since=${encodeURIComponent(since)}&delta=1` : ''}`;
       api.get(convUrl)
       .then((res) => {
           if (cancelled) return;
@@ -909,7 +925,17 @@ function InboxPage() {
           if (res.data?.debug) {
             debugs.push(res.data.debug as { rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string });
           }
-          if (!res.data?.error) appData?.setConversationsForAccount(account.id, res.data?.conversations ?? []);
+          if (!res.data?.error) {
+            const cachedForAccount = appData?.getConversations(account.id) ?? [];
+            const incoming = (res.data?.conversations ?? []) as Conversation[];
+            const mergedById = new Map<string, Conversation>();
+            for (const item of cachedForAccount) mergedById.set(item.id, item);
+            for (const item of incoming) mergedById.set(item.id, item);
+            appData?.setConversationsForAccount(
+              account.id,
+              Array.from(mergedById.values()).sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''))
+            );
+          }
           if (!res.data?.error && list.length > 0 && user?.id) {
             const initialized = getInboxInitializedAccountIdsForConversations(user.id);
             if (!initialized.has(account.id)) {
@@ -1000,6 +1026,15 @@ function InboxPage() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messageFetchPlatformIds.join(','), effectiveAccounts.map((a) => a.id).join(','), conversationsRefreshKey, user?.id]);
+
+  // Keep inbox messages fresh (0 to 5 min target) while preserving cache-first UX.
+  // This triggers delta fetches only, so existing conversations open instantly from cache.
+  useEffect(() => {
+    if (inboxMode !== 'messages') return;
+    if (messageFetchPlatformIds.length === 0) return;
+    const interval = setInterval(() => setConversationsRefreshKey((k) => k + 1), 2 * 60_000);
+    return () => clearInterval(interval);
+  }, [inboxMode, messageFetchPlatformIds.join(',')]);
 
   // Messages mode: YouTube/TikTok have no DM strip; switch to a message-capable platform.
   useEffect(() => {
@@ -1112,6 +1147,14 @@ function InboxPage() {
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [platformsToFetchComments.join(','), effectiveAccounts.map((a) => a.id).join(','), commentsRefreshKey]);
+
+  // Keep inbox comments fresh (0 to 5 min target) while comments tab is active.
+  useEffect(() => {
+    if (inboxMode !== 'comments') return;
+    if (platformsToFetchComments.length === 0) return;
+    const interval = setInterval(() => setCommentsRefreshKey((k) => k + 1), 5 * 60_000);
+    return () => clearInterval(interval);
+  }, [inboxMode, platformsToFetchComments.join(',')]);
 
   // Track unread comment ids. When we first load comments for an account, mark them all as read so we only highlight new notifications after connection.
   useEffect(() => {

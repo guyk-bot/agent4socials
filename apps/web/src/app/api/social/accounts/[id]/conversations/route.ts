@@ -49,6 +49,9 @@ export async function GET(
   const { id } = await params;
   const { searchParams } = new URL(request.url);
   const includeMessageCounts = searchParams.get('includeMessageCounts') === '1' || searchParams.get('includeMessageCounts') === 'true';
+  const deltaMode = searchParams.get('delta') === '1' || searchParams.get('delta') === 'true';
+  const sinceParam = searchParams.get('since');
+  const sinceIso = sinceParam && !Number.isNaN(Date.parse(sinceParam)) ? new Date(sinceParam).toISOString() : null;
   const manualInboxSync =
     searchParams.get('manualInboxSync') === '1' || searchParams.get('manualInboxSync') === 'true';
   const account = await prisma.socialAccount.findFirst({
@@ -148,6 +151,7 @@ export async function GET(
       const userMap = new Map<string, { id: string; name?: string; username?: string; profile_image_url?: string }>();
       let tokenForTwitter = token;
 
+      const maxPages = deltaMode ? 1 : 5;
       do {
         await checkAndIncrementXApiUsage(account.id);
         const params: Record<string, string> = {
@@ -281,7 +285,7 @@ export async function GET(
         }
         nextToken = res.data?.meta?.next_token ?? null;
         pageCount++;
-      } while (nextToken && pageCount < 5);
+      } while (nextToken && pageCount < maxPages);
 
       const ourUsername = (account.username ?? '').trim() || undefined;
       let list: TwitterConvItem[] = Array.from(convosById.entries()).map(([id, { updatedTime, otherParticipantIds }]) => {
@@ -425,6 +429,9 @@ export async function GET(
           }
         }
       }
+      if (sinceIso) {
+        list = list.filter((c) => !!c.updatedTime && c.updatedTime.localeCompare(sinceIso) > 0);
+      }
       list.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
 
       let debug: { eventCount?: number; conversationCount?: number; tokenCheck?: string; rawErrors?: unknown; dmEventsResponse?: unknown } | undefined;
@@ -515,7 +522,12 @@ export async function GET(
   if (isInstagram && !isInstagramBusinessLogin) queryParams.platform = 'instagram';
 
   // Fetch all pages of conversations (follow paging.next up to 5 pages).
-  async function fetchAllConversations(url: string, params: Record<string, string>, token: string): Promise<ConvItem[]> {
+  async function fetchAllConversations(
+    url: string,
+    params: Record<string, string>,
+    token: string,
+    pageLimit = 5
+  ): Promise<ConvItem[]> {
     const all: ConvItem[] = [];
     let nextUrl: string | null = null;
     let pageCount = 0;
@@ -530,14 +542,14 @@ export async function GET(
       all.push(...(res.data?.data ?? []));
       nextUrl = res.data?.paging?.next ?? null;
       pageCount++;
-    } while (nextUrl && pageCount < 5);
+    } while (nextUrl && pageCount < pageLimit);
     return all;
   }
 
   try {
     let rawConversations: ConvItem[];
     try {
-      rawConversations = await fetchAllConversations(conversationsPath, queryParams, activeToken);
+      rawConversations = await fetchAllConversations(conversationsPath, queryParams, activeToken, deltaMode ? 1 : 5);
     } catch (innerErr) {
       const metaErr = (innerErr as { metaError?: { message?: string; code?: number } }).metaError;
       if (metaErr) {
@@ -707,6 +719,10 @@ export async function GET(
       } catch (e) {
         console.warn('[Conversations] profile enrichment failed:', (e as Error)?.message);
       }
+    }
+
+    if (sinceIso) {
+      list = list.filter((c) => !!c.updatedTime && c.updatedTime.localeCompare(sinceIso) > 0);
     }
 
     // Optional: fetch message count per conversation for unread badge (limit 25 to avoid timeout)

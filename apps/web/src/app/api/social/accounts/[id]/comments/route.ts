@@ -22,7 +22,7 @@ import { isMetaNonCriticalThrottled, noteMetaRateLimitError, noteMetaUsageFromHe
  *   - REPLY_FETCH_LIMIT: how many top-level comments we fan out replies for.
  */
 const MAX_SOURCES = 40;
-const COMMENTS_CACHE_TTL_MS = 30 * 60 * 1000; // 30 min — matches cron cadence
+const COMMENTS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min for inbox freshness target
 const REPLY_FETCH_LIMIT = 12;
 
 async function fetchAllPages<T>(
