@@ -67,7 +67,7 @@ const PLATFORM_CAPABILITIES: PlatformCapability[] = [
     keywordCommentAutomation: 'native',
     autoDmWhenMessagedFirst: 'native',
     welcomeMessageToNewFollower: 'none',
-    notes: ['Keyword comment automation and auto-DM for first incoming message are available on supported TikTok Business or Creator setups.'],
+    notes: ['TikTok comment automation is only supported for business accounts.'],
   },
   {
     platform: 'YouTube',
