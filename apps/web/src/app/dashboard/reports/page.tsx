@@ -11,6 +11,16 @@ type SocialAccountLite = {
   username?: string | null;
 };
 
+type PlatformRollup = {
+  platform: string;
+  posts: number;
+  impressions: number;
+  engagement: number;
+  likes: number;
+  comments: number;
+  shares: number;
+};
+
 function formatDateISO(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
@@ -22,6 +32,40 @@ function defaultRange() {
   startDate.setDate(startDate.getDate() - 30);
   const start = formatDateISO(startDate);
   return { start, end };
+}
+
+function fmtNumber(value: number): string {
+  return Intl.NumberFormat('en-US').format(value);
+}
+
+function buildPlatformRollups(summary: UnifiedSummaryResponse): PlatformRollup[] {
+  const byPlatform = new Map<string, PlatformRollup>();
+  for (const row of summary.history) {
+    const key = row.platform || 'Unknown';
+    const prev = byPlatform.get(key) ?? {
+      platform: key,
+      posts: 0,
+      impressions: 0,
+      engagement: 0,
+      likes: 0,
+      comments: 0,
+      shares: 0,
+    };
+    prev.posts += 1;
+    prev.impressions += row.impressions || 0;
+    prev.engagement += row.totalEngagement || 0;
+    prev.likes += row.likes || 0;
+    prev.comments += row.comments || 0;
+    prev.shares += row.shares || 0;
+    byPlatform.set(key, prev);
+  }
+  return Array.from(byPlatform.values()).sort((a, b) => b.engagement - a.engagement);
+}
+
+function growthLabel(value: number): string {
+  if (value > 0) return `up ${value.toFixed(2)}%`;
+  if (value < 0) return `down ${Math.abs(value).toFixed(2)}%`;
+  return 'flat';
 }
 
 export default function ReportsPage() {
@@ -87,6 +131,72 @@ export default function ReportsPage() {
       addLine(`Audience growth: ${summary.kpi.audienceGrowthPercentage.toFixed(2)}%`);
       addLine(`Impressions growth: ${summary.kpi.impressionsGrowthPercentage.toFixed(2)}%`);
       addLine(`Engagement growth: ${summary.kpi.engagementGrowthPercentage.toFixed(2)}%`);
+
+      const platformRollups = buildPlatformRollups(summary);
+      const topPlatformByEngagement = platformRollups[0];
+      const topPlatformByImpressions = [...platformRollups].sort((a, b) => b.impressions - a.impressions)[0];
+      const topPost = summary.topPosts[0];
+      const avgEngagementPerPost =
+        summary.kpi.totalPosts > 0 ? summary.kpi.totalEngagement / summary.kpi.totalPosts : 0;
+
+      addLine('Key Insights', { size: 13, bold: true, gap: 16 });
+      addLine(
+        `Trend summary: audience ${growthLabel(summary.kpi.audienceGrowthPercentage)}, impressions ${growthLabel(
+          summary.kpi.impressionsGrowthPercentage,
+        )}, engagement ${growthLabel(summary.kpi.engagementGrowthPercentage)}.`,
+      );
+      addLine(`Average engagement per post: ${avgEngagementPerPost.toFixed(2)}.`);
+      if (topPlatformByEngagement) {
+        addLine(
+          `Top platform by engagement: ${topPlatformByEngagement.platform} (${fmtNumber(
+            topPlatformByEngagement.engagement,
+          )} total engagement across ${fmtNumber(topPlatformByEngagement.posts)} posts).`,
+        );
+      }
+      if (topPlatformByImpressions) {
+        addLine(
+          `Top platform by impressions: ${topPlatformByImpressions.platform} (${fmtNumber(
+            topPlatformByImpressions.impressions,
+          )} impressions).`,
+        );
+      }
+      if (topPost) {
+        addLine(
+          `Best post: ${topPost.platform} with ${fmtNumber(topPost.totalEngagement)} engagement and ${fmtNumber(
+            topPost.impressions,
+          )} impressions.`,
+        );
+      }
+
+      addLine('Platform Breakdown', { size: 13, bold: true, gap: 16 });
+      if (platformRollups.length === 0) {
+        addLine('No platform-level history in this range.');
+      } else {
+        platformRollups.forEach((row) => {
+          addLine(
+            `${row.platform}: posts=${fmtNumber(row.posts)}, impressions=${fmtNumber(
+              row.impressions,
+            )}, engagement=${fmtNumber(row.engagement)}, likes=${fmtNumber(row.likes)}, comments=${fmtNumber(
+              row.comments,
+            )}, shares=${fmtNumber(row.shares)}`,
+          );
+        });
+      }
+
+      addLine('Suggested Next Actions', { size: 13, bold: true, gap: 16 });
+      if (topPlatformByEngagement) {
+        addLine(`1) Double down on ${topPlatformByEngagement.platform}, it currently drives the highest engagement.`);
+      }
+      if (summary.kpi.impressionsGrowthPercentage < 0) {
+        addLine('2) Increase posting cadence on high-reach formats to recover impression growth.');
+      } else {
+        addLine('2) Keep current reach strategy and test one new content angle for incremental lift.');
+      }
+      if (avgEngagementPerPost < 5) {
+        addLine('3) Strengthen hooks and CTAs in captions, engagement per post is currently low.');
+      } else {
+        addLine('3) Replicate the best post format and posting time in the next content batch.');
+      }
 
       if (kind === 'detailed') {
         addLine('Top Posts', { size: 13, bold: true, gap: 16 });
