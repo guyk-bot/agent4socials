@@ -194,6 +194,7 @@ export async function GET(
       credentialsJson: true,
       firstConnectedAt: true,
       username: true,
+      profilePicture: true,
     },
   });
   if (!account) {
@@ -2067,6 +2068,105 @@ export async function GET(
     if (account.platform === 'TWITTER') {
       const sinceDay = effectiveSinceParam.slice(0, 10);
       const untilDay = effectiveUntilParam.slice(0, 10);
+
+      // ── DB-first path ─────────────────────────────────────────────────────────
+      // When no explicit refresh is requested (i.e. just a date-range change or
+      // initial page load), build the response entirely from synced ImportedPost
+      // rows. This returns in < 200 ms instead of paginating 18 Twitter API pages.
+      // The live API is only called when the user clicks "Sync now" (refresh=1).
+      const syncRequested = request.nextUrl.searchParams.get('refresh') === '1';
+      if (!syncRequested) {
+        const bounds = dayRangeToUtcBounds(sinceDay, untilDay);
+        const [importedTweets, latestSnapshot] = await Promise.all([
+          prisma.importedPost.findMany({
+            where: {
+              socialAccountId: account.id,
+              platform: 'TWITTER',
+              publishedAt: { gte: bounds.gte, lt: bounds.lt },
+            },
+            select: {
+              platformPostId: true,
+              content: true,
+              publishedAt: true,
+              impressions: true,
+              likeCount: true,
+              commentsCount: true,
+              repostsCount: true,
+              sharesCount: true,
+              thumbnailUrl: true,
+              mediaType: true,
+            },
+            orderBy: { publishedAt: 'desc' },
+            take: 400,
+          }),
+          prisma.accountMetricSnapshot.findFirst({
+            where: { socialAccountId: account.id, platform: 'TWITTER' as never },
+            orderBy: { metricTimestamp: 'desc' },
+            select: { followersCount: true, followingCount: true },
+          }),
+        ]);
+
+        const tweetRows: TwitterRecentTweetRow[] = importedTweets.map((t) => ({
+          id: t.platformPostId ?? '',
+          text: t.content ?? '',
+          created_at: t.publishedAt.toISOString(),
+          like_count: t.likeCount ?? 0,
+          reply_count: t.commentsCount ?? 0,
+          retweet_count: t.repostsCount ?? 0,
+          quote_count: t.sharesCount ?? 0,
+          bookmark_count: 0,
+          impression_count: t.impressions ?? 0,
+          thumbnailUrl: t.thumbnailUrl ?? null,
+          mediaType: t.mediaType?.toLowerCase() ?? null,
+        }));
+
+        const dbTotals: TwitterTotals = { impressions: 0, likes: 0, replies: 0, retweets: 0, quotes: 0, bookmarks: 0 };
+        const impressionsByDate: Record<string, number> = {};
+        const engagementByDate: Record<string, number> = {};
+        for (const t of tweetRows) {
+          dbTotals.impressions += t.impression_count;
+          dbTotals.likes += t.like_count;
+          dbTotals.replies += t.reply_count;
+          dbTotals.retweets += t.retweet_count;
+          dbTotals.quotes += t.quote_count;
+          const day = t.created_at?.slice(0, 10);
+          if (!day) continue;
+          impressionsByDate[day] = (impressionsByDate[day] ?? 0) + t.impression_count;
+          engagementByDate[day] = (engagementByDate[day] ?? 0) + t.like_count + t.reply_count + t.retweet_count + t.quote_count;
+        }
+
+        const dbTwitterUser: TwitterUserPublicRow = {
+          followers_count: latestSnapshot?.followersCount ?? 0,
+          following_count: latestSnapshot?.followingCount ?? 0,
+          tweet_count: 0,
+          listed_count: 0,
+          username: account.username ?? undefined,
+          profile_image_url: (account as { profilePicture?: string | null }).profilePicture ?? undefined,
+        };
+
+        return NextResponse.json({
+          platform: 'TWITTER',
+          followers: latestSnapshot?.followersCount ?? 0,
+          impressionsTotal: dbTotals.impressions,
+          impressionsTimeSeries: Object.entries(impressionsByDate)
+            .map(([date, value]) => ({ date, value }))
+            .sort((a, b) => a.date.localeCompare(b.date)),
+          twitterUser: dbTwitterUser,
+          twitterTotals: dbTotals,
+          twitterEngagementTimeSeries: Object.entries(engagementByDate)
+            .map(([date, value]) => ({ date, value }))
+            .sort((a, b) => a.date.localeCompare(b.date)),
+          recentTweets: tweetRows,
+          tweetCount: tweetRows.length,
+          twitterPagesFetched: 0,
+          twitterTimelineTruncated: false,
+          insightsHint: tweetRows.length === 0
+            ? 'No posts synced for this date range. Click Sync to fetch the latest from X.'
+            : `Showing ${tweetRows.length} post(s) from database. Click Sync to refresh from X.`,
+        });
+      }
+      // ── End DB-first path ─────────────────────────────────────────────────────
+
       let tw: Awaited<ReturnType<typeof fetchTwitterTimelineInsights>>;
 
       // Refresh OAuth 2.0 access token if it has expired or is close to expiry (within 5 min).

@@ -1367,7 +1367,10 @@ export default function DashboardPage() {
           ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 }
           : selectedAccount?.platform === 'YOUTUBE'
             ? { since: dateRange.start, until: dateRange.end, extended: 1 }
-            : { since: dateRange.start, until: dateRange.end },
+            : selectedAccount?.platform === 'TWITTER'
+              // Pass refresh=1 only for explicit sync; date-range changes use the fast DB path.
+              ? { since: dateRange.start, until: dateRange.end, ...(syncAllTrigger > 0 || justConnected ? { refresh: 1 } : {}) }
+              : { since: dateRange.start, until: dateRange.end },
       timeout: INSIGHTS_HTTP_MS,
     });
 
