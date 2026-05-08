@@ -28,6 +28,7 @@ const defaultSettings: AutomationSettings = {
   dmNewFollowerMessage: null,
 };
 const AUTOMATION_SETTINGS_CACHE_KEY = 'agent4socials.automation.settings.v1';
+const AUTOMATION_DM_PLATFORM_KEY = 'agent4socials.automation.dmWelcome.platform.v1';
 
 const PLATFORM_CAPABILITIES: PlatformCapability[] = [
   {
@@ -78,6 +79,7 @@ function levelBadge(level: SupportLevel): { label: string; className: string } {
 
 export default function AutomationPage() {
   const [settings, setSettings] = useState<AutomationSettings>(defaultSettings);
+  const [dmWelcomePlatform, setDmWelcomePlatform] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -100,6 +102,10 @@ export default function AutomationPage() {
         } else {
           setLoading(true);
         }
+        const savedDmPlatform =
+          sessionStorage.getItem(AUTOMATION_DM_PLATFORM_KEY) ??
+          localStorage.getItem(AUTOMATION_DM_PLATFORM_KEY);
+        if (savedDmPlatform) setDmWelcomePlatform(savedDmPlatform);
       }
     } catch {
       setLoading(true);
@@ -170,6 +176,21 @@ export default function AutomationPage() {
       .finally(() => setSaving(false));
   };
 
+  useEffect(() => {
+    if (!settings.dmWelcomeEnabled) return;
+    if (dmWelcomePlatform) return;
+    const fallback = 'Instagram';
+    setDmWelcomePlatform(fallback);
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(AUTOMATION_DM_PLATFORM_KEY, fallback);
+        localStorage.setItem(AUTOMATION_DM_PLATFORM_KEY, fallback);
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [settings.dmWelcomeEnabled, dmWelcomePlatform]);
+
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-10">
       {loading && (
@@ -235,8 +256,25 @@ export default function AutomationPage() {
                     <label className="mt-3 inline-flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={settings.dmWelcomeEnabled}
-                        onChange={(e) => update({ dmWelcomeEnabled: e.target.checked })}
+                        checked={settings.dmWelcomeEnabled && dmWelcomePlatform === row.platform}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setDmWelcomePlatform(checked ? row.platform : null);
+                          try {
+                            if (typeof window !== 'undefined') {
+                              if (checked) {
+                                sessionStorage.setItem(AUTOMATION_DM_PLATFORM_KEY, row.platform);
+                                localStorage.setItem(AUTOMATION_DM_PLATFORM_KEY, row.platform);
+                              } else {
+                                sessionStorage.removeItem(AUTOMATION_DM_PLATFORM_KEY);
+                                localStorage.removeItem(AUTOMATION_DM_PLATFORM_KEY);
+                              }
+                            }
+                          } catch {
+                            // ignore storage errors
+                          }
+                          update({ dmWelcomeEnabled: checked });
+                        }}
                         className="rounded border-neutral-300 text-[var(--button)] focus:ring-[var(--button)]/50"
                       />
                       <span className="text-xs font-medium text-neutral-700">Enable auto-DM for first incoming message</span>
