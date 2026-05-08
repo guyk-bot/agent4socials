@@ -95,6 +95,8 @@ type KeywordAutomationStep = {
   platform: 'Instagram' | 'Facebook' | 'X (Twitter)' | 'TikTok' | 'YouTube';
   actionType: 'reply' | 'send_file_or_link' | 'forward_to_page';
   actionValue: string;
+  replyVariants: string[];
+  replyVariantStrategy: 'rotate' | 'random';
   enabled: boolean;
 };
 
@@ -185,7 +187,20 @@ export default function AutomationPage() {
         if (savedKeywordSteps) {
           try {
             const parsed = JSON.parse(savedKeywordSteps) as KeywordAutomationStep[];
-            if (Array.isArray(parsed)) setKeywordSteps(parsed);
+            if (Array.isArray(parsed)) {
+              setKeywordSteps(
+                parsed.map((step) => ({
+                  ...step,
+                  replyVariants:
+                    Array.isArray(step?.replyVariants) &&
+                    step.replyVariants.every((v) => typeof v === 'string')
+                      ? step.replyVariants
+                      : [],
+                  replyVariantStrategy:
+                    step?.replyVariantStrategy === 'random' ? 'random' : 'rotate',
+                })),
+              );
+            }
           } catch {
             // ignore parse issues
           }
@@ -628,13 +643,66 @@ export default function AutomationPage() {
                   <label className="block text-xs font-medium text-neutral-700 mb-1">
                     {step.actionType === 'reply' ? 'Reply message' : step.actionType === 'send_file_or_link' ? 'File URL or link' : 'Page URL'}
                   </label>
-                  <input
-                    value={step.actionValue}
-                    onChange={(e) => setKeywordSteps((prev) => prev.map((s) => (s.id === step.id ? { ...s, actionValue: e.target.value } : s)))}
-                    placeholder={step.actionType === 'reply' ? 'Type response to send automatically' : 'https://...'}
-                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900"
-                  />
+                  {step.actionType === 'reply' ? (
+                    <textarea
+                      value={step.replyVariants.join('\n')}
+                      onChange={(e) =>
+                        setKeywordSteps((prev) =>
+                          prev.map((s) =>
+                            s.id === step.id
+                              ? {
+                                  ...s,
+                                  replyVariants: e.target.value
+                                    .split('\n')
+                                    .map((v) => v.trim())
+                                    .filter(Boolean),
+                                  actionValue: e.target.value,
+                                }
+                              : s,
+                          ),
+                        )
+                      }
+                      placeholder="Write one reply per line. A different line can be sent each time."
+                      rows={4}
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900"
+                    />
+                  ) : (
+                    <input
+                      value={step.actionValue}
+                      onChange={(e) => setKeywordSteps((prev) => prev.map((s) => (s.id === step.id ? { ...s, actionValue: e.target.value } : s)))}
+                      placeholder="https://..."
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900"
+                    />
+                  )}
                 </div>
+                {step.actionType === 'reply' && (
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-700 mb-1">Reply phrasing strategy</label>
+                    <select
+                      value={step.replyVariantStrategy}
+                      onChange={(e) =>
+                        setKeywordSteps((prev) =>
+                          prev.map((s) =>
+                            s.id === step.id
+                              ? {
+                                  ...s,
+                                  replyVariantStrategy:
+                                    e.target.value === 'random' ? 'random' : 'rotate',
+                                }
+                              : s,
+                          ),
+                        )
+                      }
+                      className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 bg-white"
+                    >
+                      <option value="rotate">Rotate replies (A, then B, then C)</option>
+                      <option value="random">Random reply each time</option>
+                    </select>
+                    <p className="mt-1 text-[11px] text-neutral-500">
+                      Add multiple lines above, the system will use a different reply each trigger.
+                    </p>
+                  </div>
+                )}
               </div>
               <label className="inline-flex items-center gap-2">
                 <input
@@ -659,6 +727,8 @@ export default function AutomationPage() {
                 platform: 'Instagram',
                 actionType: 'reply',
                 actionValue: '',
+                replyVariants: [],
+                replyVariantStrategy: 'rotate',
                 enabled: true,
               },
             ])
