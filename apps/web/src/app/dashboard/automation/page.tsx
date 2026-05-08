@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { MessageCircle, Send, UserPlus, MessageSquare, Loader2 } from 'lucide-react';
+import { Send, UserPlus, MessageSquare, Loader2, Sparkles, ArrowRight } from 'lucide-react';
 import api from '@/lib/api';
 
 type AutomationSettings = {
@@ -12,12 +12,16 @@ type AutomationSettings = {
   dmNewFollowerMessage: string | null;
 };
 
+type SupportLevel = 'native' | 'partner' | 'none';
 type PlatformCapability = {
   platform: string;
-  keywordCommentAutomation: boolean;
-  autoDmWhenMessagedFirst: boolean;
-  welcomeMessageToNewFollower: boolean;
+  keywordCommentAutomation: SupportLevel;
+  autoDmWhenMessagedFirst: SupportLevel;
+  welcomeMessageToNewFollower: SupportLevel;
+  followToDmWelcome: SupportLevel;
+  notes?: string[];
 };
+type SocialAccountLite = { id: string; platform: string; status?: string | null };
 
 const defaultSettings: AutomationSettings = {
   dmWelcomeEnabled: false,
@@ -30,53 +34,84 @@ const AUTOMATION_SETTINGS_CACHE_KEY = 'agent4socials.automation.settings.v1';
 const PLATFORM_CAPABILITIES: PlatformCapability[] = [
   {
     platform: 'Instagram',
-    keywordCommentAutomation: true,
-    autoDmWhenMessagedFirst: true,
-    welcomeMessageToNewFollower: false,
+    keywordCommentAutomation: 'native',
+    autoDmWhenMessagedFirst: 'native',
+    welcomeMessageToNewFollower: 'none',
+    followToDmWelcome: 'partner',
+    notes: ['Follow-to-DM on IG is partner-gated via Meta-approved tools for eligible professional accounts.'],
   },
   {
     platform: 'Facebook',
-    keywordCommentAutomation: true,
-    autoDmWhenMessagedFirst: true,
-    welcomeMessageToNewFollower: false,
+    keywordCommentAutomation: 'native',
+    autoDmWhenMessagedFirst: 'native',
+    welcomeMessageToNewFollower: 'none',
+    followToDmWelcome: 'partner',
+    notes: ['Follow-to-DM on Facebook/Instagram is handled through approved Meta partner tooling.'],
   },
   {
     platform: 'X (Twitter)',
-    keywordCommentAutomation: true,
-    autoDmWhenMessagedFirst: true,
-    welcomeMessageToNewFollower: true,
+    keywordCommentAutomation: 'native',
+    autoDmWhenMessagedFirst: 'native',
+    welcomeMessageToNewFollower: 'native',
+    followToDmWelcome: 'none',
   },
   {
     platform: 'LinkedIn',
-    keywordCommentAutomation: true,
-    autoDmWhenMessagedFirst: false,
-    welcomeMessageToNewFollower: false,
+    keywordCommentAutomation: 'none',
+    autoDmWhenMessagedFirst: 'none',
+    welcomeMessageToNewFollower: 'none',
+    followToDmWelcome: 'none',
+    notes: ['LinkedIn automation for keyword replies and connection DMs is not available in this app yet.'],
   },
   {
     platform: 'Pinterest',
-    keywordCommentAutomation: false,
-    autoDmWhenMessagedFirst: false,
-    welcomeMessageToNewFollower: false,
+    keywordCommentAutomation: 'none',
+    autoDmWhenMessagedFirst: 'none',
+    welcomeMessageToNewFollower: 'none',
+    followToDmWelcome: 'none',
   },
   {
     platform: 'TikTok',
-    keywordCommentAutomation: false,
-    autoDmWhenMessagedFirst: false,
-    welcomeMessageToNewFollower: false,
+    keywordCommentAutomation: 'partner',
+    autoDmWhenMessagedFirst: 'partner',
+    welcomeMessageToNewFollower: 'none',
+    followToDmWelcome: 'none',
+    notes: [
+      'TikTok keyword and comment-to-DM automations are available via authorized partner messaging platforms.',
+      'Availability is region-limited and requires TikTok Business account + partner compliance.',
+    ],
   },
   {
     platform: 'YouTube',
-    keywordCommentAutomation: true,
-    autoDmWhenMessagedFirst: false,
-    welcomeMessageToNewFollower: false,
+    keywordCommentAutomation: 'native',
+    autoDmWhenMessagedFirst: 'none',
+    welcomeMessageToNewFollower: 'none',
+    followToDmWelcome: 'none',
   },
 ];
+
+const PLATFORM_FROM_ACCOUNT: Record<string, PlatformCapability['platform']> = {
+  INSTAGRAM: 'Instagram',
+  FACEBOOK: 'Facebook',
+  TWITTER: 'X (Twitter)',
+  LINKEDIN: 'LinkedIn',
+  PINTEREST: 'Pinterest',
+  TIKTOK: 'TikTok',
+  YOUTUBE: 'YouTube',
+};
+
+function levelBadge(level: SupportLevel): { label: string; className: string } {
+  if (level === 'native') return { label: 'Available now', className: 'bg-green-100 text-green-800 border-green-200' };
+  if (level === 'partner') return { label: 'Partner integration', className: 'bg-orange-100 text-orange-800 border-orange-200' };
+  return { label: 'Not available', className: 'bg-neutral-200 text-neutral-700 border-neutral-300' };
+}
 
 export default function AutomationPage() {
   const [settings, setSettings] = useState<AutomationSettings>(defaultSettings);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [connectedCapabilities, setConnectedCapabilities] = useState<PlatformCapability[]>([]);
 
   useEffect(() => {
     // Render instantly from local cache when possible, then refresh in background.
@@ -146,6 +181,35 @@ export default function AutomationPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    api.get<SocialAccountLite[]>('/social/accounts')
+      .then((res) => {
+        if (cancelled) return;
+        const rows = Array.isArray(res.data) ? res.data : [];
+        const connected = rows.filter((a) => (a.status ?? 'connected') === 'connected');
+        const labels = new Set(
+          connected
+            .map((a) => PLATFORM_FROM_ACCOUNT[(a.platform || '').toUpperCase()])
+            .filter((v): v is PlatformCapability['platform'] => Boolean(v))
+        );
+        const caps = PLATFORM_CAPABILITIES.filter((c) => labels.has(c.platform)).filter(
+          (c) =>
+            c.keywordCommentAutomation !== 'none' ||
+            c.autoDmWhenMessagedFirst !== 'none' ||
+            c.welcomeMessageToNewFollower !== 'none' ||
+            c.followToDmWelcome !== 'none'
+        );
+        setConnectedCapabilities(caps);
+      })
+      .catch(() => {
+        if (!cancelled) setConnectedCapabilities([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const update = (patch: Partial<AutomationSettings>) => {
     const next = { ...settings, ...patch };
     setSettings(next);
@@ -187,60 +251,94 @@ export default function AutomationPage() {
       </div>
 
       <div className="card border border-neutral-200 bg-neutral-50/50">
-        <h2 className="font-semibold text-neutral-900">Platform automation capabilities</h2>
-        <p className="text-sm text-neutral-600 mt-1">
-          Overview of what is currently available for each platform.
-        </p>
-
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full min-w-[760px] text-sm">
-            <thead>
-              <tr className="text-left border-b border-neutral-200">
-                <th className="py-2 pr-3 font-medium text-neutral-700">Platform</th>
-                <th className="py-2 pr-3 font-medium text-neutral-700">Keyword comment automation</th>
-                <th className="py-2 pr-3 font-medium text-neutral-700">Auto-DM when messaged first</th>
-                <th className="py-2 font-medium text-neutral-700">Welcome message to new follower</th>
-              </tr>
-            </thead>
-            <tbody>
-              {PLATFORM_CAPABILITIES.map((row) => (
-                <tr key={row.platform} className="border-b border-neutral-100 last:border-b-0">
-                  <td className="py-2.5 pr-3 text-neutral-900 font-medium">{row.platform}</td>
-                  <td className="py-2.5 pr-3">
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${row.keywordCommentAutomation ? 'bg-green-100 text-green-800' : 'bg-neutral-200 text-neutral-700'}`}>
-                      {row.keywordCommentAutomation ? 'Available' : 'Not available'}
-                    </span>
-                  </td>
-                  <td className="py-2.5 pr-3">
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${row.autoDmWhenMessagedFirst ? 'bg-green-100 text-green-800' : 'bg-neutral-200 text-neutral-700'}`}>
-                      {row.autoDmWhenMessagedFirst ? 'Available' : 'Not available'}
-                    </span>
-                  </td>
-                  <td className="py-2.5">
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${row.welcomeMessageToNewFollower ? 'bg-green-100 text-green-800' : 'bg-neutral-200 text-neutral-700'}`}>
-                      {row.welcomeMessageToNewFollower ? 'Available' : 'Not available'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-semibold text-neutral-900 flex items-center gap-2">
+              <Sparkles size={16} className="text-[var(--button)]" />
+              Automation by connected platform
+            </h2>
+            <p className="text-sm text-neutral-600 mt-1">
+              Native automation controls are active below. Partner-only options are labeled so you can enable them with approved tools.
+            </p>
+          </div>
+          <Link href="/composer" prefetch className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100">
+            Configure keywords <ArrowRight size={12} />
+          </Link>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-neutral-600">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2.5 py-1">
-            <MessageSquare size={13} className="text-neutral-500" />
-            Keyword comment automation
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2.5 py-1">
-            <Send size={13} className="text-neutral-500" />
-            Auto-DM when messaged first
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2.5 py-1">
-            <UserPlus size={13} className="text-neutral-500" />
-            Welcome message to new follower
-          </span>
-        </div>
+        {connectedCapabilities.length === 0 ? (
+          <div className="mt-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-600">
+            Connect a platform to see its automation capabilities and controls here.
+          </div>
+        ) : (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {connectedCapabilities.map((row) => {
+              const keyword = levelBadge(row.keywordCommentAutomation);
+              const dmFirst = levelBadge(row.autoDmWhenMessagedFirst);
+              const newFollower = levelBadge(row.welcomeMessageToNewFollower);
+              const followToDm = levelBadge(row.followToDmWelcome);
+              const isX = row.platform === 'X (Twitter)';
+              const supportsDmFirstNative = row.autoDmWhenMessagedFirst === 'native';
+              return (
+                <div key={row.platform} className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
+                  <h3 className="text-base font-semibold text-neutral-900">{row.platform}</h3>
+                  <div className="mt-3 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-neutral-600">Keyword comment automation</span>
+                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${keyword.className}`}>{keyword.label}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-neutral-600">Auto-DM when messaged first</span>
+                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${dmFirst.className}`}>{dmFirst.label}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-neutral-600">Welcome message to new follower</span>
+                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${newFollower.className}`}>{newFollower.label}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-neutral-600">Follow-to-DM welcome</span>
+                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${followToDm.className}`}>{followToDm.label}</span>
+                    </div>
+                  </div>
+
+                  {supportsDmFirstNative && (
+                    <label className="mt-3 inline-flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={settings.dmWelcomeEnabled}
+                        onChange={(e) => update({ dmWelcomeEnabled: e.target.checked })}
+                        className="rounded border-neutral-300 text-[var(--button)] focus:ring-[var(--button)]/50"
+                      />
+                      <span className="text-xs font-medium text-neutral-700">Enable auto-DM for first incoming message</span>
+                    </label>
+                  )}
+
+                  {isX && (
+                    <label className="mt-2 inline-flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={settings.dmNewFollowerEnabled}
+                        onChange={(e) => update({ dmNewFollowerEnabled: e.target.checked })}
+                        className="rounded border-neutral-300 text-[var(--button)] focus:ring-[var(--button)]/50"
+                      />
+                      <span className="text-xs font-medium text-neutral-700">Enable welcome DM to new followers</span>
+                    </label>
+                  )}
+
+                  {row.notes && row.notes.length > 0 && (
+                    <div className="mt-3 space-y-1">
+                      {row.notes.map((note, idx) => (
+                        <p key={`${row.platform}-note-${idx}`} className="text-[11px] leading-relaxed text-neutral-600">
+                          {note}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Comment automation: set in Composer */}
