@@ -394,6 +394,22 @@ function InboxPage() {
     setSelectMode(false);
   }, [conversations, user?.id]);
 
+  // Force hard navigation for any internal link clicked while the inbox is mounted.
+  // This bypasses the Next.js router entirely so concurrent inbox state updates
+  // cannot block or delay navigation to the sidebar/header destinations.
+  useEffect(() => {
+    const forceNavOnLinkClick = (e: MouseEvent) => {
+      const a = (e.target as Element).closest('a[href]') as HTMLAnchorElement | null;
+      if (!a) return;
+      const href = a.getAttribute('href');
+      if (!href || !href.startsWith('/') || a.getAttribute('target') === '_blank') return;
+      e.preventDefault();
+      window.location.href = href;
+    };
+    document.addEventListener('click', forceNavOnLinkClick, true);
+    return () => document.removeEventListener('click', forceNavOnLinkClick, true);
+  }, []);
+
   useEffect(() => {
     if ((cachedAccounts as Account[]).length > 0) return;
     api.get('/social/accounts').then((res) => {
