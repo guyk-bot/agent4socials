@@ -570,6 +570,112 @@ export default function AutomationPage() {
         </div>
       </div>
 
+      <div className="card border border-neutral-200 bg-neutral-50/50">
+        <h2 className="font-semibold text-neutral-900 flex items-center gap-2">
+          <MessageSquare size={20} className="text-neutral-500" />
+          Keyword automations
+        </h2>
+        <p className="text-sm text-neutral-600 mt-1">
+          Build step-based keyword flows for comments. Example: if a user comments a keyword, send a reply, send a file or link, or forward to another page.
+        </p>
+        <div className="space-y-3 mt-2">
+          {keywordSteps.map((step, idx) => (
+            <div key={step.id} className="rounded-xl border border-neutral-200 bg-white p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-neutral-900">Step {idx + 1}</p>
+                <button
+                  type="button"
+                  onClick={() => setKeywordSteps((prev) => prev.filter((s) => s.id !== step.id))}
+                  className="inline-flex items-center gap-1 text-xs rounded-lg border border-neutral-200 px-2 py-1 text-neutral-600 hover:bg-neutral-100"
+                >
+                  <Trash2 size={12} /> Remove
+                </button>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <label className="block text-xs font-medium text-neutral-700 mb-1">Trigger keyword</label>
+                  <input
+                    value={step.keyword}
+                    onChange={(e) => setKeywordSteps((prev) => prev.map((s) => (s.id === step.id ? { ...s, keyword: e.target.value } : s)))}
+                    placeholder="e.g. guide"
+                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-neutral-700 mb-1">Platform</label>
+                  <select
+                    value={step.platform}
+                    onChange={(e) => setKeywordSteps((prev) => prev.map((s) => (s.id === step.id ? { ...s, platform: e.target.value as KeywordAutomationStep['platform'] } : s)))}
+                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 bg-white"
+                  >
+                    <option>Instagram</option>
+                    <option>Facebook</option>
+                    <option>X (Twitter)</option>
+                    <option>TikTok</option>
+                    <option>YouTube</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-neutral-700 mb-1">Action</label>
+                  <select
+                    value={step.actionType}
+                    onChange={(e) => setKeywordSteps((prev) => prev.map((s) => (s.id === step.id ? { ...s, actionType: e.target.value as KeywordAutomationStep['actionType'] } : s)))}
+                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 bg-white"
+                  >
+                    <option value="reply">Send reply message</option>
+                    <option value="send_file_or_link">Send file or link</option>
+                    <option value="forward_to_page">Forward to page</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-neutral-700 mb-1">
+                    {step.actionType === 'reply' ? 'Reply message' : step.actionType === 'send_file_or_link' ? 'File URL or link' : 'Page URL'}
+                  </label>
+                  <input
+                    value={step.actionValue}
+                    onChange={(e) => setKeywordSteps((prev) => prev.map((s) => (s.id === step.id ? { ...s, actionValue: e.target.value } : s)))}
+                    placeholder={step.actionType === 'reply' ? 'Type response to send automatically' : 'https://...'}
+                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900"
+                  />
+                </div>
+              </div>
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={step.enabled}
+                  onChange={(e) => setKeywordSteps((prev) => prev.map((s) => (s.id === step.id ? { ...s, enabled: e.target.checked } : s)))}
+                  className="rounded border-neutral-300 text-[var(--button)] focus:ring-[var(--button)]/50"
+                />
+                <span className="text-xs font-medium text-neutral-700">Enable this step</span>
+              </label>
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() =>
+            setKeywordSteps((prev) => [
+              ...prev,
+              {
+                id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                keyword: '',
+                platform: 'Instagram',
+                actionType: 'reply',
+                actionValue: '',
+                enabled: true,
+              },
+            ])
+          }
+          className="inline-flex items-center gap-2 mt-1 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
+        >
+          <Plus size={14} />
+          Add step
+        </button>
+        <p className="text-xs text-neutral-500 mt-2">
+          Steps are saved automatically and can be used to route users by keyword trigger.
+        </p>
+      </div>
+
     </div>
   );
 }
