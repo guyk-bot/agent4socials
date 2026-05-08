@@ -112,6 +112,14 @@ export default function AutomationPage() {
   const firstDmSectionRef = useRef<HTMLDivElement | null>(null);
   const newFollowerSectionRef = useRef<HTMLDivElement | null>(null);
 
+  const scrollToSectionWithOffset = (el: HTMLDivElement | null) => {
+    if (!el || typeof window === 'undefined') return;
+    const y = el.getBoundingClientRect().top + window.scrollY;
+    // Keep the section header clearly visible under sticky app chrome.
+    const offset = 110;
+    window.scrollTo({ top: Math.max(0, y - offset), behavior: 'smooth' });
+  };
+
   useEffect(() => {
     // Render instantly from local cache when possible, then refresh in background.
     try {
@@ -378,7 +386,7 @@ export default function AutomationPage() {
                           const checked = e.target.checked;
                           if (checked && !hasSetupMessage('first', row.platform)) {
                             setSetupMessage('Please set up the auto DM message first before enabling it.');
-                            firstDmSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            scrollToSectionWithOffset(firstDmSectionRef.current);
                             return;
                           }
                           setSetupMessage(null);
@@ -418,7 +426,7 @@ export default function AutomationPage() {
                           const checked = e.target.checked;
                           if (checked && !hasSetupMessage('follower', row.platform)) {
                             setSetupMessage('Please set up the welcome message first before enabling it.');
-                            newFollowerSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            scrollToSectionWithOffset(newFollowerSectionRef.current);
                             return;
                           }
                           setSetupMessage(null);
