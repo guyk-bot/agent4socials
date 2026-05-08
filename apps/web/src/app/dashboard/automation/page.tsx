@@ -108,7 +108,8 @@ export default function AutomationPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [setupMessage, setSetupMessage] = useState<string | null>(null);
+  const [firstDmSetupMessage, setFirstDmSetupMessage] = useState<string | null>(null);
+  const [newFollowerSetupMessage, setNewFollowerSetupMessage] = useState<string | null>(null);
   const firstDmSectionRef = useRef<HTMLDivElement | null>(null);
   const newFollowerSectionRef = useRef<HTMLDivElement | null>(null);
 
@@ -308,11 +309,6 @@ export default function AutomationPage() {
           {loadError}
         </div>
       )}
-      {setupMessage && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {setupMessage}
-        </div>
-      )}
       <div>
         <h1 className="text-2xl font-bold text-neutral-900">Automation</h1>
         <p className="mt-1 text-sm text-neutral-500">
@@ -385,11 +381,11 @@ export default function AutomationPage() {
                         onChange={(e) => {
                           const checked = e.target.checked;
                           if (checked && !hasSetupMessage('first', row.platform)) {
-                            setSetupMessage('Please set up the auto DM message first before enabling it.');
+                            setFirstDmSetupMessage('Please set up the auto DM message first before enabling it.');
                             scrollToSectionWithOffset(firstDmSectionRef.current);
                             return;
                           }
-                          setSetupMessage(null);
+                          setFirstDmSetupMessage(null);
                           setDmWelcomePlatform(checked ? row.platform : null);
                           try {
                             if (typeof window !== 'undefined') {
@@ -425,11 +421,11 @@ export default function AutomationPage() {
                         onChange={(e) => {
                           const checked = e.target.checked;
                           if (checked && !hasSetupMessage('follower', row.platform)) {
-                            setSetupMessage('Please set up the welcome message first before enabling it.');
+                            setNewFollowerSetupMessage('Please set up the welcome message first before enabling it.');
                             scrollToSectionWithOffset(newFollowerSectionRef.current);
                             return;
                           }
-                          setSetupMessage(null);
+                          setNewFollowerSetupMessage(null);
                           setDmNewFollowerPlatform(checked ? row.platform : null);
                           try {
                             if (typeof window !== 'undefined') {
@@ -477,6 +473,11 @@ export default function AutomationPage() {
           <Send size={20} className="text-neutral-500" />
           Auto DM for first incoming message
         </h2>
+        {firstDmSetupMessage && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {firstDmSetupMessage}
+          </div>
+        )}
         <p className="text-sm text-neutral-600">
           Set your first incoming DM message per platform. You must set a message here before enabling it in the platform card.
         </p>
@@ -507,6 +508,11 @@ export default function AutomationPage() {
           <UserPlus size={20} className="text-neutral-500" />
           Welcome DM to new follower
         </h2>
+        {newFollowerSetupMessage && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {newFollowerSetupMessage}
+          </div>
+        )}
         <p className="text-sm text-neutral-600">
           Set your welcome DM for each supported platform. You must set a message here before enabling it in the platform card.
         </p>
