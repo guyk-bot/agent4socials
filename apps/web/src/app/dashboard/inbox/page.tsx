@@ -2956,11 +2956,6 @@ function InboxPage() {
                       <p className="text-sm text-neutral-500 italic">No messages in this conversation yet.</p>
                     ) : (
                       <>
-                        {dmThreadPlatform === 'TWITTER' && conversationMessages.length <= 1 && (
-                          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
-                            Only messages from accepted conversations appear here. To see full history, open <a href="https://x.com/messages" target="_blank" rel="noopener noreferrer" className="underline font-medium">x.com/messages</a> and accept any &quot;Message requests&quot; for this account, then refresh.
-                          </p>
-                        )}
                         <div className="space-y-4">
                         {conversationMessages.map((msg) => (
                           <div
