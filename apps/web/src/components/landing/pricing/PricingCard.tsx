@@ -26,6 +26,8 @@ type PricingCardProps = {
   additionalBrandsMonthly?: number;
   /** +$X / brand when yearly */
   additionalBrandsYearly?: number;
+  /** Add-on unit label, default is "brand" */
+  additionalAddonUnitLabel?: string;
   /** e.g. "⭐ Best value for growing brands" */
   bestValueLabel?: string;
   billingInterval: 'monthly' | 'yearly';
@@ -48,6 +50,7 @@ export default function PricingCard({
   savePerYear,
   additionalBrandsMonthly,
   additionalBrandsYearly,
+  additionalAddonUnitLabel = 'brand',
   bestValueLabel,
   billingInterval,
   dark = false,
@@ -107,8 +110,8 @@ export default function PricingCard({
           <p className="text-xs font-semibold uppercase tracking-wider text-[#b45309] mb-1">Add-ons</p>
           <p className="text-sm text-[#5d5768]">
             {billingInterval === 'monthly'
-              ? `+$${additionalBrandsMonthly} / brand monthly`
-              : `+$${additionalBrandsYearly} / brand yearly`}
+              ? `+$${additionalBrandsMonthly} / ${additionalAddonUnitLabel} monthly`
+              : `+$${additionalBrandsYearly} / ${additionalAddonUnitLabel} yearly`}
           </p>
         </div>
       )}

@@ -47,11 +47,11 @@ const PRO_HIGHLIGHTS = [
   '1 brand included',
   'Unlimited analytic history',
   'Bulk replies (messages and comments)',
-  'Keyword triggers',
+  'Keyword triggers + automations',
   '10 smart link pages',
   'White label',
   'Add team members',
-  'Client dashboard',
+  'Detailed reports',
   'Priority support',
 ];
 
@@ -536,7 +536,7 @@ export default function Home() {
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
               <PricingCard plan="free" price="$0" description="Best for trying the platform" highlights={FREE_HIGHLIGHTS} ctaText="Start Free" onCta={openSignup} billingInterval={billingInterval} />
               <PricingCard plan="starter" description="Best for creators and freelancers" highlights={STARTER_HIGHLIGHTS} priceMonthly={15} priceYearly={144} yearlyCrossedPrice={180} additionalBrandsMonthly={5} additionalBrandsYearly={48} ctaText="Get Starter" onCta={openSignup} billingInterval={billingInterval} />
-              <PricingCard plan="pro" description="Best for professionals and agencies" badge="Most Popular" bestValueLabel="Best value for growing brands" highlights={PRO_HIGHLIGHTS} priceMonthly={24} priceYearly={230} yearlyCrossedPrice={288} additionalBrandsMonthly={3} additionalBrandsYearly={29} ctaText="Get Pro" onCta={openSignup} highlighted billingInterval={billingInterval} />
+              <PricingCard plan="pro" description="Best for professionals and agencies" badge="Most Popular" bestValueLabel="Best value for growing brands" highlights={PRO_HIGHLIGHTS} priceMonthly={24} priceYearly={230} yearlyCrossedPrice={288} additionalBrandsMonthly={3} additionalBrandsYearly={29} additionalAddonUnitLabel="team member" ctaText="Get Pro" onCta={openSignup} highlighted billingInterval={billingInterval} />
             </div>
             <p className="mt-10 text-center">
               <Link href="/pricing" className="text-[#ffb000] font-medium hover:text-[#ff4d00] transition-colors">

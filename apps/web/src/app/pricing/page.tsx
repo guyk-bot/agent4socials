@@ -35,11 +35,11 @@ const PRO_HIGHLIGHTS = [
   '1 brand included',
   'Unlimited analytic history',
   'Bulk replies (messages and comments)',
-  'Keyword triggers',
+  'Keyword triggers + automations',
   '10 smart link pages',
   'White label',
   'Add team members',
-  'Client dashboard',
+  'Detailed reports',
   'Priority support',
 ];
 
@@ -107,6 +107,7 @@ export default function PricingPage() {
                   savePerYear={58}
                   additionalBrandsMonthly={3}
                   additionalBrandsYearly={29}
+                  additionalAddonUnitLabel="team member"
                   ctaText="Get Pro"
                   onCta={openSignup}
                   highlighted

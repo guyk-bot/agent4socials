@@ -67,7 +67,7 @@ const SECTIONS: TableSection[] = [
   {
     title: 'Automation',
     rows: [
-      { feature: 'Keyword triggers', free: 'dash', starter: 'dash', pro: 'check' },
+      { feature: 'Keyword triggers + automations', free: 'dash', starter: 'dash', pro: 'check' },
     ],
   },
   {
@@ -78,9 +78,9 @@ const SECTIONS: TableSection[] = [
     ],
   },
   {
-    title: 'Client Tools',
+    title: 'Reports',
     rows: [
-      { feature: 'Client dashboard', free: 'dash', starter: 'dash', pro: 'check' },
+      { feature: 'Detailed reports', free: 'dash', starter: 'dash', pro: 'check' },
     ],
   },
   {
@@ -94,7 +94,8 @@ const SECTIONS: TableSection[] = [
     title: 'Brands',
     rows: [
       { feature: 'Brands included', free: '1', starter: '1', pro: '1' },
-      { feature: 'Additional brands', free: '—', starter: '+$5/mo or $48/year', pro: '+$3/mo or $29/year' },
+      { feature: 'Additional brands', free: '—', starter: '+$5/mo or $48/year', pro: '—' },
+      { feature: 'Additional team members', free: '—', starter: '—', pro: '+$3/mo or $29/year' },
     ],
   },
 ];
