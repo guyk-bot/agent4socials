@@ -19,14 +19,37 @@ const defaultSettings: AutomationSettings = {
   dmNewFollowerEnabled: false,
   dmNewFollowerMessage: null,
 };
+const AUTOMATION_SETTINGS_CACHE_KEY = 'agent4socials.automation.settings.v1';
 
 export default function AutomationPage() {
   const [settings, setSettings] = useState<AutomationSettings>(defaultSettings);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Render instantly from local cache when possible, then refresh in background.
+    try {
+      if (typeof window !== 'undefined') {
+        const raw = sessionStorage.getItem(AUTOMATION_SETTINGS_CACHE_KEY) ?? localStorage.getItem(AUTOMATION_SETTINGS_CACHE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as Partial<AutomationSettings>;
+          if (typeof parsed.dmWelcomeEnabled === 'boolean') {
+            setSettings({
+              dmWelcomeEnabled: parsed.dmWelcomeEnabled,
+              dmWelcomeMessage: parsed.dmWelcomeMessage ?? null,
+              dmNewFollowerEnabled: parsed.dmNewFollowerEnabled ?? false,
+              dmNewFollowerMessage: parsed.dmNewFollowerMessage ?? null,
+            });
+          }
+        } else {
+          setLoading(true);
+        }
+      }
+    } catch {
+      setLoading(true);
+    }
+
     const ctrl = new AbortController();
     const t = window.setTimeout(() => ctrl.abort(), 45_000);
     let cancelled = false;
@@ -36,12 +59,22 @@ export default function AutomationPage() {
         if (cancelled) return;
         const data = res.data;
         if (data && typeof data.dmWelcomeEnabled === 'boolean') {
-          setSettings({
+          const next = {
             dmWelcomeEnabled: data.dmWelcomeEnabled,
             dmWelcomeMessage: data.dmWelcomeMessage ?? null,
             dmNewFollowerEnabled: data.dmNewFollowerEnabled ?? false,
             dmNewFollowerMessage: data.dmNewFollowerMessage ?? null,
-          });
+          };
+          setSettings(next);
+          try {
+            if (typeof window !== 'undefined') {
+              const str = JSON.stringify(next);
+              sessionStorage.setItem(AUTOMATION_SETTINGS_CACHE_KEY, str);
+              localStorage.setItem(AUTOMATION_SETTINGS_CACHE_KEY, str);
+            }
+          } catch {
+            // ignore storage errors
+          }
         }
         setLoadError(null);
       })
@@ -64,6 +97,15 @@ export default function AutomationPage() {
   const update = (patch: Partial<AutomationSettings>) => {
     const next = { ...settings, ...patch };
     setSettings(next);
+    try {
+      if (typeof window !== 'undefined') {
+        const str = JSON.stringify(next);
+        sessionStorage.setItem(AUTOMATION_SETTINGS_CACHE_KEY, str);
+        localStorage.setItem(AUTOMATION_SETTINGS_CACHE_KEY, str);
+      }
+    } catch {
+      // ignore storage errors
+    }
     setSaving(true);
     api
       .patch('/automation/settings', next)
