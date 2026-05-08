@@ -29,6 +29,7 @@ const defaultSettings: AutomationSettings = {
 };
 const AUTOMATION_SETTINGS_CACHE_KEY = 'agent4socials.automation.settings.v1';
 const AUTOMATION_DM_PLATFORM_KEY = 'agent4socials.automation.dmWelcome.platform.v1';
+const AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY = 'agent4socials.automation.newFollowerDm.platform.v1';
 
 const PLATFORM_CAPABILITIES: PlatformCapability[] = [
   {
@@ -80,6 +81,7 @@ function levelBadge(level: SupportLevel): { label: string; className: string } {
 export default function AutomationPage() {
   const [settings, setSettings] = useState<AutomationSettings>(defaultSettings);
   const [dmWelcomePlatform, setDmWelcomePlatform] = useState<string | null>(null);
+  const [dmNewFollowerPlatform, setDmNewFollowerPlatform] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -106,6 +108,10 @@ export default function AutomationPage() {
           sessionStorage.getItem(AUTOMATION_DM_PLATFORM_KEY) ??
           localStorage.getItem(AUTOMATION_DM_PLATFORM_KEY);
         if (savedDmPlatform) setDmWelcomePlatform(savedDmPlatform);
+        const savedNewFollowerDmPlatform =
+          sessionStorage.getItem(AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY) ??
+          localStorage.getItem(AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY);
+        if (savedNewFollowerDmPlatform) setDmNewFollowerPlatform(savedNewFollowerDmPlatform);
       }
     } catch {
       setLoading(true);
@@ -191,6 +197,21 @@ export default function AutomationPage() {
     }
   }, [settings.dmWelcomeEnabled, dmWelcomePlatform]);
 
+  useEffect(() => {
+    if (!settings.dmNewFollowerEnabled) return;
+    if (dmNewFollowerPlatform) return;
+    const fallback = 'Instagram';
+    setDmNewFollowerPlatform(fallback);
+    try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY, fallback);
+        localStorage.setItem(AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY, fallback);
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [settings.dmNewFollowerEnabled, dmNewFollowerPlatform]);
+
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-10">
       {loading && (
@@ -232,8 +253,8 @@ export default function AutomationPage() {
               const keyword = levelBadge(row.keywordCommentAutomation);
               const dmFirst = levelBadge(row.autoDmWhenMessagedFirst);
               const newFollower = levelBadge(row.welcomeMessageToNewFollower);
-              const isX = row.platform === 'X (Twitter)';
               const supportsDmFirstNative = row.autoDmWhenMessagedFirst === 'native';
+              const supportsNewFollowerNative = row.welcomeMessageToNewFollower === 'native';
               return (
                 <div key={row.platform} className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
                   <h3 className="text-base font-semibold text-neutral-900">{row.platform}</h3>
@@ -281,12 +302,29 @@ export default function AutomationPage() {
                     </label>
                   )}
 
-                  {isX && (
+                  {supportsNewFollowerNative && (
                     <label className="mt-2 inline-flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={settings.dmNewFollowerEnabled}
-                        onChange={(e) => update({ dmNewFollowerEnabled: e.target.checked })}
+                        checked={settings.dmNewFollowerEnabled && dmNewFollowerPlatform === row.platform}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setDmNewFollowerPlatform(checked ? row.platform : null);
+                          try {
+                            if (typeof window !== 'undefined') {
+                              if (checked) {
+                                sessionStorage.setItem(AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY, row.platform);
+                                localStorage.setItem(AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY, row.platform);
+                              } else {
+                                sessionStorage.removeItem(AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY);
+                                localStorage.removeItem(AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY);
+                              }
+                            }
+                          } catch {
+                            // ignore storage errors
+                          }
+                          update({ dmNewFollowerEnabled: checked });
+                        }}
                         className="rounded border-neutral-300 text-[var(--button)] focus:ring-[var(--button)]/50"
                       />
                       <span className="text-xs font-medium text-neutral-700">Enable welcome DM to new followers</span>
