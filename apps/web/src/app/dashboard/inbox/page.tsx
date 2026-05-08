@@ -682,7 +682,7 @@ function InboxPage() {
       .finally(() => {
         if (selectedConversationId === convId) setConversationMessagesLoading(false);
       });
-  }, [selectedConversationId, currentAccountForDmThread?.id, dmThreadPlatform, user?.id]);
+  }, [selectedConversationId, currentAccountForDmThread?.id, dmThreadPlatform, user?.id, conversationMessagesCache]);
 
   useEffect(() => {
     setAiReplyError(null);
@@ -1029,14 +1029,73 @@ function InboxPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messageFetchPlatformIds.join(','), effectiveAccounts.map((a) => a.id).join(','), conversationsRefreshKey, user?.id]);
 
-  // Keep inbox messages fresh (0 to 5 min target) while preserving cache-first UX.
+  // Keep inbox messages fresh every 5 minutes while preserving cache-first UX.
   // This triggers delta fetches only, so existing conversations open instantly from cache.
   useEffect(() => {
     if (inboxMode !== 'messages') return;
     if (messageFetchPlatformIds.length === 0) return;
-    const interval = setInterval(() => setConversationsRefreshKey((k) => k + 1), 2 * 60_000);
+    const interval = setInterval(() => setConversationsRefreshKey((k) => k + 1), 5 * 60_000);
     return () => clearInterval(interval);
   }, [inboxMode, messageFetchPlatformIds.join(',')]);
+
+  // Twitter/X thread cache refresher: refreshes message payloads every 5 minutes in background.
+  // This keeps X conversations fast to open from cache and avoids stale thread bodies.
+  useEffect(() => {
+    if (inboxMode !== 'messages') return;
+    if (!user?.id) return;
+    const hasTwitter = messageFetchPlatformIds.includes('TWITTER');
+    if (!hasTwitter) return;
+
+    let cancelled = false;
+    const refreshTwitterThreadCache = async () => {
+      const twitterConversations = conversations.filter((c) => c.platform === 'TWITTER' && !!c.id).slice(0, 30);
+      if (twitterConversations.length === 0) return;
+
+      await Promise.allSettled(
+        twitterConversations.map(async (conv) => {
+          const account = conv.messageAccountId
+            ? effectiveAccounts.find((a) => a.id === conv.messageAccountId)
+            : effectiveAccounts.find((a) => a.platform === 'TWITTER');
+          if (!account) return;
+          try {
+            const res = await api.get(`/social/accounts/${account.id}/conversations/${conv.id}/messages`, { timeout: 15_000 });
+            if (cancelled) return;
+            const messages = res.data?.messages ?? [];
+            const recipientFromConv = conv.senders?.[0]?.id ?? null;
+            const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
+            setConversationMessagesCache((prev) => ({
+              ...prev,
+              [conv.id]: {
+                messages,
+                recipientId,
+                recipientName: res.data?.recipientName ?? null,
+                recipientPictureUrl: res.data?.recipientPictureUrl ?? null,
+                error: res.data?.error ?? null,
+                accountId: account.id,
+              },
+            }));
+          } catch {
+            // Silent refresh failure; foreground open still uses existing cache/fetch flow.
+          }
+        })
+      );
+    };
+
+    const interval = setInterval(() => {
+      void refreshTwitterThreadCache();
+    }, 5 * 60_000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [
+    inboxMode,
+    user?.id,
+    messageFetchPlatformIds.join(','),
+    conversations.map((c) => `${c.id}:${c.platform ?? ''}:${c.messageAccountId ?? ''}`).join('|'),
+    effectiveAccounts.map((a) => `${a.id}:${a.platform}`).join(','),
+  ]);
 
   // Messages mode: YouTube/TikTok have no DM strip; switch to a message-capable platform.
   useEffect(() => {
