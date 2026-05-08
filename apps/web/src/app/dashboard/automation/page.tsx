@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
-import { Send, UserPlus, MessageSquare, Loader2, Sparkles, ArrowRight } from 'lucide-react';
+import { Send, UserPlus, MessageSquare, Loader2, Sparkles, Plus, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import {
   InstagramIcon,
@@ -40,6 +39,7 @@ const AUTOMATION_DM_PLATFORM_KEY = 'agent4socials.automation.dmWelcome.platform.
 const AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY = 'agent4socials.automation.newFollowerDm.platform.v1';
 const AUTOMATION_FIRST_DM_MESSAGES_KEY = 'agent4socials.automation.firstDm.messages.v1';
 const AUTOMATION_NEW_FOLLOWER_MESSAGES_KEY = 'agent4socials.automation.newFollower.messages.v1';
+const AUTOMATION_KEYWORD_STEPS_KEY = 'agent4socials.automation.keyword.steps.v1';
 const FIRST_DM_SUPPORTED_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)', 'TikTok'] as const;
 const NEW_FOLLOWER_SUPPORTED_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)'] as const;
 
@@ -89,6 +89,15 @@ function levelBadge(level: SupportLevel): { label: string; className: string } {
   return { label: 'Not available', className: 'bg-neutral-200 text-neutral-700 border-neutral-300' };
 }
 
+type KeywordAutomationStep = {
+  id: string;
+  keyword: string;
+  platform: 'Instagram' | 'Facebook' | 'X (Twitter)' | 'TikTok' | 'YouTube';
+  actionType: 'reply' | 'send_file_or_link' | 'forward_to_page';
+  actionValue: string;
+  enabled: boolean;
+};
+
 function platformIcon(platform: string) {
   if (platform === 'Instagram') return <InstagramIcon size={16} />;
   if (platform === 'Facebook') return <FacebookIcon size={16} />;
@@ -105,6 +114,7 @@ export default function AutomationPage() {
   const [dmNewFollowerPlatform, setDmNewFollowerPlatform] = useState<string | null>(null);
   const [firstIncomingMessages, setFirstIncomingMessages] = useState<Record<string, string>>({});
   const [newFollowerMessages, setNewFollowerMessages] = useState<Record<string, string>>({});
+  const [keywordSteps, setKeywordSteps] = useState<KeywordAutomationStep[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -165,6 +175,17 @@ export default function AutomationPage() {
           try {
             const parsed = JSON.parse(savedNewFollowerMessages) as Record<string, string>;
             if (parsed && typeof parsed === 'object') setNewFollowerMessages(parsed);
+          } catch {
+            // ignore parse issues
+          }
+        }
+        const savedKeywordSteps =
+          sessionStorage.getItem(AUTOMATION_KEYWORD_STEPS_KEY) ??
+          localStorage.getItem(AUTOMATION_KEYWORD_STEPS_KEY);
+        if (savedKeywordSteps) {
+          try {
+            const parsed = JSON.parse(savedKeywordSteps) as KeywordAutomationStep[];
+            if (Array.isArray(parsed)) setKeywordSteps(parsed);
           } catch {
             // ignore parse issues
           }
@@ -291,6 +312,17 @@ export default function AutomationPage() {
     }
   }, [newFollowerMessages]);
 
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      const str = JSON.stringify(keywordSteps);
+      sessionStorage.setItem(AUTOMATION_KEYWORD_STEPS_KEY, str);
+      localStorage.setItem(AUTOMATION_KEYWORD_STEPS_KEY, str);
+    } catch {
+      // ignore storage errors
+    }
+  }, [keywordSteps]);
+
   const hasSetupMessage = (kind: 'first' | 'follower', platform: string) => {
     const source = kind === 'first' ? firstIncomingMessages : newFollowerMessages;
     return Boolean(source[platform]?.trim());
@@ -327,9 +359,9 @@ export default function AutomationPage() {
               Platform-specific automation controls are shown below.
             </p>
           </div>
-          <Link href="/composer" prefetch className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100">
-            Configure keywords <ArrowRight size={12} />
-          </Link>
+          <span className="inline-flex items-center rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600">
+            Platform overview
+          </span>
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -536,49 +568,6 @@ export default function AutomationPage() {
             </div>
           ))}
         </div>
-      </div>
-
-      {/* Comment automation: set in Composer */}
-      <div className="card border border-neutral-200 bg-neutral-50/50">
-        <h2 className="font-semibold text-neutral-900 flex items-center gap-2">
-          <MessageSquare size={20} className="text-neutral-500" />
-          Keyword comment automation
-        </h2>
-        <p className="text-sm text-neutral-600 mt-1">
-          When someone comments on your post with a keyword you set (e.g. &quot;demo&quot;), they get an automatic reply. Set keywords and the reply text per post in the Composer (section 4).
-        </p>
-        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
-          <strong>LinkedIn:</strong> Keyword comment automation is not supported for LinkedIn. Replies run on Instagram, Facebook, X, and YouTube.
-        </p>
-        <p className="text-xs text-neutral-500 mt-2">
-          <strong>X (Twitter):</strong> If keyword replies on X don’t run, check that your X app has the right access and that you have not hit rate or usage limits. Reconnect X from the Dashboard if needed.
-        </p>
-        <div className="mt-3 p-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-900">
-          <p className="font-medium mb-2">Setup checklist (do all steps)</p>
-          <p className="text-green-800 mb-2 text-xs">You can use the <strong>same cron job</strong> you already have (the one that calls <code className="bg-green-100/80 px-1 rounded">/api/cron/process-scheduled</code>). That endpoint now also runs comment automation, so no need to create a second job.</p>
-          <ol className="list-decimal list-inside space-y-1.5 text-green-800 mb-2">
-            <li><strong>Secret.</strong> Use header <code className="bg-green-100/80 px-1 rounded text-xs">X-Cron-Secret: YOUR_CRON_SECRET</code> or add <code className="bg-green-100/80 px-1 rounded text-xs">?secret=YOUR_CRON_SECRET</code> to the URL.</li>
-            <li><strong>Create a post with comment automation.</strong> In Composer: add your content and platforms, then in section 4 enable &quot;Keyword comment automation&quot;, add keywords (e.g. <code className="bg-green-100/80 px-1 rounded text-xs">demo</code>, <code className="bg-green-100/80 px-1 rounded text-xs">hello</code>) and the reply text (or different text per platform). Schedule or save the post.</li>
-            <li><strong>Publish that post.</strong> The post must be published (status Posted) to the platforms you want. Use &quot;Publish now&quot; or schedule with &quot;Auto&quot; so it goes out; the cron only checks posts that are already published.</li>
-            <li><strong>When do replies run?</strong> We use cron jobs so you control how often it runs. On Vercel Hobby the built-in cron runs <strong>once per day</strong>, so keyword replies can take up to ~24 hours. For <strong>faster replies (e.g. within 5 minutes)</strong>, add an external cron (e.g. <a href="https://cron-job.org" target="_blank" rel="noopener noreferrer" className="underline">cron-job.org</a>) that calls <code className="bg-green-100/80 px-1 rounded">/api/cron/comment-automation</code> every 5 minutes with the same <code className="bg-green-100/80 px-1 rounded">X-Cron-Secret</code> header.</li>
-          </ol>
-          <p className="text-green-800 text-xs">One cron job calling <code className="bg-green-100/80 px-1 rounded break-all">/api/cron/process-scheduled</code> does both.</p>
-        </div>
-        <div className="mt-2 p-2.5 rounded-lg bg-white border border-neutral-200 text-xs">
-          <p className="font-medium text-neutral-700 mb-1.5">Platform capabilities</p>
-          <ul className="space-y-1 text-neutral-600">
-            <li><strong>Keyword reply:</strong> Instagram (public or DM), Facebook, X, and YouTube. For X, if you see an error when running, reconnect X from the Dashboard.</li>
-            <li><strong>Welcome DM:</strong> Instagram, Facebook, X (when someone messages you first)</li>
-            <li><strong>New-follower DM:</strong> X only</li>
-          </ul>
-        </div>
-        <Link
-          href="/composer"
-          prefetch
-          className="inline-flex items-center gap-2 mt-3 text-sm font-medium text-[var(--button)] hover:opacity-90"
-        >
-          Open Composer
-        </Link>
       </div>
 
     </div>
