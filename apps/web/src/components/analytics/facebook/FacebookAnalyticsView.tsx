@@ -2938,15 +2938,20 @@ export function FacebookAnalyticsView({
     () => (isTwitter ? (insights?.recentTweets ?? []) : []),
     [isTwitter, insights?.recentTweets]
   );
+  const twitterRecentTweetsInRange = useMemo(
+    () => twitterRecentTweets.filter((t) => inRange(t.created_at ?? '', dateRange.start, dateRange.end)),
+    [twitterRecentTweets, dateRange.start, dateRange.end]
+  );
   /** Synced posts + timeline tweets missing from DB (same source as charts) for X upload counts & Posts tab rows. */
   const postsInRangeForPostsTabUi = useMemo(() => {
-    if (!isTwitter || twitterRecentTweets.length === 0) return postsInRange;
+    if (!isTwitter || twitterRecentTweetsInRange.length === 0) return postsInRange;
     const knownIds = new Set(
       postsInRange
         .map((p) => (p as FacebookPost & { platformPostId?: string | null }).platformPostId)
         .filter((id): id is string => typeof id === 'string' && id.length > 0)
     );
     const extras: FacebookPost[] = twitterRecentTweets
+      .filter((t) => inRange(t.created_at ?? '', dateRange.start, dateRange.end))
       .filter((t) => Boolean(t.id) && !knownIds.has(t.id))
       .map((t) => {
         const mtLower = (t.mediaType ?? '').toLowerCase();
@@ -2978,7 +2983,7 @@ export function FacebookAnalyticsView({
         } as FacebookPost;
       });
     return extras.length ? [...postsInRange, ...extras] : postsInRange;
-  }, [isTwitter, twitterRecentTweets, postsInRange]);
+  }, [isTwitter, twitterRecentTweets, twitterRecentTweetsInRange.length, postsInRange, dateRange.start, dateRange.end]);
   const contentTypeCounts = useMemo(() => {
     const counts: Record<ContentTypeKey, number> = { reels: 0, image: 0, carousel: 0 };
     for (const p of postsInRangeForPostsTabUi) {
@@ -3070,18 +3075,24 @@ export function FacebookAnalyticsView({
     [tiktokEffectivePosts]
   );
   const twitterEngagementsTotal = useMemo(() => {
+    const fromSeries = sumMetricSeriesPoints(insights?.twitterEngagementTimeSeries ?? []);
+    if (fromSeries > 0) return fromSeries;
+    const fromRangeTweets = twitterRecentTweetsInRange.reduce(
+      (s, t) => s + (t.like_count ?? 0) + (t.reply_count ?? 0) + (t.retweet_count ?? 0) + (t.quote_count ?? 0) + (t.bookmark_count ?? 0),
+      0
+    );
+    if (fromRangeTweets > 0) return fromRangeTweets;
     const t = twitterTotals;
     if (t) return t.likes + t.replies + t.retweets + t.quotes + t.bookmarks;
-    return sumMetricSeriesPoints(insights?.twitterEngagementTimeSeries ?? []);
-  }, [twitterTotals, insights?.twitterEngagementTimeSeries]);
-  const twitterImpressionsInRange = useMemo(
-    () =>
-      Math.max(
-        insights?.impressionsTotal ?? 0,
-        sumMetricSeriesPoints(insights?.impressionsTimeSeries ?? [])
-      ),
-    [insights?.impressionsTimeSeries, insights?.impressionsTotal]
-  );
+    return 0;
+  }, [twitterTotals, insights?.twitterEngagementTimeSeries, twitterRecentTweetsInRange]);
+  const twitterImpressionsInRange = useMemo(() => {
+    const fromSeries = sumMetricSeriesPoints(insights?.impressionsTimeSeries ?? []);
+    if (fromSeries > 0) return fromSeries;
+    const fromRangeTweets = twitterRecentTweetsInRange.reduce((s, t) => s + (t.impression_count ?? 0), 0);
+    if (fromRangeTweets > 0) return fromRangeTweets;
+    return insights?.impressionsTotal ?? 0;
+  }, [insights?.impressionsTimeSeries, insights?.impressionsTotal, twitterRecentTweetsInRange]);
   const youTubeViewsInRange = useMemo(
     () =>
       (insights?.impressionsTimeSeries ?? []).reduce((s, p) => s + (typeof p.value === 'number' && Number.isFinite(p.value) ? p.value : 0), 0),
@@ -4378,9 +4389,9 @@ type PostsUploadDayTooltipAgg = {
   const avgClicksPerPost = postsRows.reduce((s, r) => s + r.clicks, 0) / Math.max(1, postsRows.length);
   const avgInteractionsPerPost = (() => {
     // For Twitter with no synced posts, use live recentTweets as source
-    if (isTwitter && postsInRange.length === 0 && twitterRecentTweets.length > 0) {
-      const total = twitterRecentTweets.reduce((s, t) => s + (t.like_count ?? 0) + (t.reply_count ?? 0) + (t.retweet_count ?? 0) + (t.quote_count ?? 0), 0);
-      return total / twitterRecentTweets.length;
+    if (isTwitter && postsInRange.length === 0 && twitterRecentTweetsInRange.length > 0) {
+      const total = twitterRecentTweetsInRange.reduce((s, t) => s + (t.like_count ?? 0) + (t.reply_count ?? 0) + (t.retweet_count ?? 0) + (t.quote_count ?? 0), 0);
+      return total / twitterRecentTweetsInRange.length;
     }
     const listForAvg = isTikTok ? tiktokEffectivePosts : isTwitter ? postsInRangeForPostsTabUi : postsInRange;
     const sum = listForAvg.reduce((acc, post) => {
@@ -4395,16 +4406,16 @@ type PostsUploadDayTooltipAgg = {
   })();
   const avgReactionsPerPost = (() => {
     // For Twitter with no synced posts, use live recentTweets likes as reactions
-    if (isTwitter && postsRows.length === 0 && twitterRecentTweets.length > 0) {
-      const total = twitterRecentTweets.reduce((s, t) => s + (t.like_count ?? 0), 0);
-      return total / twitterRecentTweets.length;
+    if (isTwitter && postsRows.length === 0 && twitterRecentTweetsInRange.length > 0) {
+      const total = twitterRecentTweetsInRange.reduce((s, t) => s + (t.like_count ?? 0), 0);
+      return total / twitterRecentTweetsInRange.length;
     }
     return postsRows.reduce((s, r) => s + r.reactionsTotal, 0) / Math.max(1, postsRows.length);
   })();
   const avgViewsPerPost = (() => {
-    if (isTwitter && postsRows.length === 0 && twitterRecentTweets.length > 0) {
-      const total = twitterRecentTweets.reduce((s, t) => s + (t.impression_count ?? 0), 0);
-      return total / twitterRecentTweets.length;
+    if (isTwitter && postsRows.length === 0 && twitterRecentTweetsInRange.length > 0) {
+      const total = twitterRecentTweetsInRange.reduce((s, t) => s + (t.impression_count ?? 0), 0);
+      return total / twitterRecentTweetsInRange.length;
     }
     return postsRows.reduce((s, r) => s + (r.views ?? 0), 0) / Math.max(1, postsRows.length);
   })();
@@ -4481,37 +4492,26 @@ type PostsUploadDayTooltipAgg = {
     } as const;
   }, [growthSparklineSeries, isTikTok, isTwitter, isYouTube, isLinkedIn]);
   const likesTotal = useMemo(() => {
-    const src = isTikTok ? tiktokEffectivePosts : postsInRange;
+    const src = isTikTok ? tiktokEffectivePosts : isTwitter ? postsInRangeForPostsTabUi : postsInRange;
     const fromPosts = src.reduce((sum, post) => sum + bestCount(post.facebookInsights?.post_reactions_like_total, post.likeCount ?? post.engagementBreakdown?.reactions), 0);
-    if (isTwitter && twitterRecentTweets.length > 0) {
-      return Math.max(fromPosts, twitterRecentTweets.reduce((s, t) => s + (t.like_count ?? 0), 0));
-    }
     return fromPosts;
-  }, [isTikTok, tiktokEffectivePosts, postsInRange, isTwitter, twitterRecentTweets]);
+  }, [isTikTok, tiktokEffectivePosts, isTwitter, postsInRangeForPostsTabUi, postsInRange]);
   const commentsTotal = useMemo(() => {
-    const src = isTikTok ? tiktokEffectivePosts : postsInRange;
+    const src = isTikTok ? tiktokEffectivePosts : isTwitter ? postsInRangeForPostsTabUi : postsInRange;
     const fromPosts = src.reduce((sum, post) => sum + (post.facebookInsights?.post_comments ?? post.commentsCount ?? post.engagementBreakdown?.comments ?? 0), 0);
-    if (isTwitter && twitterRecentTweets.length > 0) {
-      return Math.max(fromPosts, twitterRecentTweets.reduce((s, t) => s + (t.reply_count ?? 0), 0));
-    }
     return fromPosts;
-  }, [isTikTok, tiktokEffectivePosts, postsInRange, isTwitter, twitterRecentTweets]);
+  }, [isTikTok, tiktokEffectivePosts, isTwitter, postsInRangeForPostsTabUi, postsInRange]);
   const sharesTotal = useMemo(() => {
-    const src = isTikTok ? tiktokEffectivePosts : postsInRange;
+    const src = isTikTok ? tiktokEffectivePosts : isTwitter ? postsInRangeForPostsTabUi : postsInRange;
     const fromPosts = src.reduce((sum, post) => sum + bestShareCount(post), 0);
     if (isYouTube) return Math.max(fromPosts, youtubeSharesTotal);
-    if (isTwitter && twitterRecentTweets.length > 0) {
-      return Math.max(fromPosts, twitterRecentTweets.reduce((s, t) => s + (t.retweet_count ?? 0) + (t.quote_count ?? 0), 0));
-    }
     return fromPosts;
-  }, [isTikTok, tiktokEffectivePosts, postsInRange, isYouTube, youtubeSharesTotal, isTwitter, twitterRecentTweets]);
+  }, [isTikTok, tiktokEffectivePosts, isTwitter, postsInRangeForPostsTabUi, postsInRange, isYouTube, youtubeSharesTotal]);
   const repostsTotal = useMemo(() => {
-    const fromPosts = postsInRange.reduce((sum, post) => sum + bestRepostCount(post), 0);
-    if (isTwitter && twitterRecentTweets.length > 0) {
-      return Math.max(fromPosts, twitterRecentTweets.reduce((s, t) => s + (t.retweet_count ?? 0), 0));
-    }
+    const src = isTwitter ? postsInRangeForPostsTabUi : postsInRange;
+    const fromPosts = src.reduce((sum, post) => sum + bestRepostCount(post), 0);
     return fromPosts;
-  }, [postsInRange, isTwitter, twitterRecentTweets]);
+  }, [isTwitter, postsInRangeForPostsTabUi, postsInRange]);
   const totalActions = actionsTotal;
   const engagementData = useMemo(() => {
     const likesByDate = postsInRange.reduce<Record<string, number>>((acc, post) => {
