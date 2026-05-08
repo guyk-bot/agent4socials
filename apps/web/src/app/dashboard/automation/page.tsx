@@ -271,6 +271,10 @@ export default function AutomationPage() {
               const keyword = levelBadge(row.keywordCommentAutomation);
               const dmFirst = levelBadge(row.autoDmWhenMessagedFirst);
               const newFollower = levelBadge(row.welcomeMessageToNewFollower);
+              const keywordLabel =
+                row.platform === 'Instagram' || row.platform === 'Facebook' || row.platform === 'X (Twitter)'
+                  ? 'Keyword comment + DM automation'
+                  : 'Keyword comment automation';
               const supportsDmFirstNative = row.autoDmWhenMessagedFirst === 'native';
               const supportsNewFollowerNative = row.welcomeMessageToNewFollower === 'native';
               return (
@@ -281,7 +285,7 @@ export default function AutomationPage() {
                   </h3>
                   <div className="mt-3 space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs text-neutral-600">Keyword comment automation</span>
+                      <span className="text-xs text-neutral-600">{keywordLabel}</span>
                       <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${keyword.className}`}>{keyword.label}</span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
