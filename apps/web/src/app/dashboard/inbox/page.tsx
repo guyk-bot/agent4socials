@@ -339,6 +339,8 @@ function InboxPage() {
   const conversationsLoadedRef = useRef(false);
   /** Next X (Twitter) inbox fetch for these account IDs should send `manualInboxSync=1` (15m server cooldown). */
   const pendingManualInboxByAccountRef = useRef<Set<string>>(new Set());
+  /** Background-prefetched conversation message cache keys: `${accountId}:${conversationId}` */
+  const prefetchedConversationMessagesRef = useRef<Set<string>>(new Set());
 
   // Multi-select state for conversations
   const [selectedConversationIds, setSelectedConversationIds] = useState<Set<string>>(new Set());
@@ -681,6 +683,73 @@ function InboxPage() {
   useEffect(() => {
     setAiReplyError(null);
   }, [selectedComment?.commentId, selectedConversationId]);
+
+  // Background prefetch: once conversations are available, warm per-thread message cache so
+  // opening any conversation feels instant without the user waiting on a new request.
+  useEffect(() => {
+    if (!user?.id) return;
+    if (conversations.length === 0) return;
+
+    const targets = conversations
+      .filter((c) => c.id && c.platform && DM_THREAD_PLATFORM_IDS.has(c.platform))
+      .slice(0, 30); // safety cap, keeps prefetch lightweight even for large inboxes
+    if (targets.length === 0) return;
+
+    let cancelled = false;
+    const pending: Promise<void>[] = [];
+
+    for (const conv of targets) {
+      const account = conv.messageAccountId
+        ? effectiveAccounts.find((a) => a.id === conv.messageAccountId)
+        : conv.platform
+          ? effectiveAccounts.find((a) => a.platform === conv.platform)
+          : null;
+      if (!account) continue;
+
+      const cacheKey = `${account.id}:${conv.id}`;
+      if (prefetchedConversationMessagesRef.current.has(cacheKey)) continue;
+
+      const existing = conversationMessagesCache[conv.id];
+      if (existing?.accountId === account.id && Array.isArray(existing.messages)) {
+        prefetchedConversationMessagesRef.current.add(cacheKey);
+        continue;
+      }
+
+      prefetchedConversationMessagesRef.current.add(cacheKey);
+      pending.push(
+        api
+          .get(`/social/accounts/${account.id}/conversations/${conv.id}/messages`, { timeout: 15_000 })
+          .then((res) => {
+            if (cancelled) return;
+            const messages = res.data?.messages ?? [];
+            const recipientFromConv = conv.senders?.[0]?.id ?? null;
+            const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
+            setConversationMessagesCache((prev) => ({
+              ...prev,
+              [conv.id]: {
+                messages,
+                recipientId,
+                recipientName: res.data?.recipientName ?? null,
+                recipientPictureUrl: res.data?.recipientPictureUrl ?? null,
+                error: res.data?.error ?? null,
+                accountId: account.id,
+              },
+            }));
+          })
+          .catch(() => {
+            // Silent background warm-up: do not surface toast/errors to user.
+            // If open-time fetch is needed later, existing foreground logic handles it.
+          })
+      );
+    }
+
+    if (pending.length === 0) return;
+    Promise.allSettled(pending).catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, conversations, effectiveAccounts, conversationMessagesCache]);
 
   // Fetch last message per selected conversation for batch reply cards (show "message user sent" instead of "How do you want to reply?")
   useEffect(() => {
