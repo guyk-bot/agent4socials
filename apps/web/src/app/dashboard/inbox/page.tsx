@@ -60,7 +60,9 @@ const INBOX_PLATFORM_DEFS = [
 ] as const;
 
 const MESSAGE_STRIP_PLATFORM_IDS = new Set<string>(
-  INBOX_PLATFORM_DEFS.filter((p) => p.id !== 'YOUTUBE' && p.id !== 'TIKTOK').map((p) => p.id)
+  INBOX_PLATFORM_DEFS.filter(
+    (p) => p.id !== 'YOUTUBE' && p.id !== 'TIKTOK' && p.id !== 'LINKEDIN' && p.id !== 'PINTEREST'
+  ).map((p) => p.id)
 );
 const COMMENT_STRIP_PLATFORM_IDS = new Set<string>(INBOX_PLATFORM_DEFS.map((p) => p.id));
 /** Platforms where we can open a DM thread (Meta + X). */
