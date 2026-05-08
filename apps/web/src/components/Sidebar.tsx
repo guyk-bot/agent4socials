@@ -223,7 +223,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
             if (pathname === '/dashboard/console') e.preventDefault();
           }}
           className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-            isMainAnalyticsView ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 border border-transparent'
+            isMainAnalyticsView ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 border border-transparent dark:hover:border-neutral-700'
           }`}
         >
           <BarChart3 size={18} className="shrink-0" />
@@ -242,8 +242,8 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
             const needsUpgrade = UPGRADE_TO_CONNECT_PLATFORMS.includes(platform);
             /** Connect URL per platform; optional gem styling when platform is in UPGRADE_TO_CONNECT_PLATFORMS. */
             const href = `/dashboard?connect=${connectParam}`;
-            const platformRowClass = `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors ${
-              isPlatformSelected ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80'
+            const platformRowClass = `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors border border-transparent ${
+              isPlatformSelected ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80 dark:hover:border-neutral-700'
             } ${needsUpgrade ? 'ring-1 ring-orange-400/50 bg-gradient-to-r from-orange-500/10 to-orange-500/10' : ''}`;
             const platformRowInner = (
               <>
@@ -278,8 +278,8 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
             <div key={platform} className="space-y-0.5">
               {accounts.map((acc) => {
                 const isSelected = selectedAccountId === acc.id;
-                const accountRowClass = `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors min-w-0 ${
-                  isSelected ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80'
+                const accountRowClass = `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors min-w-0 border border-transparent ${
+                  isSelected ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80 dark:hover:border-neutral-700'
                 }`;
                 // From Inbox or any page: go to this account's analytics via client-side nav (keeps cache, no reload).
                 const dashboardUrl = `/dashboard?accountId=${encodeURIComponent(acc.id)}`;
@@ -358,35 +358,35 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
       <div className="p-3 space-y-0.5 border-t border-neutral-200 shrink-0">
         <Link
           href="/posts"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isPostsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isPostsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
         >
           <FileText size={18} className="shrink-0" />
           <span>History</span>
         </Link>
         <Link
           href="/dashboard/automation"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAutomationPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isAutomationPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
         >
           <Zap size={18} className="shrink-0" />
           <span>Automation</span>
         </Link>
         <Link
           href="/dashboard/hashtag-pool"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isHashtagPoolPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isHashtagPoolPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
         >
           <Hash size={18} className="shrink-0" />
           <span>Hashtag Pool</span>
         </Link>
         <Link
           href="/dashboard/ai-assistant"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isAiAssistantPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isAiAssistantPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
         >
           <Sparkles size={18} className="shrink-0" />
           <span>AI Assistant</span>
         </Link>
         <Link
           href="/dashboard/settings"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isSettingsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isSettingsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
         >
           <Settings size={18} className="shrink-0" />
           <span>Brand settings</span>
@@ -396,14 +396,14 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
       <div className="mt-auto p-3 border-t border-neutral-200 shrink-0">
         <Link
           href="/help"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isHelpPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isHelpPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
         >
           <HelpCircle size={18} className="shrink-0" />
           <span>Need help?</span>
         </Link>
         <Link
           href="/help/support"
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 mt-0.5"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 border border-transparent dark:hover:border-neutral-700 mt-0.5"
         >
           <span className="text-xs">Open a support ticket</span>
         </Link>
