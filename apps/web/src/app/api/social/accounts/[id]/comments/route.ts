@@ -65,17 +65,23 @@ export async function GET(
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   const { id } = await params;
+  const { searchParams } = new URL(request.url);
+  const deltaMode = searchParams.get('delta') === '1' || searchParams.get('delta') === 'true';
+  const sinceParam = searchParams.get('since');
+  const sinceIso = sinceParam && !Number.isNaN(Date.parse(sinceParam)) ? new Date(sinceParam).toISOString() : null;
 
   // Short-lived response cache keyed by (user, account). Prevents the Phase 2 prefetch
   // in AppDataContext from firing the expensive Meta comments fan-out every time the
   // app mounts / the user reopens analytics.
   const cacheKey = `comments:${userId}:${id}`;
-  const cached = getCached<unknown>(cacheKey);
-  if (cached) {
-    const res = NextResponse.json(cached);
-    res.headers.set('Cache-Control', 'private, max-age=60');
-    res.headers.set('X-Comments-Cache', 'HIT');
-    return res;
+  if (!deltaMode) {
+    const cached = getCached<unknown>(cacheKey);
+    if (cached) {
+      const res = NextResponse.json(cached);
+      res.headers.set('Cache-Control', 'private, max-age=60');
+      res.headers.set('X-Comments-Cache', 'HIT');
+      return res;
+    }
   }
 
   const account = await prisma.socialAccount.findFirst({
@@ -295,7 +301,8 @@ export async function GET(
   // Graph API fan-out bounded (see MAX_SOURCES comment at top of file).
   const existingPostIds = new Set(dbSources.map((s) => s.platformPostId));
   const extraLive = liveSources.filter((s) => !existingPostIds.has(s.platformPostId));
-  const maxSources = metaThrottle && platform === 'INSTAGRAM' ? 16 : MAX_SOURCES;
+  const maxSourcesBase = metaThrottle && platform === 'INSTAGRAM' ? 16 : MAX_SOURCES;
+  const maxSources = deltaMode ? Math.min(12, maxSourcesBase) : maxSourcesBase;
   const sources: PostSource[] = [
     ...dbSources,
     ...extraLive.slice(0, Math.max(0, maxSources - dbSources.length)),
@@ -749,9 +756,12 @@ export async function GET(
   }
 
   comments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const filteredComments = sinceIso
+    ? comments.filter((c) => typeof c.createdAt === 'string' && c.createdAt.localeCompare(sinceIso) > 0)
+    : comments;
 
   let error: string | undefined;
-  if (comments.length === 0 && firstError) {
+  if (filteredComments.length === 0 && firstError) {
     const msg = (firstError as string).toLowerCase();
     if (msg.includes('permission') || msg.includes('oauth') || msg.includes('scope') || msg.includes('capability') || msg.includes('code 10') || msg.includes('code 200') || msg.includes('#10') || msg.includes('#200')) {
       error = `${platform} comment permission required. Reconnect your ${platform} account from the sidebar and grant comment permissions.`;
@@ -762,10 +772,10 @@ export async function GET(
     }
   }
 
-  const payload = { comments, ...(error ? { error } : {}) };
+  const payload = { comments: filteredComments, ...(error ? { error } : {}) };
   // Only cache successful responses (no upstream token/permission errors) — we never want to
   // lock in a "permission denied" blip into a 3-minute cache.
-  if (!error) setCached(cacheKey, payload, COMMENTS_CACHE_TTL_MS);
+  if (!deltaMode && !error) setCached(cacheKey, payload, COMMENTS_CACHE_TTL_MS);
 
   const res = NextResponse.json(payload);
   res.headers.set('Cache-Control', 'private, max-age=60');

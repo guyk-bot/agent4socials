@@ -1156,53 +1156,81 @@ function InboxPage() {
         }
         return;
       }
-      // Only use cache when not doing a forced refresh (commentsRefreshKey > 0 clears and re-fetches)
-      const fromCache = commentsRefreshKey === 0 ? appData?.getComments(account.id) : undefined;
-      if (fromCache !== undefined && fromCache !== null) {
-        const withAccountId = fromCache.map((c) => ({ ...c, accountId: (c as PostComment).accountId ?? account.id }));
+      const fromCache = appData?.getComments(account.id);
+      const useCache = fromCache !== undefined && fromCache !== null;
+      const fromCacheList = useCache ? fromCache : [];
+      if (useCache) {
+        const withAccountId = fromCacheList.map((c) => ({ ...c, accountId: (c as PostComment).accountId ?? account.id }));
         merge.push(...withAccountId);
+      }
+
+      const newestCachedCreatedAt =
+        fromCacheList
+          .map((c) => c.createdAt)
+          .filter((v): v is string => typeof v === 'string' && v.length > 0)
+          .sort((a, b) => b.localeCompare(a))[0] ?? undefined;
+      const shouldDeltaFetch = useCache && commentsRefreshKey > 0;
+
+      if (!useCache || shouldDeltaFetch) {
+        needsFetch = true;
+        const url =
+          `/social/accounts/${account.id}/comments` +
+          `${shouldDeltaFetch && newestCachedCreatedAt ? `?since=${encodeURIComponent(newestCachedCreatedAt)}&delta=1` : ''}`;
+        api.get(url)
+          .then((res) => {
+            if (cancelled) return;
+            const list: PostComment[] = res.data?.comments ?? [];
+            const apiError: string | null = res.data?.error ?? null;
+            if (apiError) {
+              errorsFound.push(apiError);
+            } else {
+              const mergedById = new Map<string, PostComment>();
+              for (const existing of fromCacheList) {
+                const normalized = { ...existing, accountId: (existing as PostComment).accountId ?? account.id } as PostComment;
+                mergedById.set(normalized.commentId, normalized);
+              }
+              for (const incoming of list) {
+                const normalized = { ...incoming, accountId: incoming.accountId ?? account.id } as PostComment;
+                mergedById.set(normalized.commentId, normalized);
+              }
+              const mergedAccountList = Array.from(mergedById.values()).sort(
+                (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              );
+              appData?.setCommentsForAccount(account.id, mergedAccountList);
+              merge.push(...mergedAccountList);
+            }
+            if (--pending === 0) {
+              setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+              setCommentsError(merge.length === 0 && errorsFound.length > 0 ? errorsFound[0] : null);
+              setCommentsLoading(false);
+            }
+          })
+          .catch((err: { response?: { status?: number } }) => {
+            if (cancelled) return;
+            errorsFound.push('Could not load comments.');
+            if (err?.response?.status === 404 && setCachedAccounts) {
+              api.get('/social/accounts').then((res) => {
+                const data = Array.isArray(res?.data) ? res.data : [];
+                setCachedAccounts(data);
+              }).catch(() => {});
+            }
+            if (--pending === 0) {
+              setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+              setCommentsError(merge.length === 0 ? (errorsFound[0] ?? 'Could not load comments.') : null);
+              setCommentsLoading(false);
+            }
+          });
+      } else {
         if (--pending === 0 && !cancelled) {
           setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
           setCommentsError(null);
           setCommentsLoading(false);
         }
-        return;
       }
-      needsFetch = true;
-      api.get(`/social/accounts/${account.id}/comments`)
-        .then((res) => {
-          if (cancelled) return;
-          const list: PostComment[] = res.data?.comments ?? [];
-          const apiError: string | null = res.data?.error ?? null;
-          merge.push(...list);
-          // Only cache if there was no error — a cached empty list would hide errors on next load
-          if (!apiError) appData?.setCommentsForAccount(account.id, list);
-          if (apiError) errorsFound.push(apiError);
-          if (--pending === 0) {
-            setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-            setCommentsError(merge.length === 0 && errorsFound.length > 0 ? errorsFound[0] : null);
-            setCommentsLoading(false);
-          }
-      })
-      .catch((err: { response?: { status?: number } }) => {
-          if (cancelled) return;
-          errorsFound.push('Could not load comments.');
-          if (err?.response?.status === 404 && setCachedAccounts) {
-            api.get('/social/accounts').then((res) => {
-              const data = Array.isArray(res?.data) ? res.data : [];
-              setCachedAccounts(data);
-            }).catch(() => {});
-          }
-          if (--pending === 0) {
-            setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-            setCommentsError(merge.length === 0 ? (errorsFound[0] ?? 'Could not load comments.') : null);
-            setCommentsLoading(false);
-          }
-        });
     });
 
     if (needsFetch) {
-      setCommentsLoading(true);
+      if (merge.length === 0) setCommentsLoading(true);
       setCommentsError(null);
     }
     return () => { cancelled = true; };
