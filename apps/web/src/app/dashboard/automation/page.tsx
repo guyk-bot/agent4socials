@@ -272,7 +272,10 @@ export default function AutomationPage() {
               const dmFirst = levelBadge(row.autoDmWhenMessagedFirst);
               const newFollower = levelBadge(row.welcomeMessageToNewFollower);
               const keywordLabel =
-                row.platform === 'Instagram' || row.platform === 'Facebook' || row.platform === 'X (Twitter)'
+                row.platform === 'Instagram' ||
+                row.platform === 'Facebook' ||
+                row.platform === 'X (Twitter)' ||
+                row.platform === 'TikTok'
                   ? 'Keyword comment + DM automation'
                   : 'Keyword comment automation';
               const supportsDmFirstNative = row.autoDmWhenMessagedFirst === 'native';
