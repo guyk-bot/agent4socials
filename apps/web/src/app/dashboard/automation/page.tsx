@@ -13,6 +13,13 @@ type AutomationSettings = {
   dmNewFollowerMessage: string | null;
 };
 
+type PlatformCapability = {
+  platform: string;
+  keywordCommentAutomation: boolean;
+  autoDmWhenMessagedFirst: boolean;
+  welcomeMessageToNewFollower: boolean;
+};
+
 const defaultSettings: AutomationSettings = {
   dmWelcomeEnabled: false,
   dmWelcomeMessage: null,
@@ -20,6 +27,51 @@ const defaultSettings: AutomationSettings = {
   dmNewFollowerMessage: null,
 };
 const AUTOMATION_SETTINGS_CACHE_KEY = 'agent4socials.automation.settings.v1';
+
+const PLATFORM_CAPABILITIES: PlatformCapability[] = [
+  {
+    platform: 'Instagram',
+    keywordCommentAutomation: true,
+    autoDmWhenMessagedFirst: true,
+    welcomeMessageToNewFollower: false,
+  },
+  {
+    platform: 'Facebook',
+    keywordCommentAutomation: true,
+    autoDmWhenMessagedFirst: true,
+    welcomeMessageToNewFollower: false,
+  },
+  {
+    platform: 'X (Twitter)',
+    keywordCommentAutomation: true,
+    autoDmWhenMessagedFirst: true,
+    welcomeMessageToNewFollower: true,
+  },
+  {
+    platform: 'LinkedIn',
+    keywordCommentAutomation: true,
+    autoDmWhenMessagedFirst: false,
+    welcomeMessageToNewFollower: false,
+  },
+  {
+    platform: 'Pinterest',
+    keywordCommentAutomation: false,
+    autoDmWhenMessagedFirst: false,
+    welcomeMessageToNewFollower: false,
+  },
+  {
+    platform: 'TikTok',
+    keywordCommentAutomation: false,
+    autoDmWhenMessagedFirst: false,
+    welcomeMessageToNewFollower: false,
+  },
+  {
+    platform: 'YouTube',
+    keywordCommentAutomation: false,
+    autoDmWhenMessagedFirst: false,
+    welcomeMessageToNewFollower: false,
+  },
+];
 
 export default function AutomationPage() {
   const [settings, setSettings] = useState<AutomationSettings>(defaultSettings);
@@ -130,6 +182,63 @@ export default function AutomationPage() {
         <p className="mt-1 text-sm text-neutral-500">
           Auto-reply to comments with keywords (set per post in the Composer) and welcome DMs when someone messages you first.
         </p>
+      </div>
+
+      <div className="card border border-neutral-200 bg-neutral-50/50">
+        <h2 className="font-semibold text-neutral-900">Platform automation capabilities</h2>
+        <p className="text-sm text-neutral-600 mt-1">
+          Overview of what is currently available for each platform.
+        </p>
+
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full min-w-[760px] text-sm">
+            <thead>
+              <tr className="text-left border-b border-neutral-200">
+                <th className="py-2 pr-3 font-medium text-neutral-700">Platform</th>
+                <th className="py-2 pr-3 font-medium text-neutral-700">Keyword comment automation</th>
+                <th className="py-2 pr-3 font-medium text-neutral-700">Auto-DM when messaged first</th>
+                <th className="py-2 font-medium text-neutral-700">Welcome message to new follower</th>
+              </tr>
+            </thead>
+            <tbody>
+              {PLATFORM_CAPABILITIES.map((row) => (
+                <tr key={row.platform} className="border-b border-neutral-100 last:border-b-0">
+                  <td className="py-2.5 pr-3 text-neutral-900 font-medium">{row.platform}</td>
+                  <td className="py-2.5 pr-3">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${row.keywordCommentAutomation ? 'bg-green-100 text-green-800' : 'bg-neutral-200 text-neutral-700'}`}>
+                      {row.keywordCommentAutomation ? 'Available' : 'Not available'}
+                    </span>
+                  </td>
+                  <td className="py-2.5 pr-3">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${row.autoDmWhenMessagedFirst ? 'bg-green-100 text-green-800' : 'bg-neutral-200 text-neutral-700'}`}>
+                      {row.autoDmWhenMessagedFirst ? 'Available' : 'Not available'}
+                    </span>
+                  </td>
+                  <td className="py-2.5">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${row.welcomeMessageToNewFollower ? 'bg-green-100 text-green-800' : 'bg-neutral-200 text-neutral-700'}`}>
+                      {row.welcomeMessageToNewFollower ? 'Available' : 'Not available'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-neutral-600">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2.5 py-1">
+            <MessageSquare size={13} className="text-neutral-500" />
+            Keyword comment automation
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2.5 py-1">
+            <Send size={13} className="text-neutral-500" />
+            Auto-DM when messaged first
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-2.5 py-1">
+            <UserPlus size={13} className="text-neutral-500" />
+            Welcome message to new follower
+          </span>
+        </div>
       </div>
 
       {/* Comment automation: set in Composer */}
