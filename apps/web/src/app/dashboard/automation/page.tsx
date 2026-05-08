@@ -92,13 +92,15 @@ function levelBadge(level: SupportLevel): { label: string; className: string } {
 type KeywordAutomationStep = {
   id: string;
   keyword: string;
-  platform: 'Instagram' | 'Facebook' | 'X (Twitter)' | 'TikTok' | 'YouTube';
+  platforms: Array<'Instagram' | 'Facebook' | 'X (Twitter)' | 'TikTok' | 'YouTube'>;
   actionType: 'reply' | 'send_file_or_link' | 'forward_to_page';
   actionValue: string;
   replyVariants: string[];
   replyVariantStrategy: 'rotate' | 'random';
   enabled: boolean;
 };
+
+const KEYWORD_AUTOMATION_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)', 'TikTok', 'YouTube'] as const;
 
 function platformIcon(platform: string) {
   if (platform === 'Instagram') return <InstagramIcon size={16} />;
@@ -191,6 +193,16 @@ export default function AutomationPage() {
               setKeywordSteps(
                 parsed.map((step) => ({
                   ...step,
+                  platforms:
+                    Array.isArray((step as { platforms?: string[] }).platforms) &&
+                    (step as { platforms?: string[] }).platforms!.length > 0
+                      ? ((step as { platforms?: string[] }).platforms!.filter((p): p is KeywordAutomationStep['platforms'][number] =>
+                          KEYWORD_AUTOMATION_PLATFORMS.includes(p as KeywordAutomationStep['platforms'][number]),
+                        ))
+                      : ((step as { platform?: string }).platform &&
+                        KEYWORD_AUTOMATION_PLATFORMS.includes((step as { platform?: string }).platform as KeywordAutomationStep['platforms'][number])
+                          ? [((step as { platform?: string }).platform as KeywordAutomationStep['platforms'][number])]
+                          : ['Instagram']),
                   replyVariants:
                     Array.isArray(step?.replyVariants) &&
                     step.replyVariants.every((v) => typeof v === 'string')
@@ -614,18 +626,42 @@ export default function AutomationPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-neutral-700 mb-1">Platform</label>
-                  <select
-                    value={step.platform}
-                    onChange={(e) => setKeywordSteps((prev) => prev.map((s) => (s.id === step.id ? { ...s, platform: e.target.value as KeywordAutomationStep['platform'] } : s)))}
-                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 bg-white"
-                  >
-                    <option>Instagram</option>
-                    <option>Facebook</option>
-                    <option>X (Twitter)</option>
-                    <option>TikTok</option>
-                    <option>YouTube</option>
-                  </select>
+                  <label className="block text-xs font-medium text-neutral-700 mb-1">Platforms</label>
+                  <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2 space-y-2">
+                    <p className="text-[11px] text-neutral-500">
+                      Choose one or more platforms.
+                    </p>
+                    <div className="grid gap-1.5 sm:grid-cols-2">
+                      {KEYWORD_AUTOMATION_PLATFORMS.map((platform) => {
+                        const checked = step.platforms.includes(platform);
+                        return (
+                          <label key={`${step.id}-${platform}`} className="inline-flex items-center gap-2 text-xs text-neutral-700">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) =>
+                                setKeywordSteps((prev) =>
+                                  prev.map((s) => {
+                                    if (s.id !== step.id) return s;
+                                    if (e.target.checked) {
+                                      if (s.platforms.includes(platform)) return s;
+                                      return { ...s, platforms: [...s.platforms, platform] };
+                                    }
+                                    const nextPlatforms = s.platforms.filter((p) => p !== platform);
+                                    // Keep at least one platform selected for each step.
+                                    if (nextPlatforms.length === 0) return s;
+                                    return { ...s, platforms: nextPlatforms };
+                                  }),
+                                )
+                              }
+                              className="rounded border-neutral-300 text-[var(--button)] focus:ring-[var(--button)]/50"
+                            />
+                            <span>{platform}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-neutral-700 mb-1">Action</label>
@@ -724,7 +760,7 @@ export default function AutomationPage() {
               {
                 id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
                 keyword: '',
-                platform: 'Instagram',
+                platforms: ['Instagram'],
                 actionType: 'reply',
                 actionValue: '',
                 replyVariants: [],
