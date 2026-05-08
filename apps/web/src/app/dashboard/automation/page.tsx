@@ -80,7 +80,6 @@ const PLATFORM_CAPABILITIES: PlatformCapability[] = [
     keywordCommentAutomation: 'native',
     autoDmWhenMessagedFirst: 'none',
     welcomeMessageToNewFollower: 'none',
-    notes: ['Keyword comment automation is available for LinkedIn.'],
   },
 ];
 
