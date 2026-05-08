@@ -7,7 +7,7 @@ import {
     BarChart3,
     FileText,
     Hash,
-    Settings,
+    Users,
     ChevronRight,
     Plus,
     Zap,
@@ -210,6 +210,8 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const isAutomationPage = pathname === '/dashboard/automation';
   const isHashtagPoolPage = pathname === '/dashboard/hashtag-pool';
   const isAiAssistantPage = pathname === '/dashboard/ai-assistant';
+  const isReportsPage = pathname === '/dashboard/reports';
+  const isAccountPage = pathname === '/dashboard/account' || pathname === '/dashboard/accounts';
   const isSettingsPage = pathname === '/dashboard/settings';
   const isHelpPage = pathname === '/help';
 
@@ -385,11 +387,18 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           <span>AI Assistant</span>
         </Link>
         <Link
-          href="/dashboard/settings"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isSettingsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
+          href="/dashboard/reports"
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isReportsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
         >
-          <Settings size={18} className="shrink-0" />
-          <span>Brand settings</span>
+          <FileText size={18} className="shrink-0" />
+          <span>Reports</span>
+        </Link>
+        <Link
+          href="/dashboard/account"
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isAccountPage || isSettingsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
+        >
+          <Users size={18} className="shrink-0" />
+          <span>Account</span>
         </Link>
       </div>
 

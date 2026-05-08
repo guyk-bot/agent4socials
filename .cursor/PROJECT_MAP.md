@@ -72,6 +72,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | `/dashboard/accounts` | Redirects to `/dashboard/account#connected-accounts`; UI in `components/account/ConnectedAccountsPanel.tsx` |
 | `/dashboard/settings` | `dashboard/settings/page.tsx` |
 | `/dashboard/automation` | `dashboard/automation/page.tsx` |
+| `/dashboard/reports` | `dashboard/reports/page.tsx` (download Simplified/Detailed Console PDF reports) |
 | `/dashboard/smart-links` | `dashboard/smart-links/page.tsx` |
 | `/dashboard/console` (Console: unified KPIs, Growth / Engagement / Views charts, `AnalyticsDateRangePicker`, cache `lib/dashboard-unified-summary-cache.ts`) | `dashboard/console/page.tsx` |
 | `/dashboard/summary` | Redirects to `/dashboard/console` (same query string) |
