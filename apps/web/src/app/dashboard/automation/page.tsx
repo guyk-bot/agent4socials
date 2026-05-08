@@ -18,7 +18,6 @@ type PlatformCapability = {
   keywordCommentAutomation: SupportLevel;
   autoDmWhenMessagedFirst: SupportLevel;
   welcomeMessageToNewFollower: SupportLevel;
-  followToDmWelcome: SupportLevel;
   notes?: string[];
 };
 type SocialAccountLite = { id: string; platform: string; status?: string | null };
@@ -37,30 +36,24 @@ const PLATFORM_CAPABILITIES: PlatformCapability[] = [
     keywordCommentAutomation: 'native',
     autoDmWhenMessagedFirst: 'native',
     welcomeMessageToNewFollower: 'none',
-    followToDmWelcome: 'partner',
-    notes: ['Follow-to-DM on IG is partner-gated via Meta-approved tools for eligible professional accounts.'],
   },
   {
     platform: 'Facebook',
     keywordCommentAutomation: 'native',
     autoDmWhenMessagedFirst: 'native',
     welcomeMessageToNewFollower: 'none',
-    followToDmWelcome: 'partner',
-    notes: ['Follow-to-DM on Facebook/Instagram is handled through approved Meta partner tooling.'],
   },
   {
     platform: 'X (Twitter)',
     keywordCommentAutomation: 'native',
     autoDmWhenMessagedFirst: 'native',
     welcomeMessageToNewFollower: 'native',
-    followToDmWelcome: 'none',
   },
   {
     platform: 'LinkedIn',
     keywordCommentAutomation: 'none',
     autoDmWhenMessagedFirst: 'none',
     welcomeMessageToNewFollower: 'none',
-    followToDmWelcome: 'none',
     notes: ['LinkedIn automation for keyword replies and connection DMs is not available in this app yet.'],
   },
   {
@@ -68,17 +61,15 @@ const PLATFORM_CAPABILITIES: PlatformCapability[] = [
     keywordCommentAutomation: 'none',
     autoDmWhenMessagedFirst: 'none',
     welcomeMessageToNewFollower: 'none',
-    followToDmWelcome: 'none',
   },
   {
     platform: 'TikTok',
     keywordCommentAutomation: 'partner',
     autoDmWhenMessagedFirst: 'partner',
     welcomeMessageToNewFollower: 'none',
-    followToDmWelcome: 'none',
     notes: [
-      'TikTok keyword and comment-to-DM automations are available via authorized partner messaging platforms.',
-      'Availability is region-limited and requires TikTok Business account + partner compliance.',
+      'TikTok keyword and DM automations are available via authorized partner messaging platforms.',
+      'Availability is region-limited and requires a TikTok Business or Creator account plus partner compliance.',
     ],
   },
   {
@@ -86,7 +77,6 @@ const PLATFORM_CAPABILITIES: PlatformCapability[] = [
     keywordCommentAutomation: 'native',
     autoDmWhenMessagedFirst: 'none',
     welcomeMessageToNewFollower: 'none',
-    followToDmWelcome: 'none',
   },
 ];
 
@@ -101,7 +91,7 @@ const PLATFORM_FROM_ACCOUNT: Record<string, PlatformCapability['platform']> = {
 };
 
 function levelBadge(level: SupportLevel): { label: string; className: string } {
-  if (level === 'native') return { label: 'Available now', className: 'bg-green-100 text-green-800 border-green-200' };
+  if (level === 'native') return { label: 'Available', className: 'bg-green-100 text-green-800 border-green-200' };
   if (level === 'partner') return { label: 'Partner integration', className: 'bg-orange-100 text-orange-800 border-orange-200' };
   return { label: 'Not available', className: 'bg-neutral-200 text-neutral-700 border-neutral-300' };
 }
@@ -197,8 +187,7 @@ export default function AutomationPage() {
           (c) =>
             c.keywordCommentAutomation !== 'none' ||
             c.autoDmWhenMessagedFirst !== 'none' ||
-            c.welcomeMessageToNewFollower !== 'none' ||
-            c.followToDmWelcome !== 'none'
+            c.welcomeMessageToNewFollower !== 'none'
         );
         setConnectedCapabilities(caps);
       })
@@ -258,7 +247,7 @@ export default function AutomationPage() {
               Automation by connected platform
             </h2>
             <p className="text-sm text-neutral-600 mt-1">
-              Native automation controls are active below. Partner-only options are labeled so you can enable them with approved tools.
+              Platform-specific automation controls are shown below.
             </p>
           </div>
           <Link href="/composer" prefetch className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100">
@@ -276,7 +265,6 @@ export default function AutomationPage() {
               const keyword = levelBadge(row.keywordCommentAutomation);
               const dmFirst = levelBadge(row.autoDmWhenMessagedFirst);
               const newFollower = levelBadge(row.welcomeMessageToNewFollower);
-              const followToDm = levelBadge(row.followToDmWelcome);
               const isX = row.platform === 'X (Twitter)';
               const supportsDmFirstNative = row.autoDmWhenMessagedFirst === 'native';
               return (
@@ -294,10 +282,6 @@ export default function AutomationPage() {
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs text-neutral-600">Welcome message to new follower</span>
                       <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${newFollower.className}`}>{newFollower.label}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs text-neutral-600">Follow-to-DM welcome</span>
-                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${followToDm.className}`}>{followToDm.label}</span>
                     </div>
                   </div>
 
