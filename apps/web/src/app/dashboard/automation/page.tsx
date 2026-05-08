@@ -287,18 +287,24 @@ export default function AutomationPage() {
                     {row.platform}
                   </h3>
                   <div className="mt-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs text-neutral-600">{keywordLabel}</span>
-                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${keyword.className}`}>{keyword.label}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs text-neutral-600">Auto-DM when messaged first</span>
-                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${dmFirst.className}`}>{dmFirst.label}</span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs text-neutral-600">Welcome message to new follower</span>
-                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${newFollower.className}`}>{newFollower.label}</span>
-                    </div>
+                    {row.keywordCommentAutomation !== 'none' && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-neutral-600">{keywordLabel}</span>
+                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${keyword.className}`}>{keyword.label}</span>
+                      </div>
+                    )}
+                    {row.autoDmWhenMessagedFirst !== 'none' && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-neutral-600">Auto-DM when messaged first</span>
+                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${dmFirst.className}`}>{dmFirst.label}</span>
+                      </div>
+                    )}
+                    {row.welcomeMessageToNewFollower !== 'none' && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-neutral-600">Welcome message to new follower</span>
+                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${newFollower.className}`}>{newFollower.label}</span>
+                      </div>
+                    )}
                   </div>
 
                   {supportsDmFirstNative && (
