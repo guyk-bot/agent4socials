@@ -21,8 +21,8 @@ const MARK_RASTER_MAX = 480;
 const CANVAS = 512;
 /** Squircle corner radius (fraction of side, LinkedIn-style). */
 const RX = Math.round(CANVAS * 0.22);
-/** Logo uses this fraction of the canvas (higher = larger mark, less padding). */
-const LOGO = Math.round(CANVAS * 0.84);
+/** Logo uses this fraction of the canvas (higher = larger mark, less padding). 0.92 is near the practical max before circular SERP crops clip corners. */
+const LOGO = Math.round(CANVAS * 0.92);
 const PAD = (CANVAS - LOGO) / 2;
 
 function buildTabSvg(pngBuffer) {
@@ -82,6 +82,7 @@ async function loadMarkPngBuffer() {
     rasterize(svgBuf, 192, path.join(publicDir, "logo-192.png")),
     rasterize(svgBuf, 48, path.join(publicDir, "favicon-48.png")),
     rasterize(svgBuf, 96, path.join(publicDir, "favicon-96.png")),
+    rasterize(svgBuf, 128, path.join(publicDir, "favicon-128.png")),
     rasterize(svgBuf, 192, path.join(publicDir, "favicon-192.png")),
   ]);
 
