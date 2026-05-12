@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
       { source: "/favicon.ico", headers: faviconCache },
       { source: "/favicon.svg", headers: faviconCache },
       { source: "/a4s-tab.svg", headers: faviconCache },
-      { source: "/favicon-48.png", headers: faviconCache },
+      { source: "/favicon-source-mark.png", headers: faviconCache },
       { source: "/favicon-192.png", headers: faviconCache },
       { source: "/logo-48.png", headers: faviconCache },
       { source: "/logo-192.png", headers: faviconCache },

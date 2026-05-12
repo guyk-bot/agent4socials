@@ -3,11 +3,13 @@ const fs = require("fs");
 const path = require("path");
 
 const publicDir = path.join(__dirname, "..", "public");
-/** Authoritative color mark (vector). Do not use legacy extractions; they may be grayscale or wrong. */
+/** Canonical raster for tab + Google icons (square mark on transparent). Prefer over logo.svg when present. */
+const markSourcePngPath = path.join(publicDir, "favicon-source-mark.png");
+/** Fallback vector if favicon-source-mark.png is removed. */
 const logoSvgPath = path.join(publicDir, "logo.svg");
 const svgOutTab = path.join(publicDir, "a4s-tab.svg");
 const svgOutLegacy = path.join(publicDir, "favicon.svg");
-/** Cached PNG of the mark (RGBA) for debugging; overwritten each run. */
+/** Copy of embedded mark for debugging; overwritten each run. */
 const markCachePath = path.join(publicDir, "brand-tab-mark.png");
 
 const whiteBg = { background: { r: 255, g: 255, b: 255 } };
@@ -41,9 +43,19 @@ function rasterize(svgBuffer, size, outPath) {
   return sharp(svgBuffer).resize(size, size).flatten(whiteBg).png().toFile(outPath);
 }
 
-async function rasterizeMarkFromLogoSvg() {
+async function loadMarkPngBuffer() {
+  if (fs.existsSync(markSourcePngPath)) {
+    return sharp(markSourcePngPath)
+      .resize(MARK_RASTER_MAX, MARK_RASTER_MAX, {
+        fit: "inside",
+        withoutEnlargement: true,
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .png()
+      .toBuffer();
+  }
   if (!fs.existsSync(logoSvgPath)) {
-    throw new Error("Missing public/logo.svg (required to build favicons).");
+    throw new Error("Add public/favicon-source-mark.png or public/logo.svg to build favicons.");
   }
   return sharp(logoSvgPath, { density: 240 })
     .resize(MARK_RASTER_MAX, MARK_RASTER_MAX, {
@@ -58,7 +70,7 @@ async function rasterizeMarkFromLogoSvg() {
 (async () => {
   const { default: pngToIco } = await import("png-to-ico");
 
-  const markPng = await rasterizeMarkFromLogoSvg();
+  const markPng = await loadMarkPngBuffer();
   fs.writeFileSync(markCachePath, markPng);
 
   const svgBuf = Buffer.from(buildTabSvg(markPng));
@@ -76,7 +88,11 @@ async function rasterizeMarkFromLogoSvg() {
   const icoBuffer = await pngToIco(faviconPng);
   fs.writeFileSync(path.join(publicDir, "favicon.ico"), icoBuffer);
 
-  console.log("Wrote favicons from public/logo.svg (squircle + inset) → a4s-tab.svg, favicon.svg, PNGs, ICO, brand-tab-mark.png");
+  console.log(
+    fs.existsSync(markSourcePngPath)
+      ? "Wrote favicons from public/favicon-source-mark.png (squircle + inset) → a4s-tab.svg, favicon.svg, PNGs, ICO, brand-tab-mark.png"
+      : "Wrote favicons from public/logo.svg (squircle + inset) → … (add favicon-source-mark.png to prefer the official raster mark)",
+  );
 })().catch((e) => {
   console.error(e);
   process.exit(1);

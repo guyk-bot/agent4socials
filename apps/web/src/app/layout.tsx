@@ -33,7 +33,7 @@ const organizationJsonLd = {
   url: siteUrl,
   logo: {
     "@type": "ImageObject",
-    url: `${siteUrl.replace(/\/+$/, "")}/logo-192.png?v=18`,
+    url: `${siteUrl.replace(/\/+$/, "")}/logo-192.png?v=19`,
     width: 192,
     height: 192,
   },
@@ -56,13 +56,13 @@ export const metadata: Metadata = {
     siteName: "Agent4Socials",
     title: "Agent4Socials | Schedule Posts & Analytics for All Major Social Platforms",
     description: "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. Try for free.",
-    images: [{ url: "/logo-192.png?v=18", width: 192, height: 192, alt: "Agent4Socials" }],
+    images: [{ url: "/logo-192.png?v=19", width: 192, height: 192, alt: "Agent4Socials" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Agent4Socials | Schedule Posts & Analytics",
     description: "One dashboard for scheduling and analytics. Try for free.",
-    images: ["/logo-192.png?v=18"],
+    images: ["/logo-192.png?v=19"],
   },
   robots: {
     index: true,
@@ -72,11 +72,11 @@ export const metadata: Metadata = {
   // Tab favicon: PNG and ICO first so Chromium uses the raster squircle; SVG follows for engines that prefer vector. Bump ?v when replacing assets.
   icons: {
     icon: [
-      { url: "/favicon-48.png?v=18", sizes: "48x48", type: "image/png" },
-      { url: "/favicon.ico?v=18", sizes: "any", type: "image/x-icon" },
-      { url: "/a4s-tab.svg?v=18", type: "image/svg+xml" },
+      { url: "/favicon-48.png?v=19", sizes: "48x48", type: "image/png" },
+      { url: "/favicon.ico?v=19", sizes: "any", type: "image/x-icon" },
+      { url: "/a4s-tab.svg?v=19", type: "image/svg+xml" },
     ],
-    apple: [{ url: "/favicon-192.png?v=18", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/favicon-192.png?v=19", sizes: "192x192", type: "image/png" }],
   },
   manifest: "/manifest.json",
   appleWebApp: {
