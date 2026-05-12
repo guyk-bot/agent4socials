@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Google search icon preview (circle)</title>
+  <style>
+    :root {
+      --serp-bg: #f1f3f4;
+      --card: #fff;
+      --text: #202124;
+      --url: #4d5156;
+      --snippet: #4d5156;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 32px 20px 48px;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--serp-bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+    .wrap { max-width: 640px; margin: 0 auto; }
+    h1 { font-size: 1.25rem; font-weight: 400; margin: 0 0 8px; }
+    .note {
+      font-size: 0.8125rem;
+      color: var(--url);
+      margin-bottom: 28px;
+      max-width: 52ch;
+    }
+    .serp-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: var(--card);
+      padding: 14px 16px;
+      border-radius: 8px;
+      margin-bottom: 14px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    }
+    .icon {
+      flex-shrink: 0;
+      border-radius: 50%;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+    }
+    .icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .t26 { width: 26px; height: 26px; }
+    .t32 { width: 32px; height: 32px; }
+    .t48 { width: 48px; height: 48px; }
+    .t96 { width: 96px; height: 96px; }
+    .lines { min-width: 0; flex: 1; }
+    .title {
+      color: #1a0dab;
+      font-size: 1.125rem;
+      font-weight: 400;
+      margin: 0 0 4px;
+      line-height: 1.3;
+      word-break: break-word;
+    }
+    .url-line {
+      font-size: 0.75rem;
+      color: var(--url);
+      margin: 0 0 6px;
+    }
+    .snippet {
+      font-size: 0.875rem;
+      color: var(--snippet);
+      margin: 0;
+    }
+    code { font-size: 0.85em; background: rgba(0, 0, 0, 0.06); padding: 2px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Approximate Google search circle icon</h1>
+    <p class="note">
+      Google crops your square icon to a <strong>circle</strong> in results (exact size and anti-aliasing vary by device).
+      This page uses <code>border-radius: 50%</code> and <code>object-fit: cover</code> on <code id="src-label">/logo-192.png</code>, which matches the usual inscribed-circle crop of a square asset.
+      It is not an official Google renderer.
+    </p>
+
+    <div class="serp-row">
+      <div class="icon t26"><img id="img26" alt="" width="26" height="26" /></div>
+      <div class="lines">
+        <p class="title">Agent4Socials | Schedule Posts &amp; Analytics…</p>
+        <p class="url-line">https://agent4socials.com</p>
+        <p class="snippet">Typical mobile / compact result icon (~26px).</p>
+      </div>
+    </div>
+
+    <div class="serp-row">
+      <div class="icon t32"><img id="img32" alt="" width="32" height="32" /></div>
+      <div class="lines">
+        <p class="title">Agent4Socials | Schedule Posts &amp; Analytics…</p>
+        <p class="url-line">https://agent4socials.com</p>
+        <p class="snippet">~32px circle (common on desktop rows).</p>
+      </div>
+    </div>
+
+    <div class="serp-row">
+      <div class="icon t48"><img id="img48" alt="" width="48" height="48" /></div>
+      <div class="lines">
+        <p class="title">Agent4Socials | Schedule Posts &amp; Analytics…</p>
+        <p class="url-line">https://agent4socials.com</p>
+        <p class="snippet">~48px circle (easier to judge detail).</p>
+      </div>
+    </div>
+
+    <div class="serp-row">
+      <div class="icon t96"><img id="img96" alt="" width="96" height="96" /></div>
+      <div class="lines">
+        <p class="title">Agent4Socials | Schedule Posts &amp; Analytics…</p>
+        <p class="url-line">https://agent4socials.com</p>
+        <p class="snippet">96px exaggerated view: corners of the square asset are clipped; center stays.</p>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var v = new URLSearchParams(location.search).get("v") || "23";
+      var base = "/logo-192.png?v=" + encodeURIComponent(v);
+      document.getElementById("src-label").textContent = "/logo-192.png?v=" + v;
+      ["img26", "img32", "img48", "img96"].forEach(function (id) {
+        document.getElementById(id).src = base;
+      });
+    })();
+  </script>
+</body>
+</html>
