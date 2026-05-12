@@ -20,21 +20,41 @@ const MARK_RASTER_MAX = 480;
 /** Canvas for tab favicon SVG (rasterized to 48 / 192). */
 const CANVAS = 512;
 const CENTER = CANVAS / 2;
-/** Inscribed circle clip so SERP circular masks align with the asset (no squircle+circle chord edges). */
+/** Squircle corner radius (fraction of side): browser tab favicon = rounded square, not a full disk. */
+const RX = Math.round(CANVAS * 0.22);
+/** Inscribed circle clip: used only for logo-192 / logo-48 (JSON-LD + Google SERP circular mask). */
 const CLIP_R = CENTER;
 /** Logo uses this fraction of the canvas (higher = larger mark, less padding). */
 const LOGO = Math.round(CANVAS * 0.92);
 const PAD = (CANVAS - LOGO) / 2;
 
-function buildTabSvg(pngBuffer) {
+const imageAttrs = (b64) =>
+  `<image x="${PAD}" y="${PAD}" width="${LOGO}" height="${LOGO}" preserveAspectRatio="xMidYMin meet" href="data:image/png;base64,${b64}" xlink:href="data:image/png;base64,${b64}"/>`;
+
+/** Rounded square (LinkedIn-style): tabs, manifest, favicon.ico, a4s-tab.svg */
+function buildSquircleSvg(pngBuffer) {
   const b64 = pngBuffer.toString("base64");
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${CANVAS}" height="${CANVAS}" viewBox="0 0 ${CANVAS} ${CANVAS}">
   <defs>
-    <clipPath id="tab-circle"><circle cx="${CENTER}" cy="${CENTER}" r="${CLIP_R}"/></clipPath>
+    <clipPath id="tab-squircle"><rect width="${CANVAS}" height="${CANVAS}" rx="${RX}" ry="${RX}"/></clipPath>
   </defs>
-  <g clip-path="url(#tab-circle)">
+  <g clip-path="url(#tab-squircle)">
     <rect width="${CANVAS}" height="${CANVAS}" fill="#ffffff"/>
-    <image x="${PAD}" y="${PAD}" width="${LOGO}" height="${LOGO}" preserveAspectRatio="xMidYMin meet" href="data:image/png;base64,${b64}" xlink:href="data:image/png;base64,${b64}"/>
+    ${imageAttrs(b64)}
+  </g>
+</svg>`;
+}
+
+/** Full circle: matches Google search circular crop on logo-192 (Organization / OG). */
+function buildCircleSvg(pngBuffer) {
+  const b64 = pngBuffer.toString("base64");
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${CANVAS}" height="${CANVAS}" viewBox="0 0 ${CANVAS} ${CANVAS}">
+  <defs>
+    <clipPath id="google-circle"><circle cx="${CENTER}" cy="${CENTER}" r="${CLIP_R}"/></clipPath>
+  </defs>
+  <g clip-path="url(#google-circle)">
+    <rect width="${CANVAS}" height="${CANVAS}" fill="#ffffff"/>
+    ${imageAttrs(b64)}
   </g>
 </svg>`;
 }
@@ -74,30 +94,32 @@ async function loadMarkPngBuffer() {
   const markPng = await loadMarkPngBuffer();
   fs.writeFileSync(markCachePath, markPng);
 
-  const svgBuf = Buffer.from(buildTabSvg(markPng));
-  fs.writeFileSync(svgOutTab, svgBuf);
-  fs.writeFileSync(svgOutLegacy, svgBuf);
+  const svgSquircle = Buffer.from(buildSquircleSvg(markPng));
+  const svgCircle = Buffer.from(buildCircleSvg(markPng));
+
+  fs.writeFileSync(svgOutTab, svgSquircle);
+  fs.writeFileSync(svgOutLegacy, svgSquircle);
 
   await Promise.all([
-    rasterize(svgBuf, 48, path.join(publicDir, "logo-48.png")),
-    rasterize(svgBuf, 192, path.join(publicDir, "logo-192.png")),
-    rasterize(svgBuf, 48, path.join(publicDir, "favicon-48.png")),
-    rasterize(svgBuf, 96, path.join(publicDir, "favicon-96.png")),
-    rasterize(svgBuf, 128, path.join(publicDir, "favicon-128.png")),
-    rasterize(svgBuf, 192, path.join(publicDir, "favicon-192.png")),
+    rasterize(svgCircle, 48, path.join(publicDir, "logo-48.png")),
+    rasterize(svgCircle, 192, path.join(publicDir, "logo-192.png")),
+    rasterize(svgSquircle, 48, path.join(publicDir, "favicon-48.png")),
+    rasterize(svgSquircle, 96, path.join(publicDir, "favicon-96.png")),
+    rasterize(svgSquircle, 128, path.join(publicDir, "favicon-128.png")),
+    rasterize(svgSquircle, 192, path.join(publicDir, "favicon-192.png")),
   ]);
 
-  const png16 = await sharp(svgBuf).resize(16, 16).flatten(whiteBg).png().toBuffer();
-  const png32 = await sharp(svgBuf).resize(32, 32).flatten(whiteBg).png().toBuffer();
-  const png48 = await sharp(svgBuf).resize(48, 48).flatten(whiteBg).png().toBuffer();
-  const png64 = await sharp(svgBuf).resize(64, 64).flatten(whiteBg).png().toBuffer();
+  const png16 = await sharp(svgSquircle).resize(16, 16).flatten(whiteBg).png().toBuffer();
+  const png32 = await sharp(svgSquircle).resize(32, 32).flatten(whiteBg).png().toBuffer();
+  const png48 = await sharp(svgSquircle).resize(48, 48).flatten(whiteBg).png().toBuffer();
+  const png64 = await sharp(svgSquircle).resize(64, 64).flatten(whiteBg).png().toBuffer();
   const icoBuffer = await pngToIco([png16, png32, png48, png64]);
   fs.writeFileSync(path.join(publicDir, "favicon.ico"), icoBuffer);
 
   console.log(
     fs.existsSync(markSourcePngPath)
-      ? "Wrote favicons from public/favicon-source-mark.png (circle + inset) → a4s-tab.svg, favicon.svg, PNGs, ICO, brand-tab-mark.png"
-      : "Wrote favicons from public/logo.svg (circle + inset) → … (add favicon-source-mark.png to prefer the official raster mark)",
+      ? "Wrote tab favicons (squircle) + logo-48/192 (circle for Google) from public/favicon-source-mark.png"
+      : "Wrote tab favicons (squircle) + logo-48/192 (circle) from public/logo.svg … add favicon-source-mark.png for the official raster mark",
   );
 })().catch((e) => {
   console.error(e);

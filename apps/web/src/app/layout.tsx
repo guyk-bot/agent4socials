@@ -33,7 +33,7 @@ const organizationJsonLd = {
   url: siteUrl,
   logo: {
     "@type": "ImageObject",
-    url: `${siteUrl.replace(/\/+$/, "")}/logo-192.png?v=24`,
+    url: `${siteUrl.replace(/\/+$/, "")}/logo-192.png?v=25`,
     width: 192,
     height: 192,
   },
@@ -56,30 +56,30 @@ export const metadata: Metadata = {
     siteName: "Agent4Socials",
     title: "Agent4Socials | Schedule Posts & Analytics for All Major Social Platforms",
     description: "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. Try for free.",
-    images: [{ url: "/logo-192.png?v=24", width: 192, height: 192, alt: "Agent4Socials" }],
+    images: [{ url: "/logo-192.png?v=25", width: 192, height: 192, alt: "Agent4Socials" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Agent4Socials | Schedule Posts & Analytics",
     description: "One dashboard for scheduling and analytics. Try for free.",
-    images: ["/logo-192.png?v=24"],
+    images: ["/logo-192.png?v=25"],
   },
   robots: {
     index: true,
     follow: true,
     googleBot: { index: true, follow: true },
   },
-  // Tab favicon: largest PNGs first; ICO includes 16–64; assets use circular clip to match SERP. Bump ?v when replacing assets.
+  // Tab favicon: squircle PNGs / ICO / SVG; logo-192 is circular for Google JSON-LD + OG. Bump ?v when replacing assets.
   icons: {
     icon: [
-      { url: "/favicon-192.png?v=24", sizes: "192x192", type: "image/png" },
-      { url: "/favicon-128.png?v=24", sizes: "128x128", type: "image/png" },
-      { url: "/favicon-96.png?v=24", sizes: "96x96", type: "image/png" },
-      { url: "/favicon-48.png?v=24", sizes: "48x48", type: "image/png" },
-      { url: "/favicon.ico?v=24", sizes: "any", type: "image/x-icon" },
-      { url: "/a4s-tab.svg?v=24", type: "image/svg+xml" },
+      { url: "/favicon-192.png?v=25", sizes: "192x192", type: "image/png" },
+      { url: "/favicon-128.png?v=25", sizes: "128x128", type: "image/png" },
+      { url: "/favicon-96.png?v=25", sizes: "96x96", type: "image/png" },
+      { url: "/favicon-48.png?v=25", sizes: "48x48", type: "image/png" },
+      { url: "/favicon.ico?v=25", sizes: "any", type: "image/x-icon" },
+      { url: "/a4s-tab.svg?v=25", type: "image/svg+xml" },
     ],
-    apple: [{ url: "/favicon-192.png?v=24", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/favicon-192.png?v=25", sizes: "192x192", type: "image/png" }],
   },
   manifest: "/manifest.json",
   appleWebApp: {
