@@ -19,10 +19,10 @@ const MARK_RASTER_MAX = 320;
 
 /** Canvas for tab favicon SVG (rasterized to 48 / 192). */
 const CANVAS = 512;
-/** Squircle corner radius (LinkedIn-style rounded square). */
-const RX = Math.round(CANVAS * 0.22);
-/** Logo fits inside ~52% of canvas so it stays inside Google's circular mask with padding. */
-const LOGO = Math.round(CANVAS * 0.52);
+/** Squircle corner radius (larger = rounder corners). */
+const RX = Math.round(CANVAS * 0.3);
+/** Logo fits inside this fraction of the canvas (larger = bigger mark, less white padding). */
+const LOGO = Math.round(CANVAS * 0.7);
 const PAD = (CANVAS - LOGO) / 2;
 
 function buildTabSvg(pngBuffer) {
@@ -81,11 +81,14 @@ async function loadMarkPngBuffer() {
     rasterize(svgBuf, 48, path.join(publicDir, "logo-48.png")),
     rasterize(svgBuf, 192, path.join(publicDir, "logo-192.png")),
     rasterize(svgBuf, 48, path.join(publicDir, "favicon-48.png")),
+    rasterize(svgBuf, 96, path.join(publicDir, "favicon-96.png")),
     rasterize(svgBuf, 192, path.join(publicDir, "favicon-192.png")),
   ]);
 
-  const faviconPng = await sharp(svgBuf).resize(48, 48).flatten(whiteBg).png().toBuffer();
-  const icoBuffer = await pngToIco(faviconPng);
+  const png16 = await sharp(svgBuf).resize(16, 16).flatten(whiteBg).png().toBuffer();
+  const png32 = await sharp(svgBuf).resize(32, 32).flatten(whiteBg).png().toBuffer();
+  const png48 = await sharp(svgBuf).resize(48, 48).flatten(whiteBg).png().toBuffer();
+  const icoBuffer = await pngToIco([png16, png32, png48]);
   fs.writeFileSync(path.join(publicDir, "favicon.ico"), icoBuffer);
 
   console.log(

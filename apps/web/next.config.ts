@@ -14,6 +14,8 @@ const nextConfig: NextConfig = {
       { source: "/a4s-tab.svg", headers: faviconCache },
       { source: "/favicon-source-mark.png", headers: faviconCache },
       { source: "/favicon-192.png", headers: faviconCache },
+      { source: "/favicon-96.png", headers: faviconCache },
+      { source: "/favicon-48.png", headers: faviconCache },
       { source: "/logo-48.png", headers: faviconCache },
       { source: "/logo-192.png", headers: faviconCache },
     ];
