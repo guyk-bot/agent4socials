@@ -260,7 +260,7 @@ export async function sendBrandFriendInviteEmail(params: {
   }
 }
 
-const SUPPORT_EMAIL_TO = process.env.SUPPORT_EMAIL || 'support@agent4socials.com';
+const SUPPORT_EMAIL_TO = process.env.SUPPORT_EMAIL || 'guyk@agent4socials.com';
 
 /**
  * Sends a support ticket from a user to the support inbox and optionally sends an auto-reply.

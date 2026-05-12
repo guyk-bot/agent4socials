@@ -6,7 +6,7 @@ import { Mail, Send, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 
-const SUPPORT_EMAIL = 'support@agent4socials.com';
+const SUPPORT_EMAIL = 'guyk@agent4socials.com';
 
 export default function SupportPage() {
   const { user } = useAuth();
