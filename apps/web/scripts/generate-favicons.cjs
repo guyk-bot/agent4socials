@@ -15,14 +15,14 @@ const markCachePath = path.join(publicDir, "brand-tab-mark.png");
 const whiteBg = { background: { r: 255, g: 255, b: 255 } };
 
 /** Max width/height of embedded PNG inside the tab SVG (keeps file size reasonable). */
-const MARK_RASTER_MAX = 320;
+const MARK_RASTER_MAX = 480;
 
 /** Canvas for tab favicon SVG (rasterized to 48 / 192). */
 const CANVAS = 512;
-/** Squircle corner radius (larger = rounder corners). */
-const RX = Math.round(CANVAS * 0.3);
-/** Logo fits inside this fraction of the canvas (larger = bigger mark, less white padding). */
-const LOGO = Math.round(CANVAS * 0.7);
+/** Squircle corner radius (fraction of side, LinkedIn-style). */
+const RX = Math.round(CANVAS * 0.22);
+/** Logo uses this fraction of the canvas (higher = larger mark, less padding). */
+const LOGO = Math.round(CANVAS * 0.84);
 const PAD = (CANVAS - LOGO) / 2;
 
 function buildTabSvg(pngBuffer) {
@@ -88,7 +88,8 @@ async function loadMarkPngBuffer() {
   const png16 = await sharp(svgBuf).resize(16, 16).flatten(whiteBg).png().toBuffer();
   const png32 = await sharp(svgBuf).resize(32, 32).flatten(whiteBg).png().toBuffer();
   const png48 = await sharp(svgBuf).resize(48, 48).flatten(whiteBg).png().toBuffer();
-  const icoBuffer = await pngToIco([png16, png32, png48]);
+  const png64 = await sharp(svgBuf).resize(64, 64).flatten(whiteBg).png().toBuffer();
+  const icoBuffer = await pngToIco([png16, png32, png48, png64]);
   fs.writeFileSync(path.join(publicDir, "favicon.ico"), icoBuffer);
 
   console.log(
