@@ -121,7 +121,6 @@ export default function AutomationPage() {
   const [keywordSteps, setKeywordSteps] = useState<KeywordAutomationStep[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [firstDmSetupMessage, setFirstDmSetupMessage] = useState<string | null>(null);
   const [newFollowerSetupMessage, setNewFollowerSetupMessage] = useState<string | null>(null);
   const firstDmSectionRef = useRef<HTMLDivElement | null>(null);
@@ -249,12 +248,10 @@ export default function AutomationPage() {
             // ignore storage errors
           }
         }
-        setLoadError(null);
       })
       .catch(() => {
         if (cancelled) return;
-        setSettings(defaultSettings);
-        setLoadError('Could not load settings. You can still change options below and save.');
+        // Keep cached or default settings; do not show an error banner for a background refresh failure.
       })
       .finally(() => {
         window.clearTimeout(t);
@@ -361,11 +358,6 @@ export default function AutomationPage() {
         <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-600 inline-flex items-center gap-2">
           <Loader2 size={14} className="animate-spin" />
           Loading automation settings…
-        </div>
-      )}
-      {loadError && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {loadError}
         </div>
       )}
       <div>
