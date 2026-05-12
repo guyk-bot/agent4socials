@@ -3,23 +3,23 @@ const fs = require("fs");
 const path = require("path");
 
 const publicDir = path.join(__dirname, "..", "public");
-/** Raster source: PNG mark (no padding). SVG template adds white squircle + inset so Google circle crop fits. */
-const markPath = path.join(publicDir, "brand-tab-mark.png");
+/** Authoritative color mark (vector). Do not use legacy extractions; they may be grayscale or wrong. */
+const logoSvgPath = path.join(publicDir, "logo.svg");
 const svgOutTab = path.join(publicDir, "a4s-tab.svg");
 const svgOutLegacy = path.join(publicDir, "favicon.svg");
-
-if (!fs.existsSync(markPath)) {
-  console.error("Missing public/brand-tab-mark.png (extract once from legacy a4s-tab or add manually).");
-  process.exit(1);
-}
+/** Cached PNG of the mark (RGBA) for debugging; overwritten each run. */
+const markCachePath = path.join(publicDir, "brand-tab-mark.png");
 
 const whiteBg = { background: { r: 255, g: 255, b: 255 } };
 
+/** Max width/height of embedded PNG inside the tab SVG (keeps file size reasonable). */
+const MARK_RASTER_MAX = 320;
+
 /** Canvas for tab favicon SVG (rasterized to 48 / 192). */
 const CANVAS = 512;
-/** Squircle corner radius as fraction of side (LinkedIn-style rounded square, not a circle). */
+/** Squircle corner radius (LinkedIn-style rounded square). */
 const RX = Math.round(CANVAS * 0.22);
-/** Logo fits inside ~52% of canvas so it stays well inside Google's circular mask with generous padding. */
+/** Logo fits inside ~52% of canvas so it stays inside Google's circular mask with padding. */
 const LOGO = Math.round(CANVAS * 0.52);
 const PAD = (CANVAS - LOGO) / 2;
 
@@ -31,7 +31,7 @@ function buildTabSvg(pngBuffer) {
   </defs>
   <g clip-path="url(#tab-squircle)">
     <rect width="${CANVAS}" height="${CANVAS}" fill="#ffffff"/>
-    <image x="${PAD}" y="${PAD}" width="${LOGO}" height="${LOGO}" preserveAspectRatio="xMidYMid meet" xlink:href="data:image/png;base64,${b64}"/>
+    <image x="${PAD}" y="${PAD}" width="${LOGO}" height="${LOGO}" preserveAspectRatio="xMidYMid meet" href="data:image/png;base64,${b64}" xlink:href="data:image/png;base64,${b64}"/>
   </g>
 </svg>`;
 }
@@ -41,10 +41,26 @@ function rasterize(svgBuffer, size, outPath) {
   return sharp(svgBuffer).resize(size, size).flatten(whiteBg).png().toFile(outPath);
 }
 
+async function rasterizeMarkFromLogoSvg() {
+  if (!fs.existsSync(logoSvgPath)) {
+    throw new Error("Missing public/logo.svg (required to build favicons).");
+  }
+  return sharp(logoSvgPath, { density: 240 })
+    .resize(MARK_RASTER_MAX, MARK_RASTER_MAX, {
+      fit: "inside",
+      withoutEnlargement: true,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
+}
+
 (async () => {
   const { default: pngToIco } = await import("png-to-ico");
 
-  const markPng = await sharp(markPath).flatten(whiteBg).png().toBuffer();
+  const markPng = await rasterizeMarkFromLogoSvg();
+  fs.writeFileSync(markCachePath, markPng);
+
   const svgBuf = Buffer.from(buildTabSvg(markPng));
   fs.writeFileSync(svgOutTab, svgBuf);
   fs.writeFileSync(svgOutLegacy, svgBuf);
@@ -60,7 +76,7 @@ function rasterize(svgBuffer, size, outPath) {
   const icoBuffer = await pngToIco(faviconPng);
   fs.writeFileSync(path.join(publicDir, "favicon.ico"), icoBuffer);
 
-  console.log("Wrote a4s-tab.svg, favicon.svg, logo-48/192, favicon PNGs, favicon.ico from brand-tab-mark.png");
+  console.log("Wrote favicons from public/logo.svg (squircle + inset) → a4s-tab.svg, favicon.svg, PNGs, ICO, brand-tab-mark.png");
 })().catch((e) => {
   console.error(e);
   process.exit(1);
