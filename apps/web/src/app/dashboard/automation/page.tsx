@@ -52,7 +52,7 @@ const AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY = 'agent4socials.automation.newFol
 const AUTOMATION_NEW_FOLLOWER_MESSAGES_KEY = 'agent4socials.automation.newFollower.messages.v1';
 const AUTOMATION_KEYWORD_STEPS_KEY = 'agent4socials.automation.keyword.steps.v1';
 const MAX_FIRST_DM_ATTACHMENTS = 5;
-const FIRST_DM_SUPPORTED_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)'] as const;
+const FIRST_DM_SUPPORTED_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)', 'TikTok'] as const;
 const NEW_FOLLOWER_SUPPORTED_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)'] as const;
 
 const PLATFORM_CAPABILITIES: PlatformCapability[] = [
@@ -77,12 +77,9 @@ const PLATFORM_CAPABILITIES: PlatformCapability[] = [
   {
     platform: 'TikTok',
     keywordCommentAutomation: 'native',
-    autoDmWhenMessagedFirst: 'none',
+    autoDmWhenMessagedFirst: 'native',
     welcomeMessageToNewFollower: 'none',
-    notes: [
-      'TikTok comment automation is only supported for business accounts.',
-      'Auto reply to the first TikTok DM is not available in this app yet; use Instagram, Facebook, or X.',
-    ],
+    notes: ['TikTok comment automation is only supported for business accounts.'],
   },
   {
     platform: 'YouTube',
@@ -102,6 +99,23 @@ function levelBadge(level: SupportLevel): { label: string; className: string } {
   if (level === 'native') return { label: 'Available', className: 'bg-green-100 text-green-800 border-green-200' };
   if (level === 'partner') return { label: 'Available', className: 'bg-green-100 text-green-800 border-green-200' };
   return { label: 'Not available', className: 'bg-neutral-200 text-neutral-700 border-neutral-300' };
+}
+
+function firstDmAttachmentUrlsHint(platform: string): string {
+  const n = MAX_FIRST_DM_ATTACHMENTS;
+  if (platform === 'Instagram') {
+    return `Up to ${n} files. URLs must stay publicly reachable for Instagram deliverability.`;
+  }
+  if (platform === 'Facebook') {
+    return `Up to ${n} files. URLs must stay publicly reachable for Facebook deliverability.`;
+  }
+  if (platform === 'X (Twitter)') {
+    return `Up to ${n} files. X auto-DM is text-only in our inbox integration; attachment URLs are not sent on the DM.`;
+  }
+  if (platform === 'TikTok') {
+    return `Up to ${n} files. URLs must stay publicly reachable for TikTok when sending media in DMs.`;
+  }
+  return `Up to ${n} files.`;
 }
 
 type KeywordAutomationStep = {
@@ -299,17 +313,40 @@ export default function AutomationPage() {
   const update = (patch: Partial<AutomationSettings>) => {
     let nextSnapshot: AutomationSettings | undefined;
     setSettings((prev) => {
-      nextSnapshot = { ...prev, ...patch };
+      const merged: AutomationSettings = { ...prev, ...patch };
+      if (patch.dmWelcomeEnabledByPlatform !== undefined) {
+        const combined = { ...(prev.dmWelcomeEnabledByPlatform ?? {}), ...patch.dmWelcomeEnabledByPlatform };
+        for (const key of Object.keys(combined)) {
+          if (!combined[key]) delete combined[key];
+        }
+        merged.dmWelcomeEnabledByPlatform = combined;
+        if (patch.dmWelcomeEnabled === undefined) {
+          merged.dmWelcomeEnabled = Object.values(combined).some(Boolean);
+        }
+      }
+      if (patch.dmWelcomeMessagesByPlatform !== undefined) {
+        merged.dmWelcomeMessagesByPlatform = {
+          ...(prev.dmWelcomeMessagesByPlatform ?? {}),
+          ...patch.dmWelcomeMessagesByPlatform,
+        };
+      }
+      if (patch.dmWelcomeAttachmentsByPlatform !== undefined) {
+        merged.dmWelcomeAttachmentsByPlatform = {
+          ...(prev.dmWelcomeAttachmentsByPlatform ?? {}),
+          ...patch.dmWelcomeAttachmentsByPlatform,
+        };
+      }
+      nextSnapshot = merged;
       try {
         if (typeof window !== 'undefined') {
-          const str = JSON.stringify(nextSnapshot);
+          const str = JSON.stringify(merged);
           sessionStorage.setItem(AUTOMATION_SETTINGS_CACHE_KEY, str);
           localStorage.setItem(AUTOMATION_SETTINGS_CACHE_KEY, str);
         }
       } catch {
         // ignore storage errors
       }
-      return nextSnapshot;
+      return merged;
     });
     if (nextSnapshot) {
       setSaving(true);
@@ -538,11 +575,8 @@ export default function AutomationPage() {
                             return;
                           }
                           setFirstDmSetupMessage(null);
-                          const prev = settingsRef.current;
-                          const nextEnabledBy = { ...(prev.dmWelcomeEnabledByPlatform ?? {}), [row.platform]: checked };
                           update({
-                            dmWelcomeEnabledByPlatform: nextEnabledBy,
-                            dmWelcomeEnabled: Object.values(nextEnabledBy).some(Boolean),
+                            dmWelcomeEnabledByPlatform: { [row.platform]: checked },
                           });
                         }}
                         className="rounded border-neutral-300 text-[var(--button)] focus:ring-[var(--button)]/50"
@@ -617,7 +651,7 @@ export default function AutomationPage() {
           </div>
         )}
         <p className="text-sm text-neutral-600">
-          Set your first incoming DM message per platform. Add optional images, videos, or files (uploaded to your storage so Meta can fetch them by URL). You must set at least a message or an attachment before enabling it in the platform card. Instagram and Facebook can send attachments from these URLs; X stays text-only in the inbox API for now. After someone messages you, open that thread in Inbox once so we can send the auto reply within about 35 minutes of their message.
+          Set your first incoming DM message per platform. Add optional images, videos, or files (uploaded to your storage so platforms can fetch them by URL). You must set at least a message or an attachment before enabling it in the platform card. After someone messages you, open that thread in Inbox once so we can send the auto reply within about 35 minutes of their message.
         </p>
         {firstDmUploadError && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">{firstDmUploadError}</div>
@@ -683,9 +717,7 @@ export default function AutomationPage() {
                       }}
                     />
                   </label>
-                  <span className="text-[11px] text-neutral-500">
-                    Up to {MAX_FIRST_DM_ATTACHMENTS} files. URLs must stay publicly reachable for Instagram and Facebook delivery.
-                  </span>
+                  <span className="text-[11px] text-neutral-500">{firstDmAttachmentUrlsHint(platform)}</span>
                 </div>
               </div>
             </div>
