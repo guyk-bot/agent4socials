@@ -10,6 +10,15 @@ import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 const fbBaseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
 
+function metaAttachmentTypeFromUrl(url: string, explicit?: string): 'image' | 'video' | 'file' {
+  const t = typeof explicit === 'string' ? explicit.toLowerCase() : '';
+  if (t === 'image' || t === 'video' || t === 'file') return t;
+  const base = url.split('?')[0]?.toLowerCase() ?? '';
+  if (/\.(png|jpe?g|gif|webp|bmp|svg)$/.test(base)) return 'image';
+  if (/\.(mp4|mov|webm|m4v)$/.test(base)) return 'video';
+  return 'file';
+}
+
 /**
  * GET /api/social/accounts/[id]/conversations/[conversationId]/messages
  * Returns messages for a conversation (IG/FB DMs) and recipientId for replying.
@@ -562,11 +571,14 @@ export async function GET(
 
 /**
  * POST /api/social/accounts/[id]/conversations/[conversationId]/messages
- * Body: { text: string, recipientId?: string }
+ * Body: { text?: string, recipientId?: string, attachments?: Array<{ url: string, type?: 'image'|'video'|'file' }> }
  * Sends a message in the conversation (IG/FB).
  *
  * - Instagram Business Login: POST graph.instagram.com/v25.0/me/messages
  * - Facebook Login: POST graph.facebook.com/v18.0/{PAGE_ID}/messages
+ *
+ * For Instagram and Facebook you may send public HTTPS URLs as attachments (image, video, or file).
+ * Each attachment is sent as its own message, then optional text. X (Twitter) does not support attachments in this endpoint yet.
  */
 export async function POST(
   request: NextRequest,
@@ -608,15 +620,37 @@ export async function POST(
     return NextResponse.json({ message: 'conversationId required' }, { status: 400 });
   }
 
-  let body: { text?: string; recipientId?: string };
+  let body: { text?: string; recipientId?: string; attachments?: Array<{ url?: string; type?: string }> };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ message: 'Invalid JSON body' }, { status: 400 });
   }
   const text = typeof body.text === 'string' ? body.text.trim() : '';
-  if (!text) {
-    return NextResponse.json({ message: 'text is required' }, { status: 400 });
+  const rawAtt = Array.isArray(body.attachments) ? body.attachments : [];
+  const safeAttachments: { url: string; type?: string }[] = [];
+  for (const a of rawAtt) {
+    const u = typeof a?.url === 'string' ? a.url.trim() : '';
+    if (!u.startsWith('https://')) continue;
+    safeAttachments.push({
+      url: u,
+      ...(typeof a?.type === 'string' ? { type: a.type } : {}),
+    });
+  }
+
+  if (account.platform === 'TWITTER') {
+    if (safeAttachments.length > 0) {
+      return NextResponse.json(
+        {
+          message:
+            'X (Twitter) DMs in this app support text only for now. Remove attachments or use Instagram or Facebook for media.',
+        },
+        { status: 400 }
+      );
+    }
+    if (!text) {
+      return NextResponse.json({ message: 'text is required' }, { status: 400 });
+    }
   }
 
   const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
@@ -748,40 +782,93 @@ export async function POST(
     return NextResponse.json({ message: 'Could not determine recipient. Open the conversation and try again.' }, { status: 400 });
   }
 
+  if (!text && safeAttachments.length === 0) {
+    return NextResponse.json(
+      { message: 'text or at least one https attachment URL is required' },
+      { status: 400 }
+    );
+  }
+
   try {
     if (isInstagramBusinessLogin) {
-      // Instagram API with Instagram Login: POST to /{IG_PROFESSIONAL_ACCOUNT_ID}/messages
-      // (not /me/messages). See https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/messaging-api/
-      await axios.post<{ recipient_id?: string; message_id?: string; error?: { message: string } }>(
-        `${igBaseUrl}/${account.platformUserId}/messages`,
-        {
-          recipient: { id: recipientId },
-          message: { text: text.slice(0, 1000) },
-        },
-        {
-          headers: { 'Content-Type': 'application/json' },
-          params: { access_token: activeToken },
-          timeout: 15_000,
-        }
-      );
+      const url = `${igBaseUrl}/${account.platformUserId}/messages`;
+      const commonParams = { access_token: activeToken };
+      const commonHeaders = { 'Content-Type': 'application/json' };
+      for (const a of safeAttachments) {
+        const attType = metaAttachmentTypeFromUrl(a.url, a.type);
+        await axios.post<{ recipient_id?: string; message_id?: string; error?: { message: string } }>(
+          url,
+          {
+            recipient: { id: recipientId },
+            message: {
+              attachment: {
+                type: attType,
+                payload: { url: a.url, is_reusable: true },
+              },
+            },
+          },
+          {
+            headers: commonHeaders,
+            params: commonParams,
+            timeout: 15_000,
+          }
+        );
+      }
+      if (text) {
+        await axios.post<{ recipient_id?: string; message_id?: string; error?: { message: string } }>(
+          url,
+          {
+            recipient: { id: recipientId },
+            message: { text: text.slice(0, 1000) },
+          },
+          {
+            headers: commonHeaders,
+            params: commonParams,
+            timeout: 15_000,
+          }
+        );
+      }
     } else {
-      // Facebook Login Instagram: the Messenger Platform endpoint requires the FACEBOOK PAGE ID
-      // (not the IG Business Account ID). Use linkedPageId if available, fall back to platformUserId.
-      // Requires pages_messaging + instagram_manage_messages in the page access token.
       const senderId = resolvedPageId || account.platformUserId;
-      await axios.post<{ message_id?: string; error?: { message: string } }>(
-        `${fbBaseUrl}/${senderId}/messages`,
-        {
-          recipient: { id: recipientId },
-          message: { text: text.slice(0, 2000) },
-          messaging_type: 'RESPONSE',
-        },
-        {
-          headers: { 'Content-Type': 'application/json' },
-          params: { access_token: activeToken },
-          timeout: 15_000,
-        }
-      );
+      const url = `${fbBaseUrl}/${senderId}/messages`;
+      const commonParams = { access_token: activeToken };
+      const commonHeaders = { 'Content-Type': 'application/json' };
+      for (const a of safeAttachments) {
+        const attType = metaAttachmentTypeFromUrl(a.url, a.type);
+        await axios.post<{ message_id?: string; error?: { message: string } }>(
+          url,
+          {
+            recipient: { id: recipientId },
+            message: {
+              attachment: {
+                type: attType,
+                payload: { url: a.url, is_reusable: true },
+              },
+            },
+            messaging_type: 'RESPONSE',
+          },
+          {
+            headers: commonHeaders,
+            params: commonParams,
+            timeout: 15_000,
+          }
+        );
+      }
+      if (text) {
+        await axios.post<{ message_id?: string; error?: { message: string } }>(
+          url,
+          {
+            recipient: { id: recipientId },
+            message: { text: text.slice(0, 2000) },
+            messaging_type: 'RESPONSE',
+          },
+          {
+            headers: commonHeaders,
+            params: commonParams,
+            timeout: 15_000,
+          }
+        );
+      }
     }
     return NextResponse.json({ ok: true, message: 'Message sent.' });
   } catch (e) {

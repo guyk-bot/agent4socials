@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, UserPlus, MessageSquare, Loader2, Sparkles, Plus, Trash2 } from 'lucide-react';
+import { Send, UserPlus, MessageSquare, Loader2, Sparkles, Plus, Trash2, Paperclip } from 'lucide-react';
 import api from '@/lib/api';
 import {
   InstagramIcon,
@@ -12,9 +12,17 @@ import {
   LinkedinIcon,
 } from '@/components/SocialPlatformIcons';
 
+type DmWelcomeAttachment = {
+  fileUrl: string;
+  fileName?: string;
+  contentType?: string;
+  kind: 'image' | 'video' | 'file';
+};
+
 type AutomationSettings = {
   dmWelcomeEnabled: boolean;
   dmWelcomeMessage: string | null;
+  dmWelcomeAttachmentsByPlatform: Record<string, DmWelcomeAttachment[]>;
   dmNewFollowerEnabled: boolean;
   dmNewFollowerMessage: string | null;
 };
@@ -31,6 +39,7 @@ type PlatformCapability = {
 const defaultSettings: AutomationSettings = {
   dmWelcomeEnabled: false,
   dmWelcomeMessage: null,
+  dmWelcomeAttachmentsByPlatform: {},
   dmNewFollowerEnabled: false,
   dmNewFollowerMessage: null,
 };
@@ -40,6 +49,7 @@ const AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY = 'agent4socials.automation.newFol
 const AUTOMATION_FIRST_DM_MESSAGES_KEY = 'agent4socials.automation.firstDm.messages.v1';
 const AUTOMATION_NEW_FOLLOWER_MESSAGES_KEY = 'agent4socials.automation.newFollower.messages.v1';
 const AUTOMATION_KEYWORD_STEPS_KEY = 'agent4socials.automation.keyword.steps.v1';
+const MAX_FIRST_DM_ATTACHMENTS = 5;
 const FIRST_DM_SUPPORTED_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)', 'TikTok'] as const;
 const NEW_FOLLOWER_SUPPORTED_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)'] as const;
 
@@ -121,10 +131,14 @@ export default function AutomationPage() {
   const [keywordSteps, setKeywordSteps] = useState<KeywordAutomationStep[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [firstDmUploadingPlatform, setFirstDmUploadingPlatform] = useState<string | null>(null);
+  const [firstDmUploadError, setFirstDmUploadError] = useState<string | null>(null);
   const [firstDmSetupMessage, setFirstDmSetupMessage] = useState<string | null>(null);
   const [newFollowerSetupMessage, setNewFollowerSetupMessage] = useState<string | null>(null);
   const firstDmSectionRef = useRef<HTMLDivElement | null>(null);
   const newFollowerSectionRef = useRef<HTMLDivElement | null>(null);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
 
   const scrollToSectionWithOffset = (el: HTMLDivElement | null) => {
     if (!el || typeof window === 'undefined') return;
@@ -142,9 +156,15 @@ export default function AutomationPage() {
         if (raw) {
           const parsed = JSON.parse(raw) as Partial<AutomationSettings>;
           if (typeof parsed.dmWelcomeEnabled === 'boolean') {
+            const atts = parsed.dmWelcomeAttachmentsByPlatform;
+            const safeAtts =
+              atts && typeof atts === 'object' && !Array.isArray(atts)
+                ? (atts as Record<string, DmWelcomeAttachment[]>)
+                : {};
             setSettings({
               dmWelcomeEnabled: parsed.dmWelcomeEnabled,
               dmWelcomeMessage: parsed.dmWelcomeMessage ?? null,
+              dmWelcomeAttachmentsByPlatform: safeAtts,
               dmNewFollowerEnabled: parsed.dmNewFollowerEnabled ?? false,
               dmNewFollowerMessage: parsed.dmNewFollowerMessage ?? null,
             });
@@ -231,9 +251,15 @@ export default function AutomationPage() {
         if (cancelled) return;
         const data = res.data;
         if (data && typeof data.dmWelcomeEnabled === 'boolean') {
+          const atts = data.dmWelcomeAttachmentsByPlatform;
+          const safeAtts =
+            atts && typeof atts === 'object' && !Array.isArray(atts)
+              ? (atts as Record<string, DmWelcomeAttachment[]>)
+              : {};
           const next = {
             dmWelcomeEnabled: data.dmWelcomeEnabled,
             dmWelcomeMessage: data.dmWelcomeMessage ?? null,
+            dmWelcomeAttachmentsByPlatform: safeAtts,
             dmNewFollowerEnabled: data.dmNewFollowerEnabled ?? false,
             dmNewFollowerMessage: data.dmNewFollowerMessage ?? null,
           };
@@ -265,22 +291,27 @@ export default function AutomationPage() {
   }, []);
 
   const update = (patch: Partial<AutomationSettings>) => {
-    const next = { ...settings, ...patch };
-    setSettings(next);
-    try {
-      if (typeof window !== 'undefined') {
-        const str = JSON.stringify(next);
-        sessionStorage.setItem(AUTOMATION_SETTINGS_CACHE_KEY, str);
-        localStorage.setItem(AUTOMATION_SETTINGS_CACHE_KEY, str);
+    let nextSnapshot: AutomationSettings | undefined;
+    setSettings((prev) => {
+      nextSnapshot = { ...prev, ...patch };
+      try {
+        if (typeof window !== 'undefined') {
+          const str = JSON.stringify(nextSnapshot);
+          sessionStorage.setItem(AUTOMATION_SETTINGS_CACHE_KEY, str);
+          localStorage.setItem(AUTOMATION_SETTINGS_CACHE_KEY, str);
+        }
+      } catch {
+        // ignore storage errors
       }
-    } catch {
-      // ignore storage errors
+      return nextSnapshot;
+    });
+    if (nextSnapshot) {
+      setSaving(true);
+      api
+        .patch('/automation/settings', nextSnapshot)
+        .catch(() => {})
+        .finally(() => setSaving(false));
     }
-    setSaving(true);
-    api
-      .patch('/automation/settings', next)
-      .catch(() => {})
-      .finally(() => setSaving(false));
   };
 
   useEffect(() => {
@@ -346,8 +377,102 @@ export default function AutomationPage() {
     }
   }, [keywordSteps]);
 
+  function fileKindFromMime(file: File): DmWelcomeAttachment['kind'] {
+    if (file.type.startsWith('image/')) return 'image';
+    if (file.type.startsWith('video/')) return 'video';
+    return 'file';
+  }
+
+  async function handleFirstDmFilePick(platform: string, files: FileList | null) {
+    const file = files?.[0];
+    if (!file) return;
+    setFirstDmUploadError(null);
+    const prev = settingsRef.current;
+    const existing = prev.dmWelcomeAttachmentsByPlatform?.[platform] ?? [];
+    if (existing.length >= MAX_FIRST_DM_ATTACHMENTS) {
+      setFirstDmUploadError(`You can add up to ${MAX_FIRST_DM_ATTACHMENTS} files per platform.`);
+      return;
+    }
+    setFirstDmUploadingPlatform(platform);
+    try {
+      const res = await api.post<{ uploadUrl: string; fileUrl: string }>('/media/upload-url', {
+        fileName: file.name,
+        contentType: file.type || 'application/octet-stream',
+      });
+      const { uploadUrl, fileUrl } = res.data;
+      const putRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+      });
+      if (!putRes.ok) throw new Error(`Upload failed (${putRes.status})`);
+      const att: DmWelcomeAttachment = {
+        fileUrl,
+        fileName: file.name,
+        contentType: file.type || undefined,
+        kind: fileKindFromMime(file),
+      };
+      const p2 = settingsRef.current;
+      const list = p2.dmWelcomeAttachmentsByPlatform?.[platform] ?? [];
+      const next: AutomationSettings = {
+        ...p2,
+        dmWelcomeAttachmentsByPlatform: {
+          ...(p2.dmWelcomeAttachmentsByPlatform ?? {}),
+          [platform]: [...list, att],
+        },
+      };
+      setSettings(next);
+      try {
+        if (typeof window !== 'undefined') {
+          const str = JSON.stringify(next);
+          sessionStorage.setItem(AUTOMATION_SETTINGS_CACHE_KEY, str);
+          localStorage.setItem(AUTOMATION_SETTINGS_CACHE_KEY, str);
+        }
+      } catch {
+        // ignore storage errors
+      }
+      setSaving(true);
+      await api.patch('/automation/settings', next).catch(() => {});
+    } catch (e) {
+      setFirstDmUploadError((e as Error)?.message ?? 'Upload failed. Check media storage configuration.');
+    } finally {
+      setFirstDmUploadingPlatform(null);
+      setSaving(false);
+    }
+  }
+
+  function removeFirstDmAttachment(platform: string, index: number) {
+    const prev = settingsRef.current;
+    const existing = prev.dmWelcomeAttachmentsByPlatform?.[platform] ?? [];
+    const nextList = existing.filter((_, i) => i !== index);
+    const nextMap: Record<string, DmWelcomeAttachment[]> = { ...(prev.dmWelcomeAttachmentsByPlatform ?? {}) };
+    if (nextList.length === 0) delete nextMap[platform];
+    else nextMap[platform] = nextList;
+    const next: AutomationSettings = { ...prev, dmWelcomeAttachmentsByPlatform: nextMap };
+    setSettings(next);
+    try {
+      if (typeof window !== 'undefined') {
+        const str = JSON.stringify(next);
+        sessionStorage.setItem(AUTOMATION_SETTINGS_CACHE_KEY, str);
+        localStorage.setItem(AUTOMATION_SETTINGS_CACHE_KEY, str);
+      }
+    } catch {
+      // ignore storage errors
+    }
+    setSaving(true);
+    api
+      .patch('/automation/settings', next)
+      .catch(() => {})
+      .finally(() => setSaving(false));
+  }
+
   const hasSetupMessage = (kind: 'first' | 'follower', platform: string) => {
-    const source = kind === 'first' ? firstIncomingMessages : newFollowerMessages;
+    if (kind === 'first') {
+      const msg = firstIncomingMessages[platform]?.trim();
+      const atts = settings.dmWelcomeAttachmentsByPlatform?.[platform];
+      return Boolean(msg) || (Array.isArray(atts) && atts.length > 0);
+    }
+    const source = newFollowerMessages;
     return Boolean(source[platform]?.trim());
   };
 
@@ -428,7 +553,7 @@ export default function AutomationPage() {
                         onChange={(e) => {
                           const checked = e.target.checked;
                           if (checked && !hasSetupMessage('first', row.platform)) {
-                            setFirstDmSetupMessage('Please set up the auto DM message first before enabling it.');
+                            setFirstDmSetupMessage('Please set up the auto DM message or add at least one attachment before enabling it.');
                             scrollToSectionWithOffset(firstDmSectionRef.current);
                             return;
                           }
@@ -526,8 +651,11 @@ export default function AutomationPage() {
           </div>
         )}
         <p className="text-sm text-neutral-600">
-          Set your first incoming DM message per platform. You must set a message here before enabling it in the platform card.
+          Set your first incoming DM message per platform. Add optional images, videos, or files (uploaded to your storage so Meta can fetch them by URL). You must set at least a message or an attachment before enabling it in the platform card. Instagram and Facebook can send attachments from these URLs; X and TikTok stay text-only in the inbox API for now.
         </p>
+        {firstDmUploadError && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">{firstDmUploadError}</div>
+        )}
         <div className="space-y-3">
           {FIRST_DM_SUPPORTED_PLATFORMS.map((platform) => (
             <div key={`first-dm-${platform}`} className="rounded-xl border border-neutral-200 bg-white p-3">
@@ -545,6 +673,56 @@ export default function AutomationPage() {
                 rows={3}
                 className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--button)]/30 focus:border-[var(--button)] text-sm"
               />
+              <div className="mt-2 space-y-2">
+                {(settings.dmWelcomeAttachmentsByPlatform?.[platform] ?? []).map((att, idx) => (
+                  <div
+                    key={`${att.fileUrl}-${idx}`}
+                    className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-2 py-1.5 text-xs"
+                  >
+                    {att.kind === 'image' ? (
+                      <img src={att.fileUrl} alt="" className="h-10 w-10 rounded object-cover shrink-0" />
+                    ) : att.kind === 'video' ? (
+                      <video src={att.fileUrl} className="h-10 w-14 rounded object-cover shrink-0 bg-black" muted playsInline />
+                    ) : (
+                      <div className="h-10 w-10 shrink-0 rounded bg-neutral-200 flex items-center justify-center text-[10px] font-semibold text-neutral-600">
+                        FILE
+                      </div>
+                    )}
+                    <span className="truncate flex-1 text-neutral-700">{att.fileName ?? att.fileUrl}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeFirstDmAttachment(platform, idx)}
+                      className="shrink-0 p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800"
+                      aria-label="Remove attachment"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-neutral-200 bg-white text-xs font-medium text-neutral-700 cursor-pointer hover:bg-neutral-50">
+                    {firstDmUploadingPlatform === platform ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Paperclip size={14} />
+                    )}
+                    Attach file
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*,video/*,.pdf,.doc,.docx,.zip,.txt"
+                      disabled={firstDmUploadingPlatform !== null}
+                      onChange={(e) => {
+                        void handleFirstDmFilePick(platform, e.target.files);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+                  <span className="text-[11px] text-neutral-500">
+                    Up to {MAX_FIRST_DM_ATTACHMENTS} files. URLs must stay publicly reachable for Instagram and Facebook delivery.
+                  </span>
+                </div>
+              </div>
             </div>
           ))}
         </div>

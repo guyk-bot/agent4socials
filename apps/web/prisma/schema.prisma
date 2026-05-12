@@ -22,7 +22,7 @@ model User {
   name                   String?
   provider               AuthProvider @default(LOCAL)
   brandContext           Json?    // { targetAudience?, toneOfVoice?, toneExamples?, productDescription?, additionalContext? }
-  automationSettings     Json?    // { dmWelcomeEnabled?, dmWelcomeMessage?, dmNewFollowerEnabled?, dmNewFollowerMessage? }
+  automationSettings     Json?    // { dmWelcomeEnabled?, dmWelcomeMessage?, dmWelcomeAttachmentsByPlatform?, dmNewFollowerEnabled?, dmNewFollowerMessage? }
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
   socialAccounts         SocialAccount[]
