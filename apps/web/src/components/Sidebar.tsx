@@ -410,12 +410,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           <HelpCircle size={18} className="shrink-0" />
           <span>Need help?</span>
         </Link>
-        <Link
-          href="/help/support"
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 border border-transparent dark:hover:border-neutral-700 mt-0.5"
-        >
-          <span className="text-xs">Open a support ticket</span>
-        </Link>
       </div>
     </>
   );
