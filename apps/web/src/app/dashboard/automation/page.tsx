@@ -279,7 +279,6 @@ export default function AutomationPage() {
     setSaving(true);
     api
       .patch('/automation/settings', next)
-      .then(() => setLoadError(null))
       .catch(() => {})
       .finally(() => setSaving(false));
   };
