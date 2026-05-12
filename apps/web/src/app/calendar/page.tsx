@@ -329,12 +329,17 @@ export default function CalendarPage() {
                 <>
                     <div className="card !p-0 overflow-x-auto">
                         <div className="min-w-[800px]">
-                            <div className="grid grid-cols-[56px_1fr_1fr_1fr_1fr_1fr_1fr_1fr] border-b border-gray-200 bg-gray-50">
-                                <div className="py-2.5 text-xs font-semibold text-gray-500" />
+                            <div
+                                className={`grid grid-cols-[56px_1fr_1fr_1fr_1fr_1fr_1fr_1fr] border-b ${isDark ? 'border-neutral-800 bg-neutral-950' : 'border-gray-200 bg-gray-50'}`}
+                            >
+                                <div className={`py-2.5 text-xs font-semibold ${isDark ? 'text-neutral-500' : 'text-gray-500'}`} />
                                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label, i) => (
-                                    <div key={label} className="py-2.5 text-center text-xs font-semibold text-gray-600">
+                                    <div
+                                        key={label}
+                                        className={`py-2.5 text-center text-xs font-semibold ${isDark ? 'text-neutral-300' : 'text-gray-600'}`}
+                                    >
                                         {label}
-                                        <div className="text-[10px] font-normal text-gray-400 mt-0.5">
+                                        <div className={`text-[10px] font-normal mt-0.5 ${isDark ? 'text-neutral-500' : 'text-gray-400'}`}>
                                             {new Date(weekStart.getTime() + i * 24 * 60 * 60 * 1000).getDate()}
                                         </div>
                                     </div>
@@ -342,8 +347,13 @@ export default function CalendarPage() {
                             </div>
                             <div ref={weekScrollRef} className="max-h-[70vh] overflow-y-auto">
                                 {Array.from({ length: HOURS_END - HOURS_START }, (_, i) => HOURS_START + i).map((hour) => (
-                                    <div key={hour} className="grid grid-cols-[56px_1fr_1fr_1fr_1fr_1fr_1fr_1fr] border-b border-gray-100 min-h-[52px]">
-                                        <div className="py-1 pr-2 text-right text-[11px] font-medium text-gray-400 border-r border-gray-100 bg-gray-50/50">
+                                    <div
+                                        key={hour}
+                                        className={`grid grid-cols-[56px_1fr_1fr_1fr_1fr_1fr_1fr_1fr] min-h-[52px] border-b ${isDark ? 'border-neutral-800' : 'border-gray-100'}`}
+                                    >
+                                        <div
+                                            className={`py-1 pr-2 text-right text-[11px] font-medium border-r ${isDark ? 'border-neutral-700 bg-neutral-800 text-neutral-400' : 'border-gray-100 bg-gray-50/50 text-gray-400'}`}
+                                        >
                                             {String(hour).padStart(2, '0')}:00
                                         </div>
                                         {[0, 1, 2, 3, 4, 5, 6].map((dayIndex) => {
@@ -351,7 +361,7 @@ export default function CalendarPage() {
                                             return (
                                                 <div
                                                     key={dayIndex}
-                                                    className={`p-1 border-r border-gray-100 last:border-r-0 min-h-[52px] overflow-hidden ${isDark ? 'bg-neutral-900' : 'bg-white'}`}
+                                                    className={`p-1 border-r last:border-r-0 min-h-[52px] overflow-hidden ${isDark ? 'border-neutral-800 bg-neutral-900' : 'border-gray-100 bg-white'}`}
                                                 >
                                                     <div className="space-y-1 max-h-[152px] overflow-y-auto pr-0.5">
                                                         {slotPosts.map((p: any) => {
