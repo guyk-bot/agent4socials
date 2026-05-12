@@ -22,12 +22,13 @@ model User {
   name                   String?
   provider               AuthProvider @default(LOCAL)
   brandContext           Json?    // { targetAudience?, toneOfVoice?, toneExamples?, productDescription?, additionalContext? }
-  automationSettings     Json?    // { dmWelcomeEnabled?, dmWelcomeMessage?, dmWelcomeAttachmentsByPlatform?, dmNewFollowerEnabled?, dmNewFollowerMessage? }
+  automationSettings     Json?    // { dmWelcomeEnabled?, dmWelcomeMessage?, dmWelcomeEnabledByPlatform?, dmWelcomeMessagesByPlatform?, dmWelcomeAttachmentsByPlatform?, dmNewFollowerEnabled?, dmNewFollowerMessage? }
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
   socialAccounts         SocialAccount[]
   posts                  Post[]
   automationFollowerWelcomes AutomationFollowerWelcome[]
+  dmFirstWelcomeSent       DmFirstWelcomeSent[]
   linkPage               LinkPage?
 }
 
@@ -91,6 +92,7 @@ model SocialAccount {
   syncJobs          SyncJob[]
   /// Cached YouTube Analytics “extended” bundle (geo, traffic sources, growth, watch aggregates) per date range — avoids slow repeat API calls on dashboard open.
   youtubeExtendedInsightsCaches YoutubeExtendedInsightsCache[]
+  dmFirstWelcomeSent       DmFirstWelcomeSent[]
 
   @@unique([userId, platform, platformUserId])
 }
@@ -354,6 +356,20 @@ model AutomationFollowerWelcome {
 
   @@unique([userId, platform, platformUserId])
   @@index([userId, platform])
+}
+
+/// One row per conversation after we send the "first incoming message" auto-DM (dedupe).
+model DmFirstWelcomeSent {
+  id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  socialAccountId String
+  socialAccount   SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  conversationId  String
+  sentAt          DateTime      @default(now())
+
+  @@unique([socialAccountId, conversationId])
+  @@index([userId])
 }
 
 model PostTarget {

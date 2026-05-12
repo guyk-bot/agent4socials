@@ -144,6 +144,36 @@ async function run(request: NextRequest) {
     results.push('sync_jobs scope idx');
   } catch (e) { /* non-fatal */ }
 
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "DmFirstWelcomeSent" (
+        "id" TEXT NOT NULL,
+        "userId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
+        "socialAccountId" TEXT NOT NULL REFERENCES "SocialAccount"("id") ON DELETE CASCADE,
+        "conversationId" TEXT NOT NULL,
+        "sentAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "DmFirstWelcomeSent_pkey" PRIMARY KEY ("id")
+      )
+    `);
+    results.push('DmFirstWelcomeSent table');
+  } catch (e) {
+    results.push(`DmFirstWelcomeSent: ${(e as Error)?.message?.slice(0, 120)}`);
+  }
+  try {
+    await prisma.$executeRawUnsafe(
+      `CREATE UNIQUE INDEX IF NOT EXISTS "DmFirstWelcomeSent_socialAccountId_conversationId_key" ON "DmFirstWelcomeSent"("socialAccountId", "conversationId")`
+    );
+    results.push('DmFirstWelcomeSent unique');
+  } catch (e) {
+    results.push(`DmFirstWelcomeSent unique: ${(e as Error)?.message?.slice(0, 80)}`);
+  }
+  try {
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "DmFirstWelcomeSent_userId_idx" ON "DmFirstWelcomeSent"("userId")`);
+    results.push('DmFirstWelcomeSent userId idx');
+  } catch (e) {
+    results.push(`DmFirstWelcomeSent idx: ${(e as Error)?.message?.slice(0, 80)}`);
+  }
+
   // ImportedPost extra columns
   try {
     await prisma.$executeRawUnsafe(`ALTER TABLE "ImportedPost" ADD COLUMN IF NOT EXISTS "savesCount" INTEGER DEFAULT 0`);

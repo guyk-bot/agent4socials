@@ -22,6 +22,8 @@ type DmWelcomeAttachment = {
 type AutomationSettings = {
   dmWelcomeEnabled: boolean;
   dmWelcomeMessage: string | null;
+  dmWelcomeEnabledByPlatform: Record<string, boolean>;
+  dmWelcomeMessagesByPlatform: Record<string, string | null>;
   dmWelcomeAttachmentsByPlatform: Record<string, DmWelcomeAttachment[]>;
   dmNewFollowerEnabled: boolean;
   dmNewFollowerMessage: string | null;
@@ -39,18 +41,18 @@ type PlatformCapability = {
 const defaultSettings: AutomationSettings = {
   dmWelcomeEnabled: false,
   dmWelcomeMessage: null,
+  dmWelcomeEnabledByPlatform: {},
+  dmWelcomeMessagesByPlatform: {},
   dmWelcomeAttachmentsByPlatform: {},
   dmNewFollowerEnabled: false,
   dmNewFollowerMessage: null,
 };
 const AUTOMATION_SETTINGS_CACHE_KEY = 'agent4socials.automation.settings.v1';
-const AUTOMATION_DM_PLATFORM_KEY = 'agent4socials.automation.dmWelcome.platform.v1';
 const AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY = 'agent4socials.automation.newFollowerDm.platform.v1';
-const AUTOMATION_FIRST_DM_MESSAGES_KEY = 'agent4socials.automation.firstDm.messages.v1';
 const AUTOMATION_NEW_FOLLOWER_MESSAGES_KEY = 'agent4socials.automation.newFollower.messages.v1';
 const AUTOMATION_KEYWORD_STEPS_KEY = 'agent4socials.automation.keyword.steps.v1';
 const MAX_FIRST_DM_ATTACHMENTS = 5;
-const FIRST_DM_SUPPORTED_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)', 'TikTok'] as const;
+const FIRST_DM_SUPPORTED_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)'] as const;
 const NEW_FOLLOWER_SUPPORTED_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)'] as const;
 
 const PLATFORM_CAPABILITIES: PlatformCapability[] = [
@@ -75,9 +77,12 @@ const PLATFORM_CAPABILITIES: PlatformCapability[] = [
   {
     platform: 'TikTok',
     keywordCommentAutomation: 'native',
-    autoDmWhenMessagedFirst: 'native',
+    autoDmWhenMessagedFirst: 'none',
     welcomeMessageToNewFollower: 'none',
-    notes: ['TikTok comment automation is only supported for business accounts.'],
+    notes: [
+      'TikTok comment automation is only supported for business accounts.',
+      'Auto reply to the first TikTok DM is not available in this app yet; use Instagram, Facebook, or X.',
+    ],
   },
   {
     platform: 'YouTube',
@@ -124,9 +129,7 @@ function platformIcon(platform: string) {
 
 export default function AutomationPage() {
   const [settings, setSettings] = useState<AutomationSettings>(defaultSettings);
-  const [dmWelcomePlatform, setDmWelcomePlatform] = useState<string | null>(null);
   const [dmNewFollowerPlatform, setDmNewFollowerPlatform] = useState<string | null>(null);
-  const [firstIncomingMessages, setFirstIncomingMessages] = useState<Record<string, string>>({});
   const [newFollowerMessages, setNewFollowerMessages] = useState<Record<string, string>>({});
   const [keywordSteps, setKeywordSteps] = useState<KeywordAutomationStep[]>([]);
   const [loading, setLoading] = useState(false);
@@ -155,15 +158,25 @@ export default function AutomationPage() {
         const raw = sessionStorage.getItem(AUTOMATION_SETTINGS_CACHE_KEY) ?? localStorage.getItem(AUTOMATION_SETTINGS_CACHE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw) as Partial<AutomationSettings>;
-          if (typeof parsed.dmWelcomeEnabled === 'boolean') {
+          if (typeof parsed.dmWelcomeEnabled === 'boolean' || (parsed.dmWelcomeEnabledByPlatform && typeof parsed.dmWelcomeEnabledByPlatform === 'object')) {
             const atts = parsed.dmWelcomeAttachmentsByPlatform;
             const safeAtts =
               atts && typeof atts === 'object' && !Array.isArray(atts)
                 ? (atts as Record<string, DmWelcomeAttachment[]>)
                 : {};
+            const enabledBy =
+              parsed.dmWelcomeEnabledByPlatform && typeof parsed.dmWelcomeEnabledByPlatform === 'object' && !Array.isArray(parsed.dmWelcomeEnabledByPlatform)
+                ? (parsed.dmWelcomeEnabledByPlatform as Record<string, boolean>)
+                : {};
+            const messagesBy =
+              parsed.dmWelcomeMessagesByPlatform && typeof parsed.dmWelcomeMessagesByPlatform === 'object' && !Array.isArray(parsed.dmWelcomeMessagesByPlatform)
+                ? (parsed.dmWelcomeMessagesByPlatform as Record<string, string | null>)
+                : {};
             setSettings({
-              dmWelcomeEnabled: parsed.dmWelcomeEnabled,
+              dmWelcomeEnabled: parsed.dmWelcomeEnabled ?? false,
               dmWelcomeMessage: parsed.dmWelcomeMessage ?? null,
+              dmWelcomeEnabledByPlatform: enabledBy,
+              dmWelcomeMessagesByPlatform: messagesBy,
               dmWelcomeAttachmentsByPlatform: safeAtts,
               dmNewFollowerEnabled: parsed.dmNewFollowerEnabled ?? false,
               dmNewFollowerMessage: parsed.dmNewFollowerMessage ?? null,
@@ -172,25 +185,10 @@ export default function AutomationPage() {
         } else {
           setLoading(true);
         }
-        const savedDmPlatform =
-          sessionStorage.getItem(AUTOMATION_DM_PLATFORM_KEY) ??
-          localStorage.getItem(AUTOMATION_DM_PLATFORM_KEY);
-        if (savedDmPlatform) setDmWelcomePlatform(savedDmPlatform);
         const savedNewFollowerDmPlatform =
           sessionStorage.getItem(AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY) ??
           localStorage.getItem(AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY);
         if (savedNewFollowerDmPlatform) setDmNewFollowerPlatform(savedNewFollowerDmPlatform);
-        const savedFirstIncomingMessages =
-          sessionStorage.getItem(AUTOMATION_FIRST_DM_MESSAGES_KEY) ??
-          localStorage.getItem(AUTOMATION_FIRST_DM_MESSAGES_KEY);
-        if (savedFirstIncomingMessages) {
-          try {
-            const parsed = JSON.parse(savedFirstIncomingMessages) as Record<string, string>;
-            if (parsed && typeof parsed === 'object') setFirstIncomingMessages(parsed);
-          } catch {
-            // ignore parse issues
-          }
-        }
         const savedNewFollowerMessages =
           sessionStorage.getItem(AUTOMATION_NEW_FOLLOWER_MESSAGES_KEY) ??
           localStorage.getItem(AUTOMATION_NEW_FOLLOWER_MESSAGES_KEY);
@@ -250,15 +248,23 @@ export default function AutomationPage() {
       .then((res) => {
         if (cancelled) return;
         const data = res.data;
-        if (data && typeof data.dmWelcomeEnabled === 'boolean') {
+        if (data) {
           const atts = data.dmWelcomeAttachmentsByPlatform;
           const safeAtts =
             atts && typeof atts === 'object' && !Array.isArray(atts)
               ? (atts as Record<string, DmWelcomeAttachment[]>)
               : {};
-          const next = {
-            dmWelcomeEnabled: data.dmWelcomeEnabled,
+          const next: AutomationSettings = {
+            dmWelcomeEnabled: data.dmWelcomeEnabled ?? false,
             dmWelcomeMessage: data.dmWelcomeMessage ?? null,
+            dmWelcomeEnabledByPlatform:
+              data.dmWelcomeEnabledByPlatform && typeof data.dmWelcomeEnabledByPlatform === 'object' && !Array.isArray(data.dmWelcomeEnabledByPlatform)
+                ? (data.dmWelcomeEnabledByPlatform as Record<string, boolean>)
+                : {},
+            dmWelcomeMessagesByPlatform:
+              data.dmWelcomeMessagesByPlatform && typeof data.dmWelcomeMessagesByPlatform === 'object' && !Array.isArray(data.dmWelcomeMessagesByPlatform)
+                ? (data.dmWelcomeMessagesByPlatform as Record<string, string | null>)
+                : {},
             dmWelcomeAttachmentsByPlatform: safeAtts,
             dmNewFollowerEnabled: data.dmNewFollowerEnabled ?? false,
             dmNewFollowerMessage: data.dmNewFollowerMessage ?? null,
@@ -315,21 +321,6 @@ export default function AutomationPage() {
   };
 
   useEffect(() => {
-    if (!settings.dmWelcomeEnabled) return;
-    if (dmWelcomePlatform) return;
-    const fallback = 'Instagram';
-    setDmWelcomePlatform(fallback);
-    try {
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem(AUTOMATION_DM_PLATFORM_KEY, fallback);
-        localStorage.setItem(AUTOMATION_DM_PLATFORM_KEY, fallback);
-      }
-    } catch {
-      // ignore storage errors
-    }
-  }, [settings.dmWelcomeEnabled, dmWelcomePlatform]);
-
-  useEffect(() => {
     if (!settings.dmNewFollowerEnabled) return;
     if (dmNewFollowerPlatform) return;
     const fallback = 'Instagram';
@@ -343,17 +334,6 @@ export default function AutomationPage() {
       // ignore storage errors
     }
   }, [settings.dmNewFollowerEnabled, dmNewFollowerPlatform]);
-
-  useEffect(() => {
-    try {
-      if (typeof window === 'undefined') return;
-      const str = JSON.stringify(firstIncomingMessages);
-      sessionStorage.setItem(AUTOMATION_FIRST_DM_MESSAGES_KEY, str);
-      localStorage.setItem(AUTOMATION_FIRST_DM_MESSAGES_KEY, str);
-    } catch {
-      // ignore storage errors
-    }
-  }, [firstIncomingMessages]);
 
   useEffect(() => {
     try {
@@ -468,7 +448,7 @@ export default function AutomationPage() {
 
   const hasSetupMessage = (kind: 'first' | 'follower', platform: string) => {
     if (kind === 'first') {
-      const msg = firstIncomingMessages[platform]?.trim();
+      const msg = settings.dmWelcomeMessagesByPlatform?.[platform]?.trim();
       const atts = settings.dmWelcomeAttachmentsByPlatform?.[platform];
       return Boolean(msg) || (Array.isArray(atts) && atts.length > 0);
     }
@@ -549,7 +529,7 @@ export default function AutomationPage() {
                     <label className="mt-3 inline-flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={settings.dmWelcomeEnabled && dmWelcomePlatform === row.platform}
+                        checked={Boolean(settings.dmWelcomeEnabledByPlatform?.[row.platform])}
                         onChange={(e) => {
                           const checked = e.target.checked;
                           if (checked && !hasSetupMessage('first', row.platform)) {
@@ -558,25 +538,11 @@ export default function AutomationPage() {
                             return;
                           }
                           setFirstDmSetupMessage(null);
-                          setDmWelcomePlatform(checked ? row.platform : null);
-                          try {
-                            if (typeof window !== 'undefined') {
-                              if (checked) {
-                                sessionStorage.setItem(AUTOMATION_DM_PLATFORM_KEY, row.platform);
-                                localStorage.setItem(AUTOMATION_DM_PLATFORM_KEY, row.platform);
-                              } else {
-                                sessionStorage.removeItem(AUTOMATION_DM_PLATFORM_KEY);
-                                localStorage.removeItem(AUTOMATION_DM_PLATFORM_KEY);
-                              }
-                            }
-                          } catch {
-                            // ignore storage errors
-                          }
+                          const prev = settingsRef.current;
+                          const nextEnabledBy = { ...(prev.dmWelcomeEnabledByPlatform ?? {}), [row.platform]: checked };
                           update({
-                            dmWelcomeEnabled: checked,
-                            ...(checked
-                              ? { dmWelcomeMessage: firstIncomingMessages[row.platform]?.trim() || null }
-                              : {}),
+                            dmWelcomeEnabledByPlatform: nextEnabledBy,
+                            dmWelcomeEnabled: Object.values(nextEnabledBy).some(Boolean),
                           });
                         }}
                         className="rounded border-neutral-300 text-[var(--button)] focus:ring-[var(--button)]/50"
@@ -651,7 +617,7 @@ export default function AutomationPage() {
           </div>
         )}
         <p className="text-sm text-neutral-600">
-          Set your first incoming DM message per platform. Add optional images, videos, or files (uploaded to your storage so Meta can fetch them by URL). You must set at least a message or an attachment before enabling it in the platform card. Instagram and Facebook can send attachments from these URLs; X and TikTok stay text-only in the inbox API for now.
+          Set your first incoming DM message per platform. Add optional images, videos, or files (uploaded to your storage so Meta can fetch them by URL). You must set at least a message or an attachment before enabling it in the platform card. Instagram and Facebook can send attachments from these URLs; X stays text-only in the inbox API for now. After someone messages you, open that thread in Inbox once so we can send the auto reply within about 35 minutes of their message.
         </p>
         {firstDmUploadError && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">{firstDmUploadError}</div>
@@ -661,13 +627,12 @@ export default function AutomationPage() {
             <div key={`first-dm-${platform}`} className="rounded-xl border border-neutral-200 bg-white p-3">
               <label className="block text-sm font-medium text-neutral-800 mb-1.5">{platform}</label>
               <textarea
-                value={firstIncomingMessages[platform] ?? ''}
+                value={settings.dmWelcomeMessagesByPlatform?.[platform] ?? ''}
                 onChange={(e) => {
                   const value = e.target.value;
-                  setFirstIncomingMessages((prev) => ({ ...prev, [platform]: value }));
-                  if (settings.dmWelcomeEnabled && dmWelcomePlatform === platform) {
-                    update({ dmWelcomeMessage: value || null });
-                  }
+                  const prev = settingsRef.current;
+                  const nextMsgs = { ...(prev.dmWelcomeMessagesByPlatform ?? {}), [platform]: value || null };
+                  update({ dmWelcomeMessagesByPlatform: nextMsgs });
                 }}
                 placeholder={`Enter auto DM for ${platform}`}
                 rows={3}

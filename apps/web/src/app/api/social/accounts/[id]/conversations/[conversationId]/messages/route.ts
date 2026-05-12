@@ -1,14 +1,23 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
 import { signTwitterRequest } from '@/lib/twitter-oauth1';
 import { checkAndIncrementXApiUsage } from '@/lib/x/x-api-usage';
+import { runFirstWelcomeMaybe } from '@/lib/dm-first-welcome';
 
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
 const fbBaseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
+
+function scheduleDmFirstWelcome(args: Parameters<typeof runFirstWelcomeMaybe>[0]) {
+  after(() => {
+    void runFirstWelcomeMaybe(args).catch((err) => {
+      console.error('[dm-first-welcome]', err);
+    });
+  });
+}
 
 function metaAttachmentTypeFromUrl(url: string, explicit?: string): 'image' | 'video' | 'file' {
   const t = typeof explicit === 'string' ? explicit.toLowerCase() : '';
@@ -358,6 +367,24 @@ export async function GET(
         ...m,
         fromName: m.fromId ? (userMap.get(m.fromId) ?? m.fromName) : m.fromName,
       }));
+      scheduleDmFirstWelcome({
+        userId,
+        account: {
+          id: account.id,
+          platform: account.platform,
+          platformUserId: account.platformUserId,
+          accessToken: account.accessToken,
+          credentialsJson: account.credentialsJson,
+        },
+        conversationId,
+        messages: enrichedMessages.map((m) => ({
+          createdTime: m.createdTime,
+          isFromPage: m.isFromPage,
+          fromId: m.fromId,
+        })),
+        recipientId,
+        isInstagramBusinessLogin: false,
+      });
       return NextResponse.json({
         messages: enrichedMessages,
         recipientId,
@@ -463,6 +490,25 @@ export async function GET(
         }
       }
 
+      scheduleDmFirstWelcome({
+        userId,
+        account: {
+          id: account.id,
+          platform: account.platform,
+          platformUserId: account.platformUserId,
+          accessToken: account.accessToken,
+          credentialsJson: account.credentialsJson,
+        },
+        conversationId,
+        messages: list.map((m) => ({
+          createdTime: m.createdTime,
+          isFromPage: m.isFromPage,
+          fromId: m.fromId,
+        })),
+        recipientId,
+        isInstagramBusinessLogin: true,
+      });
+
       return NextResponse.json({ messages: list, recipientId });
     }
 
@@ -543,6 +589,25 @@ export async function GET(
         // ignore enrichment failures
       }
     }
+
+    scheduleDmFirstWelcome({
+      userId,
+      account: {
+        id: account.id,
+        platform: account.platform,
+        platformUserId: account.platformUserId,
+        accessToken: account.accessToken,
+        credentialsJson: account.credentialsJson,
+      },
+      conversationId,
+      messages: list.map((m) => ({
+        createdTime: m.createdTime,
+        isFromPage: m.isFromPage,
+        fromId: m.fromId,
+      })),
+      recipientId,
+      isInstagramBusinessLogin,
+    });
 
     return NextResponse.json({
       messages: list,
