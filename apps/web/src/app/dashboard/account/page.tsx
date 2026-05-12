@@ -30,7 +30,15 @@ import {
   HelpCircle,
 } from 'lucide-react';
 
-const CONFIRM_TEXT = 'CONFIRM';
+type CancelReasonId = 'new_tool' | 'price' | 'lack_functions' | 'other';
+
+const CANCEL_REASONS: { id: CancelReasonId; label: string }[] = [
+  { id: 'new_tool', label: 'I found a new tool' },
+  { id: 'price', label: 'Price is too high' },
+  { id: 'lack_functions', label: 'Lack of functions' },
+  { id: 'other', label: 'Other' },
+];
+
 const SHARE_URL = 'https://agent4socials.com';
 const SHARE_TEXT = 'Check out Agent4Socials: schedule posts and analytics for Instagram, YouTube, TikTok, Facebook and more.';
 const USER_AVATAR_STORAGE_KEY = 'agent4socials-user-avatar-v1';
@@ -133,7 +141,8 @@ export default function AccountPage() {
 
   const [shareOpen, setShareOpen] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
-  const [confirmInput, setConfirmInput] = useState('');
+  const [cancelReason, setCancelReason] = useState<CancelReasonId | ''>('');
+  const [cancelOtherDetail, setCancelOtherDetail] = useState('');
   const [cancelError, setCancelError] = useState('');
   const [cancelSuccess, setCancelSuccess] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -350,25 +359,32 @@ export default function AccountPage() {
     e.preventDefault();
     e.stopPropagation();
     setCancelModalOpen(true);
-    setConfirmInput('');
+    setCancelReason('');
+    setCancelOtherDetail('');
     setCancelError('');
     setCancelSuccess(false);
   };
 
   const handleCancelClose = () => {
     setCancelModalOpen(false);
-    setConfirmInput('');
+    setCancelReason('');
+    setCancelOtherDetail('');
     setCancelError('');
   };
 
   const handleConfirmCancel = () => {
-    if (confirmInput.trim() !== CONFIRM_TEXT) {
-      setCancelError(`Please type ${CONFIRM_TEXT} to confirm.`);
+    if (!cancelReason) {
+      setCancelError('Please select a reason.');
+      return;
+    }
+    if (cancelReason === 'other' && !cancelOtherDetail.trim()) {
+      setCancelError('Please add a short note so we understand what we missed.');
       return;
     }
     setCancelSuccess(true);
     setCancelModalOpen(false);
-    setConfirmInput('');
+    setCancelReason('');
+    setCancelOtherDetail('');
     setCancelError('');
   };
 
@@ -393,26 +409,58 @@ export default function AccountPage() {
           <X className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 rounded-full bg-red-100">
-            <AlertTriangle className="w-5 h-5 text-red-600" />
+          <div className="p-2 rounded-full bg-neutral-100">
+            <AlertTriangle className="w-5 h-5 text-neutral-600" />
           </div>
           <h3 className="text-lg font-semibold text-neutral-900">Cancel subscription?</h3>
         </div>
         <p className="text-sm text-neutral-600 mb-4">
-          You’ll lose access at the end of your current period. To confirm, type <strong>CONFIRM</strong> below.
+          You will lose access at the end of your current period. Help us improve: why are you canceling?
         </p>
-        <input
-          type="text"
-          value={confirmInput}
-          onChange={(e) => {
-            setConfirmInput(e.target.value.toUpperCase());
-            setCancelError('');
-          }}
-          placeholder="Type CONFIRM"
-          className="w-full px-4 py-3 rounded-lg border border-neutral-200 focus:ring-2 focus:ring-red-500 focus:border-red-500 font-mono text-sm"
-          autoFocus
-        />
-        {cancelError && <p className="mt-2 text-sm text-red-600">{cancelError}</p>}
+        <fieldset className="space-y-2.5 mb-3">
+          <legend className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2 block">Select a reason</legend>
+          {CANCEL_REASONS.map(({ id, label }) => (
+            <label
+              key={id}
+              className={`flex items-start gap-3 rounded-xl border px-3 py-2.5 cursor-pointer transition-colors hover:bg-neutral-50 ${
+                cancelReason === id ? 'border-neutral-400 bg-neutral-50/80' : 'border-neutral-200'
+              }`}
+            >
+              <input
+                type="radio"
+                name="cancel-reason"
+                value={id}
+                checked={cancelReason === id}
+                onChange={() => {
+                  setCancelReason(id);
+                  setCancelError('');
+                  if (id !== 'other') setCancelOtherDetail('');
+                }}
+                className="mt-0.5 accent-neutral-600 border-neutral-300"
+              />
+              <span className="text-sm text-neutral-800">{label}</span>
+            </label>
+          ))}
+        </fieldset>
+        {cancelReason === 'other' && (
+          <div className="mb-4">
+            <label htmlFor="cancel-other-detail" className="block text-xs font-medium text-neutral-500 mb-1.5">
+              Please clarify
+            </label>
+            <textarea
+              id="cancel-other-detail"
+              value={cancelOtherDetail}
+              onChange={(e) => {
+                setCancelOtherDetail(e.target.value);
+                setCancelError('');
+              }}
+              rows={3}
+              placeholder="Tell us what happened or what you were looking for."
+              className="w-full px-3 py-2.5 rounded-lg border border-neutral-200 text-sm text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-neutral-300 focus:border-neutral-400 resize-y min-h-[80px]"
+            />
+          </div>
+        )}
+        {cancelError && <p className="mb-2 text-sm text-neutral-700">{cancelError}</p>}
         <div className="flex gap-3 mt-6">
           <button
             type="button"
@@ -424,8 +472,8 @@ export default function AccountPage() {
           <button
             type="button"
             onClick={handleConfirmCancel}
-            disabled={confirmInput.trim() !== CONFIRM_TEXT}
-            className="flex-1 py-2.5 rounded-lg font-medium text-white bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!cancelReason || (cancelReason === 'other' && !cancelOtherDetail.trim())}
+            className="flex-1 py-2.5 rounded-lg font-medium text-neutral-800 bg-neutral-200 hover:bg-neutral-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-neutral-200"
           >
             Cancel subscription
           </button>
@@ -1524,15 +1572,15 @@ export default function AccountPage() {
       </div>
 
       {/* Cancel subscription */}
-      <div className="card rounded-2xl border border-red-200/80 bg-red-50/40 shadow-sm">
+      <div className="card rounded-2xl border border-neutral-200 bg-neutral-50/50 shadow-sm">
         <div className="flex items-start gap-3">
-          <div className="p-2 rounded-xl bg-red-100 shrink-0">
-            <Trash2 className="w-5 h-5 text-red-600" />
+          <div className="p-2 rounded-xl bg-neutral-100 shrink-0">
+            <Trash2 className="w-5 h-5 text-neutral-600" />
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="font-semibold text-neutral-900">Cancel subscription</h2>
             <p className="text-sm text-neutral-600 mt-0.5">
-              You’ll keep access until the end of your billing period.
+              You will keep access until the end of your billing period.
             </p>
             {cancelSuccess ? (
               <p className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-emerald-600">
@@ -1542,7 +1590,7 @@ export default function AccountPage() {
               <button
                 type="button"
                 onClick={handleCancelClick}
-                className="mt-3 px-4 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-100 border border-red-200 transition-colors"
+                className="mt-3 px-4 py-2 rounded-lg text-sm font-medium text-neutral-700 border border-neutral-200 bg-white hover:bg-neutral-100 hover:border-neutral-300 transition-colors"
               >
                 Cancel subscription
               </button>
