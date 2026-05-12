@@ -19,9 +19,10 @@ const MARK_RASTER_MAX = 480;
 
 /** Canvas for tab favicon SVG (rasterized to 48 / 192). */
 const CANVAS = 512;
-/** Squircle corner radius (fraction of side, LinkedIn-style). */
-const RX = Math.round(CANVAS * 0.22);
-/** Logo uses this fraction of the canvas (higher = larger mark, less padding). 0.92 is near the practical max before circular SERP crops clip corners. */
+const CENTER = CANVAS / 2;
+/** Inscribed circle clip so SERP circular masks align with the asset (no squircle+circle chord edges). */
+const CLIP_R = CENTER;
+/** Logo uses this fraction of the canvas (higher = larger mark, less padding). */
 const LOGO = Math.round(CANVAS * 0.92);
 const PAD = (CANVAS - LOGO) / 2;
 
@@ -29,11 +30,11 @@ function buildTabSvg(pngBuffer) {
   const b64 = pngBuffer.toString("base64");
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${CANVAS}" height="${CANVAS}" viewBox="0 0 ${CANVAS} ${CANVAS}">
   <defs>
-    <clipPath id="tab-squircle"><rect width="${CANVAS}" height="${CANVAS}" rx="${RX}" ry="${RX}"/></clipPath>
+    <clipPath id="tab-circle"><circle cx="${CENTER}" cy="${CENTER}" r="${CLIP_R}"/></clipPath>
   </defs>
-  <g clip-path="url(#tab-squircle)">
+  <g clip-path="url(#tab-circle)">
     <rect width="${CANVAS}" height="${CANVAS}" fill="#ffffff"/>
-    <image x="${PAD}" y="${PAD}" width="${LOGO}" height="${LOGO}" preserveAspectRatio="xMidYMid meet" href="data:image/png;base64,${b64}" xlink:href="data:image/png;base64,${b64}"/>
+    <image x="${PAD}" y="${PAD}" width="${LOGO}" height="${LOGO}" preserveAspectRatio="xMidYMin meet" href="data:image/png;base64,${b64}" xlink:href="data:image/png;base64,${b64}"/>
   </g>
 </svg>`;
 }
@@ -95,8 +96,8 @@ async function loadMarkPngBuffer() {
 
   console.log(
     fs.existsSync(markSourcePngPath)
-      ? "Wrote favicons from public/favicon-source-mark.png (squircle + inset) → a4s-tab.svg, favicon.svg, PNGs, ICO, brand-tab-mark.png"
-      : "Wrote favicons from public/logo.svg (squircle + inset) → … (add favicon-source-mark.png to prefer the official raster mark)",
+      ? "Wrote favicons from public/favicon-source-mark.png (circle + inset) → a4s-tab.svg, favicon.svg, PNGs, ICO, brand-tab-mark.png"
+      : "Wrote favicons from public/logo.svg (circle + inset) → … (add favicon-source-mark.png to prefer the official raster mark)",
   );
 })().catch((e) => {
   console.error(e);

@@ -27,7 +27,7 @@
       font-size: 0.8125rem;
       color: var(--url);
       margin-bottom: 28px;
-      max-width: 52ch;
+      max-width: 54ch;
     }
     .serp-row {
       display: flex;
@@ -39,18 +39,26 @@
       margin-bottom: 14px;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
     }
+    /* True circular clip: clip-path avoids some border-radius + overflow jaggies on square bitmaps */
     .icon {
       flex-shrink: 0;
+      position: relative;
       border-radius: 50%;
-      overflow: hidden;
       background: #fff;
       box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+      clip-path: circle(50% at 50% 50%);
+      -webkit-clip-path: circle(50% at 50% 50%);
+      isolation: isolate;
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
     }
     .icon img {
       width: 100%;
       height: 100%;
-      object-fit: cover;
       display: block;
+      object-fit: cover;
+      /* Slight upward bias to match production logo-192 (xMidYMin in favicon SVG) */
+      object-position: 50% 42%;
     }
     .t26 { width: 26px; height: 26px; }
     .t32 { width: 32px; height: 32px; }
@@ -82,9 +90,8 @@
   <div class="wrap">
     <h1>Approximate Google search circle icon</h1>
     <p class="note">
-      Google crops your square icon to a <strong>circle</strong> in results (exact size and anti-aliasing vary by device).
-      This page uses <code>border-radius: 50%</code> and <code>object-fit: cover</code> on <code id="src-label">/logo-192.png</code>, which matches the usual inscribed-circle crop of a square asset.
-      It is not an official Google renderer.
+      Google shows a <strong>circular</strong> mask over your square icon. Production <code id="src-label">/logo-192.png</code> is built with a <strong>circular</strong> clip so the outer edge is smooth (not a rounded square, which can look &quot;sharp&quot; when Google applies a circle on top).
+      This page uses <code>clip-path: circle()</code> and <code>object-position: 50% 42%</code> to mimic that crop (not an official Google renderer).
     </p>
 
     <div class="serp-row">
@@ -101,7 +108,7 @@
       <div class="lines">
         <p class="title">Agent4Socials | Schedule Posts &amp; Analytics…</p>
         <p class="url-line">https://agent4socials.com</p>
-        <p class="snippet">~32px circle (common on desktop rows).</p>
+        <p class="snippet">~32px (common on desktop rows).</p>
       </div>
     </div>
 
@@ -110,7 +117,7 @@
       <div class="lines">
         <p class="title">Agent4Socials | Schedule Posts &amp; Analytics…</p>
         <p class="url-line">https://agent4socials.com</p>
-        <p class="snippet">~48px circle (easier to judge detail).</p>
+        <p class="snippet">~48px (easier to judge detail).</p>
       </div>
     </div>
 
@@ -119,13 +126,13 @@
       <div class="lines">
         <p class="title">Agent4Socials | Schedule Posts &amp; Analytics…</p>
         <p class="url-line">https://agent4socials.com</p>
-        <p class="snippet">96px exaggerated view: corners of the square asset are clipped; center stays.</p>
+        <p class="snippet">96px exaggerated view.</p>
       </div>
     </div>
   </div>
   <script>
     (function () {
-      var v = new URLSearchParams(location.search).get("v") || "23";
+      var v = new URLSearchParams(location.search).get("v") || "24";
       var base = "/logo-192.png?v=" + encodeURIComponent(v);
       document.getElementById("src-label").textContent = "/logo-192.png?v=" + v;
       ["img26", "img32", "img48", "img96"].forEach(function (id) {
