@@ -1572,30 +1572,30 @@ export default function AccountPage() {
       </div>
 
       {/* Cancel subscription */}
-      <div className="card rounded-2xl border border-neutral-200 bg-neutral-50/50 shadow-sm">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-xl bg-neutral-100 shrink-0">
-            <Trash2 className="w-5 h-5 text-neutral-600" />
+      <div className="card rounded-2xl border border-neutral-200 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2.5 rounded-xl bg-neutral-100 shrink-0">
+              <Trash2 className="w-5 h-5 text-neutral-600" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="font-semibold text-neutral-900">Cancel subscription</h2>
+              <p className="text-sm text-neutral-500">You will keep access until the end of your billing period.</p>
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="font-semibold text-neutral-900">Cancel subscription</h2>
-            <p className="text-sm text-neutral-600 mt-0.5">
-              You will keep access until the end of your billing period.
+          {cancelSuccess ? (
+            <p className="shrink-0 inline-flex items-center gap-2 text-sm font-medium text-emerald-600">
+              <Check className="w-4 h-4" /> Cancellation requested
             </p>
-            {cancelSuccess ? (
-              <p className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-emerald-600">
-                <Check className="w-4 h-4" /> Cancellation requested
-              </p>
-            ) : (
-              <button
-                type="button"
-                onClick={handleCancelClick}
-                className="mt-3 px-4 py-2 rounded-lg text-sm font-medium text-neutral-700 border border-neutral-200 bg-white hover:bg-neutral-100 hover:border-neutral-300 transition-colors"
-              >
-                Cancel subscription
-              </button>
-            )}
-          </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleCancelClick}
+              className="shrink-0 px-4 py-2.5 rounded-xl text-sm font-medium text-neutral-700 border border-neutral-200 hover:bg-neutral-50 hover:border-neutral-300 transition-colors"
+            >
+              Cancel subscription
+            </button>
+          )}
         </div>
       </div>
 
