@@ -389,12 +389,18 @@ export async function GET(
           select: { thumbnailUrl: true },
         });
         if (imp?.thumbnailUrl) return imp.thumbnailUrl;
-        // 3) Only as a last resort, one Graph call – not both endpoints anymore.
+        // 3) Last-resort object GET: Instagram Business Login tokens resolve media on
+        // graph.instagram.com; graph.facebook.com/{id} often returns invalid id and still
+        // bills app usage (Meta dashboard "InvalidID").
         try {
-          const r = await axios.get<{ media_url?: string; thumbnail_url?: string }>(
-            `${facebookGraphBaseUrl}/${postId}`,
-            { params: { fields: 'media_url,thumbnail_url', access_token: accessToken } }
-          );
+          const objectUrl = isInstagramBusinessLogin
+            ? `https://graph.instagram.com/v25.0/${postId}`
+            : `${facebookGraphBaseUrl}/${postId}`;
+          const r = await axios.get<{ media_url?: string; thumbnail_url?: string }>(objectUrl, {
+            params: { fields: 'media_url,thumbnail_url', access_token: accessToken },
+            timeout: 8_000,
+          });
+          noteMetaUsageFromHeaders(r.headers);
           return r.data?.media_url ?? r.data?.thumbnail_url ?? null;
         } catch {
           return null;
