@@ -698,7 +698,7 @@ export default function AutomationPage() {
             className="inline-flex items-center gap-2 rounded-xl bg-[var(--button)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            Save platform automation
+            Save
           </button>
         </div>
       </div>
@@ -791,7 +791,7 @@ export default function AutomationPage() {
                   className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
                   {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                  Save {platform}
+                  Save
                 </button>
               </div>
             </div>
@@ -834,7 +834,7 @@ export default function AutomationPage() {
                   className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
                   {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                  Save {platform}
+                  Save
                 </button>
               </div>
             </div>
@@ -1005,7 +1005,7 @@ export default function AutomationPage() {
                   className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
                   {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                  Save step {idx + 1}
+                  Save
                 </button>
               </div>
             </div>
@@ -1033,9 +1033,6 @@ export default function AutomationPage() {
           <Plus size={14} />
           Add step
         </button>
-        <p className="text-xs text-neutral-500 mt-2">
-          Use Save on each step (or any Save on this page) to write your keyword flows to the server.
-        </p>
       </div>
 
     </div>
