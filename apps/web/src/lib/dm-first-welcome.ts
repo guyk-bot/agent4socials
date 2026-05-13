@@ -300,6 +300,27 @@ export async function runFirstWelcomeMaybe(args: {
   if (!toRecipient && last.fromId) toRecipient = last.fromId;
   if (!toRecipient) return;
 
+  const dryRun =
+    process.env.DM_FIRST_WELCOME_DRY_RUN === '1' || process.env.DM_FIRST_WELCOME_DRY_RUN === 'true';
+  if (dryRun) {
+    const ageMs = last.createdTime ? Date.now() - new Date(last.createdTime).getTime() : null;
+    console.log(
+      '[dm-first-welcome] dry-run: would send first-incoming auto-DM (no DB row, no platform send)',
+      JSON.stringify({
+        userId,
+        socialAccountId: account.id,
+        platform: account.platform,
+        conversationId,
+        recipientId: toRecipient,
+        messageAgeMs: ageMs,
+        textChars: text.length,
+        attachmentCount: attachments.length,
+        isInstagramBusinessLogin,
+      }),
+    );
+    return;
+  }
+
   try {
     await prisma.dmFirstWelcomeSent.create({
       data: {
