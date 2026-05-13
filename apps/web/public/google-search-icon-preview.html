@@ -90,8 +90,7 @@
   <div class="wrap">
     <h1>Approximate Google search circle icon</h1>
     <p class="note">
-      <strong>Browser tab</strong> uses a <strong>rounded square</strong> (squircle) favicon. <strong>Google Search</strong> uses your structured-data logo <code id="src-label">/logo-192.png</code>, which we export as a <strong>circle</strong> so it matches Google&apos;s circular crop without extra chord edges.
-      This page shows that logo inside a <code>clip-path: circle()</code> at a few sizes (approximate, not an official Google renderer).
+      This preview loads <strong>only</strong> <code id="src-label">/logo-192.png</code> (the Google / JSON-LD logo), shown inside a circle at a few sizes. Browser tab icons stay the rounded-square favicon and are not changed here.
     </p>
 
     <div class="serp-row">
@@ -132,7 +131,7 @@
   </div>
   <script>
     (function () {
-      var v = new URLSearchParams(location.search).get("v") || "25";
+      var v = new URLSearchParams(location.search).get("v") || "26";
       var base = "/logo-192.png?v=" + encodeURIComponent(v);
       document.getElementById("src-label").textContent = "/logo-192.png?v=" + v;
       ["img26", "img32", "img48", "img96"].forEach(function (id) {
