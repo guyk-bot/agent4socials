@@ -3,6 +3,7 @@ import axios from 'axios';
 import { prisma } from '@/lib/db';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { signTwitterRequest } from '@/lib/twitter-oauth1';
+import { uploadTwitterDmImageFromUrl, type PublishDeps } from '@/lib/publish-target';
 
 const fbBaseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
@@ -118,7 +119,6 @@ async function sendMetaWelcomeSequence(args: {
     .filter((a) => a.url.startsWith('https://'));
 
   if (account.platform === 'TWITTER') {
-    if (!text.trim()) return;
     const credJsonX = (account.credentialsJson && typeof account.credentialsJson === 'object'
       ? account.credentialsJson
       : {}) as Record<string, unknown>;
@@ -129,7 +129,43 @@ async function sendMetaWelcomeSequence(args: {
     const postHeaders = useOAuth1ForDm
       ? { ...signTwitterRequest('POST', postUrl, { key: oauth1UserToken!, secret: oauth1UserSecret! }, {}), 'Content-Type': 'application/json' }
       : { Authorization: `Bearer ${account.accessToken}`, 'Content-Type': 'application/json' };
-    await axios.post(postUrl, { text: text.slice(0, 10000) }, { headers: postHeaders, timeout: 15_000 });
+
+    const oauth1Pair =
+      useOAuth1ForDm && oauth1UserToken && oauth1UserSecret
+        ? { accessToken: oauth1UserToken, accessTokenSecret: oauth1UserSecret }
+        : null;
+
+    const dmImageAttachments = safeAttachments.filter((a) => metaAttachmentTypeFromUrl(a.url, a.type) === 'image');
+    const deps: PublishDeps = { axios, fetch: globalThis.fetch };
+
+    const postDm = async (body: Record<string, unknown>) => {
+      await axios.post(postUrl, body, { headers: postHeaders, timeout: 30_000 });
+    };
+
+    if (dmImageAttachments.length === 0) {
+      if (text.trim()) await postDm({ text: text.slice(0, 10000) });
+      return;
+    }
+
+    let remainingText = text.trim().slice(0, 10000);
+    for (const att of dmImageAttachments) {
+      const up = await uploadTwitterDmImageFromUrl(deps, {
+        imageUrl: att.url,
+        userAccessToken: account.accessToken,
+        oauth1: oauth1Pair,
+      });
+      if (!up.ok) {
+        console.error('[dm-first-welcome] X DM media upload failed', up.error);
+        continue;
+      }
+      const body: Record<string, unknown> = { attachments: [{ media_id: up.mediaId }] };
+      if (remainingText) {
+        body.text = remainingText;
+        remainingText = '';
+      }
+      await postDm(body);
+    }
+    if (remainingText) await postDm({ text: remainingText });
     return;
   }
 

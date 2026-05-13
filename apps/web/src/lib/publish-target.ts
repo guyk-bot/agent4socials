@@ -345,6 +345,73 @@ async function twitterOAuth2ResumableMediaUpload(
   return { ok: true, mediaId };
 }
 
+/**
+ * Upload one image from an HTTPS URL for use in an X DM (`media_category` dm_image).
+ * Uses OAuth 1.0a v1.1 simple upload when consumer key + user tokens are present; otherwise OAuth 2.0 v2 resumable (needs media.write on the token).
+ */
+export async function uploadTwitterDmImageFromUrl(
+  deps: PublishDeps,
+  args: {
+    imageUrl: string;
+    userAccessToken: string;
+    oauth1: { accessToken: string; accessTokenSecret: string } | null;
+  }
+): Promise<{ ok: true; mediaId: string } | { ok: false; error: string }> {
+  const { axios: axiosInstance, fetch: fetchFn } = deps;
+  const { imageUrl, userAccessToken, oauth1 } = args;
+  const v1Url = 'https://upload.twitter.com/1.1/media/upload.json';
+  try {
+    const { buffer, contentType } = await fetchImageBuffer(imageUrl, fetchFn);
+    const useOAuth1 = oauth1 && process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET;
+    if (useOAuth1) {
+      const filename = contentType.includes('png') ? 'image.png' : 'image.jpg';
+      const form = new FormData();
+      form.append('media', buffer, { filename, contentType });
+      form.append('media_category', 'dm_image');
+      const contentLength = await new Promise<number>((resolve, reject) => {
+        form.getLength((err: Error | null, length?: number) => (err ? reject(err) : resolve(length ?? 0)));
+      });
+      const formHeaders = { ...form.getHeaders(), 'Content-Length': String(contentLength) };
+      const uploadRes = await axiosInstance.post(v1Url, form, {
+        headers: {
+          ...signTwitterRequest('POST', v1Url, { key: oauth1!.accessToken, secret: oauth1!.accessTokenSecret }),
+          ...formHeaders,
+        },
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+        timeout: 60_000,
+        validateStatus: () => true,
+      });
+      if (uploadRes.status !== 200) {
+        const errText = typeof uploadRes.data === 'object' ? JSON.stringify(uploadRes.data) : String(uploadRes.data ?? uploadRes.status);
+        return { ok: false, error: `Twitter DM media upload failed: ${uploadRes.status} ${errText}`.slice(0, 500) };
+      }
+      const data = uploadRes.data as { media_id_string?: string; media_id?: number } | undefined;
+      const mediaId = data?.media_id_string ?? (data?.media_id != null ? String(data.media_id) : undefined);
+      if (!mediaId) return { ok: false, error: 'Twitter DM media upload did not return a media id' };
+      return { ok: true, mediaId };
+    }
+    if (!userAccessToken || userAccessToken === 'oauth1') {
+      return {
+        ok: false,
+        error:
+          'X DM images need a valid OAuth 2.0 user token with media.write, or reconnect with “Enable image upload” (OAuth 1.0a).',
+      };
+    }
+    const { mediaType, filename } = twitterInitMediaTypeFromImageContentType(contentType);
+    return twitterOAuth2ResumableMediaUpload(
+      axiosInstance,
+      userAccessToken,
+      buffer,
+      mediaType,
+      'dm_image',
+      filename
+    );
+  } catch (e) {
+    return { ok: false, error: (e as Error)?.message ?? String(e) };
+  }
+}
+
 export async function publishTarget(
   options: PublishTargetOptions,
   deps: PublishDeps

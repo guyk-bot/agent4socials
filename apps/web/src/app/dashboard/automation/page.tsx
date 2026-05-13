@@ -52,7 +52,7 @@ const AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY = 'agent4socials.automation.newFol
 const AUTOMATION_NEW_FOLLOWER_MESSAGES_KEY = 'agent4socials.automation.newFollower.messages.v1';
 const AUTOMATION_KEYWORD_STEPS_KEY = 'agent4socials.automation.keyword.steps.v1';
 const MAX_FIRST_DM_ATTACHMENTS = 5;
-const FIRST_DM_SUPPORTED_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)', 'TikTok'] as const;
+const FIRST_DM_SUPPORTED_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)'] as const;
 const NEW_FOLLOWER_SUPPORTED_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)'] as const;
 
 const PLATFORM_CAPABILITIES: PlatformCapability[] = [
@@ -77,7 +77,7 @@ const PLATFORM_CAPABILITIES: PlatformCapability[] = [
   {
     platform: 'TikTok',
     keywordCommentAutomation: 'native',
-    autoDmWhenMessagedFirst: 'native',
+    autoDmWhenMessagedFirst: 'none',
     welcomeMessageToNewFollower: 'none',
     notes: ['TikTok comment automation is only supported for business accounts.'],
   },
@@ -110,10 +110,7 @@ function firstDmAttachmentUrlsHint(platform: string): string {
     return `Up to ${n} files. URLs must stay publicly reachable for Facebook deliverability.`;
   }
   if (platform === 'X (Twitter)') {
-    return `Up to ${n} files. X auto-DM is text-only in our inbox integration; attachment URLs are not sent on the DM.`;
-  }
-  if (platform === 'TikTok') {
-    return `Up to ${n} files. URLs must stay publicly reachable for TikTok when sending media in DMs.`;
+    return `Up to ${n} files. Images upload to X for DMs (OAuth 1.0a or token with media.write). URLs must stay publicly reachable.`;
   }
   return `Up to ${n} files.`;
 }
