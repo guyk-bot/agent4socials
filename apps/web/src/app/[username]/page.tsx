@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { LinkPageRenderer } from '@/components/smart-links/LinkPageRenderer';
 import type { LinkPageDesign } from '@/components/smart-links/themes';
 import type { Metadata } from 'next';
+import { siteTabIcons } from '@/lib/site-tab-icons';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -37,6 +38,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     return {
       title: linkPage.title || `@${slug}`,
       description: linkPage.bio || undefined,
+      icons: siteTabIcons,
       openGraph: {
         title: linkPage.title || `@${slug}`,
         description: linkPage.bio || undefined,

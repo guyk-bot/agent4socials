@@ -11,6 +11,7 @@ import { AppDataProvider } from "@/context/AppDataContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import AuthModal from "@/components/auth/AuthModal";
 import AuthModalOpener from "@/components/auth/AuthModalOpener";
+import { siteTabIcons } from "@/lib/site-tab-icons";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit", display: "swap" });
@@ -69,18 +70,8 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true },
   },
-  // Tab favicon: squircle PNGs / ICO / SVG (v=25). Google / OG logo: logo-192 only (v=26, circular file).
-  icons: {
-    icon: [
-      { url: "/favicon-192.png?v=25", sizes: "192x192", type: "image/png" },
-      { url: "/favicon-128.png?v=25", sizes: "128x128", type: "image/png" },
-      { url: "/favicon-96.png?v=25", sizes: "96x96", type: "image/png" },
-      { url: "/favicon-48.png?v=25", sizes: "48x48", type: "image/png" },
-      { url: "/favicon.ico?v=25", sizes: "any", type: "image/x-icon" },
-      { url: "/a4s-tab.svg?v=25", type: "image/svg+xml" },
-    ],
-    apple: [{ url: "/favicon-192.png?v=25", sizes: "192x192", type: "image/png" }],
-  },
+  // Tab favicon: squircle PNGs / ICO / SVG (see SITE_TAB_FAVICON_V). Google / OG logo: logo-192 only (v=26, circular file).
+  icons: siteTabIcons,
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
