@@ -30,7 +30,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | Auth, shell layout | `AuthContext.tsx`, `AuthenticatedShell.tsx`, `middleware.ts`, `app/api/auth/` |
 | Media upload / proxy (R2) | `apps/web/src/app/api/media/`, `instagram-media-r2.ts` |
 | Prisma DB access | `apps/web/prisma/schema.prisma`, `apps/web/src/lib/db.ts` |
-| Cron | `apps/web/src/app/api/cron/` |
+| Cron | `apps/web/src/app/api/cron/` (includes `fast-tick` for one 5-minute job: scheduled posts + comment automation) |
 
 ---
 

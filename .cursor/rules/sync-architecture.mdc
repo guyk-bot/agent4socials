@@ -35,6 +35,10 @@ Every sync is recorded with: `scope`, `syncType`, `status`, `idempotencyKey`, ti
 | `src/lib/sync/adapters/linkedin.ts` | LinkedIn: `syncRecentContent` pulls UGC posts into `ImportedPost` (uses `lib/linkedin/sync-ugc-posts.ts`) |
 | `src/app/api/social/accounts/[id]/sync/route.ts` | `POST` — trigger sync |
 | `src/app/api/social/accounts/[id]/sync-status/route.ts` | `GET` — sync state for UI |
+| `src/app/api/cron/fast-tick/route.ts` | **Optional** single 5-min cron: scheduled posts + comment automation (same as the two routes below, one HTTP call) |
+| `src/app/api/cron/process-scheduled/route.ts` | Scheduled post publish / email-links |
+| `src/lib/cron/process-scheduled-run.ts` | Shared `executeProcessScheduled()` used by process-scheduled and fast-tick |
+| `src/app/api/cron/comment-automation/route.ts` | Keyword comment automation cron |
 | `src/app/api/cron/sync-platform-data/route.ts` | Master cron — `account_overview`, `posts`, `post_metrics` only (not inbox comments or DMs) |
 | `src/hooks/useSyncStatus.ts` | React hook: polls status, auto-triggers stale refresh |
 | `src/components/SyncStatusBanner.tsx` | UI banner: "Up to date / Syncing… / Error / Reconnect" |
@@ -50,8 +54,9 @@ Call these URLs with header `X-Cron-Secret: <CRON_SECRET>`:
 | Endpoint | Typical interval | What it does |
 |----------|------------------|--------------|
 | `/api/cron/dm-first-welcome` | Every **1 to 2 min** | First incoming auto-DM sweep (Instagram, Facebook, X); returns **202** and finishes in `after()` |
-| `/api/cron/process-scheduled` | Every **5 min** | Due scheduled publishes (and email-link sends); keep tight for a 5-minute publish window |
-| `/api/cron/comment-automation` | Every **5 min** | Keyword comment automation |
+| `/api/cron/fast-tick` | Every **5 min** | **Single job** replacement for `process-scheduled` + `comment-automation` (do not schedule all three) |
+| `/api/cron/process-scheduled` | Every **5 min** | Due scheduled publishes (and email-link sends); omit if you use `fast-tick` |
+| `/api/cron/comment-automation` | Every **5 min** | Keyword comment automation; omit if you use `fast-tick` |
 | `/api/cron/sync-platform-data` | Every **30 min** | Account overview + post discovery + post metrics (heavy Meta usage: do not run this every 5 min) |
 | `/api/cron/metric-snapshots` | Daily | Follower or fan daily snapshot (Instagram + Facebook) |
 | `/api/cron/sync-linkedin` | Every **30 min** | LinkedIn rollup (if you use LinkedIn) |

@@ -12,12 +12,16 @@ Base URL: `https://<your-domain>/api/cron/...`
 
 ## Every 5 minutes (comments automation, scheduled publishing)
 
+**Option A (one cron job):** call **`/api/cron/fast-tick`** every **5 minutes**. Same auth header. It runs scheduled posts, then comment automation, in one request (no self-HTTP chain). If you use this, **do not** also schedule `process-scheduled` or `comment-automation` separately, or automation will run twice.
+
+**Option B (two cron jobs):**
+
 | Path | What it does |
 |------|----------------|
 | `/api/cron/process-scheduled` | Publishes due scheduled posts (up to 3 per run) and scheduled email-link sends. |
 | `/api/cron/comment-automation` | Keyword comment automation (Meta, X, YouTube, etc.). |
 
-**Use two separate cron jobs**, both every **5 minutes**. Do not rely on `PROCESS_SCHEDULED_CHAIN_COMMENT_AUTOMATION` unless you accept longer single requests and possible timeouts.
+Both every **5 minutes**. Do not rely on `PROCESS_SCHEDULED_CHAIN_COMMENT_AUTOMATION` unless you accept longer single requests and possible timeouts.
 
 **Inbox comments** still load when users open **Inbox**. **First incoming DM** automation also needs **`/api/cron/dm-first-welcome`** every one to two minutes if you want replies without opening a thread.
 
