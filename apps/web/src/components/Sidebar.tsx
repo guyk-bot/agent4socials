@@ -115,6 +115,17 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const missingAvatarRefreshDone = useRef(false);
   const refreshingAvatarIds = useRef<Set<string>>(new Set());
   const [brokenAvatarIds, setBrokenAvatarIds] = useState<Record<string, true>>({});
+  const [locationHash, setLocationHash] = useState('');
+
+  useEffect(() => {
+    setLocationHash(typeof window !== 'undefined' ? window.location.hash : '');
+  }, [pathname]);
+
+  useEffect(() => {
+    const onHash = () => setLocationHash(typeof window !== 'undefined' ? window.location.hash : '');
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
 
   const refreshAvatar = useCallback(async (accountId: string, platform: string) => {
     if (refreshingAvatarIds.current.has(accountId)) return;
@@ -211,7 +222,9 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const isHashtagPoolPage = pathname === '/dashboard/hashtag-pool';
   const isAiAssistantPage = pathname === '/dashboard/ai-assistant';
   const isReportsPage = pathname === '/dashboard/reports';
-  const isTeamMembersPage = pathname === '/dashboard/team-members';
+  const isTeamMembersPage =
+    pathname === '/dashboard/team-members' ||
+    (pathname === '/dashboard/account' && locationHash === '#team-members');
   const isHelpPage = pathname === '/help';
 
   const sidebarContent = (
@@ -393,7 +406,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           <span>Reports</span>
         </Link>
         <Link
-          href="/dashboard/team-members"
+          href="/dashboard/account#team-members"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isTeamMembersPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
         >
           <Users size={18} className="shrink-0" />

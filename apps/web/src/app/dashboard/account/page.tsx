@@ -10,6 +10,11 @@ import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import api from '@/lib/api';
 import { ConnectedAccountsPanel } from '@/components/account/ConnectedAccountsPanel';
 import {
+  BrandTeamMembersSection,
+  type BrandTeamMember,
+  type BrandTeamRole,
+} from '@/components/account/BrandTeamMembersSection';
+import {
   Trash2,
   Gift,
   X,
@@ -103,17 +108,6 @@ const sharePlatforms = [
 ];
 
 export default function AccountPage() {
-  type TeamRole = 'Admin' | 'Editor' | 'Viewer';
-  type TeamMember = {
-    id: string;
-    firstName: string;
-    lastName: string;
-    name: string;
-    email: string;
-    role: TeamRole;
-    imageUrl?: string | null;
-  };
-
   const router = useRouter();
   const { user, logout } = useAuth();
   const {
@@ -155,11 +149,11 @@ export default function AccountPage() {
   const [brandImageAdjustSource, setBrandImageAdjustSource] = useState<string | null>(null);
   const [brandImageAdjustScale, setBrandImageAdjustScale] = useState(1);
   const [brandImageAdjustTarget, setBrandImageAdjustTarget] = useState<'create' | 'edit' | null>(null);
-  const [newBrandMembers, setNewBrandMembers] = useState<TeamMember[]>([]);
+  const [newBrandMembers, setNewBrandMembers] = useState<BrandTeamMember[]>([]);
   const [newBrandMemberFirstName, setNewBrandMemberFirstName] = useState('');
   const [newBrandMemberLastName, setNewBrandMemberLastName] = useState('');
   const [newBrandMemberEmail, setNewBrandMemberEmail] = useState('');
-  const [newBrandMemberRole, setNewBrandMemberRole] = useState<TeamRole>('Editor');
+  const [newBrandMemberRole, setNewBrandMemberRole] = useState<BrandTeamRole>('Editor');
   const [createBrandInviteFeedback, setCreateBrandInviteFeedback] = useState('');
   const [createBrandInviteError, setCreateBrandInviteError] = useState('');
   const [createBrandInviteSending, setCreateBrandInviteSending] = useState(false);
@@ -172,7 +166,7 @@ export default function AccountPage() {
   const [deletingBrandId, setDeletingBrandId] = useState<string | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleteBrandError, setDeleteBrandError] = useState('');
-  const [teamMembersByBrand, setTeamMembersByBrand] = useState<Record<string, TeamMember[]>>({});
+  const [teamMembersByBrand, setTeamMembersByBrand] = useState<Record<string, BrandTeamMember[]>>({});
   const [createRolesTooltipOpen, setCreateRolesTooltipOpen] = useState(false);
   const [userAvatarOverride, setUserAvatarOverride] = useState<string | null>(null);
   const userAvatarInputRef = useRef<HTMLInputElement | null>(null);
@@ -200,7 +194,7 @@ export default function AccountPage() {
     try {
       const raw = localStorage.getItem('agent4socials_brand_team_members_v1');
       if (!raw) return;
-      const parsed = JSON.parse(raw) as Record<string, TeamMember[]>;
+      const parsed = JSON.parse(raw) as Record<string, BrandTeamMember[]>;
       if (parsed && typeof parsed === 'object') setTeamMembersByBrand(parsed);
     } catch {
       // Ignore bad local data
@@ -214,6 +208,16 @@ export default function AccountPage() {
       // Ignore storage errors
     }
   }, [teamMembersByBrand, mounted]);
+
+  useEffect(() => {
+    if (!mounted || typeof window === 'undefined') return;
+    if (window.location.hash !== '#team-members') return;
+    const el = document.getElementById('team-members');
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [mounted]);
 
   const userId = user?.id ?? '';
   const copyUserId = () => {
@@ -559,7 +563,7 @@ export default function AccountPage() {
     }
     setCreateBrandInviteFeedback('');
     setCreateBrandInviteError('');
-    const member: TeamMember = {
+    const member: BrandTeamMember = {
       id: `member-${Date.now().toString(36)}`,
       firstName,
       lastName,
@@ -784,7 +788,7 @@ export default function AccountPage() {
             />
             <select
               value={newBrandMemberRole}
-              onChange={(e) => setNewBrandMemberRole(e.target.value as TeamRole)}
+              onChange={(e) => setNewBrandMemberRole(e.target.value as BrandTeamRole)}
               className="rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-2 py-2 text-sm text-neutral-900"
             >
               <option value="Admin">Admin</option>
@@ -1054,7 +1058,7 @@ export default function AccountPage() {
 
   return (
     <div className="max-w-4xl space-y-6">
-      {/* Profile + plan + connected accounts (#connected-accounts for legacy redirects) */}
+      {/* Profile, brands, team members, connected accounts (see #connected-accounts, #team-members) */}
       <div className="card rounded-2xl overflow-hidden border border-neutral-200/80 shadow-sm">
         <div className="p-4 sm:p-6 space-y-5">
           {/* Plan row at top of card (matches analytics upgrade styling) */}
@@ -1241,12 +1245,23 @@ export default function AccountPage() {
               </button>
             </div>
           </div>
-        </div>
+
+          <div id="team-members" className="border-t border-neutral-200 px-4 sm:px-6 py-5 scroll-mt-28 space-y-3">
+            <h2 className="text-lg font-bold text-neutral-900 tracking-tight">Team members</h2>
+            <p className="text-sm text-neutral-600">Invite teammates and set roles for each brand workspace.</p>
+            <BrandTeamMembersSection
+              brands={brands.map((b) => ({ id: b.id, name: b.name }))}
+              activeBrandId={activeBrandId}
+              teamMembersByBrand={teamMembersByBrand}
+              setTeamMembersByBrand={setTeamMembersByBrand}
+            />
+          </div>
 
         <div id="connected-accounts" className="border-t border-neutral-200 px-4 sm:px-6 py-5 scroll-mt-28 space-y-3">
           <h2 className="text-lg font-bold text-neutral-900 tracking-tight">Connected accounts</h2>
           <ConnectedAccountsPanel />
         </div>
+      </div>
       </div>
 
       {/* Billing & Invoices */}

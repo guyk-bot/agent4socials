@@ -24,8 +24,8 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | YouTube analytics: expandable raw JSON (synced videos + insights) | `apps/web/src/components/analytics/AnalyticsLocalJsonPanel.tsx` (used from `FacebookAnalyticsView.tsx`) |
 | LinkedIn: UGC post import (sync engine + manual sync), author URN for person vs org Page | `apps/web/src/lib/linkedin/sync-ugc-posts.ts`, `apps/web/src/lib/sync/adapters/linkedin.ts` |
 | Dashboard home, posts table, sync button, insights loading/cache | `apps/web/src/app/dashboard/page.tsx`, `apps/web/src/context/AppDataContext.tsx`, `apps/web/src/lib/dashboard-insights-session-cache.ts` |
+| Account, brands, team invites (localStorage) | `apps/web/src/app/dashboard/account/page.tsx`, `apps/web/src/components/account/BrandTeamMembersSection.tsx`, `apps/web/src/components/account/ConnectedAccountsPanel.tsx` |
 | OAuth connect, accounts CRUD | `apps/web/src/app/api/social/oauth/`, `apps/web/src/app/api/social/accounts/`, `ConnectView.tsx` |
-| Pinterest token | `apps/web/src/lib/pinterest-token.ts` |
 | Inbox | `apps/web/src/app/dashboard/inbox/page.tsx`, `api/social/accounts/[id]/conversations/`, `comments/` |
 | Auth, shell layout | `AuthContext.tsx`, `AuthenticatedShell.tsx`, `middleware.ts`, `app/api/auth/` |
 | Media upload / proxy (R2) | `apps/web/src/app/api/media/`, `instagram-media-r2.ts` |
@@ -78,7 +78,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | `/dashboard/summary` | Redirects to `/dashboard/console` (same query string) |
 | `/dashboard/ai-assistant` | `dashboard/ai-assistant/page.tsx` |
 | `/dashboard/hashtag-pool` | `dashboard/hashtag-pool/page.tsx` |
-| `/dashboard/team-members` | `dashboard/team-members/page.tsx` (team list + invites per selected brand; shared `localStorage` with Account) |
+| `/dashboard/team-members` | Redirects to `/dashboard/account#team-members`; team UI is `components/account/BrandTeamMembersSection.tsx` on Account |
 | `/dashboard/analytics` | `dashboard/analytics/page.tsx` |
 | `/dashboard/analytics/traffic-audience` | `dashboard/analytics/traffic-audience/page.tsx` |
 | `/login`, `/signup` | `(auth)/login/page.tsx`, `(auth)/signup/page.tsx` |
