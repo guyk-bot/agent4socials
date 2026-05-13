@@ -126,16 +126,17 @@ export async function PATCH(request: NextRequest) {
       : {};
   const merged = normalizeFromDb(existingRaw);
 
+  const patchEnabled = body.dmWelcomeEnabledByPlatform !== undefined ? safeRecordStrings(body.dmWelcomeEnabledByPlatform) : undefined;
   const nextEnabledBy =
-    body.dmWelcomeEnabledByPlatform !== undefined ? safeRecordStrings(body.dmWelcomeEnabledByPlatform) : merged.dmWelcomeEnabledByPlatform;
+    patchEnabled !== undefined ? { ...merged.dmWelcomeEnabledByPlatform, ...patchEnabled } : merged.dmWelcomeEnabledByPlatform;
+
+  const patchMessages = body.dmWelcomeMessagesByPlatform !== undefined ? safeRecordNullableStrings(body.dmWelcomeMessagesByPlatform) : undefined;
   const nextMessagesBy =
-    body.dmWelcomeMessagesByPlatform !== undefined
-      ? safeRecordNullableStrings(body.dmWelcomeMessagesByPlatform)
-      : merged.dmWelcomeMessagesByPlatform;
+    patchMessages !== undefined ? { ...merged.dmWelcomeMessagesByPlatform, ...patchMessages } : merged.dmWelcomeMessagesByPlatform;
+
+  const patchAttachments = body.dmWelcomeAttachmentsByPlatform !== undefined ? safeAttachmentsMap(body.dmWelcomeAttachmentsByPlatform) : undefined;
   const nextAttachments =
-    body.dmWelcomeAttachmentsByPlatform !== undefined
-      ? safeAttachmentsMap(body.dmWelcomeAttachmentsByPlatform)
-      : merged.dmWelcomeAttachmentsByPlatform;
+    patchAttachments !== undefined ? { ...merged.dmWelcomeAttachmentsByPlatform, ...patchAttachments } : merged.dmWelcomeAttachmentsByPlatform;
 
   const nextDm: AutomationSettingsStored = {
     dmWelcomeEnabled:

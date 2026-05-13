@@ -150,6 +150,7 @@ export default function AutomationPage() {
   const [keywordSteps, setKeywordSteps] = useState<KeywordAutomationStep[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingFirstDmPlatform, setSavingFirstDmPlatform] = useState<string | null>(null);
   const [firstDmUploadingPlatform, setFirstDmUploadingPlatform] = useState<string | null>(null);
   const [firstDmUploadError, setFirstDmUploadError] = useState<string | null>(null);
   const [firstDmSetupMessage, setFirstDmSetupMessage] = useState<string | null>(null);
@@ -393,6 +394,28 @@ export default function AutomationPage() {
     });
   }
 
+  function firstDmPatchPayloadForPlatform(platform: string, snapshot: AutomationSettings) {
+    return {
+      dmWelcomeMessagesByPlatform: {
+        [platform]: snapshot.dmWelcomeMessagesByPlatform?.[platform] ?? null,
+      },
+      dmWelcomeAttachmentsByPlatform: {
+        [platform]: snapshot.dmWelcomeAttachmentsByPlatform?.[platform] ?? [],
+      },
+    };
+  }
+
+  async function flushFirstDmPlatformToServer(platform: string, snapshot: AutomationSettings) {
+    setSavingFirstDmPlatform(platform);
+    try {
+      await api.patch('/automation/settings', firstDmPatchPayloadForPlatform(platform, snapshot));
+    } catch {
+      // keep local state; user can retry Save
+    } finally {
+      setSavingFirstDmPlatform(null);
+    }
+  }
+
   async function saveAutomationSettings() {
     const s = settingsRef.current;
     const platform = dmNewFollowerPlatformRef.current;
@@ -505,13 +528,11 @@ export default function AutomationPage() {
       } catch {
         // ignore storage errors
       }
-      setSaving(true);
-      await api.patch('/automation/settings', next).catch(() => {});
+      await flushFirstDmPlatformToServer(platform, next);
     } catch (e) {
       setFirstDmUploadError((e as Error)?.message ?? 'Upload failed. Check media storage configuration.');
     } finally {
       setFirstDmUploadingPlatform(null);
-      setSaving(false);
     }
   }
 
@@ -533,11 +554,7 @@ export default function AutomationPage() {
     } catch {
       // ignore storage errors
     }
-    setSaving(true);
-    api
-      .patch('/automation/settings', next)
-      .catch(() => {})
-      .finally(() => setSaving(false));
+    void flushFirstDmPlatformToServer(platform, next);
   }
 
   const hasSetupMessage = (kind: 'first' | 'follower', platform: string) => {
@@ -694,7 +711,7 @@ export default function AutomationPage() {
           <button
             type="button"
             onClick={() => void saveAutomationSettings()}
-            disabled={saving}
+            disabled={saving || savingFirstDmPlatform !== null}
             className="inline-flex items-center gap-2 rounded-xl bg-[var(--button)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
             {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
@@ -786,12 +803,12 @@ export default function AutomationPage() {
               <div className="mt-3 flex justify-end">
                 <button
                   type="button"
-                  onClick={() => void saveAutomationSettings()}
-                  disabled={saving}
+                  onClick={() => void flushFirstDmPlatformToServer(platform, settingsRef.current)}
+                  disabled={saving || savingFirstDmPlatform === platform}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
-                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                  Save
+                  {savingFirstDmPlatform === platform ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  Save {platform}
                 </button>
               </div>
             </div>
@@ -830,7 +847,7 @@ export default function AutomationPage() {
                 <button
                   type="button"
                   onClick={() => void saveAutomationSettings()}
-                  disabled={saving}
+                  disabled={saving || savingFirstDmPlatform !== null}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
                   {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
@@ -1001,7 +1018,7 @@ export default function AutomationPage() {
                 <button
                   type="button"
                   onClick={() => void saveAutomationSettings()}
-                  disabled={saving}
+                  disabled={saving || savingFirstDmPlatform !== null}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
                   {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
