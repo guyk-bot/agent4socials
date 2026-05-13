@@ -17,6 +17,8 @@ type AutomationSettingsStored = {
   dmWelcomeAttachmentsByPlatform: Record<string, DmWelcomeAttachment[]>;
   dmNewFollowerEnabled: boolean;
   dmNewFollowerMessage: string | null;
+  /** Optional keyword automation steps (stored in same JSON blob). */
+  keywordAutomationSteps?: unknown[];
 };
 
 const emptySettings = (): AutomationSettingsStored => ({
@@ -68,7 +70,7 @@ function normalizeFromDb(raw: unknown): AutomationSettingsStored {
   }
 
   const anyEnabled = Object.values(enabledBy).some(Boolean) || legacyEnabled;
-  return {
+  const out: AutomationSettingsStored = {
     dmWelcomeEnabled: anyEnabled,
     dmWelcomeMessage: typeof s.dmWelcomeMessage === 'string' || s.dmWelcomeMessage === null ? (s.dmWelcomeMessage as string | null) : null,
     dmWelcomeEnabledByPlatform: enabledBy,
@@ -77,6 +79,10 @@ function normalizeFromDb(raw: unknown): AutomationSettingsStored {
     dmNewFollowerEnabled: s.dmNewFollowerEnabled === true,
     dmNewFollowerMessage: typeof s.dmNewFollowerMessage === 'string' || s.dmNewFollowerMessage === null ? (s.dmNewFollowerMessage as string | null) : null,
   };
+  if (Array.isArray(s.keywordAutomationSteps)) {
+    out.keywordAutomationSteps = s.keywordAutomationSteps as unknown[];
+  }
+  return out;
 }
 
 export async function GET(request: NextRequest) {
@@ -107,14 +113,18 @@ export async function PATCH(request: NextRequest) {
   if (!userId) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
-  let body: Partial<AutomationSettingsStored>;
+  let body: Partial<AutomationSettingsStored> & { keywordAutomationSteps?: unknown[] };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ message: 'Invalid JSON' }, { status: 400 });
   }
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { automationSettings: true } });
-  const merged = normalizeFromDb(user?.automationSettings ?? null);
+  const existingRaw =
+    user?.automationSettings && typeof user.automationSettings === 'object' && !Array.isArray(user.automationSettings)
+      ? ({ ...(user.automationSettings as Record<string, unknown>) } as Record<string, unknown>)
+      : {};
+  const merged = normalizeFromDb(existingRaw);
 
   const nextEnabledBy =
     body.dmWelcomeEnabledByPlatform !== undefined ? safeRecordStrings(body.dmWelcomeEnabledByPlatform) : merged.dmWelcomeEnabledByPlatform;
@@ -127,7 +137,7 @@ export async function PATCH(request: NextRequest) {
       ? safeAttachmentsMap(body.dmWelcomeAttachmentsByPlatform)
       : merged.dmWelcomeAttachmentsByPlatform;
 
-  const nextSettings: AutomationSettingsStored = {
+  const nextDm: AutomationSettingsStored = {
     dmWelcomeEnabled:
       typeof body.dmWelcomeEnabled === 'boolean' ? body.dmWelcomeEnabled : Object.values(nextEnabledBy).some(Boolean),
     dmWelcomeMessage: body.dmWelcomeMessage !== undefined ? body.dmWelcomeMessage : merged.dmWelcomeMessage,
@@ -140,9 +150,17 @@ export async function PATCH(request: NextRequest) {
       body.dmNewFollowerMessage !== undefined ? body.dmNewFollowerMessage : merged.dmNewFollowerMessage,
   };
 
+  const nextStored: Record<string, unknown> = {
+    ...existingRaw,
+    ...nextDm,
+  };
+  if (body.keywordAutomationSteps !== undefined) {
+    nextStored.keywordAutomationSteps = body.keywordAutomationSteps;
+  }
+
   await prisma.user.update({
     where: { id: userId },
-    data: { automationSettings: nextSettings as object },
+    data: { automationSettings: nextStored as object },
   });
-  return NextResponse.json(nextSettings);
+  return NextResponse.json(normalizeFromDb(nextStored));
 }

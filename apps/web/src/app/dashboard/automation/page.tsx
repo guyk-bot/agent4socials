@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, UserPlus, MessageSquare, Loader2, Sparkles, Plus, Trash2, Paperclip } from 'lucide-react';
+import { Send, UserPlus, MessageSquare, Loader2, Sparkles, Plus, Trash2, Paperclip, Save } from 'lucide-react';
 import api from '@/lib/api';
 import {
   InstagramIcon,
@@ -129,6 +129,8 @@ type KeywordAutomationStep = {
   enabled: boolean;
 };
 
+type AutomationSettingsResponse = AutomationSettings & { keywordAutomationSteps?: KeywordAutomationStep[] };
+
 const KEYWORD_AUTOMATION_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)', 'TikTok', 'YouTube'] as const;
 
 function platformIcon(platform: string) {
@@ -156,6 +158,12 @@ export default function AutomationPage() {
   const newFollowerSectionRef = useRef<HTMLDivElement | null>(null);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
+  const keywordStepsRef = useRef(keywordSteps);
+  keywordStepsRef.current = keywordSteps;
+  const dmNewFollowerPlatformRef = useRef(dmNewFollowerPlatform);
+  dmNewFollowerPlatformRef.current = dmNewFollowerPlatform;
+  const newFollowerMessagesRef = useRef(newFollowerMessages);
+  newFollowerMessagesRef.current = newFollowerMessages;
 
   const scrollToSectionWithOffset = (el: HTMLDivElement | null) => {
     if (!el || typeof window === 'undefined') return;
@@ -258,7 +266,7 @@ export default function AutomationPage() {
     const t = window.setTimeout(() => ctrl.abort(), 12_000);
     let cancelled = false;
     api
-      .get<AutomationSettings>('/automation/settings', { signal: ctrl.signal })
+      .get<AutomationSettingsResponse>('/automation/settings', { signal: ctrl.signal })
       .then((res) => {
         if (cancelled) return;
         const data = res.data;
@@ -293,6 +301,43 @@ export default function AutomationPage() {
           } catch {
             // ignore storage errors
           }
+          const rawSteps = data.keywordAutomationSteps;
+          if (Array.isArray(rawSteps) && rawSteps.length > 0) {
+            setKeywordSteps(
+              rawSteps.map((step: unknown) => {
+                const s = step && typeof step === 'object' ? (step as Record<string, unknown>) : {};
+                const platformsRaw = s.platforms;
+                const legacyPlatform = s.platform;
+                let platforms: KeywordAutomationStep['platforms'] = ['Instagram'];
+                if (Array.isArray(platformsRaw)) {
+                  const filtered = platformsRaw.filter(
+                    (p): p is KeywordAutomationStep['platforms'][number] =>
+                      typeof p === 'string' && KEYWORD_AUTOMATION_PLATFORMS.includes(p as KeywordAutomationStep['platforms'][number]),
+                  );
+                  if (filtered.length > 0) platforms = filtered;
+                } else if (typeof legacyPlatform === 'string' && KEYWORD_AUTOMATION_PLATFORMS.includes(legacyPlatform as KeywordAutomationStep['platforms'][number])) {
+                  platforms = [legacyPlatform as KeywordAutomationStep['platforms'][number]];
+                }
+                const replyVariants = Array.isArray(s.replyVariants)
+                  ? (s.replyVariants as unknown[]).filter((v): v is string => typeof v === 'string')
+                  : [];
+                const actionType =
+                  s.actionType === 'send_file_or_link' || s.actionType === 'forward_to_page' || s.actionType === 'reply'
+                    ? s.actionType
+                    : 'reply';
+                return {
+                  id: typeof s.id === 'string' ? s.id : `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                  keyword: typeof s.keyword === 'string' ? s.keyword : '',
+                  platforms,
+                  actionType,
+                  actionValue: typeof s.actionValue === 'string' ? s.actionValue : '',
+                  replyVariants,
+                  replyVariantStrategy: s.replyVariantStrategy === 'random' ? 'random' : 'rotate',
+                  enabled: s.enabled !== false,
+                };
+              }),
+            );
+          }
         }
       })
       .catch(() => {
@@ -310,8 +355,7 @@ export default function AutomationPage() {
     };
   }, []);
 
-  const update = (patch: Partial<AutomationSettings>) => {
-    let nextSnapshot: AutomationSettings | undefined;
+  function mergeLocalSettings(patch: Partial<AutomationSettings>) {
     setSettings((prev) => {
       const merged: AutomationSettings = { ...prev, ...patch };
       if (patch.dmWelcomeEnabledByPlatform !== undefined) {
@@ -336,7 +380,6 @@ export default function AutomationPage() {
           ...patch.dmWelcomeAttachmentsByPlatform,
         };
       }
-      nextSnapshot = merged;
       try {
         if (typeof window !== 'undefined') {
           const str = JSON.stringify(merged);
@@ -348,14 +391,28 @@ export default function AutomationPage() {
       }
       return merged;
     });
-    if (nextSnapshot) {
-      setSaving(true);
-      api
-        .patch('/automation/settings', nextSnapshot)
-        .catch(() => {})
-        .finally(() => setSaving(false));
+  }
+
+  async function saveAutomationSettings() {
+    const s = settingsRef.current;
+    const platform = dmNewFollowerPlatformRef.current;
+    const msgs = newFollowerMessagesRef.current;
+    const dmNewFollowerMessage =
+      s.dmNewFollowerEnabled && platform ? (msgs[platform]?.trim() || null) : s.dmNewFollowerMessage;
+    const payload = {
+      ...s,
+      dmNewFollowerMessage,
+      keywordAutomationSteps: keywordStepsRef.current,
+    };
+    setSaving(true);
+    try {
+      await api.patch('/automation/settings', payload);
+    } catch {
+      // keep local state; user can retry
+    } finally {
+      setSaving(false);
     }
-  };
+  }
 
   useEffect(() => {
     if (!settings.dmNewFollowerEnabled) return;
@@ -506,19 +563,14 @@ export default function AutomationPage() {
       </div>
 
       <div className="card border border-neutral-200 bg-neutral-50/50">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="font-semibold text-neutral-900 flex items-center gap-2">
-              <Sparkles size={16} className="text-[var(--button)]" />
-              Automation by connected platform
-            </h2>
-            <p className="text-sm text-neutral-600 mt-1">
-              Platform-specific automation controls are shown below.
-            </p>
-          </div>
-          <span className="inline-flex items-center rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600">
-            Platform overview
-          </span>
+        <div>
+          <h2 className="font-semibold text-neutral-900 flex items-center gap-2">
+            <Sparkles size={16} className="text-[var(--button)]" />
+            Automation by connected platform
+          </h2>
+          <p className="text-sm text-neutral-600 mt-1">
+            Platform-specific automation controls are shown below.
+          </p>
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -575,7 +627,7 @@ export default function AutomationPage() {
                             return;
                           }
                           setFirstDmSetupMessage(null);
-                          update({
+                          mergeLocalSettings({
                             dmWelcomeEnabledByPlatform: { [row.platform]: checked },
                           });
                         }}
@@ -612,7 +664,7 @@ export default function AutomationPage() {
                           } catch {
                             // ignore storage errors
                           }
-                          update({
+                          mergeLocalSettings({
                             dmNewFollowerEnabled: checked,
                             ...(checked
                               ? { dmNewFollowerMessage: newFollowerMessages[row.platform]?.trim() || null }
@@ -637,6 +689,17 @@ export default function AutomationPage() {
                 </div>
               );
           })}
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button
+            type="button"
+            onClick={() => void saveAutomationSettings()}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-xl bg-[var(--button)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            Save platform automation
+          </button>
         </div>
       </div>
 
@@ -666,7 +729,7 @@ export default function AutomationPage() {
                   const value = e.target.value;
                   const prev = settingsRef.current;
                   const nextMsgs = { ...(prev.dmWelcomeMessagesByPlatform ?? {}), [platform]: value || null };
-                  update({ dmWelcomeMessagesByPlatform: nextMsgs });
+                  mergeLocalSettings({ dmWelcomeMessagesByPlatform: nextMsgs });
                 }}
                 placeholder={`Enter auto DM for ${platform}`}
                 rows={3}
@@ -720,6 +783,17 @@ export default function AutomationPage() {
                   <span className="text-[11px] text-neutral-500">{firstDmAttachmentUrlsHint(platform)}</span>
                 </div>
               </div>
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => void saveAutomationSettings()}
+                  disabled={saving}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  Save {platform}
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -747,14 +821,22 @@ export default function AutomationPage() {
                 onChange={(e) => {
                   const value = e.target.value;
                   setNewFollowerMessages((prev) => ({ ...prev, [platform]: value }));
-                  if (settings.dmNewFollowerEnabled && dmNewFollowerPlatform === platform) {
-                    update({ dmNewFollowerMessage: value || null });
-                  }
                 }}
                 placeholder={`Enter welcome DM for new followers on ${platform}`}
                 rows={3}
                 className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--button)]/30 focus:border-[var(--button)] text-sm"
               />
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => void saveAutomationSettings()}
+                  disabled={saving}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  Save {platform}
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -915,6 +997,17 @@ export default function AutomationPage() {
                 />
                 <span className="text-xs font-medium text-neutral-700">Enable this step</span>
               </label>
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => void saveAutomationSettings()}
+                  disabled={saving}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  Save step {idx + 1}
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -941,7 +1034,7 @@ export default function AutomationPage() {
           Add step
         </button>
         <p className="text-xs text-neutral-500 mt-2">
-          Steps are saved automatically and can be used to route users by keyword trigger.
+          Use Save on each step (or any Save on this page) to write your keyword flows to the server.
         </p>
       </div>
 
