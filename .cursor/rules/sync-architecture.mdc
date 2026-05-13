@@ -35,7 +35,7 @@ Every sync is recorded with: `scope`, `syncType`, `status`, `idempotencyKey`, ti
 | `src/lib/sync/adapters/linkedin.ts` | LinkedIn: `syncRecentContent` pulls UGC posts into `ImportedPost` (uses `lib/linkedin/sync-ugc-posts.ts`) |
 | `src/app/api/social/accounts/[id]/sync/route.ts` | `POST` — trigger sync |
 | `src/app/api/social/accounts/[id]/sync-status/route.ts` | `GET` — sync state for UI |
-| `src/app/api/cron/sync-platform-data/route.ts` | Master cron — runs all scopes for all accounts |
+| `src/app/api/cron/sync-platform-data/route.ts` | Master cron — `account_overview`, `posts`, `post_metrics` only (not inbox comments or DMs) |
 | `src/hooks/useSyncStatus.ts` | React hook: polls status, auto-triggers stale refresh |
 | `src/components/SyncStatusBanner.tsx` | UI banner: "Up to date / Syncing… / Error / Reconnect" |
 
@@ -47,14 +47,19 @@ The app uses **external cron-jobs** (e.g. cron-job.org), not Vercel's built-in c
 
 Call these URLs with header `X-Cron-Secret: <CRON_SECRET>`:
 
-| Endpoint | Recommended interval | What it does |
-|----------|---------------------|--------------|
-| `/api/cron/sync-platform-data` | Every 15–30 min | Account overview + post discovery + post metrics for all connected accounts |
-| `/api/cron/metric-snapshots` | Daily | Follower/fan count daily snapshot (Instagram + Facebook) |
-| `/api/cron/comment-automation` | Every 1–5 min | Comment replies automation |
-| `/api/cron/process-scheduled` | Every 1–2 min | Publish scheduled posts |
+| Endpoint | Typical interval | What it does |
+|----------|------------------|--------------|
+| `/api/cron/process-scheduled` | Every **5 min** | Due scheduled publishes (and email-link sends); keep tight for a 5-minute publish window |
+| `/api/cron/comment-automation` | Every **5 min** | Keyword comment automation |
+| `/api/cron/sync-platform-data` | Every **30 min** | Account overview + post discovery + post metrics (heavy Meta usage: do not run this every 5 min) |
+| `/api/cron/metric-snapshots` | Daily | Follower or fan daily snapshot (Instagram + Facebook) |
+| `/api/cron/sync-linkedin` | Every **30 min** | LinkedIn rollup (if you use LinkedIn) |
 
-**HTTP note:** `sync-platform-data` and `process-scheduled` respond with **202** immediately and finish work in the background (`after()`), so **cron-job.org’s 30s client timeout** does not abort long syncs or publish runs. Detailed results are logged in Vercel. Optional: cron-job.org Sustaining Member increases their timeout.
+**Copy-paste schedule:** see **`docs/CRON_SCHEDULES.md`**.
+
+**HTTP note:** These handlers run **inline** and return JSON when finished. cron-job.org free tier often caps the client wait at **30s**; if a run times out on the client, the work may still complete server-side. Tune `CRON_SYNC_HTTP_BUDGET_MS` and automation budgets in code or env. Optional: cron-job.org paid tiers allow longer timeouts.
+
+**Inbox comments and DMs** are not refreshed by `sync-platform-data`. They load when users open Inbox (and the inbox UI refreshes about every 5 minutes while the relevant tab is open).
 
 ---
 
@@ -71,8 +76,13 @@ Call these URLs with header `X-Cron-Secret: <CRON_SECRET>`:
 
 ## Stale Thresholds (summary)
 
-| Platform | account_overview | posts | post_metrics | comments/messages |
-|----------|-----------------|-------|-------------|-------------------|
-| Instagram/Facebook | 6 h | 30 min | 2 h | 3 min |
-| TikTok/YouTube | 12 h | 60 min | 4–6 h | 10 min |
-| Others | 12 h | 60 min | 6 h | 10 min |
+Source of truth: `src/lib/sync/config.ts` (`STALE_THRESHOLDS`). Approximate:
+
+| Platform | account_overview | posts | post_metrics | comments / messages |
+|----------|------------------|-------|--------------|---------------------|
+| Instagram / Facebook | 12 h | 4 h | 24 h | 30 min |
+| TikTok | 12 h | 60 min | 6 h | 30 min |
+| YouTube | 12 h | 60 min | 6 h | 30 min |
+| X (Twitter) | 6 h | 30 min | 12 h | 30 min |
+
+Scheduled `comments` and `messages` scopes exist for the sync engine, but Instagram and Facebook adapters do not yet pull inbox threads into the DB on cron (inbox uses live API routes).

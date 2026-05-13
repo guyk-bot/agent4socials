@@ -1,15 +1,19 @@
 /**
  * GET/POST /api/cron/sync-platform-data
  *
- * Master cron route that runs all scheduled platform sync scopes.
- * Call this from Vercel Cron or an external scheduler every 15–30 minutes.
+ * Scheduled ingest for the **posts and analytics** pipeline only:
+ *   `account_overview` → followers or basic counts
+ *   `posts` → discover or update imported content
+ *   `post_metrics` → refresh impressions or similar on recent posts
  *
- * Scopes run in this order (fastest/cheapest first):
- *   1. account_overview  — followers, basic metrics
- *   2. posts             — discover new/updated content
- *   3. post_metrics      — refresh impressions/likes on recent posts
+ * Inbox **comments** and **DMs** are not written here. They load from platform APIs when users
+ * open Inbox (see dashboard inbox and `/api/social/accounts/[id]/comments` and `.../conversations`).
  *
- * Work runs inline (no after()) to keep the lambda alive only as long as needed.
+ * Call from an external scheduler (for example cron-job.org). Recommended cadence for Meta
+ * app usage: **every 30 minutes**, not every 5 minutes. Pair with separate 5-minute crons for
+ * `/api/cron/process-scheduled` and `/api/cron/comment-automation` (see `docs/CRON_SCHEDULES.md`).
+ *
+ * Work runs inline so the HTTP response includes `results` when the handler finishes.
  */
 
 import { NextRequest, NextResponse } from 'next/server';

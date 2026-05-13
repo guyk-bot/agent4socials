@@ -112,7 +112,7 @@ Layouts worth knowing: `composer/layout.tsx` uses `AuthenticatedShell`.
 
 **AI:** `ai/brand-context`, `ai/generate-description`, `ai/generate-inbox-reply`
 
-**Automation / cron:** `automation/`, `cron/process-scheduled`, `cron/metric-snapshots`, `cron/comment-automation`, etc.
+**Automation / cron:** `automation/`, `cron/process-scheduled`, `cron/metric-snapshots`, `cron/comment-automation`, etc. External schedule examples: `docs/CRON_SCHEDULES.md`.
 
 **Auth / user:** `auth/signup`, `auth/verify-otp`, `auth/profile`, `create-profile`, `user/can-connect-twitter`
 
