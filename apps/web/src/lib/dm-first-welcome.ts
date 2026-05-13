@@ -8,8 +8,12 @@ import { uploadTwitterDmImageFromUrl, type PublishDeps } from '@/lib/publish-tar
 const fbBaseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
 
-/** Customer message must be at most this old when we evaluate (cron + Inbox load). */
-const FIRST_WELCOME_MAX_AGE_MS = 5 * 60 * 1000;
+/**
+ * Customer message must be at most this old when we evaluate (cron + Inbox load).
+ * 15 min gives the cron (running every 1-2 min) a comfortable margin — the dedup
+ * table (dmFirstWelcomeSent) prevents double-sends regardless of window size.
+ */
+const FIRST_WELCOME_MAX_AGE_MS = 15 * 60 * 1000;
 
 export function platformToUiLabel(platform: Platform): string {
   switch (platform) {
