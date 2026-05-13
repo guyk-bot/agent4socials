@@ -808,7 +808,7 @@ export default function AutomationPage() {
                   className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
                   {savingFirstDmPlatform === platform ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                  Save {platform}
+                  save
                 </button>
               </div>
             </div>
