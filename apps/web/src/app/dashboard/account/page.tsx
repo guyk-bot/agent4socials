@@ -173,16 +173,7 @@ export default function AccountPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleteBrandError, setDeleteBrandError] = useState('');
   const [teamMembersByBrand, setTeamMembersByBrand] = useState<Record<string, TeamMember[]>>({});
-  const [newMemberFirstName, setNewMemberFirstName] = useState('');
-  const [newMemberLastName, setNewMemberLastName] = useState('');
-  const [newMemberEmail, setNewMemberEmail] = useState('');
-  const [newMemberRole, setNewMemberRole] = useState<TeamRole>('Editor');
-  const [inviteFeedback, setInviteFeedback] = useState<string>('');
-  const [inviteError, setInviteError] = useState<string>('');
-  const [inviteSending, setInviteSending] = useState(false);
-  const [inviteLink, setInviteLink] = useState('');
   const [createRolesTooltipOpen, setCreateRolesTooltipOpen] = useState(false);
-  const [editRolesTooltipOpen, setEditRolesTooltipOpen] = useState(false);
   const [userAvatarOverride, setUserAvatarOverride] = useState<string | null>(null);
   const userAvatarInputRef = useRef<HTMLInputElement | null>(null);
   const createBrandImageInputRef = useRef<HTMLInputElement | null>(null);
@@ -485,7 +476,6 @@ export default function AccountPage() {
 
   const userIdShort = userId.length >= 7 ? userId.slice(0, 7) : userId;
   const editingBrand = brands.find((b) => b.id === editingBrandId) ?? null;
-  const editingMembers = editingBrand ? (teamMembersByBrand[editingBrand.id] ?? []) : [];
   const activeBrandMembers = teamMembersByBrand[activeBrandId] ?? [];
   const currentUserMemberRole = activeBrandMembers.find((m) => {
     const memberEmail = (m.email || '').toLowerCase().trim();
@@ -632,74 +622,6 @@ export default function AccountPage() {
     setDeletingBrandId(null);
     setDeleteConfirmText('');
     setDeleteBrandError('');
-  };
-
-  const handleAddTeamMember = async () => {
-    if (!editingBrand) return;
-    setInviteFeedback('');
-    setInviteError('');
-    setInviteLink('');
-    const firstName = newMemberFirstName.trim();
-    const lastName = newMemberLastName.trim();
-    const name = `${firstName} ${lastName}`.trim();
-    const email = newMemberEmail.trim();
-    if (!firstName || !lastName || !email) {
-      setInviteError('First name, last name, and email are required.');
-      return;
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setInviteError('Enter a valid email.');
-      return;
-    }
-    const friend: TeamMember = {
-      id: `member-${Date.now().toString(36)}`,
-      firstName,
-      lastName,
-      name,
-      email,
-      role: newMemberRole,
-      imageUrl: null,
-    };
-    setTeamMembersByBrand((prev) => {
-      const existing = prev[editingBrand.id] ?? [];
-      return {
-        ...prev,
-        [editingBrand.id]: [...existing, friend],
-      };
-    });
-    setInviteSending(true);
-    try {
-      const response = await api.post('/brands/invite-friend', {
-        email,
-        friendName: name,
-        role: newMemberRole,
-        brandName: editingBrand.name,
-      });
-      const generatedLink = String(response?.data?.inviteLink || '');
-      setInviteLink(generatedLink);
-      setInviteFeedback(`Invite sent to ${email}. If they cannot find it, ask them to check spam.`);
-    } catch (err) {
-      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setInviteError(message || 'Team member added, but invite email failed to send.');
-    } finally {
-      setInviteSending(false);
-    }
-    setNewMemberFirstName('');
-    setNewMemberLastName('');
-    setNewMemberEmail('');
-    setNewMemberRole('Editor');
-  };
-
-  const handleDeleteTeamMember = (memberId: string) => {
-    if (!editingBrand) return;
-    setTeamMembersByBrand((prev) => {
-      const existing = prev[editingBrand.id] ?? [];
-      return {
-        ...prev,
-        [editingBrand.id]: existing.filter((m) => m.id !== memberId),
-      };
-    });
   };
 
   const createBrandModal = createBrandModalOpen && mounted && createPortal(
@@ -1052,7 +974,7 @@ export default function AccountPage() {
       aria-label="Edit brand settings"
     >
       <div
-        className="relative w-full max-w-2xl rounded-2xl border border-neutral-200 bg-[var(--card-bg)] p-6 shadow-2xl"
+        className="relative w-full max-w-lg rounded-2xl border border-neutral-200 bg-[var(--card-bg)] p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -1064,7 +986,7 @@ export default function AccountPage() {
           <X className="w-5 h-5" />
         </button>
         <h3 className="text-lg font-semibold text-neutral-900">Edit brand</h3>
-        <p className="mt-1 text-sm text-neutral-500">Update brand details, image, and team roles.</p>
+        <p className="mt-1 text-sm text-neutral-500">Update brand name and image.</p>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
@@ -1106,135 +1028,6 @@ export default function AccountPage() {
               </div>
             ) : null}
           </div>
-        </div>
-
-        <div className="mt-6 rounded-xl border border-neutral-200 bg-[var(--background)] p-4">
-          <div className="flex items-center gap-2">
-            <Users size={15} className="text-neutral-500" />
-            <h4 className="text-sm font-semibold text-neutral-900">Team members & roles</h4>
-            <div
-              className="relative"
-              onMouseEnter={() => setEditRolesTooltipOpen(true)}
-              onMouseLeave={() => setEditRolesTooltipOpen(false)}
-            >
-              <span
-                className="inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-orange-300 bg-orange-100 text-orange-700"
-                aria-label="Role permissions"
-              >
-                <HelpCircle size={12} />
-              </span>
-              <div className="absolute left-1/2 top-5 z-20 h-4 w-[330px] -translate-x-1/2" />
-              <div
-                className={`absolute left-1/2 top-7 z-30 w-[330px] -translate-x-1/2 rounded-xl border border-orange-200 bg-white p-3 text-xs text-neutral-700 shadow-2xl transition-opacity duration-75 ${
-                  editRolesTooltipOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
-                }`}
-              >
-                <p className="font-semibold text-neutral-900">Roles and permissions</p>
-                <p className="mt-1"><strong>Admin:</strong> Manage team members, edit brand details, update brand image, and manage content and analytics.</p>
-                <p className="mt-1"><strong>Editor:</strong> Add and edit content, view analytics, and collaborate with team members. Cannot manage brand settings or team access.</p>
-                <p className="mt-1"><strong>Viewer:</strong> Read-only access to analytics and content visibility. Cannot create, edit, publish, or manage settings.</p>
-                <a
-                  href={ROLE_GUIDE_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-2 inline-block font-semibold text-orange-700 underline hover:text-orange-800"
-                >
-                  Check all roles and permissions
-                </a>
-              </div>
-            </div>
-          </div>
-          <div className="mt-3 space-y-2">
-            {editingMembers.length === 0 ? (
-              <p className="text-sm text-neutral-500">No team members yet.</p>
-            ) : (
-              editingMembers.map((member) => (
-                <div key={member.id} className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-[var(--card-bg)] px-3 py-2">
-                  <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-neutral-100 flex items-center justify-center">
-                    {member.imageUrl ? (
-                      <img src={member.imageUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="text-xs font-semibold text-neutral-500">
-                        {(member.name || 'F').slice(0, 1).toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-neutral-900">{member.name}</p>
-                    <p className="truncate text-xs text-neutral-500">{member.email || 'No email'}</p>
-                  </div>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-neutral-300 px-2 py-0.5 text-xs text-neutral-700">
-                    <Shield size={11} />
-                    {member.role}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteTeamMember(member.id)}
-                    className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-50"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <input
-              type="text"
-              value={newMemberFirstName}
-              onChange={(e) => setNewMemberFirstName(e.target.value)}
-              placeholder="First name"
-              className="min-w-0 flex-[1_1_160px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
-            />
-            <input
-              type="text"
-              value={newMemberLastName}
-              onChange={(e) => setNewMemberLastName(e.target.value)}
-              placeholder="Last name"
-              className="min-w-0 flex-[1_1_160px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
-            />
-            <input
-              type="email"
-              value={newMemberEmail}
-              onChange={(e) => setNewMemberEmail(e.target.value)}
-              placeholder="Email"
-              className="min-w-0 flex-[1_1_180px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
-            />
-            <select
-              value={newMemberRole}
-              onChange={(e) => setNewMemberRole(e.target.value as TeamRole)}
-              className="flex-[0_1_120px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-2 py-2 text-sm text-neutral-900"
-            >
-              <option value="Admin">Admin</option>
-              <option value="Editor">Editor</option>
-              <option value="Viewer">Viewer</option>
-            </select>
-          </div>
-          <div className="mt-3 flex justify-end">
-            <button
-              type="button"
-              onClick={handleAddTeamMember}
-              disabled={!newMemberFirstName.trim() || !newMemberLastName.trim() || !newMemberEmail.trim() || inviteSending}
-              className="inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-[var(--card-bg)] px-3.5 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-100/70 disabled:opacity-50"
-            >
-              <Plus size={14} />
-              {inviteSending ? 'Sending...' : 'Add another team member'}
-            </button>
-          </div>
-          <p className="mt-2 text-[11px] text-neutral-500 leading-relaxed">
-            Invitations are sent from <span className="font-semibold">noreply@agent4social.com</span>. If they cannot find it, ask them to check spam.
-          </p>
-          {inviteLink ? (
-            <p className="mt-1 text-[11px] text-neutral-500 leading-relaxed">
-              Invitation link:{' '}
-              <a href={inviteLink} target="_blank" rel="noopener noreferrer" className="underline text-neutral-600 hover:text-neutral-700 break-all">
-                {inviteLink}
-              </a>
-            </p>
-          ) : null}
-          {inviteFeedback ? <p className="mt-2 text-xs text-emerald-600">{inviteFeedback}</p> : null}
-          {inviteError ? <p className="mt-2 text-xs text-red-600">{inviteError}</p> : null}
         </div>
 
         <div className="mt-6 flex gap-3">

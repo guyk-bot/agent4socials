@@ -78,6 +78,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | `/dashboard/summary` | Redirects to `/dashboard/console` (same query string) |
 | `/dashboard/ai-assistant` | `dashboard/ai-assistant/page.tsx` |
 | `/dashboard/hashtag-pool` | `dashboard/hashtag-pool/page.tsx` |
+| `/dashboard/team-members` | `dashboard/team-members/page.tsx` (team list + invites per selected brand; shared `localStorage` with Account) |
 | `/dashboard/analytics` | `dashboard/analytics/page.tsx` |
 | `/dashboard/analytics/traffic-audience` | `dashboard/analytics/traffic-audience/page.tsx` |
 | `/login`, `/signup` | `(auth)/login/page.tsx`, `(auth)/signup/page.tsx` |

@@ -29,8 +29,8 @@ export default function RolesPermissionsPage() {
           <section className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
             <h2 className="text-base font-semibold text-neutral-900">Admin</h2>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-neutral-700">
-              <li>Manage team members, including adding and removing members.</li>
-              <li>Edit brand details such as brand name and brand image.</li>
+              <li>Manage team members, including adding and removing members, from the sidebar under Team members (pick a brand on that page).</li>
+              <li>Edit brand name and brand image from Account using the brand menu.</li>
               <li>Manage connected accounts and review analytics.</li>
               <li>Create, edit, and publish content across supported platforms.</li>
               <li>Use account and brand level settings available in the dashboard.</li>
