@@ -112,7 +112,7 @@ Layouts worth knowing: `composer/layout.tsx` uses `AuthenticatedShell`.
 
 **AI:** `ai/brand-context`, `ai/generate-description`, `ai/generate-inbox-reply`
 
-**Automation / cron:** `automation/`, `cron/process-scheduled`, `cron/metric-snapshots`, `cron/comment-automation`, etc. External schedule examples: `docs/CRON_SCHEDULES.md`.
+**Automation / cron:** `automation/`, `cron/process-scheduled`, `cron/metric-snapshots`, `cron/comment-automation`, **`cron/dm-first-welcome`**, etc. External schedule examples: `docs/CRON_SCHEDULES.md`.
 
 **Auth / user:** `auth/signup`, `auth/verify-otp`, `auth/profile`, `create-profile`, `user/can-connect-twitter`
 
@@ -131,7 +131,7 @@ Layouts worth knowing: `composer/layout.tsx` uses `AuthenticatedShell`.
 | Calendar / dates | `calendar-date.ts` |
 | Analytics helpers | `analytics/extended-fetchers.ts`, `metric-snapshots.ts`, `client-fetch.ts` |
 | DB / auth prisma user | `db.ts`, `get-prisma-user.ts` |
-| Inbox | `inbox-read-state.ts`, `comment-automation.ts` |
+| Inbox | `inbox-read-state.ts`, `comment-automation.ts`, `dm-first-welcome.ts`, `dm-first-welcome-sweep.ts`, `inbox/load-conversation-for-first-welcome.ts`, `inbox/twitter-conversation-for-first-welcome.ts` |
 | YouTube token | `youtube-token.ts` |
 | Media | `media-to-jpeg.ts`, `instagram-media-r2.ts`, `media-serve-token.ts` |
 | Email | `resend.ts` |

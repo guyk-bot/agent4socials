@@ -8,8 +8,8 @@ import { uploadTwitterDmImageFromUrl, type PublishDeps } from '@/lib/publish-tar
 const fbBaseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
 
-/** Max age of the customer's latest message when Inbox loads the thread; older skips auto-DM (aligns with typical Meta reply windows). */
-const FIRST_WELCOME_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+/** Customer message must be at most this old when we evaluate (cron + Inbox load). */
+const FIRST_WELCOME_MAX_AGE_MS = 5 * 60 * 1000;
 
 export function platformToUiLabel(platform: Platform): string {
   switch (platform) {
@@ -41,6 +41,20 @@ type DmWelcomeAttachment = { fileUrl: string; fileName?: string; contentType?: s
 
 function parseAutomation(raw: unknown): AutomationJson {
   return raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as AutomationJson) : {};
+}
+
+/** True when first-incoming auto-DM is enabled and has text or attachments for this platform. */
+export function automationFirstIncomingReady(automationSettings: unknown, platform: Platform): boolean {
+  if (platform === 'TIKTOK' || platform === 'PINTEREST' || platform === 'LINKEDIN' || platform === 'YOUTUBE') {
+    return false;
+  }
+  if (!['INSTAGRAM', 'FACEBOOK', 'TWITTER'].includes(platform)) return false;
+  const s = parseAutomation(automationSettings);
+  const label = platformToUiLabel(platform);
+  if (!firstWelcomeEnabledForLabel(s, label)) return false;
+  const text = firstWelcomeMessageForLabel(s, label).trim();
+  const attachments = firstWelcomeAttachmentsForLabel(s, label);
+  return Boolean(text || attachments.length > 0);
 }
 
 function firstWelcomeEnabledForLabel(s: AutomationJson, label: string): boolean {
@@ -231,7 +245,7 @@ export type FirstWelcomeMessageRow = {
 
 /**
  * After inbox loads messages, send the configured first-incoming welcome once per conversation
- * when the latest message is from the customer and is not older than FIRST_WELCOME_MAX_AGE_MS.
+ * when the latest message is from the customer and is not older than FIRST_WELCOME_MAX_AGE_MS (see cron dm-first-welcome).
  */
 export async function runFirstWelcomeMaybe(args: {
   userId: string;

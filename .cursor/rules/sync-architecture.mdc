@@ -49,6 +49,7 @@ Call these URLs with header `X-Cron-Secret: <CRON_SECRET>`:
 
 | Endpoint | Typical interval | What it does |
 |----------|------------------|--------------|
+| `/api/cron/dm-first-welcome` | Every **1 to 2 min** | First incoming auto-DM sweep (Instagram, Facebook, X); returns **202** and finishes in `after()` |
 | `/api/cron/process-scheduled` | Every **5 min** | Due scheduled publishes (and email-link sends); keep tight for a 5-minute publish window |
 | `/api/cron/comment-automation` | Every **5 min** | Keyword comment automation |
 | `/api/cron/sync-platform-data` | Every **30 min** | Account overview + post discovery + post metrics (heavy Meta usage: do not run this every 5 min) |
@@ -57,9 +58,9 @@ Call these URLs with header `X-Cron-Secret: <CRON_SECRET>`:
 
 **Copy-paste schedule:** see **`docs/CRON_SCHEDULES.md`**.
 
-**HTTP note:** These handlers run **inline** and return JSON when finished. cron-job.org free tier often caps the client wait at **30s**; if a run times out on the client, the work may still complete server-side. Tune `CRON_SYNC_HTTP_BUDGET_MS` and automation budgets in code or env. Optional: cron-job.org paid tiers allow longer timeouts.
+**HTTP note:** Most cron handlers run **inline** and return JSON when finished. **`/api/cron/dm-first-welcome`** returns **202** immediately and finishes work in **`after()`** (like some publish routes), so a short client timeout still accepts the job. cron-job.org free tier often caps the client wait at **30s**; if a run times out on the client, the work may still complete server-side. Tune `CRON_SYNC_HTTP_BUDGET_MS`, **`DM_FIRST_WELCOME_SWEEP_BUDGET_MS`**, and automation budgets in code or env. Optional: cron-job.org paid tiers allow longer timeouts.
 
-**Inbox comments and DMs** are not refreshed by `sync-platform-data`. They load when users open Inbox (and the inbox UI refreshes about every 5 minutes while the relevant tab is open).
+**Inbox comments** load when users open Inbox. **First incoming auto-DM** uses the same send rules as Inbox and is also driven by **`/api/cron/dm-first-welcome`** (every one to two minutes) so replies can go out in the background.
 
 ---
 

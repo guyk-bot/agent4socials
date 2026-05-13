@@ -4,6 +4,12 @@ Send **`X-Cron-Secret: <CRON_SECRET>`** on every request (or `Authorization: Bea
 
 Base URL: `https://<your-domain>/api/cron/...`
 
+## Every 1 to 2 minutes (first incoming DM auto-reply)
+
+| Path | What it does |
+|------|----------------|
+| `/api/cron/dm-first-welcome` | Background sweep for Instagram, Facebook, and X: sends first-incoming auto-DM when the latest inbound message is fresh (about five minutes). Returns **202** immediately; work runs in `after()`. |
+
 ## Every 5 minutes (comments automation, scheduled publishing)
 
 | Path | What it does |
@@ -13,7 +19,7 @@ Base URL: `https://<your-domain>/api/cron/...`
 
 **Use two separate cron jobs**, both every **5 minutes**. Do not rely on `PROCESS_SCHEDULED_CHAIN_COMMENT_AUTOMATION` unless you accept longer single requests and possible timeouts.
 
-**Inbox comments and DMs** are not driven by `sync-platform-data`. They load from Meta and other APIs when users open **Inbox**, and the inbox UI already refreshes about every **5 minutes** while the Messages or Comments tab is active. No extra cron is required for that behavior.
+**Inbox comments** still load when users open **Inbox**. **First incoming DM** automation also needs **`/api/cron/dm-first-welcome`** every one to two minutes if you want replies without opening a thread.
 
 ## Every 30 minutes (posts in DB, metrics, lower Meta app usage)
 

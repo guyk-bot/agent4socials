@@ -70,7 +70,7 @@ Grouped by domain (67 `route.ts` files). **Social + analytics fixes usually touc
 
 ### Automation & cron
 
-- `automation/*`, `cron/*` (scheduled posts, metric snapshots, comment automation, migrations, email). **Suggested intervals:** `docs/CRON_SCHEDULES.md`.
+- `automation/*`, `cron/*` (scheduled posts, metric snapshots, comment automation, **dm-first-welcome** first incoming DM sweep, migrations, email). **Suggested intervals:** `docs/CRON_SCHEDULES.md`.
 
 ### Auth & user
 
