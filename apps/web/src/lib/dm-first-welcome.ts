@@ -8,8 +8,8 @@ import { uploadTwitterDmImageFromUrl, type PublishDeps } from '@/lib/publish-tar
 const fbBaseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
 
-/** Max age of the customer's latest message when we load the thread; older than this skips auto-DM. */
-const FIRST_WELCOME_MAX_AGE_MS = 5 * 60 * 1000;
+/** Max age of the customer's latest message when Inbox loads the thread; older skips auto-DM (aligns with typical Meta reply windows). */
+const FIRST_WELCOME_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 export function platformToUiLabel(platform: Platform): string {
   switch (platform) {
@@ -231,7 +231,7 @@ export type FirstWelcomeMessageRow = {
 
 /**
  * After inbox loads messages, send the configured first-incoming welcome once per conversation
- * when the latest message is from the customer within the last few minutes (see FIRST_WELCOME_MAX_AGE_MS).
+ * when the latest message is from the customer and is not older than FIRST_WELCOME_MAX_AGE_MS.
  */
 export async function runFirstWelcomeMaybe(args: {
   userId: string;

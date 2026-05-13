@@ -728,7 +728,7 @@ export default function AutomationPage() {
           </div>
         )}
         <p className="text-sm text-neutral-600">
-          Set your first incoming DM message per platform. Add optional images, videos, or files (uploaded to your storage so platforms can fetch them by URL). You must set at least a message or an attachment before enabling it in the platform card. After someone messages you, open that thread in Inbox within about 5 minutes so we can send the auto reply while their message is still fresh.
+          Set your first incoming DM message per platform. Add optional images, videos, or files (uploaded to your storage so platforms can fetch them by URL). You must set at least a message or an attachment before enabling it in the platform card. The reply does not send from Instagram by itself. Open that conversation in Agent4Socials Inbox so we load messages and send your auto-reply once per thread. We only send if their latest message is at most about 24 hours old and we have not already sent for this conversation.
         </p>
         {firstDmUploadError && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">{firstDmUploadError}</div>
