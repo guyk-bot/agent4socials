@@ -635,7 +635,7 @@ function InboxPage() {
     setConversationMessagesError(null);
     const convForRecipient = conversations.find((c) => c.id === convId);
     const recipientFromConv = convForRecipient?.senders?.[0]?.id ?? null;
-    api.get(`/social/accounts/${accountIdForFetch}/conversations/${convId}/messages`, { timeout: 15_000 })
+    api.get(`/social/accounts/${accountIdForFetch}/conversations/${convId}/messages`, { timeout: 60_000 })
       .then((res) => {
         const messages = res.data?.messages ?? [];
         const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
@@ -722,7 +722,7 @@ function InboxPage() {
       prefetchedConversationMessagesRef.current.add(cacheKey);
       pending.push(
         api
-          .get(`/social/accounts/${account.id}/conversations/${conv.id}/messages`, { timeout: 15_000 })
+          .get(`/social/accounts/${account.id}/conversations/${conv.id}/messages`, { timeout: 60_000 })
           .then((res) => {
             if (cancelled) return;
             const messages = res.data?.messages ?? [];
@@ -1058,7 +1058,7 @@ function InboxPage() {
             : effectiveAccounts.find((a) => a.platform === 'TWITTER');
           if (!account) return;
           try {
-            const res = await api.get(`/social/accounts/${account.id}/conversations/${conv.id}/messages`, { timeout: 15_000 });
+            const res = await api.get(`/social/accounts/${account.id}/conversations/${conv.id}/messages`, { timeout: 60_000 });
             if (cancelled) return;
             const messages = res.data?.messages ?? [];
             const recipientFromConv = conv.senders?.[0]?.id ?? null;
@@ -1341,11 +1341,13 @@ function InboxPage() {
 
     if (hasAnyMessageCount) {
       let didInit = false;
+      const initializedConvAccounts = getInboxInitializedAccountIdsForConversations(user?.id);
       for (const c of conversations) {
-        if (lastRead[c.id] === undefined) {
-          setConversationLastReadCount(c.id, c.messageCount ?? 0, user?.id);
-          didInit = true;
-        }
+        if (lastRead[c.id] !== undefined) continue;
+        const accId = (c as Conversation & { messageAccountId?: string }).messageAccountId;
+        if (accId && initializedConvAccounts.has(accId)) continue;
+        setConversationLastReadCount(c.id, c.messageCount ?? 0, user?.id);
+        didInit = true;
       }
       if (didInit) lastRead = getConversationLastReadCounts(user?.id);
 

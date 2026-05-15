@@ -51,22 +51,6 @@ async function loadMetaConversationForFirstWelcome(
 
   try {
     if (isInstagramBusinessLogin) {
-      const convoRes = await axios.get<{
-        messages?: { data?: Array<{ id: string; created_time?: string }> };
-        error?: { message?: string; code?: number };
-      }>(`${igBaseUrl}/${conversationId}`, {
-        params: { fields: 'messages', access_token: activeToken },
-        timeout: 15_000,
-      });
-
-      if (convoRes.data?.error) {
-        const errMsg = convoRes.data.error.message ?? '';
-        return { ok: false, error: errMsg || 'Could not load messages.' };
-      }
-
-      const messageIds = (convoRes.data?.messages?.data ?? []).map((m) => m.id);
-      const recentIds = messageIds.slice(0, 20);
-
       type IgMessage = {
         id: string;
         created_time?: string;
@@ -74,28 +58,73 @@ async function loadMetaConversationForFirstWelcome(
         message?: string;
         error?: { message?: string; code?: number };
       };
-      const msgDetails = await Promise.all(
-        recentIds.map((msgId) =>
-          axios
-            .get<IgMessage>(`${igBaseUrl}/${msgId}`, {
-              params: { fields: 'id,created_time,from,to,message', access_token: activeToken },
-              timeout: 10_000,
-            })
-            .then((r) => r.data)
-            .catch(() => null)
-        )
-      );
 
-      let list = msgDetails
-        .filter((m): m is IgMessage => m !== null && !m.error)
-        .map((m) => ({
-          id: m.id,
-          fromId: m.from?.id ?? null,
-          fromName: m.from?.username ?? null,
-          message: m.message ?? '',
-          createdTime: m.created_time ?? null,
-          isFromPage: !!(m.from?.id && ourIds.has(m.from.id)),
-        }));
+      const mapIgMessages = (rows: IgMessage[]) =>
+        rows
+          .filter((m) => m.id && !m.error)
+          .map((m) => ({
+            id: m.id,
+            fromId: m.from?.id ?? null,
+            fromName: m.from?.username ?? null,
+            message: m.message ?? '',
+            createdTime: m.created_time ?? null,
+            isFromPage: !!(m.from?.id && ourIds.has(m.from.id)),
+          }));
+
+      let list: ReturnType<typeof mapIgMessages> = [];
+
+      const nestedRes = await axios.get<{
+        messages?: { data?: IgMessage[] };
+        error?: { message?: string; code?: number };
+      }>(`${igBaseUrl}/${conversationId}`, {
+        params: {
+          fields: 'messages.limit(25){id,created_time,from,message}',
+          access_token: activeToken,
+        },
+        timeout: 45_000,
+      });
+
+      if (nestedRes.data?.error) {
+        const errMsg = nestedRes.data.error.message ?? '';
+        return { ok: false, error: errMsg || 'Could not load messages.' };
+      }
+
+      const nestedRows = nestedRes.data?.messages?.data ?? [];
+      if (nestedRows.length > 0 && nestedRows.some((m) => m.from?.id || m.message)) {
+        list = mapIgMessages(nestedRows);
+      } else {
+        const convoRes = await axios.get<{
+          messages?: { data?: Array<{ id: string; created_time?: string }> };
+          error?: { message?: string; code?: number };
+        }>(`${igBaseUrl}/${conversationId}`, {
+          params: { fields: 'messages', access_token: activeToken },
+          timeout: 20_000,
+        });
+        if (convoRes.data?.error) {
+          const errMsg = convoRes.data.error.message ?? '';
+          return { ok: false, error: errMsg || 'Could not load messages.' };
+        }
+        const recentIds = (convoRes.data?.messages?.data ?? []).map((m) => m.id).slice(0, 15);
+        const msgDetails: IgMessage[] = [];
+        for (let i = 0; i < recentIds.length; i += 5) {
+          const chunk = recentIds.slice(i, i + 5);
+          const batch = await Promise.all(
+            chunk.map((msgId) =>
+              axios
+                .get<IgMessage>(`${igBaseUrl}/${msgId}`, {
+                  params: { fields: 'id,created_time,from,to,message', access_token: activeToken },
+                  timeout: 12_000,
+                })
+                .then((r) => r.data)
+                .catch(() => null)
+            )
+          );
+          for (const m of batch) {
+            if (m && !m.error) msgDetails.push(m);
+          }
+        }
+        list = mapIgMessages(msgDetails);
+      }
 
       list = list.slice().sort((a, b) => {
         const tA = a.createdTime ? new Date(a.createdTime).getTime() : 0;

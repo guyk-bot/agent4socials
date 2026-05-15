@@ -6,6 +6,7 @@ import { useAccountsCache } from '@/context/AccountsCacheContext';
 import api from '@/lib/api';
 import { getDefaultAnalyticsDateRange } from '@/lib/calendar-date';
 import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
+import { computeInboxHeaderUnread } from '@/lib/inbox/unread-count';
 
 export type CachedPost = {
   id: string;
@@ -58,6 +59,7 @@ export type CachedComment = {
 export type CachedConversation = {
   id: string;
   updatedTime: string | null;
+  messageCount?: number;
   senders: Array<{ id?: string; username?: string; name?: string; pictureUrl?: string | null }>;
 };
 
@@ -198,6 +200,31 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [prefetchHasLoadedOnce, setPrefetchHasLoadedOnce] = useState(false);
   const [prefetchPhase2Done, setPrefetchPhase2Done] = useState(false);
   const [cacheRehydrated, setCacheRehydrated] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const allConversations: Array<{ id: string; messageCount?: number; messageAccountId?: string }> = [];
+    for (const [accountId, list] of Object.entries(conversationsByAccountId)) {
+      for (const c of list) {
+        allConversations.push({
+          id: c.id,
+          messageCount: c.messageCount,
+          messageAccountId: accountId,
+        });
+      }
+    }
+    const commentIds = Object.values(commentsByAccountId)
+      .flat()
+      .filter((c) => !c.parentCommentId)
+      .map((c) => c.commentId);
+    const unread = computeInboxHeaderUnread(allConversations, commentIds, user.id);
+    setNotificationsState((prev) => ({
+      ...prev,
+      inbox: unread.inbox,
+      messages: unread.messages,
+      comments: unread.comments,
+    }));
+  }, [user?.id, conversationsByAccountId, commentsByAccountId]);
 
   const setPostsForAccount = useCallback((accountId: string, posts: CachedPost[]) => {
     setPostsByAccountId((prev) => ({ ...prev, [accountId]: posts }));
@@ -429,7 +456,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         await Promise.all([
           api.get<{ inbox?: number; comments?: number; messages?: number; byPlatform?: Record<string, { comments: number; messages: number }> }>('/social/notifications').then((r) => {
             if (!cancelled) setNotificationsState({
-              inbox: 0,
+              inbox: r.data?.inbox ?? 0,
               comments: r.data?.comments ?? 0,
               messages: r.data?.messages ?? 0,
               byPlatform: r.data?.byPlatform ?? {},
@@ -492,7 +519,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           if (cancelled) break;
           if (CONVO_PLATFORMS.has(acc.platform)) {
             try {
-              const r = await api.get<{ conversations?: CachedConversation[]; error?: string }>(`/social/accounts/${acc.id}/conversations`);
+              const r = await api.get<{ conversations?: CachedConversation[]; error?: string }>(
+                `/social/accounts/${acc.id}/conversations?includeMessageCounts=1`
+              );
               if (!cancelled && shouldApplyPhase2Write() && !r.data?.error) {
                 setConversationsByAccountId((prev) => ({ ...prev, [acc.id]: r.data?.conversations ?? [] }));
               }

@@ -8,6 +8,8 @@ import { loadConversationForFirstWelcome } from '@/lib/inbox/load-conversation-f
 
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
+export const maxDuration = 60;
+
 const fbBaseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
 

@@ -11,7 +11,8 @@ import { refreshTwitterToken } from '@/lib/twitter-refresh';
 const fbBaseUrl = facebookGraphBaseUrl;
 
 /** Only scan threads touched recently so each cron run stays bounded. */
-const RECENT_THREAD_ACTIVITY_MAX_AGE_MS = 12 * 60 * 1000;
+/** Threads to scan per cron run (must be ≥ freshness window in dm-first-welcome.ts). */
+const RECENT_THREAD_ACTIVITY_MAX_AGE_MS = 20 * 60 * 1000;
 const MAX_CONVERSATIONS_PER_ACCOUNT = 25;
 const MAX_TOTAL_CONVERSATIONS_PER_RUN = 150;
 const SWEEP_BUDGET_MS = Number.parseInt(process.env.DM_FIRST_WELCOME_SWEEP_BUDGET_MS ?? '55000', 10);
