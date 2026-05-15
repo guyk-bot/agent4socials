@@ -1,5 +1,6 @@
+import { Prisma } from '@prisma/client';
 import axios from 'axios';
-import { prisma } from '@/lib/db';
+import { prisma, withPrismaPoolRetry } from '@/lib/db';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { automationFirstIncomingReady, runFirstWelcomeMaybe } from '@/lib/dm-first-welcome';
 import { loadConversationForFirstWelcome } from '@/lib/inbox/load-conversation-for-first-welcome';
@@ -177,8 +178,10 @@ export async function runDmFirstWelcomeCronSweep(): Promise<DmFirstWelcomeSweepS
   let accountsEligible = 0;
   let conversationsChecked = 0;
 
-  const users = await prisma.user.findMany({
+  const users = await withPrismaPoolRetry('dm-first-welcome findMany', () =>
+    prisma.user.findMany({
     where: {
+      automationSettings: { not: Prisma.DbNull },
       socialAccounts: {
         some: {
           platform: { in: ['INSTAGRAM', 'FACEBOOK', 'TWITTER'] },
@@ -204,7 +207,8 @@ export async function runDmFirstWelcomeCronSweep(): Promise<DmFirstWelcomeSweepS
         },
       },
     },
-  });
+  })
+  );
 
   for (const user of users) {
     if (Date.now() > deadline) break;

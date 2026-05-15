@@ -12,8 +12,10 @@ if (rawUrl && /^postgres(ql)?:\/\//i.test(rawUrl)) {
     u.includes('?') ? `${u}&${param}` : `${u}?${param}`;
   if (!fixedUrl.includes('pgbouncer=true')) fixedUrl = addParam(fixedUrl, 'pgbouncer=true');
   if (!fixedUrl.includes('connection_limit=')) fixedUrl = addParam(fixedUrl, 'connection_limit=1');
-  fixedUrl = fixedUrl.replace(/pool_timeout=\d+/, 'pool_timeout=15');
-  if (!fixedUrl.includes('pool_timeout=')) fixedUrl = addParam(fixedUrl, 'pool_timeout=15');
+  const poolTimeoutSec = Number.parseInt(process.env.DATABASE_POOL_TIMEOUT_SEC ?? '15', 10);
+  const poolTimeout = Number.isFinite(poolTimeoutSec) && poolTimeoutSec > 0 ? poolTimeoutSec : 15;
+  fixedUrl = fixedUrl.replace(/pool_timeout=\d+/, `pool_timeout=${poolTimeout}`);
+  if (!fixedUrl.includes('pool_timeout=')) fixedUrl = addParam(fixedUrl, `pool_timeout=${poolTimeout}`);
   fixedUrl = fixedUrl.replace(/connect_timeout=\d+/, 'connect_timeout=10');
   if (!fixedUrl.includes('connect_timeout=')) fixedUrl = addParam(fixedUrl, 'connect_timeout=10');
   process.env.DATABASE_URL = fixedUrl;
@@ -36,9 +38,30 @@ const POOL_ERROR_PATTERNS = [
   'econnreset',
 ];
 
-function isPoolError(e: unknown): boolean {
+export function isPrismaPoolError(e: unknown): boolean {
   const msg = ((e as { message?: string })?.message ?? '').toLowerCase();
   return POOL_ERROR_PATTERNS.some((p) => msg.includes(p));
+}
+
+/** Retry a DB-heavy cron step when Supabase pool is busy (e.g. several crons at :00). */
+export async function withPrismaPoolRetry<T>(
+  label: string,
+  fn: () => Promise<T>,
+  maxAttempts = 5
+): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (e: unknown) {
+      lastErr = e;
+      if (!isPrismaPoolError(e) || attempt === maxAttempts - 1) break;
+      const delayMs = 1000 * 2 ** attempt;
+      console.warn(`[db] ${label}: pool busy, retry in ${delayMs}ms (attempt ${attempt + 1}/${maxAttempts})`);
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  throw lastErr;
 }
 
 function createClient() {
@@ -53,7 +76,7 @@ function createClient() {
               return await query(args);
             } catch (e: unknown) {
               lastErr = e;
-              if (!isPoolError(e) || attempt === 2) break;
+              if (!isPrismaPoolError(e) || attempt === 2) break;
               await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
             }
           }

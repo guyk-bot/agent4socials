@@ -8,7 +8,11 @@ Base URL: `https://<your-domain>/api/cron/...`
 
 | Path | What it does |
 |------|----------------|
-| `/api/cron/dm-first-welcome` | Background sweep for Instagram, Facebook, and X: sends first-incoming auto-DM when the latest inbound message is fresh (about five minutes). Returns **202** immediately; work runs in `after()`. |
+| `/api/cron/dm-first-welcome` | Background sweep for Instagram, Facebook, and X: sends first-incoming auto-DM when the latest inbound message is fresh (about 15 minutes). Returns **202** immediately; work runs in `after()` after a short delay (default 2.5s) so it does not collide with other crons on the same minute. |
+
+**Stagger crons:** Do not start `dm-first-welcome`, `process-scheduled`, and `comment-automation` at the same second (e.g. all at `:00`). Offset **dm-first-welcome** by ~30s (e.g. `:01` / `:03`) or rely on the built-in `DM_FIRST_WELCOME_CRON_START_DELAY_MS` delay. Otherwise you may see `Timed out fetching a new connection from the connection pool` in Vercel logs.
+
+**DATABASE_URL:** Use Supabase **Transaction pooler** (port **6543**) with `pgbouncer=true`, not direct port 5432 on Vercel.
 
 ## Every 5 minutes (comments automation, scheduled publishing)
 

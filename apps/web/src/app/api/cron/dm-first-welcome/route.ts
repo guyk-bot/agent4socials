@@ -29,14 +29,19 @@ async function handle(request: NextRequest) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
-  after(() => {
-    void runDmFirstWelcomeCronSweep()
-      .then((summary) => {
-        console.log('[Cron] dm-first-welcome sweep done:', JSON.stringify(summary));
-      })
-      .catch((e) => {
-        console.error('[Cron] dm-first-welcome sweep error:', e);
-      });
+  const startDelayMs = Number.parseInt(process.env.DM_FIRST_WELCOME_CRON_START_DELAY_MS ?? '2500', 10);
+  const delayMs = Number.isFinite(startDelayMs) && startDelayMs >= 0 ? startDelayMs : 2500;
+
+  after(async () => {
+    if (delayMs > 0) {
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+    try {
+      const summary = await runDmFirstWelcomeCronSweep();
+      console.log('[Cron] dm-first-welcome sweep done:', JSON.stringify(summary));
+    } catch (e) {
+      console.error('[Cron] dm-first-welcome sweep error:', e);
+    }
   });
 
   return NextResponse.json({ ok: true, accepted: true }, { status: 202 });
