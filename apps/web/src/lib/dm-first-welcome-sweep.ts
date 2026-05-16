@@ -239,7 +239,7 @@ export async function runDmFirstWelcomeCronSweep(): Promise<DmFirstWelcomeSweepS
         if (conversationId.startsWith('mention:')) continue;
 
         try {
-          const loaded = await loadConversationForFirstWelcome(acc, conversationId);
+          const loaded = await loadConversationForFirstWelcome(acc, conversationId, user.id);
           if (!loaded.ok) continue;
           conversationsChecked++;
           await runFirstWelcomeMaybe({

@@ -2,19 +2,16 @@ import type { Platform } from '@prisma/client';
 import axios from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import type { FirstWelcomeMessageRow } from '@/lib/dm-first-welcome';
+import {
+  loadFacebookGraphConversationMessages,
+  loadInstagramConversationMessages,
+  type ConversationUiMessage,
+} from '@/lib/inbox/load-meta-conversation-messages';
 import { loadTwitterConversationForFirstWelcome } from '@/lib/inbox/twitter-conversation-for-first-welcome';
 
 const fbBaseUrl = facebookGraphBaseUrl;
-const igBaseUrl = 'https://graph.instagram.com/v25.0';
 
-export type ConversationUiMessage = {
-  id: string;
-  fromId: string | null;
-  fromName: string | null;
-  message: string;
-  createdTime: string | null;
-  isFromPage: boolean;
-};
+export type { ConversationUiMessage };
 
 export type LoadConversationForFirstWelcomeResult =
   | {
@@ -37,6 +34,7 @@ type AccountSlice = {
 };
 
 async function loadMetaConversationForFirstWelcome(
+  userId: string,
   account: AccountSlice,
   conversationId: string
 ): Promise<LoadConversationForFirstWelcomeResult> {
@@ -50,159 +48,72 @@ async function loadMetaConversationForFirstWelcome(
   const ourIds = new Set<string>([account.platformUserId, credJson.linkedPageId].filter((x): x is string => !!x));
 
   try {
-    if (isInstagramBusinessLogin) {
-      type IgMessage = {
-        id: string;
-        created_time?: string;
-        from?: { id?: string; username?: string };
-        message?: string;
-        error?: { message?: string; code?: number };
-      };
-
-      const mapIgMessages = (rows: IgMessage[]) =>
-        rows
-          .filter((m) => m.id && !m.error)
-          .map((m) => ({
-            id: m.id,
-            fromId: m.from?.id ?? null,
-            fromName: m.from?.username ?? null,
-            message: m.message ?? '',
-            createdTime: m.created_time ?? null,
-            isFromPage: !!(m.from?.id && ourIds.has(m.from.id)),
-          }));
-
-      let list: ReturnType<typeof mapIgMessages> = [];
-
-      const nestedRes = await axios.get<{
-        messages?: { data?: IgMessage[] };
-        error?: { message?: string; code?: number };
-      }>(`${igBaseUrl}/${conversationId}`, {
-        params: {
-          fields: 'messages.limit(25){id,created_time,from,message}',
-          access_token: activeToken,
-        },
-        timeout: 45_000,
+    if (account.platform === 'INSTAGRAM') {
+      const { messages, error } = await loadInstagramConversationMessages({
+        userId,
+        account,
+        conversationId,
+        isInstagramBusinessLogin,
       });
-
-      if (nestedRes.data?.error) {
-        const errMsg = nestedRes.data.error.message ?? '';
-        return { ok: false, error: errMsg || 'Could not load messages.' };
-      }
-
-      const nestedRows = nestedRes.data?.messages?.data ?? [];
-      if (nestedRows.length > 0 && nestedRows.some((m) => m.from?.id || m.message)) {
-        list = mapIgMessages(nestedRows);
-      } else {
-        const convoRes = await axios.get<{
-          messages?: { data?: Array<{ id: string; created_time?: string }> };
-          error?: { message?: string; code?: number };
-        }>(`${igBaseUrl}/${conversationId}`, {
-          params: { fields: 'messages', access_token: activeToken },
-          timeout: 20_000,
-        });
-        if (convoRes.data?.error) {
-          const errMsg = convoRes.data.error.message ?? '';
-          return { ok: false, error: errMsg || 'Could not load messages.' };
+      if (error && messages.length === 0) {
+        if (error.includes('permission') || error.includes('OAuth') || error.includes('access')) {
+          return {
+            ok: false,
+            error: isInstagramBusinessLogin
+              ? 'Your Instagram session has expired. Reconnect your Instagram account to refresh it.'
+              : 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.',
+          };
         }
-        const recentIds = (convoRes.data?.messages?.data ?? []).map((m) => m.id).slice(0, 15);
-        const msgDetails: IgMessage[] = [];
-        for (let i = 0; i < recentIds.length; i += 5) {
-          const chunk = recentIds.slice(i, i + 5);
-          const batch = await Promise.all(
-            chunk.map((msgId) =>
-              axios
-                .get<IgMessage>(`${igBaseUrl}/${msgId}`, {
-                  params: { fields: 'id,created_time,from,to,message', access_token: activeToken },
-                  timeout: 12_000,
-                })
-                .then((r) => r.data)
-                .catch(() => null)
-            )
-          );
-          for (const m of batch) {
-            if (m && !m.error) msgDetails.push(m);
-          }
-        }
-        list = mapIgMessages(msgDetails);
+        return { ok: false, error };
       }
-
-      list = list.slice().sort((a, b) => {
-        const tA = a.createdTime ? new Date(a.createdTime).getTime() : 0;
-        const tB = b.createdTime ? new Date(b.createdTime).getTime() : 0;
-        return tA - tB;
-      });
 
       let recipientId: string | null = null;
-      for (const m of list) {
+      for (const m of messages) {
         if (m.fromId && !ourIds.has(m.fromId)) {
           recipientId = m.fromId;
           break;
         }
       }
 
-      const firstWelcomeRows: FirstWelcomeMessageRow[] = list.map((m) => ({
+      const firstWelcomeRows: FirstWelcomeMessageRow[] = messages.map((m) => ({
         createdTime: m.createdTime,
         isFromPage: m.isFromPage,
         fromId: m.fromId,
       }));
+
       return {
         ok: true,
-        messages: list,
+        messages,
         recipientId,
-        isInstagramBusinessLogin: true,
+        isInstagramBusinessLogin,
         firstWelcomeRows,
       };
     }
 
-    const res = await axios.get<{
-      data?: Array<{
-        id: string;
-        from?: { id?: string; name?: string };
-        message?: string;
-        created_time?: string;
-      }>;
-      error?: { message: string; code?: number };
-    }>(`${fbBaseUrl}/${conversationId}/messages`, {
-      params: {
-        fields: 'id,from,to,message,created_time',
-        access_token: activeToken,
-      },
-      timeout: 15_000,
-    });
+    const { messages, error } = await loadFacebookGraphConversationMessages(
+      conversationId,
+      activeToken,
+      ourIds,
+      account.platform
+    );
 
-    if (res.data?.error) {
-      const msg = res.data.error.message ?? '';
-      if (msg.includes('permission') || msg.includes('OAuth') || msg.includes('access')) {
+    if (error && messages.length === 0) {
+      if (error.includes('permission') || error.includes('OAuth') || error.includes('access')) {
         return {
           ok: false,
           error: 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.',
         };
       }
-      return { ok: false, error: msg };
+      return { ok: false, error };
     }
 
-    let list = (res.data?.data ?? []).map((m) => ({
-      id: m.id,
-      fromId: m.from?.id ?? null,
-      fromName: m.from?.name ?? null,
-      message: m.message ?? '',
-      createdTime: m.created_time ?? null,
-      isFromPage: !!(m.from?.id && ourIds.has(m.from.id)),
-    }));
-
     let recipientId: string | null = null;
-    for (const m of list) {
+    for (const m of messages) {
       if (m.fromId && !ourIds.has(m.fromId)) {
         recipientId = m.fromId;
         break;
       }
     }
-
-    list = list.slice().sort((a, b) => {
-      const tA = a.createdTime ? new Date(a.createdTime).getTime() : 0;
-      const tB = b.createdTime ? new Date(b.createdTime).getTime() : 0;
-      return tA - tB;
-    });
 
     let recipientName: string | null = null;
     let recipientPictureUrl: string | null = null;
@@ -225,7 +136,7 @@ async function loadMetaConversationForFirstWelcome(
       }
     }
 
-    const firstWelcomeRows: FirstWelcomeMessageRow[] = list.map((m) => ({
+    const firstWelcomeRows: FirstWelcomeMessageRow[] = messages.map((m) => ({
       createdTime: m.createdTime,
       isFromPage: m.isFromPage,
       fromId: m.fromId,
@@ -233,7 +144,7 @@ async function loadMetaConversationForFirstWelcome(
 
     return {
       ok: true,
-      messages: list,
+      messages,
       recipientId,
       ...(recipientName && { recipientName }),
       ...(recipientPictureUrl && { recipientPictureUrl }),
@@ -241,7 +152,7 @@ async function loadMetaConversationForFirstWelcome(
       firstWelcomeRows,
     };
   } catch (e) {
-    const err = e as { message?: string; response?: { data?: unknown; status?: number } };
+    const err = e as { message?: string };
     const msg = err?.message ?? '';
     if (msg.includes('403') || msg.includes('permission') || msg.includes('OAuth')) {
       return {
@@ -255,7 +166,8 @@ async function loadMetaConversationForFirstWelcome(
 
 export async function loadConversationForFirstWelcome(
   account: AccountSlice,
-  conversationId: string
+  conversationId: string,
+  userId?: string
 ): Promise<LoadConversationForFirstWelcomeResult> {
   if (account.platform === 'TWITTER') {
     const tw = await loadTwitterConversationForFirstWelcome(account, conversationId);
@@ -271,7 +183,10 @@ export async function loadConversationForFirstWelcome(
     };
   }
   if (account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK') {
-    return loadMetaConversationForFirstWelcome(account, conversationId);
+    if (!userId) {
+      return { ok: false, error: 'Could not load conversation messages.' };
+    }
+    return loadMetaConversationForFirstWelcome(userId, account, conversationId);
   }
   return { ok: false, error: 'Unsupported platform for DMs.' };
 }

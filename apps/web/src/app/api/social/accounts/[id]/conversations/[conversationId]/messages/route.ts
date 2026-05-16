@@ -93,7 +93,7 @@ export async function GET(
   }
 
 
-  const loaded = await loadConversationForFirstWelcome(account, conversationId);
+  const loaded = await loadConversationForFirstWelcome(account, conversationId, userId);
   if (!loaded.ok) {
     if (loaded.status === 429) {
       return NextResponse.json({ messages: [], recipientId: null, error: loaded.error }, { status: 429 });

@@ -343,6 +343,8 @@ function InboxPage() {
   const pendingManualInboxByAccountRef = useRef<Set<string>>(new Set());
   /** Background-prefetched conversation message cache keys: `${accountId}:${conversationId}` */
   const prefetchedConversationMessagesRef = useRef<Set<string>>(new Set());
+  /** Prevent duplicate in-flight GETs for the same conversation (cache in deps caused reload loops). */
+  const inflightConversationMessagesRef = useRef<Set<string>>(new Set());
 
   // Multi-select state for conversations
   const [selectedConversationIds, setSelectedConversationIds] = useState<Set<string>>(new Set());
@@ -629,13 +631,34 @@ function InboxPage() {
       setConversationRecipientId(cached.recipientId);
       setConversationMessagesError(cached.error);
       setConversationMessagesLoading(false);
+    }
+  }, [selectedConversationId, currentAccountForDmThread?.id, dmThreadPlatform, conversationMessagesCache]);
+
+  useEffect(() => {
+    if (
+      !selectedConversationId ||
+      !currentAccountForDmThread ||
+      !dmThreadPlatform ||
+      !DM_THREAD_PLATFORM_IDS.has(dmThreadPlatform)
+    ) {
       return;
     }
+    const convId = selectedConversationId;
+    const accountIdForFetch = currentAccountForDmThread.id;
+    const cached = conversationMessagesCache[convId];
+    if (cached?.accountId === accountIdForFetch) return;
+
+    const inflightKey = `${accountIdForFetch}:${convId}`;
+    if (inflightConversationMessagesRef.current.has(inflightKey)) return;
+    inflightConversationMessagesRef.current.add(inflightKey);
+
     setConversationMessagesLoading(true);
     setConversationMessagesError(null);
     const convForRecipient = conversations.find((c) => c.id === convId);
     const recipientFromConv = convForRecipient?.senders?.[0]?.id ?? null;
-    api.get(`/social/accounts/${accountIdForFetch}/conversations/${convId}/messages`, { timeout: 60_000 })
+
+    api
+      .get(`/social/accounts/${accountIdForFetch}/conversations/${convId}/messages`, { timeout: 60_000 })
       .then((res) => {
         const messages = res.data?.messages ?? [];
         const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
@@ -662,8 +685,11 @@ function InboxPage() {
       })
       .catch((e: { response?: { data?: { error?: string } }; message?: string; code?: string }) => {
         const isTimeout = e?.code === 'ECONNABORTED' || /timeout/i.test(e?.message ?? '');
-        const apiError = e?.response?.data?.error ??
-          (isTimeout ? 'The platform is taking too long to respond. Messages will load once the connection recovers.' : (e?.message ?? 'Could not load messages.'));
+        const apiError =
+          e?.response?.data?.error ??
+          (isTimeout
+            ? 'The platform is taking too long to respond. Messages will load once the connection recovers.'
+            : (e?.message ?? 'Could not load messages.'));
         const fallback = {
           messages: [] as ConversationMessage[],
           recipientId: recipientFromConv ?? null,
@@ -680,9 +706,10 @@ function InboxPage() {
         }
       })
       .finally(() => {
+        inflightConversationMessagesRef.current.delete(inflightKey);
         if (selectedConversationId === convId) setConversationMessagesLoading(false);
       });
-  }, [selectedConversationId, currentAccountForDmThread?.id, dmThreadPlatform, user?.id, conversationMessagesCache]);
+  }, [selectedConversationId, currentAccountForDmThread?.id, dmThreadPlatform, user?.id, conversations]);
 
   useEffect(() => {
     setAiReplyError(null);
@@ -753,7 +780,7 @@ function InboxPage() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, conversations, effectiveAccounts, conversationMessagesCache]);
+  }, [user?.id, conversations, effectiveAccounts]);
 
   // Fetch last message per selected conversation for batch reply cards (show "message user sent" instead of "How do you want to reply?")
   useEffect(() => {
