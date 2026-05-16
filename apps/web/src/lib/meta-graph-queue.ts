@@ -25,7 +25,7 @@ export class MetaGraphThrottledError extends Error {
 }
 
 function isRateLimitError(e: unknown): boolean {
-  const err = e as { response?: { status?: number; data?: { error?: { code?: number; message?: string } } } } };
+  const err = e as { response?: { status?: number; data?: { error?: { code?: number; message?: string } } } };
   const status = err?.response?.status;
   const code = err?.response?.data?.error?.code;
   const msg = (err?.response?.data?.error?.message ?? '').toLowerCase();
