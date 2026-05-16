@@ -362,6 +362,9 @@ function InboxPage() {
   const previousEngagementIdsRef = useRef<Set<string>>(new Set());
   const conversationsLoadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const conversationsLoadedRef = useRef(false);
+  // Stable ref so effects that call appData setters don't list appData as a dep
+  // (which would cause infinite re-run loops whenever context state updates).
+  const appDataRef = useRef(appData);
   /** Next X (Twitter) inbox fetch for these account IDs should send `manualInboxSync=1` (15m server cooldown). */
   const pendingManualInboxByAccountRef = useRef<Set<string>>(new Set());
   /** Background-prefetched conversation message cache keys: `${accountId}:${conversationId}` */
@@ -380,6 +383,9 @@ function InboxPage() {
   const [inboxExamplesLoaded, setInboxExamplesLoaded] = useState(false);
   const [xDmDebugResult, setXDmDebugResult] = useState<unknown>(null);
   const [xDmDebugLoading, setXDmDebugLoading] = useState(false);
+
+  // Keep the ref current every render so effects that use appDataRef always see the latest value.
+  appDataRef.current = appData;
 
   const hasInboxExamples = !!(inboxReplyExamples?.trim());
 
@@ -1374,7 +1380,8 @@ function InboxPage() {
           if (cancelled) return;
           const list = res.data?.engagement ?? [];
           merge.push(...list);
-          appData?.setEngagementForAccount(account.id, list as Record<string, unknown>[]);
+          // Use ref so we don't list appData as a dep (which causes an infinite re-run loop).
+          appDataRef.current?.setEngagementForAccount(account.id, list as Record<string, unknown>[]);
           if (--pending === 0) {
             merge.sort((a, b) => (b.likeCount + b.commentCount) - (a.likeCount + a.commentCount));
             setEngagement(merge);
@@ -1391,7 +1398,8 @@ function InboxPage() {
         });
     });
     return () => { cancelled = true; };
-  }, [allEngagementAccounts.map((a) => a.id).join(','), effectiveAccounts.length, appData]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allEngagementAccounts.map((a) => a.id).join(','), effectiveAccounts.length]);
 
   // Track unread conversation ids and total unread messages: use messageCount + lastRead when available.
   // When we first see a conversation (no stored lastRead), treat it as read so we only highlight new notifications after connection.
@@ -1447,11 +1455,12 @@ function InboxPage() {
   useEffect(() => {
     const messagesCount = totalUnreadMessages > 0 ? totalUnreadMessages : unreadConversationIds.size;
     const total = unreadCommentIds.size + messagesCount;
-    appData?.setNotifications({
-      ...(appData.notifications ?? { inbox: 0, comments: 0, messages: 0 }),
+    // Use ref to avoid listing appData as a dep (would cause infinite re-run when setNotifications updates context).
+    appDataRef.current?.setNotifications({
+      ...(appDataRef.current.notifications ?? { inbox: 0, comments: 0, messages: 0 }),
       inbox: Math.min(total, 99),
     });
-  }, [unreadCommentIds.size, unreadConversationIds.size, totalUnreadMessages, appData]);
+  }, [unreadCommentIds.size, unreadConversationIds.size, totalUnreadMessages]);
 
   const handlePlatformClick = (platformId: string) => {
     setSelectedPlatforms((prev) => {
