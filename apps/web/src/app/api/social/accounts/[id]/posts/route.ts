@@ -2138,7 +2138,7 @@ async function collectInstagramMediaEdgeItems(
     limit: pageLimit,
   };
   while (nextUrl && out.length < maxItems) {
-    const isFirst = !nextUrl.includes('?');
+    const isFirst: boolean = !nextUrl.includes('?');
     const res = await runMetaGraphRequest(
       `ig-sync-${edge}`,
       () => axios.get<IgSyncMediaPage>(nextUrl!, isFirst ? { params: firstParams } : {})
