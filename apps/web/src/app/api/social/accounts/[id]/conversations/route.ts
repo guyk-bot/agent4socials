@@ -573,7 +573,7 @@ export async function GET(
     let pageCount = 0;
     do {
       const currentFetchUrl: string = nextUrl ?? url;
-      const currentParams = nextUrl ? { access_token: fetchToken } : params;
+      const currentParams: Record<string, string> = nextUrl ? { access_token: fetchToken } : params;
       const res = await runMetaGraphRequest<ConvApiResponse>('conversations-list', () =>
         axios.get<ConvApiResponse>(currentFetchUrl, { params: currentParams, timeout: 60_000 })
       );
