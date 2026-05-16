@@ -116,7 +116,42 @@ type EngagementItem = {
 };
 
 const INBOX_MESSAGES_CACHE_KEY = 'agent4socials_inbox_messages_cache';
-const INBOX_MESSAGES_CACHE_MAX_BYTES = 350000;
+const INBOX_MESSAGES_CACHE_MAX_BYTES = 200_000;
+/** Max number of conversation caches kept in React state. Older ones are evicted to prevent unbounded growth. */
+const INBOX_MESSAGES_CACHE_MAX_ENTRIES = 20;
+
+type ConvCache = {
+  messages: ConversationMessage[];
+  recipientId: string | null;
+  recipientName?: string | null;
+  recipientPictureUrl?: string | null;
+  error: string | null;
+  accountId?: string;
+  /** Timestamp of last write — used for LRU eviction. */
+  _ts?: number;
+};
+
+/**
+ * Add/update one entry in the conversation messages cache, evicting the oldest
+ * entry when the cache would exceed MAX_ENTRIES. This prevents the cache from
+ * growing unboundedly when the user opens many conversations in one session.
+ */
+function withCacheEntry(
+  prev: Record<string, ConvCache>,
+  convId: string,
+  entry: Omit<ConvCache, '_ts'>
+): Record<string, ConvCache> {
+  const next = { ...prev, [convId]: { ...entry, _ts: Date.now() } };
+  const keys = Object.keys(next);
+  if (keys.length <= INBOX_MESSAGES_CACHE_MAX_ENTRIES) return next;
+  // Evict the least-recently-used key (lowest _ts), but never the current convId.
+  const sorted = keys
+    .filter((k) => k !== convId)
+    .sort((a, b) => (next[a]?._ts ?? 0) - (next[b]?._ts ?? 0));
+  const evict = sorted[0];
+  if (evict) delete next[evict];
+  return next;
+}
 
 function proxyImageUrl(url: string | null | undefined): string | null {
   if (!url) return null;
@@ -298,19 +333,7 @@ function InboxPage() {
   const [conversationRecipientId, setConversationRecipientId] = useState<string | null>(null);
   const [conversationMessagesLoading, setConversationMessagesLoading] = useState(false);
   const [conversationMessagesError, setConversationMessagesError] = useState<string | null>(null);
-  const [conversationMessagesCache, setConversationMessagesCache] = useState<
-    Record<
-      string,
-      {
-        messages: ConversationMessage[];
-        recipientId: string | null;
-        recipientName?: string | null;
-        recipientPictureUrl?: string | null;
-        error: string | null;
-        accountId?: string;
-      }
-    >
-  >({});
+  const [conversationMessagesCache, setConversationMessagesCache] = useState<Record<string, ConvCache>>({});
   const [dmReplyText, setDmReplyText] = useState('');
   const [dmReplySending, setDmReplySending] = useState(false);
   const [dmRecipientUsername, setDmRecipientUsername] = useState('');
@@ -523,17 +546,32 @@ function InboxPage() {
     }
   }, []);
 
-  // Persist conversation messages cache to sessionStorage so it survives refresh
+  // Persist conversation messages cache to sessionStorage. Debounced so rapid successive
+  // cache writes (e.g. prefetch warmup) don't trigger JSON.stringify on every keypress.
+  const persistCacheTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (typeof window === 'undefined' || Object.keys(conversationMessagesCache).length === 0) return;
-    try {
-      const str = JSON.stringify(conversationMessagesCache);
-      if (str.length <= INBOX_MESSAGES_CACHE_MAX_BYTES) {
-        sessionStorage.setItem(INBOX_MESSAGES_CACHE_KEY, str);
+    if (persistCacheTimeoutRef.current) clearTimeout(persistCacheTimeoutRef.current);
+    persistCacheTimeoutRef.current = setTimeout(() => {
+      try {
+        // Strip internal _ts field before persisting.
+        const toStore: Record<string, Omit<ConvCache, '_ts'>> = {};
+        for (const [k, v] of Object.entries(conversationMessagesCache)) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { _ts, ...rest } = v;
+          toStore[k] = rest;
+        }
+        const str = JSON.stringify(toStore);
+        if (str.length <= INBOX_MESSAGES_CACHE_MAX_BYTES) {
+          sessionStorage.setItem(INBOX_MESSAGES_CACHE_KEY, str);
+        }
+      } catch {
+        // ignore quota
       }
-    } catch {
-      // ignore quota
-    }
+    }, 2_000);
+    return () => {
+      if (persistCacheTimeoutRef.current) clearTimeout(persistCacheTimeoutRef.current);
+    };
   }, [conversationMessagesCache]);
 
   const connectedPlatforms = INBOX_PLATFORM_DEFS.filter((p) => effectiveAccounts.some((a) => a.platform === p.id));
@@ -665,17 +703,16 @@ function InboxPage() {
         const error = res.data?.error ?? null;
         const recipientName = res.data?.recipientName ?? null;
         const recipientPictureUrl = res.data?.recipientPictureUrl ?? null;
-        setConversationMessagesCache((prev) => ({
-          ...prev,
-          [convId]: {
+        setConversationMessagesCache((prev) =>
+          withCacheEntry(prev, convId, {
             messages,
             recipientId,
             recipientName,
             recipientPictureUrl,
             error,
             accountId: accountIdForFetch,
-          },
-        }));
+          })
+        );
         if (selectedConversationId === convId) {
           setConversationMessages(messages);
           setConversationLastReadCount(convId, messages.length, user?.id);
@@ -698,7 +735,7 @@ function InboxPage() {
           error: apiError as string | null,
           accountId: accountIdForFetch,
         };
-        setConversationMessagesCache((prev) => ({ ...prev, [convId]: fallback }));
+        setConversationMessagesCache((prev) => withCacheEntry(prev, convId, fallback));
         if (selectedConversationId === convId) {
           setConversationMessages([]);
           setConversationRecipientId(recipientFromConv ?? null);
@@ -755,21 +792,19 @@ function InboxPage() {
             const messages = res.data?.messages ?? [];
             const recipientFromConv = conv.senders?.[0]?.id ?? null;
             const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
-            setConversationMessagesCache((prev) => ({
-              ...prev,
-              [conv.id]: {
+            setConversationMessagesCache((prev) =>
+              withCacheEntry(prev, conv.id, {
                 messages,
                 recipientId,
                 recipientName: res.data?.recipientName ?? null,
                 recipientPictureUrl: res.data?.recipientPictureUrl ?? null,
                 error: res.data?.error ?? null,
                 accountId: account.id,
-              },
-            }));
+              })
+            );
           })
           .catch(() => {
             // Silent background warm-up: do not surface toast/errors to user.
-            // If open-time fetch is needed later, existing foreground logic handles it.
           })
       );
     }
@@ -1075,42 +1110,42 @@ function InboxPage() {
 
     let cancelled = false;
     const refreshTwitterThreadCache = async () => {
-      const twitterConversations = conversations.filter((c) => c.platform === 'TWITTER' && !!c.id).slice(0, 30);
+      // Only refresh the most recently-used 8 threads to limit memory growth and X API usage.
+      const twitterConversations = conversations.filter((c) => c.platform === 'TWITTER' && !!c.id).slice(0, 8);
       if (twitterConversations.length === 0) return;
 
-      await Promise.allSettled(
-        twitterConversations.map(async (conv) => {
-          const account = conv.messageAccountId
-            ? effectiveAccounts.find((a) => a.id === conv.messageAccountId)
-            : effectiveAccounts.find((a) => a.platform === 'TWITTER');
-          if (!account) return;
-          try {
-            const res = await api.get(`/social/accounts/${account.id}/conversations/${conv.id}/messages`, { timeout: 60_000 });
-            if (cancelled) return;
-            const messages = res.data?.messages ?? [];
-            const recipientFromConv = conv.senders?.[0]?.id ?? null;
-            const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
-            setConversationMessagesCache((prev) => ({
-              ...prev,
-              [conv.id]: {
-                messages,
-                recipientId,
-                recipientName: res.data?.recipientName ?? null,
-                recipientPictureUrl: res.data?.recipientPictureUrl ?? null,
-                error: res.data?.error ?? null,
-                accountId: account.id,
-              },
-            }));
-          } catch {
-            // Silent refresh failure; foreground open still uses existing cache/fetch flow.
-          }
-        })
-      );
+      // Sequential (not parallel) to avoid hammering X API and avoid concurrent React state updates.
+      for (const conv of twitterConversations) {
+        if (cancelled) return;
+        const account = conv.messageAccountId
+          ? effectiveAccounts.find((a) => a.id === conv.messageAccountId)
+          : effectiveAccounts.find((a) => a.platform === 'TWITTER');
+        if (!account) continue;
+        try {
+          const res = await api.get(`/social/accounts/${account.id}/conversations/${conv.id}/messages`, { timeout: 60_000 });
+          if (cancelled) return;
+          const messages = res.data?.messages ?? [];
+          const recipientFromConv = conv.senders?.[0]?.id ?? null;
+          const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
+          setConversationMessagesCache((prev) =>
+            withCacheEntry(prev, conv.id, {
+              messages,
+              recipientId,
+              recipientName: res.data?.recipientName ?? null,
+              recipientPictureUrl: res.data?.recipientPictureUrl ?? null,
+              error: res.data?.error ?? null,
+              accountId: account.id,
+            })
+          );
+        } catch {
+          // Silent refresh failure; foreground open still uses existing cache/fetch flow.
+        }
+      }
     };
 
     const interval = setInterval(() => {
       void refreshTwitterThreadCache();
-    }, 5 * 60_000);
+    }, 10 * 60_000); // 10 min — was 5 min, reduced to halve background memory pressure
 
     return () => {
       cancelled = true;
@@ -3138,20 +3173,17 @@ function InboxPage() {
                             );
                             setConversationRecipientId(res.data.id);
                             if (selectedConversationId) {
-                              setConversationMessagesCache((prev) => {
-                                const prevCache = prev[selectedConversationId];
-                                return {
-                                  ...prev,
-                                  [selectedConversationId]: {
-                                    messages: prevCache?.messages ?? [],
-                                    recipientId: res.data.id,
-                                    recipientName: res.data.name ?? res.data.username ?? null,
-                                    recipientPictureUrl: res.data.profile_image_url ?? null,
-                                    error: prevCache?.error ?? null,
-                                    accountId: account.id,
-                                  },
-                                };
-                              });
+                              const cid = selectedConversationId;
+                              setConversationMessagesCache((prev) =>
+                                withCacheEntry(prev, cid, {
+                                  messages: prev[cid]?.messages ?? [],
+                                  recipientId: res.data.id,
+                                  recipientName: res.data.name ?? res.data.username ?? null,
+                                  recipientPictureUrl: res.data.profile_image_url ?? null,
+                                  error: prev[cid]?.error ?? null,
+                                  accountId: account.id,
+                                })
+                              );
                             }
                             setDmRecipientUsername('');
                           } catch (e: unknown) {
@@ -3244,17 +3276,17 @@ function InboxPage() {
                       const nextRecipientId = res.data?.recipientId ?? conversationRecipientId ?? null;
                       setConversationRecipientId(nextRecipientId);
                       setConversationMessagesError(res.data?.error ?? null);
-                      setConversationMessagesCache((prev) => ({
-                        ...prev,
-                        [selectedConversationId]: {
+                      const cid2 = selectedConversationId;
+                      setConversationMessagesCache((prev) =>
+                        withCacheEntry(prev, cid2, {
                           messages,
                           recipientId: nextRecipientId,
-                          recipientName: res.data?.recipientName ?? (prev[selectedConversationId]?.recipientName) ?? null,
-                          recipientPictureUrl: res.data?.recipientPictureUrl ?? (prev[selectedConversationId]?.recipientPictureUrl) ?? null,
+                          recipientName: res.data?.recipientName ?? prev[cid2]?.recipientName ?? null,
+                          recipientPictureUrl: res.data?.recipientPictureUrl ?? prev[cid2]?.recipientPictureUrl ?? null,
                           error: res.data?.error ?? null,
                           accountId: account.id,
-                        },
-                      }));
+                        })
+                      );
                       api.get<{ inbox?: number; comments?: number; messages?: number; byPlatform?: Record<string, { comments: number; messages: number }> }>('/social/notifications').then((r) => {
                         if (r.data && appData) appData.setNotifications({
                           inbox: r.data.inbox ?? 0,
