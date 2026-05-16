@@ -7,8 +7,36 @@ import { refreshTwitterToken } from '@/lib/twitter-refresh';
 import { checkAndIncrementXApiUsage } from '@/lib/x/x-api-usage';
 
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
-import { isMetaNonCriticalThrottled } from '@/lib/meta-usage-guard';
+import { isMetaNonCriticalThrottled, noteMetaUsageFromHeaders, noteMetaRateLimitError } from '@/lib/meta-usage-guard';
 import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
+
+/** Cache enriched Instagram sender profiles in app_kv for 7 days — avoids re-fetching on every Inbox open. */
+const PROFILE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+async function readCachedProfile(userId: string): Promise<{ name?: string; username?: string; pictureUrl?: string | null } | null> {
+  try {
+    const { prisma: db } = await import('@/lib/db');
+    const rows = await db.$queryRaw<Array<{ value: string; expiresAt: Date | null }>>`
+      SELECT value, "expiresAt" FROM app_kv WHERE key = ${'ig-profile:' + userId} LIMIT 1
+    `;
+    if (!rows[0]) return null;
+    if (rows[0].expiresAt && rows[0].expiresAt < new Date()) return null;
+    return JSON.parse(rows[0].value) as { name?: string; username?: string; pictureUrl?: string | null };
+  } catch { return null; }
+}
+
+async function writeCachedProfile(userId: string, data: { name?: string; username?: string; pictureUrl?: string | null }): Promise<void> {
+  try {
+    const { prisma: db } = await import('@/lib/db');
+    const expiresAt = new Date(Date.now() + PROFILE_CACHE_TTL_MS);
+    await db.$executeRaw`
+      INSERT INTO app_kv (key, value, "expiresAt", "updatedAt")
+      VALUES (${'ig-profile:' + userId}, ${JSON.stringify(data)}, ${expiresAt}, now())
+      ON CONFLICT (key) DO UPDATE
+        SET value = ${JSON.stringify(data)}, "expiresAt" = ${expiresAt}, "updatedAt" = now()
+    `;
+  } catch { /* non-critical */ }
+}
 
 const baseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
@@ -71,6 +99,16 @@ export async function GET(
   });
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
+  }
+
+  // For Instagram/Facebook: skip live API when throttled (return empty so Inbox shows cached data).
+  const isMetaConvAccount = account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK';
+  if (isMetaConvAccount && isMetaNonCriticalThrottled()) {
+    return NextResponse.json({
+      conversations: [],
+      metaThrottled: true,
+      hint: 'Meta API usage is high. Inbox will reload automatically in a few minutes.',
+    });
   }
 
   if (account.platform === 'PINTEREST' || account.platform === 'LINKEDIN') {
@@ -527,19 +565,23 @@ export async function GET(
   async function fetchAllConversations(
     url: string,
     params: Record<string, string>,
-    token: string,
+    fetchToken: string,
     pageLimit = 5
   ): Promise<ConvItem[]> {
     const all: ConvItem[] = [];
     let nextUrl: string | null = null;
     let pageCount = 0;
     do {
-      const res: AxiosResponse<ConvApiResponse> = await axios.get(nextUrl ?? url, {
-        params: nextUrl ? { access_token: token } : params,
-        timeout: 60_000,
-      });
+      const currentFetchUrl: string = nextUrl ?? url;
+      const currentParams = nextUrl ? { access_token: fetchToken } : params;
+      const res = await runMetaGraphRequest<ConvApiResponse>('conversations-list', () =>
+        axios.get<ConvApiResponse>(currentFetchUrl, { params: currentParams, timeout: 60_000 })
+      );
+      noteMetaUsageFromHeaders(res.headers);
       if (res.data?.error) {
-        throw Object.assign(new Error(res.data.error.message ?? 'Meta API error'), { metaError: res.data.error });
+        const msg = res.data.error.message ?? 'Meta API error';
+        if (/rate.?limit|too many/i.test(msg)) noteMetaRateLimitError();
+        throw Object.assign(new Error(msg), { metaError: res.data.error });
       }
       all.push(...(res.data?.data ?? []));
       nextUrl = res.data?.paging?.next ?? null;
@@ -610,15 +652,18 @@ export async function GET(
       };
     });
 
-    // Enrich senders with profile picture (and name/username if missing).
-    // For Instagram we always fetch profiles so we get profile_pic; participants API often doesn't include it.
+    // Enrich senders with profile picture only when data is missing from the conversation list.
+    // - Skip any sender that already has a pictureUrl from the participants response.
+    // - Check the app_kv profile cache first (7-day TTL) before making a live API call.
+    // This reduces enrich calls from up to 20 per Inbox open to near-zero for returning users.
     const idsToEnrich = new Set<string>();
     for (const conv of list) {
       for (const s of conv.senders) {
-        if (s.id) idsToEnrich.add(s.id);
+        // Only enrich if we don't already have a picture from the conversation list
+        if (s.id && !s.pictureUrl) idsToEnrich.add(s.id);
       }
     }
-    const skipProfileEnrich = isInstagram && isMetaNonCriticalThrottled();
+    const skipProfileEnrich = isMetaNonCriticalThrottled();
     if (idsToEnrich.size > 0 && !skipProfileEnrich) {
       try {
         const profiles = new Map<
@@ -629,6 +674,12 @@ export async function GET(
         if (isInstagram) {
           const enrichIds = Array.from(idsToEnrich).slice(0, 20);
           for (const id of enrichIds) {
+            // Check cache first — avoid API call if profile was fetched recently
+            const cached = await readCachedProfile(id);
+            if (cached) {
+              profiles.set(id, cached);
+              continue;
+            }
             try {
               if (isInstagramBusinessLogin) {
                 const profileRes = await runMetaGraphRequest(
@@ -649,10 +700,13 @@ export async function GET(
                       timeout: 12_000,
                     })
                 );
+                noteMetaUsageFromHeaders(profileRes.headers);
                 const p = profileRes.data;
                 const pictureUrl = p.profile_pic ?? p.profile_picture_url ?? p.picture?.data?.url ?? null;
-                profiles.set(id, { name: p.name, username: p.username, pictureUrl });
-                if (p?.id && p.id !== id) profiles.set(p.id, { name: p.name, username: p.username, pictureUrl });
+                const profileData = { name: p.name, username: p.username, pictureUrl };
+                profiles.set(id, profileData);
+                void writeCachedProfile(id, profileData);
+                if (p?.id && p.id !== id) { profiles.set(p.id, profileData); void writeCachedProfile(p.id, profileData); }
               } else {
                 const profileRes = await runMetaGraphRequest(
                   'conversation-sender-profile',
@@ -672,10 +726,13 @@ export async function GET(
                       timeout: 12_000,
                     })
                 );
+                noteMetaUsageFromHeaders(profileRes.headers);
                 const p = profileRes.data;
                 const pictureUrl = p.profile_pic ?? p.picture?.data?.url ?? null;
-                profiles.set(id, { name: p.name, username: p.username, pictureUrl });
-                if (p?.id && p.id !== id) profiles.set(p.id, { name: p.name, username: p.username, pictureUrl });
+                const profileData = { name: p.name, username: p.username, pictureUrl };
+                profiles.set(id, profileData);
+                void writeCachedProfile(id, profileData);
+                if (p?.id && p.id !== id) { profiles.set(p.id, profileData); void writeCachedProfile(p.id, profileData); }
               }
             } catch (e) {
               if (e instanceof MetaGraphThrottledError) break;

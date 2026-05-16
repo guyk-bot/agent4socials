@@ -97,7 +97,9 @@ export function SummaryDashboard() {
               .catch(() => tick())
           );
         } else { tick(); }
-        if (!cachedInsights) {
+        // Skip insights auto-fetch for Instagram/Facebook — the insights route makes 5-10 live
+        // Graph calls and burns through the 200 call/hour per-user budget on every page load.
+        if (!cachedInsights && !skipMetaSync) {
           batch.push(
             api.get(`/social/accounts/${acc.id}/insights`, { params: { since: dateRange.start, until: dateRange.end }, timeout: 70_000 })
               .then((r) => {

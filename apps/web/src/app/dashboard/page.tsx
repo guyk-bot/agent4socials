@@ -1543,6 +1543,9 @@ export default function DashboardPage() {
           results.push({ platform: acc.platform, data: cached as Record<string, unknown> });
           continue;
         }
+        // Never auto-fetch insights for Instagram/Facebook — each call makes 5-10 live Graph requests
+        // and burns through the 200 calls/hour per-user budget. These only load on explicit Sync.
+        if (acc.platform === 'INSTAGRAM' || acc.platform === 'FACEBOOK') continue;
         try {
           const r = await api.get(`/social/accounts/${acc.id}/insights`, {
             params: { since: dateRange.start, until: dateRange.end },
@@ -1584,29 +1587,13 @@ export default function DashboardPage() {
   }, [analyticsTab, hasAccounts, dateRange.start, dateRange.end, accounts.map((a) => a.id).join(','), appData?.prefetchPhase2Done]);
 
   useEffect(() => {
+    // Conversations count card: skip for Instagram/Facebook to avoid burning Graph API quota.
+    // Each call hits GET /conversations which fetches the list + up to 20 profile lookups.
+    // The Inbox page loads conversations on-demand when the user actually opens it.
     if ((selectedAccount?.platform !== 'FACEBOOK' && selectedAccount?.platform !== 'INSTAGRAM') || !selectedAccount?.id) {
       setLiveFbConversationsCount(null);
       setLiveFbConversationDates(null);
-      return;
     }
-    let cancelled = false;
-    api.get(`/social/accounts/${selectedAccount.id}/conversations`)
-      .then((res) => {
-        if (cancelled) return;
-        const list = Array.isArray(res.data?.conversations) ? res.data.conversations : [];
-        setLiveFbConversationsCount(list.length);
-        const dates = list
-          .map((c: { updatedTime?: string | null }) => (c?.updatedTime ? String(c.updatedTime).slice(0, 10) : null))
-          .filter((d: string | null): d is string => Boolean(d));
-        setLiveFbConversationDates(dates);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setLiveFbConversationsCount(null);
-          setLiveFbConversationDates(null);
-        }
-      });
-    return () => { cancelled = true; };
   }, [selectedAccount?.id, selectedAccount?.platform]);
 
   const handleConnect = async (platform: string, method?: string) => {
