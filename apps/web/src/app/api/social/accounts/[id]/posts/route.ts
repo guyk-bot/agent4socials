@@ -2139,9 +2139,9 @@ async function collectInstagramMediaEdgeItems(
   };
   while (nextUrl && out.length < maxItems) {
     const isFirst = !nextUrl.includes('?');
-    const res: AxiosResponse<IgSyncMediaPage> = await runMetaGraphRequest(
+    const res = await runMetaGraphRequest(
       `ig-sync-${edge}`,
-      () => axios.get<IgSyncMediaPage>(nextUrl, isFirst ? { params: firstParams } : {})
+      () => axios.get<IgSyncMediaPage>(nextUrl!, isFirst ? { params: firstParams } : {})
     );
     const page = res.data?.data ?? [];
     for (const row of page) {
