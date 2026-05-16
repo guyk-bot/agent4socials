@@ -37,13 +37,12 @@ async function fetchAllPages<T>(
   let pages = 0;
 
   while (nextUrl && pages < pageLimit) {
-    const response: { data?: { data?: T[]; paging?: { next?: string } }; headers?: Record<string, string | undefined> } =
-      await runMetaGraphRequest('comments-page', () =>
-        axios.get(nextUrl, {
-          ...(nextParams ? { params: nextParams } : {}),
-          timeout: 15_000,
-        })
-      );
+    const response = await runMetaGraphRequest('comments-page', () =>
+      axios.get<{ data?: T[]; paging?: { next?: string } }>(nextUrl!, {
+        ...(nextParams ? { params: nextParams } : {}),
+        timeout: 15_000,
+      })
+    );
     out.push(...(response.data?.data ?? []));
     nextUrl = response.data?.paging?.next ?? null;
     nextParams = undefined;
