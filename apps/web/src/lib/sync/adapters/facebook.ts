@@ -10,6 +10,8 @@ import {
 } from '@/lib/analytics/metric-snapshots';
 import axios from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
+import { isMetaNonCriticalThrottled } from '@/lib/meta-usage-guard';
+import { runMetaGraphRequest } from '@/lib/meta-graph-queue';
 
 const fbBaseUrl = facebookGraphBaseUrl;
 
@@ -42,9 +44,10 @@ async function syncAccountOverview(account: AccountRow) {
 }
 
 async function syncRecentContent(account: AccountRow) {
+  if (isMetaNonCriticalThrottled()) return { itemsProcessed: 0, partial: true };
   let items = 0;
   try {
-    const res = await axios.get<{
+    const res = await runMetaGraphRequest('fb-adapter-posts', () => axios.get<{
       data?: Array<{
         id: string;
         message?: string;
@@ -66,7 +69,7 @@ async function syncRecentContent(account: AccountRow) {
         access_token: account.accessToken,
       },
       timeout: 12_000,
-    });
+    }));
 
     if (res.data?.error) return { itemsProcessed: 0, partial: true };
     const posts = res.data?.data ?? [];
@@ -116,6 +119,7 @@ async function syncRecentContent(account: AccountRow) {
 }
 
 async function syncContentMetrics(account: AccountRow) {
+  if (isMetaNonCriticalThrottled()) return { itemsProcessed: 0 };
   const recentPosts = await prisma.importedPost.findMany({
     where: {
       socialAccountId: account.id,
@@ -129,7 +133,7 @@ async function syncContentMetrics(account: AccountRow) {
   let items = 0;
   for (const post of recentPosts) {
     try {
-      const res = await axios.get<{
+      const res = await runMetaGraphRequest('fb-adapter-post-insights', () => axios.get<{
         data?: Array<{ name: string; values?: Array<{ value: number }> }>;
         error?: { message?: string };
       }>(`${fbBaseUrl}/${post.platformPostId}/insights`, {
@@ -139,7 +143,7 @@ async function syncContentMetrics(account: AccountRow) {
           access_token: account.accessToken,
         },
         timeout: 8_000,
-      });
+      }));
       if (res.data?.error || !res.data?.data) continue;
 
       const metrics: Record<string, number> = {};

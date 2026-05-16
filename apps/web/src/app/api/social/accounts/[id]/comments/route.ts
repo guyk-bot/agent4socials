@@ -22,9 +22,9 @@ import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-q
  *     cadence via the sync engine.
  *   - REPLY_FETCH_LIMIT: how many top-level comments we fan out replies for.
  */
-const MAX_SOURCES = 40;
-const COMMENTS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min for inbox freshness target
-const REPLY_FETCH_LIMIT = 12;
+const MAX_SOURCES = 15; // Reduced: each post = 1+ Graph call; 40 posts × N inbox opens = app rate spike
+const COMMENTS_CACHE_TTL_MS = 8 * 60 * 1000; // 8 min — longer TTL reduces re-fetches across Vercel instances
+const REPLY_FETCH_LIMIT = 8;
 
 async function fetchAllPages<T>(
   initialUrl: string,
@@ -797,7 +797,8 @@ export async function GET(
   if (!deltaMode && !error) setCached(cacheKey, payload, COMMENTS_CACHE_TTL_MS);
 
   const res = NextResponse.json(payload);
-  res.headers.set('Cache-Control', 'private, max-age=60');
+  // 5-min private cache lets the browser reuse the last response without another Lambda roundtrip.
+  res.headers.set('Cache-Control', 'private, max-age=300');
   res.headers.set('X-Comments-Cache', 'MISS');
   return res;
 }

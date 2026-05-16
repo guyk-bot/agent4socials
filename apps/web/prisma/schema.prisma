@@ -487,3 +487,13 @@ model SyncJob {
   @@index([socialAccountId, createdAt])
   @@map("sync_jobs")
 }
+
+// Global key-value store for app-wide state that survives across Vercel instances.
+model AppKv {
+  key       String   @id
+  value     String
+  expiresAt DateTime?
+  updatedAt DateTime @updatedAt
+
+  @@map("app_kv")
+}
