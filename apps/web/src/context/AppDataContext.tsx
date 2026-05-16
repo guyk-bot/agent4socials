@@ -520,7 +520,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           if (CONVO_PLATFORMS.has(acc.platform)) {
             try {
               const r = await api.get<{ conversations?: CachedConversation[]; error?: string }>(
-                `/social/accounts/${acc.id}/conversations?includeMessageCounts=1`
+                `/social/accounts/${acc.id}/conversations`
               );
               if (!cancelled && shouldApplyPhase2Write() && !r.data?.error) {
                 setConversationsByAccountId((prev) => ({ ...prev, [acc.id]: r.data?.conversations ?? [] }));

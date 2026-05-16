@@ -723,7 +723,7 @@ function InboxPage() {
 
     const targets = conversations
       .filter((c) => c.id && c.platform && DM_THREAD_PLATFORM_IDS.has(c.platform))
-      .slice(0, 30); // safety cap, keeps prefetch lightweight even for large inboxes
+      .slice(0, 8); // capped: each thread is multiple Meta Graph calls
     if (targets.length === 0) return;
 
     let cancelled = false;
@@ -938,7 +938,7 @@ function InboxPage() {
       const wantManual = platform === 'TWITTER' && pendingManualInboxByAccountRef.current.has(account.id);
       if (wantManual) pendingManualInboxByAccountRef.current.delete(account.id);
       const convUrl =
-        `/social/accounts/${account.id}/conversations?includeMessageCounts=1` +
+        `/social/accounts/${account.id}/conversations` +
         `${wantManual ? '&manualInboxSync=1' : ''}` +
         `${since ? `&since=${encodeURIComponent(since)}&delta=1` : ''}`;
       api.get(convUrl)

@@ -7,6 +7,7 @@ import { loadConversationForFirstWelcome } from '@/lib/inbox/load-conversation-f
 import { signTwitterRequest } from '@/lib/twitter-oauth1';
 import { checkAndIncrementXApiUsage } from '@/lib/x/x-api-usage';
 import { refreshTwitterToken } from '@/lib/twitter-refresh';
+import { isMetaNonCriticalThrottled } from '@/lib/meta-usage-guard';
 
 const fbBaseUrl = facebookGraphBaseUrl;
 
@@ -217,6 +218,12 @@ export async function runDmFirstWelcomeCronSweep(): Promise<DmFirstWelcomeSweepS
     for (const acc of user.socialAccounts) {
       if (Date.now() > deadline) break;
       if (!user.automationSettings || !automationFirstIncomingReady(user.automationSettings, acc.platform)) continue;
+      if (
+        (acc.platform === 'INSTAGRAM' || acc.platform === 'FACEBOOK') &&
+        isMetaNonCriticalThrottled()
+      ) {
+        continue;
+      }
       accountsEligible++;
 
       let convoIds: string[] = [];

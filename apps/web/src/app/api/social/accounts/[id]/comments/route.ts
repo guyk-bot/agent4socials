@@ -389,6 +389,7 @@ export async function GET(
           select: { thumbnailUrl: true },
         });
         if (imp?.thumbnailUrl) return imp.thumbnailUrl;
+        if (metaThrottle) return null;
         // 3) Last-resort object GET: Instagram Business Login tokens resolve media on
         // graph.instagram.com; graph.facebook.com/{id} often returns invalid id and still
         // bills app usage (Meta dashboard "InvalidID").

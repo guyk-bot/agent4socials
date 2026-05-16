@@ -30,6 +30,7 @@ import { checkAndIncrementXApiUsage } from '@/lib/x/x-api-usage';
 import { fetchTweetsByIdsBatched, metricsFromTweetPayload } from '@/lib/x/twitter-tweets-batch';
 import { refreshTwitterToken } from '@/lib/twitter-refresh';
 import { isMetaNonCriticalThrottled, noteMetaRateLimitError, noteMetaUsageFromHeaders } from '@/lib/meta-usage-guard';
+import { runMetaGraphRequest } from '@/lib/meta-graph-queue';
 
 export const maxDuration = 60;
 
@@ -840,7 +841,9 @@ export async function GET(
     const metaThrottle = account.platform === 'INSTAGRAM' && isMetaNonCriticalThrottled();
     let syncError: string | undefined;
     let syncSkippedDueToCooldown = false;
-    if (sync) {
+    if (sync && metaThrottle) {
+      syncSkippedDueToCooldown = true;
+    } else if (sync) {
       // Skip the expensive platform sync if it ran within the last 10 minutes, unless force=1.
       const SYNC_COOLDOWN_MS = 10 * 60 * 1000;
       const lastSync = account.lastSyncAttemptAt?.getTime() ?? 0;
@@ -2129,9 +2132,9 @@ async function collectInstagramMediaEdgeItems(
   };
   while (nextUrl && out.length < maxItems) {
     const isFirst = !nextUrl.includes('?');
-    const res: AxiosResponse<IgSyncMediaPage> = await axios.get<IgSyncMediaPage>(
-      nextUrl,
-      isFirst ? { params: firstParams } : {}
+    const res: AxiosResponse<IgSyncMediaPage> = await runMetaGraphRequest(
+      `ig-sync-${edge}`,
+      () => axios.get<IgSyncMediaPage>(nextUrl, isFirst ? { params: firstParams } : {})
     );
     const page = res.data?.data ?? [];
     for (const row of page) {
@@ -2162,11 +2165,12 @@ async function refetchIgMediaThumbnail(
   const bases = tryIgFallback ? [fbRestBaseUrl, igGraphRestBaseUrl] : [fbRestBaseUrl];
   for (const apiBase of bases) {
     try {
-      const refetch = await axios.get<{ thumbnail_url?: string; media_url?: string }>(
-        `${apiBase}/${mediaId}`,
-        { params: { fields: 'thumbnail_url,media_url', access_token: accessToken }, timeout: 8000 }
+      const refetch = await runMetaGraphRequest('ig-media-thumbnail', () =>
+        axios.get<{ thumbnail_url?: string; media_url?: string }>(
+          `${apiBase}/${mediaId}`,
+          { params: { fields: 'thumbnail_url,media_url', access_token: accessToken }, timeout: 8000 }
+        )
       );
-      noteMetaUsageFromHeaders(refetch.headers);
       const u = refetch.data?.thumbnail_url ?? refetch.data?.media_url;
       if (u) return u;
     } catch {
@@ -2192,32 +2196,30 @@ async function syncImportedPosts(
 ): Promise<string | undefined> {
   if (platform === 'INSTAGRAM') {
     /** Cap media list size; post-level /insights are filled by sync post_metrics, not here. */
-    const maxMedia = 150;
+    const throttled = isMetaNonCriticalThrottled();
+    const maxMedia = throttled ? 50 : 150;
     const merged = new Map<string, IgSyncMediaItem>();
     const igBases = [fbRestBaseUrl, igGraphRestBaseUrl];
     let primaryError: Error | null = null;
 
     for (const apiBase of igBases) {
       if (merged.size >= maxMedia) break;
-      for (const edge of ['media', 'tags'] as const) {
-        if (merged.size >= maxMedia) break;
-        try {
-          const chunk = await collectInstagramMediaEdgeItems(
-            apiBase,
-            platformUserId,
-            accessToken,
-            edge,
-            maxMedia - merged.size
-          );
-          for (const m of chunk) {
-            if (!m?.id) continue;
-            const prev = merged.get(m.id);
-            merged.set(m.id, prev ? mergeIgSyncMediaItem(prev, m) : m);
-          }
-        } catch (e) {
-          if (apiBase === fbRestBaseUrl && edge === 'media') {
-            primaryError = e instanceof Error ? e : new Error(String(e));
-          }
+      try {
+        const chunk = await collectInstagramMediaEdgeItems(
+          apiBase,
+          platformUserId,
+          accessToken,
+          'media',
+          maxMedia - merged.size
+        );
+        for (const m of chunk) {
+          if (!m?.id) continue;
+          const prev = merged.get(m.id);
+          merged.set(m.id, prev ? mergeIgSyncMediaItem(prev, m) : m);
+        }
+      } catch (e) {
+        if (apiBase === fbRestBaseUrl) {
+          primaryError = e instanceof Error ? e : new Error(String(e));
         }
       }
     }
@@ -2241,12 +2243,14 @@ async function syncImportedPosts(
         m.media_type === 'VIDEO'
           ? (m.thumbnail_url ?? m.media_url ?? null)
           : (m.media_url ?? m.thumbnail_url ?? null);
-      if (!thumbnailUrl && m.media_type === 'CAROUSEL_ALBUM') {
+      if (!thumbnailUrl && m.media_type === 'CAROUSEL_ALBUM' && !throttled) {
         for (const apiBase of igBases) {
           try {
-            const childRes = await axios.get<{ data?: Array<{ media_url?: string }> }>(
-              `${apiBase}/${m.id}/children`,
-              { params: { fields: 'media_url', access_token: accessToken } }
+            const childRes = await runMetaGraphRequest('ig-carousel-children', () =>
+              axios.get<{ data?: Array<{ media_url?: string }> }>(
+                `${apiBase}/${m.id}/children`,
+                { params: { fields: 'media_url', access_token: accessToken } }
+              )
             );
             const first = childRes.data?.data?.[0];
             if (first?.media_url) {

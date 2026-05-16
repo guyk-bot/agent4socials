@@ -7,6 +7,8 @@ import { refreshTwitterToken } from '@/lib/twitter-refresh';
 import { checkAndIncrementXApiUsage } from '@/lib/x/x-api-usage';
 
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
+import { isMetaNonCriticalThrottled } from '@/lib/meta-usage-guard';
+import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
 
 const baseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
@@ -616,7 +618,8 @@ export async function GET(
         if (s.id) idsToEnrich.add(s.id);
       }
     }
-    if (idsToEnrich.size > 0) {
+    const skipProfileEnrich = isInstagram && isMetaNonCriticalThrottled();
+    if (idsToEnrich.size > 0 && !skipProfileEnrich) {
       try {
         const profiles = new Map<
           string,
@@ -624,46 +627,60 @@ export async function GET(
         >();
 
         if (isInstagram) {
-          // For Instagram Business Login: use graph.instagram.com with the IG User token.
-          // For Facebook Login: use graph.facebook.com with the Page token — sender IDs are
-          // Instagram-Scoped IDs (IGSID) which are accessible on graph.facebook.com too.
-          await Promise.all(
-            Array.from(idsToEnrich).map(async (id) => {
-              try {
-                if (isInstagramBusinessLogin) {
-                  const profileRes = await axios.get<{
-                    id?: string; name?: string; username?: string;
-                    profile_pic?: string; profile_picture_url?: string;
-                    picture?: { data?: { url?: string } };
-                  }>(`https://graph.instagram.com/v25.0/${id}`, {
-                    params: { fields: 'name,username,profile_pic,profile_picture_url,picture', access_token: igUserToken! },
-                    timeout: 15_000,
-                  });
-                  const p = profileRes.data;
-                  const pictureUrl = p.profile_pic ?? p.profile_picture_url ?? p.picture?.data?.url ?? null;
-                  // Always use the query `id` as the map key so the lookup in conv.senders always works,
-                  // even if the API returns a slightly different id format in the response body.
-                  profiles.set(id, { name: p.name, username: p.username, pictureUrl });
-                  if (p?.id && p.id !== id) profiles.set(p.id, { name: p.name, username: p.username, pictureUrl });
-                } else {
-                  // Facebook Login: look up IGSID profile via graph.facebook.com with Page token
-                  const profileRes = await axios.get<{
-                    id?: string; name?: string; username?: string; profile_pic?: string;
-                    picture?: { data?: { url?: string } };
-                  }>(`${baseUrl}/${id}`, {
-                    params: { fields: 'id,name,username,profile_pic,picture.type(large)', access_token: activeToken },
-                    timeout: 15_000,
-                  });
-                  const p = profileRes.data;
-                  const pictureUrl = p.profile_pic ?? p.picture?.data?.url ?? null;
-                  profiles.set(id, { name: p.name, username: p.username, pictureUrl });
-                  if (p?.id && p.id !== id) profiles.set(p.id, { name: p.name, username: p.username, pictureUrl });
-                }
-              } catch {
-                // ignore per-profile failures
+          const enrichIds = Array.from(idsToEnrich).slice(0, 20);
+          for (const id of enrichIds) {
+            try {
+              if (isInstagramBusinessLogin) {
+                const profileRes = await runMetaGraphRequest(
+                  'conversation-sender-profile',
+                  () =>
+                    axios.get<{
+                      id?: string;
+                      name?: string;
+                      username?: string;
+                      profile_pic?: string;
+                      profile_picture_url?: string;
+                      picture?: { data?: { url?: string } };
+                    }>(`https://graph.instagram.com/v25.0/${id}`, {
+                      params: {
+                        fields: 'name,username,profile_pic,profile_picture_url,picture',
+                        access_token: igUserToken!,
+                      },
+                      timeout: 12_000,
+                    })
+                );
+                const p = profileRes.data;
+                const pictureUrl = p.profile_pic ?? p.profile_picture_url ?? p.picture?.data?.url ?? null;
+                profiles.set(id, { name: p.name, username: p.username, pictureUrl });
+                if (p?.id && p.id !== id) profiles.set(p.id, { name: p.name, username: p.username, pictureUrl });
+              } else {
+                const profileRes = await runMetaGraphRequest(
+                  'conversation-sender-profile',
+                  () =>
+                    axios.get<{
+                      id?: string;
+                      name?: string;
+                      username?: string;
+                      profile_pic?: string;
+                      picture?: { data?: { url?: string } };
+                    }>(`${baseUrl}/${id}`, {
+                      params: {
+                        fields: 'id,name,username,profile_pic,picture.type(large)',
+                        access_token: activeToken,
+                        ...(isInstagram ? { platform: 'instagram' } : {}),
+                      },
+                      timeout: 12_000,
+                    })
+                );
+                const p = profileRes.data;
+                const pictureUrl = p.profile_pic ?? p.picture?.data?.url ?? null;
+                profiles.set(id, { name: p.name, username: p.username, pictureUrl });
+                if (p?.id && p.id !== id) profiles.set(p.id, { name: p.name, username: p.username, pictureUrl });
               }
-            })
-          );
+            } catch (e) {
+              if (e instanceof MetaGraphThrottledError) break;
+            }
+          }
         } else {
           // Facebook Page messaging: batch lookup for name and picture.
           const idsParam = Array.from(idsToEnrich).join(',');
@@ -725,31 +742,39 @@ export async function GET(
       list = list.filter((c) => !!c.updatedTime && c.updatedTime.localeCompare(sinceIso) > 0);
     }
 
-    // Optional: fetch message count per conversation for unread badge (limit 25 to avoid timeout)
-    if (includeMessageCounts && list.length > 0) {
-      const toFetch = list.slice(0, 25);
-      const counts = await Promise.all(
-        toFetch.map(async (conv): Promise<number> => {
-          try {
-            if (isInstagram) {
-              const res = await axios.get<{ messages?: { data?: unknown[] }; error?: { message?: string } }>(
-                `${igBaseUrl}/${conv.id}`,
-                { params: { fields: 'messages', access_token: activeToken }, timeout: 8_000 }
-              );
-              if (res.data?.error) return 0;
-              return (res.data?.messages?.data ?? []).length;
-            } else {
-              const res = await axios.get<{ data?: unknown[] }>(
-                `${baseUrl}/${conv.id}/messages`,
-                { params: { fields: 'id', access_token: token }, timeout: 8_000 }
-              );
-              return (res.data?.data ?? []).length;
-            }
-          } catch {
-            return 0;
+    // Optional message counts: capped + sequential (25 parallel Meta calls caused app rate-limit spikes).
+    const metaThrottle = isInstagram && isMetaNonCriticalThrottled();
+    if (includeMessageCounts && list.length > 0 && !metaThrottle) {
+      const toFetch = list.slice(0, 12);
+      const counts: number[] = [];
+      for (const conv of toFetch) {
+        try {
+          if (isInstagram) {
+            const res = await runMetaGraphRequest(
+              'conversations-message-count',
+              () =>
+                axios.get<{ messages?: { data?: unknown[] }; error?: { message?: string } }>(
+                  `${igBaseUrl}/${conv.id}`,
+                  { params: { fields: 'messages', access_token: activeToken }, timeout: 8_000 }
+                )
+            );
+            if (res.data?.error) counts.push(0);
+            else counts.push((res.data?.messages?.data ?? []).length);
+          } else {
+            const res = await runMetaGraphRequest(
+              'conversations-message-count',
+              () =>
+                axios.get<{ data?: unknown[] }>(`${baseUrl}/${conv.id}/messages`, {
+                  params: { fields: 'id', access_token: token },
+                  timeout: 8_000,
+                })
+            );
+            counts.push((res.data?.data ?? []).length);
           }
-        })
-      );
+        } catch {
+          counts.push(0);
+        }
+      }
       list = list.map((c, i) => ({
         ...c,
         messageCount: i < counts.length ? counts[i] : undefined,

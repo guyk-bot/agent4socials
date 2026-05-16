@@ -82,9 +82,14 @@ export function SummaryDashboard() {
         const cachedPosts = appData?.getPosts(acc.id);
         const cachedInsights = appData?.getInsights(acc.id);
         const batch: Promise<void>[] = [];
+        const skipMetaSync =
+          acc.platform === 'INSTAGRAM' || acc.platform === 'FACEBOOK';
         if (!cachedPosts || !Array.isArray(cachedPosts) || cachedPosts.length === 0) {
           batch.push(
-            api.get<{ posts?: unknown[] }>(`/social/accounts/${acc.id}/posts`, { params: { sync: 1 } })
+            api
+              .get<{ posts?: unknown[] }>(`/social/accounts/${acc.id}/posts`, {
+                params: skipMetaSync ? {} : { sync: 1 },
+              })
               .then((r) => {
                 tick();
                 if (!cancelled && r.data?.posts) appData?.setPostsForAccount(acc.id, r.data.posts as Parameters<typeof appData.setPostsForAccount>[1]);
