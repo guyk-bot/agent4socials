@@ -8,7 +8,8 @@ import { getValidYoutubeToken } from '@/lib/youtube-token';
 import { linkedInAuthorUrnForUgc, parseLinkedInRestPostElement } from '@/lib/linkedin/sync-ugc-posts';
 import { buildLinkedInRestPostsByAuthorUrl, linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 import { getCached, setCached } from '@/lib/server-memory-cache';
-import { isMetaNonCriticalThrottled, noteMetaRateLimitError, noteMetaUsageFromHeaders } from '@/lib/meta-usage-guard';
+import { isMetaNonCriticalThrottled, noteMetaRateLimitError } from '@/lib/meta-usage-guard';
+import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
 
 /**
  * Rate-limit guardrails (see Meta app dashboard spikes):
@@ -36,11 +37,13 @@ async function fetchAllPages<T>(
   let pages = 0;
 
   while (nextUrl && pages < pageLimit) {
-    const response: { data?: { data?: T[]; paging?: { next?: string } }; headers?: Record<string, string | undefined> } = await axios.get(nextUrl, {
-      ...(nextParams ? { params: nextParams } : {}),
-      timeout: 15_000,
-    });
-    noteMetaUsageFromHeaders(response.headers);
+    const response: { data?: { data?: T[]; paging?: { next?: string } }; headers?: Record<string, string | undefined> } =
+      await runMetaGraphRequest('comments-page', () =>
+        axios.get(nextUrl, {
+          ...(nextParams ? { params: nextParams } : {}),
+          timeout: 15_000,
+        })
+      );
     out.push(...(response.data?.data ?? []));
     nextUrl = response.data?.paging?.next ?? null;
     nextParams = undefined;
@@ -102,6 +105,15 @@ export async function GET(
 
   const platform = account.platform;
   const metaThrottle = (platform === 'INSTAGRAM' || platform === 'FACEBOOK') && isMetaNonCriticalThrottled();
+  if (metaThrottle && !deltaMode) {
+    const payload = {
+      comments: [] as unknown[],
+      metaThrottled: true,
+      hint: 'Meta API usage is high; comment sync paused briefly. Open Inbox again in a few minutes.',
+    };
+    setCached(cacheKey, payload, 90_000);
+    return NextResponse.json(payload);
+  }
   if (
     platform !== 'INSTAGRAM' &&
     platform !== 'FACEBOOK' &&
@@ -206,7 +218,7 @@ export async function GET(
     permalink?: string;
   };
   const instagramMediaItems: InstagramMediaItem[] = [];
-  if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
+  if ((platform === 'INSTAGRAM' || platform === 'FACEBOOK') && !metaThrottle) {
     try {
       const liveToken = account.accessToken;
       if (platform === 'INSTAGRAM') {
@@ -214,11 +226,12 @@ export async function GET(
           ? 'https://graph.instagram.com/v25.0/me/media'
           : `${facebookGraphBaseUrl}/${account.platformUserId}/media`;
         // One page of 50 is plenty for the inbox — we only show MAX_SOURCES posts anyway.
-        const mediaRes = await axios.get<{ data?: InstagramMediaItem[] }>(mediaUrl, {
-          params: { fields: 'id,caption,media_url,thumbnail_url,permalink', limit: 50, access_token: liveToken },
-          timeout: 15_000,
-        });
-        noteMetaUsageFromHeaders(mediaRes.headers);
+        const mediaRes = await runMetaGraphRequest('comments-media-list', () =>
+          axios.get<{ data?: InstagramMediaItem[] }>(mediaUrl, {
+            params: { fields: 'id,caption,media_url,thumbnail_url,permalink', limit: 50, access_token: liveToken },
+            timeout: 15_000,
+          })
+        );
         instagramMediaItems.push(...(mediaRes.data?.data ?? []));
         liveSources = instagramMediaItems.map((m, i) => ({
           platformPostId: m.id,
@@ -389,21 +402,20 @@ export async function GET(
           select: { thumbnailUrl: true },
         });
         if (imp?.thumbnailUrl) return imp.thumbnailUrl;
-        if (metaThrottle) return null;
-        // 3) Last-resort object GET: Instagram Business Login tokens resolve media on
-        // graph.instagram.com; graph.facebook.com/{id} often returns invalid id and still
-        // bills app usage (Meta dashboard "InvalidID").
+        // 3) Last-resort: graph.instagram.com only (graph.facebook.com/{id} bills InvalidID).
         try {
-          const objectUrl = isInstagramBusinessLogin
-            ? `https://graph.instagram.com/v25.0/${postId}`
-            : `${facebookGraphBaseUrl}/${postId}`;
-          const r = await axios.get<{ media_url?: string; thumbnail_url?: string }>(objectUrl, {
-            params: { fields: 'media_url,thumbnail_url', access_token: accessToken },
-            timeout: 8_000,
-          });
-          noteMetaUsageFromHeaders(r.headers);
+          const r = await runMetaGraphRequest('comments-post-thumb', () =>
+            axios.get<{ media_url?: string; thumbnail_url?: string }>(
+              `https://graph.instagram.com/v25.0/${postId}`,
+              {
+                params: { fields: 'media_url,thumbnail_url', access_token: accessToken },
+                timeout: 8_000,
+              }
+            )
+          );
           return r.data?.media_url ?? r.data?.thumbnail_url ?? null;
-        } catch {
+        } catch (e) {
+          if (e instanceof MetaGraphThrottledError) return null;
           return null;
         }
       }

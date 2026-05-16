@@ -11,6 +11,8 @@ import {
 } from '@/lib/analytics/metric-snapshots';
 import axios from 'axios';
 import { facebookGraphBaseUrl, META_GRAPH_FACEBOOK_API_VERSION } from '@/lib/meta-graph-insights';
+import { runMetaGraphRequest } from '@/lib/meta-graph-queue';
+import { isMetaNonCriticalThrottled } from '@/lib/meta-usage-guard';
 
 const igBaseUrl = `https://graph.instagram.com/${META_GRAPH_FACEBOOK_API_VERSION}`;
 const fbBaseUrl = facebookGraphBaseUrl;
@@ -46,13 +48,14 @@ async function syncAccountOverview(account: AccountRow) {
 
 /** Fetch recent Instagram media and upsert into ImportedPost. */
 async function syncRecentContent(account: AccountRow) {
+  if (isMetaNonCriticalThrottled()) return { itemsProcessed: 0, partial: true };
   const fields = 'id,media_type,media_product_type,media_url,permalink,caption,timestamp,thumbnail_url,like_count,comments_count';
   let items = 0;
   let partial = false;
 
   for (const base of [fbBaseUrl, igBaseUrl]) {
     try {
-      const res = await axios.get<{
+      const res = await runMetaGraphRequest('ig-adapter-media-list', () => axios.get<{
         data?: Array<{
           id: string;
           media_type?: string;
@@ -69,7 +72,7 @@ async function syncRecentContent(account: AccountRow) {
       }>(`${base}/${account.platformUserId}/media`, {
         params: { fields, limit: 50, access_token: account.accessToken },
         timeout: 12_000,
-      });
+      }));
 
       if (res.data?.error) continue;
       const posts = res.data?.data ?? [];
@@ -139,6 +142,7 @@ const IG_POST_METRICS_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
 
 /** Refresh performance metrics for recently synced posts. */
 async function syncContentMetrics(account: AccountRow) {
+  if (isMetaNonCriticalThrottled()) return { itemsProcessed: 0 };
   const recentPosts = await prisma.importedPost.findMany({
     where: {
       socialAccountId: account.id,
@@ -162,13 +166,15 @@ async function syncContentMetrics(account: AccountRow) {
       continue;
     }
     try {
-      const res = await axios.get<{
-        data?: Array<{ name: string; values?: Array<{ value: number }>; period?: string }>;
-        error?: { message?: string };
-      }>(`${fbBaseUrl}/${post.platformPostId}/insights`, {
-        params: { metric: metricFields, access_token: account.accessToken },
-        timeout: 8_000,
-      });
+      const res = await runMetaGraphRequest('ig-adapter-post-insights', () =>
+        axios.get<{
+          data?: Array<{ name: string; values?: Array<{ value: number }>; period?: string }>;
+          error?: { message?: string };
+        }>(`${fbBaseUrl}/${post.platformPostId}/insights`, {
+          params: { metric: metricFields, access_token: account.accessToken },
+          timeout: 8_000,
+        })
+      );
       if (res.data?.error || !res.data?.data) continue;
 
       const metrics: Record<string, number> = {};

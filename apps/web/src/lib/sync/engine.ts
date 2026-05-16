@@ -11,6 +11,7 @@
 import { prisma } from '@/lib/db';
 import { buildIdempotencyKey, getStaleThresholdMs, MIN_MANUAL_SYNC_INTERVAL_MS, MIN_MANUAL_SYNC_INTERVAL_BY_PLATFORM, PLATFORM_SCOPES, type SyncScope, type SyncType } from './config';
 import { getAdapterForPlatform, type Adapter } from './adapters';
+import { isMetaNonCriticalThrottled } from '@/lib/meta-usage-guard';
 
 export interface SyncAccountOptions {
   userId: string;
@@ -419,6 +420,19 @@ export async function runScheduledSyncForScope(
   // the hourly quota when many accounts need syncing at the same cron tick.
   const META_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK']);
   const META_INTER_ACCOUNT_DELAY_MS = 2_000; // 2 s between Meta accounts
+
+  if (
+    isMetaNonCriticalThrottled() &&
+    (scope === 'posts' || scope === 'post_metrics' || scope === 'account_overview')
+  ) {
+    const metaCandidates = candidates.filter((a) => META_PLATFORMS.has(a.platform));
+    if (metaCandidates.length > 0) {
+      return {
+        processed: 0,
+        errors: ['skipped: meta_app_throttled'],
+      };
+    }
+  }
 
   // Process in parallel batches with wall-clock budget
   for (let i = 0; i < candidates.length; i += CONCURRENCY) {

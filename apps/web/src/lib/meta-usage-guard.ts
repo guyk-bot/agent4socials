@@ -11,7 +11,7 @@ type MetaUsage = {
 const META_USAGE_CACHE_KEY = 'meta:app-usage:latest';
 const META_THROTTLE_UNTIL_CACHE_KEY = 'meta:noncritical:throttle-until';
 /** How long to skip optional Meta fan-out after high usage or rate-limit signals. */
-const META_THROTTLE_MINUTES = 30;
+const META_THROTTLE_MINUTES = 45;
 
 function toNumber(v: unknown): number {
   const n = typeof v === 'number' ? v : Number(v);
@@ -44,8 +44,8 @@ export function noteMetaUsageFromHeaders(
   if (!usage) return;
 
   setCached(META_USAGE_CACHE_KEY, usage, 30 * 60 * 1000);
-  /** Start backing off before Meta hits 100% app-level limits (dashboard prefetch + sync add up fast). */
-  const high = usage.callCount >= 42 || usage.totalTime >= 42 || usage.totalCpuTime >= 42;
+  /** Back off well before Meta hits 100% (prefetch + sync stack quickly). */
+  const high = usage.callCount >= 35 || usage.totalTime >= 35 || usage.totalCpuTime >= 35;
   if (high) {
     setCached(META_THROTTLE_UNTIL_CACHE_KEY, Date.now() + META_THROTTLE_MINUTES * 60 * 1000, META_THROTTLE_MINUTES * 60 * 1000);
   }
@@ -62,7 +62,25 @@ export function isMetaNonCriticalThrottled(): boolean {
   return Date.now() < until;
 }
 
+export function isMetaPlatform(platform: string): boolean {
+  return platform === 'INSTAGRAM' || platform === 'FACEBOOK';
+}
+
+/**
+ * Instagram/Facebook bulk post import via GET /posts?sync=1 is disabled unless the user
+ * explicitly forces refresh (force=1). Scheduled cron uses the sync engine adapter instead.
+ */
+export function shouldRunMetaPostsHttpSync(
+  platform: string,
+  syncRequested: boolean,
+  forceRequested: boolean
+): boolean {
+  if (!syncRequested) return false;
+  if (!isMetaPlatform(platform)) return true;
+  if (isMetaNonCriticalThrottled() && !forceRequested) return false;
+  return forceRequested;
+}
+
 export function getLatestMetaUsage(): MetaUsage | null {
   return getCached<MetaUsage>(META_USAGE_CACHE_KEY);
 }
-

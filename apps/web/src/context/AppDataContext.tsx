@@ -510,7 +510,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             /* skip */
           }
           if (cancelled) break;
-          if (COMMENT_PLATFORMS.has(acc.platform)) {
+          // Skip Meta comments prefetch (40+ Graph calls per account); Inbox loads on demand.
+          if (
+            COMMENT_PLATFORMS.has(acc.platform) &&
+            acc.platform !== 'INSTAGRAM' &&
+            acc.platform !== 'FACEBOOK'
+          ) {
             try {
               const r = await api.get<{ comments?: CachedComment[] }>(`/social/accounts/${acc.id}/comments`);
               if (!cancelled && shouldApplyPhase2Write() && r.data) setCommentsByAccountId((prev) => ({ ...prev, [acc.id]: r.data.comments ?? [] }));

@@ -2,6 +2,7 @@ import type { Platform } from '@prisma/client';
 import axios from 'axios';
 import { prisma } from '@/lib/db';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
+import { runMetaGraphRequest } from '@/lib/meta-graph-queue';
 export type ConversationUiMessage = {
   id: string;
   fromId: string | null;
@@ -14,8 +15,8 @@ export type ConversationUiMessage = {
 const fbBaseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
 
-const IG_MESSAGE_FETCH_LIMIT = 12;
-const IG_MESSAGE_BATCH_SIZE = 4;
+const IG_MESSAGE_FETCH_LIMIT = 10;
+const IG_MESSAGE_BATCH_SIZE = 1;
 
 type IgMessageRow = {
   id: string;
@@ -66,17 +67,20 @@ async function fetchIgMessageDetails(
   const ids = messageIds.slice(0, IG_MESSAGE_FETCH_LIMIT);
   for (let i = 0; i < ids.length; i += IG_MESSAGE_BATCH_SIZE) {
     const chunk = ids.slice(i, i + IG_MESSAGE_BATCH_SIZE);
-    const batch = await Promise.all(
-      chunk.map((msgId) =>
-        axios
-          .get<IgMessageRow>(`${igBaseUrl}/${msgId}`, {
+    const batch: Array<IgMessageRow | null> = [];
+    for (const msgId of chunk) {
+      try {
+        const r = await runMetaGraphRequest('ig-message-detail', () =>
+          axios.get<IgMessageRow>(`${igBaseUrl}/${msgId}`, {
             params: { fields: 'id,created_time,from,to,message', access_token: accessToken },
             timeout: 12_000,
           })
-          .then((r) => r.data)
-          .catch(() => null)
-      )
-    );
+        );
+        batch.push(r.data);
+      } catch {
+        batch.push(null);
+      }
+    }
     for (const m of batch) {
       if (m && !m.error) out.push(m);
     }

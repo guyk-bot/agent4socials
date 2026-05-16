@@ -1,13 +1,19 @@
 import type { AxiosResponse } from 'axios';
 import { isMetaNonCriticalThrottled, noteMetaRateLimitError, noteMetaUsageFromHeaders } from '@/lib/meta-usage-guard';
 
-/** Max concurrent Meta Graph calls per serverless instance (shared app rate limit). */
+/** Max concurrent Meta Graph calls per serverless instance. */
 const MAX_IN_FLIGHT = 2;
 /** Minimum gap between Graph calls on this instance. */
-const MIN_GAP_MS = 250;
+const MIN_GAP_MS = 300;
+
+/** Rolling cap across all requests sharing this warm lambda (stops multi-tab spikes). */
+const BURST_WINDOW_MS = 60_000;
+const BURST_MAX_CALLS = 64;
 
 let inFlight = 0;
 let lastStartedAt = 0;
+let burstWindowStart = Date.now();
+let burstCallCount = 0;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -24,6 +30,19 @@ function isRateLimitError(e: unknown): boolean {
   const code = err?.response?.data?.error?.code;
   const msg = (err?.response?.data?.error?.message ?? '').toLowerCase();
   return status === 429 || code === 4 || code === 17 || code === 32 || msg.includes('rate limit');
+}
+
+function noteInstanceBurst(): void {
+  const now = Date.now();
+  if (now - burstWindowStart > BURST_WINDOW_MS) {
+    burstWindowStart = now;
+    burstCallCount = 0;
+  }
+  burstCallCount++;
+  if (burstCallCount > BURST_MAX_CALLS) {
+    noteMetaRateLimitError();
+    throw new MetaGraphThrottledError('instance_burst_cap');
+  }
 }
 
 async function acquireSlot(): Promise<void> {
@@ -43,7 +62,7 @@ function releaseSlot(): void {
 }
 
 /**
- * Run one Meta Graph HTTP call with per-instance concurrency + spacing.
+ * Run one Meta Graph HTTP call with per-instance concurrency, spacing, and burst cap.
  * Skips entirely when app-level throttle is active (optional via allowWhenThrottled).
  */
 export async function runMetaGraphRequest<T>(
@@ -54,6 +73,7 @@ export async function runMetaGraphRequest<T>(
   if (!opts?.allowWhenThrottled && isMetaNonCriticalThrottled()) {
     throw new MetaGraphThrottledError(label);
   }
+  noteInstanceBurst();
   await acquireSlot();
   try {
     const res = await fn();

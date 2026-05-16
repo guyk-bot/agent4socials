@@ -29,7 +29,13 @@ import { fetchYoutubeVideoStatsByIdMap, type YtVideoStatsRow } from '@/lib/youtu
 import { checkAndIncrementXApiUsage } from '@/lib/x/x-api-usage';
 import { fetchTweetsByIdsBatched, metricsFromTweetPayload } from '@/lib/x/twitter-tweets-batch';
 import { refreshTwitterToken } from '@/lib/twitter-refresh';
-import { isMetaNonCriticalThrottled, noteMetaRateLimitError, noteMetaUsageFromHeaders } from '@/lib/meta-usage-guard';
+import {
+  isMetaNonCriticalThrottled,
+  isMetaPlatform,
+  noteMetaRateLimitError,
+  noteMetaUsageFromHeaders,
+  shouldRunMetaPostsHttpSync,
+} from '@/lib/meta-usage-guard';
 import { runMetaGraphRequest } from '@/lib/meta-graph-queue';
 
 export const maxDuration = 60;
@@ -838,10 +844,11 @@ export async function GET(
     const sync = request.nextUrl.searchParams.get('sync') === '1';
     const force = request.nextUrl.searchParams.get('force') === '1';
     const liveEnrich = request.nextUrl.searchParams.get('liveEnrich') === '1';
-    const metaThrottle = account.platform === 'INSTAGRAM' && isMetaNonCriticalThrottled();
+    const metaThrottle = isMetaPlatform(account.platform) && isMetaNonCriticalThrottled();
     let syncError: string | undefined;
     let syncSkippedDueToCooldown = false;
-    if (sync && metaThrottle) {
+    const runPlatformSync = shouldRunMetaPostsHttpSync(account.platform, sync, force);
+    if (sync && !runPlatformSync) {
       syncSkippedDueToCooldown = true;
     } else if (sync) {
       // Skip the expensive platform sync if it ran within the last 10 minutes, unless force=1.
@@ -2197,7 +2204,7 @@ async function syncImportedPosts(
   if (platform === 'INSTAGRAM') {
     /** Cap media list size; post-level /insights are filled by sync post_metrics, not here. */
     const throttled = isMetaNonCriticalThrottled();
-    const maxMedia = throttled ? 50 : 150;
+    const maxMedia = throttled ? 40 : 80;
     const merged = new Map<string, IgSyncMediaItem>();
     const igBases = [fbRestBaseUrl, igGraphRestBaseUrl];
     let primaryError: Error | null = null;
@@ -2243,29 +2250,7 @@ async function syncImportedPosts(
         m.media_type === 'VIDEO'
           ? (m.thumbnail_url ?? m.media_url ?? null)
           : (m.media_url ?? m.thumbnail_url ?? null);
-      if (!thumbnailUrl && m.media_type === 'CAROUSEL_ALBUM' && !throttled) {
-        for (const apiBase of igBases) {
-          try {
-            const childRes = await runMetaGraphRequest('ig-carousel-children', () =>
-              axios.get<{ data?: Array<{ media_url?: string }> }>(
-                `${apiBase}/${m.id}/children`,
-                { params: { fields: 'media_url', access_token: accessToken } }
-              )
-            );
-            const first = childRes.data?.data?.[0];
-            if (first?.media_url) {
-              thumbnailUrl = first.media_url;
-              break;
-            }
-          } catch {
-            // try next host
-          }
-        }
-      }
-      if (!thumbnailUrl && (m.media_type === 'VIDEO' || isInstagramLikelyReel(m))) {
-        const refetched = await refetchIgMediaThumbnail(m.id, accessToken);
-        if (refetched) thumbnailUrl = refetched;
-      }
+      // Do not refetch per-media thumbnails during bulk sync (N × ShadowIGMedia GETs caused app spikes).
       const likeCount = m.like_count ?? 0;
       const commentsCount = m.comments_count ?? 0;
       const interactions = likeCount + commentsCount;

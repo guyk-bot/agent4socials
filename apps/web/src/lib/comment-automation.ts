@@ -2,6 +2,8 @@ import { prisma } from '@/lib/db';
 import { PostStatus, Prisma } from '@prisma/client';
 import axios, { type AxiosResponse } from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
+import { isMetaNonCriticalThrottled } from '@/lib/meta-usage-guard';
+import { runMetaGraphRequest } from '@/lib/meta-graph-queue';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
 import {
   postScalarsSelectWithMediaType,
@@ -57,10 +59,12 @@ async function fetchMetaCommentsPaged(
   for (let p = 0; p < maxPages; p++) {
     if (url == null || url === '') break;
     const pageUrl = url;
-    const r: AxiosResponse<MetaGraphCommentsPage> = await axios.get(pageUrl, {
-      ...(params ? { params } : {}),
-      timeout: 18_000,
-    });
+    const r: AxiosResponse<MetaGraphCommentsPage> = await runMetaGraphRequest('comment-automation-comments', () =>
+      axios.get(pageUrl, {
+        ...(params ? { params } : {}),
+        timeout: 18_000,
+      })
+    );
     out.push(...(r.data?.data ?? []));
     const next: string | undefined = r.data?.paging?.next;
     url = next ?? null;
@@ -188,6 +192,12 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
       const replyText = getReplyText(ca, platform);
       if (!replyText) continue;
       if (platform === 'LINKEDIN') continue;
+      if (
+        (platform === 'INSTAGRAM' || platform === 'FACEBOOK') &&
+        isMetaNonCriticalThrottled()
+      ) {
+        continue;
+      }
 
       const token = target.socialAccount.accessToken;
       const platformPostId = target.platformPostId;
