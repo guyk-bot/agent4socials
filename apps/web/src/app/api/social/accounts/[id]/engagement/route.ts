@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db';
 import { PostStatus } from '@prisma/client';
 import axios from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
+import { isMetaNonCriticalThrottled, noteMetaUsageFromHeaders, noteMetaRateLimitError } from '@/lib/meta-usage-guard';
+import { runMetaGraphRequest, MetaGraphThrottledError } from '@/lib/meta-graph-queue';
 
 /**
  * GET /api/social/accounts/[id]/engagement
@@ -113,6 +115,11 @@ export async function GET(
   ];
 
   const token = account.accessToken;
+
+  if ((platform === 'INSTAGRAM' || platform === 'FACEBOOK') && isMetaNonCriticalThrottled()) {
+    return NextResponse.json({ engagement: [], metaThrottled: true });
+  }
+
   const engagement: Array<{
     platformPostId: string;
     postPreview: string;
@@ -127,19 +134,22 @@ export async function GET(
     const { platformPostId, postPreview } = source;
     try {
       if (platform === 'INSTAGRAM') {
-        const res = await axios.get<{
-          id?: string;
-          like_count?: number;
-          comments_count?: number;
-          media_url?: string;
-          permalink?: string;
-        }>(`${facebookGraphBaseUrl}/${platformPostId}`, {
-          params: {
-            fields: 'like_count,comments_count,media_url,permalink',
-            access_token: token,
-          },
-          timeout: 10_000,
-        });
+        const res = await runMetaGraphRequest('engagement-ig-media', () =>
+          axios.get<{
+            id?: string;
+            like_count?: number;
+            comments_count?: number;
+            media_url?: string;
+            permalink?: string;
+          }>(`${facebookGraphBaseUrl}/${platformPostId}`, {
+            params: {
+              fields: 'like_count,comments_count,media_url,permalink',
+              access_token: token,
+            },
+            timeout: 10_000,
+          })
+        );
+        noteMetaUsageFromHeaders(res.headers);
         engagement.push({
           platformPostId,
           postPreview,
@@ -150,20 +160,23 @@ export async function GET(
           permalink: res.data?.permalink ?? null,
         });
       } else {
-        const res = await axios.get<{
-          id?: string;
-          reactions?: { summary?: { total_count?: number } };
-          comments?: { summary?: { total_count?: number } };
-          message?: string;
-          full_picture?: string;
-          permalink_url?: string;
-        }>(`${facebookGraphBaseUrl}/${platformPostId}`, {
-          params: {
-            fields: 'reactions.summary(1),comments.summary(1),message,full_picture,permalink_url',
-            access_token: token,
-          },
-          timeout: 10_000,
-        });
+        const res = await runMetaGraphRequest('engagement-fb-post', () =>
+          axios.get<{
+            id?: string;
+            reactions?: { summary?: { total_count?: number } };
+            comments?: { summary?: { total_count?: number } };
+            message?: string;
+            full_picture?: string;
+            permalink_url?: string;
+          }>(`${facebookGraphBaseUrl}/${platformPostId}`, {
+            params: {
+              fields: 'reactions.summary(1),comments.summary(1),message,full_picture,permalink_url',
+              access_token: token,
+            },
+            timeout: 10_000,
+          })
+        );
+        noteMetaUsageFromHeaders(res.headers);
         const likeCount = res.data?.reactions?.summary?.total_count ?? 0;
         const commentCount = res.data?.comments?.summary?.total_count ?? 0;
         engagement.push({
@@ -176,7 +189,9 @@ export async function GET(
           permalink: res.data?.permalink_url ?? null,
         });
       }
-    } catch (_) {
+    } catch (err) {
+      if (err instanceof MetaGraphThrottledError) break; // stop processing more posts when throttled
+      noteMetaRateLimitError();
       engagement.push({
         platformPostId,
         postPreview,

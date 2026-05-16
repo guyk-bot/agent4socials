@@ -1,32 +1,30 @@
 /**
- * Meta Graph API throttle guard.
+ * Meta Graph API throttle guard — global across all Vercel Lambda instances.
  *
- * WHY THIS EXISTS: Vercel runs dozens of independent serverless instances.
- * In-process memory is NOT shared between them, so an in-memory throttle only
- * protects one Lambda while the other 20 keep hammering Meta's API.
+ * WHY: Vercel runs many independent serverless functions with no shared memory.
+ * In-process caches only protect one Lambda while others keep hammering the API.
  *
- * This module uses a TWO-LAYER strategy:
- *   L1 (local): in-process cache, TTL 20s — avoids a DB round-trip on every call
- *   L2 (global): app_kv table in Postgres — shared across ALL Lambda instances
+ * STRATEGY:
+ *   L1 (in-process): checked first, avoids a DB round-trip on every request.
+ *   L2 (Postgres via raw SQL): shared globally across all Lambda instances.
+ *     The table is created on first write if it doesn't exist yet.
  *
- * Write path: when any instance detects high x-app-usage or a rate-limit error,
- *   it writes the throttle-until timestamp to both L1 and the DB.
- * Read path: each instance checks L1 first; if stale, queries the DB once.
- *   The L1 hit covers all subsequent calls within the 20s window.
+ * Write: any instance that detects high x-app-usage or a rate-limit error
+ *   writes the throttle-until timestamp to both L1 and the DB.
+ * Read: L1 serves the request if fresh; when stale, a non-blocking DB read
+ *   refreshes L1 for the next window.
  */
 
 import type { AxiosResponseHeaders, RawAxiosResponseHeaders } from 'axios';
 
-const META_THROTTLE_KEY = 'meta:throttle-until';
-/** How long to skip optional Meta fan-out after high usage or a rate-limit error. */
+const META_THROTTLE_DB_KEY = 'meta:throttle-until';
 const META_THROTTLE_MINUTES = 45;
-/** Trigger back-off when x-app-usage hits this %. Lower = safer margin. */
-const META_USAGE_HIGH_PCT = 30;
-/** L1 (in-process) TTL — balance between DB reads and freshness across instances. */
-const L1_TTL_MS = 20_000;
+const META_USAGE_HIGH_PCT = 25; // Back off at 25% — well before the per-user 200 call/hour limit
+const L1_TTL_MS = 15_000;      // How long one instance trusts its local copy
 
 let l1ThrottleUntil = 0;
 let l1ReadAt = 0;
+let _tableEnsured = false;      // Only run CREATE TABLE once per instance lifetime
 
 function toNumber(v: unknown): number {
   const n = typeof v === 'number' ? v : Number(v);
@@ -34,7 +32,7 @@ function toNumber(v: unknown): number {
 }
 
 function parseAppUsageHeader(raw: string | null | undefined): number | null {
-  if (!raw || !raw.trim()) return null;
+  if (!raw?.trim()) return null;
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     return Math.max(
@@ -42,74 +40,78 @@ function parseAppUsageHeader(raw: string | null | undefined): number | null {
       toNumber(parsed.total_time),
       toNumber(parsed.total_cputime)
     );
-  } catch {
-    return null;
-  }
+  } catch { return null; }
+}
+
+async function ensureTable(): Promise<void> {
+  if (_tableEnsured) return;
+  try {
+    const { prisma } = await import('@/lib/db');
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS app_kv (
+        key        TEXT PRIMARY KEY,
+        value      TEXT NOT NULL,
+        "expiresAt" TIMESTAMPTZ,
+        "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `);
+    _tableEnsured = true;
+  } catch { _tableEnsured = true; /* tolerate permission errors; fall back to L1 */ }
 }
 
 async function readThrottleFromDb(): Promise<number> {
   try {
+    await ensureTable();
     const { prisma } = await import('@/lib/db');
-    const row = await (prisma as unknown as {
-      appKv?: { findUnique: (args: { where: { key: string } }) => Promise<{ value: string } | null> }
-    }).appKv?.findUnique({ where: { key: META_THROTTLE_KEY } });
-    if (!row) return 0;
-    const ts = Number(row.value);
+    const rows = await prisma.$queryRaw<Array<{ value: string }>>`
+      SELECT value FROM app_kv WHERE key = ${META_THROTTLE_DB_KEY} LIMIT 1
+    `;
+    const ts = Number(rows[0]?.value ?? '0');
     return Number.isFinite(ts) ? ts : 0;
-  } catch {
-    return 0;
-  }
+  } catch { return 0; }
 }
 
 async function writeThrottleToDb(until: number): Promise<void> {
   try {
+    await ensureTable();
     const { prisma } = await import('@/lib/db');
     const expiresAt = new Date(until);
-    await (prisma as unknown as {
-      appKv?: {
-        upsert: (args: {
-          where: { key: string };
-          create: { key: string; value: string; expiresAt: Date };
-          update: { value: string; expiresAt: Date };
-        }) => Promise<unknown>
-      }
-    }).appKv?.upsert({
-      where: { key: META_THROTTLE_KEY },
-      create: { key: META_THROTTLE_KEY, value: String(until), expiresAt },
-      update: { value: String(until), expiresAt },
-    });
-  } catch {
-    // DB write failure — L1 still prevents calls from this instance
-  }
+    await prisma.$executeRaw`
+      INSERT INTO app_kv (key, value, "expiresAt", "updatedAt")
+      VALUES (${META_THROTTLE_DB_KEY}, ${String(until)}, ${expiresAt}, now())
+      ON CONFLICT (key) DO UPDATE
+        SET value = ${String(until)}, "expiresAt" = ${expiresAt}, "updatedAt" = now()
+    `;
+  } catch { /* L1 still applies on this instance */ }
 }
 
-function setThrottle(untilMs: number): void {
+function activateThrottle(untilMs: number): void {
   l1ThrottleUntil = untilMs;
   l1ReadAt = Date.now();
   void writeThrottleToDb(untilMs);
 }
 
-/** True when app should skip optional, high-fanout Meta calls. */
+/** True when non-critical Meta calls should be skipped. Synchronous; DB refresh is async. */
 export function isMetaNonCriticalThrottled(): boolean {
   const now = Date.now();
-  // L1 hit
   if (now - l1ReadAt < L1_TTL_MS) return now < l1ThrottleUntil;
-  // L1 stale → refresh async; optimistically return current value while DB query runs
-  l1ReadAt = now; // prevent multiple concurrent reads
-  void readThrottleFromDb().then((until) => {
-    l1ThrottleUntil = until;
-  });
+  // L1 stale — refresh from DB in background; return optimistic result this cycle
+  l1ReadAt = now;
+  void readThrottleFromDb().then((until) => { l1ThrottleUntil = until; });
   return now < l1ThrottleUntil;
 }
 
-/** Force-trigger throttle. Call when a rate-limit error or explicit pause is needed. */
+/** Call when Meta returns an explicit rate-limit error. */
 export function noteMetaRateLimitError(): void {
-  setThrottle(Date.now() + META_THROTTLE_MINUTES * 60_000);
+  activateThrottle(Date.now() + META_THROTTLE_MINUTES * 60_000);
 }
 
-/** Capture x-app-usage from Meta Graph responses; enter throttle mode if usage is high. */
+/**
+ * Capture x-app-usage header from any Meta Graph response.
+ * Enter throttle mode when usage crosses META_USAGE_HIGH_PCT.
+ */
 export function noteMetaUsageFromHeaders(
-  headers: RawAxiosResponseHeaders | AxiosResponseHeaders | undefined
+  headers: RawAxiosResponseHeaders | AxiosResponseHeaders | Record<string, unknown> | undefined
 ): void {
   if (!headers) return;
   const pct =
@@ -117,7 +119,7 @@ export function noteMetaUsageFromHeaders(
     parseAppUsageHeader((headers['X-App-Usage'] as string | undefined) ?? null);
   if (pct === null) return;
   if (pct >= META_USAGE_HIGH_PCT) {
-    setThrottle(Date.now() + META_THROTTLE_MINUTES * 60_000);
+    activateThrottle(Date.now() + META_THROTTLE_MINUTES * 60_000);
   }
 }
 
@@ -126,8 +128,8 @@ export function isMetaPlatform(platform: string): boolean {
 }
 
 /**
- * Instagram/Facebook bulk post import via GET /posts?sync=1 is disabled unless
- * the user explicitly forces refresh (force=1). Scheduled cron uses the sync engine adapter.
+ * Whether to run the expensive Instagram/Facebook post import via HTTP.
+ * Only allowed when force=1 (manual Sync button). Cron uses the sync engine.
  */
 export function shouldRunMetaPostsHttpSync(
   platform: string,

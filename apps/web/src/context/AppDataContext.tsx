@@ -487,15 +487,24 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         });
         for (const acc of prefetchOrder) {
           if (cancelled) break;
+          const isMetaAccount = acc.platform === 'INSTAGRAM' || acc.platform === 'FACEBOOK';
           try {
+            // Skip insights prefetch for Instagram/Facebook — the insights route makes 5-10 live
+            // Graph API calls per account (profile, reach, engagement, views, …) and those burn
+            // through the 200 calls/hour per-user limit quickly. The Analytics tab loads insights
+            // on demand when the user actually opens it.
+            const insightsFetch = isMetaAccount
+              ? Promise.resolve({ data: undefined })
+              : api
+                  .get<CachedInsights>(`/social/accounts/${acc.id}/insights`, {
+                    params: { since: dateRange.start, until: dateRange.end },
+                    timeout: PREFETCH_INSIGHTS_TIMEOUT_MS,
+                  })
+                  .catch(() => ({ data: undefined }));
+
             const [postsRes, insightsRes] = await Promise.all([
               api.get<{ posts?: CachedPost[] }>(`/social/accounts/${acc.id}/posts`, { timeout: 60_000 }).catch(() => ({ data: undefined })),
-              api
-                .get<CachedInsights>(`/social/accounts/${acc.id}/insights`, {
-                  params: { since: dateRange.start, until: dateRange.end },
-                  timeout: PREFETCH_INSIGHTS_TIMEOUT_MS,
-                })
-                .catch(() => ({ data: undefined })),
+              insightsFetch,
             ]);
             if (!cancelled && shouldApplyPhase2Write() && postsRes.data?.posts) {
               setPostsByAccountId((prev) => ({ ...prev, [acc.id]: postsRes.data!.posts! }));
@@ -513,8 +522,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           // Skip Meta comments prefetch (40+ Graph calls per account); Inbox loads on demand.
           if (
             COMMENT_PLATFORMS.has(acc.platform) &&
-            acc.platform !== 'INSTAGRAM' &&
-            acc.platform !== 'FACEBOOK'
+            !isMetaAccount
           ) {
             try {
               const r = await api.get<{ comments?: CachedComment[] }>(`/social/accounts/${acc.id}/comments`);
@@ -522,7 +530,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             } catch { /* skip */ }
           }
           if (cancelled) break;
-          if (CONVO_PLATFORMS.has(acc.platform)) {
+          // Skip conversations prefetch for Instagram/Facebook — profile enrichment inside
+          // GET /conversations fetches each sender's profile picture (many Graph calls). Inbox
+          // already loads conversations on-demand when the user opens it.
+          if (CONVO_PLATFORMS.has(acc.platform) && !isMetaAccount) {
             try {
               const r = await api.get<{ conversations?: CachedConversation[]; error?: string }>(
                 `/social/accounts/${acc.id}/conversations`
@@ -533,7 +544,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             } catch { /* skip */ }
           }
           if (cancelled) break;
-          if (ENGAGEMENT_PLATFORMS.has(acc.platform)) {
+          // Skip engagement prefetch for Meta — engagement endpoint can trigger additional Graph calls.
+          if (ENGAGEMENT_PLATFORMS.has(acc.platform) && !isMetaAccount) {
             try {
               const r = await api.get<{ engagement?: CachedEngagement[] }>(`/social/accounts/${acc.id}/engagement`);
               if (!cancelled && shouldApplyPhase2Write()) setEngagementByAccountId((prev) => ({ ...prev, [acc.id]: r.data?.engagement ?? [] }));

@@ -1356,11 +1356,17 @@ export default function DashboardPage() {
     // - user explicitly triggered Sync (`syncAllTrigger`),
     // - user just connected an account, or
     // - user changed date range/account and we have no usable cache to render.
-    const shouldFetchInsights =
-      syncAllTrigger > 0 ||
-      justConnected ||
-      isDateRangeChange ||
-      (!exactCached && !staleCandidate);
+    const isMetaInsightsAccount =
+      selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK';
+    const explicitAction = syncAllTrigger > 0 || justConnected;
+
+    // Instagram/Facebook: never auto-fetch on mount or date-range change.
+    // The insights route makes 5-10 live Graph calls and burns through the 200 call/hour quota.
+    // Only fetch when the user explicitly clicks Sync.
+    const shouldFetchInsights = isMetaInsightsAccount
+      ? explicitAction
+      : explicitAction || isDateRangeChange || (!exactCached && !staleCandidate);
+
     if (!shouldFetchInsights) {
       setInsightsLoading(false);
       return;
@@ -1375,8 +1381,11 @@ export default function DashboardPage() {
             ? { since: dateRange.start, until: dateRange.end, extended: 1 }
             : selectedAccount?.platform === 'TWITTER'
               // Pass refresh=1 only for explicit sync; date-range changes use the fast DB path.
-              ? { since: dateRange.start, until: dateRange.end, ...(syncAllTrigger > 0 || justConnected ? { refresh: 1 } : {}) }
-              : { since: dateRange.start, until: dateRange.end },
+              ? { since: dateRange.start, until: dateRange.end, ...(explicitAction ? { refresh: 1 } : {}) }
+              : selectedAccount?.platform === 'INSTAGRAM'
+                // Instagram: only send refresh=1 on explicit sync to avoid burning the 200 calls/hour limit.
+                ? { since: dateRange.start, until: dateRange.end, ...(explicitAction ? { refresh: 1 } : {}) }
+                : { since: dateRange.start, until: dateRange.end },
       timeout: INSIGHTS_HTTP_MS,
     });
 

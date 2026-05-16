@@ -20,6 +20,7 @@ import { buildFacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-an
 import { buildPinterestFrontendAnalyticsBundle } from '@/lib/pinterest-analytics-bundle';
 import { syncFacebookAuxiliaryIngest, ensureFacebookTables } from '@/lib/facebook/sync-extras';
 import { facebookGraphBaseUrl, instagramGraphHostBaseUrl } from '@/lib/meta-graph-insights';
+import { isMetaNonCriticalThrottled, noteMetaUsageFromHeaders, noteMetaRateLimitError } from '@/lib/meta-usage-guard';
 import { linkedInAuthorUrnForUgc } from '@/lib/linkedin/sync-ugc-posts';
 import { fetchTwitterTimelineInsights } from '@/lib/twitter-insights';
 import type { TwitterRecentTweetRow, TwitterTotals, TwitterUserPublicRow } from '@/lib/twitter-insights';
@@ -200,6 +201,23 @@ export async function GET(
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
   }
+
+  // For Instagram/Facebook: only allow live API calls when the user explicitly
+  // clicks "Refresh" (refresh=1). Automatic loads (on page mount, date range change)
+  // return DB-only data so we don't burn through the 200 calls/hour per-user quota.
+  const isMetaAccount = account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK';
+  const refreshRequested = request.nextUrl.searchParams.get('refresh') === '1';
+  if (isMetaAccount && isMetaNonCriticalThrottled() && !refreshRequested) {
+    return NextResponse.json({
+      platform: account.platform,
+      followers: 0,
+      impressionsTotal: 0,
+      impressionsTimeSeries: [],
+      insightsHint: 'Meta API usage is high right now. Insights will auto-refresh shortly. Click Refresh to force an update.',
+      metaThrottled: true,
+    });
+  }
+
   const since = request.nextUrl.searchParams.get('since') ?? '';
   const until = request.nextUrl.searchParams.get('until') ?? '';
   /** Set persist=0 on background revalidation to skip heavy normalized upserts (default: persist). */
@@ -317,9 +335,12 @@ export async function GET(
             timeout: 8_000,
             validateStatus: () => true,
           });
+          noteMetaUsageFromHeaders(profileRes.headers);
           if (profileRes.status >= 400) return false;
           if (profileRes.data?.error?.message) {
-            console.warn('[Insights] Instagram profile:', base, profileRes.data.error.message.slice(0, 120));
+            const msg = profileRes.data.error.message;
+            if (/rate.?limit|too many/i.test(msg)) noteMetaRateLimitError();
+            console.warn('[Insights] Instagram profile:', base, msg.slice(0, 120));
           }
           const fc = parseIgFollowerCount(profileRes.data?.followers_count);
           if (fc != null) out.followers = fc;
@@ -499,11 +520,14 @@ export async function GET(
             timeout: 10_000,
             validateStatus: () => true,
           });
+          noteMetaUsageFromHeaders(reachRes.headers);
           if (!reachRes.data?.error && reachRes.data?.data?.length) {
             parseIgInsightsData(reachRes.data.data);
             reachOk = true;
           } else if (reachRes.data?.error) {
-            console.warn('[Insights] IG reach failed:', base, reachRes.data.error.message?.slice(0, 120));
+            const msg = reachRes.data.error.message ?? '';
+            if (/rate.?limit|too many/i.test(msg)) noteMetaRateLimitError();
+            console.warn('[Insights] IG reach failed:', base, msg.slice(0, 120));
           }
         } catch (e) {
           console.warn('[Insights] IG reach error:', base, (e as Error)?.message ?? e);
