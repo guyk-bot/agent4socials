@@ -2,7 +2,7 @@ import type { Platform } from '@prisma/client';
 import axios from 'axios';
 import { prisma } from '@/lib/db';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
-import { runMetaGraphRequest } from '@/lib/meta-graph-queue';
+import { noteMetaUsageFromHeaders } from '@/lib/meta-usage-guard';
 export type ConversationUiMessage = {
   id: string;
   fromId: string | null;
@@ -15,8 +15,8 @@ export type ConversationUiMessage = {
 const fbBaseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
 
+/** Max messages to hydrate per conversation open — keeps total time well under the 60s Vercel limit. */
 const IG_MESSAGE_FETCH_LIMIT = 10;
-const IG_MESSAGE_BATCH_SIZE = 1;
 
 type IgMessageRow = {
   id: string;
@@ -59,33 +59,32 @@ function mapRows(
     });
 }
 
+/**
+ * Fetch individual Instagram message details in parallel.
+ * Uses direct axios (not runMetaGraphRequest) because this is a critical, user-initiated
+ * operation — blocking it with the non-critical throttle guard causes UI timeouts.
+ * Still records x-app-usage so future non-critical calls are throttled if usage is high.
+ */
 async function fetchIgMessageDetails(
   messageIds: string[],
   accessToken: string
 ): Promise<IgMessageRow[]> {
-  const out: IgMessageRow[] = [];
   const ids = messageIds.slice(0, IG_MESSAGE_FETCH_LIMIT);
-  for (let i = 0; i < ids.length; i += IG_MESSAGE_BATCH_SIZE) {
-    const chunk = ids.slice(i, i + IG_MESSAGE_BATCH_SIZE);
-    const batch: Array<IgMessageRow | null> = [];
-    for (const msgId of chunk) {
+  const results = await Promise.all(
+    ids.map(async (msgId): Promise<IgMessageRow | null> => {
       try {
-        const r = await runMetaGraphRequest('ig-message-detail', () =>
-          axios.get<IgMessageRow>(`${igBaseUrl}/${msgId}`, {
-            params: { fields: 'id,created_time,from,to,message', access_token: accessToken },
-            timeout: 12_000,
-          })
-        );
-        batch.push(r.data);
+        const r = await axios.get<IgMessageRow>(`${igBaseUrl}/${msgId}`, {
+          params: { fields: 'id,created_time,from,to,message', access_token: accessToken },
+          timeout: 8_000, // shorter per-message timeout — 10 in parallel = ~8s total max
+        });
+        noteMetaUsageFromHeaders(r.headers); // still track usage for throttle guard
+        return r.data ?? null;
       } catch {
-        batch.push(null);
+        return null;
       }
-    }
-    for (const m of batch) {
-      if (m && !m.error) out.push(m);
-    }
-  }
-  return out;
+    })
+  );
+  return results.filter((m): m is IgMessageRow => !!m && !m.error);
 }
 
 /** Instagram Business Login: list message ids, then hydrate recent messages (reliable on graph.instagram.com). */
@@ -102,6 +101,7 @@ export async function loadInstagramBusinessConversationMessages(
       params: { fields: 'messages', access_token: accessToken },
       timeout: 15_000,
     });
+    noteMetaUsageFromHeaders(convoRes.headers);
     if (convoRes.data?.error) {
       return { messages: [], error: convoRes.data.error.message ?? 'Could not load messages.' };
     }
