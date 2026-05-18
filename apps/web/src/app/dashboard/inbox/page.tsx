@@ -372,8 +372,12 @@ function InboxPage() {
   const pendingManualInboxByAccountRef = useRef<Set<string>>(new Set());
   /** Background-prefetched conversation message cache keys: `${accountId}:${conversationId}` */
   const prefetchedConversationMessagesRef = useRef<Set<string>>(new Set());
-  /** Prevent duplicate in-flight GETs for the same conversation (cache in deps caused reload loops). */
-  const inflightConversationMessagesRef = useRef<Set<string>>(new Set());
+  /** Abort in-flight message fetch when the user switches conversations. */
+  const messagesFetchAbortRef = useRef<AbortController | null>(null);
+  const conversationsRef = useRef(conversations);
+  conversationsRef.current = conversations;
+  const conversationMessagesCacheRef = useRef(conversationMessagesCache);
+  conversationMessagesCacheRef.current = conversationMessagesCache;
 
   // Multi-select state for conversations
   const [selectedConversationIds, setSelectedConversationIds] = useState<Set<string>>(new Set());
@@ -725,17 +729,13 @@ function InboxPage() {
     }
     const convId = selectedConversationId;
     const accountIdForFetch = currentAccountForDmThread.id;
-    const cached = conversationMessagesCache[convId];
+    const cached = conversationMessagesCacheRef.current[convId];
     const cacheAge = cached?._ts ? Date.now() - cached._ts : Infinity;
     const cacheFresh =
       cached?.accountId === accountIdForFetch &&
       !cached.error &&
       cacheAge < INBOX_MESSAGES_CACHE_TTL_MS;
     if (cacheFresh) return;
-
-    const inflightKey = `${accountIdForFetch}:${convId}`;
-    if (inflightConversationMessagesRef.current.has(inflightKey)) return;
-    inflightConversationMessagesRef.current.add(inflightKey);
 
     const hasStaleCache =
       cached?.accountId === accountIdForFetch &&
@@ -745,22 +745,27 @@ function InboxPage() {
       setConversationMessages(cached.messages);
       setConversationRecipientId(cached.recipientId);
       setConversationMessagesError(null);
-      setConversationMessagesLoading(false);
-    } else {
-      setConversationMessagesLoading(false);
+    }
+
+    messagesFetchAbortRef.current?.abort();
+    const ac = new AbortController();
+    messagesFetchAbortRef.current = ac;
+
+    if (!hasStaleCache) {
+      setConversationMessagesLoading(true);
     }
     setConversationMessagesError(null);
-    const loadingTimer = hasStaleCache
-      ? null
-      : window.setTimeout(() => {
-          if (selectedConversationId === convId) setConversationMessagesLoading(true);
-        }, 280);
-    const convForRecipient = conversations.find((c) => c.id === convId);
+
+    const convForRecipient = conversationsRef.current.find((c) => c.id === convId);
     const recipientFromConv = convForRecipient?.senders?.[0]?.id ?? null;
 
     api
-      .get(`/social/accounts/${accountIdForFetch}/conversations/${convId}/messages`, { timeout: 60_000 })
+      .get(`/social/accounts/${accountIdForFetch}/conversations/${convId}/messages`, {
+        timeout: 35_000,
+        signal: ac.signal,
+      })
       .then((res) => {
+        if (ac.signal.aborted) return;
         const messages = res.data?.messages ?? [];
         const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
         const error = res.data?.error ?? null;
@@ -783,12 +788,13 @@ function InboxPage() {
           setConversationMessagesError(error);
         }
       })
-      .catch((e: { response?: { data?: { error?: string } }; message?: string; code?: string }) => {
+      .catch((e: { code?: string; name?: string; response?: { data?: { error?: string } }; message?: string }) => {
+        if (ac.signal.aborted || e?.code === 'ERR_CANCELED' || e?.name === 'CanceledError') return;
         const isTimeout = e?.code === 'ECONNABORTED' || /timeout/i.test(e?.message ?? '');
         const apiError =
           e?.response?.data?.error ??
           (isTimeout
-            ? 'The platform is taking too long to respond. Messages will load once the connection recovers.'
+            ? 'The platform is taking too long to respond. Try again in a moment.'
             : (e?.message ?? 'Could not load messages.'));
         const fallback = {
           messages: [] as ConversationMessage[],
@@ -806,11 +812,15 @@ function InboxPage() {
         }
       })
       .finally(() => {
-        if (loadingTimer != null) window.clearTimeout(loadingTimer);
-        inflightConversationMessagesRef.current.delete(inflightKey);
-        if (selectedConversationId === convId) setConversationMessagesLoading(false);
+        if (!ac.signal.aborted && selectedConversationId === convId) {
+          setConversationMessagesLoading(false);
+        }
       });
-  }, [selectedConversationId, currentAccountForDmThread?.id, dmThreadPlatform, user?.id, conversations]);
+
+    return () => {
+      ac.abort();
+    };
+  }, [selectedConversationId, currentAccountForDmThread?.id, dmThreadPlatform, user?.id]);
 
   useEffect(() => {
     setAiReplyError(null);
@@ -823,69 +833,70 @@ function InboxPage() {
     if (conversations.length === 0) return;
 
     const targets = conversations
-      .filter((c) => c.id && c.platform && DM_THREAD_PLATFORM_IDS.has(c.platform));
-    // No cap — fetch ALL DM conversations in parallel. The server uses ?background=1 to fast-fail
-    // when Meta usage is high, so throttled conversations will be retried on the next render cycle
-    // rather than blocking. Once all succeed the full conversation list opens instantly from cache.
+      .filter((c) => c.id && c.platform && DM_THREAD_PLATFORM_IDS.has(c.platform))
+      .slice(0, 16);
     if (targets.length === 0) return;
 
     let cancelled = false;
-    const pending: Promise<void>[] = [];
+    const PREFETCH_CONCURRENCY = 4;
 
-    for (const conv of targets) {
+    const prefetchOne = async (conv: (typeof targets)[0]) => {
       const account = conv.messageAccountId
         ? effectiveAccounts.find((a) => a.id === conv.messageAccountId)
         : conv.platform
           ? effectiveAccounts.find((a) => a.platform === conv.platform)
           : null;
-      if (!account) continue;
+      if (!account) return;
 
       const cacheKey = `${account.id}:${conv.id}`;
-      if (prefetchedConversationMessagesRef.current.has(cacheKey)) continue;
+      if (prefetchedConversationMessagesRef.current.has(cacheKey)) return;
 
-      const existing = conversationMessagesCache[conv.id];
+      const existing = conversationMessagesCacheRef.current[conv.id];
       const existingAge = existing?._ts ? Date.now() - existing._ts : Infinity;
-      // Skip if we have a fresh, successful cached result (no error, within TTL).
       if (existing?.accountId === account.id && !existing.error && existingAge < INBOX_MESSAGES_CACHE_TTL_MS) {
         prefetchedConversationMessagesRef.current.add(cacheKey);
-        continue;
+        return;
       }
 
       prefetchedConversationMessagesRef.current.add(cacheKey);
-      pending.push(
-        api
-          .get(`/social/accounts/${account.id}/conversations/${conv.id}/messages`, { timeout: 60_000, params: { background: '1' } })
-          .then((res) => {
-            if (cancelled) return;
-            // If the server fast-failed due to Meta throttle, don't cache — retry next render.
-            if (res.data?.error === 'throttled') {
-              prefetchedConversationMessagesRef.current.delete(cacheKey);
-              return;
-            }
-            const messages = res.data?.messages ?? [];
-            const recipientFromConv = conv.senders?.[0]?.id ?? null;
-            const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
-            setConversationMessagesCache((prev) =>
-              withCacheEntry(prev, conv.id, {
-                messages,
-                recipientId,
-                recipientName: res.data?.recipientName ?? null,
-                recipientPictureUrl: res.data?.recipientPictureUrl ?? null,
-                error: res.data?.error ?? null,
-                accountId: account.id,
-              })
-            );
+      try {
+        const res = await api.get(
+          `/social/accounts/${account.id}/conversations/${conv.id}/messages`,
+          { timeout: 35_000, params: { background: '1' } }
+        );
+        if (cancelled) return;
+        if (res.data?.error === 'throttled') {
+          prefetchedConversationMessagesRef.current.delete(cacheKey);
+          return;
+        }
+        const messages = res.data?.messages ?? [];
+        const recipientFromConv = conv.senders?.[0]?.id ?? null;
+        const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
+        setConversationMessagesCache((prev) =>
+          withCacheEntry(prev, conv.id, {
+            messages,
+            recipientId,
+            recipientName: res.data?.recipientName ?? null,
+            recipientPictureUrl: res.data?.recipientPictureUrl ?? null,
+            error: res.data?.error ?? null,
+            accountId: account.id,
           })
-          .catch(() => {
-            // Silent background warm-up: do not surface toast/errors to user.
-            // Remove from prefetched set so a retry can be attempted on next render.
-            prefetchedConversationMessagesRef.current.delete(cacheKey);
-          })
-      );
-    }
+        );
+      } catch {
+        prefetchedConversationMessagesRef.current.delete(cacheKey);
+      }
+    };
 
-    if (pending.length === 0) return;
-    Promise.allSettled(pending).catch(() => undefined);
+    void (async () => {
+      const queue = [...targets];
+      const workers = Array.from({ length: PREFETCH_CONCURRENCY }, async () => {
+        while (queue.length > 0 && !cancelled) {
+          const conv = queue.shift();
+          if (conv) await prefetchOne(conv);
+        }
+      });
+      await Promise.allSettled(workers);
+    })();
 
     return () => {
       cancelled = true;
@@ -3185,17 +3196,9 @@ function InboxPage() {
                     </div>
                     <div className="p-6 flex-1 min-h-0 overflow-y-auto">
                     {conversationMessagesLoading ? (
-                      <div className="space-y-5 pt-2">
-                        <p className="text-xs text-center text-neutral-400 dark:text-neutral-500 mb-1">Loading messages…</p>
-                        {[false, true, false, true, false].map((fromPage, i) => (
-                          <div key={i} className={`flex ${fromPage ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`h-9 rounded-2xl animate-pulse bg-neutral-200 dark:bg-neutral-700 opacity-60 ${
-                              fromPage
-                                ? [' w-44', ' w-56', ' w-36'][i % 3]
-                                : [' w-64', ' w-48', ' w-52'][i % 3]
-                            }`} />
-                          </div>
-                        ))}
+                      <div className="flex flex-col items-center justify-center min-h-[12rem] py-12">
+                        <Loader2 size={36} className="text-orange-500 animate-spin" aria-hidden />
+                        <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-400">Loading messages…</p>
                       </div>
                     ) : conversationMessagesError ? (
                       <p className="text-sm text-amber-700">{conversationMessagesError}</p>
