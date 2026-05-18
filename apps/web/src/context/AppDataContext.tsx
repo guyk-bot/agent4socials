@@ -455,12 +455,16 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         // Phase 1: minimal data needed to show the shell (notifications, scheduled posts)
         await Promise.all([
           api.get<{ inbox?: number; comments?: number; messages?: number; byPlatform?: Record<string, { comments: number; messages: number }> }>('/social/notifications').then((r) => {
-            if (!cancelled) setNotificationsState({
-              inbox: r.data?.inbox ?? 0,
-              comments: r.data?.comments ?? 0,
-              messages: r.data?.messages ?? 0,
-              byPlatform: r.data?.byPlatform ?? {},
-            });
+            if (!cancelled) setNotificationsState((prev) => ({
+              // Keep locally-computed inbox/messages/comments counts (they reflect real unread
+              // state via localStorage). Only adopt the API values if local counts are still
+              // zero (i.e. conversations haven't loaded yet). Always take byPlatform from the
+              // API since it has the per-platform conversation counts.
+              inbox: prev.inbox > 0 ? prev.inbox : (r.data?.inbox ?? 0),
+              messages: prev.messages > 0 ? prev.messages : (r.data?.messages ?? 0),
+              comments: prev.comments > 0 ? prev.comments : (r.data?.comments ?? 0),
+              byPlatform: r.data?.byPlatform ?? prev.byPlatform ?? {},
+            }));
           }).catch(() => {}),
           api.get<CachedScheduledPost[]>('/posts').then((r) => {
             if (!cancelled && Array.isArray(r.data)) setScheduledPostsState(r.data);

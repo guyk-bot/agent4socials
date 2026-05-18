@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
-import { PostStatus } from '@prisma/client';
 import axios from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { getCached, setCached } from '@/lib/server-memory-cache';
@@ -60,27 +59,23 @@ export async function GET(request: NextRequest) {
 
   let commentsTotal = 0;
   let messagesTotal = 0;
-  let engagementTotal = 0;
   const byPlatform: Record<string, { comments: number; messages: number }> = {};
 
   for (const account of accounts) {
     if (!byPlatform[account.platform]) byPlatform[account.platform] = { comments: 0, messages: 0 };
 
-    // Comment counts come straight from the DB (synced periodically by the sync engine).
-    // We used to hit /{postId}/comments against Meta for 50 posts per account per request,
-    // which was the single biggest source of our Graph API usage. No more.
+    // Comment badge = number of posts that have at least one comment (not the sum of all comment
+    // counts, which grows into the hundreds and always hits the 99 cap).
     if (
       account.platform === 'INSTAGRAM' ||
       account.platform === 'FACEBOOK' ||
       account.platform === 'TWITTER'
     ) {
-      const agg = await prisma.importedPost.aggregate({
-        where: { socialAccountId: account.id },
-        _sum: { commentsCount: true },
+      const postsWithComments = await prisma.importedPost.count({
+        where: { socialAccountId: account.id, commentsCount: { gt: 0 } },
       });
-      const commentsCount = agg._sum.commentsCount ?? 0;
-      commentsTotal += commentsCount;
-      byPlatform[account.platform].comments += commentsCount;
+      commentsTotal += postsWithComments;
+      byPlatform[account.platform].comments += postsWithComments;
     }
 
     // Messages: we still need to hit the platform API (we don't persist message threads),
@@ -139,30 +134,8 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Engagement tab count: posts with engagement data (ImportedPost or PostTarget for IG/FB/YT/PIN).
-  const engagementAccounts = accounts.filter(
-    (a) =>
-      a.platform === 'INSTAGRAM' ||
-      a.platform === 'FACEBOOK' ||
-      a.platform === 'YOUTUBE' ||
-      a.platform === 'PINTEREST'
-  );
-  for (const account of engagementAccounts) {
-    const importedCount = await prisma.importedPost.count({
-      where: { socialAccountId: account.id },
-    });
-    const targetCount = await prisma.postTarget.count({
-      where: {
-        socialAccountId: account.id,
-        platformPostId: { not: null },
-        status: PostStatus.POSTED,
-      },
-    });
-    engagementTotal += Math.max(importedCount, targetCount, 0);
-  }
-
   const payload: NotificationsPayload = {
-    inbox: Math.min(commentsTotal + messagesTotal + engagementTotal, 99),
+    inbox: Math.min(commentsTotal + messagesTotal, 99),
     comments: Math.min(commentsTotal, 99),
     messages: Math.min(messagesTotal, 99),
     byPlatform: Object.fromEntries(

@@ -2139,9 +2139,16 @@ function InboxPage() {
             {platformsToShow.map((p) => {
               const Icon = p.icon;
               const isSelected = selectedPlatforms.includes(p.id);
-              const unreadCount = inboxMode === 'messages'
+              // Prefer locally-tracked unread counts (conversations opened but have new messages).
+              // Fall back to the API's byPlatform count (total active conversations/posts with
+              // comments) so the icon always shows a meaningful number on first load.
+              const localUnread = inboxMode === 'messages'
                 ? (unreadMessagesByPlatform[p.id] ?? 0)
                 : (unreadCommentsByPlatform[p.id] ?? 0);
+              const apiCount = inboxMode === 'messages'
+                ? (byPlatform[p.id]?.messages ?? 0)
+                : (byPlatform[p.id]?.comments ?? 0);
+              const displayCount = localUnread > 0 ? localUnread : apiCount;
               return (
                 <button
                   key={p.id}
@@ -2154,12 +2161,12 @@ function InboxPage() {
                   className={`relative w-10 h-10 rounded-lg flex items-center justify-center border cursor-pointer focus:outline-none select-none ${
                     isSelected ? 'bg-neutral-300 border-neutral-400 dark:bg-neutral-600 dark:border-neutral-500' : 'bg-white border-neutral-200 hover:bg-neutral-100 dark:bg-neutral-800 dark:border-neutral-700 dark:hover:bg-neutral-700'
                   }`}
-                  title={isSelected ? `Hide ${p.label}` : `Show ${p.label}${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+                  title={isSelected ? `Hide ${p.label}` : `Show ${p.label}${displayCount > 0 ? ` (${displayCount})` : ''}`}
                 >
                   <Icon size={22} className={'color' in p ? p.color : undefined} />
-                  {unreadCount > 0 && (
+                  {displayCount > 0 && (
                     <span className="absolute -top-1.5 -right-1.5 min-w-[1.1rem] h-[1.1rem] px-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none shadow-sm">
-                      {unreadCount > 99 ? '99' : unreadCount}
+                      {displayCount > 99 ? '99' : displayCount}
                     </span>
                   )}
                 </button>
@@ -2194,11 +2201,16 @@ function InboxPage() {
             }`}
           >
             Messages
-            {(totalUnreadMessages > 0 || unreadConversationIds.size > 0) ? (
-              <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
-                {totalUnreadMessages > 0 ? (totalUnreadMessages > 99 ? '99' : totalUnreadMessages) : (unreadConversationIds.size > 99 ? '99' : unreadConversationIds.size)}
-              </span>
-            ) : null}
+            {(() => {
+              const localMsg = totalUnreadMessages > 0 ? totalUnreadMessages : unreadConversationIds.size;
+              const apiMsg = effectiveNotifications.messages;
+              const msgBadge = localMsg > 0 ? localMsg : apiMsg;
+              return msgBadge > 0 ? (
+                <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+                  {msgBadge > 99 ? '99' : msgBadge}
+                </span>
+              ) : null;
+            })()}
           </button>
           <button
             type="button"
@@ -2210,11 +2222,16 @@ function InboxPage() {
             }`}
           >
             Comments
-            {unreadCommentIds.size > 0 ? (
-              <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
-                {unreadCommentIds.size > 99 ? '99' : unreadCommentIds.size}
-              </span>
-            ) : null}
+            {(() => {
+              const localCmt = unreadCommentIds.size;
+              const apiCmt = effectiveNotifications.comments;
+              const cmtBadge = localCmt > 0 ? localCmt : apiCmt;
+              return cmtBadge > 0 ? (
+                <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+                  {cmtBadge > 99 ? '99' : cmtBadge}
+                </span>
+              ) : null;
+            })()}
           </button>
         </div>
 
