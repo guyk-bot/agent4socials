@@ -2296,20 +2296,6 @@ function InboxPage() {
                 {selectMode ? <CheckSquare size={13} /> : <Square size={13} />}
                 {selectMode ? 'Cancel' : 'Select'}
               </button>
-              {!selectMode && (
-                <button
-                  type="button"
-                  title="Refresh conversations"
-                  onClick={() => {
-                    appData?.invalidateConversations?.();
-                    setConversationsRefreshKey((k) => k + 1);
-                  }}
-                  className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                >
-                  <RefreshCw size={12} />
-                  Refresh
-                </button>
-              )}
               {selectMode && (
                 <>
                   <button
@@ -3238,22 +3224,6 @@ function InboxPage() {
                                 })()}
                               </p>
                             </div>
-                            <button
-                              type="button"
-                              title="Refresh messages"
-                              onClick={() => {
-                                if (selectedConversationId) {
-                                  setConversationMessagesCache((prev) => {
-                                    const next = { ...prev };
-                                    delete next[selectedConversationId];
-                                    return next;
-                                  });
-                                }
-                              }}
-                              className="ml-2 p-1.5 rounded-lg text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-700 shrink-0"
-                            >
-                              <RefreshCw size={15} />
-                            </button>
                           </div>
                         );
                       })()}
