@@ -690,7 +690,9 @@ function InboxPage() {
     const convId = selectedConversationId;
     const accountIdForFetch = currentAccountForDmThread.id;
     const cached = conversationMessagesCache[convId];
-    if (cached?.accountId === accountIdForFetch) return;
+    // Only skip fetch when cached successfully (no error). Always retry on error so transient
+    // timeouts or previously-cached failures auto-resolve once the fix is deployed.
+    if (cached?.accountId === accountIdForFetch && !cached.error) return;
 
     const inflightKey = `${accountIdForFetch}:${convId}`;
     if (inflightConversationMessagesRef.current.has(inflightKey)) return;
@@ -784,7 +786,9 @@ function InboxPage() {
       if (prefetchedConversationMessagesRef.current.has(cacheKey)) continue;
 
       const existing = conversationMessagesCache[conv.id];
-      if (existing?.accountId === account.id && Array.isArray(existing.messages)) {
+      // Skip if we have a successful cached result (messages present, no error).
+      // If there's a cached error, allow the background prefetch to retry.
+      if (existing?.accountId === account.id && Array.isArray(existing.messages) && !existing.error) {
         prefetchedConversationMessagesRef.current.add(cacheKey);
         continue;
       }
@@ -811,6 +815,8 @@ function InboxPage() {
           })
           .catch(() => {
             // Silent background warm-up: do not surface toast/errors to user.
+            // Remove from prefetched set so a retry can be attempted on next render.
+            prefetchedConversationMessagesRef.current.delete(cacheKey);
           })
       );
     }
