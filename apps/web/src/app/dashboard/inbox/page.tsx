@@ -116,9 +116,12 @@ type EngagementItem = {
 };
 
 const INBOX_MESSAGES_CACHE_KEY = 'agent4socials_inbox_messages_cache';
-const INBOX_MESSAGES_CACHE_MAX_BYTES = 200_000;
-/** Max number of conversation caches kept in React state. Older ones are evicted to prevent unbounded growth. */
-const INBOX_MESSAGES_CACHE_MAX_ENTRIES = 20;
+/** localStorage budget: ~2 MB — generous but safe for most browsers. */
+const INBOX_MESSAGES_CACHE_MAX_BYTES = 2_000_000;
+/** Keep up to 150 conversations so the full inbox list is covered. */
+const INBOX_MESSAGES_CACHE_MAX_ENTRIES = 150;
+/** Cached messages are considered fresh for 4 hours. After that they are re-fetched. */
+const INBOX_MESSAGES_CACHE_TTL_MS = 4 * 60 * 60 * 1000;
 
 type ConvCache = {
   messages: ConversationMessage[];
@@ -527,12 +530,15 @@ function InboxPage() {
     }
   }, [selectedPlatforms.join(',')]);
 
-  // Restore conversation messages cache from sessionStorage on mount so messages persist across refresh/navigation
+  // Restore conversation messages cache from localStorage on mount.
+  // localStorage persists across tab closes and page refreshes so previously-viewed
+  // conversations open instantly even on the next visit. Entries older than the TTL
+  // are dropped so messages don't go stale forever.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
-      const raw = sessionStorage.getItem(INBOX_MESSAGES_CACHE_KEY);
-      if (!raw || raw.length > INBOX_MESSAGES_CACHE_MAX_BYTES) return;
+      const raw = localStorage.getItem(INBOX_MESSAGES_CACHE_KEY);
+      if (!raw) return;
       const parsed = JSON.parse(raw) as Record<
         string,
         {
@@ -542,17 +548,25 @@ function InboxPage() {
           recipientPictureUrl?: string | null;
           error: string | null;
           accountId?: string;
+          _ts?: number;
         }
       >;
-      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
-        setConversationMessagesCache(parsed);
+      if (!parsed || typeof parsed !== 'object') return;
+      const now = Date.now();
+      // Keep only fresh, successful entries.
+      const fresh: typeof parsed = {};
+      for (const [k, v] of Object.entries(parsed)) {
+        if (v.error) continue; // drop cached errors — always re-fetch on next open
+        if (v._ts && now - v._ts > INBOX_MESSAGES_CACHE_TTL_MS) continue; // expired
+        fresh[k] = v;
       }
+      if (Object.keys(fresh).length > 0) setConversationMessagesCache(fresh);
     } catch {
       // ignore
     }
   }, []);
 
-  // Persist conversation messages cache to sessionStorage. Debounced so rapid successive
+  // Persist conversation messages cache to localStorage. Debounced so rapid successive
   // cache writes (e.g. prefetch warmup) don't trigger JSON.stringify on every keypress.
   const persistCacheTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -569,7 +583,7 @@ function InboxPage() {
         }
         const str = JSON.stringify(toStore);
         if (str.length <= INBOX_MESSAGES_CACHE_MAX_BYTES) {
-          sessionStorage.setItem(INBOX_MESSAGES_CACHE_KEY, str);
+          localStorage.setItem(INBOX_MESSAGES_CACHE_KEY, str);
         }
       } catch {
         // ignore quota
@@ -712,9 +726,9 @@ function InboxPage() {
     const convId = selectedConversationId;
     const accountIdForFetch = currentAccountForDmThread.id;
     const cached = conversationMessagesCache[convId];
-    // Only skip fetch when cached successfully (no error). Always retry on error so transient
-    // timeouts or previously-cached failures auto-resolve once the fix is deployed.
-    if (cached?.accountId === accountIdForFetch && !cached.error) return;
+    // Skip fetch only when cached successfully, no error, and not stale (< TTL).
+    const cacheAge = cached?._ts ? Date.now() - cached._ts : Infinity;
+    if (cached?.accountId === accountIdForFetch && !cached.error && cacheAge < INBOX_MESSAGES_CACHE_TTL_MS) return;
 
     const inflightKey = `${accountIdForFetch}:${convId}`;
     if (inflightConversationMessagesRef.current.has(inflightKey)) return;
@@ -810,9 +824,9 @@ function InboxPage() {
       if (prefetchedConversationMessagesRef.current.has(cacheKey)) continue;
 
       const existing = conversationMessagesCache[conv.id];
-      // Skip if we have a successful cached result (messages present, no error).
-      // If there's a cached error, allow the background prefetch to retry.
-      if (existing?.accountId === account.id && Array.isArray(existing.messages) && !existing.error) {
+      const existingAge = existing?._ts ? Date.now() - existing._ts : Infinity;
+      // Skip if we have a fresh, successful cached result (no error, within TTL).
+      if (existing?.accountId === account.id && !existing.error && existingAge < INBOX_MESSAGES_CACHE_TTL_MS) {
         prefetchedConversationMessagesRef.current.add(cacheKey);
         continue;
       }
