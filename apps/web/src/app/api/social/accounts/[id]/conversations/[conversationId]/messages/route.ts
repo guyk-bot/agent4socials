@@ -95,13 +95,18 @@ export async function GET(
   }
 
   const isBackground = request.nextUrl.searchParams.get('background') === '1';
+  // convUpdatedTime: ISO timestamp of the conversation's last platform update.
+  // When the client detects the conversation was updated after the last message fetch
+  // it passes this so the DB cache can be bypassed if it pre-dates the new message.
+  const convUpdatedTime = request.nextUrl.searchParams.get('convUpdatedTime') || null;
 
   // ── DB cache (instant path) ──────────────────────────────────────────────
   // Serve from the server-side AppKv cache when available. The sync-inbox cron
   // pre-warms every conversation every ~30 min, so returning users never hit
   // the Meta/X API for already-seen conversations.
+  // Pass convUpdatedTime so new messages (conv updated after cache write) bypass the cache.
   if (account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK') {
-    const cached = await getInboxMessagesFromDb(account.id, conversationId);
+    const cached = await getInboxMessagesFromDb(account.id, conversationId, convUpdatedTime);
     if (cached) {
       // recipientId: pick first sender that isn't us from the cached messages
       const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'

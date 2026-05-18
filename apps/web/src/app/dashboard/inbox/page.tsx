@@ -777,8 +777,12 @@ function InboxPage() {
     }
     setConversationMessagesError(null);
 
+    // Pass the conversation's updatedTime so the server-side DB cache is bypassed
+    // when the conversation was updated after the cache was last written.
+    const convUpdatedTime = convForRecipient?.updatedTime;
+    const messagesUrl = `/social/accounts/${accountIdForFetch}/conversations/${convId}/messages${convUpdatedTime ? `?convUpdatedTime=${encodeURIComponent(convUpdatedTime)}` : ''}`;
     api
-      .get(`/social/accounts/${accountIdForFetch}/conversations/${convId}/messages`, {
+      .get(messagesUrl, {
         timeout: 35_000,
         signal: ac.signal,
       })
@@ -1560,22 +1564,15 @@ function InboxPage() {
     previousEngagementIdsRef.current = ids;
   }, [engagement, user?.id]);
 
-  // Sync total unread to appData so the header badge stays accurate.
-  // When local read-state tracking shows 0, fall back to the total number of loaded
-  // conversations so the badge always reflects meaningful activity.
+  // Sync total unread to appData so the header Inbox badge stays accurate.
   useEffect(() => {
-    const messagesCount = totalUnreadMessages > 0
-      ? totalUnreadMessages
-      : unreadConversationIds.size > 0
-        ? unreadConversationIds.size
-        : conversations.length; // always show loaded conversations as badge floor
+    const messagesCount = totalUnreadMessages > 0 ? totalUnreadMessages : unreadConversationIds.size;
     const total = unreadCommentIds.size + messagesCount;
-    // Use ref to avoid listing appData as a dep (would cause infinite re-run when setNotifications updates context).
     appDataRef.current?.setNotifications({
       ...(appDataRef.current.notifications ?? { inbox: 0, comments: 0, messages: 0 }),
       inbox: Math.min(total, 99),
     });
-  }, [unreadCommentIds.size, unreadConversationIds.size, totalUnreadMessages, conversations.length]);
+  }, [unreadCommentIds.size, unreadConversationIds.size, totalUnreadMessages]);
 
   const handlePlatformClick = (platformId: string) => {
     setSelectedPlatforms((prev) => {
