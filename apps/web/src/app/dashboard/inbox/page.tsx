@@ -789,8 +789,10 @@ function InboxPage() {
     if (conversations.length === 0) return;
 
     const targets = conversations
-      .filter((c) => c.id && c.platform && DM_THREAD_PLATFORM_IDS.has(c.platform))
-      .slice(0, 20); // fetch top 20 in parallel so clicking any visible conversation feels instant
+      .filter((c) => c.id && c.platform && DM_THREAD_PLATFORM_IDS.has(c.platform));
+    // No cap — fetch ALL DM conversations in parallel. The server uses ?background=1 to fast-fail
+    // when Meta usage is high, so throttled conversations will be retried on the next render cycle
+    // rather than blocking. Once all succeed the full conversation list opens instantly from cache.
     if (targets.length === 0) return;
 
     let cancelled = false;
@@ -818,9 +820,14 @@ function InboxPage() {
       prefetchedConversationMessagesRef.current.add(cacheKey);
       pending.push(
         api
-          .get(`/social/accounts/${account.id}/conversations/${conv.id}/messages`, { timeout: 60_000 })
+          .get(`/social/accounts/${account.id}/conversations/${conv.id}/messages`, { timeout: 60_000, params: { background: '1' } })
           .then((res) => {
             if (cancelled) return;
+            // If the server fast-failed due to Meta throttle, don't cache — retry next render.
+            if (res.data?.error === 'throttled') {
+              prefetchedConversationMessagesRef.current.delete(cacheKey);
+              return;
+            }
             const messages = res.data?.messages ?? [];
             const recipientFromConv = conv.senders?.[0]?.id ?? null;
             const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;

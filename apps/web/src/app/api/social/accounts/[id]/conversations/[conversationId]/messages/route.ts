@@ -5,6 +5,7 @@ import axios from 'axios';
 import { signTwitterRequest } from '@/lib/twitter-oauth1';
 import { runFirstWelcomeMaybe } from '@/lib/dm-first-welcome';
 import { loadConversationForFirstWelcome } from '@/lib/inbox/load-conversation-for-first-welcome';
+import { isMetaNonCriticalThrottled } from '@/lib/meta-usage-guard';
 
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
@@ -92,6 +93,13 @@ export async function GET(
     return NextResponse.json({ messages: [], error: 'conversationId required' }, { status: 400 });
   }
 
+  // Background prefetch requests (background=1) fast-fail when Meta API usage is high.
+  // This avoids bursting all prefetch calls against a rate-limited Meta app.
+  // User-initiated clicks (no flag) always proceed regardless of throttle state.
+  const isBackground = request.nextUrl.searchParams.get('background') === '1';
+  if (isBackground && (account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK') && isMetaNonCriticalThrottled()) {
+    return NextResponse.json({ messages: [], error: 'throttled', recipientId: null });
+  }
 
   const loaded = await loadConversationForFirstWelcome(account, conversationId, userId);
   if (!loaded.ok) {
