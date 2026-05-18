@@ -99,7 +99,7 @@ export async function loadInstagramBusinessConversationMessages(
       error?: { message?: string };
     }>(`${igBaseUrl}/${conversationId}`, {
       params: { fields: 'messages', access_token: accessToken },
-      timeout: 15_000,
+      timeout: 10_000,
     });
     noteMetaUsageFromHeaders(convoRes.headers);
     if (convoRes.data?.error) {
@@ -137,7 +137,7 @@ export async function loadFacebookGraphConversationMessages(
       error?: { message: string };
     }>(`${fbBaseUrl}/${conversationId}/messages`, {
       params,
-      timeout: 30_000,
+      timeout: 12_000, // reduced from 30s — prevents double-call from hitting the 60s function limit
     });
 
     if (res.data?.error) {
@@ -179,15 +179,13 @@ export async function loadInstagramConversationMessages(args: {
     linkedPageId = await resolveLinkedPageId(userId, token);
   }
 
+  // If linkedPageId is resolved, use the Facebook Graph path (page token + platform=instagram).
+  // Always return its result — even empty — to avoid making a second identical API call.
+  // Two sequential 30s calls would hit the 60s Vercel function limit and cause client timeouts.
   if (linkedPageId) {
-    const viaPage = await loadFacebookGraphConversationMessages(
-      conversationId,
-      token,
-      ourIds,
-      'INSTAGRAM'
-    );
-    if (viaPage.messages.length > 0 || viaPage.error) return viaPage;
+    return loadFacebookGraphConversationMessages(conversationId, token, ourIds, 'INSTAGRAM');
   }
 
+  // No linked page found: try direct graph.facebook.com call without page context.
   return loadFacebookGraphConversationMessages(conversationId, token, ourIds, 'INSTAGRAM');
 }
