@@ -628,6 +628,15 @@ function InboxPage() {
       ? { comments: appData.notifications.comments, messages: appData.notifications.messages }
       : { comments: notifications.comments, messages: notifications.messages };
 
+  /** Per-platform conversation counts from the loaded list (always reliable, no API call needed). */
+  const convCountByPlatform = useMemo(() => {
+    const result: Record<string, number> = {};
+    for (const c of conversations) {
+      if (c.platform) result[c.platform] = (result[c.platform] ?? 0) + 1;
+    }
+    return result;
+  }, [conversations]);
+
   /** Per-platform unread DM counts (used for badges on the platform filter icons). */
   const unreadMessagesByPlatform = useMemo(() => {
     const result: Record<string, number> = {};
@@ -829,7 +838,10 @@ function InboxPage() {
     return () => {
       ac.abort();
     };
-  }, [selectedConversationId, currentAccountForDmThread?.id, dmThreadPlatform, user?.id]);
+  // selectedConversation?.updatedTime is intentionally in deps: when the conversation list
+  // refreshes and the updatedTime advances (new message arrived), this effect re-runs so
+  // isConvCacheFresh detects the stale cache and fetches the new messages automatically.
+  }, [selectedConversationId, currentAccountForDmThread?.id, dmThreadPlatform, user?.id, selectedConversation?.updatedTime]);
 
   useEffect(() => {
     setAiReplyError(null);
@@ -1548,16 +1560,22 @@ function InboxPage() {
     previousEngagementIdsRef.current = ids;
   }, [engagement, user?.id]);
 
-  // Sync total unread to appData so header shows comments + messages (engagement removed)
+  // Sync total unread to appData so the header badge stays accurate.
+  // When local read-state tracking shows 0, fall back to the total number of loaded
+  // conversations so the badge always reflects meaningful activity.
   useEffect(() => {
-    const messagesCount = totalUnreadMessages > 0 ? totalUnreadMessages : unreadConversationIds.size;
+    const messagesCount = totalUnreadMessages > 0
+      ? totalUnreadMessages
+      : unreadConversationIds.size > 0
+        ? unreadConversationIds.size
+        : conversations.length; // always show loaded conversations as badge floor
     const total = unreadCommentIds.size + messagesCount;
     // Use ref to avoid listing appData as a dep (would cause infinite re-run when setNotifications updates context).
     appDataRef.current?.setNotifications({
       ...(appDataRef.current.notifications ?? { inbox: 0, comments: 0, messages: 0 }),
       inbox: Math.min(total, 99),
     });
-  }, [unreadCommentIds.size, unreadConversationIds.size, totalUnreadMessages]);
+  }, [unreadCommentIds.size, unreadConversationIds.size, totalUnreadMessages, conversations.length]);
 
   const handlePlatformClick = (platformId: string) => {
     setSelectedPlatforms((prev) => {
@@ -2165,16 +2183,16 @@ function InboxPage() {
             {platformsToShow.map((p) => {
               const Icon = p.icon;
               const isSelected = selectedPlatforms.includes(p.id);
-              // Prefer locally-tracked unread counts (conversations opened but have new messages).
-              // Fall back to the API's byPlatform count (total active conversations/posts with
-              // comments) so the icon always shows a meaningful number on first load.
+              // For messages: prefer locally-tracked unread count; fall back to total
+              // conversations loaded for this platform (always available, no API needed).
+              // For comments: use unread count; fall back to API byPlatform.comments.
               const localUnread = inboxMode === 'messages'
                 ? (unreadMessagesByPlatform[p.id] ?? 0)
                 : (unreadCommentsByPlatform[p.id] ?? 0);
-              const apiCount = inboxMode === 'messages'
-                ? (byPlatform[p.id]?.messages ?? 0)
+              const fallbackCount = inboxMode === 'messages'
+                ? (convCountByPlatform[p.id] ?? byPlatform[p.id]?.messages ?? 0)
                 : (byPlatform[p.id]?.comments ?? 0);
-              const displayCount = localUnread > 0 ? localUnread : apiCount;
+              const displayCount = localUnread > 0 ? localUnread : fallbackCount;
               return (
                 <button
                   key={p.id}
@@ -2229,8 +2247,10 @@ function InboxPage() {
             Messages
             {(() => {
               const localMsg = totalUnreadMessages > 0 ? totalUnreadMessages : unreadConversationIds.size;
+              // Fall back to total loaded conversations for selected platforms — always reliable.
+              const loadedMsg = selectedPlatforms.reduce((s, p) => s + (convCountByPlatform[p] ?? 0), 0);
               const apiMsg = effectiveNotifications.messages;
-              const msgBadge = localMsg > 0 ? localMsg : apiMsg;
+              const msgBadge = localMsg > 0 ? localMsg : (loadedMsg > 0 ? loadedMsg : apiMsg);
               return msgBadge > 0 ? (
                 <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
                   {msgBadge > 99 ? '99' : msgBadge}
