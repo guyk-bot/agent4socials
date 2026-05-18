@@ -16,6 +16,7 @@
  *
  * Schedule: every 30 minutes via cron-job.org (see docs/CRON_SCHEDULES.md).
  * Auth: X-Cron-Secret header (same as all other cron routes).
+ * HTTP: GET or POST (cron-job.org defaults to GET; both are supported).
  *
  * Budget: aborts after SYNC_INBOX_BUDGET_MS to stay within Vercel's function
  * timeout. Conversations not reached in one run are handled by the next run.
@@ -35,6 +36,8 @@ import {
 } from '@/lib/inbox/load-meta-conversation-messages';
 import { noteMetaUsageFromHeaders, isMetaNonCriticalThrottled } from '@/lib/meta-usage-guard';
 
+export const maxDuration = 60;
+
 const SYNC_INBOX_BUDGET_MS = parseInt(process.env.SYNC_INBOX_BUDGET_MS ?? '50000', 10); // 50s
 /** Max conversations to sync per account per run (avoids exhausting Meta API in one shot). */
 const MAX_CONVS_PER_ACCOUNT = 30;
@@ -43,8 +46,27 @@ const igBase = 'https://graph.instagram.com/v25.0';
 
 type ConvItem = { id: string; updated_time?: string };
 
+async function resolveLinkedPageId(
+  userId: string,
+  accessToken: string,
+  credLinkedPageId?: string
+): Promise<string | null> {
+  if (credLinkedPageId) return credLinkedPageId;
+  if (!accessToken) return null;
+  try {
+    const fb = await prisma.socialAccount.findFirst({
+      where: { userId, platform: 'FACEBOOK', accessToken },
+      select: { platformUserId: true },
+    });
+    return fb?.platformUserId ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchConversationIds(
   account: {
+    userId: string;
     platform: string;
     platformUserId: string;
     accessToken: string;
@@ -55,9 +77,12 @@ async function fetchConversationIds(
     ? account.credentialsJson
     : {}) as { loginMethod?: string; igUserToken?: string; linkedPageId?: string };
 
+  const isInstagram = account.platform === 'INSTAGRAM';
   const isInstagramBusinessLogin =
-    account.platform === 'INSTAGRAM' && cred.loginMethod === 'instagram_business';
-  const linkedPageId = cred.linkedPageId ?? null;
+    isInstagram && cred.loginMethod === 'instagram_business';
+  const linkedPageId = isInstagram && !isInstagramBusinessLogin
+    ? await resolveLinkedPageId(account.userId, account.accessToken, cred.linkedPageId)
+    : cred.linkedPageId ?? null;
 
   let url: string;
   let token: string;
@@ -65,11 +90,14 @@ async function fetchConversationIds(
 
   if (isInstagramBusinessLogin) {
     url = `${igBase}/me/conversations`;
-    token = cred.igUserToken || account.accessToken;
-  } else if (account.platform === 'INSTAGRAM' && linkedPageId) {
+    token = account.accessToken;
+  } else if (isInstagram && linkedPageId) {
     url = `${fbBase}/${linkedPageId}/conversations`;
     token = account.accessToken;
     params.platform = 'instagram';
+  } else if (isInstagram) {
+    url = `${igBase}/me/conversations`;
+    token = account.accessToken;
   } else if (account.platform === 'FACEBOOK') {
     url = `${fbBase}/${account.platformUserId}/conversations`;
     token = account.accessToken;
@@ -91,12 +119,12 @@ async function fetchConversationIds(
   }
 }
 
-export async function POST(request: NextRequest) {
-  // Auth
-  const secret = request.headers.get('x-cron-secret')
-    ?? request.headers.get('authorization')?.replace('Bearer ', '')
-    ?? new URL(request.url).searchParams.get('secret');
-  if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
+async function handle(request: NextRequest) {
+  const cronSecret =
+    request.headers.get('X-Cron-Secret') ||
+    request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ||
+    request.nextUrl.searchParams.get('secret');
+  if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   if (!process.env.DATABASE_URL) {
@@ -137,10 +165,13 @@ export async function POST(request: NextRequest) {
       ? account.credentialsJson : {}) as { loginMethod?: string; igUserToken?: string; linkedPageId?: string };
     const isInstagramBusinessLogin =
       account.platform === 'INSTAGRAM' && cred.loginMethod === 'instagram_business';
-    const linkedPageId = cred.linkedPageId ?? null;
-    const token = isInstagramBusinessLogin ? (cred.igUserToken || account.accessToken) : account.accessToken;
+    const token = account.accessToken;
+    const linkedPageIdForMsgs =
+      account.platform === 'INSTAGRAM' && !isInstagramBusinessLogin
+        ? await resolveLinkedPageId(account.userId, account.accessToken, cred.linkedPageId)
+        : cred.linkedPageId ?? null;
     const ourIds = new Set<string>(
-      [account.platformUserId, linkedPageId].filter((x): x is string => !!x)
+      [account.platformUserId, linkedPageIdForMsgs].filter((x): x is string => !!x)
     );
 
     // Step 2: For each conversation (newest first, up to cap), sync if not cached
@@ -162,7 +193,7 @@ export async function POST(request: NextRequest) {
             account.platform === 'INSTAGRAM' ? 'INSTAGRAM' : 'FACEBOOK');
         }
 
-        if (!msgs.error && msgs.messages.length > 0) {
+        if (!msgs.error) {
           await setInboxMessagesInDb(account.id, conv.id, msgs.messages);
           results[key].synced++;
         }
@@ -175,9 +206,15 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  console.log('[Cron] sync-inbox done:', JSON.stringify({ ok: true, accountCount: accounts.length, results }));
+
   return NextResponse.json({
     ok: true,
     ran: new Date().toISOString(),
+    accountCount: accounts.length,
     results,
   });
 }
+
+export const GET = handle;
+export const POST = handle;

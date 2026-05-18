@@ -34,6 +34,7 @@ Both every **5 minutes**. Do not rely on `PROCESS_SCHEDULED_CHAIN_COMMENT_AUTOMA
 | Path | What it does |
 |------|----------------|
 | `/api/cron/sync-platform-data` | Account overview, imported posts, post metrics for all connected accounts. |
+| `/api/cron/sync-inbox` | Pre-warms Instagram and Facebook DM threads into the DB so Inbox opens messages instantly. **Use GET or POST** (cron-job.org defaults to GET). |
 | `/api/cron/sync-linkedin` | LinkedIn member metrics and post rollup (only if you use LinkedIn). |
 
 If you currently call `sync-platform-data` every **15** minutes, moving it to **30** minutes cuts roughly half of those Meta-heavy syncs while keeping analytics and post lists reasonably fresh.

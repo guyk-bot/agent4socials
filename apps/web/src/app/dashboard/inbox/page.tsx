@@ -706,10 +706,10 @@ function InboxPage() {
     const convId = selectedConversationId;
     const accountIdForFetch = currentAccountForDmThread.id;
     const cached = conversationMessagesCache[convId];
-    if (cached?.accountId === accountIdForFetch) {
+    if (cached?.accountId === accountIdForFetch && !cached.error) {
       setConversationMessages(cached.messages);
       setConversationRecipientId(cached.recipientId);
-      setConversationMessagesError(cached.error);
+      setConversationMessagesError(null);
       setConversationMessagesLoading(false);
     }
   }, [selectedConversationId, currentAccountForDmThread?.id, dmThreadPlatform, conversationMessagesCache]);
@@ -726,16 +726,35 @@ function InboxPage() {
     const convId = selectedConversationId;
     const accountIdForFetch = currentAccountForDmThread.id;
     const cached = conversationMessagesCache[convId];
-    // Skip fetch only when cached successfully, no error, and not stale (< TTL).
     const cacheAge = cached?._ts ? Date.now() - cached._ts : Infinity;
-    if (cached?.accountId === accountIdForFetch && !cached.error && cacheAge < INBOX_MESSAGES_CACHE_TTL_MS) return;
+    const cacheFresh =
+      cached?.accountId === accountIdForFetch &&
+      !cached.error &&
+      cacheAge < INBOX_MESSAGES_CACHE_TTL_MS;
+    if (cacheFresh) return;
 
     const inflightKey = `${accountIdForFetch}:${convId}`;
     if (inflightConversationMessagesRef.current.has(inflightKey)) return;
     inflightConversationMessagesRef.current.add(inflightKey);
 
-    setConversationMessagesLoading(true);
+    const hasStaleCache =
+      cached?.accountId === accountIdForFetch &&
+      !cached.error &&
+      Array.isArray(cached.messages);
+    if (hasStaleCache) {
+      setConversationMessages(cached.messages);
+      setConversationRecipientId(cached.recipientId);
+      setConversationMessagesError(null);
+      setConversationMessagesLoading(false);
+    } else {
+      setConversationMessagesLoading(false);
+    }
     setConversationMessagesError(null);
+    const loadingTimer = hasStaleCache
+      ? null
+      : window.setTimeout(() => {
+          if (selectedConversationId === convId) setConversationMessagesLoading(true);
+        }, 280);
     const convForRecipient = conversations.find((c) => c.id === convId);
     const recipientFromConv = convForRecipient?.senders?.[0]?.id ?? null;
 
@@ -787,6 +806,7 @@ function InboxPage() {
         }
       })
       .finally(() => {
+        if (loadingTimer != null) window.clearTimeout(loadingTimer);
         inflightConversationMessagesRef.current.delete(inflightKey);
         if (selectedConversationId === convId) setConversationMessagesLoading(false);
       });

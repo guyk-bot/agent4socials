@@ -11,6 +11,25 @@ import type { ConversationUiMessage } from './load-meta-conversation-messages';
 
 export const INBOX_MESSAGES_DB_TTL_MS = 4 * 60 * 60 * 1000; // 4 hours
 
+let _tableEnsured = false;
+
+async function ensureAppKvTable(): Promise<void> {
+  if (_tableEnsured) return;
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS app_kv (
+        key        TEXT PRIMARY KEY,
+        value      TEXT NOT NULL,
+        "expiresAt" TIMESTAMPTZ,
+        "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `);
+    _tableEnsured = true;
+  } catch {
+    _tableEnsured = true;
+  }
+}
+
 export function inboxMsgKey(socialAccountId: string, conversationId: string): string {
   return `inbox_msgs:${socialAccountId}:${conversationId}`;
 }
@@ -20,6 +39,7 @@ export async function getInboxMessagesFromDb(
   conversationId: string
 ): Promise<ConversationUiMessage[] | null> {
   try {
+    await ensureAppKvTable();
     const rows = await prisma.$queryRaw<Array<{ value: string; expiresAt: Date | null }>>`
       SELECT value, "expiresAt"
       FROM app_kv
@@ -41,6 +61,7 @@ export async function setInboxMessagesInDb(
   messages: ConversationUiMessage[]
 ): Promise<void> {
   try {
+    await ensureAppKvTable();
     const key = inboxMsgKey(socialAccountId, conversationId);
     const expiresAt = new Date(Date.now() + INBOX_MESSAGES_DB_TTL_MS);
     const value = JSON.stringify(messages);
@@ -64,6 +85,7 @@ export async function isInboxMessagesCached(
   conversationId: string
 ): Promise<boolean> {
   try {
+    await ensureAppKvTable();
     const rows = await prisma.$queryRaw<Array<{ count: number }>>`
       SELECT count(*)::int AS count
       FROM app_kv
