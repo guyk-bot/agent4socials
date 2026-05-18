@@ -3145,9 +3145,10 @@ function InboxPage() {
                     <div className="p-6 flex-1 min-h-0 overflow-y-auto">
                     {conversationMessagesLoading ? (
                       <div className="space-y-5 pt-2">
+                        <p className="text-xs text-center text-neutral-400 dark:text-neutral-500 mb-1">Loading messages…</p>
                         {[false, true, false, true, false].map((fromPage, i) => (
                           <div key={i} className={`flex ${fromPage ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`h-9 rounded-2xl animate-pulse bg-neutral-200 dark:bg-neutral-700 ${
+                            <div className={`h-9 rounded-2xl animate-pulse bg-neutral-200 dark:bg-neutral-700 opacity-60 ${
                               fromPage
                                 ? [' w-44', ' w-56', ' w-36'][i % 3]
                                 : [' w-64', ' w-48', ' w-52'][i % 3]

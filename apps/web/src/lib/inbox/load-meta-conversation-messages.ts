@@ -18,11 +18,19 @@ const igBaseUrl = 'https://graph.instagram.com/v25.0';
 /** Max messages to hydrate per conversation open — keeps total time well under the 60s Vercel limit. */
 const IG_MESSAGE_FETCH_LIMIT = 10;
 
+type IgAttachment = {
+  type?: string; // 'image', 'video', 'audio', 'file', 'sticker', 'share', 'story_mention', etc.
+  name?: string;
+  mime_type?: string;
+  payload?: { url?: string };
+};
+
 type IgMessageRow = {
   id: string;
   created_time?: string;
   from?: { id?: string; username?: string; name?: string };
   message?: string;
+  attachments?: { data?: IgAttachment[] };
   error?: { message?: string; code?: number };
 };
 
@@ -38,6 +46,22 @@ async function resolveLinkedPageId(userId: string, accessToken: string): Promise
   }
 }
 
+/** Resolve a human-readable display string for a message that has no text (e.g. media, sticker). */
+function attachmentLabel(m: IgMessageRow): string {
+  const att = m.attachments?.data?.[0];
+  if (!att) return '';
+  const t = (att.type ?? att.mime_type ?? '').toLowerCase();
+  if (t.includes('sticker')) return '(Sticker)';
+  if (t.includes('story_mention') || t.includes('story')) return '(Story mention)';
+  if (t.includes('share')) return '(Share)';
+  if (t.includes('audio') || t.includes('voice')) return '(Voice message)';
+  if (t.includes('video')) return '(Video)';
+  if (t.includes('image') || t.includes('photo')) return '(Image)';
+  if (t.includes('gif')) return '(GIF)';
+  if (att.name) return `(${att.name})`;
+  return '(Attachment)';
+}
+
 function mapRows(
   rows: IgMessageRow[],
   ourIds: Set<string>
@@ -48,7 +72,7 @@ function mapRows(
       id: m.id,
       fromId: m.from?.id ?? null,
       fromName: m.from?.username ?? m.from?.name ?? null,
-      message: m.message ?? '',
+      message: m.message || attachmentLabel(m) || '',
       createdTime: m.created_time ?? null,
       isFromPage: !!(m.from?.id && ourIds.has(m.from.id)),
     }))
@@ -74,7 +98,7 @@ async function fetchIgMessageDetails(
     ids.map(async (msgId): Promise<IgMessageRow | null> => {
       try {
         const r = await axios.get<IgMessageRow>(`${igBaseUrl}/${msgId}`, {
-          params: { fields: 'id,created_time,from,to,message', access_token: accessToken },
+          params: { fields: 'id,created_time,from,to,message,attachments', access_token: accessToken },
           timeout: 8_000, // shorter per-message timeout — 10 in parallel = ~8s total max
         });
         noteMetaUsageFromHeaders(r.headers); // still track usage for throttle guard
@@ -127,7 +151,7 @@ export async function loadFacebookGraphConversationMessages(
 ): Promise<{ messages: ConversationUiMessage[]; error?: string }> {
   try {
     const params: Record<string, string> = {
-      fields: 'id,from,to,message,created_time',
+      fields: 'id,from,to,message,created_time,attachments',
       access_token: accessToken,
     };
     if (platform === 'INSTAGRAM') params.platform = 'instagram';
