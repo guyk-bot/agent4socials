@@ -64,13 +64,13 @@ export async function isInboxMessagesCached(
   conversationId: string
 ): Promise<boolean> {
   try {
-    const rows = await prisma.$queryRaw<Array<{ count: bigint }>>`
-      SELECT count(*)::bigint AS count
+    const rows = await prisma.$queryRaw<Array<{ count: number }>>`
+      SELECT count(*)::int AS count
       FROM app_kv
       WHERE key = ${inboxMsgKey(socialAccountId, conversationId)}
         AND "expiresAt" > now()
     `;
-    return (rows[0]?.count ?? 0n) > 0n;
+    return Number(rows[0]?.count ?? 0) > 0;
   } catch {
     return false;
   }
