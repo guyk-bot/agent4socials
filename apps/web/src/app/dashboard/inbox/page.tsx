@@ -597,6 +597,28 @@ function InboxPage() {
       ? { comments: appData.notifications.comments, messages: appData.notifications.messages }
       : { comments: notifications.comments, messages: notifications.messages };
 
+  /** Per-platform unread DM counts (used for badges on the platform filter icons). */
+  const unreadMessagesByPlatform = useMemo(() => {
+    const result: Record<string, number> = {};
+    for (const c of conversations) {
+      if (c.platform && unreadConversationIds.has(c.id)) {
+        result[c.platform] = (result[c.platform] ?? 0) + 1;
+      }
+    }
+    return result;
+  }, [conversations, unreadConversationIds]);
+
+  /** Per-platform unread comment counts (used for badges on the platform filter icons). */
+  const unreadCommentsByPlatform = useMemo(() => {
+    const result: Record<string, number> = {};
+    for (const c of comments) {
+      if (c.commentId && c.platform && !c.parentCommentId && unreadCommentIds.has(c.commentId)) {
+        result[c.platform] = (result[c.platform] ?? 0) + 1;
+      }
+    }
+    return result;
+  }, [comments, unreadCommentIds]);
+
   const selectedConversation = useMemo(
     () => (selectedConversationId ? conversations.find((c) => c.id === selectedConversationId) : undefined),
     [conversations, selectedConversationId]
@@ -768,7 +790,7 @@ function InboxPage() {
 
     const targets = conversations
       .filter((c) => c.id && c.platform && DM_THREAD_PLATFORM_IDS.has(c.platform))
-      .slice(0, 8); // capped: each thread is multiple Meta Graph calls
+      .slice(0, 20); // fetch top 20 in parallel so clicking any visible conversation feels instant
     if (targets.length === 0) return;
 
     let cancelled = false;
@@ -2074,6 +2096,9 @@ function InboxPage() {
             {platformsToShow.map((p) => {
               const Icon = p.icon;
               const isSelected = selectedPlatforms.includes(p.id);
+              const unreadCount = inboxMode === 'messages'
+                ? (unreadMessagesByPlatform[p.id] ?? 0)
+                : (unreadCommentsByPlatform[p.id] ?? 0);
               return (
                 <button
                   key={p.id}
@@ -2083,12 +2108,17 @@ function InboxPage() {
                     e.stopPropagation();
                     handlePlatformClick(p.id);
                   }}
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center border cursor-pointer focus:outline-none select-none ${
+                  className={`relative w-10 h-10 rounded-lg flex items-center justify-center border cursor-pointer focus:outline-none select-none ${
                     isSelected ? 'bg-neutral-300 border-neutral-400 dark:bg-neutral-600 dark:border-neutral-500' : 'bg-white border-neutral-200 hover:bg-neutral-100 dark:bg-neutral-800 dark:border-neutral-700 dark:hover:bg-neutral-700'
                   }`}
-                  title={isSelected ? `Hide ${p.label}` : `Show ${p.label}`}
+                  title={isSelected ? `Hide ${p.label}` : `Show ${p.label}${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
                 >
                   <Icon size={22} className={'color' in p ? p.color : undefined} />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[1.1rem] h-[1.1rem] px-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none shadow-sm">
+                      {unreadCount > 99 ? '99' : unreadCount}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -3114,9 +3144,16 @@ function InboxPage() {
                     </div>
                     <div className="p-6 flex-1 min-h-0 overflow-y-auto">
                     {conversationMessagesLoading ? (
-                      <div className="flex flex-col items-center justify-center gap-2 py-6">
-                        <Loader2 size={24} className="text-orange-500 animate-spin" />
-                        <p className="text-xs text-neutral-500">Loading messages…</p>
+                      <div className="space-y-5 pt-2">
+                        {[false, true, false, true, false].map((fromPage, i) => (
+                          <div key={i} className={`flex ${fromPage ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`h-9 rounded-2xl animate-pulse bg-neutral-200 dark:bg-neutral-700 ${
+                              fromPage
+                                ? [' w-44', ' w-56', ' w-36'][i % 3]
+                                : [' w-64', ' w-48', ' w-52'][i % 3]
+                            }`} />
+                          </div>
+                        ))}
                       </div>
                     ) : conversationMessagesError ? (
                       <p className="text-sm text-amber-700">{conversationMessagesError}</p>
