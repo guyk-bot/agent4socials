@@ -139,6 +139,23 @@ type ConvCache = {
  * entry when the cache would exceed MAX_ENTRIES. This prevents the cache from
  * growing unboundedly when the user opens many conversations in one session.
  */
+/** True when cached messages can be shown without a network request. */
+function isConvCacheUsable(cached: ConvCache | undefined, accountId: string): boolean {
+  return Boolean(
+    cached &&
+      cached.accountId === accountId &&
+      !cached.error &&
+      Array.isArray(cached.messages)
+  );
+}
+
+/** True when cache is still within TTL (missing _ts counts as fresh, e.g. legacy localStorage). */
+function isConvCacheFresh(cached: ConvCache | undefined, accountId: string): boolean {
+  if (!isConvCacheUsable(cached, accountId)) return false;
+  if (!cached!._ts) return true;
+  return Date.now() - cached!._ts < INBOX_MESSAGES_CACHE_TTL_MS;
+}
+
 function withCacheEntry(
   prev: Record<string, ConvCache>,
   convId: string,
@@ -561,8 +578,9 @@ function InboxPage() {
       const fresh: typeof parsed = {};
       for (const [k, v] of Object.entries(parsed)) {
         if (v.error) continue; // drop cached errors — always re-fetch on next open
-        if (v._ts && now - v._ts > INBOX_MESSAGES_CACHE_TTL_MS) continue; // expired
-        fresh[k] = v;
+        const ts = v._ts ?? now;
+        if (now - ts > INBOX_MESSAGES_CACHE_TTL_MS) continue; // expired
+        fresh[k] = { ...v, _ts: ts };
       }
       if (Object.keys(fresh).length > 0) setConversationMessagesCache(fresh);
     } catch {
@@ -578,14 +596,7 @@ function InboxPage() {
     if (persistCacheTimeoutRef.current) clearTimeout(persistCacheTimeoutRef.current);
     persistCacheTimeoutRef.current = setTimeout(() => {
       try {
-        // Strip internal _ts field before persisting.
-        const toStore: Record<string, Omit<ConvCache, '_ts'>> = {};
-        for (const [k, v] of Object.entries(conversationMessagesCache)) {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { _ts, ...rest } = v;
-          toStore[k] = rest;
-        }
-        const str = JSON.stringify(toStore);
+        const str = JSON.stringify(conversationMessagesCache);
         if (str.length <= INBOX_MESSAGES_CACHE_MAX_BYTES) {
           localStorage.setItem(INBOX_MESSAGES_CACHE_KEY, str);
         }
@@ -710,9 +721,9 @@ function InboxPage() {
     const convId = selectedConversationId;
     const accountIdForFetch = currentAccountForDmThread.id;
     const cached = conversationMessagesCache[convId];
-    if (cached?.accountId === accountIdForFetch && !cached.error) {
-      setConversationMessages(cached.messages);
-      setConversationRecipientId(cached.recipientId);
+    if (isConvCacheUsable(cached, accountIdForFetch)) {
+      setConversationMessages(cached!.messages);
+      setConversationRecipientId(cached!.recipientId);
       setConversationMessagesError(null);
       setConversationMessagesLoading(false);
     }
@@ -730,28 +741,23 @@ function InboxPage() {
     const convId = selectedConversationId;
     const accountIdForFetch = currentAccountForDmThread.id;
     const cached = conversationMessagesCacheRef.current[convId];
-    const cacheAge = cached?._ts ? Date.now() - cached._ts : Infinity;
-    const cacheFresh =
-      cached?.accountId === accountIdForFetch &&
-      !cached.error &&
-      cacheAge < INBOX_MESSAGES_CACHE_TTL_MS;
-    if (cacheFresh) return;
+    const cacheUsable = isConvCacheUsable(cached, accountIdForFetch);
+    const cacheFresh = isConvCacheFresh(cached, accountIdForFetch);
 
-    const hasStaleCache =
-      cached?.accountId === accountIdForFetch &&
-      !cached.error &&
-      Array.isArray(cached.messages);
-    if (hasStaleCache) {
-      setConversationMessages(cached.messages);
-      setConversationRecipientId(cached.recipientId);
+    if (cacheUsable) {
+      setConversationMessages(cached!.messages);
+      setConversationRecipientId(cached!.recipientId);
       setConversationMessagesError(null);
+      setConversationMessagesLoading(false);
     }
+
+    if (cacheFresh) return;
 
     messagesFetchAbortRef.current?.abort();
     const ac = new AbortController();
     messagesFetchAbortRef.current = ac;
 
-    if (!hasStaleCache) {
+    if (!cacheUsable) {
       setConversationMessagesLoading(true);
     }
     setConversationMessagesError(null);
@@ -852,8 +858,7 @@ function InboxPage() {
       if (prefetchedConversationMessagesRef.current.has(cacheKey)) return;
 
       const existing = conversationMessagesCacheRef.current[conv.id];
-      const existingAge = existing?._ts ? Date.now() - existing._ts : Infinity;
-      if (existing?.accountId === account.id && !existing.error && existingAge < INBOX_MESSAGES_CACHE_TTL_MS) {
+      if (isConvCacheFresh(existing, account.id)) {
         prefetchedConversationMessagesRef.current.add(cacheKey);
         return;
       }
