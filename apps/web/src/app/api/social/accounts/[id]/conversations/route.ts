@@ -101,15 +101,10 @@ export async function GET(
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
   }
 
-  // For Instagram/Facebook: skip live API when throttled (return empty so Inbox shows cached data).
-  const isMetaConvAccount = account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK';
-  if (isMetaConvAccount && isMetaNonCriticalThrottled()) {
-    return NextResponse.json({
-      conversations: [],
-      metaThrottled: true,
-      hint: 'Meta API usage is high. Inbox will reload automatically in a few minutes.',
-    });
-  }
+  // NOTE: We intentionally do NOT apply the non-critical throttle here.
+  // The conversations list is a single lightweight Meta API call that is essential
+  // for the inbox to show new messages. Blocking it hides new DMs for 45 minutes.
+  // If Meta genuinely rate-limits this call, the API returns 429 which is handled below.
 
   if (account.platform === 'PINTEREST' || account.platform === 'LINKEDIN') {
     return NextResponse.json({

@@ -1049,10 +1049,11 @@ function InboxPage() {
     platformsToFetch.forEach(({ platform, account, since }) => {
       const wantManual = platform === 'TWITTER' && pendingManualInboxByAccountRef.current.has(account.id);
       if (wantManual) pendingManualInboxByAccountRef.current.delete(account.id);
-      const convUrl =
-        `/social/accounts/${account.id}/conversations` +
-        `${wantManual ? '&manualInboxSync=1' : ''}` +
-        `${since ? `&since=${encodeURIComponent(since)}&delta=1` : ''}`;
+      // Build the conversations URL with proper query string (? for first param, & for rest).
+      const convParams: string[] = [];
+      if (wantManual) convParams.push('manualInboxSync=1');
+      if (since) { convParams.push(`since=${encodeURIComponent(since)}`); convParams.push('delta=1'); }
+      const convUrl = `/social/accounts/${account.id}/conversations${convParams.length ? `?${convParams.join('&')}` : ''}`;
       api.get(convUrl)
       .then((res) => {
           if (cancelled) return;
@@ -1173,7 +1174,7 @@ function InboxPage() {
   useEffect(() => {
     if (inboxMode !== 'messages') return;
     if (messageFetchPlatformIds.length === 0) return;
-    const interval = setInterval(() => setConversationsRefreshKey((k) => k + 1), 5 * 60_000);
+    const interval = setInterval(() => setConversationsRefreshKey((k) => k + 1), 2 * 60_000);
     return () => clearInterval(interval);
   }, [inboxMode, messageFetchPlatformIds.join(',')]);
 
