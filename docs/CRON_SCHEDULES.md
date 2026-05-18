@@ -4,6 +4,10 @@ Send **`X-Cron-Secret: <CRON_SECRET>`** on every request (or `Authorization: Bea
 
 Base URL: `https://<your-domain>/api/cron/...`
 
+**Unauthorized in the browser:** Opening a cron URL without the secret (e.g. pasting the link in Chrome) always returns `401 Unauthorized`. That is correct. Configure the secret only in cron-job.org as a request header, not in the public URL.
+
+**cron-job.org test run shows "timeout":** `sync-inbox` and `sync-platform-data` return **HTTP 202** immediately and finish work in the background (like `dm-first-welcome`). If the test UI says "Failed (timeout)" but the HTTP status was **202**, the job was accepted and may still complete. Check Vercel logs for `sync-inbox done` or `sync-platform-data done`.
+
 ## Every 1 to 2 minutes (first incoming DM auto-reply)
 
 | Path | What it does |
