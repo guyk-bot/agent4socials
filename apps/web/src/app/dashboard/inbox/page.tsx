@@ -353,7 +353,29 @@ function InboxPage() {
   const [conversationRecipientId, setConversationRecipientId] = useState<string | null>(null);
   const [conversationMessagesLoading, setConversationMessagesLoading] = useState(false);
   const [conversationMessagesError, setConversationMessagesError] = useState<string | null>(null);
-  const [conversationMessagesCache, setConversationMessagesCache] = useState<Record<string, ConvCache>>({});
+  // Lazy-init the cache synchronously from localStorage so it's populated before
+  // ANY effect runs — preventing the "spinner on re-open" race where the fetch
+  // effect fires with an empty cache because localStorage restore was async.
+  const [conversationMessagesCache, setConversationMessagesCache] = useState<Record<string, ConvCache>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(INBOX_MESSAGES_CACHE_KEY);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw) as Record<string, ConvCache>;
+      if (!parsed || typeof parsed !== 'object') return {};
+      const now = Date.now();
+      const fresh: Record<string, ConvCache> = {};
+      for (const [k, v] of Object.entries(parsed)) {
+        if (v.error) continue;
+        const ts = v._ts ?? now;
+        if (now - ts > INBOX_MESSAGES_CACHE_TTL_MS) continue;
+        fresh[k] = { ...v, _ts: ts };
+      }
+      return fresh;
+    } catch {
+      return {};
+    }
+  });
   const [dmReplyText, setDmReplyText] = useState('');
   const [dmReplySending, setDmReplySending] = useState(false);
   const [dmRecipientUsername, setDmRecipientUsername] = useState('');
@@ -551,42 +573,6 @@ function InboxPage() {
     }
   }, [selectedPlatforms.join(',')]);
 
-  // Restore conversation messages cache from localStorage on mount.
-  // localStorage persists across tab closes and page refreshes so previously-viewed
-  // conversations open instantly even on the next visit. Entries older than the TTL
-  // are dropped so messages don't go stale forever.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const raw = localStorage.getItem(INBOX_MESSAGES_CACHE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as Record<
-        string,
-        {
-          messages: ConversationMessage[];
-          recipientId: string | null;
-          recipientName?: string | null;
-          recipientPictureUrl?: string | null;
-          error: string | null;
-          accountId?: string;
-          _ts?: number;
-        }
-      >;
-      if (!parsed || typeof parsed !== 'object') return;
-      const now = Date.now();
-      // Keep only fresh, successful entries.
-      const fresh: typeof parsed = {};
-      for (const [k, v] of Object.entries(parsed)) {
-        if (v.error) continue; // drop cached errors — always re-fetch on next open
-        const ts = v._ts ?? now;
-        if (now - ts > INBOX_MESSAGES_CACHE_TTL_MS) continue; // expired
-        fresh[k] = { ...v, _ts: ts };
-      }
-      if (Object.keys(fresh).length > 0) setConversationMessagesCache(fresh);
-    } catch {
-      // ignore
-    }
-  }, []);
 
   // Persist conversation messages cache to localStorage. Debounced so rapid successive
   // cache writes (e.g. prefetch warmup) don't trigger JSON.stringify on every keypress.
