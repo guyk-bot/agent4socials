@@ -149,11 +149,27 @@ function isConvCacheUsable(cached: ConvCache | undefined, accountId: string): bo
   );
 }
 
-/** True when cache is still within TTL (missing _ts counts as fresh, e.g. legacy localStorage). */
-function isConvCacheFresh(cached: ConvCache | undefined, accountId: string): boolean {
+/**
+ * True when cache is still within TTL and reflects the conversation's latest activity.
+ * Pass convUpdatedTime (ISO string from the conversations list) so that a new incoming
+ * message — which advances the conversation's updated_time beyond the cache _ts — forces
+ * a re-fetch even when the cache is otherwise within its 4-hour TTL.
+ */
+function isConvCacheFresh(
+  cached: ConvCache | undefined,
+  accountId: string,
+  convUpdatedTime?: string | null
+): boolean {
   if (!isConvCacheUsable(cached, accountId)) return false;
-  if (!cached!._ts) return true;
-  return Date.now() - cached!._ts < INBOX_MESSAGES_CACHE_TTL_MS;
+  if (!cached!._ts) return true; // legacy: no timestamp = assume fresh
+  if (Date.now() - cached!._ts >= INBOX_MESSAGES_CACHE_TTL_MS) return false;
+  // If the conversation was updated AFTER we last cached its messages, a new message
+  // arrived and we must refresh regardless of TTL.
+  if (convUpdatedTime) {
+    const convMs = Date.parse(convUpdatedTime);
+    if (Number.isFinite(convMs) && convMs > cached!._ts) return false;
+  }
+  return true;
 }
 
 function withCacheEntry(
@@ -727,8 +743,12 @@ function InboxPage() {
     const convId = selectedConversationId;
     const accountIdForFetch = currentAccountForDmThread.id;
     const cached = conversationMessagesCacheRef.current[convId];
+    const convForRecipient = conversationsRef.current.find((c) => c.id === convId);
+    const recipientFromConv = convForRecipient?.senders?.[0]?.id ?? null;
+    // Pass the conversation's updatedTime so the cache is considered stale when a new
+    // message arrived after the last fetch (conv updated_time > cache _ts).
     const cacheUsable = isConvCacheUsable(cached, accountIdForFetch);
-    const cacheFresh = isConvCacheFresh(cached, accountIdForFetch);
+    const cacheFresh = isConvCacheFresh(cached, accountIdForFetch, convForRecipient?.updatedTime);
 
     if (cacheUsable) {
       setConversationMessages(cached!.messages);
@@ -747,9 +767,6 @@ function InboxPage() {
       setConversationMessagesLoading(true);
     }
     setConversationMessagesError(null);
-
-    const convForRecipient = conversationsRef.current.find((c) => c.id === convId);
-    const recipientFromConv = convForRecipient?.senders?.[0]?.id ?? null;
 
     api
       .get(`/social/accounts/${accountIdForFetch}/conversations/${convId}/messages`, {
@@ -844,7 +861,7 @@ function InboxPage() {
       if (prefetchedConversationMessagesRef.current.has(cacheKey)) return;
 
       const existing = conversationMessagesCacheRef.current[conv.id];
-      if (isConvCacheFresh(existing, account.id)) {
+      if (isConvCacheFresh(existing, account.id, conv.updatedTime)) {
         prefetchedConversationMessagesRef.current.add(cacheKey);
         return;
       }
