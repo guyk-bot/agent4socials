@@ -6,6 +6,7 @@ import { signTwitterRequest } from '@/lib/twitter-oauth1';
 import { runFirstWelcomeMaybe } from '@/lib/dm-first-welcome';
 import { loadConversationForFirstWelcome } from '@/lib/inbox/load-conversation-for-first-welcome';
 import { isMetaNonCriticalThrottled } from '@/lib/meta-usage-guard';
+import { getInboxMessagesFromDb, setInboxMessagesInDb } from '@/lib/inbox/inbox-db-cache';
 
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
@@ -93,10 +94,30 @@ export async function GET(
     return NextResponse.json({ messages: [], error: 'conversationId required' }, { status: 400 });
   }
 
-  // Background prefetch requests (background=1) fast-fail when Meta API usage is high.
-  // This avoids bursting all prefetch calls against a rate-limited Meta app.
-  // User-initiated clicks (no flag) always proceed regardless of throttle state.
   const isBackground = request.nextUrl.searchParams.get('background') === '1';
+
+  // ── DB cache (instant path) ──────────────────────────────────────────────
+  // Serve from the server-side AppKv cache when available. The sync-inbox cron
+  // pre-warms every conversation every ~30 min, so returning users never hit
+  // the Meta/X API for already-seen conversations.
+  if (account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK') {
+    const cached = await getInboxMessagesFromDb(account.id, conversationId);
+    if (cached) {
+      // recipientId: pick first sender that isn't us from the cached messages
+      const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
+        ? account.credentialsJson : {}) as { linkedPageId?: string };
+      const ourIds = new Set<string>(
+        [account.platformUserId, credJson.linkedPageId].filter((x): x is string => !!x)
+      );
+      let recipientId: string | null = null;
+      for (const m of cached) {
+        if (m.fromId && !ourIds.has(m.fromId)) { recipientId = m.fromId; break; }
+      }
+      return NextResponse.json({ messages: cached, recipientId, error: null });
+    }
+  }
+
+  // Background prefetch fast-fails when Meta API usage is high (will be retried later).
   if (isBackground && (account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK') && isMetaNonCriticalThrottled()) {
     return NextResponse.json({ messages: [], error: 'throttled', recipientId: null });
   }
@@ -107,6 +128,11 @@ export async function GET(
       return NextResponse.json({ messages: [], recipientId: null, error: loaded.error }, { status: 429 });
     }
     return NextResponse.json({ messages: [], recipientId: null, error: loaded.error });
+  }
+
+  // Write messages to DB so subsequent opens are instant (served from cache above).
+  if (account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK') {
+    void setInboxMessagesInDb(account.id, conversationId, loaded.messages).catch(() => {});
   }
 
   scheduleDmFirstWelcome({
