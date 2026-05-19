@@ -16,6 +16,10 @@ import {
 } from 'lucide-react';
 import { useAppData } from '@/context/AppDataContext';
 import { InstagramIcon, YoutubeIcon, TikTokIcon, FacebookIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
+import {
+    readScheduledPostsClientCache,
+    writeScheduledPostsClientCache,
+} from '@/lib/scheduled-posts-client-cache';
 
 function postMediaThumbUrl(mediaItem: { fileUrl: string; type: string; metadata?: { thumbnailUrl?: string } | null } | undefined): string | null {
     if (!mediaItem?.fileUrl) return null;
@@ -80,42 +84,42 @@ export default function PostsPage() {
         if (pathname !== '/posts') return;
         let cancelled = false;
         const forceRefresh = draftSavedParam === '1' || refreshParam === '1';
-        const fromCache = appDataRef.current?.getScheduledPosts?.();
-        const hasCachedList = Array.isArray(fromCache) && fromCache.length > 0;
+        const fromApp = appDataRef.current?.getScheduledPosts?.();
+        const fromLocal = readScheduledPostsClientCache();
+        const appList = Array.isArray(fromApp) ? (fromApp as any[]) : [];
+        const immediateCached = appList.length > 0 ? appList : fromLocal;
+        const hasCachedList = immediateCached.length > 0;
 
-        if (hasCachedList && !forceRefresh) {
-            setPosts(fromCache as any[]);
+        if (hasCachedList) {
+            setPosts(immediateCached);
             setLoading(false);
-            return () => { cancelled = true; };
         }
 
-        const ctrl = new AbortController();
-        const t = window.setTimeout(() => ctrl.abort(), 12_000);
-
         (async () => {
+            if (!hasCachedList) setLoading(true);
             try {
-                setLoading(true);
-                const res = await api.get('/posts', { signal: ctrl.signal });
+                const res = await api.get('/posts', { timeout: 45_000 });
                 if (cancelled) return;
                 const list = Array.isArray(res.data) ? res.data : [];
                 setPosts(list);
                 appDataRef.current?.setScheduledPosts?.(list);
+                writeScheduledPostsClientCache(list);
                 setLoadError(null);
-            } catch {
-                if (!cancelled) {
-                    console.error('Failed to fetch posts');
+            } catch (err) {
+                if (cancelled) return;
+                console.error('Failed to fetch posts', err);
+                if (hasCachedList || immediateCached.length > 0) {
                     setLoadError('Could not refresh history right now. Showing latest available data.');
+                } else {
+                    setLoadError('Could not load post history. Check your connection and try again.');
                 }
             } finally {
-                window.clearTimeout(t);
                 if (!cancelled) setLoading(false);
             }
         })();
 
         return () => {
             cancelled = true;
-            ctrl.abort();
-            window.clearTimeout(t);
         };
     }, [pathname, draftSavedParam, refreshParam]);
 

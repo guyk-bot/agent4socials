@@ -7,6 +7,10 @@ import api from '@/lib/api';
 import { getDefaultAnalyticsDateRange } from '@/lib/calendar-date';
 import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
 import { computeInboxHeaderUnread } from '@/lib/inbox/unread-count';
+import {
+  readScheduledPostsClientCache,
+  writeScheduledPostsClientCache,
+} from '@/lib/scheduled-posts-client-cache';
 
 export type CachedPost = {
   id: string;
@@ -283,6 +287,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   const setScheduledPosts = useCallback((posts: CachedScheduledPost[]) => {
     setScheduledPostsState(posts);
+    writeScheduledPostsClientCache(posts);
   }, []);
 
   const setEngagementForAccount = useCallback((accountId: string, engagement: CachedEngagement[]) => {
@@ -375,6 +380,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       }
       if (data.engagementByAccountId && Object.keys(data.engagementByAccountId).length > 0) {
         setEngagementByAccountId(data.engagementByAccountId);
+      }
+      const scheduledFromLocal = readScheduledPostsClientCache();
+      if (scheduledFromLocal.length > 0) {
+        setScheduledPostsState(scheduledFromLocal as CachedScheduledPost[]);
       }
       setCacheRehydrated(true);
     } catch {

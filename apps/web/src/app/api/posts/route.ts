@@ -20,22 +20,32 @@ export async function GET(request: NextRequest) {
   if (!userId) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
-  const posts = await prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
-    prisma.post.findMany({
-      where: { userId },
-      select: {
-        ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
-        media: true,
-        targets: {
-          include: {
-            socialAccount: { select: { username: true } },
+  try {
+    const posts = await prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+      prisma.post.findMany({
+        where: { userId },
+        select: {
+          ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
+          media: true,
+          targets: {
+            include: {
+              socialAccount: { select: { username: true } },
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
-  );
-  return NextResponse.json(posts);
+        orderBy: { createdAt: 'desc' },
+      })
+    );
+    return NextResponse.json(posts);
+  } catch (e) {
+    const drift = friendlyMessageIfPrismaSchemaDrift(e);
+    if (drift) {
+      console.error('[GET /api/posts] schema drift:', e);
+      return NextResponse.json({ message: drift }, { status: 503 });
+    }
+    console.error('[GET /api/posts]', e);
+    return NextResponse.json({ message: 'Failed to load posts' }, { status: 500 });
+  }
 }
 
 export async function POST(request: NextRequest) {

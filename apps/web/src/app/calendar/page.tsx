@@ -15,6 +15,10 @@ import Link from 'next/link';
 import { PlatformIcon, PLATFORM_ICON_MAP } from '@/components/SocialPlatformIcons';
 import { useAppData } from '@/context/AppDataContext';
 import { useTheme } from '@/context/ThemeContext';
+import {
+    readScheduledPostsClientCache,
+    writeScheduledPostsClientCache,
+} from '@/lib/scheduled-posts-client-cache';
 
 const STATUS_STYLE: Record<string, { bg: string; border: string; text: string; label: string }> = {
     SCHEDULED: { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-800', label: 'Pending' },
@@ -110,7 +114,6 @@ function formatWeekRange(weekStart: Date): string {
 
 const HOURS_START = 0;
 const HOURS_END = 24;
-const CALENDAR_POSTS_CACHE_KEY = 'calendar_posts_cache_v1';
 
 export default function CalendarPage() {
     const { theme } = useTheme();
@@ -127,16 +130,7 @@ export default function CalendarPage() {
 
     useEffect(() => {
         const fromCache = appData?.getScheduledPosts?.();
-        const localCachedRaw = typeof window !== 'undefined' ? window.localStorage.getItem(CALENDAR_POSTS_CACHE_KEY) : null;
-        let localCached: unknown = null;
-        if (localCachedRaw) {
-            try {
-                localCached = JSON.parse(localCachedRaw);
-            } catch {
-                localCached = null;
-            }
-        }
-        const localList = Array.isArray(localCached) ? localCached : [];
+        const localList = readScheduledPostsClientCache();
         const appList = Array.isArray(fromCache) ? (fromCache as any[]) : [];
         const immediateCached = appList.length > 0 ? appList : localList;
         const hasCached = immediateCached.length > 0;
@@ -152,9 +146,7 @@ export default function CalendarPage() {
                 const list = Array.isArray(res.data) ? res.data : [];
                 setPosts(list);
                 appData?.setScheduledPosts?.(list);
-                if (typeof window !== 'undefined') {
-                    window.localStorage.setItem(CALENDAR_POSTS_CACHE_KEY, JSON.stringify(list));
-                }
+                writeScheduledPostsClientCache(list);
             } catch (err) {
                 console.error('Failed to fetch posts');
             } finally {
