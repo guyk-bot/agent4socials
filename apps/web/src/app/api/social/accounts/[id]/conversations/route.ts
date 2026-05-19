@@ -17,6 +17,7 @@ import {
 import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
 import { readInboxProfileCache, writeInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
 import {
+  enrichInstagramAvatarsFromParticipants,
   mergeInboxProfileCacheIntoConversations,
   resolveInstagramInboxSenderProfile,
 } from '@/lib/inbox/resolve-inbox-sender-profile';
@@ -983,6 +984,14 @@ export async function GET(
         : undefined;
 
     if (isInstagram && list.length > 0) {
+      list = (await enrichInstagramAvatarsFromParticipants({
+        userId,
+        list: list as InboxConversationListItem[],
+        isInstagramBusinessLogin,
+        accessToken: isInstagramBusinessLogin ? igUserToken! : activeToken,
+        ourIds,
+        ourUsernames,
+      })) as typeof list;
       list = (await mergeInboxProfileCacheIntoConversations(
         'instagram',
         list as InboxConversationListItem[]

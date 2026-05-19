@@ -198,6 +198,87 @@ export async function resolveInstagramInboxSenderProfile(args: {
   return cached ?? null;
 }
 
+/**
+ * Fetch each thread's participants edge (most reliable source for IG DM avatars).
+ * Also fixes ID mismatch by attaching the sole "other" participant's photo to the sender row.
+ */
+export async function enrichInstagramAvatarsFromParticipants(args: {
+  userId: string;
+  list: InboxConversationListItem[];
+  isInstagramBusinessLogin: boolean;
+  accessToken: string;
+  ourIds?: Set<string>;
+  ourUsernames?: Set<string>;
+  maxConversations?: number;
+}): Promise<InboxConversationListItem[]> {
+  const {
+    userId,
+    list,
+    isInstagramBusinessLogin,
+    accessToken,
+    ourIds = new Set<string>(),
+    ourUsernames = new Set<string>(),
+    maxConversations = 30,
+  } = args;
+
+  const pageToken = await resolveFacebookPageTokenForUser(userId);
+  const token = pageToken ?? accessToken;
+  if (!token) return list;
+
+  const out = list.map((c) => ({ ...c, senders: [...c.senders] }));
+  const toFetch = out
+    .filter((c) => c.senders.some((s) => !s.pictureUrl))
+    .slice(0, maxConversations);
+
+  for (const conv of toFetch) {
+    try {
+      const convUrl = isInstagramBusinessLogin
+        ? `${igBaseUrl}/${conv.id}`
+        : `${fbBaseUrl}/${conv.id}`;
+      const params: Record<string, string> = {
+        fields: 'participants{id,name,username,profile_pic,profile_picture_url,picture}',
+        access_token: token,
+      };
+      if (!isInstagramBusinessLogin) params.platform = 'instagram';
+
+      const convRes = await axios.get<{ participants?: { data?: ParticipantRow[] } }>(convUrl, {
+        params,
+        timeout: 10_000,
+      });
+      const participants = convRes.data?.participants?.data ?? [];
+      const others = participants.filter((p) => {
+        if (p.id && ourIds.has(p.id)) return false;
+        if (p.username && ourUsernames.has(p.username.toLowerCase())) return false;
+        return true;
+      });
+
+      const idx = out.findIndex((c) => c.id === conv.id);
+      if (idx < 0) continue;
+
+      out[idx] = {
+        ...out[idx],
+        senders: out[idx].senders.map((s) => {
+          let p = s.id ? findParticipant(participants, s.id, s.username) : undefined;
+          if (!p && others.length === 1) p = others[0];
+          if (!p) return s;
+          const pictureUrl = s.pictureUrl ?? pictureFromRow(p);
+          const profile: InboxSenderProfile = {
+            name: s.name || p.name,
+            username: s.username || p.username,
+            pictureUrl,
+          };
+          if (s.id) cacheProfile(s.id, profile, p.id);
+          return { ...s, ...profile };
+        }),
+      };
+    } catch {
+      /* next conversation */
+    }
+  }
+
+  return out;
+}
+
 /** Apply cached profile photos to conversation rows (e.g. stale DB list or Meta throttle). */
 export async function mergeInboxProfileCacheIntoConversations(
   platform: 'instagram' | 'facebook',

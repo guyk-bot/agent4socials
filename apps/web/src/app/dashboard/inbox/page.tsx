@@ -49,6 +49,7 @@ import {
   getInboxInitializedAccountIdsForConversations,
   addInboxInitializedAccountForConversations,
 } from '@/lib/inbox-read-state';
+import { computeInboxHeaderUnread } from '@/lib/inbox/unread-count';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
@@ -392,6 +393,9 @@ function InboxAvatar({
   className?: string;
 }) {
   const [imgFailed, setImgFailed] = useState(false);
+  useEffect(() => {
+    setImgFailed(false);
+  }, [pictureUrl]);
   const initials = (label || '?').replace(/^@/, '').slice(0, 2).toUpperCase() || '?';
   const src = pictureUrl && !imgFailed ? proxyImageUrl(pictureUrl) || pictureUrl : null;
   return (
@@ -662,6 +666,8 @@ function InboxPage() {
   const dmSendInFlightRef = useRef(false);
   const conversationMessagesCacheRef = useRef(conversationMessagesCache);
   conversationMessagesCacheRef.current = conversationMessagesCache;
+  /** One backfill fetch for Instagram avatars when list rows lack pictureUrl (e.g. stale client cache). */
+  const igAvatarBackfillRef = useRef(false);
 
   // Multi-select state for conversations
   const [selectedConversationIds, setSelectedConversationIds] = useState<Set<string>>(new Set());
@@ -850,6 +856,48 @@ function InboxPage() {
     if (inboxMode !== 'messages') return;
     triggerInboxWarmClient();
   }, [user?.id, inboxMode]);
+
+  useEffect(() => {
+    if (igAvatarBackfillRef.current || inboxMode !== 'messages' || conversationsLoading) return;
+    const igAcc = effectiveAccounts.find((a) => a.platform === 'INSTAGRAM');
+    if (!igAcc) return;
+    const needsAvatar = conversations.some(
+      (c) =>
+        c.platform === 'INSTAGRAM' &&
+        c.messageAccountId === igAcc.id &&
+        !(c.senders?.[0]?.pictureUrl ?? '').trim()
+    );
+    if (!needsAvatar) return;
+    igAvatarBackfillRef.current = true;
+    void api
+      .get<{ conversations?: Conversation[] }>(`/social/accounts/${igAcc.id}/conversations?fresh=1`, {
+        timeout: 90_000,
+      })
+      .then((res) => {
+        const incoming = (res.data?.conversations ?? []).map((c) => ({
+          ...c,
+          platform: 'INSTAGRAM' as const,
+          messageAccountId: igAcc.id,
+        }));
+        if (incoming.length === 0) return;
+        setConversations((prev) => {
+          const byKey = new Map(prev.map((c) => [`${c.platform ?? ''}:${c.id}`, c]));
+          for (const c of incoming) {
+            const key = `INSTAGRAM:${c.id}`;
+            const existing = byKey.get(key);
+            byKey.set(
+              key,
+              existing
+                ? { ...existing, senders: c.senders?.length ? c.senders : existing.senders }
+                : (c as Conversation & { platform: string; messageAccountId: string })
+            );
+          }
+          return [...byKey.values()].sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
+        });
+        appData?.setConversationsForAccount(igAcc.id, incoming);
+      })
+      .catch(() => {});
+  }, [inboxMode, conversations, conversationsLoading, effectiveAccounts, appData]);
 
   const connectedPlatforms = INBOX_PLATFORM_DEFS.filter((p) => effectiveAccounts.some((a) => a.platform === p.id));
   const platformsToShow =
@@ -1116,6 +1164,12 @@ function InboxPage() {
           setConversationLastReadCount(convId, displayMessages.length, user?.id);
           setConversationRecipientId(recipientId);
           setConversationMessagesError(displayMessages.length > 0 ? null : error);
+          markConversationsAsRead([convId], user?.id);
+          setUnreadConversationIds((prev) => {
+            const next = new Set(prev);
+            next.delete(convId);
+            return next;
+          });
           if (recipientPictureUrl || recipientName) {
             setConversations(patchConversationSenderPicture(convId, recipientPictureUrl, recipientName));
           }
@@ -1213,6 +1267,13 @@ function InboxPage() {
           setConversationMessages(freshMessages);
           setConversationRecipientId(recipientId);
           setConversationMessagesError(null);
+          markConversationsAsRead([convId], user?.id);
+          setUnreadConversationIds((prev) => {
+            const next = new Set(prev);
+            next.delete(convId);
+            return next;
+          });
+          setConversationLastReadCount(convId, freshMessages.length, user?.id);
           if (recipientPictureUrl || recipientName) {
             setConversations(patchConversationSenderPicture(convId, recipientPictureUrl, recipientName));
           }
@@ -2026,15 +2087,25 @@ function InboxPage() {
     previousEngagementIdsRef.current = ids;
   }, [engagement, user?.id]);
 
-  // Sync total unread to appData so the header Inbox badge stays accurate.
+  // Sync unread-only counts to appData so the top Inbox nav badge matches local read state.
   useEffect(() => {
-    const messagesCount = totalUnreadMessages > 0 ? totalUnreadMessages : unreadConversationIds.size;
-    const total = unreadCommentIds.size + messagesCount;
-    appDataRef.current?.setNotifications({
-      ...(appDataRef.current.notifications ?? { inbox: 0, comments: 0, messages: 0 }),
-      inbox: Math.min(total, 99),
+    if (!user?.id || !appDataRef.current) return;
+    const commentIds = comments
+      .filter((c) => c.commentId && !c.parentCommentId)
+      .map((c) => c.commentId as string);
+    const convs = conversations.map((c) => ({
+      id: c.id,
+      messageCount: c.messageCount,
+      messageAccountId: (c as Conversation & { messageAccountId?: string }).messageAccountId,
+    }));
+    const unread = computeInboxHeaderUnread(convs, commentIds, user.id);
+    appDataRef.current.setNotifications({
+      ...(appDataRef.current.notifications ?? { inbox: 0, comments: 0, messages: 0, byPlatform: {} }),
+      inbox: unread.inbox,
+      messages: unread.messages,
+      comments: unread.comments,
     });
-  }, [unreadCommentIds.size, unreadConversationIds.size, totalUnreadMessages]);
+  }, [user?.id, conversations, comments, unreadCommentIds.size, unreadConversationIds.size, totalUnreadMessages]);
 
   const handlePlatformClick = (platformId: string) => {
     setSelectedPlatforms((prev) => {
@@ -2706,13 +2777,10 @@ function InboxPage() {
               // For messages: prefer locally-tracked unread count; fall back to total
               // conversations loaded for this platform (always available, no API needed).
               // For comments: use unread count; fall back to API byPlatform.comments.
-              const localUnread = inboxMode === 'messages'
-                ? (unreadMessagesByPlatform[p.id] ?? 0)
-                : (unreadCommentsByPlatform[p.id] ?? 0);
-              const fallbackCount = inboxMode === 'messages'
-                ? (convCountByPlatform[p.id] ?? byPlatform[p.id]?.messages ?? 0)
-                : (byPlatform[p.id]?.comments ?? 0);
-              const displayCount = localUnread > 0 ? localUnread : fallbackCount;
+              const displayCount =
+                inboxMode === 'messages'
+                  ? (unreadMessagesByPlatform[p.id] ?? 0)
+                  : (unreadCommentsByPlatform[p.id] ?? 0);
               return (
                 <button
                   key={p.id}
@@ -2766,11 +2834,8 @@ function InboxPage() {
           >
             Messages
             {(() => {
-              const localMsg = totalUnreadMessages > 0 ? totalUnreadMessages : unreadConversationIds.size;
-              // Fall back to total loaded conversations for selected platforms — always reliable.
-              const loadedMsg = selectedPlatforms.reduce((s, p) => s + (convCountByPlatform[p] ?? 0), 0);
-              const apiMsg = effectiveNotifications.messages;
-              const msgBadge = localMsg > 0 ? localMsg : (loadedMsg > 0 ? loadedMsg : apiMsg);
+              const msgBadge =
+                totalUnreadMessages > 0 ? totalUnreadMessages : unreadConversationIds.size;
               return msgBadge > 0 ? (
                 <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
                   {msgBadge > 99 ? '99' : msgBadge}
@@ -2789,9 +2854,7 @@ function InboxPage() {
           >
             Comments
             {(() => {
-              const localCmt = unreadCommentIds.size;
-              const apiCmt = effectiveNotifications.comments;
-              const cmtBadge = localCmt > 0 ? localCmt : apiCmt;
+              const cmtBadge = unreadCommentIds.size;
               return cmtBadge > 0 ? (
                 <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
                   {cmtBadge > 99 ? '99' : cmtBadge}
@@ -4064,16 +4127,6 @@ function InboxPage() {
                           messages?: number;
                           byPlatform?: Record<string, { comments: number; messages: number }>;
                         }>('/social/notifications')
-                        .then((r) => {
-                          if (r.data && appData) {
-                            appData.setNotifications({
-                              inbox: r.data.inbox ?? 0,
-                              comments: r.data.comments ?? 0,
-                              messages: r.data.messages ?? 0,
-                              byPlatform: r.data.byPlatform ?? {},
-                            });
-                          }
-                        })
                         .catch(() => {});
                     } catch (e: unknown) {
                       setConversationMessages((prev) => prev.filter((m) => m.id !== optimisticId));
