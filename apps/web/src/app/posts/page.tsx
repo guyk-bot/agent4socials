@@ -264,8 +264,7 @@ export default function PostsPage() {
             </div>
 
             <section className="rounded-[20px] border p-3 md:p-3.5 bg-[var(--card-bg)] border-[var(--border)]">
-                <div className="flex flex-wrap items-center gap-3 justify-between">
-                    <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Filter posts by date</p>
+                <div className="flex flex-wrap items-center justify-end">
                     <AnalyticsDateRangePicker
                         start={dateRange.start}
                         end={dateRange.end}
