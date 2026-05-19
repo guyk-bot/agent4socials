@@ -182,6 +182,25 @@ function isConvCacheFresh(
   return true;
 }
 
+/** Best recipient id for send (avoids slow server-side Meta lookups). */
+function resolveDmRecipientIdForSend(
+  conversationId: string,
+  conversations: Conversation[],
+  recipientFromState: string | null,
+  cache: Record<string, ConvCache>
+): string | undefined {
+  if (recipientFromState?.trim()) return recipientFromState.trim();
+  const fromCache = cache[conversationId]?.recipientId;
+  if (fromCache?.trim()) return fromCache.trim();
+  const conv = conversations.find((c) => c.id === conversationId);
+  const fromConv = conv?.senders?.[0]?.id;
+  if (fromConv?.trim()) return fromConv.trim();
+  for (const m of cache[conversationId]?.messages ?? []) {
+    if (!m.isFromPage && m.fromId) return m.fromId;
+  }
+  return undefined;
+}
+
 function withCacheEntry(
   prev: Record<string, ConvCache>,
   convId: string,
@@ -484,6 +503,9 @@ function InboxPage() {
   const messagesFetchAbortRef = useRef<AbortController | null>(null);
   const conversationsRef = useRef(conversations);
   conversationsRef.current = conversations;
+  const conversationRecipientIdRef = useRef(conversationRecipientId);
+  conversationRecipientIdRef.current = conversationRecipientId;
+  const dmSendInFlightRef = useRef(false);
   const conversationMessagesCacheRef = useRef(conversationMessagesCache);
   conversationMessagesCacheRef.current = conversationMessagesCache;
 
@@ -668,14 +690,12 @@ function InboxPage() {
     };
   }, [conversationMessagesCache]);
 
-  // Server-side warm: all threads Meta returns (up to 100 per account) into DB cache.
+  // Server-side warm (debounced): populate message cache without hammering Meta on every list refresh.
   useEffect(() => {
     if (!user?.id) return;
     if (inboxMode !== 'messages') return;
-    if (conversations.length === 0) return;
-    triggerInboxWarmClient(true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, inboxMode, conversations.length]);
+    triggerInboxWarmClient();
+  }, [user?.id, inboxMode]);
 
   const connectedPlatforms = INBOX_PLATFORM_DEFS.filter((p) => effectiveAccounts.some((a) => a.platform === p.id));
   const platformsToShow =
@@ -1253,107 +1273,125 @@ function InboxPage() {
       setConversationsLoading(false);
     }
 
-    platformsToFetch.forEach(({ platform, account, since }) => {
-      const wantManual = platform === 'TWITTER' && pendingManualInboxByAccountRef.current.has(account.id);
-      if (wantManual) pendingManualInboxByAccountRef.current.delete(account.id);
-      // Build the conversations URL with proper query string (? for first param, & for rest).
-      const convParams: string[] = [];
-      if (wantManual) convParams.push('manualInboxSync=1');
-      if (since) { convParams.push(`since=${encodeURIComponent(since)}`); convParams.push('delta=1'); }
-      const convUrl = `/social/accounts/${account.id}/conversations${convParams.length ? `?${convParams.join('&')}` : ''}`;
-      api.get(convUrl)
-      .then((res) => {
+    const applyPlatformFetchResult = (
+      platform: string,
+      account: { id: string; platform: string },
+      res: {
+        data?: {
+          conversations?: Conversation[];
+          error?: string;
+          emptyHint?: string;
+          fromCache?: boolean;
+          stale?: boolean;
+          debug?: unknown;
+        };
+      }
+    ) => {
+      const list = (res.data?.conversations ?? []).map((c: Conversation) => ({
+        ...c,
+        platform,
+        messageAccountId: account.id,
+      }));
+      const kept = merge.filter((c) => c.platform !== platform);
+      merge.length = 0;
+      merge.push(...kept, ...list);
+      const emptyHint = typeof res.data?.emptyHint === 'string' ? res.data.emptyHint : null;
+      if (res.data?.error && list.length === 0) {
+        errors.push(res.data.error);
+        errorsByPlatform[platform] = res.data.error;
+      } else {
+        delete errorsByPlatform[platform];
+        if (emptyHint && list.length > 0) hintsByPlatform[platform] = emptyHint;
+        else if (emptyHint && list.length === 0) hintsByPlatform[platform] = emptyHint;
+        else delete hintsByPlatform[platform];
+      }
+      if (res.data?.debug) {
+        debugs.push(res.data.debug as { rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string });
+      }
+      const incoming = (res.data?.conversations ?? []) as Conversation[];
+      if (incoming.length > 0) {
+        const cachedForAccount = appData?.getConversations(account.id) ?? [];
+        const mergedById = new Map<string, Conversation>();
+        for (const item of cachedForAccount) mergedById.set(item.id, item);
+        for (const item of incoming) mergedById.set(item.id, item);
+        appData?.setConversationsForAccount(
+          account.id,
+          Array.from(mergedById.values()).sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''))
+        );
+      }
+      if (list.length > 0 && user?.id) {
+        const initialized = getInboxInitializedAccountIdsForConversations(user.id);
+        if (!initialized.has(account.id)) {
+          type ConvWithPlatform = Conversation & { platform: string; messageAccountId: string };
+          const ids = list.map((c: ConvWithPlatform) => c.id);
+          markConversationsAsRead(ids, user.id);
+          list.forEach((c: ConvWithPlatform) => {
+            const count = c.messageCount;
+            if (typeof count === 'number') setConversationLastReadCount(c.id, count, user.id);
+          });
+          addInboxInitializedAccountForConversations(account.id, user.id);
+        }
+      }
+    };
+
+    void (async () => {
+      for (let i = 0; i < platformsToFetch.length; i++) {
+        const { platform, account, since } = platformsToFetch[i];
+        if (cancelled) return;
+        if (i > 0) await new Promise((r) => setTimeout(r, 600));
+        const wantManual = platform === 'TWITTER' && pendingManualInboxByAccountRef.current.has(account.id);
+        if (wantManual) pendingManualInboxByAccountRef.current.delete(account.id);
+        const convParams: string[] = [];
+        if (wantManual) convParams.push('manualInboxSync=1');
+        if (since) {
+          convParams.push(`since=${encodeURIComponent(since)}`);
+          convParams.push('delta=1');
+        }
+        const convUrl = `/social/accounts/${account.id}/conversations${convParams.length ? `?${convParams.join('&')}` : ''}`;
+        try {
+          const res = await api.get(convUrl, { timeout: 90_000 });
           if (cancelled) return;
-          const list = (res.data?.conversations ?? []).map((c: Conversation) => ({
-            ...c,
-            platform,
-            messageAccountId: account.id,
-          }));
-          merge.push(...list);
-          if (res.data?.error) {
-            errors.push(res.data.error);
-            errorsByPlatform[platform] = res.data.error;
-          }
-          const emptyHint =
-            typeof res.data?.emptyHint === 'string' ? res.data.emptyHint : null;
-          if (emptyHint && list.length === 0 && !res.data?.error) {
-            hintsByPlatform[platform] = emptyHint;
-          }
-          if (res.data?.debug) {
-            debugs.push(res.data.debug as { rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string });
-          }
-          if (!res.data?.error) {
-            const incoming = (res.data?.conversations ?? []) as Conversation[];
-            if (incoming.length > 0) {
-              const cachedForAccount = appData?.getConversations(account.id) ?? [];
-              const mergedById = new Map<string, Conversation>();
-              for (const item of cachedForAccount) mergedById.set(item.id, item);
-              for (const item of incoming) mergedById.set(item.id, item);
-              appData?.setConversationsForAccount(
-                account.id,
-                Array.from(mergedById.values()).sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''))
-              );
-            }
-          }
-          if (!res.data?.error && list.length > 0 && user?.id) {
-            const initialized = getInboxInitializedAccountIdsForConversations(user.id);
-            if (!initialized.has(account.id)) {
-              type ConvWithPlatform = Conversation & { platform: string; messageAccountId: string };
-              const ids = list.map((c: ConvWithPlatform) => c.id);
-              markConversationsAsRead(ids, user.id);
-              list.forEach((c: ConvWithPlatform) => {
-                const count = c.messageCount;
-                if (typeof count === 'number') setConversationLastReadCount(c.id, count, user.id);
-              });
-              addInboxInitializedAccountForConversations(account.id, user.id);
-            }
-          }
-          if (--pending === 0) {
-            const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
-            applyConversationMergeResult(sorted);
-          }
-        })
-        .catch((err: { message?: string; response?: { status?: number; data?: { error?: string } } }) => {
+          applyPlatformFetchResult(platform, account, res);
+        } catch (err: unknown) {
           if (cancelled) return;
-          const status = err?.response?.status;
-          // 404 usually means the account was disconnected; refresh account list so we don't keep using a stale id
+          const e = err as {
+            message?: string;
+            code?: string;
+            response?: { status?: number; data?: { error?: string; conversations?: Conversation[]; emptyHint?: string } };
+          };
+          const status = e?.response?.status;
           if (status === 404 && setCachedAccounts) {
             api.get('/social/accounts').then((res) => {
               const data = Array.isArray(res?.data) ? res.data : [];
               setCachedAccounts(data);
             }).catch(() => {});
           }
-          const apiError = typeof err?.response?.data?.error === 'string' ? err.response.data.error : null;
-          const msg = apiError ?? err?.message ?? 'Could not load conversations.';
-          const isTimeout = status === 408 || /timeout|408/i.test(msg);
-          const isRateLimit = status === 429;
-          const errText = isRateLimit ? msg : isTimeout ? 'Request timed out. The server or Meta may be slow.' : msg;
+          const partial = e?.response?.data?.conversations;
+          if (partial && partial.length > 0) {
+            applyPlatformFetchResult(platform, account, { data: e.response?.data });
+            continue;
+          }
+          const apiError = typeof e?.response?.data?.error === 'string' ? e.response.data.error : null;
+          const msg = apiError ?? e?.message ?? 'Could not load conversations.';
+          const isTimeout = e?.code === 'ECONNABORTED' || status === 408 || /timeout|408/i.test(msg);
+          const isRateLimit = status === 429 || /throttl|rate limit|usage limits/i.test(msg);
+          const errText = isRateLimit
+            ? msg
+            : isTimeout
+              ? 'Request timed out. The server or Meta may be slow.'
+              : msg;
           errors.push(errText);
           errorsByPlatform[platform] = errText;
-          type MetaErr = { message?: string; code?: number };
-          const metaError: MetaErr | undefined = err?.response?.data && typeof err.response.data === 'object'
-            ? (err.response.data as { error?: MetaErr }).error
-            : undefined;
-          debugs.push({
-            rawMessage: msg,
-            responseData: err?.response?.data,
-            ...(metaError?.message ? { metaMessage: metaError.message, code: metaError.code } : {}),
-          });
-          if (--pending === 0) {
-            const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
-            applyConversationMergeResult(sorted);
-          }
-        })
-        .finally(() => {
-          if (pending === 0 && !cancelled) {
-            if (conversationsLoadTimeoutRef.current) {
-              clearTimeout(conversationsLoadTimeoutRef.current);
-              conversationsLoadTimeoutRef.current = null;
-            }
-            setConversationsLoading(false);
-          }
-        });
-    });
+        }
+      }
+      if (!cancelled) {
+        if (conversationsLoadTimeoutRef.current) {
+          clearTimeout(conversationsLoadTimeoutRef.current);
+          conversationsLoadTimeoutRef.current = null;
+        }
+        finishConversationMerge();
+      }
+    })();
 
     if (needsFetch) {
       if (merge.length === 0) {
@@ -1387,7 +1425,7 @@ function InboxPage() {
   useEffect(() => {
     if (inboxMode !== 'messages') return;
     if (messageFetchPlatformIds.length === 0) return;
-    const interval = setInterval(() => setConversationsRefreshKey((k) => k + 1), 2 * 60_000);
+    const interval = setInterval(() => setConversationsRefreshKey((k) => k + 1), 5 * 60_000);
     // Also refresh immediately when the tab becomes visible again (user switches back).
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') setConversationsRefreshKey((k) => k + 1);
@@ -3650,11 +3688,15 @@ function InboxPage() {
                       setAiReplyError(null);
                       setAiReplyLoading(true);
                       try {
-                        const res = await api.post<{ reply?: string }>('/ai/generate-inbox-reply', {
-                          type: 'message',
-                          text: textToReplyTo,
-                          platform: dmThreadPlatform ?? selectedPlatform ?? undefined,
-                        });
+                        const res = await api.post<{ reply?: string }>(
+                          '/ai/generate-inbox-reply',
+                          {
+                            type: 'message',
+                            text: textToReplyTo,
+                            platform: dmThreadPlatform ?? selectedPlatform ?? undefined,
+                          },
+                          { timeout: 45_000 }
+                        );
                         const reply = res.data?.reply?.trim();
                         if (reply) setDmReplyText(reply);
                         else setAiReplyError('No reply generated. Try again.');

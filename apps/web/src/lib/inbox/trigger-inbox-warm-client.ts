@@ -5,7 +5,7 @@
 import api from '@/lib/api';
 
 const WARM_KEY = 'inbox_warm_ts';
-const WARM_INTERVAL_MS = 5 * 60 * 1000;
+const WARM_INTERVAL_MS = 15 * 60 * 1000;
 
 /** Start loading DM threads into server cache without opening Inbox. */
 export function triggerInboxWarmClient(force = false): void {

@@ -23,6 +23,15 @@ const MAX_CONCURRENT = 14;
 let _inFlight = 0;
 const _queue: Array<{ resolve: () => void }> = [];
 
+/** User-facing inbox/AI calls skip the queue so they are not stuck behind dashboard prefetch. */
+function isPriorityApiPath(url?: string): boolean {
+  if (!url) return false;
+  return (
+    url.includes('/ai/generate-inbox-reply') ||
+    /\/conversations(\?|$|\/)/.test(url)
+  );
+}
+
 function acquireSlot(): Promise<void> {
   if (_inFlight < MAX_CONCURRENT) {
     _inFlight++;
@@ -60,7 +69,9 @@ api.interceptors.request.use(async (config) => {
     }
   }
 
-  await acquireSlot();
+  if (!isPriorityApiPath(typeof config.url === 'string' ? config.url : undefined)) {
+    await acquireSlot();
+  }
 
   return config;
 });
@@ -68,11 +79,13 @@ api.interceptors.request.use(async (config) => {
 // Release the slot after response (success or error).
 api.interceptors.response.use(
   (response) => {
-    releaseSlot();
+    const url = typeof response.config?.url === 'string' ? response.config.url : undefined;
+    if (!isPriorityApiPath(url)) releaseSlot();
     return response;
   },
   (error) => {
-    releaseSlot();
+    const url = typeof error.config?.url === 'string' ? error.config.url : undefined;
+    if (!isPriorityApiPath(url)) releaseSlot();
     return Promise.reject(error);
   }
 );

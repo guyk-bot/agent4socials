@@ -2,7 +2,7 @@
  * Server-side DB cache for inbox conversation messages, backed by the AppKv table.
  *
  * Keys:  inbox_msgs_v2:{socialAccountId}:{conversationId} (v2: expanded Meta attachment fields)
- * TTL:   4 hours — messages are considered fresh and served instantly without any
+ * TTL:   1 year — messages are considered fresh and served instantly without any
  *        Meta/X API call. The cron /api/cron/sync-inbox re-warms every conversation
  *        before the TTL expires so users never see a loading state.
  */
@@ -33,6 +33,86 @@ async function ensureAppKvTable(): Promise<void> {
 
 export function inboxMsgKey(socialAccountId: string, conversationId: string): string {
   return `inbox_msgs_v2:${socialAccountId}:${conversationId}`;
+}
+
+export function inboxConvListKey(socialAccountId: string): string {
+  return `inbox_convs_v1:${socialAccountId}`;
+}
+
+/** Cached DM thread list (participants + updated time) for inbox when Meta is throttled. */
+export type InboxConversationListItem = {
+  id: string;
+  updatedTime: string | null;
+  senders: Array<{ id?: string; name?: string; username?: string; pictureUrl?: string | null }>;
+  messageCount?: number;
+};
+
+/** 7 days — refreshed on successful live fetch or inbox warm. */
+export const INBOX_CONV_LIST_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export async function getInboxConversationListFromDb(
+  socialAccountId: string
+): Promise<InboxConversationListItem[] | null> {
+  try {
+    await ensureAppKvTable();
+    const rows = await prisma.$queryRaw<Array<{ value: string; expiresAt: Date | null }>>`
+      SELECT value, "expiresAt"
+      FROM app_kv
+      WHERE key = ${inboxConvListKey(socialAccountId)}
+      LIMIT 1
+    `;
+    const row = rows[0];
+    if (!row) return null;
+    if (row.expiresAt && row.expiresAt < new Date()) return null;
+    const parsed = JSON.parse(row.value) as InboxConversationListItem[];
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setInboxConversationListInDb(
+  socialAccountId: string,
+  conversations: InboxConversationListItem[]
+): Promise<void> {
+  if (conversations.length === 0) return;
+  try {
+    await ensureAppKvTable();
+    const key = inboxConvListKey(socialAccountId);
+    const expiresAt = new Date(Date.now() + INBOX_CONV_LIST_TTL_MS);
+    const value = JSON.stringify(conversations);
+    await prisma.$executeRaw`
+      INSERT INTO app_kv (key, value, "expiresAt", "updatedAt")
+      VALUES (${key}, ${value}, ${expiresAt}, now())
+      ON CONFLICT (key) DO UPDATE
+        SET value = ${value}, "expiresAt" = ${expiresAt}, "updatedAt" = now()
+    `;
+  } catch {
+    /* non-critical */
+  }
+}
+
+/** Merge sync cron ids with any cached sender names/pictures. */
+export async function upsertInboxConversationIdsInDb(
+  socialAccountId: string,
+  items: Array<{ id: string; updatedTime?: string | null }>
+): Promise<void> {
+  if (items.length === 0) return;
+  const existing = (await getInboxConversationListFromDb(socialAccountId)) ?? [];
+  const byId = new Map(existing.map((c) => [c.id, c]));
+  for (const item of items) {
+    const prev = byId.get(item.id);
+    byId.set(item.id, {
+      id: item.id,
+      updatedTime: item.updatedTime ?? prev?.updatedTime ?? null,
+      senders: prev?.senders ?? [],
+      messageCount: prev?.messageCount,
+    });
+  }
+  const merged = Array.from(byId.values()).sort((a, b) =>
+    (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '')
+  );
+  await setInboxConversationListInDb(socialAccountId, merged);
 }
 
 export async function getInboxMessagesFromDb(

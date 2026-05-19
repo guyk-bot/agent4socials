@@ -8,6 +8,7 @@ import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import {
   isInboxMessagesCached,
   setInboxMessagesInDb,
+  upsertInboxConversationIdsInDb,
 } from '@/lib/inbox/inbox-db-cache';
 import {
   loadInstagramBusinessConversationMessages,
@@ -151,6 +152,10 @@ async function _syncAccounts(
 
     const convs = await fetchConversationIds(account);
     if (convs.length === 0) continue;
+    void upsertInboxConversationIdsInDb(
+      account.id,
+      convs.map((c) => ({ id: c.id, updatedTime: c.updated_time ?? null }))
+    );
 
     const cred = (account.credentialsJson && typeof account.credentialsJson === 'object'
       ? account.credentialsJson : {}) as { loginMethod?: string; linkedPageId?: string };

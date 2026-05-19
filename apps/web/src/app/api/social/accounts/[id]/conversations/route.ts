@@ -10,6 +10,11 @@ import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { isMetaNonCriticalThrottled, noteMetaUsageFromHeaders, noteMetaRateLimitError } from '@/lib/meta-usage-guard';
 import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
 import { readInboxProfileCache, writeInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
+import {
+  getInboxConversationListFromDb,
+  setInboxConversationListInDb,
+  type InboxConversationListItem,
+} from '@/lib/inbox/inbox-db-cache';
 
 const baseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
@@ -559,7 +564,15 @@ export async function GET(
   // For graph.instagram.com (Instagram Business Login) it is not required and may cause errors.
   if (isInstagram && !isInstagramBusinessLogin) queryParams.platform = 'instagram';
 
-  // Fetch all pages of conversations (follow paging.next up to 5 pages).
+  function isMetaRateLimitResponse(e: unknown): boolean {
+    const err = e as { response?: { status?: number; data?: { error?: { code?: number; message?: string } } } };
+    const status = err?.response?.status;
+    const code = err?.response?.data?.error?.code;
+    const msg = (err?.response?.data?.error?.message ?? '').toLowerCase();
+    return status === 429 || code === 4 || code === 17 || code === 32 || msg.includes('rate limit');
+  }
+
+  /** Essential inbox path: call Meta directly (not runMetaGraphRequest) so app throttle does not hide DMs for 45 min. */
   async function fetchAllConversations(
     url: string,
     params: Record<string, string>,
@@ -572,10 +585,17 @@ export async function GET(
     do {
       const currentFetchUrl: string = nextUrl ?? url;
       const currentParams: Record<string, string> = nextUrl ? { access_token: fetchToken } : params;
-      const res = await runMetaGraphRequest<ConvApiResponse>('conversations-list', () =>
-        axios.get<ConvApiResponse>(currentFetchUrl, { params: currentParams, timeout: 60_000 })
-      );
-      noteMetaUsageFromHeaders(res.headers);
+      let res: AxiosResponse<ConvApiResponse>;
+      try {
+        res = await axios.get<ConvApiResponse>(currentFetchUrl, {
+          params: currentParams,
+          timeout: 60_000,
+        });
+        noteMetaUsageFromHeaders(res.headers);
+      } catch (e) {
+        if (isMetaRateLimitResponse(e)) noteMetaRateLimitError();
+        throw e;
+      }
       if (res.data?.error) {
         const msg = res.data.error.message ?? 'Meta API error';
         if (/rate.?limit|too many/i.test(msg)) noteMetaRateLimitError();
@@ -586,6 +606,24 @@ export async function GET(
       pageCount++;
     } while (nextUrl && pageCount < pageLimit);
     return all;
+  }
+
+  async function returnCachedConversations(reason: string): Promise<NextResponse> {
+    const cached = await getInboxConversationListFromDb(id);
+    if (cached && cached.length > 0) {
+      return NextResponse.json({
+        conversations: cached,
+        fromCache: true,
+        stale: true,
+        emptyHint:
+          'Showing your saved conversation list while Meta limits API usage. Tap Retry in a few minutes for a live refresh.',
+      });
+    }
+    return NextResponse.json({
+      conversations: [],
+      error: reason,
+      throttled: true,
+    });
   }
 
   try {
@@ -662,14 +700,20 @@ export async function GET(
       }
     }
     const skipProfileEnrich = isMetaNonCriticalThrottled();
-    if (idsToEnrich.size > 0 && !skipProfileEnrich) {
+    const profileCachePlatform = isInstagram ? 'instagram' : 'facebook';
+    if (idsToEnrich.size > 0) {
       try {
         const profiles = new Map<
           string,
           { name?: string; username?: string; pictureUrl?: string | null }
         >();
 
-        if (isInstagram) {
+        if (skipProfileEnrich) {
+          for (const enrichId of idsToEnrich) {
+            const cached = await readInboxProfileCache(profileCachePlatform, enrichId);
+            if (cached) profiles.set(enrichId, cached);
+          }
+        } else if (isInstagram) {
           const enrichIds = Array.from(idsToEnrich).slice(0, 20);
           for (const id of enrichIds) {
             // Check cache first — avoid API call if profile was fetched recently
@@ -892,6 +936,10 @@ export async function GET(
           : 'No Instagram conversations returned. Open Meta App Dashboard and ensure instagram_manage_messages is approved for your Page, then reconnect Facebook and Instagram.'
         : undefined;
 
+    if (list.length > 0) {
+      void setInboxConversationListInDb(account.id, list as InboxConversationListItem[]);
+    }
+
     return NextResponse.json({
       conversations: list,
       ...(emptyHint ? { emptyHint } : {}),
@@ -899,12 +947,15 @@ export async function GET(
   } catch (e) {
     if (e instanceof MetaGraphThrottledError) {
       console.warn('[Conversations] Meta Graph throttled:', e.message);
-      return NextResponse.json({
-        conversations: [],
-        error:
-          'Meta inbox loading is paused briefly because the app hit Meta API usage limits. Wait about 30 to 45 minutes, then tap Retry. Opening Inbox for many platforms at once can trigger this; cached threads may still appear.',
-        throttled: true,
-      });
+      return returnCachedConversations(
+        'Meta inbox loading is paused briefly because the app hit Meta API usage limits. Wait a few minutes, then tap Retry.'
+      );
+    }
+    if (isMetaNonCriticalThrottled() || isMetaRateLimitResponse(e)) {
+      console.warn('[Conversations] Meta rate limited, serving cache if available');
+      return returnCachedConversations(
+        'Meta is temporarily limiting inbox requests. Wait a few minutes and tap Retry.'
+      );
     }
     const err = e as { message?: string; code?: string; response?: { data?: unknown; status?: number } };
     const msg = err?.message ?? '';
@@ -937,8 +988,28 @@ export async function GET(
     }
     if (msg.includes('403') || msg.includes('permission') || msg.includes('OAuth'))
       return NextResponse.json({ conversations: [], error: 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.', debug: { rawMessage: msg, responseData: axiosData } });
-    if (isTimeout)
+    if (isTimeout) {
+      const cached = await getInboxConversationListFromDb(account.id);
+      if (cached && cached.length > 0) {
+        return NextResponse.json({
+          conversations: cached,
+          fromCache: true,
+          stale: true,
+          emptyHint: 'Showing saved conversations. Live refresh timed out; tap Retry in a moment.',
+        });
+      }
       return NextResponse.json({ conversations: [], error: 'The request to load conversations timed out. Try again. If you have many Instagram conversations, request Advanced Access for instagram_manage_messages in Meta App Dashboard, or reconnect and choose your Page.', debug: { rawMessage: msg, responseData: axiosData } });
+    }
+    const cached = await getInboxConversationListFromDb(account.id);
+    if (cached && cached.length > 0) {
+      return NextResponse.json({
+        conversations: cached,
+        fromCache: true,
+        stale: true,
+        emptyHint: 'Showing saved conversations. Live refresh failed; tap Retry.',
+        debug: { rawMessage: msg, responseData: axiosData },
+      });
+    }
     console.error('[Conversations] error:', e);
     return NextResponse.json({ conversations: [], error: 'Could not load conversations.', debug: { rawMessage: msg, responseData: axiosData } });
   }
