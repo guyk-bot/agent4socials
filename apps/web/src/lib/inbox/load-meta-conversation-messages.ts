@@ -3,6 +3,17 @@ import axios from 'axios';
 import { prisma } from '@/lib/db';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { noteMetaUsageFromHeaders } from '@/lib/meta-usage-guard';
+export type InboxMessageMedia = {
+  kind: 'image' | 'video' | 'audio' | 'file' | 'sticker' | 'share' | 'story';
+  url?: string | null;
+  title?: string | null;
+};
+
+export type InboxMessageReaction = {
+  reaction: string;
+  username?: string | null;
+};
+
 export type ConversationUiMessage = {
   id: string;
   fromId: string | null;
@@ -10,6 +21,8 @@ export type ConversationUiMessage = {
   message: string;
   createdTime: string | null;
   isFromPage: boolean;
+  media?: InboxMessageMedia[];
+  reactions?: InboxMessageReaction[];
 };
 
 const fbBaseUrl = facebookGraphBaseUrl;
@@ -30,7 +43,7 @@ export const META_INBOX_MESSAGE_FIELDS = [
   'to',
   'message',
   'is_unsupported',
-  'attachments{type,mime_type,name,image_data,video_data,file_url,payload}',
+  'attachments{type,mime_type,name,image_data{url},video_data{url},file_url,payload{url}}',
   'shares{data{name,description,type,url,link}}',
   'story',
   'reactions{data{reaction,users{id,username}}}',
@@ -47,7 +60,7 @@ const FB_THREAD_MESSAGE_FIELDS = [
   'message',
   'created_time',
   'is_unsupported',
-  'attachments{type,mime_type,name,image_data,video_data,file_url,payload}',
+  'attachments{type,mime_type,name,image_data{url},video_data{url},file_url,payload{url}}',
   'shares{data{name,description,type,url,link}}',
   'story',
   'reactions{data{reaction,users{id,username}}}',
@@ -139,16 +152,110 @@ function reactionLabel(m: IgMessageRow): string {
   return emoji ? `(Reaction ${emoji})` : '(Reaction)';
 }
 
+function attachmentKind(att: IgAttachment): InboxMessageMedia['kind'] | null {
+  const t = (att.type ?? att.mime_type ?? '').toLowerCase();
+  const name = (att.name ?? '').toLowerCase();
+  if (att.image_data?.url || t.includes('image') || t.includes('photo')) return 'image';
+  if (att.video_data?.url || t.includes('video')) return 'video';
+  if (t.includes('audio') || t.includes('voice') || /\.(ogg|mp3|m4a|wav|aac)(\?|$)/i.test(name))
+    return 'audio';
+  if (t.includes('sticker')) return 'sticker';
+  if (t.includes('share')) return 'share';
+  if (att.file_url || att.payload?.url) return 'file';
+  return null;
+}
+
+/** Structured media for inbox rendering (images, video, voice, shares). */
+export function extractMediaFromRow(m: IgMessageRow): InboxMessageMedia[] {
+  const out: InboxMessageMedia[] = [];
+  for (const att of m.attachments?.data ?? []) {
+    const kind = attachmentKind(att);
+    const url =
+      att.image_data?.url ?? att.video_data?.url ?? att.file_url ?? att.payload?.url ?? null;
+    if (kind && url) {
+      out.push({ kind, url, title: att.name ?? null });
+      continue;
+    }
+    if (kind === 'audio' && att.file_url) {
+      out.push({ kind: 'audio', url: att.file_url, title: att.name ?? null });
+      continue;
+    }
+    if (kind && att.name && !url) {
+      out.push({ kind, title: att.name });
+    }
+  }
+  for (const share of m.shares?.data ?? []) {
+    const url = share.url ?? share.link ?? null;
+    const title = (share.name ?? share.description ?? '').trim() || null;
+    out.push({ kind: 'share', url, title });
+  }
+  if (m.story?.link) {
+    out.push({ kind: 'story', url: m.story.link, title: 'Story reply' });
+  }
+  return out;
+}
+
+export function extractReactionsFromRow(m: IgMessageRow): InboxMessageReaction[] {
+  const items: InboxMessageReaction[] = [];
+  for (const r of m.reactions?.data ?? []) {
+    if (!r.reaction) continue;
+    for (const u of r.users ?? []) {
+      items.push({ reaction: r.reaction, username: u.username ?? null });
+    }
+    if (!r.users?.length) items.push({ reaction: r.reaction });
+  }
+  return items;
+}
+
 /** Build display text for inbox bubbles from a Meta message row. */
 export function messageBodyFromRow(m: IgMessageRow): string {
   const text = (m.message ?? '').trim();
   if (text) return text;
+
+  const media = extractMediaFromRow(m);
+  if (media.some((x) => x.url)) {
+    const titles = media.filter((x) => x.title && !x.url).map((x) => x.title as string);
+    return titles.join(' ') || '';
+  }
 
   const parts = [attachmentLabel(m), shareLabel(m), storyLabel(m), reactionLabel(m)].filter(Boolean);
   if (m.is_unsupported) parts.push('(Unsupported message type)');
   if (parts.length > 0) return parts.join(' ');
 
   return '';
+}
+
+function rowNeedsHydration(m: IgMessageRow): boolean {
+  if (!(m.attachments?.data?.length || m.shares?.data?.length)) return false;
+  if ((m.message ?? '').trim()) return false;
+  return !extractMediaFromRow(m).some((x) => x.url);
+}
+
+async function hydrateMessageRow(msgId: string, accessToken: string): Promise<IgMessageRow | null> {
+  try {
+    const r = await axios.get<IgMessageRow>(`${fbBaseUrl}/${msgId}`, {
+      params: { fields: META_INBOX_MESSAGE_FIELDS, access_token: accessToken },
+      timeout: 12_000,
+    });
+    noteMetaUsageFromHeaders(r.headers);
+    return r.data?.error ? null : r.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function hydrateRowsMissingMedia(
+  rows: IgMessageRow[],
+  accessToken: string
+): Promise<IgMessageRow[]> {
+  const need = rows.filter((m) => m.id && rowNeedsHydration(m)).slice(0, 12);
+  if (need.length === 0) return rows;
+  const hydrated = await Promise.all(need.map((m) => hydrateMessageRow(m.id, accessToken)));
+  const byId = new Map<string, IgMessageRow>();
+  for (const h of hydrated) {
+    if (h?.id) byId.set(h.id, h);
+  }
+  return rows.map((m) => (m.id && byId.has(m.id) ? byId.get(m.id)! : m));
 }
 
 function mapRows(
@@ -164,6 +271,8 @@ function mapRows(
       message: messageBodyFromRow(m),
       createdTime: m.created_time ?? null,
       isFromPage: !!(m.from?.id && ourIds.has(m.from.id)),
+      media: extractMediaFromRow(m),
+      reactions: extractReactionsFromRow(m),
     }))
     .sort((a, b) => {
       const tA = a.createdTime ? new Date(a.createdTime).getTime() : 0;
@@ -218,8 +327,9 @@ export async function loadInstagramBusinessConversationMessages(
     if (convoRes.data?.error) {
       return { messages: [], error: convoRes.data.error.message ?? 'Could not load messages.' };
     }
-    const expandedRows = convoRes.data?.messages?.data ?? [];
+    let expandedRows = convoRes.data?.messages?.data ?? [];
     if (expandedRows.some((m) => m?.id && (m.message || m.attachments || m.shares || m.story))) {
+      expandedRows = await hydrateRowsMissingMedia(expandedRows, accessToken);
       return { messages: mapRows(expandedRows, ourIds) };
     }
 
@@ -266,15 +376,16 @@ export async function loadFacebookGraphConversationMessages(
       data?: IgMessageRow[];
       error?: { message: string };
     }>(`${fbBaseUrl}/${conversationId}/messages`, {
-      params,
-      timeout: 12_000,
+      params: { ...params, limit: '50' },
+      timeout: 25_000,
     });
 
     if (res.data?.error) {
       return { messages: [], error: res.data.error.message };
     }
 
-    const list = mapRows(res.data?.data ?? [], ourIds);
+    const rawRows = await hydrateRowsMissingMedia(res.data?.data ?? [], accessToken);
+    const list = mapRows(rawRows, ourIds);
     return { messages: list };
   } catch (e) {
     const err = e as { response?: { data?: { error?: { message?: string } } }; message?: string };

@@ -1,7 +1,7 @@
 /**
  * Server-side DB cache for inbox conversation messages, backed by the AppKv table.
  *
- * Keys:  inbox_msgs_v2:{socialAccountId}:{conversationId} (v2: expanded Meta attachment fields)
+ * Keys:  inbox_msgs_v3:{socialAccountId}:{conversationId} (v3: media URLs + reactions on messages)
  * TTL:   1 year — messages are considered fresh and served instantly without any
  *        Meta/X API call. The cron /api/cron/sync-inbox re-warms every conversation
  *        before the TTL expires so users never see a loading state.
@@ -32,7 +32,7 @@ async function ensureAppKvTable(): Promise<void> {
 }
 
 export function inboxMsgKey(socialAccountId: string, conversationId: string): string {
-  return `inbox_msgs_v2:${socialAccountId}:${conversationId}`;
+  return `inbox_msgs_v3:${socialAccountId}:${conversationId}`;
 }
 
 export function inboxConvListKey(socialAccountId: string): string {

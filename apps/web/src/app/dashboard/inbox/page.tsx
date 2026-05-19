@@ -93,6 +93,17 @@ type Conversation = {
   platform?: string;
   messageAccountId?: string;
 };
+type InboxMessageMedia = {
+  kind: 'image' | 'video' | 'audio' | 'file' | 'sticker' | 'share' | 'story';
+  url?: string | null;
+  title?: string | null;
+};
+
+type InboxMessageReaction = {
+  reaction: string;
+  username?: string | null;
+};
+
 type ConversationMessage = {
   id: string;
   fromId: string | null;
@@ -100,6 +111,8 @@ type ConversationMessage = {
   message: string;
   createdTime: string | null;
   isFromPage: boolean;
+  media?: InboxMessageMedia[];
+  reactions?: InboxMessageReaction[];
 };
 type PostComment = {
   commentId: string;
@@ -262,6 +275,106 @@ const INBOX_SENT_BUBBLE_CLASS =
 /** Incoming bubbles from the other person (white in light mode, not global neutral-100 → black). */
 const INBOX_RECV_BUBBLE_CLASS =
   'inbox-recv-bubble bg-white border border-neutral-200 text-neutral-900 shadow-sm dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-100 dark:shadow-none';
+
+function InboxMessageContent({ msg }: { msg: ConversationMessage }) {
+  const media = msg.media ?? [];
+  const text = msg.message?.trim() ?? '';
+  const placeholderOnly = /^\([^)]+\)$/.test(text);
+  const showText = text.length > 0 && !(media.some((m) => m.url) && placeholderOnly);
+
+  return (
+    <>
+      {showText && <p className="text-sm whitespace-pre-wrap break-words">{text}</p>}
+      {media.map((item, idx) => {
+        const proxied = item.url ? proxyImageUrl(item.url) || item.url : null;
+        if (item.kind === 'image' || item.kind === 'sticker') {
+          if (proxied) {
+            return (
+              <img
+                key={`${msg.id}-m-${idx}`}
+                src={proxied}
+                alt={item.title ?? item.kind}
+                className="mt-1 max-w-full max-h-64 rounded-lg object-contain"
+              />
+            );
+          }
+        }
+        if (item.kind === 'video' && proxied) {
+          return (
+            <video
+              key={`${msg.id}-m-${idx}`}
+              src={proxied}
+              controls
+              playsInline
+              className="mt-1 max-w-full max-h-72 rounded-lg"
+            />
+          );
+        }
+        if (item.kind === 'audio' && proxied) {
+          return (
+            <audio key={`${msg.id}-m-${idx}`} src={proxied} controls className="mt-1 w-full max-w-xs" />
+          );
+        }
+        if (item.kind === 'share' && (item.url || item.title)) {
+          return item.url ? (
+            <a
+              key={`${msg.id}-m-${idx}`}
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 block text-sm text-orange-600 dark:text-orange-400 underline break-all"
+            >
+              {item.title ?? item.url}
+            </a>
+          ) : (
+            <p key={`${msg.id}-m-${idx}`} className="text-sm mt-1">
+              {item.title}
+            </p>
+          );
+        }
+        if (item.title) {
+          return (
+            <p key={`${msg.id}-m-${idx}`} className="text-sm mt-1 text-neutral-600 dark:text-neutral-300">
+              {item.title}
+            </p>
+          );
+        }
+        const fallback =
+          item.kind === 'video'
+            ? '(Video)'
+            : item.kind === 'image' || item.kind === 'sticker'
+              ? '(Image)'
+              : item.kind === 'audio'
+                ? '(Voice message)'
+                : item.kind === 'share'
+                  ? '(Share)'
+                  : '(Attachment)';
+        return (
+          <p key={`${msg.id}-m-${idx}`} className="text-sm mt-1 text-neutral-500 dark:text-neutral-400">
+            {fallback}
+          </p>
+        );
+      })}
+      {!showText && media.length === 0 && (
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">(Unsupported or empty message)</p>
+      )}
+      {(msg.reactions?.length ?? 0) > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {msg.reactions!.map((r, idx) => (
+            <span
+              key={`${msg.id}-r-${idx}`}
+              className="text-xs px-1.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200"
+              title={r.username ? `From ${r.username}` : undefined}
+            >
+              {r.reaction}
+              {r.username ? ` · ${r.username}` : ''}
+            </span>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
 
 function InboxAvatar({
   pictureUrl,
@@ -3721,11 +3834,7 @@ function InboxPage() {
                                         {msg.fromName || recipientLabel}
                                       </p>
                                     )}
-                                    <p className="text-sm whitespace-pre-wrap break-words">
-                                      {msg.message?.trim()
-                                        ? msg.message
-                                        : '(No text: may be media, share, or story)'}
-                                    </p>
+                                    <InboxMessageContent msg={msg} />
                                     {msg.createdTime && (
                                       <p className="text-xs mt-1 text-neutral-400 dark:text-neutral-500">
                                         {new Date(msg.createdTime).toLocaleString()}

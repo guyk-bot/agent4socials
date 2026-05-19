@@ -5,12 +5,12 @@ describe('messageBodyFromRow', () => {
     expect(messageBodyFromRow({ id: '1', message: 'Hello there' })).toBe('Hello there');
   });
 
-  it('labels image attachments when message text is empty', () => {
+  it('returns empty caption when image URL will render in UI', () => {
     const row: IgMessageRow = {
       id: '1',
       attachments: { data: [{ image_data: { url: 'https://cdn.example/x.jpg' } }] },
     };
-    expect(messageBodyFromRow(row)).toBe('(Image)');
+    expect(messageBodyFromRow(row)).toBe('');
   });
 
   it('labels shared reels', () => {
