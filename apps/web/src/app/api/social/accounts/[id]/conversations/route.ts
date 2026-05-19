@@ -897,6 +897,15 @@ export async function GET(
       ...(emptyHint ? { emptyHint } : {}),
     });
   } catch (e) {
+    if (e instanceof MetaGraphThrottledError) {
+      console.warn('[Conversations] Meta Graph throttled:', e.message);
+      return NextResponse.json({
+        conversations: [],
+        error:
+          'Meta inbox loading is paused briefly because the app hit Meta API usage limits. Wait about 30 to 45 minutes, then tap Retry. Opening Inbox for many platforms at once can trigger this; cached threads may still appear.',
+        throttled: true,
+      });
+    }
     const err = e as { message?: string; code?: string; response?: { data?: unknown; status?: number } };
     const msg = err?.message ?? '';
     const status = err?.response?.status;
