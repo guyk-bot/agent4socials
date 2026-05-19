@@ -1237,7 +1237,7 @@ export default function AccountPage() {
                 className="brand-section-box rounded-xl border border-neutral-200 bg-white p-3 sm:p-4 text-left shadow-sm hover:bg-neutral-50 transition-colors"
                 style={{ borderColor: 'rgba(15,23,42,0.12)' }}
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-100 text-neutral-600">
+                <div className="brand-add-plus-icon flex h-12 w-12 items-center justify-center rounded-xl bg-neutral-100 text-neutral-600">
                   <Plus size={18} />
                 </div>
                 <p className="mt-3 text-sm font-semibold text-neutral-900">Add brand</p>

@@ -4,6 +4,8 @@
   /* Futuristic Neon Glass SaaS design system */
   --color-primary: #ff7a00;
   --color-primary-hover: #ff5a00;
+  /* Softer orange for secondary actions (not upgrade CTA #ff4d00 / #ff7a00). */
+  --color-accent-orange-light: #ffb86b;
   --color-secondary: #ffb000;
   --color-secondary-hover: #ff9800;
   --color-tertiary: #ff5a00;
@@ -171,13 +173,67 @@
   border-color: #52525b !important;
   color: #fafafa !important;
 }
-[data-theme='dark'] .team-members-inner .team-members-add-btn {
-  background: #3f3f46 !important;
-  border-color: #52525b !important;
-  color: #fafafa !important;
+/* Light orange accents on Account (Add brand +, team invite, brand picker scroll). */
+.brand-add-plus-icon {
+  background: rgba(255, 184, 107, 0.18) !important;
+  color: var(--color-accent-orange-light) !important;
 }
-[data-theme='dark'] .team-members-inner .team-members-add-btn:hover:not(:disabled) {
-  background: #52525b !important;
+.accent-orange-light-btn {
+  border-color: rgba(255, 184, 107, 0.5) !important;
+  color: var(--color-accent-orange-light) !important;
+  background: rgba(255, 184, 107, 0.1) !important;
+}
+.accent-orange-light-btn:hover:not(:disabled) {
+  background: rgba(255, 184, 107, 0.2) !important;
+  border-color: rgba(255, 184, 107, 0.7) !important;
+  color: #ffc78a !important;
+}
+.accent-orange-light-btn svg {
+  color: var(--color-accent-orange-light) !important;
+}
+.brand-select-menu {
+  max-height: 11rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-accent-orange-light) rgba(0, 0, 0, 0.25);
+}
+.brand-select-menu::-webkit-scrollbar {
+  width: 8px;
+}
+.brand-select-menu::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 999px;
+}
+.brand-select-menu::-webkit-scrollbar-thumb {
+  background: var(--color-accent-orange-light);
+  border-radius: 999px;
+}
+.brand-select-menu::-webkit-scrollbar-thumb:hover {
+  background: #ffc78a;
+}
+.brand-select-option {
+  color: inherit;
+}
+.brand-select-option:hover,
+.brand-select-option[aria-selected='true'] {
+  background: rgba(255, 184, 107, 0.22) !important;
+  color: var(--color-accent-orange-light) !important;
+}
+[data-theme='dark'] .brand-select-panel {
+  background: #262626 !important;
+  border-color: #000000 !important;
+}
+[data-theme='dark'] .team-members-frame .team-brand-select-trigger {
+  border-color: #000000 !important;
+}
+[data-theme='dark'] .team-members-inner .team-members-add-btn.accent-orange-light-btn {
+  background: rgba(255, 184, 107, 0.12) !important;
+  border-color: rgba(255, 184, 107, 0.5) !important;
+  color: var(--color-accent-orange-light) !important;
+}
+[data-theme='dark'] .team-members-inner .team-members-add-btn.accent-orange-light-btn:hover:not(:disabled) {
+  background: rgba(255, 184, 107, 0.22) !important;
+  border-color: rgba(255, 184, 107, 0.7) !important;
 }
 [data-theme='dark'] .team-members-inner h3,
 [data-theme='dark'] .team-members-inner .text-neutral-900 {

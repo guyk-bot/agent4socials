@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { Users, HelpCircle, Plus, Shield } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Users, HelpCircle, Plus, Shield, ChevronDown, Check } from 'lucide-react';
 import api from '@/lib/api';
 
 const ROLE_GUIDE_URL = '/help/roles-permissions';
@@ -41,6 +41,19 @@ export function BrandTeamMembersSection({
   const [inviteSending, setInviteSending] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
   const [rolesTooltipOpen, setRolesTooltipOpen] = useState(false);
+  const [brandMenuOpen, setBrandMenuOpen] = useState(false);
+  const brandMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!brandMenuOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (brandMenuRef.current && !brandMenuRef.current.contains(e.target as Node)) {
+        setBrandMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [brandMenuOpen]);
 
   useEffect(() => {
     if (!brands.length) {
@@ -128,27 +141,53 @@ export function BrandTeamMembersSection({
   return (
     <div className="team-members-frame rounded-2xl border border-neutral-200 bg-neutral-50/40 p-4 sm:p-5 shadow-sm space-y-4">
       <div className="space-y-2">
-        <label htmlFor="team-brand-select" className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">
+        <span id="team-brand-select-label" className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">
           Brand
-        </label>
-        <select
-          id="team-brand-select"
-          value={selectedBrandId}
-          onChange={(e) => {
-            setSelectedBrandId(e.target.value);
-            setInviteFeedback('');
-            setInviteError('');
-            setInviteLink('');
-          }}
-          disabled={!brands.length}
-          className="team-members-field w-full max-w-md rounded-xl border border-neutral-300 bg-[var(--background)] px-3 py-2.5 text-sm text-neutral-900"
-        >
-          {brands.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
+        </span>
+        <div ref={brandMenuRef} className="relative w-full max-w-md">
+          <button
+            type="button"
+            id="team-brand-select"
+            aria-haspopup="listbox"
+            aria-expanded={brandMenuOpen}
+            aria-labelledby="team-brand-select-label team-brand-select"
+            disabled={!brands.length}
+            onClick={() => setBrandMenuOpen((o) => !o)}
+            className="team-brand-select-trigger team-members-field flex w-full items-center justify-between gap-2 rounded-xl border border-neutral-300 bg-[var(--background)] px-3 py-2.5 text-left text-sm text-neutral-900 disabled:opacity-50"
+          >
+            <span className="truncate">{selectedBrand?.name ?? 'Select brand'}</span>
+            <ChevronDown size={16} className={`shrink-0 text-neutral-500 transition-transform ${brandMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {brandMenuOpen && brands.length > 0 ? (
+            <ul
+              role="listbox"
+              aria-labelledby="team-brand-select-label"
+              className="brand-select-panel brand-select-menu absolute left-0 right-0 z-30 mt-1 rounded-xl border border-neutral-300 bg-[var(--background)] py-1 shadow-lg"
+            >
+              {brands.map((b) => {
+                const isSelected = b.id === selectedBrandId;
+                return (
+                  <li key={b.id} role="option" aria-selected={isSelected}>
+                    <button
+                      type="button"
+                      className={`brand-select-option flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm ${isSelected ? '' : 'text-neutral-900'}`}
+                      onClick={() => {
+                        setSelectedBrandId(b.id);
+                        setBrandMenuOpen(false);
+                        setInviteFeedback('');
+                        setInviteError('');
+                        setInviteLink('');
+                      }}
+                    >
+                      <span className="truncate">{b.name}</span>
+                      {isSelected ? <Check size={14} className="shrink-0 text-[var(--color-accent-orange-light)]" /> : null}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+        </div>
         {!brands.length ? <p className="text-sm text-neutral-500">Create a brand above to add team members.</p> : null}
       </div>
 
@@ -265,7 +304,7 @@ export function BrandTeamMembersSection({
               type="button"
               onClick={() => void handleAddTeamMember()}
               disabled={!newMemberFirstName.trim() || !newMemberLastName.trim() || !newMemberEmail.trim() || inviteSending}
-              className="team-members-add-btn inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-[var(--card-bg)] px-3.5 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-100/70 disabled:opacity-50"
+              className="team-members-add-btn accent-orange-light-btn inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-[var(--card-bg)] px-3.5 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-100/70 disabled:opacity-50"
             >
               <Plus size={14} />
               {inviteSending ? 'Sending...' : 'Add another team member'}
