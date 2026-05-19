@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
   }
 
   const isTikTokCdn = /tiktokcdn|tiktokv\.com|byteimg\.com|muscdn\.com/i.test(decoded);
+  const isInstagramCdn = /cdninstagram\.com|instagram\.com|fbcdn\.net/i.test(decoded);
 
   try {
     const response = await fetch(decoded, {
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
         ...(isTikTokCdn ? { Referer: 'https://www.tiktok.com/' } : {}),
+        ...(isInstagramCdn ? { Referer: 'https://www.instagram.com/' } : {}),
       },
       cache: 'no-store',
       redirect: 'follow',

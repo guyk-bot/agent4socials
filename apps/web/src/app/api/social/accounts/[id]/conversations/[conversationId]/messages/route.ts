@@ -7,6 +7,7 @@ import { runFirstWelcomeMaybe } from '@/lib/dm-first-welcome';
 import { loadConversationForFirstWelcome } from '@/lib/inbox/load-conversation-for-first-welcome';
 import { isMetaNonCriticalThrottled } from '@/lib/meta-usage-guard';
 import { deleteInboxMessagesFromDb, getInboxMessagesFromDb, setInboxMessagesInDb } from '@/lib/inbox/inbox-db-cache';
+import { readInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
 
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
@@ -121,7 +122,23 @@ export async function GET(
       for (const m of cached) {
         if (m.fromId && !ourIds.has(m.fromId)) { recipientId = m.fromId; break; }
       }
-      return NextResponse.json({ messages: cached, recipientId, error: null });
+      let recipientName: string | null = null;
+      let recipientPictureUrl: string | null = null;
+      if (recipientId) {
+        const profilePlatform = account.platform === 'INSTAGRAM' ? 'instagram' : 'facebook';
+        const profile = await readInboxProfileCache(profilePlatform, recipientId);
+        if (profile) {
+          recipientName = profile.name ?? profile.username ?? null;
+          recipientPictureUrl = profile.pictureUrl ?? null;
+        }
+      }
+      return NextResponse.json({
+        messages: cached,
+        recipientId,
+        error: null,
+        ...(recipientName ? { recipientName } : {}),
+        ...(recipientPictureUrl ? { recipientPictureUrl } : {}),
+      });
     }
   }
 

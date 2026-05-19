@@ -7,6 +7,7 @@ import {
   loadInstagramConversationMessages,
   type ConversationUiMessage,
 } from '@/lib/inbox/load-meta-conversation-messages';
+import { resolveInstagramInboxSenderProfile } from '@/lib/inbox/resolve-inbox-sender-profile';
 import { loadTwitterConversationForFirstWelcome } from '@/lib/inbox/twitter-conversation-for-first-welcome';
 
 const fbBaseUrl = facebookGraphBaseUrl;
@@ -75,6 +76,19 @@ async function loadMetaConversationForFirstWelcome(
         }
       }
 
+      let recipientName: string | null = null;
+      let recipientPictureUrl: string | null = null;
+      if (recipientId) {
+        const profile = await resolveInstagramInboxSenderProfile({
+          senderId: recipientId,
+          accessToken: activeToken,
+          isInstagramBusinessLogin,
+          conversationId,
+        });
+        recipientName = profile?.name ?? profile?.username ?? null;
+        recipientPictureUrl = profile?.pictureUrl ?? null;
+      }
+
       const firstWelcomeRows: FirstWelcomeMessageRow[] = messages.map((m) => ({
         createdTime: m.createdTime,
         isFromPage: m.isFromPage,
@@ -85,6 +99,8 @@ async function loadMetaConversationForFirstWelcome(
         ok: true,
         messages,
         recipientId,
+        ...(recipientName && { recipientName }),
+        ...(recipientPictureUrl && { recipientPictureUrl }),
         isInstagramBusinessLogin,
         firstWelcomeRows,
       };

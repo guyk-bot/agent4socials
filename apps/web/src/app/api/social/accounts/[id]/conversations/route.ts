@@ -16,6 +16,7 @@ import {
 } from '@/lib/meta-usage-guard';
 import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
 import { readInboxProfileCache, writeInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
+import { resolveInstagramInboxSenderProfile } from '@/lib/inbox/resolve-inbox-sender-profile';
 import {
   getInboxConversationListFromDb,
   setInboxConversationListInDb,
@@ -30,6 +31,7 @@ type ConvParticipant = {
   name?: string;
   username?: string;
   profile_pic?: string;
+  profile_picture_url?: string;
   picture?: { data?: { url?: string } };
 };
 
@@ -564,7 +566,7 @@ export async function GET(
 
   const activeToken = isInstagramBusinessLogin ? igUserToken! : token;
   const queryParams: Record<string, string> = {
-    fields: 'id,updated_time,participants{id,name,username,profile_pic,picture}',
+    fields: 'id,updated_time,participants{id,name,username,profile_pic,profile_picture_url,picture}',
     access_token: activeToken,
     limit: '100',
   };
@@ -755,7 +757,9 @@ export async function GET(
           id: s.id,
           name: s.name,
           username: s.username,
-          pictureUrl: (s.profile_pic ?? s.picture?.data?.url ?? null) as string | null,
+          pictureUrl: (s.profile_pic ?? s.profile_picture_url ?? s.picture?.data?.url ?? null) as
+            | string
+            | null,
         })),
         messageCount: undefined as number | undefined,
       };
@@ -787,76 +791,32 @@ export async function GET(
             if (cached) profiles.set(enrichId, cached);
           }
         } else if (isInstagram) {
-          const enrichIds = Array.from(idsToEnrich).slice(0, 20);
-          for (const id of enrichIds) {
-            // Check cache first — avoid API call if profile was fetched recently
-            const cached = await readInboxProfileCache('instagram', id);
-            if (cached) {
-              profiles.set(id, cached);
+          const enrichIds = Array.from(idsToEnrich).slice(0, 35);
+          const enrichIdSet = new Set(enrichIds);
+          const convBySender = new Map<string, string>();
+          for (const conv of list) {
+            for (const s of conv.senders) {
+              if (s.id && enrichIdSet.has(s.id) && !convBySender.has(s.id)) {
+                convBySender.set(s.id, conv.id);
+              }
+            }
+          }
+          for (const enrichId of enrichIds) {
+            const cached = await readInboxProfileCache('instagram', enrichId);
+            if (cached?.pictureUrl) {
+              profiles.set(enrichId, cached);
               continue;
             }
             try {
-              if (isInstagramBusinessLogin) {
-                const profileRes = await runMetaGraphRequest(
-                  'conversation-sender-profile',
-                  () =>
-                    axios.get<{
-                      id?: string;
-                      name?: string;
-                      username?: string;
-                      profile_pic?: string;
-                      profile_picture_url?: string;
-                      picture?: { data?: { url?: string } };
-                    }>(`https://graph.instagram.com/v25.0/${id}`, {
-                      params: {
-                        fields: 'name,username,profile_pic,profile_picture_url,picture',
-                        access_token: igUserToken!,
-                      },
-                      timeout: 12_000,
-                    })
-                );
-                noteMetaUsageFromHeaders(profileRes.headers);
-                const p = profileRes.data;
-                const pictureUrl = p.profile_pic ?? p.profile_picture_url ?? p.picture?.data?.url ?? null;
-                const profileData = { name: p.name, username: p.username, pictureUrl };
-                profiles.set(id, profileData);
-                void writeInboxProfileCache('instagram', id, profileData);
-                if (p?.id && p.id !== id) {
-                  profiles.set(p.id, profileData);
-                  void writeInboxProfileCache('instagram', p.id, profileData);
-                }
-              } else {
-                const profileRes = await runMetaGraphRequest(
-                  'conversation-sender-profile',
-                  () =>
-                    axios.get<{
-                      id?: string;
-                      name?: string;
-                      username?: string;
-                      profile_pic?: string;
-                      picture?: { data?: { url?: string } };
-                    }>(`${baseUrl}/${id}`, {
-                      params: {
-                        fields: 'id,name,username,profile_pic,picture.type(large)',
-                        access_token: activeToken,
-                        ...(isInstagram ? { platform: 'instagram' } : {}),
-                      },
-                      timeout: 12_000,
-                    })
-                );
-                noteMetaUsageFromHeaders(profileRes.headers);
-                const p = profileRes.data;
-                const pictureUrl = p.profile_pic ?? p.picture?.data?.url ?? null;
-                const profileData = { name: p.name, username: p.username, pictureUrl };
-                profiles.set(id, profileData);
-                void writeInboxProfileCache('instagram', id, profileData);
-                if (p?.id && p.id !== id) {
-                  profiles.set(p.id, profileData);
-                  void writeInboxProfileCache('instagram', p.id, profileData);
-                }
-              }
-            } catch (e) {
-              if (e instanceof MetaGraphThrottledError) break;
+              const profile = await resolveInstagramInboxSenderProfile({
+                senderId: enrichId,
+                accessToken: isInstagramBusinessLogin ? igUserToken! : activeToken,
+                isInstagramBusinessLogin,
+                conversationId: convBySender.get(enrichId),
+              });
+              if (profile) profiles.set(enrichId, profile);
+            } catch {
+              /* try next sender */
             }
           }
         } else {
