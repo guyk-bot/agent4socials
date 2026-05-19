@@ -6,7 +6,13 @@
  * when the app is approaching its app-level rate limit.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { isMetaNonCriticalThrottled, noteMetaRateLimitError } from '@/lib/meta-usage-guard';
+import {
+  clearMetaThrottle,
+  getMetaThrottleRemainingMinutes,
+  getMetaThrottleUntilMs,
+  isMetaNonCriticalThrottled,
+  noteMetaRateLimitError,
+} from '@/lib/meta-usage-guard';
 import { prisma } from '@/lib/db';
 
 const META_THROTTLE_KEY = 'meta:throttle-until';
@@ -39,12 +45,14 @@ function isAuthorized(request: NextRequest): boolean {
 
 export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const until = await getThrottleUntil();
+  const until = Math.max(await getThrottleUntil(), getMetaThrottleUntilMs());
   const throttled = isMetaNonCriticalThrottled();
   return NextResponse.json({
     throttled,
     throttledUntil: until > 0 ? new Date(until).toISOString() : null,
     remainingMs: until > 0 ? Math.max(0, until - Date.now()) : 0,
+    remainingMinutes: getMetaThrottleRemainingMinutes(),
+    note: 'This is Agent4Socials app backoff, not the Meta Developer Dashboard rate limit percentage.',
   });
 }
 
@@ -59,6 +67,7 @@ export async function POST(request: NextRequest) {
   }
   if (action === 'resume') {
     await clearThrottle();
+    clearMetaThrottle();
     return NextResponse.json({ ok: true, action: 'resumed' });
   }
   return NextResponse.json({ error: 'Unknown action. Use { action: "pause" | "resume" }' }, { status: 400 });

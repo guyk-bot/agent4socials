@@ -1,5 +1,10 @@
 import type { AxiosResponse } from 'axios';
-import { isMetaNonCriticalThrottled, noteMetaRateLimitError, noteMetaUsageFromHeaders } from '@/lib/meta-usage-guard';
+import {
+  isMetaNonCriticalThrottled,
+  noteMetaRateLimitError,
+  noteMetaSoftBackoff,
+  noteMetaUsageFromHeaders,
+} from '@/lib/meta-usage-guard';
 
 /** Max concurrent Meta Graph calls per serverless instance. */
 const MAX_IN_FLIGHT = 2;
@@ -40,7 +45,7 @@ function noteInstanceBurst(): void {
   }
   burstCallCount++;
   if (burstCallCount > BURST_MAX_CALLS) {
-    noteMetaRateLimitError();
+    noteMetaSoftBackoff();
     throw new MetaGraphThrottledError('instance_burst_cap');
   }
 }

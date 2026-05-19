@@ -495,6 +495,8 @@ function InboxPage() {
   const appDataRef = useRef(appData);
   /** Next X (Twitter) inbox fetch for these account IDs should send `manualInboxSync=1` (15m server cooldown). */
   const pendingManualInboxByAccountRef = useRef<Set<string>>(new Set());
+  /** Next conversations fetch sends fresh=1 to clear Agent4Socials Meta backoff (not Meta dashboard limits). */
+  const forceFreshConversationsRef = useRef(false);
   /** Completed warm keys: `${accountId}:${conversationId}` */
   const prefetchedConversationMessagesRef = useRef<Set<string>>(new Set());
   /** In-flight warm promises keyed by `${accountId}:${conversationId}` */
@@ -1343,6 +1345,10 @@ function InboxPage() {
         if (wantManual) pendingManualInboxByAccountRef.current.delete(account.id);
         const convParams: string[] = [];
         if (wantManual) convParams.push('manualInboxSync=1');
+        if (forceFreshConversationsRef.current) {
+          convParams.push('fresh=1');
+          forceFreshConversationsRef.current = false;
+        }
         if (since) {
           convParams.push(`since=${encodeURIComponent(since)}`);
           convParams.push('delta=1');
@@ -2195,6 +2201,7 @@ function InboxPage() {
                 <button
                   type="button"
                   onClick={() => {
+                    forceFreshConversationsRef.current = true;
                     appData?.invalidateConversations?.();
                     for (const a of effectiveAccounts) {
                       if (a.platform === 'TWITTER') pendingManualInboxByAccountRef.current.add(a.id);
@@ -2314,6 +2321,7 @@ function InboxPage() {
             <button
               type="button"
               onClick={() => {
+                forceFreshConversationsRef.current = true;
                 appData?.invalidateConversations?.();
                 for (const a of effectiveAccounts) {
                   if (a.platform === 'TWITTER') pendingManualInboxByAccountRef.current.add(a.id);
@@ -2359,6 +2367,7 @@ function InboxPage() {
                 <button
                   type="button"
                   onClick={() => {
+                    forceFreshConversationsRef.current = true;
                     appData?.invalidateConversations?.();
                     for (const a of effectiveAccounts) {
                       if (a.platform === platformId) {

@@ -7,7 +7,13 @@ import { refreshTwitterToken } from '@/lib/twitter-refresh';
 import { checkAndIncrementXApiUsage } from '@/lib/x/x-api-usage';
 
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
-import { isMetaNonCriticalThrottled, noteMetaUsageFromHeaders, noteMetaRateLimitError } from '@/lib/meta-usage-guard';
+import {
+  clearMetaThrottle,
+  isMetaNonCriticalThrottled,
+  META_APP_BACKOFF_INBOX_MESSAGE,
+  noteMetaUsageFromHeaders,
+  noteMetaRateLimitError,
+} from '@/lib/meta-usage-guard';
 import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
 import { readInboxProfileCache, writeInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
 import {
@@ -62,6 +68,8 @@ export async function GET(
   const sinceIso = sinceParam && !Number.isNaN(Date.parse(sinceParam)) ? new Date(sinceParam).toISOString() : null;
   const manualInboxSync =
     searchParams.get('manualInboxSync') === '1' || searchParams.get('manualInboxSync') === 'true';
+  const freshRetry = searchParams.get('fresh') === '1' || searchParams.get('fresh') === 'true';
+  if (freshRetry) clearMetaThrottle();
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
     select: {
@@ -616,7 +624,7 @@ export async function GET(
         fromCache: true,
         stale: true,
         emptyHint:
-          'Showing your saved conversation list while Meta limits API usage. Tap Retry in a few minutes for a live refresh.',
+          'Showing your saved conversation list while Agent4Socials spaces out Meta calls. Tap Retry for a live refresh.',
       });
     }
     return NextResponse.json({
@@ -630,6 +638,7 @@ export async function GET(
     let rawConversations: ConvItem[];
     try {
       rawConversations = await fetchAllConversations(conversationsPath, queryParams, activeToken, deltaMode ? 1 : 5);
+      clearMetaThrottle();
     } catch (innerErr) {
       const metaErr = (innerErr as { metaError?: { message?: string; code?: number } }).metaError;
       if (metaErr) {
@@ -946,15 +955,13 @@ export async function GET(
     });
   } catch (e) {
     if (e instanceof MetaGraphThrottledError) {
-      console.warn('[Conversations] Meta Graph throttled:', e.message);
-      return returnCachedConversations(
-        'Meta inbox loading is paused briefly because the app hit Meta API usage limits. Wait a few minutes, then tap Retry.'
-      );
+      console.warn('[Conversations] app Meta backoff:', e.message);
+      return returnCachedConversations(META_APP_BACKOFF_INBOX_MESSAGE);
     }
-    if (isMetaNonCriticalThrottled() || isMetaRateLimitResponse(e)) {
-      console.warn('[Conversations] Meta rate limited, serving cache if available');
+    if (isMetaRateLimitResponse(e)) {
+      console.warn('[Conversations] Meta returned rate limit, serving cache if available');
       return returnCachedConversations(
-        'Meta is temporarily limiting inbox requests. Wait a few minutes and tap Retry.'
+        'Meta returned a rate limit for this request. Wait a minute and tap Retry, or reconnect Instagram if it persists.'
       );
     }
     const err = e as { message?: string; code?: string; response?: { data?: unknown; status?: number } };

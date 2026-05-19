@@ -1,30 +1,32 @@
 /**
  * Meta Graph API throttle guard — global across all Vercel Lambda instances.
  *
- * WHY: Vercel runs many independent serverless functions with no shared memory.
- * In-process caches only protect one Lambda while others keep hammering the API.
+ * This is Agent4Socials' own backoff layer. It is NOT the same as the "Rate Limit"
+ * percentages in Meta Developer Dashboard (those can show 10% while we still pause).
  *
  * STRATEGY:
  *   L1 (in-process): checked first, avoids a DB round-trip on every request.
  *   L2 (Postgres via raw SQL): shared globally across all Lambda instances.
- *     The table is created on first write if it doesn't exist yet.
- *
- * Write: any instance that detects high x-app-usage or a rate-limit error
- *   writes the throttle-until timestamp to both L1 and the DB.
- * Read: L1 serves the request if fresh; when stale, a non-blocking DB read
- *   refreshes L1 for the next window.
  */
 
 import type { AxiosResponseHeaders, RawAxiosResponseHeaders } from 'axios';
 
 const META_THROTTLE_DB_KEY = 'meta:throttle-until';
-const META_THROTTLE_MINUTES = 45;
-const META_USAGE_HIGH_PCT = 25; // Back off at 25% — well before the per-user 200 call/hour limit
-const L1_TTL_MS = 15_000;      // How long one instance trusts its local copy
+/** Meta returned 429 / explicit rate-limit error. */
+const META_THROTTLE_HARD_MINUTES = 15;
+/** x-app-usage header high, or short burst of calls on one server instance. */
+const META_THROTTLE_SOFT_MINUTES = 5;
+/** Only back off when Meta's x-app-usage header is clearly high (dashboard can still show low %). */
+const META_USAGE_HIGH_PCT = 85;
+const L1_TTL_MS = 15_000;
 
 let l1ThrottleUntil = 0;
 let l1ReadAt = 0;
-let _tableEnsured = false;      // Only run CREATE TABLE once per instance lifetime
+let _tableEnsured = false;
+
+/** Shown in Inbox when our backoff blocks a fetch (not when Meta dashboard is at 10%). */
+export const META_APP_BACKOFF_INBOX_MESSAGE =
+  'Agent4Socials paused extra Meta calls for a few minutes after heavy inbox traffic. Your Meta app dashboard can still show plenty of headroom. Tap Retry in a minute or two.';
 
 function toNumber(v: unknown): number {
   const n = typeof v === 'number' ? v : Number(v);
@@ -40,7 +42,9 @@ function parseAppUsageHeader(raw: string | null | undefined): number | null {
       toNumber(parsed.total_time),
       toNumber(parsed.total_cputime)
     );
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 async function ensureTable(): Promise<void> {
@@ -56,7 +60,9 @@ async function ensureTable(): Promise<void> {
       )
     `);
     _tableEnsured = true;
-  } catch { _tableEnsured = true; /* tolerate permission errors; fall back to L1 */ }
+  } catch {
+    _tableEnsured = true;
+  }
 }
 
 async function readThrottleFromDb(): Promise<number> {
@@ -68,7 +74,21 @@ async function readThrottleFromDb(): Promise<number> {
     `;
     const ts = Number(rows[0]?.value ?? '0');
     return Number.isFinite(ts) ? ts : 0;
-  } catch { return 0; }
+  } catch {
+    return 0;
+  }
+}
+
+async function deleteThrottleFromDb(): Promise<void> {
+  try {
+    await ensureTable();
+    const { prisma } = await import('@/lib/db');
+    await prisma.$executeRaw`
+      DELETE FROM app_kv WHERE key = ${META_THROTTLE_DB_KEY}
+    `;
+  } catch {
+    /* ignore */
+  }
 }
 
 async function writeThrottleToDb(until: number): Promise<void> {
@@ -82,33 +102,59 @@ async function writeThrottleToDb(until: number): Promise<void> {
       ON CONFLICT (key) DO UPDATE
         SET value = ${String(until)}, "expiresAt" = ${expiresAt}, "updatedAt" = now()
     `;
-  } catch { /* L1 still applies on this instance */ }
+  } catch {
+    /* L1 still applies on this instance */
+  }
 }
 
 function activateThrottle(untilMs: number): void {
-  l1ThrottleUntil = untilMs;
+  const next = Math.max(l1ThrottleUntil, untilMs);
+  l1ThrottleUntil = next;
   l1ReadAt = Date.now();
-  void writeThrottleToDb(untilMs);
+  void writeThrottleToDb(next);
+}
+
+/** Clear app-level backoff (e.g. after a successful inbox fetch or admin resume). */
+export function clearMetaThrottle(): void {
+  l1ThrottleUntil = 0;
+  l1ReadAt = Date.now();
+  void deleteThrottleFromDb();
+}
+
+export function getMetaThrottleUntilMs(): number {
+  return l1ThrottleUntil;
+}
+
+/** Minutes until our backoff ends (0 if not active). */
+export function getMetaThrottleRemainingMinutes(): number {
+  const remaining = l1ThrottleUntil - Date.now();
+  return remaining > 0 ? Math.ceil(remaining / 60_000) : 0;
 }
 
 /** True when non-critical Meta calls should be skipped. Synchronous; DB refresh is async. */
 export function isMetaNonCriticalThrottled(): boolean {
   const now = Date.now();
   if (now - l1ReadAt < L1_TTL_MS) return now < l1ThrottleUntil;
-  // L1 stale — refresh from DB in background; return optimistic result this cycle
   l1ReadAt = now;
-  void readThrottleFromDb().then((until) => { l1ThrottleUntil = until; });
+  void readThrottleFromDb().then((until) => {
+    l1ThrottleUntil = until;
+  });
   return now < l1ThrottleUntil;
 }
 
-/** Call when Meta returns an explicit rate-limit error. */
+/** Call when Meta returns an explicit rate-limit error (429). */
 export function noteMetaRateLimitError(): void {
-  activateThrottle(Date.now() + META_THROTTLE_MINUTES * 60_000);
+  activateThrottle(Date.now() + META_THROTTLE_HARD_MINUTES * 60_000);
+}
+
+/** Short backoff after burst traffic or elevated x-app-usage on one response. */
+export function noteMetaSoftBackoff(): void {
+  activateThrottle(Date.now() + META_THROTTLE_SOFT_MINUTES * 60_000);
 }
 
 /**
  * Capture x-app-usage header from any Meta Graph response.
- * Enter throttle mode when usage crosses META_USAGE_HIGH_PCT.
+ * Only enters soft backoff when usage is clearly high (85%+).
  */
 export function noteMetaUsageFromHeaders(
   headers: RawAxiosResponseHeaders | AxiosResponseHeaders | Record<string, unknown> | undefined
@@ -119,7 +165,7 @@ export function noteMetaUsageFromHeaders(
     parseAppUsageHeader((headers['X-App-Usage'] as string | undefined) ?? null);
   if (pct === null) return;
   if (pct >= META_USAGE_HIGH_PCT) {
-    activateThrottle(Date.now() + META_THROTTLE_MINUTES * 60_000);
+    noteMetaSoftBackoff();
   }
 }
 
