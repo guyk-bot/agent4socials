@@ -178,6 +178,18 @@
   background: rgba(255, 184, 107, 0.18) !important;
   color: var(--color-accent-orange-light) !important;
 }
+.brand-add-plus-icon svg {
+  color: var(--color-accent-orange-light) !important;
+  stroke: var(--color-accent-orange-light) !important;
+}
+[data-theme='dark'] .brand-add-plus-icon {
+  background: rgba(255, 184, 107, 0.28) !important;
+  color: #ffb86b !important;
+}
+[data-theme='dark'] .brand-add-plus-icon svg {
+  color: #ffb86b !important;
+  stroke: #ffb86b !important;
+}
 .accent-orange-light-btn {
   border-color: rgba(255, 184, 107, 0.5) !important;
   color: var(--color-accent-orange-light) !important;
