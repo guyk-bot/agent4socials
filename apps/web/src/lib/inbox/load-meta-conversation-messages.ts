@@ -15,8 +15,8 @@ export type ConversationUiMessage = {
 const fbBaseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
 
-/** Max messages to hydrate per conversation open — keeps total time well under the 60s Vercel limit. */
-const IG_MESSAGE_FETCH_LIMIT = 10;
+/** Max messages per Instagram Business thread (nested fields or per-id hydration). */
+const IG_MESSAGE_FETCH_LIMIT = 20;
 
 /**
  * Meta requires attachment/share sub-fields; requesting `attachments` alone often returns
@@ -35,6 +35,9 @@ export const META_INBOX_MESSAGE_FIELDS = [
   'story',
   'reactions{data{reaction,users{id,username}}}',
 ].join(',');
+
+/** Nested message fields on conversation edge (one round-trip vs N+1 per message). */
+const IG_CONVERSATION_MESSAGES_FIELDS = `messages.limit(${IG_MESSAGE_FETCH_LIMIT}){${META_INBOX_MESSAGE_FIELDS}}`;
 
 /** Facebook Graph thread listing uses `created_time` (same sub-fields as single message). */
 const FB_THREAD_MESSAGE_FIELDS = [
@@ -197,7 +200,7 @@ async function fetchIgMessageDetails(
   return results.filter((m): m is IgMessageRow => !!m && !m.error);
 }
 
-/** Instagram Business Login: list message ids, then hydrate recent messages (reliable on graph.instagram.com). */
+/** Instagram Business Login: prefer one expanded conversation request; fall back to per-message hydration. */
 export async function loadInstagramBusinessConversationMessages(
   conversationId: string,
   accessToken: string,
@@ -205,17 +208,34 @@ export async function loadInstagramBusinessConversationMessages(
 ): Promise<{ messages: ConversationUiMessage[]; error?: string }> {
   try {
     const convoRes = await axios.get<{
+      messages?: { data?: IgMessageRow[] };
+      error?: { message?: string };
+    }>(`${igBaseUrl}/${conversationId}`, {
+      params: { fields: IG_CONVERSATION_MESSAGES_FIELDS, access_token: accessToken },
+      timeout: 18_000,
+    });
+    noteMetaUsageFromHeaders(convoRes.headers);
+    if (convoRes.data?.error) {
+      return { messages: [], error: convoRes.data.error.message ?? 'Could not load messages.' };
+    }
+    const expandedRows = convoRes.data?.messages?.data ?? [];
+    if (expandedRows.some((m) => m?.id && (m.message || m.attachments || m.shares || m.story))) {
+      return { messages: mapRows(expandedRows, ourIds) };
+    }
+
+    // Fallback: list ids then hydrate (older API behavior or empty nested payload).
+    const idRes = await axios.get<{
       messages?: { data?: Array<{ id: string }> };
       error?: { message?: string };
     }>(`${igBaseUrl}/${conversationId}`, {
       params: { fields: 'messages', access_token: accessToken },
       timeout: 10_000,
     });
-    noteMetaUsageFromHeaders(convoRes.headers);
-    if (convoRes.data?.error) {
-      return { messages: [], error: convoRes.data.error.message ?? 'Could not load messages.' };
+    noteMetaUsageFromHeaders(idRes.headers);
+    if (idRes.data?.error) {
+      return { messages: [], error: idRes.data.error.message ?? 'Could not load messages.' };
     }
-    const messageIds = (convoRes.data?.messages?.data ?? []).map((m) => m.id).filter(Boolean);
+    const messageIds = (idRes.data?.messages?.data ?? []).map((m) => m.id).filter(Boolean);
     if (messageIds.length === 0) return { messages: [] };
     const rows = await fetchIgMessageDetails(messageIds, accessToken);
     return { messages: mapRows(rows, ourIds) };

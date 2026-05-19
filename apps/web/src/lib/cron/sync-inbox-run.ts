@@ -16,7 +16,8 @@ import {
 import { noteMetaUsageFromHeaders, isMetaNonCriticalThrottled } from '@/lib/meta-usage-guard';
 
 const SYNC_INBOX_BUDGET_MS = parseInt(process.env.SYNC_INBOX_BUDGET_MS ?? '50000', 10);
-const MAX_CONVS_PER_ACCOUNT = 30;
+const MAX_CONVS_PER_ACCOUNT = parseInt(process.env.SYNC_INBOX_MAX_CONVS ?? '60', 10);
+const SYNC_INBOX_PARALLEL = parseInt(process.env.SYNC_INBOX_PARALLEL ?? '4', 10);
 const fbBase = facebookGraphBaseUrl;
 const igBase = 'https://graph.instagram.com/v25.0';
 
@@ -161,14 +162,18 @@ async function _syncAccounts(
       [account.platformUserId, linkedPageIdForMsgs].filter((x): x is string => !!x)
     );
 
-    for (const conv of convs.slice(0, MAX_CONVS_PER_ACCOUNT)) {
-      if (Date.now() >= deadline) break;
-      if (isMetaNonCriticalThrottled()) break;
+    const convBatch = convs
+      .slice(0, MAX_CONVS_PER_ACCOUNT)
+      .sort((a, b) => (b.updated_time ?? '').localeCompare(a.updated_time ?? ''));
+
+    const syncOneConv = async (conv: ConvItem): Promise<void> => {
+      if (Date.now() >= deadline) return;
+      if (isMetaNonCriticalThrottled()) return;
 
       const already = await isInboxMessagesCached(account.id, conv.id);
       if (already) {
         results[key].skipped++;
-        continue;
+        return;
       }
 
       try {
@@ -191,8 +196,14 @@ async function _syncAccounts(
       } catch {
         results[key].errors++;
       }
+    };
 
-      await new Promise((r) => setTimeout(r, 300));
+    for (let i = 0; i < convBatch.length; i += SYNC_INBOX_PARALLEL) {
+      if (Date.now() >= deadline) break;
+      if (isMetaNonCriticalThrottled()) break;
+      const chunk = convBatch.slice(i, i + SYNC_INBOX_PARALLEL);
+      await Promise.all(chunk.map((conv) => syncOneConv(conv)));
+      await new Promise((r) => setTimeout(r, 150));
     }
   }
 

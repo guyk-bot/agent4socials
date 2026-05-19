@@ -210,6 +210,7 @@ function MessagesConversationList({
   getConversationLastReadCounts,
   setConversationLastReadCount,
   user,
+  onWarmConversation,
 }: {
   conversations: Array<Conversation & { platform?: string }>;
   inboxFilter: string;
@@ -228,6 +229,7 @@ function MessagesConversationList({
   getConversationLastReadCounts: (userId: string | undefined) => Record<string, number>;
   setConversationLastReadCount: (convId: string, count: number, userId: string | undefined) => void;
   user: { id: string } | null;
+  onWarmConversation?: (conv: Conversation & { platform?: string; messageAccountId?: string }) => void;
 }) {
   const filtered = conversations
     .filter((c) => {
@@ -258,6 +260,8 @@ function MessagesConversationList({
           <button
             key={platform ? `${platform}-${c.id}` : c.id}
             type="button"
+            onMouseEnter={() => onWarmConversation?.(c as Conversation & { platform?: string; messageAccountId?: string })}
+            onFocus={() => onWarmConversation?.(c as Conversation & { platform?: string; messageAccountId?: string })}
             onClick={() => {
               if (selectMode) {
                 setSelectedConversationIds((prev) => {
@@ -418,8 +422,10 @@ function InboxPage() {
   const appDataRef = useRef(appData);
   /** Next X (Twitter) inbox fetch for these account IDs should send `manualInboxSync=1` (15m server cooldown). */
   const pendingManualInboxByAccountRef = useRef<Set<string>>(new Set());
-  /** Background-prefetched conversation message cache keys: `${accountId}:${conversationId}` */
+  /** Completed warm keys: `${accountId}:${conversationId}` */
   const prefetchedConversationMessagesRef = useRef<Set<string>>(new Set());
+  /** In-flight warm dedupe */
+  const warmingConversationKeysRef = useRef<Set<string>>(new Set());
   /** Abort in-flight message fetch when the user switches conversations. */
   const messagesFetchAbortRef = useRef<AbortController | null>(null);
   const conversationsRef = useRef(conversations);
@@ -877,30 +883,18 @@ function InboxPage() {
     setAiReplyError(null);
   }, [selectedComment?.commentId, selectedConversationId]);
 
-  // Background prefetch: once conversations are available, warm per-thread message cache so
-  // opening any conversation feels instant without the user waiting on a new request.
-  useEffect(() => {
-    if (!user?.id) return;
-    if (conversations.length === 0) return;
-
-    const targets = conversations.filter(
-      (c) => c.id && c.platform && DM_THREAD_PLATFORM_IDS.has(c.platform)
-    );
-    if (targets.length === 0) return;
-
-    let cancelled = false;
-    const PREFETCH_CONCURRENCY = 6;
-
-    const prefetchOne = async (conv: (typeof targets)[0]) => {
+  // Warm one conversation thread (client cache + server DB cache). Used by prefetch, hover, and focus.
+  const warmConversationMessages = useCallback(
+    async (conv: Conversation & { platform?: string; messageAccountId?: string }) => {
+      if (!conv.id || !conv.platform || !DM_THREAD_PLATFORM_IDS.has(conv.platform)) return;
       const account = conv.messageAccountId
         ? effectiveAccounts.find((a) => a.id === conv.messageAccountId)
-        : conv.platform
-          ? effectiveAccounts.find((a) => a.platform === conv.platform)
-          : null;
+        : effectiveAccounts.find((a) => a.platform === conv.platform);
       if (!account) return;
 
       const cacheKey = `${account.id}:${conv.id}`;
       if (prefetchedConversationMessagesRef.current.has(cacheKey)) return;
+      if (warmingConversationKeysRef.current.has(cacheKey)) return;
 
       const existing = conversationMessagesCacheRef.current[conv.id];
       if (isConvCacheFresh(existing, account.id, conv.updatedTime)) {
@@ -908,23 +902,17 @@ function InboxPage() {
         return;
       }
 
-      prefetchedConversationMessagesRef.current.add(cacheKey);
+      warmingConversationKeysRef.current.add(cacheKey);
       try {
         const res = await api.get(
           `/social/accounts/${account.id}/conversations/${conv.id}/messages`,
-          { timeout: 35_000, params: { background: '1' } }
+          { timeout: 35_000 }
         );
-        if (cancelled) return;
-        if (res.data?.error === 'throttled') {
-          prefetchedConversationMessagesRef.current.delete(cacheKey);
-          return;
-        }
+        if (res.data?.error === 'throttled') return;
         const messages = res.data?.messages ?? [];
-        // Never store empty error responses — they block isConvCacheUsable on click.
-        if (messages.length === 0 && res.data?.error) {
-          prefetchedConversationMessagesRef.current.delete(cacheKey);
-          return;
-        }
+        if (messages.length === 0 && res.data?.error) return;
+
+        prefetchedConversationMessagesRef.current.add(cacheKey);
         const recipientFromConv = conv.senders?.[0]?.id ?? null;
         const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
         setConversationMessagesCache((prev) =>
@@ -938,16 +926,34 @@ function InboxPage() {
           })
         );
       } catch {
-        prefetchedConversationMessagesRef.current.delete(cacheKey);
+        // Silent: foreground open still fetches on click.
+      } finally {
+        warmingConversationKeysRef.current.delete(cacheKey);
       }
-    };
+    },
+    [effectiveAccounts]
+  );
+
+  // Background prefetch: newest conversations first so manual clicks on recent threads are usually instant.
+  useEffect(() => {
+    if (!user?.id) return;
+    if (conversations.length === 0) return;
+
+    const targets = conversations
+      .filter((c) => c.id && c.platform && DM_THREAD_PLATFORM_IDS.has(c.platform))
+      .sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''))
+      .slice(0, 80);
+    if (targets.length === 0) return;
+
+    let cancelled = false;
+    const PREFETCH_CONCURRENCY = 10;
 
     void (async () => {
       const queue = [...targets];
       const workers = Array.from({ length: PREFETCH_CONCURRENCY }, async () => {
         while (queue.length > 0 && !cancelled) {
           const conv = queue.shift();
-          if (conv) await prefetchOne(conv);
+          if (conv) await warmConversationMessages(conv);
         }
       });
       await Promise.allSettled(workers);
@@ -956,7 +962,7 @@ function InboxPage() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, conversations, effectiveAccounts]);
+  }, [user?.id, conversations, warmConversationMessages]);
 
   // Fetch last message per selected conversation for batch reply cards (show "message user sent" instead of "How do you want to reply?")
   useEffect(() => {
@@ -2195,6 +2201,9 @@ function InboxPage() {
           getConversationLastReadCounts={getConversationLastReadCounts}
           setConversationLastReadCount={setConversationLastReadCount}
           user={user}
+          onWarmConversation={(conv) => {
+            void warmConversationMessages(conv);
+          }}
         />
       </>
     );
