@@ -20,6 +20,15 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
+import {
+  markInboxAccountRecentlyConnected,
+  isInboxAccountRecentlyConnected,
+  clearInboxAccountRecentlyConnected,
+} from '@/lib/inbox/inbox-recent-connect';
+import {
+  isMetaMessagingWindowClosed,
+  META_MESSAGING_WINDOW_BLOCKED_MESSAGE,
+} from '@/lib/inbox/meta-messaging-window';
 import { useAuth } from '@/context/AuthContext';
 import {
   getReadCommentIds,
@@ -353,6 +362,7 @@ function InboxPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [inboxMode, setInboxMode] = useState<'messages' | 'comments' | 'engagement'>('messages');
   const [batchConversationLastMessage, setBatchConversationLastMessage] = useState<Record<string, string>>({});
+  const [batchConversationWindowClosed, setBatchConversationWindowClosed] = useState<Record<string, boolean>>({});
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(false);
@@ -694,6 +704,14 @@ function InboxPage() {
     return effectiveAccounts.find((a) => a.platform === dmThreadPlatform) ?? null;
   }, [dmThreadPlatform, selectedConversation?.messageAccountId, effectiveAccounts]);
 
+  const metaMessagingWindowClosed = useMemo(
+    () =>
+      dmThreadPlatform && (dmThreadPlatform === 'INSTAGRAM' || dmThreadPlatform === 'FACEBOOK')
+        ? isMetaMessagingWindowClosed(dmThreadPlatform, conversationMessages)
+        : false,
+    [dmThreadPlatform, conversationMessages]
+  );
+
   const dmSendBlockedReason = useMemo(() => {
     if (!selectedConversationId) return 'Select a conversation to send a message.';
     if (!currentAccountForDmThread || !dmThreadPlatform) {
@@ -707,18 +725,7 @@ function InboxPage() {
     if (dmThreadPlatform === 'TWITTER' && !conversationRecipientId) {
       return 'Recipient not detected for this X conversation. Use "Look up" first, then send.';
     }
-    // Meta 24h messaging window: if latest incoming message is older than 24h, sending is blocked.
-    if (dmThreadPlatform === 'INSTAGRAM' || dmThreadPlatform === 'FACEBOOK') {
-      const latestIncoming = [...conversationMessages]
-        .filter((m) => !m.isFromPage && Boolean(m.createdTime))
-        .sort((a, b) => new Date(b.createdTime ?? 0).getTime() - new Date(a.createdTime ?? 0).getTime())[0];
-      if (latestIncoming?.createdTime) {
-        const ageMs = Date.now() - new Date(latestIncoming.createdTime).getTime();
-        if (Number.isFinite(ageMs) && ageMs > 24 * 60 * 60 * 1000) {
-          return 'FB and IG allow sending messages only within 24 hours of the customer\'s last message.';
-        }
-      }
-    }
+    if (metaMessagingWindowClosed) return META_MESSAGING_WINDOW_BLOCKED_MESSAGE;
     return null;
   }, [
     selectedConversationId,
@@ -726,8 +733,57 @@ function InboxPage() {
     dmThreadPlatform,
     conversationMessagesError,
     conversationRecipientId,
-    conversationMessages,
+    metaMessagingWindowClosed,
   ]);
+
+  const recentlyConnectedMetaAccounts = useMemo(
+    () =>
+      effectiveAccounts.filter(
+        (a) =>
+          (a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK') &&
+          isInboxAccountRecentlyConnected(a.id)
+      ),
+    [effectiveAccounts]
+  );
+
+  const showInboxWarmupNotice = useMemo(() => {
+    if (inboxMode !== 'messages') return false;
+    if (recentlyConnectedMetaAccounts.length === 0) return false;
+    if (!messageFetchPlatformIds.some((p) => p === 'INSTAGRAM' || p === 'FACEBOOK')) return false;
+    const hasMetaConversations = conversations.some(
+      (c) => c.platform === 'INSTAGRAM' || c.platform === 'FACEBOOK'
+    );
+    if (hasMetaConversations) return false;
+    return conversationsLoading || conversations.length === 0;
+  }, [
+    inboxMode,
+    recentlyConnectedMetaAccounts.length,
+    messageFetchPlatformIds.join(','),
+    conversations,
+    conversationsLoading,
+  ]);
+
+  useEffect(() => {
+    if (searchParams.get('connecting') !== '1') return;
+    for (const a of effectiveAccounts) {
+      if (a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK') {
+        markInboxAccountRecentlyConnected(a.id, a.platform);
+      }
+    }
+  }, [searchParams, effectiveAccounts]);
+
+  useEffect(() => {
+    if (inboxMode !== 'messages') return;
+    const hasMetaConversations = conversations.some(
+      (c) => c.platform === 'INSTAGRAM' || c.platform === 'FACEBOOK'
+    );
+    if (!hasMetaConversations) return;
+    for (const a of effectiveAccounts) {
+      if (a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK') {
+        clearInboxAccountRecentlyConnected(a.id);
+      }
+    }
+  }, [inboxMode, conversations, effectiveAccounts]);
 
   useEffect(() => {
     if (
@@ -988,10 +1044,12 @@ function InboxPage() {
   useEffect(() => {
     if (selectedConversationIds.size === 0) {
       setBatchConversationLastMessage({});
+      setBatchConversationWindowClosed({});
       return;
     }
     const ids = Array.from(selectedConversationIds);
     const next: Record<string, string> = {};
+    const nextWindow: Record<string, boolean> = {};
     let cancelled = false;
     Promise.all(
       ids.map(async (convId) => {
@@ -1003,24 +1061,29 @@ function InboxPage() {
           : plat
             ? effectiveAccounts.find((a) => a.platform === plat)
             : null;
-        if (!acc) return { convId, text: '' };
+        if (!acc) return { convId, text: '', windowClosed: false };
         try {
-          const res = await api.get<{ messages?: Array<{ message?: string; isFromPage?: boolean }> }>(
-            `/social/accounts/${acc.id}/conversations/${convId}/messages`
-          );
+          const res = await api.get<{
+            messages?: Array<{ message?: string; isFromPage?: boolean; createdTime?: string | null }>;
+          }>(`/social/accounts/${acc.id}/conversations/${convId}/messages`);
           const messages = res.data?.messages ?? [];
           const lastFromOther = [...messages].reverse().find((m) => !m.isFromPage && m.message);
-          return { convId, text: lastFromOther?.message?.trim() ?? '' };
+          const windowClosed = plat ? isMetaMessagingWindowClosed(plat, messages) : false;
+          return { convId, text: lastFromOther?.message?.trim() ?? '', windowClosed };
         } catch {
-          return { convId, text: '' };
+          return { convId, text: '', windowClosed: false };
         }
       })
     ).then((results) => {
       if (cancelled) return;
       results.forEach((r) => {
-        if (r) next[r.convId] = r.text;
+        if (r) {
+          next[r.convId] = r.text;
+          nextWindow[r.convId] = r.windowClosed;
+        }
       });
       setBatchConversationLastMessage(next);
+      setBatchConversationWindowClosed(nextWindow);
     });
     return () => {
       cancelled = true;
@@ -2007,6 +2070,11 @@ function InboxPage() {
         <div className="p-6 flex flex-col items-center justify-center gap-3">
           <Loader2 size={32} className="text-orange-500 animate-spin" />
           <p className="text-sm text-neutral-500">Loading conversations…</p>
+          {showInboxWarmupNotice && (
+            <p className="text-xs text-neutral-500 max-w-xs text-center mt-1">
+              Instagram and Facebook conversations can take a few minutes to appear right after you connect. Please wait and they will show up here.
+            </p>
+          )}
         </div>
       );
     }
@@ -2129,6 +2197,13 @@ function InboxPage() {
               <p className="text-sm font-medium text-neutral-800">LinkedIn and Pinterest DMs are not in this app</p>
               <p className="text-xs text-neutral-500 mt-2 max-w-sm mx-auto">
                 Your LinkedIn inbox on linkedin.com will not sync here. LinkedIn does not expose member messaging to our integration. Use Instagram, Facebook, or X for Messages, or open the Comments tab to read and reply to comments on your LinkedIn posts.
+              </p>
+            </>
+          ) : showInboxWarmupNotice ? (
+            <>
+              <p className="text-sm font-medium text-neutral-800">Loading your Instagram and Facebook inbox</p>
+              <p className="text-xs text-neutral-500 mt-2 max-w-sm mx-auto">
+                Please wait a few minutes after connecting. Your conversations will appear here as soon as Meta finishes syncing.
               </p>
             </>
           ) : (
@@ -2518,6 +2593,14 @@ function InboxPage() {
 
         {/* Conversation, comment, or engagement list */}
         <div className="flex-1 overflow-y-auto">
+          {showInboxWarmupNotice && (
+            <div className="mx-3 mt-3 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 text-xs text-sky-900 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-100">
+              <p className="font-medium">Instagram and Facebook are still syncing</p>
+              <p className="mt-1 text-sky-800 dark:text-sky-200">
+                Please wait a few minutes after connecting. Your conversations will show up here automatically.
+              </p>
+            </div>
+          )}
           {renderSidebarList()}
         </div>
       </div>
@@ -2716,6 +2799,7 @@ function InboxPage() {
                       const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === platform);
                       const Icon = plat?.icon;
                       const value = batchDmTexts[c.id] ?? '';
+                      const batchWindowClosed = batchConversationWindowClosed[c.id] === true;
                       return (
                         <div key={c.id} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm space-y-3">
                           <div className="flex items-center gap-3">
@@ -2742,11 +2826,17 @@ function InboxPage() {
                                 ? (batchConversationLastMessage[c.id] || 'No message preview')
                                 : 'Loading…'}
                             </p>
+                            {batchWindowClosed && (
+                              <p className="text-xs text-amber-800 mb-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5">
+                                {META_MESSAGING_WINDOW_BLOCKED_MESSAGE}
+                              </p>
+                            )}
                             <div className="flex flex-wrap gap-2 mb-2">
                               <button
                                 type="button"
-                                disabled={aiReplyLoading || !hasInboxExamples}
+                                disabled={aiReplyLoading || !hasInboxExamples || batchWindowClosed}
                                 onClick={async () => {
+                                  if (batchWindowClosed) return;
                                   setAiReplyError(null);
                                   setAiReplyLoading(true);
                                   try {
@@ -2784,15 +2874,16 @@ function InboxPage() {
                                 const v = e.target.value;
                                 setBatchDmTexts((prev) => ({ ...prev, [c.id]: v }));
                               }}
-                              className="w-full px-3 py-2 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none"
+                              disabled={batchWindowClosed}
+                              className="w-full px-3 py-2 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none disabled:opacity-60 disabled:cursor-not-allowed"
                             />
                             <div className="mt-2 flex items-center justify-between gap-2">
                               <button
                                 type="button"
-                                disabled={dmReplySending || !value.trim() || !accountForConv}
+                                disabled={dmReplySending || !value.trim() || !accountForConv || batchWindowClosed}
                                 onClick={async () => {
                                   const text = value.trim();
-                                  if (!text || !accountForConv) return;
+                                  if (!text || !accountForConv || batchWindowClosed) return;
                                   setDmReplySending(true);
                                   setDmSendError(null);
                                   try {
@@ -3428,13 +3519,14 @@ function InboxPage() {
                   rows={2}
                     value={dmReplyText}
                     onChange={(e) => setDmReplyText(e.target.value)}
-                    disabled={dmReplySending}
+                    disabled={dmReplySending || !!dmSendBlockedReason}
                     className="flex-1 px-4 py-3 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none disabled:opacity-60 disabled:cursor-not-allowed bg-white dark:bg-neutral-800 dark:text-neutral-100"
                 />
                 <button
                   type="button"
-                    disabled={dmReplySending || aiReplyLoading || !hasInboxExamples}
+                    disabled={dmReplySending || aiReplyLoading || !hasInboxExamples || !!dmSendBlockedReason}
                     onClick={async () => {
+                      if (dmSendBlockedReason) return;
                       const lastFromUser = [...conversationMessages].reverse().find((m) => !m.isFromPage && m.message);
                       const textToReplyTo = (lastFromUser?.message ?? conversationMessages.filter((m) => !m.isFromPage).map((m) => m.message).join('\n')) || 'Hello';
                       setAiReplyError(null);

@@ -22,6 +22,7 @@ import {
 } from '@/lib/dashboard-insights-session-cache';
 import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
 import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
+import { markInboxAccountRecentlyConnected } from '@/lib/inbox/inbox-recent-connect';
 import {
   localCalendarDateFromIso,
   toLocalCalendarDate,
@@ -543,13 +544,16 @@ export default function DashboardPage() {
   const accounts = (cachedAccounts as SocialAccount[]) ?? [];
   const hasAccounts = accounts.length > 0;
 
-  const fetchAccounts = async () => {
+  const fetchAccounts = async (): Promise<SocialAccount[]> => {
     try {
       const res = await api.get('/social/accounts');
-      const data = Array.isArray(res.data) ? res.data : [];
+      const data = (Array.isArray(res.data) ? res.data : []) as SocialAccount[];
       setCachedAccounts(data);
       setStats((s) => ({ ...s, accounts: data.length }));
-    } catch (_) {}
+      return data;
+    } catch (_) {
+      return [];
+    }
   };
 
   const accountIdFromUrl = searchParams.get('accountId');
@@ -605,8 +609,10 @@ export default function DashboardPage() {
 
     // After OAuth connect we refresh account cache once, then clear stale per-account caches.
     fetchAccounts()
-      .then(() => {
+      .then((list) => {
         if (cancelled) return;
+        const connected = list.find((a) => a.id === accountIdFromUrl);
+        if (connected) markInboxAccountRecentlyConnected(connected.id, connected.platform);
         setSelectedAccountId(accountIdFromUrl);
         delete postsCacheRef.current[accountIdFromUrl];
         Object.keys(insightsCacheRef.current).forEach((k) => {
@@ -631,11 +637,23 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (connectingParam !== '1' || accountIdFromUrl) return;
+    let cancelled = false;
     const timeoutId = setTimeout(() => setJustConnected(false), 5000);
     setJustConnected(true);
     triggerInboxWarmClient(true);
+    void fetchAccounts().then((list) => {
+      if (cancelled) return;
+      for (const a of list) {
+        if (a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK') {
+          markInboxAccountRecentlyConnected(a.id, a.platform);
+        }
+      }
+    });
     router.replace('/dashboard', { scroll: false });
-    return () => clearTimeout(timeoutId);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
   }, [connectingParam, accountIdFromUrl, router]);
 
   useEffect(() => {
