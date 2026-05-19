@@ -9,7 +9,8 @@
 import { prisma } from '@/lib/db';
 import type { ConversationUiMessage } from './load-meta-conversation-messages';
 
-export const INBOX_MESSAGES_DB_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+/** Server-side cache: keep warmed threads for 1 year (refreshed on open / cron). */
+export const INBOX_MESSAGES_DB_TTL_MS = 365 * 24 * 60 * 60 * 1000;
 
 let _tableEnsured = false;
 

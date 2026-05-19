@@ -120,9 +120,6 @@ const INBOX_MESSAGES_CACHE_KEY = 'agent4socials_inbox_messages_cache';
 const INBOX_MESSAGES_CACHE_MAX_BYTES = 2_000_000;
 /** Keep up to 150 conversations so the full inbox list is covered. */
 const INBOX_MESSAGES_CACHE_MAX_ENTRIES = 150;
-/** Cached messages are considered fresh for 4 hours. After that they are re-fetched. */
-const INBOX_MESSAGES_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 h — once opened, stays instant for a full day
-
 type ConvCache = {
   messages: ConversationMessage[];
   recipientId: string | null;
@@ -150,10 +147,9 @@ function isConvCacheUsable(cached: ConvCache | undefined, accountId: string): bo
 }
 
 /**
- * True when cache is still within TTL and reflects the conversation's latest activity.
- * Pass convUpdatedTime (ISO string from the conversations list) so that a new incoming
- * message — which advances the conversation's updated_time beyond the cache _ts — forces
- * a re-fetch even when the cache is otherwise within its 4-hour TTL.
+ * True when cache reflects the conversation's latest activity (no age-based expiry).
+ * Pass convUpdatedTime so a new incoming message forces a silent background refresh
+ * while still showing the cached thread instantly.
  */
 function isConvCacheFresh(
   cached: ConvCache | undefined,
@@ -162,9 +158,6 @@ function isConvCacheFresh(
 ): boolean {
   if (!isConvCacheUsable(cached, accountId)) return false;
   if (!cached!._ts) return true; // legacy: no timestamp = assume fresh
-  if (Date.now() - cached!._ts >= INBOX_MESSAGES_CACHE_TTL_MS) return false;
-  // If the conversation was updated AFTER we last cached its messages, a new message
-  // arrived and we must refresh regardless of TTL.
   if (convUpdatedTime) {
     const convMs = Date.parse(convUpdatedTime);
     if (Number.isFinite(convMs) && convMs > cached!._ts) return false;
@@ -384,7 +377,6 @@ function InboxPage() {
       for (const [k, v] of Object.entries(parsed)) {
         if (v.error) continue;
         const ts = v._ts ?? now;
-        if (now - ts > INBOX_MESSAGES_CACHE_TTL_MS) continue;
         fresh[k] = { ...v, _ts: ts };
       }
       return fresh;
