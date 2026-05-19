@@ -119,8 +119,10 @@ type EngagementItem = {
 const INBOX_MESSAGES_CACHE_KEY = 'agent4socials_inbox_messages_cache';
 /** localStorage budget: ~2 MB — generous but safe for most browsers. */
 const INBOX_MESSAGES_CACHE_MAX_BYTES = 2_000_000;
-/** Keep up to 150 conversations so the full inbox list is covered. */
+/** Keep up to 150 conversations in localStorage (covers multi-platform inbox lists). */
 const INBOX_MESSAGES_CACHE_MAX_ENTRIES = 150;
+/** Prefetch/warm this many threads in the browser (newest first). */
+const INBOX_CLIENT_PREFETCH_MAX = 150;
 type ConvCache = {
   messages: ConversationMessage[];
   recipientId: string | null;
@@ -272,6 +274,7 @@ function MessagesConversationList({
                 });
                 return;
               }
+              onWarmConversation?.(c as Conversation & { platform?: string; messageAccountId?: string });
               if (platform) setSelectedPlatform(platform);
               setSelectedConversationId(c.id);
               markConversationsAsRead([c.id], user?.id);
@@ -424,8 +427,8 @@ function InboxPage() {
   const pendingManualInboxByAccountRef = useRef<Set<string>>(new Set());
   /** Completed warm keys: `${accountId}:${conversationId}` */
   const prefetchedConversationMessagesRef = useRef<Set<string>>(new Set());
-  /** In-flight warm dedupe */
-  const warmingConversationKeysRef = useRef<Set<string>>(new Set());
+  /** In-flight warm promises keyed by `${accountId}:${conversationId}` */
+  const warmPromisesRef = useRef<Map<string, Promise<void>>>(new Map());
   /** Abort in-flight message fetch when the user switches conversations. */
   const messagesFetchAbortRef = useRef<AbortController | null>(null);
   const conversationsRef = useRef(conversations);
@@ -610,11 +613,12 @@ function InboxPage() {
     };
   }, [conversationMessagesCache]);
 
-  // Extra warm when Inbox opens (login/connect already trigger via AppDataContext).
+  // Server-side warm: all threads Meta returns (up to 100 per account) into DB cache.
   useEffect(() => {
     if (!user?.id) return;
     if (inboxMode !== 'messages') return;
-    triggerInboxWarmClient();
+    if (conversations.length === 0) return;
+    triggerInboxWarmClient(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, inboxMode, conversations.length]);
 
@@ -758,89 +762,95 @@ function InboxPage() {
     }
     const convId = selectedConversationId;
     const accountIdForFetch = currentAccountForDmThread.id;
-    const cached = conversationMessagesCacheRef.current[convId];
+    const cacheKey = `${accountIdForFetch}:${convId}`;
     const convForRecipient = conversationsRef.current.find((c) => c.id === convId);
     const recipientFromConv = convForRecipient?.senders?.[0]?.id ?? null;
-    // Pass the conversation's updatedTime so the cache is considered stale when a new
-    // message arrived after the last fetch (conv updated_time > cache _ts).
-    const cacheUsable = isConvCacheUsable(cached, accountIdForFetch);
-    const cacheFresh = isConvCacheFresh(cached, accountIdForFetch, convForRecipient?.updatedTime);
 
-    if (cacheUsable) {
-      setConversationMessages(cached!.messages);
-      setConversationRecipientId(cached!.recipientId);
-      setConversationMessagesError(null);
-      setConversationMessagesLoading(false);
-    }
-
-    if (cacheFresh) return;
-
+    let cancelled = false;
     messagesFetchAbortRef.current?.abort();
     const ac = new AbortController();
     messagesFetchAbortRef.current = ac;
 
-    // Stale-but-usable: show cached messages immediately, refresh in background (no spinner).
-    if (!cacheUsable) {
-      setConversationMessagesLoading(true);
-    }
-    setConversationMessagesError(null);
+    const applyCacheToUi = (entry: ConvCache | undefined) => {
+      if (!isConvCacheUsable(entry, accountIdForFetch)) return false;
+      setConversationMessages(entry!.messages);
+      setConversationRecipientId(entry!.recipientId);
+      setConversationMessagesError(null);
+      setConversationMessagesLoading(false);
+      return true;
+    };
 
-    // Only pass convUpdatedTime when refreshing a stale LOCAL cache. On first open (no local
-    // cache) omit it so the server DB cache (app_kv, warmed by cron / /api/inbox/warm) is used
-    // and the thread opens in one fast round-trip instead of a live Meta API call.
-    const convUpdatedTime =
-      cacheUsable && !cacheFresh && convForRecipient?.updatedTime
-        ? convForRecipient.updatedTime
-        : null;
-    const messagesUrl = `/social/accounts/${accountIdForFetch}/conversations/${convId}/messages${convUpdatedTime ? `?convUpdatedTime=${encodeURIComponent(convUpdatedTime)}` : ''}`;
-    api
-      .get(messagesUrl, {
-        timeout: 35_000,
-        signal: ac.signal,
-      })
-      .then((res) => {
-        if (ac.signal.aborted) return;
+    const run = async () => {
+      const cached = conversationMessagesCacheRef.current[convId];
+      const cacheUsable = isConvCacheUsable(cached, accountIdForFetch);
+      const cacheFresh = isConvCacheFresh(cached, accountIdForFetch, convForRecipient?.updatedTime);
+
+      if (cacheUsable) applyCacheToUi(cached);
+      if (cacheFresh) return;
+
+      if (!cacheUsable) setConversationMessagesLoading(true);
+      setConversationMessagesError(null);
+
+      const pendingWarm = warmPromisesRef.current.get(cacheKey);
+      if (pendingWarm) {
+        await pendingWarm.catch(() => {});
+        if (cancelled || ac.signal.aborted) return;
+        const afterWarm = conversationMessagesCacheRef.current[convId];
+        if (applyCacheToUi(afterWarm)) {
+          if (isConvCacheFresh(afterWarm, accountIdForFetch, convForRecipient?.updatedTime)) return;
+        }
+      }
+
+      const convUpdatedTime =
+        cacheUsable && !cacheFresh && convForRecipient?.updatedTime
+          ? convForRecipient.updatedTime
+          : null;
+      const messagesUrl = `/social/accounts/${accountIdForFetch}/conversations/${convId}/messages${convUpdatedTime ? `?convUpdatedTime=${encodeURIComponent(convUpdatedTime)}` : ''}`;
+
+      try {
+        const res = await api.get(messagesUrl, { timeout: 35_000, signal: ac.signal });
+        if (ac.signal.aborted || cancelled) return;
         const freshMessages = res.data?.messages ?? [];
         const error = res.data?.error ?? null;
         const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
         const recipientName = res.data?.recipientName ?? null;
         const recipientPictureUrl = res.data?.recipientPictureUrl ?? null;
-        // If the server returned an error (e.g. throttled) but no messages, keep
-        // the existing cached messages so the thread doesn't suddenly go blank.
         setConversationMessagesCache((prev) => {
           const existing = prev[convId];
-          const messages = freshMessages.length > 0
-            ? freshMessages
-            : (existing?.messages?.length ? existing.messages : freshMessages);
+          const messages =
+            freshMessages.length > 0
+              ? freshMessages
+              : existing?.messages?.length
+                ? existing.messages
+                : freshMessages;
           return withCacheEntry(prev, convId, {
             messages,
             recipientId,
             recipientName,
             recipientPictureUrl,
-            // Do not persist error when we have messages — errors block instant re-open.
             error: messages.length > 0 ? null : error,
             accountId: accountIdForFetch,
           });
         });
         if (selectedConversationId === convId) {
-          const displayMessages = freshMessages.length > 0
-            ? freshMessages
-            : (conversationMessagesCacheRef.current[convId]?.messages ?? freshMessages);
+          const displayMessages =
+            freshMessages.length > 0
+              ? freshMessages
+              : (conversationMessagesCacheRef.current[convId]?.messages ?? freshMessages);
           setConversationMessages(displayMessages);
           setConversationLastReadCount(convId, displayMessages.length, user?.id);
           setConversationRecipientId(recipientId);
           setConversationMessagesError(displayMessages.length > 0 ? null : error);
         }
-      })
-      .catch((e: { code?: string; name?: string; response?: { data?: { error?: string } }; message?: string }) => {
-        if (ac.signal.aborted || e?.code === 'ERR_CANCELED' || e?.name === 'CanceledError') return;
-        const isTimeout = e?.code === 'ECONNABORTED' || /timeout/i.test(e?.message ?? '');
+      } catch (e: unknown) {
+        const err = e as { code?: string; name?: string; response?: { data?: { error?: string } }; message?: string };
+        if (ac.signal.aborted || cancelled || err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
+        const isTimeout = err?.code === 'ECONNABORTED' || /timeout/i.test(err?.message ?? '');
         const apiError =
-          e?.response?.data?.error ??
+          err?.response?.data?.error ??
           (isTimeout
             ? 'The platform is taking too long to respond. Try again in a moment.'
-            : (e?.message ?? 'Could not load messages.'));
-        // Preserve existing messages so a failed refresh doesn't wipe the cached thread.
+            : (err?.message ?? 'Could not load messages.'));
         const existingOnFail = conversationMessagesCacheRef.current[convId];
         const keepMessages =
           existingOnFail?.messages && existingOnFail.messages.length > 0
@@ -864,19 +874,19 @@ function InboxPage() {
             setConversationMessagesError(apiError);
           }
         }
-      })
-      .finally(() => {
-        if (!ac.signal.aborted && selectedConversationId === convId) {
+      } finally {
+        if (!ac.signal.aborted && !cancelled && selectedConversationId === convId) {
           setConversationMessagesLoading(false);
         }
-      });
+      }
+    };
+
+    void run();
 
     return () => {
+      cancelled = true;
       ac.abort();
     };
-  // selectedConversation?.updatedTime is intentionally in deps: when the conversation list
-  // refreshes and the updatedTime advances (new message arrived), this effect re-runs so
-  // isConvCacheFresh detects the stale cache and fetches the new messages automatically.
   }, [selectedConversationId, currentAccountForDmThread?.id, dmThreadPlatform, user?.id, selectedConversation?.updatedTime]);
 
   useEffect(() => {
@@ -885,51 +895,57 @@ function InboxPage() {
 
   // Warm one conversation thread (client cache + server DB cache). Used by prefetch, hover, and focus.
   const warmConversationMessages = useCallback(
-    async (conv: Conversation & { platform?: string; messageAccountId?: string }) => {
-      if (!conv.id || !conv.platform || !DM_THREAD_PLATFORM_IDS.has(conv.platform)) return;
+    (conv: Conversation & { platform?: string; messageAccountId?: string }): Promise<void> => {
+      if (!conv.id || !conv.platform || !DM_THREAD_PLATFORM_IDS.has(conv.platform)) {
+        return Promise.resolve();
+      }
       const account = conv.messageAccountId
         ? effectiveAccounts.find((a) => a.id === conv.messageAccountId)
         : effectiveAccounts.find((a) => a.platform === conv.platform);
-      if (!account) return;
+      if (!account) return Promise.resolve();
 
       const cacheKey = `${account.id}:${conv.id}`;
-      if (prefetchedConversationMessagesRef.current.has(cacheKey)) return;
-      if (warmingConversationKeysRef.current.has(cacheKey)) return;
+      const inFlight = warmPromisesRef.current.get(cacheKey);
+      if (inFlight) return inFlight;
 
       const existing = conversationMessagesCacheRef.current[conv.id];
       if (isConvCacheFresh(existing, account.id, conv.updatedTime)) {
         prefetchedConversationMessagesRef.current.add(cacheKey);
-        return;
+        return Promise.resolve();
       }
 
-      warmingConversationKeysRef.current.add(cacheKey);
-      try {
-        const res = await api.get(
-          `/social/accounts/${account.id}/conversations/${conv.id}/messages`,
-          { timeout: 35_000 }
-        );
-        if (res.data?.error === 'throttled') return;
-        const messages = res.data?.messages ?? [];
-        if (messages.length === 0 && res.data?.error) return;
+      const promise = (async () => {
+        try {
+          const res = await api.get(
+            `/social/accounts/${account.id}/conversations/${conv.id}/messages`,
+            { timeout: 35_000 }
+          );
+          if (res.data?.error === 'throttled') return;
+          const messages = res.data?.messages ?? [];
+          if (res.data?.error && messages.length === 0) return;
 
-        prefetchedConversationMessagesRef.current.add(cacheKey);
-        const recipientFromConv = conv.senders?.[0]?.id ?? null;
-        const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
-        setConversationMessagesCache((prev) =>
-          withCacheEntry(prev, conv.id, {
-            messages,
-            recipientId,
-            recipientName: res.data?.recipientName ?? null,
-            recipientPictureUrl: res.data?.recipientPictureUrl ?? null,
-            error: null,
-            accountId: account.id,
-          })
-        );
-      } catch {
-        // Silent: foreground open still fetches on click.
-      } finally {
-        warmingConversationKeysRef.current.delete(cacheKey);
-      }
+          prefetchedConversationMessagesRef.current.add(cacheKey);
+          const recipientFromConv = conv.senders?.[0]?.id ?? null;
+          const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
+          setConversationMessagesCache((prev) =>
+            withCacheEntry(prev, conv.id, {
+              messages,
+              recipientId,
+              recipientName: res.data?.recipientName ?? null,
+              recipientPictureUrl: res.data?.recipientPictureUrl ?? null,
+              error: null,
+              accountId: account.id,
+            })
+          );
+        } catch {
+          // Foreground open may retry; dedupe prevents parallel duplicate Meta calls.
+        }
+      })();
+
+      warmPromisesRef.current.set(cacheKey, promise);
+      return promise.finally(() => {
+        warmPromisesRef.current.delete(cacheKey);
+      });
     },
     [effectiveAccounts]
   );
@@ -942,11 +958,11 @@ function InboxPage() {
     const targets = conversations
       .filter((c) => c.id && c.platform && DM_THREAD_PLATFORM_IDS.has(c.platform))
       .sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''))
-      .slice(0, 80);
+      .slice(0, INBOX_CLIENT_PREFETCH_MAX);
     if (targets.length === 0) return;
 
     let cancelled = false;
-    const PREFETCH_CONCURRENCY = 10;
+    const PREFETCH_CONCURRENCY = 12;
 
     void (async () => {
       const queue = [...targets];

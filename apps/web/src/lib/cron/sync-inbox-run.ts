@@ -16,8 +16,11 @@ import {
 import { noteMetaUsageFromHeaders, isMetaNonCriticalThrottled } from '@/lib/meta-usage-guard';
 
 const SYNC_INBOX_BUDGET_MS = parseInt(process.env.SYNC_INBOX_BUDGET_MS ?? '50000', 10);
-const MAX_CONVS_PER_ACCOUNT = parseInt(process.env.SYNC_INBOX_MAX_CONVS ?? '60', 10);
-const SYNC_INBOX_PARALLEL = parseInt(process.env.SYNC_INBOX_PARALLEL ?? '4', 10);
+/** Meta conversation list returns at most 100 per account; warm all of them for instant opens. */
+const MAX_CONVS_PER_ACCOUNT = parseInt(process.env.SYNC_INBOX_MAX_CONVS ?? '100', 10);
+const SYNC_INBOX_PARALLEL = parseInt(process.env.SYNC_INBOX_PARALLEL ?? '6', 10);
+/** User-initiated warm (login / Inbox open) may run longer than cron. */
+const SYNC_INBOX_USER_BUDGET_MS = parseInt(process.env.SYNC_INBOX_USER_BUDGET_MS ?? '120000', 10);
 const fbBase = facebookGraphBaseUrl;
 const igBase = 'https://graph.instagram.com/v25.0';
 
@@ -107,7 +110,7 @@ async function fetchConversationIds(
  * served instantly regardless of when the external sync-inbox cron last ran.
  */
 export async function runSyncInboxForUser(userId: string): Promise<SyncInboxResult> {
-  const deadline = Date.now() + SYNC_INBOX_BUDGET_MS;
+  const deadline = Date.now() + SYNC_INBOX_USER_BUDGET_MS;
   const results: Record<string, { synced: number; skipped: number; errors: number }> = {};
 
   const accounts = await prisma.socialAccount.findMany({
