@@ -199,6 +199,34 @@ function proxyImageUrl(url: string | null | undefined): string | null {
   return `/api/proxy-image?url=${encodeURIComponent(url)}`;
 }
 
+function InboxAvatar({
+  pictureUrl,
+  label,
+  className = 'w-10 h-10',
+}: {
+  pictureUrl: string | null | undefined;
+  label: string;
+  className?: string;
+}) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const initials = (label || '?').replace(/^@/, '').slice(0, 2).toUpperCase() || '?';
+  const src = pictureUrl && !imgFailed ? proxyImageUrl(pictureUrl) || pictureUrl : null;
+  return (
+    <div className={`${className} rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden`}>
+      {src ? (
+        <img
+          src={src}
+          alt=""
+          className="w-full h-full object-cover"
+          onError={() => setImgFailed(true)}
+        />
+      ) : (
+        <span className="text-sm font-semibold text-neutral-600">{initials}</span>
+      )}
+    </div>
+  );
+}
+
 function freshPostImageUrl(comment: Pick<PostComment, 'accountId' | 'platformPostId' | 'platform'>): string {
   return `/api/post-image?accountId=${encodeURIComponent(comment.accountId)}&postId=${encodeURIComponent(comment.platformPostId)}`;
 }
@@ -317,13 +345,7 @@ function MessagesConversationList({
                 {selectedConversationIds.has(c.id) && <Check size={12} className="text-white" />}
               </div>
             ) : (
-              <div className="w-10 h-10 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
-                {pictureUrl ? (
-                  <img src={proxyImageUrl(pictureUrl) || pictureUrl} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-sm font-semibold text-neutral-600">{initials}</span>
-                )}
-              </div>
+              <InboxAvatar pictureUrl={pictureUrl} label={name} />
             )}
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-neutral-900 truncate">{name}</p>
@@ -367,6 +389,8 @@ function InboxPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(false);
   const [conversationsError, setConversationsError] = useState<string | null>(null);
+  const [conversationsErrorsByPlatform, setConversationsErrorsByPlatform] = useState<Record<string, string>>({});
+  const [conversationsHintsByPlatform, setConversationsHintsByPlatform] = useState<Record<string, string>>({});
   const [conversationsDebug, setConversationsDebug] = useState<{ rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string } | null>(null);
   const [comments, setComments] = useState<PostComment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -1114,24 +1138,35 @@ function InboxPage() {
       setConversations([]);
       setConversationsLoading(false);
       setConversationsError(null);
+      setConversationsErrorsByPlatform({});
+      setConversationsHintsByPlatform({});
       setConversationsDebug(null);
       return;
     }
     let cancelled = false;
     const merge: Array<Conversation & { platform: string; messageAccountId: string }> = [];
     const errors: string[] = [];
+    const errorsByPlatform: Record<string, string> = {};
+    const hintsByPlatform: Record<string, string> = {};
     const debugs: Array<{ rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string }> = [];
     let pending = messageFetchPlatformIds.length;
     let needsFetch = false;
     const platformsToFetch: Array<{ platform: string; account: { id: string; platform: string }; since?: string }> = [];
 
-    const finishConversationMerge = () => {
-      const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
+    const applyConversationMergeResult = (sorted: Array<Conversation & { platform: string; messageAccountId: string }>) => {
       setConversations(sorted);
       if (sorted.length > 0) conversationsLoadedRef.current = true;
-      setConversationsError(sorted.length === 0 ? (errors[0] ?? null) : null);
+      setConversationsErrorsByPlatform({ ...errorsByPlatform });
+      setConversationsHintsByPlatform({ ...hintsByPlatform });
+      const firstPlatformError = Object.values(errorsByPlatform)[0] ?? null;
+      setConversationsError(sorted.length === 0 ? (firstPlatformError ?? errors[0] ?? null) : firstPlatformError);
       setConversationsDebug(sorted.length === 0 ? (debugs[0] ?? null) : null);
       setConversationsLoading(false);
+    };
+
+    const finishConversationMerge = () => {
+      const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
+      applyConversationMergeResult(sorted);
     };
 
     messageFetchPlatformIds.forEach((platform) => {
@@ -1147,8 +1182,10 @@ function InboxPage() {
         return;
       }
       const fromCache = appData?.getConversations(account.id);
-      const useCache = fromCache !== undefined && fromCache !== null;
-      const fromCacheList = useCache ? (fromCache as Conversation[]) : [];
+      const fromCacheList =
+        fromCache !== undefined && fromCache !== null ? (fromCache as Conversation[]) : [];
+      // Empty cached lists are treated as a miss so Instagram/Facebook refetch after reconnect.
+      const useCache = fromCacheList.length > 0;
       if (useCache) {
         const list: Array<Conversation & { platform: string; messageAccountId: string }> = fromCacheList.map((c: Conversation) => ({
           ...c,
@@ -1216,20 +1253,30 @@ function InboxPage() {
             messageAccountId: account.id,
           }));
           merge.push(...list);
-          if (res.data?.error) errors.push(res.data.error);
+          if (res.data?.error) {
+            errors.push(res.data.error);
+            errorsByPlatform[platform] = res.data.error;
+          }
+          const emptyHint =
+            typeof res.data?.emptyHint === 'string' ? res.data.emptyHint : null;
+          if (emptyHint && list.length === 0 && !res.data?.error) {
+            hintsByPlatform[platform] = emptyHint;
+          }
           if (res.data?.debug) {
             debugs.push(res.data.debug as { rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string });
           }
           if (!res.data?.error) {
-            const cachedForAccount = appData?.getConversations(account.id) ?? [];
             const incoming = (res.data?.conversations ?? []) as Conversation[];
-            const mergedById = new Map<string, Conversation>();
-            for (const item of cachedForAccount) mergedById.set(item.id, item);
-            for (const item of incoming) mergedById.set(item.id, item);
-            appData?.setConversationsForAccount(
-              account.id,
-              Array.from(mergedById.values()).sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''))
-            );
+            if (incoming.length > 0) {
+              const cachedForAccount = appData?.getConversations(account.id) ?? [];
+              const mergedById = new Map<string, Conversation>();
+              for (const item of cachedForAccount) mergedById.set(item.id, item);
+              for (const item of incoming) mergedById.set(item.id, item);
+              appData?.setConversationsForAccount(
+                account.id,
+                Array.from(mergedById.values()).sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''))
+              );
+            }
           }
           if (!res.data?.error && list.length > 0 && user?.id) {
             const initialized = getInboxInitializedAccountIdsForConversations(user.id);
@@ -1246,10 +1293,7 @@ function InboxPage() {
           }
           if (--pending === 0) {
             const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
-            setConversations(sorted);
-            if (sorted.length > 0) conversationsLoadedRef.current = true;
-            setConversationsError(sorted.length === 0 ? (errors[0] ?? null) : null);
-            setConversationsDebug(sorted.length === 0 ? (debugs[0] ?? null) : null);
+            applyConversationMergeResult(sorted);
           }
         })
         .catch((err: { message?: string; response?: { status?: number; data?: { error?: string } } }) => {
@@ -1266,7 +1310,9 @@ function InboxPage() {
           const msg = apiError ?? err?.message ?? 'Could not load conversations.';
           const isTimeout = status === 408 || /timeout|408/i.test(msg);
           const isRateLimit = status === 429;
-          errors.push(isRateLimit ? msg : isTimeout ? 'Request timed out. The server or Meta may be slow.' : msg);
+          const errText = isRateLimit ? msg : isTimeout ? 'Request timed out. The server or Meta may be slow.' : msg;
+          errors.push(errText);
+          errorsByPlatform[platform] = errText;
           type MetaErr = { message?: string; code?: number };
           const metaError: MetaErr | undefined = err?.response?.data && typeof err.response.data === 'object'
             ? (err.response.data as { error?: MetaErr }).error
@@ -1278,10 +1324,7 @@ function InboxPage() {
           });
           if (--pending === 0) {
             const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
-            setConversations(sorted);
-            if (sorted.length > 0) conversationsLoadedRef.current = true;
-            setConversationsError(sorted.length === 0 ? (errors[0] ?? null) : null);
-            setConversationsDebug(sorted.length === 0 ? (debugs[0] ?? null) : null);
+            applyConversationMergeResult(sorted);
           }
         })
         .finally(() => {
@@ -2239,45 +2282,75 @@ function InboxPage() {
     }
     return (
       <>
-        {conversationsError && conversations.length > 0 && (
-          <div className="p-3 border-b border-amber-200 bg-amber-50 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-amber-900">
-              {/timeout|timed out/i.test(conversationsError)
-                ? 'One platform is still loading or responded slowly. You can retry or use the conversations below.'
-                : `One platform could not load: ${conversationsError}`}
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  appData?.invalidateConversations?.();
-                  for (const a of effectiveAccounts) {
-                    if (a.platform === 'TWITTER') pendingManualInboxByAccountRef.current.add(a.id);
-                  }
-                  setConversationsRefreshKey((k) => k + 1);
-                }}
-                className="text-xs px-2 py-1 rounded bg-amber-200 text-amber-900 font-medium hover:bg-amber-300"
-              >
-                Retry
-              </button>
-              {/Reconnect|Facebook|permission|expired/i.test(conversationsError) && messageFetchPlatformIds.includes('FACEBOOK') && effectiveAccounts.some((a) => a.platform === 'FACEBOOK') && (
+        {messageFetchPlatformIds.map((platformId) => {
+          const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === platformId);
+          const platformLabel = plat?.label ?? platformId;
+          const err = conversationsErrorsByPlatform[platformId];
+          const hint = conversationsHintsByPlatform[platformId];
+          const loadedCount = conversations.filter((c) => c.platform === platformId).length;
+          if (!err && !(hint && loadedCount === 0)) return null;
+          return (
+            <div
+              key={platformId}
+              className={`p-3 border-b flex flex-wrap items-center justify-between gap-2 ${
+                err ? 'border-amber-200 bg-amber-50' : 'border-sky-200 bg-sky-50'
+              }`}
+            >
+              <p className={`text-xs ${err ? 'text-amber-900' : 'text-sky-900'}`}>
+                <span className="font-semibold">{platformLabel}: </span>
+                {err ?? hint}
+              </p>
+              <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={async () => {
-                    try {
-                      const res = await api.get('/social/oauth/facebook/start');
-                      const url = res?.data?.url;
-                      if (url && typeof url === 'string') window.location.href = url;
-                    } catch (_) {}
+                  onClick={() => {
+                    appData?.invalidateConversations?.();
+                    for (const a of effectiveAccounts) {
+                      if (a.platform === platformId) {
+                        appData?.setConversationsForAccount?.(a.id, []);
+                      }
+                      if (a.platform === 'TWITTER') pendingManualInboxByAccountRef.current.add(a.id);
+                    }
+                    setConversationsRefreshKey((k) => k + 1);
                   }}
-                  className="text-xs px-2 py-1 rounded bg-orange-600 text-white font-medium hover:bg-orange-700"
+                  className="text-xs px-2 py-1 rounded bg-amber-200 text-amber-900 font-medium hover:bg-amber-300"
                 >
-                  Reconnect Facebook
+                  Retry
                 </button>
-              )}
+                {platformId === 'INSTAGRAM' && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const res = await api.get('/social/oauth/INSTAGRAM/start?method=instagram');
+                        const url = res?.data?.url;
+                        if (url && typeof url === 'string') window.location.href = url;
+                      } catch (_) {}
+                    }}
+                    className="text-xs px-2 py-1 rounded bg-gradient-to-r from-orange-500 to-pink-500 text-white font-medium hover:opacity-90"
+                  >
+                    Reconnect Instagram
+                  </button>
+                )}
+                {platformId === 'FACEBOOK' && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const res = await api.get('/social/oauth/facebook/start');
+                        const url = res?.data?.url;
+                        if (url && typeof url === 'string') window.location.href = url;
+                      } catch (_) {}
+                    }}
+                    className="text-xs px-2 py-1 rounded bg-orange-600 text-white font-medium hover:bg-orange-700"
+                  >
+                    Reconnect Facebook
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })}
         <MessagesConversationList
           conversations={conversations}
           inboxFilter={inboxFilter}
@@ -2803,13 +2876,7 @@ function InboxPage() {
                       return (
                         <div key={c.id} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm space-y-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-neutral-200 shrink-0 overflow-hidden flex items-center justify-center">
-                              {pictureUrl ? (
-                                <img src={proxyImageUrl(pictureUrl) || pictureUrl} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="text-sm font-semibold text-neutral-600">{(name || '?').slice(0, 2).toUpperCase()}</span>
-                              )}
-                            </div>
+                            <InboxAvatar pictureUrl={pictureUrl} label={name} />
                             <div className="min-w-0 flex-1">
                               <p className="font-medium text-neutral-900 truncate">{name}</p>
                               <div className="flex items-center gap-2 mt-0.5">
@@ -3368,15 +3435,10 @@ function InboxPage() {
                         const stripPlat = dmThreadPlatform ?? selectedPlatform;
                         return (
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-neutral-200 shrink-0 overflow-hidden flex items-center justify-center">
-                              {recipientPic ? (
-                                <img src={proxyImageUrl(recipientPic) || recipientPic} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="text-sm font-semibold text-neutral-600">
-                                  {(displayName || (dmThreadPlatform === 'TWITTER' ? 'X' : '?')).slice(0, 2).toUpperCase()}
-                                </span>
-                              )}
-                            </div>
+                            <InboxAvatar
+                              pictureUrl={recipientPic}
+                              label={displayName || (dmThreadPlatform === 'TWITTER' ? 'X' : '?')}
+                            />
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-medium text-neutral-800">{chatWithLabel}</p>
                               <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5">

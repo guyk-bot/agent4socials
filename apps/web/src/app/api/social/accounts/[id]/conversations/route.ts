@@ -9,34 +9,7 @@ import { checkAndIncrementXApiUsage } from '@/lib/x/x-api-usage';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { isMetaNonCriticalThrottled, noteMetaUsageFromHeaders, noteMetaRateLimitError } from '@/lib/meta-usage-guard';
 import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
-
-/** Cache enriched Instagram sender profiles in app_kv for 7 days — avoids re-fetching on every Inbox open. */
-const PROFILE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-
-async function readCachedProfile(userId: string): Promise<{ name?: string; username?: string; pictureUrl?: string | null } | null> {
-  try {
-    const { prisma: db } = await import('@/lib/db');
-    const rows = await db.$queryRaw<Array<{ value: string; expiresAt: Date | null }>>`
-      SELECT value, "expiresAt" FROM app_kv WHERE key = ${'ig-profile:' + userId} LIMIT 1
-    `;
-    if (!rows[0]) return null;
-    if (rows[0].expiresAt && rows[0].expiresAt < new Date()) return null;
-    return JSON.parse(rows[0].value) as { name?: string; username?: string; pictureUrl?: string | null };
-  } catch { return null; }
-}
-
-async function writeCachedProfile(userId: string, data: { name?: string; username?: string; pictureUrl?: string | null }): Promise<void> {
-  try {
-    const { prisma: db } = await import('@/lib/db');
-    const expiresAt = new Date(Date.now() + PROFILE_CACHE_TTL_MS);
-    await db.$executeRaw`
-      INSERT INTO app_kv (key, value, "expiresAt", "updatedAt")
-      VALUES (${'ig-profile:' + userId}, ${JSON.stringify(data)}, ${expiresAt}, now())
-      ON CONFLICT (key) DO UPDATE
-        SET value = ${JSON.stringify(data)}, "expiresAt" = ${expiresAt}, "updatedAt" = now()
-    `;
-  } catch { /* non-critical */ }
-}
+import { readInboxProfileCache, writeInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
 
 const baseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
@@ -525,14 +498,44 @@ export async function GET(
   let linkedPageId: string | false = false;
   if (isInstagram && !isInstagramBusinessLogin) {
     linkedPageId = credJson.linkedPageId || false;
-    if (!linkedPageId && token) {
-      // Existing account may have been connected via Facebook before we stored linkedPageId.
+    if (!linkedPageId) {
+      // After reconnect, token on IG vs FB rows may differ: resolve any connected Page for this user.
       const fb = await prisma.socialAccount.findFirst({
-        where: { userId, platform: 'FACEBOOK', accessToken: token },
+        where: { userId, platform: 'FACEBOOK', status: 'connected' },
         select: { platformUserId: true },
+        orderBy: { updatedAt: 'desc' },
       });
       if (fb?.platformUserId) linkedPageId = fb.platformUserId;
     }
+    if (!linkedPageId && token) {
+      const fbByToken = await prisma.socialAccount.findFirst({
+        where: { userId, platform: 'FACEBOOK', accessToken: token },
+        select: { platformUserId: true },
+      });
+      if (fbByToken?.platformUserId) linkedPageId = fbByToken.platformUserId;
+    }
+    if (linkedPageId && !credJson.linkedPageId) {
+      void prisma.socialAccount
+        .update({
+          where: { id: account.id },
+          data: {
+            credentialsJson: {
+              ...credJson,
+              loginMethod: 'facebook_login',
+              linkedPageId: linkedPageId as string,
+            },
+          },
+        })
+        .catch(() => {});
+    }
+  }
+
+  if (isInstagram && !isInstagramBusinessLogin && !linkedPageId) {
+    return NextResponse.json({
+      conversations: [],
+      error:
+        'Instagram inbox needs your Facebook Page linked to this account. Reconnect Instagram from Accounts and choose the Page tied to your Instagram profile.',
+    });
   }
 
   // Route to the correct API based on login method:
@@ -670,7 +673,7 @@ export async function GET(
           const enrichIds = Array.from(idsToEnrich).slice(0, 20);
           for (const id of enrichIds) {
             // Check cache first — avoid API call if profile was fetched recently
-            const cached = await readCachedProfile(id);
+            const cached = await readInboxProfileCache('instagram', id);
             if (cached) {
               profiles.set(id, cached);
               continue;
@@ -700,8 +703,11 @@ export async function GET(
                 const pictureUrl = p.profile_pic ?? p.profile_picture_url ?? p.picture?.data?.url ?? null;
                 const profileData = { name: p.name, username: p.username, pictureUrl };
                 profiles.set(id, profileData);
-                void writeCachedProfile(id, profileData);
-                if (p?.id && p.id !== id) { profiles.set(p.id, profileData); void writeCachedProfile(p.id, profileData); }
+                void writeInboxProfileCache('instagram', id, profileData);
+                if (p?.id && p.id !== id) {
+                  profiles.set(p.id, profileData);
+                  void writeInboxProfileCache('instagram', p.id, profileData);
+                }
               } else {
                 const profileRes = await runMetaGraphRequest(
                   'conversation-sender-profile',
@@ -726,46 +732,92 @@ export async function GET(
                 const pictureUrl = p.profile_pic ?? p.picture?.data?.url ?? null;
                 const profileData = { name: p.name, username: p.username, pictureUrl };
                 profiles.set(id, profileData);
-                void writeCachedProfile(id, profileData);
-                if (p?.id && p.id !== id) { profiles.set(p.id, profileData); void writeCachedProfile(p.id, profileData); }
+                void writeInboxProfileCache('instagram', id, profileData);
+                if (p?.id && p.id !== id) {
+                  profiles.set(p.id, profileData);
+                  void writeInboxProfileCache('instagram', p.id, profileData);
+                }
               }
             } catch (e) {
               if (e instanceof MetaGraphThrottledError) break;
             }
           }
         } else {
-          // Facebook Page messaging: batch lookup for name and picture.
-          const idsParam = Array.from(idsToEnrich).join(',');
-          const profileRes = await axios.get<
-            Record<
-              string,
-              {
-                id?: string;
+          // Facebook Page messaging: batch lookup, then per-user fallback for any still missing.
+          const enrichIds = Array.from(idsToEnrich).slice(0, 50);
+          for (const id of enrichIds) {
+            const cached = await readInboxProfileCache('facebook', id);
+            if (cached?.pictureUrl || cached?.name) {
+              profiles.set(id, cached);
+            }
+          }
+          const needBatch = enrichIds.filter((id) => !profiles.has(id));
+          if (needBatch.length > 0) {
+            try {
+              const profileRes = await axios.get<
+                Record<
+                  string,
+                  {
+                    id?: string;
+                    name?: string;
+                    first_name?: string;
+                    last_name?: string;
+                    picture?: { data?: { url?: string } };
+                  }
+                >
+              >(baseUrl, {
+                params: {
+                  ids: needBatch.join(','),
+                  fields: 'id,name,first_name,last_name,picture.type(large)',
+                  access_token: token,
+                },
+                timeout: 30_000,
+              });
+              const raw = profileRes.data ?? {};
+              for (const [k, v] of Object.entries(raw)) {
+                const fullName =
+                  v.name ||
+                  [v.first_name, v.last_name].filter(Boolean).join(' ').trim() ||
+                  undefined;
+                const profileData = {
+                  name: fullName,
+                  username: undefined,
+                  pictureUrl: v.picture?.data?.url ?? null,
+                };
+                profiles.set(k, profileData);
+                void writeInboxProfileCache('facebook', k, profileData);
+              }
+            } catch {
+              /* batch may partially fail */
+            }
+          }
+          for (const id of enrichIds) {
+            if (profiles.get(id)?.pictureUrl) continue;
+            try {
+              const profileRes = await axios.get<{
                 name?: string;
                 first_name?: string;
                 last_name?: string;
                 picture?: { data?: { url?: string } };
-              }
-            >
-          >(baseUrl, {
-            params: {
-              ids: idsParam,
-              fields: 'id,name,first_name,last_name,picture.type(large)',
-              access_token: token,
-            },
-            timeout: 30_000,
-          });
-          const raw = profileRes.data ?? {};
-          for (const [k, v] of Object.entries(raw)) {
-            const fullName =
-              v.name ||
-              [v.first_name, v.last_name].filter(Boolean).join(' ').trim() ||
-              undefined;
-            profiles.set(k, {
-              name: fullName,
-              username: undefined,
-              pictureUrl: v.picture?.data?.url ?? null,
-            });
+              }>(`${baseUrl}/${id}`, {
+                params: { fields: 'name,first_name,last_name,picture.type(large)', access_token: token },
+                timeout: 12_000,
+              });
+              const v = profileRes.data;
+              const fullName =
+                v.name ||
+                [v.first_name, v.last_name].filter(Boolean).join(' ').trim() ||
+                undefined;
+              const profileData = {
+                name: fullName,
+                username: undefined,
+                pictureUrl: v.picture?.data?.url ?? null,
+              };
+              profiles.set(id, profileData);
+              void writeInboxProfileCache('facebook', id, profileData);
+            } catch {
+              /* ignore single profile failure */
+            }
           }
         }
 
@@ -833,7 +885,17 @@ export async function GET(
       }));
     }
 
-    return NextResponse.json({ conversations: list });
+    const emptyHint =
+      isInstagram && list.length === 0
+        ? isInstagramBusinessLogin
+          ? 'No Instagram conversations returned. Confirm instagram_business_manage_messages is granted, then reconnect your Instagram account.'
+          : 'No Instagram conversations returned. Open Meta App Dashboard and ensure instagram_manage_messages is approved for your Page, then reconnect Facebook and Instagram.'
+        : undefined;
+
+    return NextResponse.json({
+      conversations: list,
+      ...(emptyHint ? { emptyHint } : {}),
+    });
   } catch (e) {
     const err = e as { message?: string; code?: string; response?: { data?: unknown; status?: number } };
     const msg = err?.message ?? '';
