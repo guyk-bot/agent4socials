@@ -36,6 +36,10 @@ const IG_MESSAGE_FETCH_LIMIT = 20;
  * empty `data` even when the DM has images, reels, or shares.
  * @see https://developers.facebook.com/docs/graph-api/reference/message
  */
+const META_ATTACHMENT_SUBFIELDS =
+  'attachments{type,mime_type,name,image_data{url,render_as_sticker,preview_url,animated_gif_url,media_url},video_data{url,preview_url},file_url,payload{url}}';
+const META_SHARE_SUBFIELDS = 'shares{data{id,name,description,type,url,link,template}}';
+
 export const META_INBOX_MESSAGE_FIELDS = [
   'id',
   'created_time',
@@ -43,8 +47,8 @@ export const META_INBOX_MESSAGE_FIELDS = [
   'to',
   'message',
   'is_unsupported',
-  'attachments{type,mime_type,name,image_data{url},video_data{url},file_url,payload{url}}',
-  'shares{data{name,description,type,url,link}}',
+  META_ATTACHMENT_SUBFIELDS,
+  META_SHARE_SUBFIELDS,
   'story',
   'reactions{data{reaction,users{id,username}}}',
 ].join(',');
@@ -60,11 +64,24 @@ const FB_THREAD_MESSAGE_FIELDS = [
   'message',
   'created_time',
   'is_unsupported',
-  'attachments{type,mime_type,name,image_data{url},video_data{url},file_url,payload{url}}',
-  'shares{data{name,description,type,url,link}}',
+  META_ATTACHMENT_SUBFIELDS,
+  META_SHARE_SUBFIELDS,
   'story',
   'reactions{data{reaction,users{id,username}}}',
 ].join(',');
+
+type IgImageData = {
+  url?: string;
+  render_as_sticker?: boolean;
+  preview_url?: string;
+  animated_gif_url?: string;
+  media_url?: string;
+};
+
+type IgVideoData = {
+  url?: string;
+  preview_url?: string;
+};
 
 type IgAttachment = {
   type?: string;
@@ -72,17 +89,73 @@ type IgAttachment = {
   mime_type?: string;
   file_url?: string;
   payload?: { url?: string };
-  image_data?: { url?: string };
-  video_data?: { url?: string };
+  image_data?: IgImageData;
+  video_data?: IgVideoData;
 };
 
 type IgShareItem = {
+  id?: string;
   name?: string;
   description?: string;
   type?: string;
   url?: string;
   link?: string;
+  template?: unknown;
 };
+
+/** Meta image_data can expose sticker CDN URLs on several keys (see Graph API Message reference). */
+export function imageUrlFromImageData(img?: IgImageData | null): string | null {
+  if (!img) return null;
+  return img.url ?? img.preview_url ?? img.animated_gif_url ?? img.media_url ?? null;
+}
+
+function findHttpImageUrlInObject(obj: unknown, depth = 0): string | null {
+  if (!obj || depth > 8) return null;
+  if (typeof obj === 'string' && /^https?:\/\//i.test(obj)) {
+    const path = obj.split('?')[0] ?? '';
+    if (/\.(png|jpe?g|gif|webp|bmp)(\?|$)/i.test(path) || /fbcdn|cdninstagram/i.test(obj)) return obj;
+  }
+  if (typeof obj === 'object') {
+    const record = obj as Record<string, unknown>;
+    for (const key of [
+      'image_url',
+      'url',
+      'preview_url',
+      'media_url',
+      'animated_gif_url',
+      'animated_gif_preview_url',
+    ]) {
+      const v = record[key];
+      if (typeof v === 'string' && v.startsWith('https://')) return v;
+    }
+    for (const v of Object.values(record)) {
+      const found = findHttpImageUrlInObject(v, depth + 1);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function classifyShareItem(share: IgShareItem): InboxMessageMedia {
+  const t = (share.type ?? '').toLowerCase();
+  const title = (share.name ?? share.description ?? '').trim() || null;
+  const url = share.url ?? share.link ?? findHttpImageUrlInObject(share.template) ?? null;
+
+  if (t.includes('sticker') || t === 'like_heart' || t === 'like') {
+    return { kind: 'sticker', url, title };
+  }
+  if (t.includes('reel') || t === 'ig_reel') {
+    return { kind: 'share', url, title };
+  }
+  if (t.includes('post') || t === 'ig_post') {
+    return { kind: 'share', url, title };
+  }
+  // FB Messenger stickers often appear as nameless share rows with no URL until hydrated.
+  if (!url && !title && (!t || t === 'fallback' || t === 'template')) {
+    return { kind: 'sticker', url: null, title: null };
+  }
+  return { kind: 'share', url, title };
+}
 
 export type IgMessageRow = {
   id: string;
@@ -113,6 +186,11 @@ async function resolveLinkedPageId(userId: string, accessToken: string): Promise
 function attachmentLabel(m: IgMessageRow): string {
   const att = m.attachments?.data?.[0];
   if (!att) return '';
+  if (att.image_data?.render_as_sticker || (att.type ?? '').toLowerCase().includes('sticker')) {
+    return imageUrlFromImageData(att.image_data) ? '' : '(Sticker)';
+  }
+  if (imageUrlFromImageData(att.image_data)) return '';
+  if (att.video_data?.url || att.video_data?.preview_url) return '';
   if (att.image_data) return '(Image)';
   if (att.video_data) return '(Video)';
   if (att.file_url) return att.name ? `(${att.name})` : '(File)';
@@ -130,14 +208,23 @@ function attachmentLabel(m: IgMessageRow): string {
 }
 
 function shareLabel(m: IgMessageRow): string {
-  const share = m.shares?.data?.[0];
-  if (!share) return '';
-  const t = (share.type ?? '').toLowerCase();
-  const title = (share.name ?? share.description ?? '').trim();
-  if (t.includes('reel') || t === 'ig_reel') return title ? `(Shared reel: ${title})` : '(Shared reel)';
-  if (t.includes('post') || t === 'ig_post') return title ? `(Shared post: ${title})` : '(Shared post)';
-  if (share.url || share.link) return title ? `(Shared link: ${title})` : '(Shared link)';
-  return title ? `(Share: ${title})` : '(Share)';
+  const labels: string[] = [];
+  for (const share of m.shares?.data ?? []) {
+    const item = classifyShareItem(share);
+    if (item.kind === 'sticker') {
+      if (!item.url) labels.push('(Sticker)');
+      continue;
+    }
+    const t = (share.type ?? '').toLowerCase();
+    const title = (share.name ?? share.description ?? '').trim();
+    if (t.includes('reel') || t === 'ig_reel') labels.push(title ? `(Shared reel: ${title})` : '(Shared reel)');
+    else if (t.includes('post') || t === 'ig_post')
+      labels.push(title ? `(Shared post: ${title})` : '(Shared post)');
+    else if (share.url || share.link)
+      labels.push(title ? `(Shared link: ${title})` : '(Shared link)');
+    else labels.push(title ? `(Share: ${title})` : '(Share)');
+  }
+  return labels.filter(Boolean).join(' ');
 }
 
 function storyLabel(m: IgMessageRow): string {
@@ -155,11 +242,11 @@ function reactionLabel(m: IgMessageRow): string {
 function attachmentKind(att: IgAttachment): InboxMessageMedia['kind'] | null {
   const t = (att.type ?? att.mime_type ?? '').toLowerCase();
   const name = (att.name ?? '').toLowerCase();
-  if (att.image_data?.url || t.includes('image') || t.includes('photo')) return 'image';
-  if (att.video_data?.url || t.includes('video')) return 'video';
+  if (att.image_data?.render_as_sticker || t.includes('sticker') || t === 'like_heart') return 'sticker';
+  if (imageUrlFromImageData(att.image_data) || t.includes('image') || t.includes('photo')) return 'image';
+  if (att.video_data?.url || att.video_data?.preview_url || t.includes('video')) return 'video';
   if (t.includes('audio') || t.includes('voice') || /\.(ogg|mp3|m4a|wav|aac)(\?|$)/i.test(name))
     return 'audio';
-  if (t.includes('sticker')) return 'sticker';
   if (t.includes('share')) return 'share';
   if (att.file_url || att.payload?.url) return 'file';
   return null;
@@ -169,9 +256,15 @@ function attachmentKind(att: IgAttachment): InboxMessageMedia['kind'] | null {
 export function extractMediaFromRow(m: IgMessageRow): InboxMessageMedia[] {
   const out: InboxMessageMedia[] = [];
   for (const att of m.attachments?.data ?? []) {
-    const kind = attachmentKind(att);
+    let kind = attachmentKind(att);
     const url =
-      att.image_data?.url ?? att.video_data?.url ?? att.file_url ?? att.payload?.url ?? null;
+      imageUrlFromImageData(att.image_data) ??
+      att.video_data?.url ??
+      att.video_data?.preview_url ??
+      att.file_url ??
+      att.payload?.url ??
+      null;
+    if (kind === 'image' && att.image_data?.render_as_sticker) kind = 'sticker';
     if (kind && url) {
       out.push({ kind, url, title: att.name ?? null });
       continue;
@@ -180,14 +273,12 @@ export function extractMediaFromRow(m: IgMessageRow): InboxMessageMedia[] {
       out.push({ kind: 'audio', url: att.file_url, title: att.name ?? null });
       continue;
     }
-    if (kind && att.name && !url) {
-      out.push({ kind, title: att.name });
+    if (kind && !url) {
+      out.push({ kind, title: att.name ?? null });
     }
   }
   for (const share of m.shares?.data ?? []) {
-    const url = share.url ?? share.link ?? null;
-    const title = (share.name ?? share.description ?? '').trim() || null;
-    out.push({ kind: 'share', url, title });
+    out.push(classifyShareItem(share));
   }
   if (m.story?.link) {
     out.push({ kind: 'story', url: m.story.link, title: 'Story reply' });
@@ -216,6 +307,9 @@ export function messageBodyFromRow(m: IgMessageRow): string {
   if (media.some((x) => x.url)) {
     const titles = media.filter((x) => x.title && !x.url).map((x) => x.title as string);
     return titles.join(' ') || '';
+  }
+  if (media.length > 0 && media.every((x) => x.kind === 'sticker')) {
+    return '';
   }
 
   const parts = [attachmentLabel(m), shareLabel(m), storyLabel(m), reactionLabel(m)].filter(Boolean);
@@ -248,7 +342,7 @@ async function hydrateRowsMissingMedia(
   rows: IgMessageRow[],
   accessToken: string
 ): Promise<IgMessageRow[]> {
-  const need = rows.filter((m) => m.id && rowNeedsHydration(m)).slice(0, 12);
+  const need = rows.filter((m) => m.id && rowNeedsHydration(m)).slice(0, 16);
   if (need.length === 0) return rows;
   const hydrated = await Promise.all(need.map((m) => hydrateMessageRow(m.id, accessToken)));
   const byId = new Map<string, IgMessageRow>();

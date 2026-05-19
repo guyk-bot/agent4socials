@@ -294,7 +294,11 @@ function InboxMessageContent({ msg }: { msg: ConversationMessage }) {
                 key={`${msg.id}-m-${idx}`}
                 src={proxied}
                 alt={item.title ?? item.kind}
-                className="mt-1 max-w-full max-h-64 rounded-lg object-contain"
+                className={
+                  item.kind === 'sticker'
+                    ? 'mt-1 max-h-40 w-40 object-contain'
+                    : 'mt-1 max-w-full max-h-64 rounded-lg object-contain'
+                }
               />
             );
           }
@@ -342,13 +346,15 @@ function InboxMessageContent({ msg }: { msg: ConversationMessage }) {
         const fallback =
           item.kind === 'video'
             ? '(Video)'
-            : item.kind === 'image' || item.kind === 'sticker'
-              ? '(Image)'
-              : item.kind === 'audio'
-                ? '(Voice message)'
-                : item.kind === 'share'
-                  ? '(Share)'
-                  : '(Attachment)';
+            : item.kind === 'sticker'
+              ? '(Sticker)'
+              : item.kind === 'image'
+                ? '(Image)'
+                : item.kind === 'audio'
+                  ? '(Voice message)'
+                  : item.kind === 'share'
+                    ? '(Share)'
+                    : '(Attachment)';
         return (
           <p key={`${msg.id}-m-${idx}`} className="text-sm mt-1 text-neutral-500 dark:text-neutral-400">
             {fallback}
