@@ -509,7 +509,7 @@ export async function GET(
 
   // For Facebook Login path: find linked Page ID to build the graph.facebook.com endpoint.
   let linkedPageId: string | false = false;
-  if (isInstagram && !isInstagramBusinessLogin) {
+  if (isInstagram) {
     linkedPageId = credJson.linkedPageId || false;
     if (!linkedPageId) {
       // After reconnect, token on IG vs FB rows may differ: resolve any connected Page for this user.
@@ -543,11 +543,11 @@ export async function GET(
     }
   }
 
-  if (isInstagram && !isInstagramBusinessLogin && !linkedPageId) {
+  if (isInstagram && !linkedPageId && !isInstagramBusinessLogin) {
     return NextResponse.json({
       conversations: [],
       error:
-        'Instagram inbox needs your Facebook Page linked to this account. Reconnect Instagram from Accounts and choose the Page tied to your Instagram profile.',
+        'Instagram inbox needs your Facebook Page linked to this account. Reconnect via Facebook from Inbox and choose the Page tied to your Instagram profile.',
     });
   }
 
@@ -664,6 +664,70 @@ export async function GET(
         return NextResponse.json({ conversations: [], error: metaMsg, debug: { rawMessage: metaMsg, code, metaMessage: metaMsg } });
       }
       throw innerErr;
+    }
+
+    // Instagram DMs are often on the Page path even when the account was connected via Instagram Login.
+    if (isInstagram && rawConversations.length === 0 && !deltaMode) {
+      const fbPage = await prisma.socialAccount.findFirst({
+        where: { userId, platform: 'FACEBOOK', status: 'connected' },
+        select: { platformUserId: true, accessToken: true },
+        orderBy: { updatedAt: 'desc' },
+      });
+      const fieldList = queryParams.fields;
+      const attempts: Array<{ url: string; params: Record<string, string>; token: string; viaPage: boolean }> =
+        [];
+      if (fbPage?.platformUserId && fbPage.accessToken) {
+        const pageUrl = `${baseUrl}/${fbPage.platformUserId}/conversations`;
+        if (pageUrl !== conversationsPath) {
+          attempts.push({
+            url: pageUrl,
+            params: {
+              fields: fieldList,
+              access_token: fbPage.accessToken,
+              limit: '100',
+              platform: 'instagram',
+            },
+            token: fbPage.accessToken,
+            viaPage: true,
+          });
+        }
+      }
+      const igMeUrl = 'https://graph.instagram.com/v25.0/me/conversations';
+      if (igMeUrl !== conversationsPath && token) {
+        attempts.push({
+          url: igMeUrl,
+          params: { fields: fieldList, access_token: token, limit: '100' },
+          token,
+          viaPage: false,
+        });
+      }
+      for (const attempt of attempts) {
+        try {
+          const alt = await fetchAllConversations(attempt.url, attempt.params, attempt.token, 5);
+          if (alt.length > 0) {
+            rawConversations = alt;
+            if (attempt.viaPage && fbPage?.platformUserId) {
+              linkedPageId = fbPage.platformUserId;
+              void prisma.socialAccount
+                .update({
+                  where: { id: account.id },
+                  data: {
+                    accessToken: fbPage.accessToken,
+                    credentialsJson: {
+                      ...credJson,
+                      loginMethod: 'facebook_login',
+                      linkedPageId: fbPage.platformUserId,
+                    },
+                  },
+                })
+                .catch(() => {});
+            }
+            break;
+          }
+        } catch {
+          /* try next Meta path */
+        }
+      }
     }
 
     // Build the set of IDs and usernames that belong to "us" so we can exclude our account

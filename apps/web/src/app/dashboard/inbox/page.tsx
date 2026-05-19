@@ -1085,6 +1085,11 @@ function InboxPage() {
             accountId,
           })
         );
+        const latestTime =
+          freshMessages
+            .map((m) => m.createdTime)
+            .filter((t): t is string => typeof t === 'string' && t.length > 0)
+            .sort((a, b) => b.localeCompare(a))[0] ?? null;
         if (selectedConversationId === convId) {
           setConversationMessages(freshMessages);
           setConversationRecipientId(recipientId);
@@ -1092,12 +1097,18 @@ function InboxPage() {
           if (recipientPictureUrl || recipientName) {
             setConversations(patchConversationSenderPicture(convId, recipientPictureUrl, recipientName));
           }
+          if (latestTime) {
+            setConversations((prev) =>
+              prev.map((c) => (c.id === convId ? { ...c, updatedTime: latestTime } : c))
+            );
+          }
         }
       } catch {
         /* keep showing cached thread */
       }
     };
 
+    void refreshOpenThread();
     const interval = setInterval(() => void refreshOpenThread(), INBOX_LIVE_POLL_MS);
     return () => {
       cancelled = true;
@@ -1348,7 +1359,11 @@ function InboxPage() {
           .map((c) => c.updatedTime)
           .filter((v): v is string => typeof v === 'string' && v.length > 0)
           .sort((a, b) => b.localeCompare(a))[0] ?? undefined;
-      const shouldDeltaFetch = useCache && conversationsRefreshKey > 0;
+      const hasIgInList = merge.some((c) => c.platform === 'INSTAGRAM');
+      const shouldDeltaFetch =
+        useCache &&
+        conversationsRefreshKey > 0 &&
+        !(platform === 'INSTAGRAM' && !hasIgInList);
 
       if (!useCache || shouldDeltaFetch) {
         // No cache: fetch live.
@@ -2090,7 +2105,7 @@ function InboxPage() {
                   type="button"
                   onClick={async () => {
                     try {
-                      const res = await api.get('/social/oauth/INSTAGRAM/start?method=instagram');
+                      const res = await api.get('/social/oauth/INSTAGRAM/start');
                       const url = res?.data?.url;
                       if (url) window.location.href = url;
                     } catch { /* ignore */ }
@@ -2326,14 +2341,14 @@ function InboxPage() {
                       type="button"
                       onClick={async () => {
                         try {
-                          const res = await api.get('/social/oauth/INSTAGRAM/start?method=instagram');
+                          const res = await api.get('/social/oauth/INSTAGRAM/start');
                           const url = res?.data?.url;
                           if (url && typeof url === 'string') window.location.href = url;
                         } catch (_) {}
                       }}
                       className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-medium hover:opacity-90"
                     >
-                      Reconnect Instagram
+                      Reconnect via Facebook
                     </button>
                   )}
                   {messageFetchPlatformIds.includes('FACEBOOK') && effectiveAccounts.some((a) => a.platform === 'FACEBOOK') && (
@@ -2361,14 +2376,14 @@ function InboxPage() {
                       type="button"
                       onClick={async () => {
                         try {
-                          const res = await api.get('/social/oauth/INSTAGRAM/start?method=instagram');
+                          const res = await api.get('/social/oauth/INSTAGRAM/start');
                           const url = res?.data?.url;
                           if (url && typeof url === 'string') window.location.href = url;
                         } catch (_) {}
                       }}
                       className="px-3 py-1.5 rounded-lg border border-orange-300 bg-white text-orange-700 text-sm font-medium hover:bg-orange-50"
                     >
-                      Reconnect Instagram
+                      Reconnect via Facebook
                     </button>
                   )}
                   {messageFetchPlatformIds.includes('FACEBOOK') && effectiveAccounts.some((a) => a.platform === 'FACEBOOK') && (
@@ -2466,7 +2481,7 @@ function InboxPage() {
             err ??
             hint ??
             (igEmptyNeedReconnect
-              ? 'No Instagram conversations loaded. Reconnect Instagram and choose the Facebook Page linked to your profile, or request instagram_manage_messages in Meta App Review.'
+              ? 'No Instagram conversations loaded. Use Reconnect below and sign in with Facebook, then select the Page linked to your Instagram (recommended). Instagram-only login often cannot load DMs until Meta App Review approves messaging.'
               : null);
           if (!bannerText) return null;
           return (
@@ -2503,14 +2518,14 @@ function InboxPage() {
                     type="button"
                     onClick={async () => {
                       try {
-                        const res = await api.get('/social/oauth/INSTAGRAM/start?method=instagram');
+                        const res = await api.get('/social/oauth/INSTAGRAM/start');
                         const url = res?.data?.url;
                         if (url && typeof url === 'string') window.location.href = url;
                       } catch (_) {}
                     }}
                     className="text-xs px-2 py-1 rounded bg-gradient-to-r from-orange-500 to-pink-500 text-white font-medium hover:opacity-90"
                   >
-                    Reconnect Instagram
+                    Reconnect via Facebook
                   </button>
                 )}
                 {platformId === 'FACEBOOK' && (
