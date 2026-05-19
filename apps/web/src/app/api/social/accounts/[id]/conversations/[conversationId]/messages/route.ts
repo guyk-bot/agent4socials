@@ -337,7 +337,7 @@ export async function POST(
             params: { fields: 'messages', access_token: activeToken },
             timeout: 10_000,
           });
-          const allMsgIds = convoRes.data?.messages?.data ?? [];
+          const allMsgIds = (convoRes.data?.messages?.data ?? []).slice(0, 12);
           for (const msgObj of allMsgIds) {
             try {
               const msgRes = await axios.get<{ from?: { id?: string } }>(`${igBaseUrl}/${msgObj.id}`, {
@@ -465,7 +465,9 @@ export async function POST(
         );
       }
     }
-    await deleteInboxMessagesFromDb(account.id, conversationId);
+    after(() => {
+      void deleteInboxMessagesFromDb(account.id, conversationId).catch(() => {});
+    });
     const sentAt = new Date().toISOString();
     return NextResponse.json({
       ok: true,

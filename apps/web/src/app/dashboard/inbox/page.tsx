@@ -3730,42 +3730,50 @@ function InboxPage() {
                       return;
                     }
                     if (!account || !selectedConversationId || !dmReplyText.trim()) return;
+                    if (dmSendInFlightRef.current) return;
+
                     const textToSend = dmReplyText.trim();
                     const cid2 = selectedConversationId;
-                    setDmReplySending(true);
+                    const recipientId = resolveDmRecipientIdForSend(
+                      cid2,
+                      conversationsRef.current,
+                      conversationRecipientIdRef.current,
+                      conversationMessagesCacheRef.current
+                    );
+
                     setDmSendError(null);
                     setAiReplyError(null);
+                    setDmReplyText('');
+
+                    const optimisticId = `local-${Date.now()}`;
+                    const optimistic: ConversationMessage = {
+                      id: optimisticId,
+                      fromId: null,
+                      fromName: null,
+                      message: textToSend,
+                      createdTime: new Date().toISOString(),
+                      isFromPage: true,
+                    };
+                    setConversationMessages((prev) => [...prev, optimistic]);
+                    setConversationMessagesError(null);
+                    setConversationMessagesCache((prev) =>
+                      withCacheEntry(prev, cid2, {
+                        messages: [...(prev[cid2]?.messages ?? []), optimistic],
+                        recipientId: recipientId ?? prev[cid2]?.recipientId ?? null,
+                        recipientName: prev[cid2]?.recipientName ?? null,
+                        recipientPictureUrl: prev[cid2]?.recipientPictureUrl ?? null,
+                        error: null,
+                        accountId: account.id,
+                      })
+                    );
+
+                    dmSendInFlightRef.current = true;
+                    setDmReplySending(true);
                     try {
-                      const postRes = await api.post<{
-                        ok?: boolean;
-                        sentMessage?: ConversationMessage;
-                      }>(
+                      await api.post(
                         `/social/accounts/${account.id}/conversations/${cid2}/messages`,
-                        { text: textToSend, recipientId: conversationRecipientId ?? undefined },
+                        { text: textToSend, recipientId },
                         { timeout: 20_000 }
-                      );
-                      setDmReplyText('');
-                      const optimistic =
-                        postRes.data?.sentMessage ??
-                        ({
-                          id: `local-${Date.now()}`,
-                          fromId: null,
-                          fromName: null,
-                          message: textToSend,
-                          createdTime: new Date().toISOString(),
-                          isFromPage: true,
-                        } satisfies ConversationMessage);
-                      setConversationMessages((prev) => [...prev, optimistic]);
-                      setConversationMessagesError(null);
-                      setConversationMessagesCache((prev) =>
-                        withCacheEntry(prev, cid2, {
-                          messages: [...(prev[cid2]?.messages ?? []), optimistic],
-                          recipientId: conversationRecipientId,
-                          recipientName: prev[cid2]?.recipientName ?? null,
-                          recipientPictureUrl: prev[cid2]?.recipientPictureUrl ?? null,
-                          error: null,
-                          accountId: account.id,
-                        })
                       );
                       void api
                         .get(`/social/accounts/${account.id}/conversations/${cid2}/messages`, {
@@ -3776,7 +3784,8 @@ function InboxPage() {
                           const messages = res.data?.messages ?? [];
                           if (messages.length === 0) return;
                           setConversationMessages(messages);
-                          const nextRecipientId = res.data?.recipientId ?? conversationRecipientId ?? null;
+                          const nextRecipientId =
+                            res.data?.recipientId ?? recipientId ?? conversationRecipientIdRef.current ?? null;
                           setConversationRecipientId(nextRecipientId);
                           setConversationMessagesError(res.data?.error ?? null);
                           setConversationMessagesCache((prev) =>
@@ -3792,28 +3801,54 @@ function InboxPage() {
                           );
                         })
                         .catch(() => {});
-                      api.get<{ inbox?: number; comments?: number; messages?: number; byPlatform?: Record<string, { comments: number; messages: number }> }>('/social/notifications').then((r) => {
-                        if (r.data && appData) appData.setNotifications({
-                          inbox: r.data.inbox ?? 0,
-                          comments: r.data.comments ?? 0,
-                          messages: r.data.messages ?? 0,
-                          byPlatform: r.data.byPlatform ?? {},
-                        });
-                      }).catch(() => {});
+                      void api
+                        .get<{
+                          inbox?: number;
+                          comments?: number;
+                          messages?: number;
+                          byPlatform?: Record<string, { comments: number; messages: number }>;
+                        }>('/social/notifications')
+                        .then((r) => {
+                          if (r.data && appData) {
+                            appData.setNotifications({
+                              inbox: r.data.inbox ?? 0,
+                              comments: r.data.comments ?? 0,
+                              messages: r.data.messages ?? 0,
+                              byPlatform: r.data.byPlatform ?? {},
+                            });
+                          }
+                        })
+                        .catch(() => {});
                     } catch (e: unknown) {
+                      setConversationMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+                      setConversationMessagesCache((prev) => {
+                        const entry = prev[cid2];
+                        if (!entry) return prev;
+                        return withCacheEntry(prev, cid2, {
+                          ...entry,
+                          messages: entry.messages.filter((m) => m.id !== optimisticId),
+                        });
+                      });
+                      setDmReplyText(textToSend);
                       const errMsg = readApiErrorMessage(e, 'Failed to send message.');
-                      const isDevMode = errMsg.toLowerCase().includes('does not exist') || errMsg.toLowerCase().includes('missing permissions') || errMsg.toLowerCase().includes('unsupported');
-                      setDmSendError(isDevMode
-                        ? 'Could not send: Instagram may be in Development Mode. Only users added as Testers in your Meta App can receive messages while the app is not published.'
-                        : errMsg);
+                      const isDevMode =
+                        errMsg.toLowerCase().includes('does not exist') ||
+                        errMsg.toLowerCase().includes('missing permissions') ||
+                        errMsg.toLowerCase().includes('unsupported');
+                      setDmSendError(
+                        isDevMode
+                          ? 'Could not send: Instagram may be in Development Mode. Only users added as Testers in your Meta App can receive messages while the app is not published.'
+                          : errMsg
+                      );
                     } finally {
+                      dmSendInFlightRef.current = false;
                       setDmReplySending(false);
                     }
                   }}
                   className="inbox-reply-send-btn p-3 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                   title="Send"
                 >
-                  {dmReplySending ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
+                  <Send size={20} />
                 </button>
               </div>
               {dmSendError && (

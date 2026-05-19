@@ -253,10 +253,10 @@
     opacity 0.15s ease;
 }
 .inbox-reply-send-btn:hover:not(:disabled) {
-  background: var(--button-hover) !important;
-  border-color: var(--button-hover) !important;
-  box-shadow: 0 2px 8px rgba(255, 122, 0, 0.45);
-  filter: brightness(1.06);
+  background: #ff9220 !important;
+  border-color: #ff9220 !important;
+  box-shadow: 0 2px 10px rgba(255, 146, 32, 0.55);
+  filter: brightness(1.08);
 }
 .inbox-reply-send-btn:active:not(:disabled) {
   filter: brightness(0.98);
@@ -292,9 +292,10 @@
   box-shadow: 0 1px 4px rgba(255, 122, 0, 0.4);
 }
 [data-theme='dark'] .inbox-reply-send-btn:hover:not(:disabled) {
-  background: var(--button-hover) !important;
-  border-color: var(--button-hover) !important;
-  filter: brightness(1.08);
+  background: #ff9a2e !important;
+  border-color: #ff9a2e !important;
+  filter: brightness(1.1);
+  box-shadow: 0 2px 12px rgba(255, 146, 32, 0.5);
 }
 
 /* Inbox: keep thread area white in light mode (do not inherit black message-panel fills). */
