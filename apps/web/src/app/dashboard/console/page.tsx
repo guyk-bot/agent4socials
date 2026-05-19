@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
@@ -12,7 +12,11 @@ import {
   toLocalCalendarDate,
   writeStoredAnalyticsDateRange,
 } from '@/lib/calendar-date';
-import { readUnifiedSummaryCache, writeUnifiedSummaryCache, getUnifiedSummaryCacheAge, UNIFIED_SUMMARY_FRESH_MS } from '@/lib/dashboard-unified-summary-cache';
+import {
+  readUnifiedSummaryCacheBest,
+  writeUnifiedSummaryCache,
+  UNIFIED_SUMMARY_FRESH_MS,
+} from '@/lib/dashboard-unified-summary-cache';
 import { createMinWidthStackedBarShape } from '@/lib/recharts-stacked-bar-shape';
 import {
   XAxis,
@@ -1321,13 +1325,35 @@ export default function UnifiedSummaryPage() {
 
   const [data, setData] = useState<UnifiedSummaryResponse | null>(null);
   /** True only when there is nothing to show yet for this range (not during silent background refetch). */
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const displayDataRef = useRef<UnifiedSummaryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const lastSummaryRangeRef = useRef<string | null>(null);
   const lastHydratedSummaryRangeRef = useRef<string | null>(null);
   const summaryFetchUserRef = useRef<string | null>(null);
   /** Track accounts we've already kicked off a background post-sync for in this session. */
   const consolePostsSyncedRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    displayDataRef.current = data;
+  }, [data]);
+
+  /** Paint cached Console data before first paint (avoids skeleton flash on revisit). */
+  useLayoutEffect(() => {
+    if (!user?.id || orderedAccounts.length === 0) return;
+    const { data: cachedRaw } = readUnifiedSummaryCacheBest(
+      user.id,
+      dateRange.start,
+      dateRange.end,
+      summaryScopeKey
+    );
+    if (!cachedRaw) return;
+    const cached = normalizeUnifiedSummary(cachedRaw);
+    setData(cached);
+    setLoading(false);
+    displayDataRef.current = cached;
+    lastHydratedSummaryRangeRef.current = `${dateRange.start}|${dateRange.end}`;
+  }, [user?.id, dateRange.start, dateRange.end, summaryScopeKey, orderedAccounts.length]);
 
   // Performance section
   const [performanceMode, setPerformanceMode] = useState<'growth' | 'engagement' | 'views'>('growth');
@@ -1401,23 +1427,32 @@ export default function UnifiedSummaryPage() {
       return;
     }
 
-    const cachedRaw =
-      readUnifiedSummaryCache(user.id, dateRange.start, dateRange.end, summaryScopeKey) ??
-      readUnifiedSummaryCache(user.id, dateRange.start, dateRange.end);
+    const { data: cachedRaw, cachedAt } = readUnifiedSummaryCacheBest(
+      user.id,
+      dateRange.start,
+      dateRange.end,
+      summaryScopeKey
+    );
     const cached = cachedRaw ? normalizeUnifiedSummary(cachedRaw) : null;
     const hadCache = !!cached;
     const sameRangeAlreadyHydrated = lastHydratedSummaryRangeRef.current === rangeSig;
-    const cacheAge = getUnifiedSummaryCacheAge(user.id, dateRange.start, dateRange.end, summaryScopeKey);
-    const cacheIsFresh = hadCache && (Date.now() - cacheAge) < UNIFIED_SUMMARY_FRESH_MS;
+    const cacheIsFresh = hadCache && cachedAt > 0 && Date.now() - cachedAt < UNIFIED_SUMMARY_FRESH_MS;
+    const hasDisplayedData = displayDataRef.current != null;
 
     if (cached) {
       setData(cached);
       setError(null);
       setLoading(false);
+      displayDataRef.current = cached;
       lastHydratedSummaryRangeRef.current = rangeSig;
+    } else if (hasDisplayedData && !rangeChanged) {
+      setLoading(false);
     } else {
-      if (rangeChanged && !sameRangeAlreadyHydrated) setData(null);
-      if (!sameRangeAlreadyHydrated) setLoading(true);
+      if (rangeChanged && !sameRangeAlreadyHydrated) {
+        setData(null);
+        displayDataRef.current = null;
+      }
+      if (!sameRangeAlreadyHydrated && !hasDisplayedData) setLoading(true);
       else setLoading(false);
     }
     setError(null);

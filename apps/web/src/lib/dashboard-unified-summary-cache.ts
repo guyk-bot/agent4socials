@@ -54,6 +54,25 @@ export function getUnifiedSummaryCacheAge(
   }
 }
 
+/** Scoped cache first, then range-only (survives account reconnect / id changes). */
+export function readUnifiedSummaryCacheBest(
+  userId: string,
+  start: string,
+  end: string,
+  scopeKey?: string
+): { data: UnifiedSummaryResponse | null; cachedAt: number } {
+  if (typeof window === 'undefined' || !userId) return { data: null, cachedAt: 0 };
+  const scoped = scopeKey ? readUnifiedSummaryCache(userId, start, end, scopeKey) : null;
+  const rangeOnly = readUnifiedSummaryCache(userId, start, end);
+  const data = scoped ?? rangeOnly;
+  if (!data) return { data: null, cachedAt: 0 };
+  const cachedAt = Math.max(
+    scopeKey ? getUnifiedSummaryCacheAge(userId, start, end, scopeKey) : 0,
+    getUnifiedSummaryCacheAge(userId, start, end)
+  );
+  return { data, cachedAt };
+}
+
 export function writeUnifiedSummaryCache(
   userId: string,
   start: string,
