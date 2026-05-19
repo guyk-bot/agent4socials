@@ -32,12 +32,11 @@ import { useTheme } from '@/context/ThemeContext';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 import { TikTokPublishModal } from '@/components/composer/TikTokPublishModal';
+import { ComposerScheduleDateTime } from '@/components/composer/ComposerScheduleDateTime';
 import { isTikTokDirectPostPayload, type TikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
 import {
-    SCHEDULE_TEN_MINUTE_OPTIONS,
     nextFutureTenMinuteLocalString,
     isTenMinuteLocalScheduleString,
-    clampScheduleLocalToFloorMin,
     isoInstantToLocalTenMinuteSnappedUp,
 } from '@/lib/schedule-ten-minute';
 
@@ -483,18 +482,6 @@ function extractHashtagsFromPost(post: { content?: string | null; contentByPlatf
 function stripTrailingHashtags(text: string): string {
     return text.replace(/(?:\s+#[\w]+)+\s*$/, '').trimEnd();
 }
-
-function scheduleDatePart(value: string): string {
-    return value.includes('T') ? value.split('T')[0] : '';
-}
-
-function scheduleTimePart(value: string): string {
-    if (!value.includes('T')) return '';
-    const t = value.split('T')[1] ?? '';
-    return t.slice(0, 5);
-}
-
-const HOUR_OPTIONS_24H = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
 
 const MEDIA_SPECS: Record<string, { platform: PlatformKey; name: string; specs: { label: string; value: string; tag?: string }[] }[]> = {
     photo: [
@@ -3277,60 +3264,13 @@ export default function ComposerPage() {
                         <>
                         <div className="flex items-start gap-3">
                             <Calendar size={22} className="text-neutral-500 shrink-0" />
-                            <div className="flex-1 space-y-2">
-                                {(() => {
-                                    const minLocal = nextFutureTenMinuteLocalString();
-                                    const selectedDate = scheduleDatePart(scheduledAt) || scheduleDatePart(minLocal);
-                                    const selectedHour = scheduleTimePart(scheduledAt).split(':')[0] || scheduleTimePart(minLocal).split(':')[0];
-                                    const rawMin = scheduleTimePart(scheduledAt).split(':')[1] || scheduleTimePart(minLocal).split(':')[1];
-                                    const selectedMinute = (SCHEDULE_TEN_MINUTE_OPTIONS as readonly string[]).includes(rawMin)
-                                        ? rawMin
-                                        : scheduleTimePart(minLocal).split(':')[1];
-                                    const updateDateTime = (nextDate: string, nextHour: string, nextMinute: string) => {
-                                        const raw = `${nextDate}T${nextHour}:${nextMinute}`;
-                                        setScheduledAt(clampScheduleLocalToFloorMin(raw, minLocal));
-                                    };
-                                    return (
-                                        <>
-                                            <input
-                                                type="date"
-                                                value={selectedDate}
-                                                min={scheduleDatePart(minLocal)}
-                                                onChange={(e) => updateDateTime(e.target.value || selectedDate, selectedHour, selectedMinute)}
-                                                className={`w-full p-3 border rounded-xl focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 ${
-                                                    isDark ? 'bg-neutral-900 border-neutral-700 text-neutral-100' : 'border-neutral-200 text-neutral-900'
-                                                }`}
-                                                style={{ accentColor: '#ff7a00' }}
-                                            />
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <div className="text-xs font-medium text-neutral-500">Hour (00-23)</div>
-                                                <div className="text-xs font-medium text-neutral-500">Minute (10-minute steps)</div>
-                                                <select
-                                                    value={selectedHour}
-                                                    onChange={(e) => updateDateTime(selectedDate, e.target.value, selectedMinute)}
-                                                    className={`w-full max-h-40 overflow-y-auto p-3 border rounded-xl focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 ${
-                                                        isDark ? 'bg-neutral-900 border-neutral-700 text-neutral-100' : 'border-neutral-200 text-neutral-900'
-                                                    }`}
-                                                >
-                                                    {HOUR_OPTIONS_24H.map((hh) => (
-                                                        <option key={hh} value={hh}>{hh}</option>
-                                                    ))}
-                                                </select>
-                                                <select
-                                                    value={selectedMinute}
-                                                    onChange={(e) => updateDateTime(selectedDate, selectedHour, e.target.value)}
-                                                    className={`w-full max-h-40 overflow-y-auto p-3 border rounded-xl focus:ring-2 focus:ring-orange-500/25 focus:border-orange-500 ${
-                                                        isDark ? 'bg-neutral-900 border-neutral-700 text-neutral-100' : 'border-neutral-200 text-neutral-900'
-                                                    }`}
-                                                >
-                                                    {SCHEDULE_TEN_MINUTE_OPTIONS.map((mm) => (
-                                                        <option key={mm} value={mm}>{mm}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        </>
-                                    );
-                                })()}
+                            <div className="flex-1">
+                                <ComposerScheduleDateTime
+                                    scheduledAt={scheduledAt}
+                                    minLocal={nextFutureTenMinuteLocalString()}
+                                    onChange={setScheduledAt}
+                                    isDark={isDark}
+                                />
                             </div>
                         </div>
                         <p className="text-xs text-neutral-500">

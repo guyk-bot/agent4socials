@@ -242,6 +242,37 @@
 [data-theme='dark'] .team-members-frame .text-neutral-500 {
   color: #a1a1aa !important;
 }
+
+/* Composer schedule: light orange calendar + time scroll lists (not system blue). */
+.composer-schedule-scope .composer-schedule-day-selected {
+  background: var(--color-accent-orange-light) !important;
+  color: #1a1a1a !important;
+}
+.composer-schedule-scope .composer-schedule-scroll-list {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-accent-orange-light) rgba(0, 0, 0, 0.25);
+}
+.composer-schedule-scope .composer-schedule-scroll-list::-webkit-scrollbar {
+  width: 8px;
+}
+.composer-schedule-scope .composer-schedule-scroll-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 999px;
+}
+.composer-schedule-scope .composer-schedule-scroll-list::-webkit-scrollbar-thumb {
+  background: var(--color-accent-orange-light);
+  border-radius: 999px;
+}
+.composer-schedule-scope .composer-schedule-scroll-list::-webkit-scrollbar-thumb:hover {
+  background: #ffc78a;
+}
+.composer-schedule-scope .composer-schedule-scroll-item.is-selected {
+  background: rgba(255, 184, 107, 0.28) !important;
+  color: var(--color-accent-orange-light) !important;
+}
+.composer-schedule-scope .composer-schedule-scroll-item:hover:not(.is-selected) {
+  background: rgba(255, 184, 107, 0.14) !important;
+}
 [data-theme='dark'] .create-brand-modal-scope input[type='text'],
 [data-theme='dark'] .create-brand-modal-scope input[type='email'],
 [data-theme='dark'] .create-brand-modal-scope select {
