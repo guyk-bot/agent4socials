@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Info, Trash2, CheckCircle } from 'lucide-react';
+import { AlertTriangle, Info, Trash2, CheckCircle, Loader2 } from 'lucide-react';
 
 type ConfirmModalProps = {
   open: boolean;
@@ -17,6 +17,10 @@ type ConfirmModalProps = {
   stack?: 'default' | 'high';
   /** If false, the primary button does not call `onClose` after `onConfirm` (use when confirm navigates away). Default true. */
   closeOnConfirm?: boolean;
+  /** When true, shows a spinner on the confirm button and blocks dismiss until loading ends. */
+  confirmLoading?: boolean;
+  /** Label while `confirmLoading` is true (defaults to confirmLabel). */
+  confirmLoadingLabel?: string;
 };
 
 export function ConfirmModal({
@@ -30,6 +34,8 @@ export function ConfirmModal({
   variant = 'confirm',
   stack = 'default',
   closeOnConfirm = true,
+  confirmLoading = false,
+  confirmLoadingLabel,
 }: ConfirmModalProps) {
   const isAlert = variant === 'alert';
   const isDanger = variant === 'danger';
@@ -40,14 +46,17 @@ export function ConfirmModal({
 
   useEffect(() => {
     if (!open) return;
-    const handleEscape = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (confirmLoading) return;
+      if (e.key === 'Escape') onClose();
+    };
     document.addEventListener('keydown', handleEscape);
     document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = '';
     };
-  }, [open, onClose]);
+  }, [open, onClose, confirmLoading]);
 
   if (!open || !mounted) return null;
 
@@ -81,7 +90,9 @@ export function ConfirmModal({
           background: 'rgba(15,15,15,0.65)',
           backdropFilter: 'blur(4px)',
         }}
-        onClick={onClose}
+        onClick={() => {
+          if (!confirmLoading) onClose();
+        }}
         aria-hidden="true"
       />
       <div
@@ -119,7 +130,8 @@ export function ConfirmModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 rounded-xl border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+                disabled={confirmLoading}
+                className="px-4 py-2 rounded-xl border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {cancelLabel}
               </button>
@@ -127,15 +139,23 @@ export function ConfirmModal({
             <button
               type="button"
               onClick={handleConfirm}
+              disabled={confirmLoading}
               className={
                 isDanger
-                  ? 'px-4 py-2 rounded-xl bg-red-600 text-sm font-medium text-white hover:bg-red-700 transition-colors'
+                  ? 'inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-red-600 text-sm font-medium text-white hover:bg-red-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed min-w-[7.5rem]'
                   : isInfo || isAlert
-                  ? 'px-4 py-2 rounded-xl bg-orange-600 text-sm font-medium text-white hover:bg-orange-700 transition-colors'
-                  : 'px-4 py-2 rounded-xl bg-amber-500 text-sm font-medium text-white hover:bg-amber-600 transition-colors'
+                  ? 'inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-orange-600 text-sm font-medium text-white hover:bg-orange-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed min-w-[7.5rem]'
+                  : 'inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-amber-500 text-sm font-medium text-white hover:bg-amber-600 transition-colors disabled:opacity-70 disabled:cursor-not-allowed min-w-[7.5rem]'
               }
             >
-              {confirmLabel}
+              {confirmLoading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin shrink-0" aria-hidden />
+                  {confirmLoadingLabel ?? confirmLabel}
+                </>
+              ) : (
+                confirmLabel
+              )}
             </button>
           </div>
         </div>

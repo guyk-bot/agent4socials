@@ -9,7 +9,7 @@ import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
-import { RefreshCw } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { avatarDisplayUrl } from '@/lib/avatar-display-url';
 
 /** Same connect targets and styling as Summary dashboard empty state (compact grid on Account page). */
@@ -69,12 +69,8 @@ export function ConnectedAccountsPanel() {
 
   const handleDisconnectConfirm = async () => {
     const acc = pendingDisconnectRef.current ?? accountToDisconnect;
-    pendingDisconnectRef.current = null;
-    setDisconnectConfirmOpen(false);
-    setAccountToDisconnect(null);
-    if (!acc) {
-      return;
-    }
+    if (!acc) return;
+
     const accountIdToRemove = acc.id;
     const disconnectedAccountWasSelected = selectedAccountId === accountIdToRemove;
     setDisconnectingId(accountIdToRemove);
@@ -87,10 +83,16 @@ export function ConnectedAccountsPanel() {
       if (disconnectedAccountWasSelected) {
         setSelectedAccountId(null);
       }
+      pendingDisconnectRef.current = null;
+      setAccountToDisconnect(null);
+      setDisconnectConfirmOpen(false);
     } catch (e) {
       const err = e as { response?: { data?: { message?: string }; status?: number } };
       const msg = err?.response?.data?.message ?? (err?.response?.status === 401 ? 'Session expired. Sign out and sign back in, then try again.' : 'Could not disconnect. Try again.');
       setAlertMessage(msg);
+      pendingDisconnectRef.current = null;
+      setAccountToDisconnect(null);
+      setDisconnectConfirmOpen(false);
     } finally {
       setDisconnectingId(null);
     }
@@ -118,8 +120,18 @@ export function ConnectedAccountsPanel() {
           {CONNECT_PLATFORM_CARDS.map(({ id, name, slug, border, bg }) => {
             const acc = accountByPlatform[id];
             if (acc) {
+              const isDisconnecting = disconnectingId === acc.id;
               return (
-                <div key={acc.id} className="account-connect-card rounded-xl border border-neutral-200 bg-white p-3 sm:p-4 text-center">
+                <div
+                  key={acc.id}
+                  className={`account-connect-card relative rounded-xl border border-neutral-200 bg-white p-3 sm:p-4 text-center transition-opacity ${isDisconnecting ? 'opacity-60 pointer-events-none' : ''}`}
+                >
+                  {isDisconnecting && (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-xl bg-white/90 dark:bg-neutral-900/90">
+                      <Loader2 size={22} className="animate-spin text-red-600" aria-hidden />
+                      <span className="text-xs font-medium text-neutral-700 dark:text-neutral-200">Disconnecting...</span>
+                    </div>
+                  )}
                   <div className="flex justify-center">
                     <div className="w-9 h-9 rounded-full overflow-hidden bg-neutral-100 flex items-center justify-center">
                       {(() => {
@@ -155,7 +167,7 @@ export function ConnectedAccountsPanel() {
                         } catch (_) {}
                         setReconnectingId(null);
                       }}
-                      disabled={reconnectingId === acc.id}
+                      disabled={reconnectingId === acc.id || isDisconnecting}
                       className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-[10px] sm:text-xs text-neutral-700 hover:bg-neutral-50 disabled:opacity-60"
                     >
                       {reconnectingId === acc.id ? <RefreshCw size={12} className="animate-spin" /> : null}
@@ -164,9 +176,10 @@ export function ConnectedAccountsPanel() {
                     <button
                       type="button"
                       onClick={() => handleDisconnectClick(acc)}
-                      disabled={disconnectingId === acc.id}
-                      className="rounded-md border border-red-200 bg-white px-2 py-1 text-[10px] sm:text-xs text-red-600 hover:bg-red-50 disabled:opacity-60"
+                      disabled={Boolean(disconnectingId) || reconnectingId === acc.id}
+                      className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-white px-2 py-1 text-[10px] sm:text-xs text-red-600 hover:bg-red-50 disabled:opacity-60"
                     >
+                      {isDisconnecting ? <Loader2 size={12} className="animate-spin" aria-hidden /> : null}
                       Disconnect
                     </button>
                   </div>
@@ -190,12 +203,20 @@ export function ConnectedAccountsPanel() {
 
       <ConfirmModal
         open={disconnectConfirmOpen}
-        onClose={() => { setDisconnectConfirmOpen(false); setAccountToDisconnect(null); }}
+        onClose={() => {
+          if (disconnectingId) return;
+          setDisconnectConfirmOpen(false);
+          setAccountToDisconnect(null);
+          pendingDisconnectRef.current = null;
+        }}
         title="Disconnect account?"
         message={accountToDisconnect ? `Disconnect @${accountToDisconnect.username || accountToDisconnect.platform}? All synced posts and insights for this account will be removed. You can reconnect anytime from Account or when you add a platform from the dashboard.` : ''}
         confirmLabel="Disconnect"
+        confirmLoadingLabel="Disconnecting..."
+        confirmLoading={Boolean(disconnectingId)}
         cancelLabel="Keep connected"
         variant="danger"
+        closeOnConfirm={false}
         onConfirm={() => { void handleDisconnectConfirm(); }}
       />
     </div>
