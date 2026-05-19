@@ -1437,6 +1437,15 @@ export default function DashboardPage() {
           });
           if (merged && userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, merged, dateRange);
         }
+        if (selectedAccount?.platform === 'TIKTOK' && shouldApplyVisibleChartUpdate()) {
+          try {
+            const accRes = await api.get('/social/accounts');
+            const accData = Array.isArray(accRes.data) ? accRes.data : [];
+            setCachedAccounts(accData);
+          } catch {
+            /* sidebar avatar may have been mirrored to R2 during insights */
+          }
+        }
       })
       .catch(() => { 
         // Keep stale insights on error; only clear if we had no data at all
