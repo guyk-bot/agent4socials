@@ -202,6 +202,11 @@
 }
 .accent-orange-light-btn svg {
   color: var(--color-accent-orange-light) !important;
+  stroke: var(--color-accent-orange-light) !important;
+}
+[data-theme='dark'] .accent-orange-light-btn svg {
+  color: #ffb86b !important;
+  stroke: #ffb86b !important;
 }
 .brand-select-menu {
   max-height: 11rem;

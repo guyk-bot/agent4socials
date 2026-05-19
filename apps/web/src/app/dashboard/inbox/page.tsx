@@ -3181,7 +3181,7 @@ function InboxPage() {
                         setAiReplyLoading(false);
                       }
                     }}
-                    className="p-3 rounded-xl bg-neutral-100 text-neutral-600 hover:bg-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 border border-neutral-200"
+                    className="p-3 rounded-xl accent-orange-light-btn disabled:opacity-40 disabled:cursor-not-allowed shrink-0 border"
                     title={hasCommentExamples ? 'Generate reply with AI' : 'Add comment reply examples in AI Assistant to enable AI drafts'}
                   >
                     {aiReplyLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
@@ -3236,7 +3236,7 @@ function InboxPage() {
                       setReplySending(false);
                     }
                   }}
-                  className="p-3 rounded-xl bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-700 dark:text-white dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  className="p-3 rounded-xl bg-[var(--button)] text-white hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                   title="Send reply"
                   >
                     {replySending ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
@@ -3547,7 +3547,7 @@ function InboxPage() {
                         setAiReplyLoading(false);
                       }
                     }}
-                    className="p-3 rounded-xl bg-neutral-100 text-neutral-600 hover:bg-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 border border-neutral-200"
+                    className="p-3 rounded-xl accent-orange-light-btn disabled:opacity-40 disabled:cursor-not-allowed shrink-0 border"
                     title={hasInboxExamples ? 'Generate reply with AI' : 'Add inbox reply examples in AI Assistant to enable AI drafts'}
                   >
                     {aiReplyLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
@@ -3609,7 +3609,7 @@ function InboxPage() {
                       setDmReplySending(false);
                     }
                   }}
-                  className="p-3 rounded-xl bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-700 dark:text-white dark:hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  className="p-3 rounded-xl bg-[var(--button)] text-white hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                   title="Send"
                 >
                   {dmReplySending ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
