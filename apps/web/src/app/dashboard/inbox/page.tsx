@@ -121,7 +121,7 @@ const INBOX_MESSAGES_CACHE_MAX_BYTES = 2_000_000;
 /** Keep up to 150 conversations so the full inbox list is covered. */
 const INBOX_MESSAGES_CACHE_MAX_ENTRIES = 150;
 /** Cached messages are considered fresh for 4 hours. After that they are re-fetched. */
-const INBOX_MESSAGES_CACHE_TTL_MS = 4 * 60 * 60 * 1000;
+const INBOX_MESSAGES_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 h — once opened, stays instant for a full day
 
 type ConvCache = {
   messages: ConversationMessage[];
@@ -788,24 +788,33 @@ function InboxPage() {
       })
       .then((res) => {
         if (ac.signal.aborted) return;
-        const messages = res.data?.messages ?? [];
-        const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
+        const freshMessages = res.data?.messages ?? [];
         const error = res.data?.error ?? null;
+        const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
         const recipientName = res.data?.recipientName ?? null;
         const recipientPictureUrl = res.data?.recipientPictureUrl ?? null;
-        setConversationMessagesCache((prev) =>
-          withCacheEntry(prev, convId, {
+        // If the server returned an error (e.g. throttled) but no messages, keep
+        // the existing cached messages so the thread doesn't suddenly go blank.
+        setConversationMessagesCache((prev) => {
+          const existing = prev[convId];
+          const messages = freshMessages.length > 0
+            ? freshMessages
+            : (existing?.messages?.length ? existing.messages : freshMessages);
+          return withCacheEntry(prev, convId, {
             messages,
             recipientId,
             recipientName,
             recipientPictureUrl,
             error,
             accountId: accountIdForFetch,
-          })
-        );
+          });
+        });
         if (selectedConversationId === convId) {
-          setConversationMessages(messages);
-          setConversationLastReadCount(convId, messages.length, user?.id);
+          const displayMessages = freshMessages.length > 0
+            ? freshMessages
+            : (conversationMessagesCacheRef.current[convId]?.messages ?? freshMessages);
+          setConversationMessages(displayMessages);
+          setConversationLastReadCount(convId, displayMessages.length, user?.id);
           setConversationRecipientId(recipientId);
           setConversationMessagesError(error);
         }
@@ -818,18 +827,21 @@ function InboxPage() {
           (isTimeout
             ? 'The platform is taking too long to respond. Try again in a moment.'
             : (e?.message ?? 'Could not load messages.'));
-        const fallback = {
-          messages: [] as ConversationMessage[],
-          recipientId: recipientFromConv ?? null,
-          recipientName: null,
-          recipientPictureUrl: null,
-          error: apiError as string | null,
-          accountId: accountIdForFetch,
-        };
-        setConversationMessagesCache((prev) => withCacheEntry(prev, convId, fallback));
+        // Preserve existing messages so a failed refresh doesn't wipe the cached thread.
+        setConversationMessagesCache((prev) => {
+          const existing = prev[convId];
+          const keepMessages = existing?.messages && existing.messages.length > 0
+            ? existing.messages : [] as ConversationMessage[];
+          return withCacheEntry(prev, convId, {
+            messages: keepMessages,
+            recipientId: existing?.recipientId ?? recipientFromConv ?? null,
+            recipientName: existing?.recipientName ?? null,
+            recipientPictureUrl: existing?.recipientPictureUrl ?? null,
+            error: apiError as string | null,
+            accountId: accountIdForFetch,
+          });
+        });
         if (selectedConversationId === convId) {
-          setConversationMessages([]);
-          setConversationRecipientId(recipientFromConv ?? null);
           setConversationMessagesError(apiError);
         }
       })
