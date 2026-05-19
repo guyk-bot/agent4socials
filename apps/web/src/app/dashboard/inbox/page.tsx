@@ -137,6 +137,8 @@ const INBOX_MESSAGES_CACHE_MAX_BYTES = 2_000_000;
 const INBOX_MESSAGES_CACHE_MAX_ENTRIES = 150;
 /** Prefetch/warm this many threads in the browser (newest first). */
 const INBOX_CLIENT_PREFETCH_MAX = 150;
+/** While Inbox is open, refresh conversation list and open thread about every 90s. */
+const INBOX_LIVE_POLL_MS = 90_000;
 type ConvCache = {
   messages: ConversationMessage[];
   recipientId: string | null;
@@ -175,11 +177,42 @@ function isConvCacheFresh(
 ): boolean {
   if (!isConvCacheUsable(cached, accountId)) return false;
   if (!cached!._ts) return true; // legacy: no timestamp = assume fresh
+  if (Date.now() - cached!._ts > INBOX_LIVE_POLL_MS) return false;
   if (convUpdatedTime) {
     const convMs = Date.parse(convUpdatedTime);
     if (Number.isFinite(convMs) && convMs > cached!._ts) return false;
   }
   return true;
+}
+
+function patchConversationSenderPicture(
+  convId: string,
+  pictureUrl: string | null | undefined,
+  name?: string | null
+): (prev: Array<Conversation & { platform?: string }>) => Array<Conversation & { platform?: string }> {
+  if (!pictureUrl && !name) return (prev) => prev;
+  return (prev) =>
+    prev.map((c) => {
+      if (c.id !== convId) return c;
+      const senders = c.senders ?? [];
+      if (senders.length === 0) {
+        return {
+          ...c,
+          senders: [{ pictureUrl: pictureUrl ?? null, name: name ?? undefined }],
+        };
+      }
+      return {
+        ...c,
+        senders: [
+          {
+            ...senders[0],
+            pictureUrl: pictureUrl ?? senders[0].pictureUrl,
+            name: name ?? senders[0].name,
+          },
+          ...senders.slice(1),
+        ],
+      };
+    });
 }
 
 /** Best recipient id for send (avoids slow server-side Meta lookups). */
@@ -964,6 +997,9 @@ function InboxPage() {
           setConversationLastReadCount(convId, displayMessages.length, user?.id);
           setConversationRecipientId(recipientId);
           setConversationMessagesError(displayMessages.length > 0 ? null : error);
+          if (recipientPictureUrl || recipientName) {
+            setConversations(patchConversationSenderPicture(convId, recipientPictureUrl, recipientName));
+          }
         }
       } catch (e: unknown) {
         const err = e as { code?: string; name?: string; response?: { data?: { error?: string } }; message?: string };
@@ -1011,6 +1047,68 @@ function InboxPage() {
       ac.abort();
     };
   }, [selectedConversationId, currentAccountForDmThread?.id, dmThreadPlatform, user?.id, selectedConversation?.updatedTime]);
+
+  // Facebook / Instagram: poll the open thread every ~90s so new inbound messages appear quickly.
+  useEffect(() => {
+    if (inboxMode !== 'messages') return;
+    if (!selectedConversationId || !currentAccountForDmThread?.id) return;
+    if (!dmThreadPlatform || dmThreadPlatform === 'TWITTER') return;
+
+    const convId = selectedConversationId;
+    const accountId = currentAccountForDmThread.id;
+    let cancelled = false;
+
+    const refreshOpenThread = async () => {
+      try {
+        const res = await api.get<{
+          messages?: ConversationMessage[];
+          recipientId?: string | null;
+          recipientName?: string | null;
+          recipientPictureUrl?: string | null;
+          error?: string | null;
+        }>(`/social/accounts/${accountId}/conversations/${convId}/messages?refresh=1`, {
+          timeout: 45_000,
+        });
+        if (cancelled) return;
+        const freshMessages = res.data?.messages ?? [];
+        if (freshMessages.length === 0) return;
+        const recipientId = res.data?.recipientId ?? null;
+        const recipientName = res.data?.recipientName ?? null;
+        const recipientPictureUrl = res.data?.recipientPictureUrl ?? null;
+        setConversationMessagesCache((prev) =>
+          withCacheEntry(prev, convId, {
+            messages: freshMessages,
+            recipientId,
+            recipientName,
+            recipientPictureUrl,
+            error: null,
+            accountId,
+          })
+        );
+        if (selectedConversationId === convId) {
+          setConversationMessages(freshMessages);
+          setConversationRecipientId(recipientId);
+          setConversationMessagesError(null);
+          if (recipientPictureUrl || recipientName) {
+            setConversations(patchConversationSenderPicture(convId, recipientPictureUrl, recipientName));
+          }
+        }
+      } catch {
+        /* keep showing cached thread */
+      }
+    };
+
+    const interval = setInterval(() => void refreshOpenThread(), INBOX_LIVE_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [
+    inboxMode,
+    selectedConversationId,
+    currentAccountForDmThread?.id,
+    dmThreadPlatform,
+  ]);
 
   useEffect(() => {
     setAiReplyError(null);
@@ -1287,13 +1385,20 @@ function InboxPage() {
           stale?: boolean;
           debug?: unknown;
         };
-      }
+      },
+      opts?: { deltaFetch?: boolean }
     ) => {
       const list = (res.data?.conversations ?? []).map((c: Conversation) => ({
         ...c,
         platform,
         messageAccountId: account.id,
       }));
+      // Delta poll with zero new rows must not wipe existing threads for this platform.
+      if (opts?.deltaFetch && list.length === 0 && !res.data?.error) {
+        const deltaHint = typeof res.data?.emptyHint === 'string' ? res.data.emptyHint : null;
+        if (deltaHint && !errorsByPlatform[platform]) hintsByPlatform[platform] = deltaHint;
+        return;
+      }
       const kept = merge.filter((c) => c.platform !== platform);
       merge.length = 0;
       merge.push(...kept, ...list);
@@ -1357,7 +1462,7 @@ function InboxPage() {
         try {
           const res = await api.get(convUrl, { timeout: 90_000 });
           if (cancelled) return;
-          applyPlatformFetchResult(platform, account, res);
+          applyPlatformFetchResult(platform, account, res, { deltaFetch: !!since });
         } catch (err: unknown) {
           if (cancelled) return;
           const e = err as {
@@ -1374,7 +1479,7 @@ function InboxPage() {
           }
           const partial = e?.response?.data?.conversations;
           if (partial && partial.length > 0) {
-            applyPlatformFetchResult(platform, account, { data: e.response?.data });
+            applyPlatformFetchResult(platform, account, { data: e.response?.data }, { deltaFetch: !!since });
             continue;
           }
           const apiError = typeof e?.response?.data?.error === 'string' ? e.response.data.error : null;
@@ -1426,12 +1531,11 @@ function InboxPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messageFetchPlatformIds.join(','), effectiveAccounts.map((a) => a.id).join(','), conversationsRefreshKey, user?.id]);
 
-  // Keep inbox messages fresh every 5 minutes while preserving cache-first UX.
-  // This triggers delta fetches only, so existing conversations open instantly from cache.
+  // Live refresh: conversation list every ~90s while Inbox is open (new DMs within 1–2 min).
   useEffect(() => {
     if (inboxMode !== 'messages') return;
     if (messageFetchPlatformIds.length === 0) return;
-    const interval = setInterval(() => setConversationsRefreshKey((k) => k + 1), 5 * 60_000);
+    const interval = setInterval(() => setConversationsRefreshKey((k) => k + 1), INBOX_LIVE_POLL_MS);
     // Also refresh immediately when the tab becomes visible again (user switches back).
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') setConversationsRefreshKey((k) => k + 1);
@@ -2351,7 +2455,20 @@ function InboxPage() {
           const err = conversationsErrorsByPlatform[platformId];
           const hint = conversationsHintsByPlatform[platformId];
           const loadedCount = conversations.filter((c) => c.platform === platformId).length;
-          if (!err && !(hint && loadedCount === 0)) return null;
+          const igEmptyNeedReconnect =
+            platformId === 'INSTAGRAM' &&
+            !err &&
+            !hint &&
+            loadedCount === 0 &&
+            !conversationsLoading &&
+            effectiveAccounts.some((a) => a.platform === 'INSTAGRAM');
+          const bannerText =
+            err ??
+            hint ??
+            (igEmptyNeedReconnect
+              ? 'No Instagram conversations loaded. Reconnect Instagram and choose the Facebook Page linked to your profile, or request instagram_manage_messages in Meta App Review.'
+              : null);
+          if (!bannerText) return null;
           return (
             <div
               key={platformId}
@@ -2361,7 +2478,7 @@ function InboxPage() {
             >
               <p className={`text-xs ${err ? 'text-amber-900' : 'text-sky-900'}`}>
                 <span className="font-semibold">{platformLabel}: </span>
-                {err ?? hint}
+                {bannerText}
               </p>
               <div className="flex gap-2">
                 <button
