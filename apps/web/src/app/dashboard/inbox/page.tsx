@@ -3306,7 +3306,11 @@ function InboxPage() {
                                   {msg.fromName || (dmThreadPlatform === 'TWITTER' ? 'X (Twitter) user' : 'Unknown')}
                                 </p>
                               )}
-                              <p className="text-sm whitespace-pre-wrap break-words">{msg.message || '—'}</p>
+                              <p className="text-sm whitespace-pre-wrap break-words">
+                                {msg.message?.trim()
+                                  ? msg.message
+                                  : '(No text: may be media, share, or story)'}
+                              </p>
                               {msg.createdTime && (
                                 <p className={`text-xs mt-1 ${msg.isFromPage ? 'text-neutral-400' : 'text-neutral-400'}`}>
                                   {new Date(msg.createdTime).toLocaleString()}

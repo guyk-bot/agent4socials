@@ -18,19 +18,66 @@ const igBaseUrl = 'https://graph.instagram.com/v25.0';
 /** Max messages to hydrate per conversation open — keeps total time well under the 60s Vercel limit. */
 const IG_MESSAGE_FETCH_LIMIT = 10;
 
+/**
+ * Meta requires attachment/share sub-fields; requesting `attachments` alone often returns
+ * empty `data` even when the DM has images, reels, or shares.
+ * @see https://developers.facebook.com/docs/graph-api/reference/message
+ */
+export const META_INBOX_MESSAGE_FIELDS = [
+  'id',
+  'created_time',
+  'from',
+  'to',
+  'message',
+  'is_unsupported',
+  'attachments{type,mime_type,name,image_data,video_data,file_url,payload}',
+  'shares{data{name,description,type,url,link}}',
+  'story',
+  'reactions{data{reaction,users{id,username}}}',
+].join(',');
+
+/** Facebook Graph thread listing uses `created_time` (same sub-fields as single message). */
+const FB_THREAD_MESSAGE_FIELDS = [
+  'id',
+  'from',
+  'to',
+  'message',
+  'created_time',
+  'is_unsupported',
+  'attachments{type,mime_type,name,image_data,video_data,file_url,payload}',
+  'shares{data{name,description,type,url,link}}',
+  'story',
+  'reactions{data{reaction,users{id,username}}}',
+].join(',');
+
 type IgAttachment = {
-  type?: string; // 'image', 'video', 'audio', 'file', 'sticker', 'share', 'story_mention', etc.
+  type?: string;
   name?: string;
   mime_type?: string;
+  file_url?: string;
   payload?: { url?: string };
+  image_data?: { url?: string };
+  video_data?: { url?: string };
 };
 
-type IgMessageRow = {
+type IgShareItem = {
+  name?: string;
+  description?: string;
+  type?: string;
+  url?: string;
+  link?: string;
+};
+
+export type IgMessageRow = {
   id: string;
   created_time?: string;
   from?: { id?: string; username?: string; name?: string };
   message?: string;
+  is_unsupported?: boolean;
   attachments?: { data?: IgAttachment[] };
+  shares?: { data?: IgShareItem[] };
+  story?: { link?: string; id?: string };
+  reactions?: { data?: Array<{ reaction?: string; users?: Array<{ id?: string; username?: string }> }> };
   error?: { message?: string; code?: number };
 };
 
@@ -50,6 +97,9 @@ async function resolveLinkedPageId(userId: string, accessToken: string): Promise
 function attachmentLabel(m: IgMessageRow): string {
   const att = m.attachments?.data?.[0];
   if (!att) return '';
+  if (att.image_data) return '(Image)';
+  if (att.video_data) return '(Video)';
+  if (att.file_url) return att.name ? `(${att.name})` : '(File)';
   const t = (att.type ?? att.mime_type ?? '').toLowerCase();
   if (t.includes('sticker')) return '(Sticker)';
   if (t.includes('story_mention') || t.includes('story')) return '(Story mention)';
@@ -58,8 +108,44 @@ function attachmentLabel(m: IgMessageRow): string {
   if (t.includes('video')) return '(Video)';
   if (t.includes('image') || t.includes('photo')) return '(Image)';
   if (t.includes('gif')) return '(GIF)';
+  if (att.payload?.url) return '(Link attachment)';
   if (att.name) return `(${att.name})`;
   return '(Attachment)';
+}
+
+function shareLabel(m: IgMessageRow): string {
+  const share = m.shares?.data?.[0];
+  if (!share) return '';
+  const t = (share.type ?? '').toLowerCase();
+  const title = (share.name ?? share.description ?? '').trim();
+  if (t.includes('reel') || t === 'ig_reel') return title ? `(Shared reel: ${title})` : '(Shared reel)';
+  if (t.includes('post') || t === 'ig_post') return title ? `(Shared post: ${title})` : '(Shared post)';
+  if (share.url || share.link) return title ? `(Shared link: ${title})` : '(Shared link)';
+  return title ? `(Share: ${title})` : '(Share)';
+}
+
+function storyLabel(m: IgMessageRow): string {
+  if (!m.story?.id && !m.story?.link) return '';
+  return '(Story reply)';
+}
+
+function reactionLabel(m: IgMessageRow): string {
+  const items = m.reactions?.data ?? [];
+  if (items.length === 0) return '';
+  const emoji = items.map((r) => r.reaction).filter(Boolean).join(' ');
+  return emoji ? `(Reaction ${emoji})` : '(Reaction)';
+}
+
+/** Build display text for inbox bubbles from a Meta message row. */
+export function messageBodyFromRow(m: IgMessageRow): string {
+  const text = (m.message ?? '').trim();
+  if (text) return text;
+
+  const parts = [attachmentLabel(m), shareLabel(m), storyLabel(m), reactionLabel(m)].filter(Boolean);
+  if (m.is_unsupported) parts.push('(Unsupported message type)');
+  if (parts.length > 0) return parts.join(' ');
+
+  return '';
 }
 
 function mapRows(
@@ -72,7 +158,7 @@ function mapRows(
       id: m.id,
       fromId: m.from?.id ?? null,
       fromName: m.from?.username ?? m.from?.name ?? null,
-      message: m.message || attachmentLabel(m) || '',
+      message: messageBodyFromRow(m),
       createdTime: m.created_time ?? null,
       isFromPage: !!(m.from?.id && ourIds.has(m.from.id)),
     }))
@@ -98,10 +184,10 @@ async function fetchIgMessageDetails(
     ids.map(async (msgId): Promise<IgMessageRow | null> => {
       try {
         const r = await axios.get<IgMessageRow>(`${igBaseUrl}/${msgId}`, {
-          params: { fields: 'id,created_time,from,to,message,attachments', access_token: accessToken },
-          timeout: 8_000, // shorter per-message timeout — 10 in parallel = ~8s total max
+          params: { fields: META_INBOX_MESSAGE_FIELDS, access_token: accessToken },
+          timeout: 8_000,
         });
-        noteMetaUsageFromHeaders(r.headers); // still track usage for throttle guard
+        noteMetaUsageFromHeaders(r.headers);
         return r.data ?? null;
       } catch {
         return null;
@@ -151,7 +237,7 @@ export async function loadFacebookGraphConversationMessages(
 ): Promise<{ messages: ConversationUiMessage[]; error?: string }> {
   try {
     const params: Record<string, string> = {
-      fields: 'id,from,to,message,created_time,attachments',
+      fields: FB_THREAD_MESSAGE_FIELDS,
       access_token: accessToken,
     };
     if (platform === 'INSTAGRAM') params.platform = 'instagram';
@@ -161,7 +247,7 @@ export async function loadFacebookGraphConversationMessages(
       error?: { message: string };
     }>(`${fbBaseUrl}/${conversationId}/messages`, {
       params,
-      timeout: 12_000, // reduced from 30s — prevents double-call from hitting the 60s function limit
+      timeout: 12_000,
     });
 
     if (res.data?.error) {
@@ -203,13 +289,9 @@ export async function loadInstagramConversationMessages(args: {
     linkedPageId = await resolveLinkedPageId(userId, token);
   }
 
-  // If linkedPageId is resolved, use the Facebook Graph path (page token + platform=instagram).
-  // Always return its result — even empty — to avoid making a second identical API call.
-  // Two sequential 30s calls would hit the 60s Vercel function limit and cause client timeouts.
   if (linkedPageId) {
     return loadFacebookGraphConversationMessages(conversationId, token, ourIds, 'INSTAGRAM');
   }
 
-  // No linked page found: try direct graph.facebook.com call without page context.
   return loadFacebookGraphConversationMessages(conversationId, token, ourIds, 'INSTAGRAM');
 }
