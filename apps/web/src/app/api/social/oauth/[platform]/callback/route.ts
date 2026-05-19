@@ -9,6 +9,7 @@ import { ensureSocialAccountOAuthSchema } from '@/lib/ensure-social-account-oaut
 import { syncTikTokImportedVideos } from '@/lib/tiktok/sync-imported-videos';
 import { fetchLinkedInRestPersonUrn } from '@/lib/linkedin/rest-person';
 import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
+import { scheduleInboxWarmForUser } from '@/lib/inbox/schedule-inbox-warm';
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'PINTEREST'] as const;
 
 const OAUTH_HEAD = '<meta charset="utf-8"><meta name="robots" content="noindex, nofollow">';
@@ -748,6 +749,7 @@ export async function GET(
         if (igAccount) {
           try { await ensureBootstrapSnapshotForToday(igAccount); } catch (_) {}
         }
+        scheduleInboxWarmForUser(userId);
         const dashboardUrl = fbAccount?.id
           ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(fbAccount.id)}&connecting=1`
           : `${baseUrl}/dashboard`;
@@ -861,6 +863,7 @@ export async function GET(
           select: { id: true, userId: true, platform: true, platformUserId: true, accessToken: true },
         }) : null;
         if (igAccountForBootstrap) { try { await ensureBootstrapSnapshotForToday(igAccountForBootstrap); } catch (_) {} }
+      scheduleInboxWarmForUser(userId);
       const dashboardUrl = fbAccount?.id
         ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(fbAccount.id)}&connecting=1`
         : `${baseUrl}/dashboard`;
@@ -975,6 +978,7 @@ export async function GET(
         select: { id: true, userId: true, platform: true, platformUserId: true, accessToken: true },
       });
       if (igAccount) { try { await ensureBootstrapSnapshotForToday(igAccount); } catch (_) {} }
+      scheduleInboxWarmForUser(userId);
       const dashboardUrl = igAccount?.id
         ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(igAccount.id)}&connecting=1`
         : `${baseUrl}/dashboard`;
@@ -1221,6 +1225,9 @@ export async function GET(
     if (hasTwitterOAuth1Env && !hasOAuth1Stored) {
       extraQuery = '&twitter_1oa_next=1';
     }
+  }
+  if (plat === 'INSTAGRAM' || plat === 'FACEBOOK') {
+    scheduleInboxWarmForUser(userId);
   }
   const successRedirectUrl = mainAccount?.id
     ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(mainAccount.id)}&connecting=1${extraQuery}`

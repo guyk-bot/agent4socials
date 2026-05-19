@@ -7,6 +7,7 @@ import api from '@/lib/api';
 import { getDefaultAnalyticsDateRange } from '@/lib/calendar-date';
 import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
 import { computeInboxHeaderUnread } from '@/lib/inbox/unread-count';
+import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
 import {
   readScheduledPostsClientCache,
   writeScheduledPostsClientCache,
@@ -483,6 +484,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         setPrefetchStatus('done');
         setPrefetchHasLoadedOnce(true);
         if (typeof sessionStorage !== 'undefined') sessionStorage.setItem('appDataPhase1Done', '1');
+
+        // Pre-warm Instagram/Facebook DM cache in the background (not only when Inbox opens).
+        if (accounts.some((a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK')) {
+          triggerInboxWarmClient();
+        }
 
         // Phase 2: load per-account data ONE REQUEST AT A TIME.
         // Each request = 1 serverless function = 1 DB connection.

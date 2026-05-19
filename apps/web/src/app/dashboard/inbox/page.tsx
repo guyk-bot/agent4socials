@@ -19,6 +19,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import api from '@/lib/api';
+import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
 import { useAuth } from '@/context/AuthContext';
 import {
   getReadCommentIds,
@@ -603,18 +604,11 @@ function InboxPage() {
     };
   }, [conversationMessagesCache]);
 
-  // Warm server-side DB cache so first clicks and prefetch hit app_kv (fast) not live Meta.
+  // Extra warm when Inbox opens (login/connect already trigger via AppDataContext).
   useEffect(() => {
     if (!user?.id) return;
     if (inboxMode !== 'messages') return;
-    const WARM_KEY = 'inbox_warm_ts';
-    const WARM_INTERVAL_MS = 5 * 60 * 1000;
-    try {
-      const last = Number(sessionStorage.getItem(WARM_KEY) ?? '0');
-      if (Date.now() - last < WARM_INTERVAL_MS) return;
-      sessionStorage.setItem(WARM_KEY, String(Date.now()));
-    } catch { /* ignore */ }
-    api.post('/inbox/warm').catch(() => {/* fire-and-forget */});
+    triggerInboxWarmClient();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, inboxMode, conversations.length]);
 

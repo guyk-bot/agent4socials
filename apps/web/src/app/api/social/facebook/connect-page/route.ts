@@ -3,6 +3,7 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import axios from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
+import { scheduleInboxWarmForUser } from '@/lib/inbox/schedule-inbox-warm';
 
 type PageItem = { id: string; name?: string; picture?: string; instagram_business_account_id?: string };
 
@@ -161,5 +162,6 @@ export async function POST(request: NextRequest) {
     });
   }
   await prisma.pendingConnection.delete({ where: { id: pendingId } }).catch(() => {});
+  scheduleInboxWarmForUser(userId);
   return NextResponse.json({ ok: true, redirect: '/dashboard' });
 }

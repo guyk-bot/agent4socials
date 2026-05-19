@@ -21,6 +21,7 @@ import {
   clearStoredInsightsForAccount,
 } from '@/lib/dashboard-insights-session-cache';
 import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
+import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
 import {
   localCalendarDateFromIso,
   toLocalCalendarDate,
@@ -631,6 +632,7 @@ export default function DashboardPage() {
     if (connectingParam !== '1' || accountIdFromUrl) return;
     const timeoutId = setTimeout(() => setJustConnected(false), 5000);
     setJustConnected(true);
+    triggerInboxWarmClient(true);
     router.replace('/dashboard', { scroll: false });
     return () => clearTimeout(timeoutId);
   }, [connectingParam, accountIdFromUrl, router]);
