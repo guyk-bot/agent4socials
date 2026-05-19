@@ -152,6 +152,40 @@
 [data-theme='dark'] .brand-open-dashboard-btn:active {
   background: #3f3f46 !important;
 }
+/* Team members section: match brand / connected-accounts dark surfaces */
+[data-theme='dark'] .team-members-frame {
+  background: #0b0b0b !important;
+  border-color: #000000 !important;
+}
+[data-theme='dark'] .team-members-inner {
+  background: #323232 !important;
+  border-color: #000000 !important;
+}
+[data-theme='dark'] .team-member-row {
+  background: #3f3f46 !important;
+  border-color: #52525b !important;
+}
+[data-theme='dark'] .team-members-frame .team-members-field,
+[data-theme='dark'] .team-members-inner .team-members-field {
+  background-color: #262626 !important;
+  border-color: #52525b !important;
+  color: #fafafa !important;
+}
+[data-theme='dark'] .team-members-inner .team-members-add-btn {
+  background: #3f3f46 !important;
+  border-color: #52525b !important;
+  color: #fafafa !important;
+}
+[data-theme='dark'] .team-members-inner .team-members-add-btn:hover:not(:disabled) {
+  background: #52525b !important;
+}
+[data-theme='dark'] .team-members-inner h3,
+[data-theme='dark'] .team-members-inner .text-neutral-900 {
+  color: #fafafa !important;
+}
+[data-theme='dark'] .team-members-frame .text-neutral-500 {
+  color: #a1a1aa !important;
+}
 [data-theme='dark'] .create-brand-modal-scope input[type='text'],
 [data-theme='dark'] .create-brand-modal-scope input[type='email'],
 [data-theme='dark'] .create-brand-modal-scope select {

@@ -126,7 +126,7 @@ export function BrandTeamMembersSection({
   };
 
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-neutral-50/40 p-4 sm:p-5 shadow-sm space-y-4 dark:border-black dark:bg-neutral-800">
+    <div className="team-members-frame rounded-2xl border border-neutral-200 bg-neutral-50/40 p-4 sm:p-5 shadow-sm space-y-4">
       <div className="space-y-2">
         <label htmlFor="team-brand-select" className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">
           Brand
@@ -141,7 +141,7 @@ export function BrandTeamMembersSection({
             setInviteLink('');
           }}
           disabled={!brands.length}
-          className="w-full max-w-md rounded-xl border border-neutral-300 bg-[var(--background)] px-3 py-2.5 text-sm text-neutral-900"
+          className="team-members-field w-full max-w-md rounded-xl border border-neutral-300 bg-[var(--background)] px-3 py-2.5 text-sm text-neutral-900"
         >
           {brands.map((b) => (
             <option key={b.id} value={b.id}>
@@ -153,7 +153,7 @@ export function BrandTeamMembersSection({
       </div>
 
       {selectedBrand ? (
-        <div className="rounded-xl border border-neutral-200 bg-[var(--background)] p-4 dark:border-black dark:bg-neutral-800">
+        <div className="team-members-inner rounded-xl border border-neutral-200 bg-[var(--background)] p-4">
           <div className="flex items-center gap-2">
             <Users size={15} className="text-neutral-500" />
             <h3 className="text-sm font-semibold text-neutral-900">Team members & roles</h3>
@@ -200,7 +200,7 @@ export function BrandTeamMembersSection({
               <p className="text-sm text-neutral-500">No team members yet.</p>
             ) : (
               members.map((member) => (
-                <div key={member.id} className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-[var(--card-bg)] px-3 py-2">
+                <div key={member.id} className="team-member-row flex items-center gap-2 rounded-lg border border-neutral-200 bg-[var(--card-bg)] px-3 py-2">
                   <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-neutral-100 flex items-center justify-center">
                     {member.imageUrl ? (
                       <img src={member.imageUrl} alt="" className="h-full w-full object-cover" />
@@ -234,26 +234,26 @@ export function BrandTeamMembersSection({
               value={newMemberFirstName}
               onChange={(e) => setNewMemberFirstName(e.target.value)}
               placeholder="First name"
-              className="min-w-0 flex-[1_1_160px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
+              className="team-members-field min-w-0 flex-[1_1_160px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
             />
             <input
               type="text"
               value={newMemberLastName}
               onChange={(e) => setNewMemberLastName(e.target.value)}
               placeholder="Last name"
-              className="min-w-0 flex-[1_1_160px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
+              className="team-members-field min-w-0 flex-[1_1_160px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
             />
             <input
               type="email"
               value={newMemberEmail}
               onChange={(e) => setNewMemberEmail(e.target.value)}
               placeholder="Email"
-              className="min-w-0 flex-[1_1_180px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
+              className="team-members-field min-w-0 flex-[1_1_180px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-3 py-2 text-sm text-neutral-900"
             />
             <select
               value={newMemberRole}
               onChange={(e) => setNewMemberRole(e.target.value as BrandTeamRole)}
-              className="flex-[0_1_120px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-2 py-2 text-sm text-neutral-900"
+              className="team-members-field flex-[0_1_120px] rounded-lg border border-neutral-300 bg-[var(--card-bg)] px-2 py-2 text-sm text-neutral-900"
             >
               <option value="Admin">Admin</option>
               <option value="Editor">Editor</option>
@@ -265,7 +265,7 @@ export function BrandTeamMembersSection({
               type="button"
               onClick={() => void handleAddTeamMember()}
               disabled={!newMemberFirstName.trim() || !newMemberLastName.trim() || !newMemberEmail.trim() || inviteSending}
-              className="inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-[var(--card-bg)] px-3.5 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-100/70 disabled:opacity-50"
+              className="team-members-add-btn inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-[var(--card-bg)] px-3.5 py-2 text-sm font-semibold text-neutral-900 hover:bg-neutral-100/70 disabled:opacity-50"
             >
               <Plus size={14} />
               {inviteSending ? 'Sending...' : 'Add another team member'}
