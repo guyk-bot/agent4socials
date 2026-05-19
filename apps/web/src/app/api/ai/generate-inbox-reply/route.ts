@@ -17,7 +17,10 @@ function cleanReply(text: string): string {
 export async function POST(request: NextRequest) {
   if (!process.env.OPENAI_API_KEY?.trim()) {
     return NextResponse.json(
-      { message: 'AI reply generation is not configured (OPENAI_API_KEY)' },
+      {
+        message:
+          'AI replies are not enabled on the server. Add OPENAI_API_KEY in your hosting settings (e.g. Vercel Environment Variables), redeploy, then try again.',
+      },
       { status: 503 }
     );
   }

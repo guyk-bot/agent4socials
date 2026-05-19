@@ -93,6 +93,21 @@ export async function setInboxMessagesInDb(
  * Returns true if the conversation already has a fresh server-side cache entry
  * so the cron can skip re-fetching it.
  */
+/** Drop cached thread messages after a send so the next load includes the new reply. */
+export async function deleteInboxMessagesFromDb(
+  socialAccountId: string,
+  conversationId: string
+): Promise<void> {
+  try {
+    await ensureAppKvTable();
+    await prisma.$executeRaw`
+      DELETE FROM app_kv WHERE key = ${inboxMsgKey(socialAccountId, conversationId)}
+    `;
+  } catch {
+    /* non-critical */
+  }
+}
+
 export async function isInboxMessagesCached(
   socialAccountId: string,
   conversationId: string

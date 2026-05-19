@@ -6,7 +6,7 @@ import { signTwitterRequest } from '@/lib/twitter-oauth1';
 import { runFirstWelcomeMaybe } from '@/lib/dm-first-welcome';
 import { loadConversationForFirstWelcome } from '@/lib/inbox/load-conversation-for-first-welcome';
 import { isMetaNonCriticalThrottled } from '@/lib/meta-usage-guard';
-import { getInboxMessagesFromDb, setInboxMessagesInDb } from '@/lib/inbox/inbox-db-cache';
+import { deleteInboxMessagesFromDb, getInboxMessagesFromDb, setInboxMessagesInDb } from '@/lib/inbox/inbox-db-cache';
 
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
@@ -465,7 +465,20 @@ export async function POST(
         );
       }
     }
-    return NextResponse.json({ ok: true, message: 'Message sent.' });
+    await deleteInboxMessagesFromDb(account.id, conversationId);
+    const sentAt = new Date().toISOString();
+    return NextResponse.json({
+      ok: true,
+      message: 'Message sent.',
+      sentMessage: {
+        id: `local-${Date.now()}`,
+        fromId: account.platformUserId,
+        fromName: null,
+        message: text,
+        createdTime: sentAt,
+        isFromPage: true,
+      },
+    });
   } catch (e) {
     const err = e as { response?: { data?: { error?: { message?: string; code?: number; error_subcode?: number } }; status?: number } };
     const metaError = err?.response?.data?.error;

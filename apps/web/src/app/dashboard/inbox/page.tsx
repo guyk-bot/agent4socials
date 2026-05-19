@@ -19,6 +19,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import api from '@/lib/api';
+import { readApiErrorMessage, AI_REPLY_FAILED_MESSAGE } from '@/lib/api-error-message';
 import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
 import {
   markInboxAccountRecentlyConnected,
@@ -199,6 +200,13 @@ function proxyImageUrl(url: string | null | undefined): string | null {
   return `/api/proxy-image?url=${encodeURIComponent(url)}`;
 }
 
+/** Outgoing inbox bubbles (DMs and replies you sent). */
+const INBOX_SENT_BUBBLE_CLASS =
+  'bg-[rgba(255,184,107,0.38)] text-neutral-900 dark:bg-[rgba(255,184,107,0.32)] dark:text-neutral-100';
+/** Incoming bubbles from the other person. */
+const INBOX_RECV_BUBBLE_CLASS =
+  'bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100';
+
 function InboxAvatar({
   pictureUrl,
   label,
@@ -212,7 +220,7 @@ function InboxAvatar({
   const initials = (label || '?').replace(/^@/, '').slice(0, 2).toUpperCase() || '?';
   const src = pictureUrl && !imgFailed ? proxyImageUrl(pictureUrl) || pictureUrl : null;
   return (
-    <div className={`${className} rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden`}>
+    <div className={`${className} rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center shrink-0 overflow-hidden`}>
       {src ? (
         <img
           src={src}
@@ -435,6 +443,11 @@ function InboxPage() {
   const [batchDmTexts, setBatchDmTexts] = useState<Record<string, string>>({});
   const [aiReplyLoading, setAiReplyLoading] = useState(false);
   const [aiReplyError, setAiReplyError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAiReplyError(null);
+    setDmSendError(null);
+  }, [selectedConversationId]);
   const [notifications, setNotifications] = useState<{ comments: number; messages: number; byPlatform?: Record<string, { comments: number; messages: number }> }>({ comments: 0, messages: 0 });
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [engagement, setEngagement] = useState<EngagementItem[]>([]);
@@ -2772,8 +2785,7 @@ function InboxPage() {
                             if (reply) setReplyText(reply);
                             else setAiReplyError('No reply generated. Try again.');
                           } catch (e: unknown) {
-                            const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-                            setAiReplyError(msg ?? 'Could not generate reply.');
+                            setAiReplyError(readApiErrorMessage(e, AI_REPLY_FAILED_MESSAGE));
                           } finally {
                             setAiReplyLoading(false);
                           }
@@ -2920,8 +2932,7 @@ function InboxPage() {
                                       setAiReplyError('No reply generated. Try again.');
                                     }
                                   } catch (e: unknown) {
-                                    const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-                                    setAiReplyError(msg ?? 'Could not generate reply.');
+                                    setAiReplyError(readApiErrorMessage(e, AI_REPLY_FAILED_MESSAGE));
                                   } finally {
                                     setAiReplyLoading(false);
                                   }
@@ -3091,9 +3102,20 @@ function InboxPage() {
                       </div>
                     </div>
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Comment</p>
-                        <p className="text-sm text-neutral-800 mt-1">{selectedComment.text}</p>
+                      <div className="flex gap-2 items-end min-w-0 flex-1">
+                        <InboxAvatar
+                          pictureUrl={selectedComment.authorPictureUrl}
+                          label={selectedComment.authorName}
+                          className="w-8 h-8 shrink-0"
+                        />
+                        <div className={`min-w-0 flex-1 rounded-2xl px-4 py-2 rounded-bl-md ${INBOX_RECV_BUBBLE_CLASS}`}>
+                          <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-0.5">
+                            {selectedComment.authorName}
+                          </p>
+                          <p className="text-sm text-neutral-800 dark:text-neutral-100 whitespace-pre-wrap break-words">
+                            {selectedComment.text}
+                          </p>
+                        </div>
                       </div>
                       <button
                         type="button"
@@ -3138,21 +3160,31 @@ function InboxPage() {
                                 : r.authorPictureUrl;
                               const account = effectiveAccounts.find((a) => a.platform === r.platform);
                               const canDeleteReply = account && (r.platform === 'INSTAGRAM' || r.platform === 'FACEBOOK' || r.platform === 'YOUTUBE' || r.platform === 'TWITTER');
+                              const isMine = r.authorName === 'You' || r.isFromMe;
                               return (
-                              <div key={r.commentId} className="flex gap-2 rounded-lg bg-neutral-50 p-2 items-start">
-                                <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
-                                  {avatarUrl ? (
-                                    <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                                  ) : (
-                                    <span className="text-xs font-semibold text-neutral-600">{(r.authorName || '?').slice(0, 2).toUpperCase()}</span>
-                                  )}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-xs text-neutral-500">
+                              <div
+                                key={r.commentId}
+                                className={`flex gap-2 items-end ${isMine ? 'justify-end' : 'justify-start'}`}
+                              >
+                                {!isMine && (
+                                  <InboxAvatar
+                                    pictureUrl={avatarUrl}
+                                    label={r.authorName}
+                                    className="w-8 h-8 shrink-0"
+                                  />
+                                )}
+                                <div
+                                  className={`min-w-0 max-w-[85%] rounded-2xl px-3 py-2 ${
+                                    isMine
+                                      ? `${INBOX_SENT_BUBBLE_CLASS} rounded-br-md`
+                                      : `${INBOX_RECV_BUBBLE_CLASS} rounded-bl-md`
+                                  }`}
+                                >
+                                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
                                     {r.authorName}
                                     <span className="ml-1">{new Date(r.createdAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}</span>
                                   </p>
-                                  <p className="text-sm text-neutral-800 mt-0.5">{r.text}</p>
+                                  <p className="text-sm text-neutral-800 dark:text-neutral-100 mt-0.5 whitespace-pre-wrap break-words">{r.text}</p>
                                 </div>
                                 {canDeleteReply && (
                                   <button
@@ -3242,8 +3274,7 @@ function InboxPage() {
                         if (reply) setReplyText(reply);
                         else setAiReplyError('No reply generated. Try again.');
                       } catch (e: unknown) {
-                        const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-                        setAiReplyError(msg ?? 'Could not generate reply. Check that OPENAI_API_KEY is set.');
+                        setAiReplyError(readApiErrorMessage(e, AI_REPLY_FAILED_MESSAGE));
                       } finally {
                         setAiReplyLoading(false);
                       }
@@ -3470,38 +3501,59 @@ function InboxPage() {
                       <p className="text-sm text-neutral-500 italic">No messages in this conversation yet.</p>
                     ) : (
                       <>
-                        <div className="space-y-4">
-                        {conversationMessages.map((msg) => (
-                          <div
-                            key={msg.id}
-                            className={`flex ${msg.isFromPage ? 'justify-end' : 'justify-start'}`}
-                          >
-                            <div
-                              className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                                msg.isFromPage
-                                  ? 'bg-neutral-100 text-neutral-900 rounded-br-md dark:bg-neutral-700 dark:text-white'
-                                  : 'bg-neutral-100 text-neutral-900 rounded-bl-md dark:bg-neutral-800 dark:text-neutral-100'
-                              }`}
-                            >
-                              {!msg.isFromPage && (
-                                <p className="text-xs font-medium text-neutral-500 mb-0.5">
-                                  {msg.fromName || (dmThreadPlatform === 'TWITTER' ? 'X (Twitter) user' : 'Unknown')}
-                                </p>
-                              )}
-                              <p className="text-sm whitespace-pre-wrap break-words">
-                                {msg.message?.trim()
-                                  ? msg.message
-                                  : '(No text: may be media, share, or story)'}
-                              </p>
-                              {msg.createdTime && (
-                                <p className={`text-xs mt-1 ${msg.isFromPage ? 'text-neutral-400' : 'text-neutral-400'}`}>
-                                  {new Date(msg.createdTime).toLocaleString()}
-                                </p>
-                              )}
-                </div>
-              </div>
-                        ))}
-            </div>
+                        {(() => {
+                          const selectedConv = conversations.find((c) => c.id === selectedConversationId);
+                          const cached = selectedConversationId
+                            ? conversationMessagesCache[selectedConversationId]
+                            : undefined;
+                          const recipientPic =
+                            cached?.recipientPictureUrl || selectedConv?.senders?.[0]?.pictureUrl || null;
+                          const recipientLabel =
+                            cached?.recipientName ||
+                            selectedConv?.senders?.map((s) => s.username ?? s.name).filter(Boolean).join(', ') ||
+                            (dmThreadPlatform === 'TWITTER' ? 'X user' : 'Unknown');
+                          return (
+                            <div className="space-y-4">
+                              {conversationMessages.map((msg) => (
+                                <div
+                                  key={msg.id}
+                                  className={`flex gap-2 ${msg.isFromPage ? 'justify-end' : 'justify-start items-end'}`}
+                                >
+                                  {!msg.isFromPage && (
+                                    <InboxAvatar
+                                      pictureUrl={recipientPic}
+                                      label={msg.fromName || recipientLabel}
+                                      className="w-8 h-8"
+                                    />
+                                  )}
+                                  <div
+                                    className={`max-w-[75%] rounded-2xl px-4 py-2 ${
+                                      msg.isFromPage
+                                        ? `${INBOX_SENT_BUBBLE_CLASS} rounded-br-md`
+                                        : `${INBOX_RECV_BUBBLE_CLASS} rounded-bl-md`
+                                    }`}
+                                  >
+                                    {!msg.isFromPage && (
+                                      <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-0.5">
+                                        {msg.fromName || recipientLabel}
+                                      </p>
+                                    )}
+                                    <p className="text-sm whitespace-pre-wrap break-words">
+                                      {msg.message?.trim()
+                                        ? msg.message
+                                        : '(No text: may be media, share, or story)'}
+                                    </p>
+                                    {msg.createdTime && (
+                                      <p className="text-xs mt-1 text-neutral-400 dark:text-neutral-500">
+                                        {new Date(msg.createdTime).toLocaleString()}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </>
                     )}
                   </div>
@@ -3604,7 +3656,10 @@ function InboxPage() {
                         else setAiReplyError('No reply generated. Try again.');
                       } catch (e: unknown) {
                         const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
-                        setAiReplyError(msg ?? 'Could not generate reply. Check that OPENAI_API_KEY is set.');
+                        setAiReplyError(
+                          readApiErrorMessage(e, AI_REPLY_FAILED_MESSAGE) ||
+                            (msg?.includes('OPENAI') ? AI_REPLY_NOT_CONFIGURED_MESSAGE : AI_REPLY_FAILED_MESSAGE)
+                        );
                       } finally {
                         setAiReplyLoading(false);
                       }
@@ -3629,30 +3684,68 @@ function InboxPage() {
                       return;
                     }
                     if (!account || !selectedConversationId || !dmReplyText.trim()) return;
+                    const textToSend = dmReplyText.trim();
+                    const cid2 = selectedConversationId;
                     setDmReplySending(true);
+                    setDmSendError(null);
+                    setAiReplyError(null);
                     try {
-                      await api.post(
-                        `/social/accounts/${account.id}/conversations/${selectedConversationId}/messages`,
-                        { text: dmReplyText.trim(), recipientId: conversationRecipientId ?? undefined }
+                      const postRes = await api.post<{
+                        ok?: boolean;
+                        sentMessage?: ConversationMessage;
+                      }>(
+                        `/social/accounts/${account.id}/conversations/${cid2}/messages`,
+                        { text: textToSend, recipientId: conversationRecipientId ?? undefined },
+                        { timeout: 20_000 }
                       );
                       setDmReplyText('');
-                      const res = await api.get(`/social/accounts/${account.id}/conversations/${selectedConversationId}/messages`);
-                      const messages = res.data?.messages ?? [];
-                      setConversationMessages(messages);
-                      const nextRecipientId = res.data?.recipientId ?? conversationRecipientId ?? null;
-                      setConversationRecipientId(nextRecipientId);
-                      setConversationMessagesError(res.data?.error ?? null);
-                      const cid2 = selectedConversationId;
+                      const optimistic =
+                        postRes.data?.sentMessage ??
+                        ({
+                          id: `local-${Date.now()}`,
+                          fromId: account.platformUserId ?? null,
+                          fromName: null,
+                          message: textToSend,
+                          createdTime: new Date().toISOString(),
+                          isFromPage: true,
+                        } satisfies ConversationMessage);
+                      setConversationMessages((prev) => [...prev, optimistic]);
+                      setConversationMessagesError(null);
                       setConversationMessagesCache((prev) =>
                         withCacheEntry(prev, cid2, {
-                          messages,
-                          recipientId: nextRecipientId,
-                          recipientName: res.data?.recipientName ?? prev[cid2]?.recipientName ?? null,
-                          recipientPictureUrl: res.data?.recipientPictureUrl ?? prev[cid2]?.recipientPictureUrl ?? null,
-                          error: res.data?.error ?? null,
+                          messages: [...(prev[cid2]?.messages ?? []), optimistic],
+                          recipientId: conversationRecipientId,
+                          recipientName: prev[cid2]?.recipientName ?? null,
+                          recipientPictureUrl: prev[cid2]?.recipientPictureUrl ?? null,
+                          error: null,
                           accountId: account.id,
                         })
                       );
+                      void api
+                        .get(`/social/accounts/${account.id}/conversations/${cid2}/messages`, {
+                          params: { convUpdatedTime: new Date().toISOString() },
+                          timeout: 25_000,
+                        })
+                        .then((res) => {
+                          const messages = res.data?.messages ?? [];
+                          if (messages.length === 0) return;
+                          setConversationMessages(messages);
+                          const nextRecipientId = res.data?.recipientId ?? conversationRecipientId ?? null;
+                          setConversationRecipientId(nextRecipientId);
+                          setConversationMessagesError(res.data?.error ?? null);
+                          setConversationMessagesCache((prev) =>
+                            withCacheEntry(prev, cid2, {
+                              messages,
+                              recipientId: nextRecipientId,
+                              recipientName: res.data?.recipientName ?? prev[cid2]?.recipientName ?? null,
+                              recipientPictureUrl:
+                                res.data?.recipientPictureUrl ?? prev[cid2]?.recipientPictureUrl ?? null,
+                              error: res.data?.error ?? null,
+                              accountId: account.id,
+                            })
+                          );
+                        })
+                        .catch(() => {});
                       api.get<{ inbox?: number; comments?: number; messages?: number; byPlatform?: Record<string, { comments: number; messages: number }> }>('/social/notifications').then((r) => {
                         if (r.data && appData) appData.setNotifications({
                           inbox: r.data.inbox ?? 0,
@@ -3662,7 +3755,7 @@ function InboxPage() {
                         });
                       }).catch(() => {});
                     } catch (e: unknown) {
-                      const errMsg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to send message.';
+                      const errMsg = readApiErrorMessage(e, 'Failed to send message.');
                       const isDevMode = errMsg.toLowerCase().includes('does not exist') || errMsg.toLowerCase().includes('missing permissions') || errMsg.toLowerCase().includes('unsupported');
                       setDmSendError(isDevMode
                         ? 'Could not send: Instagram may be in Development Mode. Only users added as Testers in your Meta App can receive messages while the app is not published.'
