@@ -153,7 +153,7 @@ export function BrandTeamMembersSection({
       </div>
 
       {selectedBrand ? (
-        <div className="rounded-xl border border-neutral-200 bg-[var(--background)] p-4">
+        <div className="rounded-xl border border-neutral-200 bg-[var(--background)] p-4 dark:border-black dark:bg-neutral-800">
           <div className="flex items-center gap-2">
             <Users size={15} className="text-neutral-500" />
             <h3 className="text-sm font-semibold text-neutral-900">Team members & roles</h3>
