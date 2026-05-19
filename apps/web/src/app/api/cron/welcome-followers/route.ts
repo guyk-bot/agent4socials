@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import axios from 'axios';
+import { listTwitterFollowerIds, sendTwitterDmText } from '@/lib/twitter-send-dm';
 
 /**
  * GET/POST /api/cron/welcome-followers
  * Call with header X-Cron-Secret: CRON_SECRET (or Authorization: Bearer CRON_SECRET).
  * For users with dmNewFollowerEnabled and a Twitter account, fetches new followers
- * and sends the welcome DM to each (once per follower).
+ * and sends the welcome DM to each (once per follower). Instagram and Facebook are not
+ * supported for proactive new-follower DMs (API limitation).
  */
 export async function GET(request: NextRequest) {
   return runWelcomeFollowers(request);
@@ -44,9 +45,9 @@ async function runWelcomeFollowers(request: NextRequest) {
 
       const twitterAccount = await prisma.socialAccount.findFirst({
         where: { userId, platform: 'TWITTER' },
-        select: { id: true, platformUserId: true, accessToken: true },
+        select: { id: true, platformUserId: true, accessToken: true, refreshToken: true, credentialsJson: true },
       });
-      if (!twitterAccount) continue;
+      if (!twitterAccount?.accessToken) continue;
 
       const welcomed = await prisma.automationFollowerWelcome.findMany({
         where: { userId, platform: 'TWITTER' },
@@ -54,51 +55,43 @@ async function runWelcomeFollowers(request: NextRequest) {
       });
       const welcomedSet = new Set(welcomed.map((w) => w.platformUserId));
 
-      let followerIds: string[] = [];
-      try {
-        const res = await axios.get<{ data?: Array<{ id: string }> }>(
-          `https://api.twitter.com/2/users/${twitterAccount.platformUserId}/followers`,
-          {
-            params: { max_results: 100 },
-            headers: { Authorization: `Bearer ${twitterAccount.accessToken}` },
-          }
-        );
-        followerIds = (res.data?.data ?? []).map((d) => d.id);
-      } catch (e) {
-        const msg = (e as Error)?.message ?? String(e);
-        results.push({ userId, platform: 'TWITTER', sent: 0, errors: [`Failed to get followers: ${msg}`] });
+      const followersRes = await listTwitterFollowerIds({
+        accessToken: twitterAccount.accessToken,
+        refreshToken: twitterAccount.refreshToken,
+        credentialsJson: twitterAccount.credentialsJson,
+        platformUserId: twitterAccount.platformUserId,
+      });
+
+      if (!followersRes.ok) {
+        results.push({ userId, platform: 'TWITTER', sent: 0, errors: [followersRes.error] });
         continue;
       }
 
-      const newFollowerIds = followerIds.filter((id) => !welcomedSet.has(id));
+      const newFollowerIds = followersRes.ids.filter((id) => !welcomedSet.has(id));
       const errors: string[] = [];
       let sent = 0;
 
       for (const participantId of newFollowerIds.slice(0, 20)) {
-        try {
-          const dmRes = await axios.post(
-            `https://api.twitter.com/2/dm_conversations/with/${participantId}/messages`,
-            { text: message },
-            {
-              headers: {
-                Authorization: `Bearer ${twitterAccount.accessToken}`,
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-          if (dmRes.status >= 200 && dmRes.status < 300) {
-            await prisma.automationFollowerWelcome.create({
-              data: {
-                userId,
-                platform: 'TWITTER',
-                platformUserId: participantId,
-              },
-            });
-            sent++;
-          }
-        } catch (e) {
-          const msg = (e as Error)?.message ?? String(e);
-          errors.push(`${participantId}: ${msg}`);
+        const sendRes = await sendTwitterDmText(
+          {
+            accessToken: twitterAccount.accessToken,
+            refreshToken: twitterAccount.refreshToken,
+            credentialsJson: twitterAccount.credentialsJson,
+          },
+          participantId,
+          message
+        );
+        if (sendRes.ok) {
+          await prisma.automationFollowerWelcome.create({
+            data: {
+              userId,
+              platform: 'TWITTER',
+              platformUserId: participantId,
+            },
+          });
+          sent++;
+        } else {
+          errors.push(`${participantId}: ${sendRes.error}`);
         }
       }
 

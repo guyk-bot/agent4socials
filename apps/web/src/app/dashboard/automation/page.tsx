@@ -53,26 +53,30 @@ const AUTOMATION_NEW_FOLLOWER_MESSAGES_KEY = 'agent4socials.automation.newFollow
 const AUTOMATION_KEYWORD_STEPS_KEY = 'agent4socials.automation.keyword.steps.v1';
 const MAX_FIRST_DM_ATTACHMENTS = 5;
 const FIRST_DM_SUPPORTED_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)'] as const;
-const NEW_FOLLOWER_SUPPORTED_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)'] as const;
+/** Proactive new-follower DMs are only supported on X (Twitter). IG/FB use first-incoming DM when they message you. */
+const NEW_FOLLOWER_SUPPORTED_PLATFORMS = ['X (Twitter)'] as const;
 
 const PLATFORM_CAPABILITIES: PlatformCapability[] = [
   {
     platform: 'Instagram',
     keywordCommentAutomation: 'native',
     autoDmWhenMessagedFirst: 'native',
-    welcomeMessageToNewFollower: 'native',
+    welcomeMessageToNewFollower: 'none',
+    notes: ['Welcome after a new follower: use Auto-DM for first incoming message below. Instagram does not allow an unsolicited DM to someone who only followed you.'],
   },
   {
     platform: 'Facebook',
     keywordCommentAutomation: 'native',
     autoDmWhenMessagedFirst: 'native',
-    welcomeMessageToNewFollower: 'native',
+    welcomeMessageToNewFollower: 'none',
+    notes: ['Welcome after a new follower: use Auto-DM for first incoming message below. Facebook does not allow an unsolicited DM to someone who only followed you.'],
   },
   {
     platform: 'X (Twitter)',
     keywordCommentAutomation: 'native',
     autoDmWhenMessagedFirst: 'native',
     welcomeMessageToNewFollower: 'native',
+    notes: ['Proactive welcome DM to new followers needs cron /api/cron/welcome-followers every 15 to 30 min.'],
   },
   {
     platform: 'TikTok',
@@ -152,6 +156,8 @@ export default function AutomationPage() {
   const [firstDmUploadError, setFirstDmUploadError] = useState<string | null>(null);
   const [firstDmSetupMessage, setFirstDmSetupMessage] = useState<string | null>(null);
   const [newFollowerSetupMessage, setNewFollowerSetupMessage] = useState<string | null>(null);
+  const [welcomeReadinessSummary, setWelcomeReadinessSummary] = useState<string | null>(null);
+  const [welcomeReadinessLoading, setWelcomeReadinessLoading] = useState(false);
   const firstDmSectionRef = useRef<HTMLDivElement | null>(null);
   const newFollowerSectionRef = useRef<HTMLDivElement | null>(null);
   const settingsRef = useRef(settings);
@@ -434,10 +440,56 @@ export default function AutomationPage() {
     }
   }
 
+  async function runWelcomeReadinessCheck() {
+    setWelcomeReadinessLoading(true);
+    setWelcomeReadinessSummary(null);
+    try {
+      const { data } = await api.get<{
+        ok: boolean;
+        summary: string;
+        platforms: Array<{
+          platform: string;
+          featureLabel: string;
+          available: boolean;
+          configured: boolean;
+          enabled: boolean;
+          accountConnected: boolean;
+          accountUsername: string | null;
+          cronPath: string | null;
+          blockers: string[];
+          testSteps: string[];
+        }>;
+      }>('/automation/welcome-readiness');
+      const lines: string[] = [data.summary, ''];
+      for (const row of data.platforms) {
+        const ready =
+          row.available &&
+          row.enabled &&
+          row.configured &&
+          row.accountConnected &&
+          row.blockers.length === 0;
+        const status = !row.available ? 'N/A' : ready ? 'READY' : 'NOT READY';
+        lines.push(`${row.platform}: ${row.featureLabel} [${status}]`);
+        if (row.accountUsername) lines.push(`  Connected: @${row.accountUsername}`);
+        if (row.cronPath) lines.push(`  Cron: ${row.cronPath}`);
+        for (const b of row.blockers) lines.push(`  Blocker: ${b}`);
+        if (ready || row.enabled) {
+          for (const step of row.testSteps) lines.push(`  Step: ${step}`);
+        }
+        lines.push('');
+      }
+      setWelcomeReadinessSummary(lines.join('\n').trim());
+    } catch {
+      setWelcomeReadinessSummary('Could not load readiness check. Sign in and try again.');
+    } finally {
+      setWelcomeReadinessLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (!settings.dmNewFollowerEnabled) return;
     if (dmNewFollowerPlatform) return;
-    const fallback = 'Instagram';
+    const fallback = 'X (Twitter)';
     setDmNewFollowerPlatform(fallback);
     try {
       if (typeof window !== 'undefined') {
@@ -728,7 +780,25 @@ export default function AutomationPage() {
           </div>
         )}
         <p className="text-sm text-neutral-600">
-          Set your first incoming DM message per platform. Add optional images, videos, or files (uploaded to your storage so platforms can fetch them by URL). You must set at least a message or an attachment before enabling it in the platform card. We send when their latest inbound message is at most about 15 minutes old and we have not already sent for that conversation. A background job should call <code className="text-xs">/api/cron/dm-first-welcome</code> every one to two minutes (with your cron secret) so replies can go out without opening Inbox. Opening the thread in Inbox still works and uses the same rules. To test without sending, set env <code className="text-xs">DM_FIRST_WELCOME_DRY_RUN=true</code> and watch server logs for <code className="text-xs">[dm-first-welcome] dry-run</code> lines when cron or Inbox loads a qualifying thread.
+          <strong className="font-medium text-neutral-800">Instagram and Facebook:</strong> this is how you welcome new followers. They must send you a DM first (following alone does not open a thread). Set a message here, enable the toggle on each platform card, Save, then run the readiness check.
+        </p>
+        <p className="text-sm text-neutral-600">
+          We send when their latest inbound message is at most about 15 minutes old. Schedule <code className="text-xs">/api/cron/dm-first-welcome</code> every 1 to 2 minutes, or open the thread in Inbox to trigger immediately.
+        </p>
+        <p className="text-sm text-neutral-600">
+          <button
+            type="button"
+            className="text-[var(--button)] font-medium underline hover:opacity-90 disabled:opacity-50"
+            disabled={welcomeReadinessLoading}
+            onClick={() => void runWelcomeReadinessCheck()}
+          >
+            {welcomeReadinessLoading ? 'Checking…' : 'Run welcome readiness check'}
+          </button>
+          {welcomeReadinessSummary ? (
+            <span className="block mt-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700 whitespace-pre-wrap">
+              {welcomeReadinessSummary}
+            </span>
+          ) : null}
         </p>
         {firstDmUploadError && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">{firstDmUploadError}</div>
@@ -824,7 +894,25 @@ export default function AutomationPage() {
           </div>
         )}
         <p className="text-sm text-neutral-600">
-          Set your welcome DM for each supported platform. You must set a message here before enabling it in the platform card.
+          <strong className="font-medium text-neutral-800">X (Twitter) only:</strong> we can DM new followers automatically (schedule{' '}
+          <code className="text-xs">/api/cron/welcome-followers</code> every 15 to 30 min). Instagram and Facebook cannot receive a proactive DM from a new follower alone: use{' '}
+          <strong className="font-medium">Auto DM for first incoming message</strong> above when they send you a DM after following.
+        </p>
+        <p className="text-sm text-neutral-600">
+          Before a live test, open{' '}
+          <button
+            type="button"
+            className="text-[var(--button)] font-medium underline hover:opacity-90 disabled:opacity-50"
+            disabled={welcomeReadinessLoading}
+            onClick={() => void runWelcomeReadinessCheck()}
+          >
+            {welcomeReadinessLoading ? 'Checking…' : 'Run welcome readiness check'}
+          </button>
+          {welcomeReadinessSummary ? (
+            <span className="block mt-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700 whitespace-pre-wrap">
+              {welcomeReadinessSummary}
+            </span>
+          ) : null}
         </p>
         <div className="space-y-3">
           {NEW_FOLLOWER_SUPPORTED_PLATFORMS.map((platform) => (
