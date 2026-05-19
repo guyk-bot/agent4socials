@@ -556,7 +556,11 @@ function InboxPage() {
 
     setSelectedPlatforms((prev) => {
       const pruned = prev.filter((p) => connectedPlatformIds.includes(p));
-      if (pruned.length > 0) return pruned;
+      const messageConnected = connectedPlatformIds.filter((p) => MESSAGE_STRIP_PLATFORM_IDS.has(p));
+      const newlyConnectedMessages = messageConnected.filter((p) => !pruned.includes(p));
+      if (pruned.length > 0) {
+        return newlyConnectedMessages.length > 0 ? [...pruned, ...newlyConnectedMessages] : pruned;
+      }
 
       if (prev.length === 0) {
         const stored = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('agent4socials_inbox_platforms') : null;
