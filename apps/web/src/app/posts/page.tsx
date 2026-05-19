@@ -1,20 +1,27 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import Link from 'next/link';
 import {
     Search,
-    Filter,
-    MoreVertical,
     Video,
-    ExternalLink,
     ChevronRight,
     Loader2,
     ImageIcon,
+    Sparkles,
+    ArrowRight,
 } from 'lucide-react';
 import { useAppData } from '@/context/AppDataContext';
+import { useAuth } from '@/context/AuthContext';
+import { AnalyticsDateRangePicker } from '@/components/analytics/AnalyticsDateRangePicker';
+import {
+    getDefaultAnalyticsDateRange,
+    localCalendarDateFromIso,
+    readStoredAnalyticsDateRange,
+    writeStoredAnalyticsDateRange,
+} from '@/lib/calendar-date';
 import { InstagramIcon, YoutubeIcon, TikTokIcon, FacebookIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 import {
     readScheduledPostsClientCache,
@@ -32,6 +39,11 @@ function postMediaThumbUrl(mediaItem: { fileUrl: string; type: string; metadata?
         return `/api/media/proxy?url=${encodeURIComponent(url)}`;
     }
     return url;
+}
+
+function postCalendarDate(post: { scheduledAt?: string | null; postedAt?: string | null; createdAt?: string | null }): string {
+    const iso = post.scheduledAt || post.postedAt || post.createdAt;
+    return iso ? localCalendarDateFromIso(iso) : '';
 }
 
 function isReelLikePost(post: any): boolean {
@@ -69,6 +81,7 @@ export default function PostsPage() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const router = useRouter();
+    const { user } = useAuth();
     const appData = useAppData();
     const appDataRef = useRef(appData);
     appDataRef.current = appData;
@@ -76,6 +89,21 @@ export default function PostsPage() {
     const [loading, setLoading] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [filter, setFilter] = useState('ALL');
+    const [dateRange, setDateRange] = useState(() => getDefaultAnalyticsDateRange());
+
+    useEffect(() => {
+        if (!user?.id) return;
+        const stored = readStoredAnalyticsDateRange(user.id);
+        if (stored) setDateRange(stored);
+    }, [user?.id]);
+
+    const onDateRangeChange = useCallback(
+        (range: { start: string; end: string }) => {
+            setDateRange(range);
+            if (user?.id) writeStoredAnalyticsDateRange(range, user.id);
+        },
+        [user?.id]
+    );
 
     const draftSavedParam = searchParams.get('draft_saved');
     const refreshParam = searchParams.get('refresh');
@@ -138,6 +166,8 @@ export default function PostsPage() {
     }, [highlightId, loading, posts.length, router]);
 
     const filteredPosts = posts.filter((p: any) => {
+        const d = postCalendarDate(p);
+        if (d && (d < dateRange.start || d > dateRange.end)) return false;
         if (filter === 'ALL') return true;
         return p.status === filter;
     });
@@ -162,7 +192,7 @@ export default function PostsPage() {
     }, [published, router, highlightId]);
 
     return (
-        <div className="space-y-8">
+        <div className="analytics-dark-scope space-y-3" style={{ maxWidth: 1400 }}>
             {loadError && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                     {loadError}
@@ -180,9 +210,44 @@ export default function PostsPage() {
                     <button type="button" onClick={() => setShowPublishedBanner(false)} className="text-green-600 hover:text-green-800 font-medium">Dismiss</button>
                 </div>
             )}
-            <div className="flex items-center justify-between">
+
+            <div className="w-full rounded-2xl border upgrade-banner-warm px-3 py-2.5 sm:px-4 sm:py-3 shadow-sm ring-1 ring-slate-200/70 backdrop-blur-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
+                <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-center gap-1.5 upgrade-badge-warm">
+                        <Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                        <span className="text-[11px] font-semibold uppercase tracking-wide">Your plan</span>
+                    </div>
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
+                        <span className="text-lg font-bold text-neutral-900 dark:text-neutral-100 tracking-tight leading-tight">Free</span>
+                        <span className="text-sm text-neutral-700 dark:text-neutral-300 leading-snug">
+                            Unlock more than 30 days of history without watermarks and more analytics when you upgrade.
+                        </span>
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => router.push('/pricing')}
+                    className="shrink-0 inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-md transition-all active:scale-[0.98] gradient-cta-pro"
+                >
+                    Upgrade now
+                    <ArrowRight className="w-4 h-4" aria-hidden />
+                </button>
+            </div>
+
+            <section className="rounded-[20px] border p-3 md:p-3.5 bg-[var(--card-bg)] border-[var(--border)]">
+                <div className="flex flex-wrap items-center gap-3 justify-between">
+                    <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Filter posts by date</p>
+                    <AnalyticsDateRangePicker
+                        start={dateRange.start}
+                        end={dateRange.end}
+                        onChange={onDateRangeChange}
+                    />
+                </div>
+            </section>
+
+            <div className="flex items-center justify-between pt-2">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Post History</h1>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-neutral-100">Post History</h1>
                 </div>
                 <div className="flex items-center space-x-3">
                     <div className="relative">
@@ -333,7 +398,7 @@ export default function PostsPage() {
                     </div>
                 ) : (
                     <div className="p-20 text-center">
-                        <p className="text-gray-500">No posts match this filter.</p>
+                        <p className="text-gray-500 dark:text-neutral-400">No posts match this filter or date range.</p>
                     </div>
                 )}
             </div>
