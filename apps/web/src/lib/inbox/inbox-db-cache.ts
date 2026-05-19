@@ -36,7 +36,7 @@ export function inboxMsgKey(socialAccountId: string, conversationId: string): st
 }
 
 export function inboxConvListKey(socialAccountId: string): string {
-  return `inbox_convs_v1:${socialAccountId}`;
+  return `inbox_convs_v2:${socialAccountId}`;
 }
 
 /** Cached DM thread list (participants + updated time) for inbox when Meta is throttled. */

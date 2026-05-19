@@ -16,7 +16,10 @@ import {
 } from '@/lib/meta-usage-guard';
 import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
 import { readInboxProfileCache, writeInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
-import { resolveInstagramInboxSenderProfile } from '@/lib/inbox/resolve-inbox-sender-profile';
+import {
+  mergeInboxProfileCacheIntoConversations,
+  resolveInstagramInboxSenderProfile,
+} from '@/lib/inbox/resolve-inbox-sender-profile';
 import {
   getInboxConversationListFromDb,
   setInboxConversationListInDb,
@@ -621,8 +624,12 @@ export async function GET(
   async function returnCachedConversations(reason: string): Promise<NextResponse> {
     const cached = await getInboxConversationListFromDb(id);
     if (cached && cached.length > 0) {
+      const merged = await mergeInboxProfileCacheIntoConversations(
+        isInstagram ? 'instagram' : 'facebook',
+        cached
+      );
       return NextResponse.json({
-        conversations: cached,
+        conversations: merged,
         fromCache: true,
         stale: true,
         emptyHint:
@@ -808,11 +815,17 @@ export async function GET(
               continue;
             }
             try {
+              const convForSender = list.find((c) =>
+                c.senders.some((s) => s.id === enrichId)
+              );
+              const senderRow = convForSender?.senders.find((s) => s.id === enrichId);
               const profile = await resolveInstagramInboxSenderProfile({
+                userId,
                 senderId: enrichId,
                 accessToken: isInstagramBusinessLogin ? igUserToken! : activeToken,
                 isInstagramBusinessLogin,
                 conversationId: convBySender.get(enrichId),
+                username: senderRow?.username,
               });
               if (profile) profiles.set(enrichId, profile);
             } catch {
@@ -968,6 +981,13 @@ export async function GET(
           ? 'No Instagram conversations returned. Confirm instagram_business_manage_messages is granted, then reconnect your Instagram account.'
           : 'No Instagram conversations returned. Open Meta App Dashboard and ensure instagram_manage_messages is approved for your Page, then reconnect Facebook and Instagram.'
         : undefined;
+
+    if (isInstagram && list.length > 0) {
+      list = (await mergeInboxProfileCacheIntoConversations(
+        'instagram',
+        list as InboxConversationListItem[]
+      )) as typeof list;
+    }
 
     if (list.length > 0) {
       void setInboxConversationListInDb(account.id, list as InboxConversationListItem[]);

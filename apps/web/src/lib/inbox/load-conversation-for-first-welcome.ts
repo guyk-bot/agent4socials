@@ -79,11 +79,20 @@ async function loadMetaConversationForFirstWelcome(
       let recipientName: string | null = null;
       let recipientPictureUrl: string | null = null;
       if (recipientId) {
+        let recipientUsername: string | null = null;
+        for (const m of messages) {
+          if (m.fromId === recipientId && m.fromName) {
+            recipientUsername = m.fromName.replace(/^@/, '');
+            break;
+          }
+        }
         const profile = await resolveInstagramInboxSenderProfile({
+          userId,
           senderId: recipientId,
           accessToken: activeToken,
           isInstagramBusinessLogin,
           conversationId,
+          username: recipientUsername ?? undefined,
         });
         recipientName = profile?.name ?? profile?.username ?? null;
         recipientPictureUrl = profile?.pictureUrl ?? null;
