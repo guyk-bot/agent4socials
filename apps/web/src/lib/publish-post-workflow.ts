@@ -451,7 +451,7 @@ export async function runPublishPostWorkflow(input: {
 
     if (result.ok) {
       const inboxNote = result.sentToInbox
-        ? 'Posted as Private on TikTok (unaudited app). Open TikTok app, tap the video on your Profile and change visibility to Public.'
+        ? 'TikTok queued this in your app Inbox instead of publishing directly. Open the TikTok app to finish posting.'
         : undefined;
       await prisma.postTarget.update({
         where: { id: target.id },

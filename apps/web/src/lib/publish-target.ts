@@ -1664,7 +1664,11 @@ export async function publishTarget(
             break;
           }
           if (status === 'SEND_TO_USER_INBOX') {
-            return { ok: true, platformPostId: publishId, sentToInbox: true };
+            return {
+              ok: false,
+              error:
+                'TikTok did not publish directly to your profile (content went to TikTok Inbox). Reconnect TikTok after Direct Post is enabled, or finish posting in the TikTok app.',
+            };
           }
           if (status === 'FAILED') {
             const reason = statusBody.data?.fail_reason ?? 'Publish failed';
@@ -1674,7 +1678,7 @@ export async function publishTarget(
         if (!platformPostId) {
           return {
             ok: false,
-            error: `TikTok photo is still processing (publish_id: ${publishId}). Check the TikTok app Inbox or retry shortly.`,
+            error: `TikTok photo is still processing (publish_id: ${publishId}). Check your TikTok profile or retry in a minute.`,
           };
         }
         return { ok: true, platformPostId };
@@ -1698,228 +1702,109 @@ export async function publishTarget(
         ? ({ ...tikTokPostInfo, privacy_level: 'SELF_ONLY' } as Record<string, unknown>)
         : null;
 
-      const inboxFileUploadInit = async (): Promise<{ publishId: string }> => {
-        const { buffer, contentType } = await fetchMediaBuffer(videoUrl, fetchFn);
-        const videoSize = buffer.length;
-        const { chunkSize, totalChunkCount } = tiktokFileUploadChunkPlan(videoSize);
-        const mimeType = contentType && /video\/(mp4|webm|quicktime)/i.test(contentType) ? contentType : 'video/mp4';
-        const inboxInitRes = await tiktokPostWithRetry(
-          `${tiktokBase}/v2/post/publish/inbox/video/init/`,
-          {
-            post_info: tikTokPostInfo,
-            source_info: { source: 'FILE_UPLOAD', video_size: videoSize, chunk_size: chunkSize, total_chunk_count: totalChunkCount },
-          },
-          30_000,
-          'internal fallback inbox FILE_UPLOAD init'
-        ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
-        const inboxInitBody = inboxInitRes.data ?? {};
-        const inboxInitErr = inboxInitBody.error;
-        console.log('[TikTok] internal fallback inbox FILE_UPLOAD init response', { error: inboxInitErr, publishId: inboxInitBody.data?.publish_id });
-        if (inboxInitErr && inboxInitErr.code !== 'ok') {
-          throw new Error(`TikTok: ${inboxInitErr.message || inboxInitErr.code || 'Init failed'}`.slice(0, 300));
-        }
-        const nextPublishId = inboxInitBody.data?.publish_id;
-        const uploadUrl = inboxInitBody.data?.upload_url;
-        if (!nextPublishId || !uploadUrl) {
-          throw new Error('TikTok inbox FILE_UPLOAD init did not return publish_id or upload_url.');
-        }
-        await putTikTokResumableChunks(buffer, uploadUrl, mimeType, chunkSize, totalChunkCount, fetchFn);
-        return { publishId: nextPublishId };
-      };
+      const tiktokReconnectPublishError =
+        'TikTok: reconnect your TikTok account from Dashboard → Accounts so video.publish is granted, then try again.';
 
-      // 2) Try PULL_FROM_URL first (TikTok fetches video from our serve URL — fastest path).
-      //    Falls back to FILE_UPLOAD (chunked PUT) if URL ownership is not verified.
-      let useInbox = false;
+      const initDirectVideo = async (
+        postInfo: Record<string, unknown>,
+        sourceInfo: Record<string, unknown>,
+        label: string
+      ) =>
+        tiktokPostWithRetry(
+          `${tiktokBase}/v2/post/publish/video/init/`,
+          { post_info: postInfo, source_info: sourceInfo },
+          30_000,
+          label
+        ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
+
+      // Direct post only (/v2/post/publish/video/init/) — requires video.publish + Content Posting audit.
       let publishId: string | undefined;
 
       console.log('[TikTok] Starting PULL_FROM_URL init', { videoUrl: videoUrl?.slice(0, 120) });
-      const pullInitRes = await tiktokPostWithRetry(
-        `${tiktokBase}/v2/post/publish/video/init/`,
-        {
-          post_info: tikTokPostInfo,
-          source_info: { source: 'PULL_FROM_URL', video_url: videoUrl },
-        },
-        30_000,
+      let pullInitRes = await initDirectVideo(
+        tikTokPostInfo,
+        { source: 'PULL_FROM_URL', video_url: videoUrl },
         'direct PULL_FROM_URL init'
-      ) as { data?: { data?: { publish_id?: string }; error?: { code?: string; message?: string } } };
-      const pullBody = pullInitRes.data ?? {};
-      const pullErr = pullBody.error;
+      );
+      let pullBody = pullInitRes.data ?? {};
+      let pullErr = pullBody.error;
+
+      if (pullErr?.code === 'unaudited_client_can_only_post_to_private_accounts' && tikTokPostInfoSelfOnly) {
+        console.log('[TikTok] PULL_FROM_URL: retrying with SELF_ONLY');
+        pullInitRes = await initDirectVideo(
+          tikTokPostInfoSelfOnly,
+          { source: 'PULL_FROM_URL', video_url: videoUrl },
+          'direct PULL_FROM_URL SELF_ONLY init'
+        );
+        pullBody = pullInitRes.data ?? {};
+        pullErr = pullBody.error;
+      }
+
+      console.log('[TikTok] PULL_FROM_URL init response', { error: pullErr, publishId: pullBody.data?.publish_id });
 
       const urlOwnershipError = pullErr && (
         pullErr.code === 'url_ownership_unverified' ||
         (pullErr.message ?? '').toLowerCase().includes('ownership')
       );
-      const scopeError = pullErr && (
-        pullErr.code === 'scope_not_authorized' ||
-        pullErr.code === 'access_token_invalid' ||
-        pullErr.code === 'unaudited_client_can_only_post_to_private_accounts'
-      );
-
-      console.log('[TikTok] PULL_FROM_URL init response', { error: pullErr, publishId: pullBody.data?.publish_id });
 
       if (!pullErr || pullErr.code === 'ok') {
-        // PULL_FROM_URL succeeded
         publishId = pullBody.data?.publish_id;
-      } else if (pullErr.code === 'unaudited_client_can_only_post_to_private_accounts') {
-        // Unaudited apps: prefer inbox endpoints directly.
-        useInbox = true;
-        console.log('[TikTok] Unaudited app — trying inbox init flow');
-
-        // First try inbox PULL_FROM_URL (no upload required if accepted).
-        const uaInboxPullRes = await tiktokPostWithRetry(
-          `${tiktokBase}/v2/post/publish/inbox/video/init/`,
-          { post_info: tikTokPostInfo, source_info: { source: 'PULL_FROM_URL', video_url: videoUrl } },
-          30_000,
-          'inbox PULL_FROM_URL init'
-        ) as { data?: { data?: { publish_id?: string }; error?: { code?: string; message?: string } } };
-        const uaInboxPullBody = uaInboxPullRes.data ?? {};
-        const uaInboxPullErr = uaInboxPullBody.error;
-        console.log('[TikTok] inbox PULL_FROM_URL init response', { error: uaInboxPullErr, publishId: uaInboxPullBody.data?.publish_id });
-        if (!uaInboxPullErr || uaInboxPullErr.code === 'ok') {
-          publishId = uaInboxPullBody.data?.publish_id;
-        } else if (uaInboxPullErr.code === 'spam_risk_too_many_pending_share') {
-          return {
-            ok: false,
-            error:
-              `TikTok sandbox${tiktokIdentity ? ` (${tiktokIdentity})` : ''}: too many pending posts. Open TikTok mobile app on the SAME connected account, check Inbox and Drafts, then accept or delete all pending items and retry.`,
-          };
-        } else {
-          // Fallback to inbox FILE_UPLOAD when URL pull is not allowed/available.
-          const { buffer: unauditedBuf, contentType: unauditedCt } = await fetchMediaBuffer(videoUrl, fetchFn);
-          const unauditedSize = unauditedBuf.length;
-          const { chunkSize: unauditedChunk, totalChunkCount: unauditedChunkCount } = tiktokFileUploadChunkPlan(unauditedSize);
-          const unauditedMime = unauditedCt && /video\/(mp4|webm|quicktime)/i.test(unauditedCt) ? unauditedCt : 'video/mp4';
-
-          const uaInboxFileInitRes = await tiktokPostWithRetry(
-            `${tiktokBase}/v2/post/publish/inbox/video/init/`,
-            {
-              post_info: tikTokPostInfo,
-              source_info: {
-                source: 'FILE_UPLOAD',
-                video_size: unauditedSize,
-                chunk_size: unauditedChunk,
-                total_chunk_count: unauditedChunkCount,
-              },
-            },
-            30_000,
-            'inbox FILE_UPLOAD init'
-          ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
-          const uaInboxFileBody = uaInboxFileInitRes.data ?? {};
-          const uaInboxFileErr = uaInboxFileBody.error;
-          console.log('[TikTok] inbox FILE_UPLOAD init response', { error: uaInboxFileErr, publishId: uaInboxFileBody.data?.publish_id });
-          if (uaInboxFileErr && uaInboxFileErr.code !== 'ok') {
-            if (uaInboxFileErr.code === 'spam_risk_too_many_pending_share') {
-              return {
-                ok: false,
-                error:
-                  `TikTok sandbox${tiktokIdentity ? ` (${tiktokIdentity})` : ''}: too many pending posts. Open TikTok mobile app on the SAME connected account, check Inbox and Drafts, then accept or delete all pending items and retry.`,
-              };
-            }
-            return { ok: false, error: `TikTok: ${uaInboxFileErr.message || uaInboxFileErr.code || 'Init failed'}`.slice(0, 300) };
-          }
-          publishId = uaInboxFileBody.data?.publish_id;
-          const uaUploadUrl = uaInboxFileBody.data?.upload_url;
-          if (!publishId || !uaUploadUrl) {
-            return { ok: false, error: 'TikTok inbox init did not return publish_id or upload_url.' };
-          }
-          try {
-            await putTikTokResumableChunks(
-              unauditedBuf,
-              uaUploadUrl,
-              unauditedMime,
-              unauditedChunk,
-              unauditedChunkCount,
-              fetchFn
-            );
-          } catch (e) {
-            return { ok: false, error: (e as Error).message.slice(0, 300) };
-          }
-        }
-      } else if (pullErr && (pullErr.code === 'scope_not_authorized' || pullErr.code === 'access_token_invalid')) {
-        // video.publish scope missing — try inbox via PULL_FROM_URL
-        useInbox = true;
-        const inboxPullRes = await tiktokPostWithRetry(
-          `${tiktokBase}/v2/post/publish/inbox/video/init/`,
-          { post_info: tikTokPostInfo, source_info: { source: 'PULL_FROM_URL', video_url: videoUrl } },
-          30_000,
-          'scope fallback inbox PULL_FROM_URL init'
-        ) as { data?: { data?: { publish_id?: string }; error?: { code?: string; message?: string } } };
-        const inboxPullBody = inboxPullRes.data ?? {};
-        const inboxPullErr = inboxPullBody.error;
-        if (!inboxPullErr || inboxPullErr.code === 'ok') {
-          publishId = inboxPullBody.data?.publish_id;
-        } else if ((inboxPullErr.message ?? '').toLowerCase().includes('ownership') || inboxPullErr.code === 'url_ownership_unverified') {
-          // Fall through to FILE_UPLOAD below
-        } else {
-          return { ok: false, error: `TikTok: ${inboxPullErr.message || inboxPullErr.code || 'Init failed'}`.slice(0, 300) };
-        }
-      } else if (pullErr && pullErr.code === 'spam_risk_too_many_pending_share') {
-        // TikTok's pending-post limit hit from previous failed attempts.
-        // For sandbox: open TikTok app with the test account → Inbox → accept/delete all pending posts, then retry.
+      } else if (pullErr.code === 'scope_not_authorized' || pullErr.code === 'access_token_invalid') {
+        return { ok: false, error: tiktokReconnectPublishError };
+      } else if (pullErr.code === 'spam_risk_too_many_pending_share') {
         return {
           ok: false,
           error:
             `TikTok sandbox${tiktokIdentity ? ` (${tiktokIdentity})` : ''}: too many pending posts. Open TikTok mobile app on the SAME connected account, check Inbox and Drafts, then accept or delete all pending items and retry.`,
         };
+      } else if (pullErr.code === 'unaudited_client_can_only_post_to_private_accounts') {
+        return {
+          ok: false,
+          error:
+            'TikTok: public posting is not available for this app or account. Choose Only me in Post to TikTok, or complete TikTok Content Posting audit.',
+        };
       } else if (!urlOwnershipError) {
-        // Some other error from TikTok
         return { ok: false, error: `TikTok: ${pullErr.message || pullErr.code || 'Init failed'}`.slice(0, 300) };
       }
 
-      // 3) FILE_UPLOAD fallback when PULL_FROM_URL is blocked by URL ownership verification.
-      //    Uses native fetch (not axios) to reliably send raw binary.
+      // FILE_UPLOAD fallback when PULL_FROM_URL is blocked by URL ownership verification.
       if (!publishId) {
         const { buffer, contentType: videoContentType } = await fetchMediaBuffer(videoUrl, fetchFn);
         const videoSize = buffer.length;
         const { chunkSize: CHUNK_SIZE, totalChunkCount } = tiktokFileUploadChunkPlan(videoSize);
         const mimeType = videoContentType && /video\/(mp4|webm|quicktime)/i.test(videoContentType) ? videoContentType : 'video/mp4';
 
-        const fileInitRes = await tiktokPostWithRetry(
-          `${tiktokBase}/v2/post/publish/video/init/`,
+        let fileInitRes = await initDirectVideo(
+          tikTokPostInfo,
           {
-            post_info: tikTokPostInfo,
-            source_info: { source: 'FILE_UPLOAD', video_size: videoSize, chunk_size: CHUNK_SIZE, total_chunk_count: totalChunkCount },
+            source: 'FILE_UPLOAD',
+            video_size: videoSize,
+            chunk_size: CHUNK_SIZE,
+            total_chunk_count: totalChunkCount,
           },
-          30_000,
           'direct FILE_UPLOAD init'
-        ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
+        );
         let fileInitBody = fileInitRes.data ?? {};
         let fileInitErr = fileInitBody.error;
 
-        if (fileInitErr && fileInitErr.code === 'unaudited_client_can_only_post_to_private_accounts') {
-          // Retry with SELF_ONLY privacy
-          console.log('[TikTok] FILE_UPLOAD fallback: retrying with SELF_ONLY');
-          if (!tikTokPostInfoSelfOnly) {
-            return {
-              ok: false,
-              error:
-                'TikTok requires private posting for this app, but Only me is not available for this account. Check TikTok settings or reconnect.',
-            };
-          }
-          const selfFileRes = await tiktokPostWithRetry(
-            `${tiktokBase}/v2/post/publish/video/init/`,
+        if (fileInitErr?.code === 'unaudited_client_can_only_post_to_private_accounts' && tikTokPostInfoSelfOnly) {
+          console.log('[TikTok] FILE_UPLOAD: retrying with SELF_ONLY');
+          fileInitRes = await initDirectVideo(
+            tikTokPostInfoSelfOnly,
             {
-              post_info: tikTokPostInfoSelfOnly,
-              source_info: { source: 'FILE_UPLOAD', video_size: videoSize, chunk_size: CHUNK_SIZE, total_chunk_count: totalChunkCount },
+              source: 'FILE_UPLOAD',
+              video_size: videoSize,
+              chunk_size: CHUNK_SIZE,
+              total_chunk_count: totalChunkCount,
             },
-            30_000,
             'direct FILE_UPLOAD SELF_ONLY init'
-          ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
-          fileInitBody = selfFileRes.data ?? {};
+          );
+          fileInitBody = fileInitRes.data ?? {};
           fileInitErr = fileInitBody.error;
-        } else if (fileInitErr && (fileInitErr.code === 'scope_not_authorized' || fileInitErr.code === 'access_token_invalid')) {
-          useInbox = true;
-          const inboxFileRes = await tiktokPostWithRetry(
-            `${tiktokBase}/v2/post/publish/inbox/video/init/`,
-            {
-              post_info: tikTokPostInfo,
-              source_info: { source: 'FILE_UPLOAD', video_size: videoSize, chunk_size: CHUNK_SIZE, total_chunk_count: totalChunkCount },
-            },
-            30_000,
-            'scope fallback inbox FILE_UPLOAD init'
-          ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
-          fileInitBody = inboxFileRes.data ?? {};
-          fileInitErr = fileInitBody.error;
+        }
+
+        if (fileInitErr?.code === 'scope_not_authorized' || fileInitErr?.code === 'access_token_invalid') {
+          return { ok: false, error: tiktokReconnectPublishError };
         }
         if (fileInitErr && fileInitErr.code !== 'ok') {
           return { ok: false, error: `TikTok: ${fileInitErr.message || fileInitErr.code || 'Init failed'}`.slice(0, 300) };
@@ -1941,17 +1826,10 @@ export async function publishTarget(
         return { ok: false, error: 'TikTok: could not obtain publish_id.' };
       }
 
-      // 5) Poll status.
-      // PULL_FROM_URL is async: TikTok fetches the video in the background — we do a few quick
-      // checks to catch immediate failures, then return sentToInbox if still processing.
-      // FILE_UPLOAD is synchronous so we poll longer.
-      // Poll longer for FILE_UPLOAD (TikTok processes synchronously after upload)
-      // and shorter for PULL_FROM_URL (async — TikTok fetches on its own schedule).
-      const isPullFromUrl = !useInbox && !publishId.startsWith('v_inbox') && !publishId.startsWith('inbox');
-      const maxWait = isPullFromUrl ? 12_000 : 120_000;
-      const pollInterval = isPullFromUrl ? 2_000 : 3_000;
+      // Poll until TikTok reports PUBLISH_COMPLETE (direct post can take a few minutes).
+      const maxWait = 120_000;
+      const pollInterval = 3_000;
       let platformPostId: string | undefined;
-      let retriedAfterInternalFailure = false;
       for (let elapsed = 0; elapsed < maxWait; elapsed += pollInterval) {
         await new Promise((r) => setTimeout(r, pollInterval));
         const statusRes = await tiktokPostWithRetry(
@@ -1971,28 +1849,15 @@ export async function publishTarget(
           platformPostId = statusBody.data?.publicly_available_post_id;
           break;
         }
-        // TikTok accepted the video but queued it in the creator's inbox
-        // (happens when the app hasn't passed Content Posting API audit)
         if (status === 'SEND_TO_USER_INBOX') {
-          return { ok: true, platformPostId: publishId, sentToInbox: true };
+          return {
+            ok: false,
+            error:
+              'TikTok did not publish directly to your profile (content went to TikTok Inbox). Reconnect TikTok after Direct Post is enabled, or finish posting in the TikTok app.',
+          };
         }
         if (status === 'FAILED') {
           const reason = statusBody.data?.fail_reason ?? 'Publish failed';
-          if (
-            reason.toLowerCase() === 'internal' &&
-            !retriedAfterInternalFailure &&
-            (publishId.startsWith('v_inbox_url') || publishId.startsWith('inbox'))
-          ) {
-            try {
-              const fallback = await inboxFileUploadInit();
-              publishId = fallback.publishId;
-              retriedAfterInternalFailure = true;
-              elapsed = -pollInterval; // restart polling window for fallback publish_id
-              continue;
-            } catch (e) {
-              return { ok: false, error: (e as Error).message.slice(0, 300) };
-            }
-          }
           const reasonHint =
             reason === 'frame_rate_check_failed'
               ? ' Re-export as H.264 MP4 at a standard fps (e.g. 30 or 60).'
@@ -2004,7 +1869,7 @@ export async function publishTarget(
       if (!platformPostId) {
         return {
           ok: false,
-          error: `TikTok upload is still processing and was not confirmed yet (publish_id: ${publishId}). Open TikTok app -> Inbox/Drafts, then retry in a minute if it is not visible.`,
+          error: `TikTok upload is still processing (publish_id: ${publishId}). Check your TikTok profile in a few minutes or retry.`,
         };
       }
       return { ok: true, platformPostId };

@@ -173,5 +173,71 @@ describe('publishTarget', () => {
       expect(result.ok).toBe(false);
       expect(result.error).toMatch(/Post to TikTok/i);
     });
+
+    it('uses direct video/init and asks to reconnect when video.publish scope is missing', async () => {
+      const fetchMock = async (url: string) => {
+        if (url === 'https://example.com/v.mp4') {
+          return new Response(Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70]), {
+            status: 200,
+            headers: { 'Content-Type': 'video/mp4' },
+          });
+        }
+        return new Response('', { status: 404 });
+      };
+      const postCalls: { url: string }[] = [];
+      const axiosMock = {
+        get: async () => ({ data: {} }),
+        post: async (url: string) => {
+          postCalls.push({ url });
+          if (url.includes('creator_info/query')) {
+            return {
+              data: {
+                data: {
+                  privacy_level_options: ['PUBLIC_TO_EVERYONE', 'SELF_ONLY'],
+                  comment_disabled: false,
+                  duet_disabled: false,
+                  stitch_disabled: false,
+                },
+                error: { code: 'ok', message: '' },
+              },
+            };
+          }
+          if (url.includes('/v2/post/publish/video/init/')) {
+            return {
+              data: {
+                error: { code: 'scope_not_authorized', message: 'scope not authorized' },
+              },
+            };
+          }
+          return { data: { error: { code: 'ok', message: '' } } };
+        },
+        put: async () => undefined,
+      };
+      const result = await publishTarget(
+        {
+          platform: 'TIKTOK',
+          token: 't',
+          platformUserId: 'u',
+          caption: 'Hello',
+          firstMediaUrl: 'https://example.com/v.mp4',
+          tiktokDirectPost: {
+            title: 'Hello',
+            privacyLevel: 'PUBLIC_TO_EVERYONE',
+            allowComment: true,
+            allowDuet: true,
+            allowStitch: true,
+            commercialDisclosureOn: false,
+            yourBrand: false,
+            brandedContent: false,
+            videoDurationSec: 10,
+          },
+        },
+        { fetch: fetchMock as unknown as typeof fetch, axios: axiosMock }
+      );
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/reconnect/i);
+      expect(postCalls.some((c) => c.url.includes('/v2/post/publish/video/init/'))).toBe(true);
+      expect(postCalls.some((c) => c.url.includes('/inbox/'))).toBe(false);
+    });
   });
 });

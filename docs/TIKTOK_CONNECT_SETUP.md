@@ -42,4 +42,12 @@ After your app is approved and in **Live** mode, any TikTok account can connect 
 
 ## Publishing to TikTok (Post now)
 
-Publishing from Composer or History ("Post now") is supported for **video only**. The app uses TikTok's Content Posting API (direct post): we fetch your video, upload it in chunks to TikTok, then poll until the post is live. Privacy level is chosen from the options TikTok returns for your account (e.g. PUBLIC_TO_EVERYONE if available, otherwise SELF_ONLY for unaudited apps). Ensure your app has the **video.publish** scope and that the connected account has granted it. If you see "unaudited_client_can_only_post_to_private_accounts", your app has not completed TikTok's content posting audit yet; posts will still go through as private (SELF_ONLY) until the audit is approved.
+Publishing from Composer or History ("Post now") uses TikTok's **Direct Post** API (`/v2/post/publish/video/init/` for video, `/v2/post/publish/content/init/` for photos). Complete the **Post to TikTok** step in the composer (visibility, commercial disclosure, consent), then publish.
+
+**After Direct Post audit is approved:**
+
+1. Ensure your TikTok app has **video.publish** in the Developer Portal.
+2. **Reconnect** the TikTok account in Dashboard → Accounts so the token includes `video.publish`.
+3. Post from Composer: choose visibility (e.g. Public), then Post now.
+
+We upload via PULL_FROM_URL when possible, or chunked FILE_UPLOAD as a fallback. If you see `scope_not_authorized`, reconnect TikTok. If you see `url_ownership_unverified`, we fall back to direct file upload automatically.
