@@ -15,6 +15,11 @@ import {
 } from 'lucide-react';
 import { useAppData } from '@/context/AppDataContext';
 import { useAuth } from '@/context/AuthContext';
+import { useAccountsCache } from '@/context/AccountsCacheContext';
+import {
+    PostHistoryPlatformFilter,
+    postMatchesPlatformFilter,
+} from '@/components/posts/PostHistoryPlatformFilter';
 import { AnalyticsDateRangePicker } from '@/components/analytics/AnalyticsDateRangePicker';
 import {
     getDefaultAnalyticsDateRange,
@@ -117,7 +122,19 @@ export default function PostsPage() {
     const [loadError, setLoadError] = useState<string | null>(null);
     const [filter, setFilter] = useState('ALL');
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
     const [dateRange, setDateRange] = useState(() => getDefaultAnalyticsDateRange());
+    const accountsCache = useAccountsCache();
+    const connectedPlatforms = React.useMemo(() => {
+        const accounts = accountsCache?.cachedAccounts ?? [];
+        return [...new Set(accounts.map((a) => a.platform).filter(Boolean))];
+    }, [accountsCache?.cachedAccounts]);
+
+    const togglePlatformFilter = useCallback((platform: string) => {
+        setSelectedPlatforms((prev) =>
+            prev.includes(platform) ? prev.filter((p) => p !== platform) : [...prev, platform]
+        );
+    }, []);
 
     useEffect(() => {
         if (!user?.id) return;
@@ -197,6 +214,7 @@ export default function PostsPage() {
         const d = postCalendarDate(p);
         if (d && (d < dateRange.start || d > dateRange.end)) return false;
         if (!postMatchesSearch(p, searchQuery)) return false;
+        if (!postMatchesPlatformFilter(p, selectedPlatforms)) return false;
         if (filter === 'ALL') return true;
         return p.status === filter;
     });
@@ -264,7 +282,12 @@ export default function PostsPage() {
             </div>
 
             <section className="rounded-[20px] border p-3 md:p-3.5 bg-[var(--card-bg)] border-[var(--border)]">
-                <div className="flex flex-wrap items-center justify-end">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <PostHistoryPlatformFilter
+                        connectedPlatforms={connectedPlatforms}
+                        selectedPlatforms={selectedPlatforms}
+                        onTogglePlatform={togglePlatformFilter}
+                    />
                     <AnalyticsDateRangePicker
                         start={dateRange.start}
                         end={dateRange.end}
@@ -430,8 +453,8 @@ export default function PostsPage() {
                 ) : (
                     <div className="p-20 text-center">
                         <p className="text-gray-500 dark:text-neutral-400">
-                            {searchQuery.trim()
-                                ? 'No posts match your search, status filter, or date range.'
+                            {searchQuery.trim() || selectedPlatforms.length > 0
+                                ? 'No posts match your search, platform, status, or date filters.'
                                 : 'No posts match this filter or date range.'}
                         </p>
                     </div>

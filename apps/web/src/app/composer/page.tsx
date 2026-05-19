@@ -33,6 +33,7 @@ import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, Lin
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 import { TikTokPublishModal } from '@/components/composer/TikTokPublishModal';
 import { ComposerScheduleDateTime } from '@/components/composer/ComposerScheduleDateTime';
+import { PlatformIconToggle } from '@/components/PlatformIconToggle';
 import { isTikTokDirectPostPayload, type TikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
 import {
     nextFutureTenMinuteLocalString,
@@ -3476,24 +3477,16 @@ export default function ComposerPage() {
     );
 }
 
-function PlatformToggle({ platform, label, icon, active, onClick, connected }: { platform: string; label: string; icon: React.ReactNode; active: boolean; onClick: () => void; connected: boolean }) {
+function PlatformToggle({ label, icon, active, onClick, connected }: { platform: string; label: string; icon: React.ReactNode; active: boolean; onClick: () => void; connected: boolean }) {
     return (
-        <div className="relative flex flex-col items-center gap-1">
-        <button
-            type="button"
-                onClick={connected ? onClick : undefined}
-                title={connected ? label : `Connect ${label} first in the sidebar`}
-                aria-label={label}
-                className={`w-full aspect-square rounded-xl border-2 flex flex-col items-center justify-center transition-all duration-200 ${
-                    !connected
-                        ? 'border-neutral-100 bg-neutral-50 text-neutral-300 cursor-not-allowed opacity-50'
-                        : active
-                    ? 'border-slate-300 sidebar-item-selected text-neutral-900 shadow-sm'
-                    : 'border-neutral-200 bg-white text-neutral-500 hover:border-neutral-300 hover:bg-neutral-100/80 hover:text-neutral-900'
-                }`}
-        >
-                <span className="flex items-center justify-center w-9 h-9 shrink-0">{icon}</span>
-        </button>
+        <div className="relative flex flex-col items-center gap-1 w-full max-w-[4.5rem]">
+            <PlatformIconToggle
+                label={connected ? label : `Connect ${label} first in the sidebar`}
+                icon={icon}
+                active={active}
+                onClick={onClick}
+                disabled={!connected}
+            />
         </div>
     );
 }
