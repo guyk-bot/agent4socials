@@ -2520,12 +2520,36 @@ export async function GET(
           // creator_info is optional for dashboard totals
         }
       }
-      if (tiktokAvatarFromApi && tiktokAvatarFromApi !== (account.profilePicture ?? '').trim()) {
+      if (tiktokAvatarFromApi) {
         try {
-          await prisma.socialAccount.update({
-            where: { id: account.id },
-            data: { profilePicture: tiktokAvatarFromApi },
-          });
+          const { mirrorExternalImageToR2, tiktokAvatarR2Key } = await import('@/lib/mirror-external-image-r2');
+          const mirrored = await mirrorExternalImageToR2(
+            tiktokAvatarFromApi,
+            tiktokAvatarR2Key(account.id)
+          );
+          const toStore = mirrored ?? tiktokAvatarFromApi;
+          if (toStore !== (account.profilePicture ?? '').trim()) {
+            await prisma.socialAccount.update({
+              where: { id: account.id },
+              data: { profilePicture: toStore },
+            });
+          }
+        } catch {
+          /* non-fatal */
+        }
+      } else if (!(account.profilePicture ?? '').trim()) {
+        try {
+          const { fetchTikTokProfile } = await import('@/lib/tiktok/fetch-profile');
+          const prof = await fetchTikTokProfile(account.accessToken, { socialAccountId: account.id });
+          if (prof.profilePicture) {
+            await prisma.socialAccount.update({
+              where: { id: account.id },
+              data: {
+                profilePicture: prof.profilePicture,
+                ...(prof.username ? { username: prof.username } : {}),
+              },
+            });
+          }
         } catch {
           /* non-fatal */
         }

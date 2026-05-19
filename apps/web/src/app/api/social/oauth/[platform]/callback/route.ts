@@ -1179,7 +1179,9 @@ export async function GET(
     }
     try {
       const { fetchTikTokProfile } = await import('@/lib/tiktok/fetch-profile');
-      const tiktokProfile = await fetchTikTokProfile(mainAccount.accessToken);
+      const tiktokProfile = await fetchTikTokProfile(mainAccount.accessToken, {
+        socialAccountId: mainAccount.id,
+      });
       if (tiktokProfile.profilePicture || tiktokProfile.username) {
         await prisma.socialAccount.update({
           where: { id: mainAccount.id },

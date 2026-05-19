@@ -100,12 +100,18 @@ async function fetchConversationIds(
   }
 }
 
-export async function runSyncInbox(): Promise<SyncInboxResult> {
+/**
+ * Warm the DB message cache for a single user's Instagram/Facebook accounts.
+ * Called by POST /api/inbox/warm on page load to ensure all conversations are
+ * served instantly regardless of when the external sync-inbox cron last ran.
+ */
+export async function runSyncInboxForUser(userId: string): Promise<SyncInboxResult> {
   const deadline = Date.now() + SYNC_INBOX_BUDGET_MS;
   const results: Record<string, { synced: number; skipped: number; errors: number }> = {};
 
   const accounts = await prisma.socialAccount.findMany({
     where: {
+      userId,
       platform: { in: ['INSTAGRAM', 'FACEBOOK'] },
       accessToken: { not: '' },
     },
@@ -119,6 +125,19 @@ export async function runSyncInbox(): Promise<SyncInboxResult> {
     },
   });
 
+  return _syncAccounts(accounts, deadline, results);
+}
+
+type AccountRow = {
+  id: string; userId: string; platform: string;
+  platformUserId: string; accessToken: string; credentialsJson: unknown;
+};
+
+async function _syncAccounts(
+  accounts: AccountRow[],
+  deadline: number,
+  results: Record<string, { synced: number; skipped: number; errors: number }>
+): Promise<SyncInboxResult> {
   for (const account of accounts) {
     if (Date.now() >= deadline) break;
     if (isMetaNonCriticalThrottled()) break;
@@ -178,4 +197,22 @@ export async function runSyncInbox(): Promise<SyncInboxResult> {
   }
 
   return { accountCount: accounts.length, results };
+}
+
+export async function runSyncInbox(): Promise<SyncInboxResult> {
+  const deadline = Date.now() + SYNC_INBOX_BUDGET_MS;
+  const results: Record<string, { synced: number; skipped: number; errors: number }> = {};
+
+  const accounts = await prisma.socialAccount.findMany({
+    where: {
+      platform: { in: ['INSTAGRAM', 'FACEBOOK'] },
+      accessToken: { not: '' },
+    },
+    select: {
+      id: true, userId: true, platform: true,
+      platformUserId: true, accessToken: true, credentialsJson: true,
+    },
+  });
+
+  return _syncAccounts(accounts, deadline, results);
 }

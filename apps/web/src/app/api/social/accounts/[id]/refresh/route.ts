@@ -193,7 +193,7 @@ export async function PATCH(
       } catch (_) {}
     } else if (account.platform === 'TIKTOK') {
       const { fetchTikTokProfile } = await import('@/lib/tiktok/fetch-profile');
-      const tiktokProfile = await fetchTikTokProfile(token);
+      const tiktokProfile = await fetchTikTokProfile(token, { socialAccountId: account.id });
       if (tiktokProfile.username) username = tiktokProfile.username;
       if (tiktokProfile.profilePicture) profilePicture = tiktokProfile.profilePicture;
     } else if (account.platform === 'YOUTUBE') {

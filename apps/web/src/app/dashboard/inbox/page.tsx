@@ -611,6 +611,22 @@ function InboxPage() {
     };
   }, [conversationMessagesCache]);
 
+  // On first mount, trigger a server-side warm of the DB message cache so the
+  // prefetch finds data quickly and every conversation opens instantly.
+  // Debounced to once per 10 minutes per browser session via sessionStorage.
+  useEffect(() => {
+    if (!user?.id) return;
+    const WARM_KEY = 'inbox_warm_ts';
+    const WARM_INTERVAL_MS = 10 * 60 * 1000;
+    try {
+      const last = Number(sessionStorage.getItem(WARM_KEY) ?? '0');
+      if (Date.now() - last < WARM_INTERVAL_MS) return;
+      sessionStorage.setItem(WARM_KEY, String(Date.now()));
+    } catch { /* ignore */ }
+    api.post('/inbox/warm').catch(() => {/* fire-and-forget */});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
   const connectedPlatforms = INBOX_PLATFORM_DEFS.filter((p) => effectiveAccounts.some((a) => a.platform === p.id));
   const platformsToShow =
     inboxMode === 'comments'

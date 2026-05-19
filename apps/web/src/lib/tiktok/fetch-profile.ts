@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { mirrorExternalImageToR2, tiktokAvatarR2Key } from '@/lib/mirror-external-image-r2';
+import { parseTikTokCreatorInfoResponse } from '@/lib/tiktok/tiktok-publish-compliance';
 
 const TIKTOK_USER_INFO_URL = 'https://open.tiktokapis.com/v2/user/info/';
 const TIKTOK_CREATOR_INFO_URL = 'https://open.tiktokapis.com/v2/post/publish/creator_info/query/';
@@ -18,31 +20,14 @@ function tikTokAuthHeaders(accessToken: string) {
   };
 }
 
-type CreatorInfoBody = {
-  creator_nickname?: string;
-  creator_username?: string;
-  creator_avatar_url?: string;
-};
-
-function parseCreatorInfoPayload(data: unknown): CreatorInfoBody | null {
-  const raw = data as
-    | (CreatorInfoBody & { data?: CreatorInfoBody })
-    | undefined;
-  if (!raw) return null;
-  if (raw.creator_nickname != null || raw.creator_username != null || raw.creator_avatar_url != null) {
-    return raw;
-  }
-  const nested = raw.data;
-  if (nested?.creator_nickname != null || nested?.creator_username != null || nested?.creator_avatar_url != null) {
-    return nested;
-  }
-  return null;
-}
-
 /**
  * Best-effort TikTok display name + avatar from user.info and creator_info/query.
+ * When `socialAccountId` is set, mirrors the avatar to R2 for reliable sidebar display.
  */
-export async function fetchTikTokProfile(accessToken: string): Promise<{
+export async function fetchTikTokProfile(
+  accessToken: string,
+  opts?: { socialAccountId?: string }
+): Promise<{
   username?: string;
   profilePicture?: string;
 }> {
@@ -52,10 +37,19 @@ export async function fetchTikTokProfile(accessToken: string): Promise<{
 
   try {
     const userRes = await axios.get<{
-      data?: { user?: { display_name?: string; avatar_url?: string; avatar_large_url?: string } };
+      data?: {
+        user?: {
+          display_name?: string;
+          avatar_url?: string;
+          avatar_url_100?: string;
+          avatar_large_url?: string;
+        };
+      };
       error?: { code?: unknown; message?: string };
     }>(TIKTOK_USER_INFO_URL, {
-      params: { fields: 'open_id,display_name,avatar_url,avatar_large_url' },
+      params: {
+        fields: 'open_id,display_name,avatar_url,avatar_url_100,avatar_large_url',
+      },
       headers,
       timeout: 15_000,
       validateStatus: () => true,
@@ -64,8 +58,13 @@ export async function fetchTikTokProfile(accessToken: string): Promise<{
     const err = userRes.data?.error;
     if (userRes.status < 400 && tikTokApiPayloadOk(err) && user) {
       if (user.display_name?.trim()) username = user.display_name.trim();
-      const pic = user.avatar_large_url?.trim() || user.avatar_url?.trim();
+      const pic =
+        user.avatar_large_url?.trim() ||
+        user.avatar_url?.trim() ||
+        user.avatar_url_100?.trim();
       if (pic) profilePicture = pic;
+    } else if (userRes.status >= 400) {
+      console.warn('[TikTok] user/info HTTP', userRes.status, err?.message ?? '');
     }
   } catch (e) {
     console.warn('[TikTok] user/info profile fetch:', (e as Error)?.message?.slice(0, 120));
@@ -73,24 +72,30 @@ export async function fetchTikTokProfile(accessToken: string): Promise<{
 
   if (!profilePicture) {
     try {
-      const creatorRes = await axios.post<{
-        data?: CreatorInfoBody & { data?: CreatorInfoBody };
-        error?: { code?: unknown; message?: string };
-      }>(TIKTOK_CREATOR_INFO_URL, {}, {
+      const creatorRes = await axios.post(TIKTOK_CREATOR_INFO_URL, {}, {
         headers,
         timeout: 15_000,
         validateStatus: () => true,
       });
-      const err = creatorRes.data?.error;
-      const d = parseCreatorInfoPayload(creatorRes.data?.data);
-      if (creatorRes.status < 400 && tikTokApiPayloadOk(err) && d) {
-        if (!username && d.creator_nickname?.trim()) username = d.creator_nickname.trim();
-        const pic = d.creator_avatar_url?.trim();
+      const parsed = parseTikTokCreatorInfoResponse(creatorRes.data);
+      if (parsed.ok) {
+        if (!username && parsed.data.creator_nickname?.trim()) {
+          username = parsed.data.creator_nickname.trim();
+        }
+        const pic = parsed.data.creator_avatar_url?.trim();
         if (pic) profilePicture = pic;
       }
     } catch (e) {
       console.warn('[TikTok] creator_info profile fetch:', (e as Error)?.message?.slice(0, 120));
     }
+  }
+
+  if (profilePicture && opts?.socialAccountId) {
+    const mirrored = await mirrorExternalImageToR2(
+      profilePicture,
+      tiktokAvatarR2Key(opts.socialAccountId)
+    );
+    if (mirrored) profilePicture = mirrored;
   }
 
   return { username, profilePicture };
