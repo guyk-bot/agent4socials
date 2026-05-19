@@ -32,6 +32,7 @@ import { formatMetricNumber as formatNumber } from '@/lib/metric-format';
 import { ANALYTICS_CHART_SELECT_METRIC_MESSAGE } from '@/lib/analytics-chart-messages';
 import { isLegacyInstagramInsightsUnavailableHint } from '@/lib/strip-legacy-insights-hint';
 import { createMinWidthStackedBarShape } from '@/lib/recharts-stacked-bar-shape';
+import { avatarDisplayUrl } from '@/lib/avatar-display-url';
 import {
   buildYoutubePrimaryPermalink,
   classifyYoutubeVideoFormat,
@@ -2883,13 +2884,14 @@ export function FacebookAnalyticsView({
   const igMetricSeries = insights?.facebookPageMetricSeries;
   const community = insights?.facebookCommunity;
   const resolvedUsername = (profile?.username ?? accountUsername ?? '').trim().replace(/^@/, '');
-  const headerAvatarUrl = isTikTok
+  const headerAvatarRaw = isTikTok
     ? (tiktokCreatorInfo?.creatorAvatarUrl ?? accountAvatarUrl)
     : isTwitter && twitterUser?.profile_image_url
       ? twitterUser.profile_image_url.replace(/_normal\./, '_400x400.')
       : isLinkedIn && linkedInExtras?.profile?.picture
         ? linkedInExtras.profile.picture
         : accountAvatarUrl;
+  const headerAvatarUrl = avatarDisplayUrl(insights?.platform, headerAvatarRaw) ?? headerAvatarRaw;
 
   // Reset failed state whenever the URL changes so a fresh URL always gets a try.
   // eslint-disable-next-line react-hooks/exhaustive-deps

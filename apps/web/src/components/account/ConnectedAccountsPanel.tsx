@@ -10,6 +10,7 @@ import type { SocialAccount } from '@/context/SelectedAccountContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 import { RefreshCw } from 'lucide-react';
+import { avatarDisplayUrl } from '@/lib/avatar-display-url';
 
 /** Same connect targets and styling as Summary dashboard empty state (compact grid on Account page). */
 const CONNECT_PLATFORM_CARDS: { id: string; name: string; slug: string; border: string; bg: string }[] = [
@@ -121,11 +122,15 @@ export function ConnectedAccountsPanel() {
                 <div key={acc.id} className="account-connect-card rounded-xl border border-neutral-200 bg-white p-3 sm:p-4 text-center">
                   <div className="flex justify-center">
                     <div className="w-9 h-9 rounded-full overflow-hidden bg-neutral-100 flex items-center justify-center">
-                      {acc.profilePicture ? (
-                        <img src={acc.profilePicture} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <span className="w-9 h-9 flex items-center justify-center">{CONNECT_GRID_ICON[acc.platform] ?? <FacebookIcon size={24} />}</span>
-                      )}
+                      {(() => {
+                        const src = avatarDisplayUrl(acc.platform, acc.profilePicture);
+                        if (src) {
+                          return <img src={src} alt="" className="h-full w-full object-cover" />;
+                        }
+                        return (
+                          <span className="w-9 h-9 flex items-center justify-center">{CONNECT_GRID_ICON[acc.platform] ?? <FacebookIcon size={24} />}</span>
+                        );
+                      })()}
                     </div>
                   </div>
                   <div className="mt-2 inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm font-semibold text-neutral-800">

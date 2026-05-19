@@ -23,6 +23,7 @@ import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
+import { avatarDisplayUrl } from '@/lib/avatar-display-url';
 
 const PLATFORM_LABELS: Record<string, string> = {
   INSTAGRAM: 'Instagram',
@@ -176,6 +177,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
             .filter((a) =>
               a?.platform === 'INSTAGRAM' ||
               a?.platform === 'FACEBOOK' ||
+              a?.platform === 'TIKTOK' ||
               a?.platform === 'TWITTER' ||
               a?.platform === 'YOUTUBE' ||
               a?.platform === 'PINTEREST' ||
@@ -347,19 +349,22 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                       <div className="truncate font-medium">{acc.username || PLATFORM_LABELS[platform]}</div>
                     </div>
                     <div className={`w-8 h-8 flex items-center justify-center shrink-0 rounded-full overflow-hidden ${acc.profilePicture && !brokenAvatarIds[acc.id] ? '' : 'bg-neutral-200'}`}>
-                      {acc.profilePicture && !brokenAvatarIds[acc.id] ? (
-                        <img
-                          src={acc.profilePicture}
-                          alt=""
-                          className="w-full h-full object-cover"
-                          onError={() => {
-                            setBrokenAvatarIds((prev) => ({ ...prev, [acc.id]: true }));
-                            void refreshAvatar(acc.id, platform);
-                          }}
-                        />
-                      ) : (
-                        PLATFORM_ICON[platform] ?? <span className="font-bold text-xs text-neutral-500">?</span>
-                      )}
+                      {(() => {
+                        const avatarSrc = avatarDisplayUrl(platform, acc.profilePicture);
+                        return avatarSrc && !brokenAvatarIds[acc.id] ? (
+                          <img
+                            src={avatarSrc}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            onError={() => {
+                              setBrokenAvatarIds((prev) => ({ ...prev, [acc.id]: true }));
+                              void refreshAvatar(acc.id, platform);
+                            }}
+                          />
+                        ) : (
+                          PLATFORM_ICON[platform] ?? <span className="font-bold text-xs text-neutral-500">?</span>
+                        );
+                      })()}
                     </div>
                   </div>
                 );
