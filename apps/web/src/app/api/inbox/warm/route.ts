@@ -11,7 +11,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { scheduleInboxWarmForUser } from '@/lib/inbox/schedule-inbox-warm';
 
-export const maxDuration = 60;
+/** Must cover SYNC_INBOX_USER_BUDGET_MS so after() can finish warming all threads. */
+export const maxDuration = 120;
 
 export async function POST(request: NextRequest) {
   const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));

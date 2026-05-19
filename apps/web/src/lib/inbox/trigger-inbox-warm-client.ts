@@ -1,5 +1,6 @@
 /**
- * Fire-and-forget inbox warm from the browser (debounced per session).
+ * Fire-and-forget inbox warm from the browser.
+ * Called on login, right after connect (connecting=1), and when Inbox opens.
  */
 import api from '@/lib/api';
 

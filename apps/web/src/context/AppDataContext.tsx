@@ -485,9 +485,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         setPrefetchHasLoadedOnce(true);
         if (typeof sessionStorage !== 'undefined') sessionStorage.setItem('appDataPhase1Done', '1');
 
-        // Pre-warm Instagram/Facebook DM cache in the background (not only when Inbox opens).
+        // Pre-warm Instagram/Facebook DM cache on login and after connect (not only on Inbox).
         if (accounts.some((a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK')) {
-          triggerInboxWarmClient();
+          triggerInboxWarmClient(true);
         }
 
         // Phase 2: load per-account data ONE REQUEST AT A TIME.

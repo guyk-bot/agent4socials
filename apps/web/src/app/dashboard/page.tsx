@@ -616,6 +616,7 @@ export default function DashboardPage() {
         appDataRef.current?.clearAccountData(accountIdFromUrl);
         router.replace('/dashboard', { scroll: false });
         setJustConnected(true);
+        triggerInboxWarmClient(true);
         timeoutId = setTimeout(() => setJustConnected(false), 5000);
       })
       .catch(() => {

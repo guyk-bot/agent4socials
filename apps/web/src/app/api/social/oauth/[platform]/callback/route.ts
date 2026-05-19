@@ -10,6 +10,9 @@ import { syncTikTokImportedVideos } from '@/lib/tiktok/sync-imported-videos';
 import { fetchLinkedInRestPersonUrn } from '@/lib/linkedin/rest-person';
 import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 import { scheduleInboxWarmForUser } from '@/lib/inbox/schedule-inbox-warm';
+
+export const maxDuration = 60;
+
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'PINTEREST'] as const;
 
 const OAUTH_HEAD = '<meta charset="utf-8"><meta name="robots" content="noindex, nofollow">';
