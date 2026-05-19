@@ -208,6 +208,77 @@
   color: #ffb86b !important;
   stroke: #ffb86b !important;
 }
+
+/* Inbox / comment composer: bold AI + Send icon buttons */
+.inbox-reply-ai-btn {
+  color: #fff !important;
+  background: linear-gradient(145deg, #9333ea 0%, #7c3aed 100%) !important;
+  border: 1px solid #6d28d9 !important;
+  box-shadow: 0 2px 10px rgba(124, 58, 237, 0.38);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+.inbox-reply-ai-btn:hover:not(:disabled) {
+  background: linear-gradient(145deg, #a855f7 0%, #8b5cf6 100%) !important;
+  border-color: #7c3aed !important;
+  box-shadow: 0 4px 16px rgba(124, 58, 237, 0.52);
+  transform: translateY(-1px);
+}
+.inbox-reply-ai-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
+}
+.inbox-reply-ai-btn svg {
+  color: #fff !important;
+  stroke: #fff !important;
+}
+
+.inbox-reply-send-btn {
+  color: #fff !important;
+  background: linear-gradient(145deg, #ff7a00 0%, #ea580c 100%) !important;
+  border: 1px solid #c2410c !important;
+  box-shadow: 0 2px 10px rgba(255, 122, 0, 0.38);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+.inbox-reply-send-btn:hover:not(:disabled) {
+  background: linear-gradient(145deg, #ff9220 0%, #f97316 100%) !important;
+  border-color: #ea580c !important;
+  box-shadow: 0 4px 16px rgba(255, 122, 0, 0.5);
+  transform: translateY(-1px);
+}
+.inbox-reply-send-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(255, 122, 0, 0.35);
+}
+.inbox-reply-send-btn svg {
+  color: #fff !important;
+  stroke: #fff !important;
+}
+
+[data-theme='dark'] .inbox-reply-ai-btn {
+  border-color: #8b5cf6 !important;
+  box-shadow: 0 2px 12px rgba(139, 92, 246, 0.45);
+}
+[data-theme='dark'] .inbox-reply-ai-btn:hover:not(:disabled) {
+  background: linear-gradient(145deg, #a78bfa 0%, #9333ea 100%) !important;
+  box-shadow: 0 4px 18px rgba(167, 139, 250, 0.55);
+}
+[data-theme='dark'] .inbox-reply-send-btn {
+  border-color: #fb923c !important;
+  box-shadow: 0 2px 12px rgba(255, 122, 0, 0.42);
+}
+[data-theme='dark'] .inbox-reply-send-btn:hover:not(:disabled) {
+  background: linear-gradient(145deg, #ff9220 0%, #fb923c 100%) !important;
+  box-shadow: 0 4px 18px rgba(255, 146, 32, 0.55);
+}
+
 .brand-select-menu {
   max-height: 11rem;
   overflow-y: auto;

@@ -2790,7 +2790,7 @@ function InboxPage() {
                             setAiReplyLoading(false);
                           }
                         }}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-40 border border-orange-200 text-sm font-medium"
+                        className="inbox-reply-ai-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
                         title={hasCommentExamples ? 'Generate reply with AI' : 'Add examples in AI Assistant'}
                       >
                         {aiReplyLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
@@ -2839,7 +2839,7 @@ function InboxPage() {
                           setCommentsRefreshKey((k) => k + 1);
                         }
                       }}
-                      className="mt-3 px-4 py-2.5 rounded-xl bg-[var(--button)] text-white text-sm font-medium hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                      className="inbox-reply-send-btn mt-3 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
                     >
                       {replySending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                       Send to all ({replyable.length})
@@ -2937,7 +2937,7 @@ function InboxPage() {
                                     setAiReplyLoading(false);
                                   }
                                 }}
-                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-orange-50 text-orange-700 hover:bg-orange-100 disabled:opacity-40 border border-orange-200 text-xs font-medium"
+                                className="inbox-reply-ai-btn inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
                                 title={hasInboxExamples ? 'Generate reply with AI' : 'Add inbox reply examples in AI Assistant'}
                               >
                                 {aiReplyLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
@@ -2989,7 +2989,7 @@ function InboxPage() {
                                     setDmReplySending(false);
                                   }
                                 }}
-                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[var(--button)] text-white text-xs font-medium hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="inbox-reply-send-btn inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 {dmReplySending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                                 Send
@@ -3279,7 +3279,7 @@ function InboxPage() {
                         setAiReplyLoading(false);
                       }
                     }}
-                    className="p-3 rounded-xl accent-orange-light-btn disabled:opacity-40 disabled:cursor-not-allowed shrink-0 border"
+                    className="inbox-reply-ai-btn p-3 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                     title={hasCommentExamples ? 'Generate reply with AI' : 'Add comment reply examples in AI Assistant to enable AI drafts'}
                   >
                     {aiReplyLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
@@ -3334,7 +3334,7 @@ function InboxPage() {
                       setReplySending(false);
                     }
                   }}
-                  className="p-3 rounded-xl bg-[var(--button)] text-white hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  className="inbox-reply-send-btn p-3 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                   title="Send reply"
                   >
                     {replySending ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
@@ -3664,7 +3664,7 @@ function InboxPage() {
                         setAiReplyLoading(false);
                       }
                     }}
-                    className="p-3 rounded-xl accent-orange-light-btn disabled:opacity-40 disabled:cursor-not-allowed shrink-0 border"
+                    className="inbox-reply-ai-btn p-3 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
                     title={hasInboxExamples ? 'Generate reply with AI' : 'Add inbox reply examples in AI Assistant to enable AI drafts'}
                   >
                     {aiReplyLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
@@ -3764,7 +3764,7 @@ function InboxPage() {
                       setDmReplySending(false);
                     }
                   }}
-                  className="p-3 rounded-xl bg-[var(--button)] text-white hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  className="inbox-reply-send-btn p-3 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                   title="Send"
                 >
                   {dmReplySending ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
