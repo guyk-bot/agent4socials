@@ -126,7 +126,7 @@ export function BrandTeamMembersSection({
   };
 
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-neutral-50/40 p-4 sm:p-5 shadow-sm space-y-4">
+    <div className="rounded-2xl border border-neutral-200 bg-neutral-50/40 p-4 sm:p-5 shadow-sm space-y-4 dark:border-black dark:bg-neutral-800">
       <div className="space-y-2">
         <label htmlFor="team-brand-select" className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">
           Brand
