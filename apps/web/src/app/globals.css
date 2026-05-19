@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Match app theme toggle (data-theme), not OS prefers-color-scheme alone. */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
 @theme {
   /* Futuristic Neon Glass SaaS design system */
   --color-primary: #ff7a00;
@@ -277,6 +280,23 @@
 [data-theme='dark'] .inbox-reply-send-btn:hover:not(:disabled) {
   background: linear-gradient(145deg, #ff9220 0%, #fb923c 100%) !important;
   box-shadow: 0 4px 18px rgba(255, 146, 32, 0.55);
+}
+
+/* Inbox: keep thread area white in light mode (do not inherit black message-panel fills). */
+[data-theme='light'] .inbox-thread-shell,
+[data-theme='light'] .inbox-thread-panel,
+[data-theme='light'] .inbox-thread-messages,
+[data-theme='light'] .inbox-sidebar-panel {
+  background-color: #ffffff !important;
+}
+[data-theme='light'] .inbox-recv-bubble {
+  background-color: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  color: #171717 !important;
+}
+[data-theme='light'] .inbox-sent-bubble {
+  background-color: rgba(255, 184, 107, 0.38) !important;
+  color: #171717 !important;
 }
 
 .brand-select-menu {

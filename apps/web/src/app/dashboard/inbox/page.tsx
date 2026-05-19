@@ -202,10 +202,10 @@ function proxyImageUrl(url: string | null | undefined): string | null {
 
 /** Outgoing inbox bubbles (DMs and replies you sent). */
 const INBOX_SENT_BUBBLE_CLASS =
-  'bg-[rgba(255,184,107,0.38)] text-neutral-900 dark:bg-[rgba(255,184,107,0.32)] dark:text-neutral-100';
-/** Incoming bubbles from the other person. */
+  'inbox-sent-bubble bg-[rgba(255,184,107,0.38)] text-neutral-900 dark:bg-[rgba(255,184,107,0.32)] dark:text-neutral-100';
+/** Incoming bubbles from the other person (white in light mode, not global neutral-100 → black). */
 const INBOX_RECV_BUBBLE_CLASS =
-  'bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100';
+  'inbox-recv-bubble bg-white border border-neutral-200 text-neutral-900 shadow-sm dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-100 dark:shadow-none';
 
 function InboxAvatar({
   pictureUrl,
@@ -2391,10 +2391,10 @@ function InboxPage() {
   };
 
   return (
-    <div className="relative flex h-[calc(100vh-3.5rem-3rem)] md:h-[calc(100vh-3.5rem-4rem)] bg-white dark:bg-neutral-950 flex-col md:flex-row">
+    <div className="inbox-thread-shell relative flex h-[calc(100vh-3.5rem-3rem)] md:h-[calc(100vh-3.5rem-4rem)] bg-white dark:bg-neutral-950 flex-col md:flex-row">
       <LoadingVideoOverlay contained loading={conversationsLoading && conversations.length === 0} />
       {/* Left column: platform filters, search, list */}
-      <div className="w-full md:w-80 border-r border-neutral-200 dark:border-neutral-800 flex flex-col shrink-0 bg-white dark:bg-neutral-950">
+      <div className="inbox-sidebar-panel w-full md:w-80 border-r border-neutral-200 dark:border-neutral-800 flex flex-col shrink-0 bg-white dark:bg-neutral-950">
         {/* Platform icons + Connect */}
         <div className="p-3 border-b border-neutral-100 dark:border-neutral-800 shrink-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -2692,7 +2692,7 @@ function InboxPage() {
       </div>
 
       {/* Main content - conversation or comment reply */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[var(--background)] min-h-0">
+      <div className="inbox-thread-panel flex-1 flex flex-col min-w-0 bg-white dark:bg-neutral-950 min-h-0">
         {!selectedPlatform ? (
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="text-center max-w-sm">
@@ -3447,7 +3447,7 @@ function InboxPage() {
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <div className="flex-1 overflow-y-auto p-6 min-h-0">
                 <div className="max-w-2xl mx-auto h-full flex flex-col min-h-0">
-                  <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm overflow-hidden flex-1 flex flex-col min-h-0">
+                  <div className="inbox-thread-panel bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-700 shadow-sm overflow-hidden flex-1 flex flex-col min-h-0">
                     <div className="p-4 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-800/50 shrink-0">
                       {(() => {
                         const selectedConv = conversations.find((c) => c.id === selectedConversationId);
@@ -3489,7 +3489,7 @@ function InboxPage() {
                         );
                       })()}
                     </div>
-                    <div className="p-6 flex-1 min-h-0 overflow-y-auto">
+                    <div className="inbox-thread-messages p-6 flex-1 min-h-0 overflow-y-auto bg-white dark:bg-neutral-900">
                     {conversationMessagesLoading ? (
                       <div className="flex flex-col items-center justify-center min-h-[12rem] py-12">
                         <Loader2 size={36} className="text-orange-500 animate-spin" aria-hidden />
