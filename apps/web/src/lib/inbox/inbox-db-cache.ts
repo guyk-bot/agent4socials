@@ -38,14 +38,14 @@ export async function getInboxMessagesFromDb(
   socialAccountId: string,
   conversationId: string,
   /** ISO timestamp of the conversation's last update. When provided and newer than
-   * the cache write time, the cache is treated as stale and null is returned so the
-   * caller fetches fresh messages from the platform API. */
+   * the cache write time (derived from expiresAt - TTL), the cache is treated as
+   * stale and null is returned so the caller fetches fresh messages from the API. */
   convUpdatedTime?: string | null
 ): Promise<ConversationUiMessage[] | null> {
   try {
     await ensureAppKvTable();
-    const rows = await prisma.$queryRaw<Array<{ value: string; expiresAt: Date | null; updatedAt: Date }>>`
-      SELECT value, "expiresAt", "updatedAt"
+    const rows = await prisma.$queryRaw<Array<{ value: string; expiresAt: Date | null }>>`
+      SELECT value, "expiresAt"
       FROM app_kv
       WHERE key = ${inboxMsgKey(socialAccountId, conversationId)}
       LIMIT 1
@@ -53,11 +53,13 @@ export async function getInboxMessagesFromDb(
     const row = rows[0];
     if (!row) return null;
     if (row.expiresAt && row.expiresAt < new Date()) return null;
-    // If the conversation was updated after we last cached its messages, a new
-    // message arrived — skip the cache so the caller fetches from the platform API.
-    if (convUpdatedTime) {
+    // Derive when the cache was written: writtenAt = expiresAt - TTL.
+    // If the conversation was updated after the cache was written, a new message
+    // arrived — bypass the cache so the caller fetches fresh from the platform API.
+    if (convUpdatedTime && row.expiresAt) {
+      const writtenAtMs = row.expiresAt.getTime() - INBOX_MESSAGES_DB_TTL_MS;
       const convMs = Date.parse(convUpdatedTime);
-      if (Number.isFinite(convMs) && convMs > row.updatedAt.getTime()) return null;
+      if (Number.isFinite(convMs) && convMs > writtenAtMs) return null;
     }
     return JSON.parse(row.value) as ConversationUiMessage[];
   } catch {
