@@ -46,6 +46,33 @@ function postCalendarDate(post: { scheduledAt?: string | null; postedAt?: string
     return iso ? localCalendarDateFromIso(iso) : '';
 }
 
+function postSearchHaystack(post: any): string {
+    const parts: string[] = [];
+    if (post?.title) parts.push(String(post.title));
+    if (post?.content) parts.push(String(post.content));
+    if (post?.status) parts.push(String(post.status));
+    if (Array.isArray(post?.targetPlatforms)) {
+        parts.push(...post.targetPlatforms.map(String));
+    }
+    if (Array.isArray(post?.targets)) {
+        for (const t of post.targets) {
+            if (t?.platform) parts.push(String(t.platform));
+            if (t?.status) parts.push(String(t.status));
+            if (t?.socialAccount?.username) parts.push(String(t.socialAccount.username));
+        }
+    }
+    if (post?.contentByPlatform && typeof post.contentByPlatform === 'object') {
+        parts.push(...Object.values(post.contentByPlatform as Record<string, unknown>).map(String));
+    }
+    return parts.join(' ').toLowerCase();
+}
+
+function postMatchesSearch(post: any, query: string): boolean {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return postSearchHaystack(post).includes(q);
+}
+
 function isReelLikePost(post: any): boolean {
     if (typeof post?.mediaType === 'string' && post.mediaType.toLowerCase() === 'reel') return true;
     const firstType = Array.isArray(post?.media) && post.media.length > 0 ? post.media[0]?.type : null;
@@ -89,6 +116,7 @@ export default function PostsPage() {
     const [loading, setLoading] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [filter, setFilter] = useState('ALL');
+    const [searchQuery, setSearchQuery] = useState('');
     const [dateRange, setDateRange] = useState(() => getDefaultAnalyticsDateRange());
 
     useEffect(() => {
@@ -168,6 +196,7 @@ export default function PostsPage() {
     const filteredPosts = posts.filter((p: any) => {
         const d = postCalendarDate(p);
         if (d && (d < dateRange.start || d > dateRange.end)) return false;
+        if (!postMatchesSearch(p, searchQuery)) return false;
         if (filter === 'ALL') return true;
         return p.status === filter;
     });
@@ -253,9 +282,12 @@ export default function PostsPage() {
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                         <input
-                            type="text"
+                            type="search"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Search posts..."
-                            className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[var(--button)] focus:border-[var(--button)] bg-white"
+                            aria-label="Search posts"
+                            className="pl-10 pr-4 py-2 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-[var(--button)] focus:border-[var(--button)] bg-white dark:bg-neutral-900 dark:text-neutral-100 w-48 sm:w-56"
                         />
                     </div>
                     <select
@@ -398,7 +430,11 @@ export default function PostsPage() {
                     </div>
                 ) : (
                     <div className="p-20 text-center">
-                        <p className="text-gray-500 dark:text-neutral-400">No posts match this filter or date range.</p>
+                        <p className="text-gray-500 dark:text-neutral-400">
+                            {searchQuery.trim()
+                                ? 'No posts match your search, status filter, or date range.'
+                                : 'No posts match this filter or date range.'}
+                        </p>
                     </div>
                 )}
             </div>
