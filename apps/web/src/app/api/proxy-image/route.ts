@@ -22,13 +22,18 @@ export async function GET(request: NextRequest) {
     return new NextResponse('Invalid URL', { status: 400 });
   }
 
+  const isTikTokCdn = /tiktokcdn|tiktokv\.com|byteimg\.com|muscdn\.com/i.test(decoded);
+
   try {
     const response = await fetch(decoded, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; Agent4Socials/1.0)',
-        'Accept': 'image/*,*/*',
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        ...(isTikTokCdn ? { Referer: 'https://www.tiktok.com/' } : {}),
       },
       cache: 'no-store',
+      redirect: 'follow',
     });
 
     if (!response.ok) {

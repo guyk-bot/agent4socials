@@ -190,7 +190,21 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
             if (cancelled) return;
             const refreshed = await api.get('/social/accounts');
             if (cancelled) return;
-            const refreshedData = Array.isArray(refreshed.data) ? refreshed.data : [];
+            let refreshedData = Array.isArray(refreshed.data) ? refreshed.data : [];
+            const tiktokStillMissingAvatar = refreshedData.filter(
+              (a) => a?.platform === 'TIKTOK' && !(a.profilePicture ?? '').trim()
+            );
+            if (tiktokStillMissingAvatar.length > 0) {
+              await Promise.allSettled(
+                tiktokStillMissingAvatar.map((a) => api.patch(`/social/accounts/${a.id}/refresh`))
+              );
+              if (!cancelled) {
+                const retry = await api.get('/social/accounts');
+                if (!cancelled) {
+                  refreshedData = Array.isArray(retry.data) ? retry.data : refreshedData;
+                }
+              }
+            }
             setCachedAccounts(refreshedData);
           }
         }

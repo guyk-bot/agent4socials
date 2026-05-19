@@ -241,36 +241,15 @@ async function exchangeCode(
         console.warn('[Social OAuth] TikTok token error:', msg);
         throw new Error(msg);
       }
-      let username = 'TikTok User';
-      let profilePicture: string | null = null;
-      try {
-        const userRes = await axios.get<{
-          data?: { user?: { display_name?: string; avatar_url?: string; avatar_large_url?: string } };
-          error?: { code?: string };
-        }>('https://open.tiktokapis.com/v2/user/info/', {
-          params: { fields: 'open_id,display_name,avatar_url,avatar_large_url' },
-          headers: {
-            Authorization: `Bearer ${data.access_token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        const user = userRes.data?.data?.user;
-        if (userRes.data?.error?.code !== 'ok' && userRes.data?.error?.code) {
-          // non-ok error, skip profile
-        } else if (user) {
-          if (user.display_name) username = user.display_name;
-          profilePicture = user.avatar_large_url || user.avatar_url || null;
-        }
-      } catch (e) {
-        console.warn('[Social OAuth] TikTok user/info:', (e as Error)?.message ?? e);
-      }
+      const { fetchTikTokProfile } = await import('@/lib/tiktok/fetch-profile');
+      const tiktokProfile = await fetchTikTokProfile(data.access_token);
       return {
         accessToken: data.access_token,
         refreshToken: data.refresh_token ?? null,
         expiresAt: new Date(Date.now() + (data.expires_in || 86400) * 1000),
         platformUserId: data.open_id || 'tiktok-id',
-        username,
-        profilePicture,
+        username: tiktokProfile.username ?? 'TikTok User',
+        profilePicture: tiktokProfile.profilePicture ?? null,
       };
     }
     case 'YOUTUBE': {
@@ -1078,7 +1057,7 @@ export async function GET(
         refreshToken: tokenData.refreshToken,
         expiresAt: tokenData.expiresAt,
         username: tokenData.username,
-        ...(profilePicture !== undefined && { profilePicture }),
+        ...(profilePicture ? { profilePicture } : {}),
         status: 'connected',
         connectedAt: new Date(),
         disconnectedAt: null,
@@ -1089,7 +1068,7 @@ export async function GET(
         platform: plat,
         platformUserId: tokenData.platformUserId,
         username: tokenData.username,
-        ...(profilePicture !== undefined && { profilePicture }),
+        ...(profilePicture ? { profilePicture } : {}),
         accessToken: tokenData.accessToken,
         refreshToken: tokenData.refreshToken,
         expiresAt: tokenData.expiresAt,
@@ -1197,6 +1176,21 @@ export async function GET(
       });
     } catch (e) {
       console.warn('[OAuth] TikTok video.list ingest:', (e as Error)?.message ?? e);
+    }
+    try {
+      const { fetchTikTokProfile } = await import('@/lib/tiktok/fetch-profile');
+      const tiktokProfile = await fetchTikTokProfile(mainAccount.accessToken);
+      if (tiktokProfile.profilePicture || tiktokProfile.username) {
+        await prisma.socialAccount.update({
+          where: { id: mainAccount.id },
+          data: {
+            ...(tiktokProfile.profilePicture ? { profilePicture: tiktokProfile.profilePicture } : {}),
+            ...(tiktokProfile.username ? { username: tiktokProfile.username } : {}),
+          },
+        });
+      }
+    } catch (e) {
+      console.warn('[OAuth] TikTok profile backfill:', (e as Error)?.message ?? e);
     }
   }
   // Bootstrap follower/following snapshot for Instagram and Facebook only (YouTube excluded).

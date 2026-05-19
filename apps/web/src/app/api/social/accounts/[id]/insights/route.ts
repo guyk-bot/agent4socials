@@ -2400,6 +2400,7 @@ export async function GET(
       /** True if TikTok returned at least one numeric stats field from user.info (proves user.info.stats worked). */
       let tiktokUserInfoReturnedAnyStat = false;
       let tiktokUserInfoHttpStatus = 0;
+      let tiktokAvatarFromApi: string | undefined;
       try {
         const userRes = await axios.get<{
           data?: {
@@ -2411,6 +2412,8 @@ export async function GET(
               display_name?: string;
               bio_description?: string;
               is_verified?: boolean;
+              avatar_url?: string;
+              avatar_large_url?: string;
             };
           };
           error?: { code?: unknown; message?: string };
@@ -2447,6 +2450,8 @@ export async function GET(
           const likes = parseTk(user.likes_count);
           tiktokUserInfoReturnedAnyStat =
             fc != null || following != null || videos != null || likes != null;
+          const avatarPic = user.avatar_large_url?.trim() || user.avatar_url?.trim();
+          if (avatarPic) tiktokAvatarFromApi = avatarPic;
           (out as Record<string, unknown>).tiktokUser = {
             followerCount: fc ?? 0,
             followingCount: following,
@@ -2499,6 +2504,7 @@ export async function GET(
             | undefined;
           const d = raw?.creator_nickname != null || raw?.creator_username != null ? raw : (raw?.data as typeof raw | undefined);
           if (creatorRes.status === 200 && err?.code === 'ok' && d) {
+            if (d.creator_avatar_url?.trim()) tiktokAvatarFromApi = d.creator_avatar_url.trim();
             (out as Record<string, unknown>).tiktokCreatorInfo = {
               creatorNickname: d.creator_nickname,
               creatorUsername: d.creator_username,
@@ -2512,6 +2518,16 @@ export async function GET(
           }
         } catch (_) {
           // creator_info is optional for dashboard totals
+        }
+      }
+      if (tiktokAvatarFromApi && tiktokAvatarFromApi !== (account.profilePicture ?? '').trim()) {
+        try {
+          await prisma.socialAccount.update({
+            where: { id: account.id },
+            data: { profilePicture: tiktokAvatarFromApi },
+          });
+        } catch {
+          /* non-fatal */
         }
       }
       // TikTok: daily views in the selected range (by publish date) + lifetime total for hints.

@@ -9,7 +9,7 @@ export function avatarDisplayUrl(
   const trimmed = url?.trim();
   if (!trimmed) return null;
   const plat = (platform ?? '').toUpperCase();
-  if (plat === 'TIKTOK' || /tiktokcdn\.com/i.test(trimmed)) {
+  if (plat === 'TIKTOK' || /tiktokcdn|tiktokv\.com|byteimg\.com|muscdn\.com/i.test(trimmed)) {
     return `/api/proxy-image?url=${encodeURIComponent(trimmed)}`;
   }
   return trimmed;

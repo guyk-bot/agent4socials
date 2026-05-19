@@ -192,24 +192,10 @@ export async function PATCH(
         if (u?.profile_image_url) profilePicture = u.profile_image_url.replace(/_normal\./, '_400x400.');
       } catch (_) {}
     } else if (account.platform === 'TIKTOK') {
-      try {
-        const userRes = await axios.get<{
-          data?: { user?: { display_name?: string; avatar_url?: string; avatar_large_url?: string } };
-          error?: { code?: string };
-        }>('https://open.tiktokapis.com/v2/user/info/', {
-          params: { fields: 'open_id,display_name,avatar_url,avatar_large_url' },
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-        const user = userRes.data?.data?.user;
-        if (!userRes.data?.error?.code || userRes.data.error.code === 'ok') {
-          if (user?.display_name) username = user.display_name;
-          if (user?.avatar_large_url) profilePicture = user.avatar_large_url;
-          else if (user?.avatar_url) profilePicture = user.avatar_url;
-        }
-      } catch (_) {}
+      const { fetchTikTokProfile } = await import('@/lib/tiktok/fetch-profile');
+      const tiktokProfile = await fetchTikTokProfile(token);
+      if (tiktokProfile.username) username = tiktokProfile.username;
+      if (tiktokProfile.profilePicture) profilePicture = tiktokProfile.profilePicture;
     } else if (account.platform === 'YOUTUBE') {
       try {
         const chRes = await axios.get<{
