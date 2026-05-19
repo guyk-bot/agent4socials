@@ -19,7 +19,11 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import api from '@/lib/api';
-import { readApiErrorMessage, AI_REPLY_FAILED_MESSAGE } from '@/lib/api-error-message';
+import {
+  readApiErrorMessage,
+  AI_REPLY_FAILED_MESSAGE,
+  AI_REPLY_NOT_CONFIGURED_MESSAGE,
+} from '@/lib/api-error-message';
 import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
 import {
   markInboxAccountRecentlyConnected,
@@ -3703,7 +3707,7 @@ function InboxPage() {
                         postRes.data?.sentMessage ??
                         ({
                           id: `local-${Date.now()}`,
-                          fromId: account.platformUserId ?? null,
+                          fromId: null,
                           fromName: null,
                           message: textToSend,
                           createdTime: new Date().toISOString(),
