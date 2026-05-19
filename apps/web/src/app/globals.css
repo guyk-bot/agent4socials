@@ -177,6 +177,17 @@
 [data-theme='dark'] .connect-view-scope .text-neutral-400 {
   color: #d4d4d8 !important;
 }
+[data-theme='dark'] .connect-view-scope .connect-tiktok-btn {
+  background: #000000 !important;
+  background-color: #000000 !important;
+  border-color: #000000 !important;
+  color: #ffffff !important;
+}
+[data-theme='dark'] .connect-view-scope .connect-tiktok-btn:hover:not(:disabled) {
+  background: #171717 !important;
+  background-color: #171717 !important;
+  border-color: #171717 !important;
+}
 
 .upgrade-badge-warm {
   color: #ff7a00;

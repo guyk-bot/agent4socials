@@ -58,7 +58,7 @@ const PLATFORM_INFO: Record<string, {
     name: 'TikTok',
     description: 'Connect your TikTok account to publish videos, track performance, and manage your content strategy directly from Agent4Socials.',
     headerIcon: <TikTokIcon size={40} />,
-    buttonGradient: 'from-neutral-800 to-neutral-900',
+    buttonGradient: 'from-black to-neutral-900',
     buttonHover: 'hover:from-neutral-900 hover:to-black',
     accentBorder: 'border-neutral-300',
     accentHover: 'hover:border-neutral-500 hover:bg-neutral-100/40',
@@ -301,7 +301,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
               type="button"
               onClick={() => onConnect('tiktok', method)}
               disabled={connecting}
-              className="w-full flex items-center justify-center gap-2.5 py-3 px-5 rounded-xl border-2 border-neutral-900 bg-neutral-900 text-white font-semibold text-sm transition-all hover:bg-neutral-800 hover:border-neutral-800 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="connect-tiktok-btn w-full flex items-center justify-center gap-2.5 py-3 px-5 rounded-xl border-2 border-black bg-black text-white font-semibold text-sm transition-all hover:bg-neutral-900 hover:border-neutral-900 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {connecting && connectingMethod === method ? <Loader2 size={18} className="animate-spin" /> : null}
               Connect {label}

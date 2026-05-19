@@ -52,8 +52,8 @@ export const PLATFORM_THEMES: Record<string, PlatformTheme> = {
     label: 'YouTube',
   },
   TIKTOK: {
-    gradient: 'from-neutral-900 via-neutral-800 to-neutral-900',
-    solidBg: 'bg-neutral-900',
+    gradient: 'from-black to-neutral-900',
+    solidBg: 'bg-black',
     textColor: 'text-neutral-900',
     borderColor: 'border-neutral-700',
     lightBg: 'bg-neutral-100',
