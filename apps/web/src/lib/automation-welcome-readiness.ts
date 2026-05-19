@@ -52,12 +52,24 @@ function firstIncomingMessage(s: AutomationJson, label: string): string {
   return '';
 }
 
-function newFollowerEnabled(s: AutomationJson): boolean {
-  return s.dmNewFollowerEnabled === true;
+function newFollowerEnabledForLabel(s: AutomationJson, label: string): boolean {
+  const by = s.dmNewFollowerEnabledByPlatform;
+  if (by && typeof by === 'object' && !Array.isArray(by)) {
+    const v = (by as Record<string, unknown>)[label];
+    if (typeof v === 'boolean') return v;
+  }
+  if (s.dmNewFollowerEnabled === true && label === 'X (Twitter)') return true;
+  return false;
 }
 
-function newFollowerMessage(s: AutomationJson): string {
-  return typeof s.dmNewFollowerMessage === 'string' ? s.dmNewFollowerMessage.trim() : '';
+function newFollowerMessageForLabel(s: AutomationJson, label: string): string {
+  const by = s.dmNewFollowerMessagesByPlatform;
+  if (by && typeof by === 'object' && !Array.isArray(by)) {
+    const m = (by as Record<string, unknown>)[label];
+    if (typeof m === 'string') return m.trim();
+  }
+  if (label === 'X (Twitter)' && typeof s.dmNewFollowerMessage === 'string') return s.dmNewFollowerMessage.trim();
+  return '';
 }
 
 export async function checkWelcomeAutomationReadiness(userId: string): Promise<{
@@ -126,7 +138,8 @@ export async function checkWelcomeAutomationReadiness(userId: string): Promise<{
     });
 
     if (platform === 'TWITTER') {
-      const nfConfigured = newFollowerEnabled(settings) && Boolean(newFollowerMessage(settings));
+      const nfConfigured =
+        newFollowerEnabledForLabel(settings, label) && Boolean(newFollowerMessageForLabel(settings, label));
       const nfBlockers: string[] = [];
       if (!connected) nfBlockers.push('Connect X (Twitter) in the sidebar.');
       if (!nfConfigured) nfBlockers.push('Set a welcome message under Welcome DM to new follower and enable it on the X card.');
@@ -149,7 +162,7 @@ export async function checkWelcomeAutomationReadiness(userId: string): Promise<{
         featureLabel: 'Proactive welcome DM to new followers (X only)',
         available: true,
         configured: nfConfigured,
-        enabled: newFollowerEnabled(settings),
+        enabled: newFollowerEnabledForLabel(settings, label),
         accountConnected: connected,
         accountId: acc?.id ?? null,
         accountUsername: acc?.username ?? null,

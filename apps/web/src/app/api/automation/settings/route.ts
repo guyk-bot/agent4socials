@@ -17,6 +17,8 @@ type AutomationSettingsStored = {
   dmWelcomeAttachmentsByPlatform: Record<string, DmWelcomeAttachment[]>;
   dmNewFollowerEnabled: boolean;
   dmNewFollowerMessage: string | null;
+  dmNewFollowerEnabledByPlatform: Record<string, boolean>;
+  dmNewFollowerMessagesByPlatform: Record<string, string | null>;
   /** Optional keyword automation steps (stored in same JSON blob). */
   keywordAutomationSteps?: unknown[];
 };
@@ -29,6 +31,8 @@ const emptySettings = (): AutomationSettingsStored => ({
   dmWelcomeAttachmentsByPlatform: {},
   dmNewFollowerEnabled: false,
   dmNewFollowerMessage: null,
+  dmNewFollowerEnabledByPlatform: {},
+  dmNewFollowerMessagesByPlatform: {},
 });
 
 function safeRecordStrings(v: unknown): Record<string, boolean> {
@@ -70,14 +74,33 @@ function normalizeFromDb(raw: unknown): AutomationSettingsStored {
   }
 
   const anyEnabled = Object.values(enabledBy).some(Boolean) || legacyEnabled;
+
+  let newFollowerEnabledBy = safeRecordStrings(s.dmNewFollowerEnabledByPlatform);
+  let newFollowerMessagesBy = safeRecordNullableStrings(s.dmNewFollowerMessagesByPlatform);
+  const legacyNewFollowerEnabled = s.dmNewFollowerEnabled === true;
+  const legacyNewFollowerMsg =
+    typeof s.dmNewFollowerMessage === 'string' && s.dmNewFollowerMessage.trim() ? s.dmNewFollowerMessage.trim() : null;
+  if (Object.keys(newFollowerEnabledBy).length === 0 && legacyNewFollowerEnabled && legacyNewFollowerMsg) {
+    newFollowerEnabledBy = { 'X (Twitter)': true };
+    newFollowerMessagesBy = { 'X (Twitter)': legacyNewFollowerMsg };
+  }
+
+  const anyNewFollowerEnabled =
+    Object.values(newFollowerEnabledBy).some(Boolean) || legacyNewFollowerEnabled;
+
   const out: AutomationSettingsStored = {
     dmWelcomeEnabled: anyEnabled,
     dmWelcomeMessage: typeof s.dmWelcomeMessage === 'string' || s.dmWelcomeMessage === null ? (s.dmWelcomeMessage as string | null) : null,
     dmWelcomeEnabledByPlatform: enabledBy,
     dmWelcomeMessagesByPlatform: messagesBy,
     dmWelcomeAttachmentsByPlatform: attachments,
-    dmNewFollowerEnabled: s.dmNewFollowerEnabled === true,
-    dmNewFollowerMessage: typeof s.dmNewFollowerMessage === 'string' || s.dmNewFollowerMessage === null ? (s.dmNewFollowerMessage as string | null) : null,
+    dmNewFollowerEnabled: anyNewFollowerEnabled,
+    dmNewFollowerMessage:
+      typeof s.dmNewFollowerMessage === 'string' || s.dmNewFollowerMessage === null
+        ? (s.dmNewFollowerMessage as string | null)
+        : null,
+    dmNewFollowerEnabledByPlatform: newFollowerEnabledBy,
+    dmNewFollowerMessagesByPlatform: newFollowerMessagesBy,
   };
   if (Array.isArray(s.keywordAutomationSteps)) {
     out.keywordAutomationSteps = s.keywordAutomationSteps as unknown[];
@@ -138,6 +161,20 @@ export async function PATCH(request: NextRequest) {
   const nextAttachments =
     patchAttachments !== undefined ? { ...merged.dmWelcomeAttachmentsByPlatform, ...patchAttachments } : merged.dmWelcomeAttachmentsByPlatform;
 
+  const patchNewFollowerEnabled =
+    body.dmNewFollowerEnabledByPlatform !== undefined ? safeRecordStrings(body.dmNewFollowerEnabledByPlatform) : undefined;
+  const nextNewFollowerEnabledBy =
+    patchNewFollowerEnabled !== undefined
+      ? { ...merged.dmNewFollowerEnabledByPlatform, ...patchNewFollowerEnabled }
+      : merged.dmNewFollowerEnabledByPlatform;
+
+  const patchNewFollowerMessages =
+    body.dmNewFollowerMessagesByPlatform !== undefined ? safeRecordNullableStrings(body.dmNewFollowerMessagesByPlatform) : undefined;
+  const nextNewFollowerMessagesBy =
+    patchNewFollowerMessages !== undefined
+      ? { ...merged.dmNewFollowerMessagesByPlatform, ...patchNewFollowerMessages }
+      : merged.dmNewFollowerMessagesByPlatform;
+
   const nextDm: AutomationSettingsStored = {
     dmWelcomeEnabled:
       typeof body.dmWelcomeEnabled === 'boolean' ? body.dmWelcomeEnabled : Object.values(nextEnabledBy).some(Boolean),
@@ -146,9 +183,13 @@ export async function PATCH(request: NextRequest) {
     dmWelcomeMessagesByPlatform: nextMessagesBy,
     dmWelcomeAttachmentsByPlatform: nextAttachments,
     dmNewFollowerEnabled:
-      typeof body.dmNewFollowerEnabled === 'boolean' ? body.dmNewFollowerEnabled : merged.dmNewFollowerEnabled,
+      typeof body.dmNewFollowerEnabled === 'boolean'
+        ? body.dmNewFollowerEnabled
+        : Object.values(nextNewFollowerEnabledBy).some(Boolean),
     dmNewFollowerMessage:
       body.dmNewFollowerMessage !== undefined ? body.dmNewFollowerMessage : merged.dmNewFollowerMessage,
+    dmNewFollowerEnabledByPlatform: nextNewFollowerEnabledBy,
+    dmNewFollowerMessagesByPlatform: nextNewFollowerMessagesBy,
   };
 
   const nextStored: Record<string, unknown> = {

@@ -33,13 +33,28 @@ async function runWelcomeFollowers(request: NextRequest) {
       select: { id: true, automationSettings: true },
     });
     const settings = users.filter((u) => {
-      const s = u.automationSettings as { dmNewFollowerEnabled?: boolean; dmNewFollowerMessage?: string | null } | null;
-      return s != null && s.dmNewFollowerEnabled === true && (s.dmNewFollowerMessage ?? '').trim().length > 0;
+      const s = u.automationSettings as {
+        dmNewFollowerEnabled?: boolean;
+        dmNewFollowerMessage?: string | null;
+        dmNewFollowerEnabledByPlatform?: Record<string, boolean>;
+        dmNewFollowerMessagesByPlatform?: Record<string, string | null>;
+      } | null;
+      if (!s) return false;
+      const by = s.dmNewFollowerEnabledByPlatform;
+      const xOn = by?.['X (Twitter)'] === true || s.dmNewFollowerEnabled === true;
+      const msg =
+        (s.dmNewFollowerMessagesByPlatform?.['X (Twitter)'] ?? s.dmNewFollowerMessage ?? '').trim();
+      return xOn && msg.length > 0;
     });
 
     for (const u of settings) {
-      const s = u.automationSettings as { dmNewFollowerMessage?: string | null };
-      const message = (s?.dmNewFollowerMessage ?? '').trim();
+      const s = u.automationSettings as {
+        dmNewFollowerMessage?: string | null;
+        dmNewFollowerMessagesByPlatform?: Record<string, string | null>;
+      };
+      const message = (
+        s?.dmNewFollowerMessagesByPlatform?.['X (Twitter)'] ?? s?.dmNewFollowerMessage ?? ''
+      ).trim();
       const userId = u.id;
       if (!message) continue;
 

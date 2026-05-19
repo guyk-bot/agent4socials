@@ -27,6 +27,8 @@ type AutomationSettings = {
   dmWelcomeAttachmentsByPlatform: Record<string, DmWelcomeAttachment[]>;
   dmNewFollowerEnabled: boolean;
   dmNewFollowerMessage: string | null;
+  dmNewFollowerEnabledByPlatform: Record<string, boolean>;
+  dmNewFollowerMessagesByPlatform: Record<string, string | null>;
 };
 
 type SupportLevel = 'native' | 'partner' | 'none';
@@ -46,30 +48,30 @@ const defaultSettings: AutomationSettings = {
   dmWelcomeAttachmentsByPlatform: {},
   dmNewFollowerEnabled: false,
   dmNewFollowerMessage: null,
+  dmNewFollowerEnabledByPlatform: {},
+  dmNewFollowerMessagesByPlatform: {},
 };
 const AUTOMATION_SETTINGS_CACHE_KEY = 'agent4socials.automation.settings.v1';
-const AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY = 'agent4socials.automation.newFollowerDm.platform.v1';
 const AUTOMATION_NEW_FOLLOWER_MESSAGES_KEY = 'agent4socials.automation.newFollower.messages.v1';
 const AUTOMATION_KEYWORD_STEPS_KEY = 'agent4socials.automation.keyword.steps.v1';
 const MAX_FIRST_DM_ATTACHMENTS = 5;
 const FIRST_DM_SUPPORTED_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)'] as const;
-/** Proactive new-follower DMs are only supported on X (Twitter). IG/FB use first-incoming DM when they message you. */
-const NEW_FOLLOWER_SUPPORTED_PLATFORMS = ['X (Twitter)'] as const;
+const NEW_FOLLOWER_SUPPORTED_PLATFORMS = ['Instagram', 'Facebook', 'X (Twitter)'] as const;
 
 const PLATFORM_CAPABILITIES: PlatformCapability[] = [
   {
     platform: 'Instagram',
     keywordCommentAutomation: 'native',
     autoDmWhenMessagedFirst: 'native',
-    welcomeMessageToNewFollower: 'none',
-    notes: ['Welcome after a new follower: use Auto-DM for first incoming message below. Instagram does not allow an unsolicited DM to someone who only followed you.'],
+    welcomeMessageToNewFollower: 'native',
+    notes: ['Instagram cannot DM someone who only followed you. Enable this toggle and use first incoming DM when they message you, or both.'],
   },
   {
     platform: 'Facebook',
     keywordCommentAutomation: 'native',
     autoDmWhenMessagedFirst: 'native',
-    welcomeMessageToNewFollower: 'none',
-    notes: ['Welcome after a new follower: use Auto-DM for first incoming message below. Facebook does not allow an unsolicited DM to someone who only followed you.'],
+    welcomeMessageToNewFollower: 'native',
+    notes: ['Facebook cannot DM someone who only followed you. Enable this toggle and use first incoming DM when they message you, or both.'],
   },
   {
     platform: 'X (Twitter)',
@@ -146,12 +148,16 @@ function platformIcon(platform: string) {
 
 export default function AutomationPage() {
   const [settings, setSettings] = useState<AutomationSettings>(defaultSettings);
-  const [dmNewFollowerPlatform, setDmNewFollowerPlatform] = useState<string | null>(null);
-  const [newFollowerMessages, setNewFollowerMessages] = useState<Record<string, string>>({});
   const [keywordSteps, setKeywordSteps] = useState<KeywordAutomationStep[]>([]);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [savingAll, setSavingAll] = useState(false);
+  const [savingPlatformToggles, setSavingPlatformToggles] = useState(false);
   const [savingFirstDmPlatform, setSavingFirstDmPlatform] = useState<string | null>(null);
+  const [savingNewFollowerPlatform, setSavingNewFollowerPlatform] = useState<string | null>(null);
+  const [savingKeywordStepId, setSavingKeywordStepId] = useState<string | null>(null);
+  const [savingAllFirstDm, setSavingAllFirstDm] = useState(false);
+  const [savingAllNewFollower, setSavingAllNewFollower] = useState(false);
+  const [savingAllKeyword, setSavingAllKeyword] = useState(false);
   const [firstDmUploadingPlatform, setFirstDmUploadingPlatform] = useState<string | null>(null);
   const [firstDmUploadError, setFirstDmUploadError] = useState<string | null>(null);
   const [firstDmSetupMessage, setFirstDmSetupMessage] = useState<string | null>(null);
@@ -164,11 +170,6 @@ export default function AutomationPage() {
   settingsRef.current = settings;
   const keywordStepsRef = useRef(keywordSteps);
   keywordStepsRef.current = keywordSteps;
-  const dmNewFollowerPlatformRef = useRef(dmNewFollowerPlatform);
-  dmNewFollowerPlatformRef.current = dmNewFollowerPlatform;
-  const newFollowerMessagesRef = useRef(newFollowerMessages);
-  newFollowerMessagesRef.current = newFollowerMessages;
-
   const scrollToSectionWithOffset = (el: HTMLDivElement | null) => {
     if (!el || typeof window === 'undefined') return;
     const y = el.getBoundingClientRect().top + window.scrollY;
@@ -198,6 +199,29 @@ export default function AutomationPage() {
               parsed.dmWelcomeMessagesByPlatform && typeof parsed.dmWelcomeMessagesByPlatform === 'object' && !Array.isArray(parsed.dmWelcomeMessagesByPlatform)
                 ? (parsed.dmWelcomeMessagesByPlatform as Record<string, string | null>)
                 : {};
+            const newFollowerEnabledBy =
+              parsed.dmNewFollowerEnabledByPlatform && typeof parsed.dmNewFollowerEnabledByPlatform === 'object' && !Array.isArray(parsed.dmNewFollowerEnabledByPlatform)
+                ? (parsed.dmNewFollowerEnabledByPlatform as Record<string, boolean>)
+                : {};
+            let newFollowerMessagesBy =
+              parsed.dmNewFollowerMessagesByPlatform && typeof parsed.dmNewFollowerMessagesByPlatform === 'object' && !Array.isArray(parsed.dmNewFollowerMessagesByPlatform)
+                ? (parsed.dmNewFollowerMessagesByPlatform as Record<string, string | null>)
+                : {};
+            const savedNewFollowerMessages =
+              sessionStorage.getItem(AUTOMATION_NEW_FOLLOWER_MESSAGES_KEY) ??
+              localStorage.getItem(AUTOMATION_NEW_FOLLOWER_MESSAGES_KEY);
+            if (Object.keys(newFollowerMessagesBy).length === 0 && savedNewFollowerMessages) {
+              try {
+                const legacyMsgs = JSON.parse(savedNewFollowerMessages) as Record<string, string>;
+                if (legacyMsgs && typeof legacyMsgs === 'object') {
+                  newFollowerMessagesBy = Object.fromEntries(
+                    Object.entries(legacyMsgs).map(([k, v]) => [k, typeof v === 'string' ? v : null]),
+                  );
+                }
+              } catch {
+                // ignore parse issues
+              }
+            }
             setSettings({
               dmWelcomeEnabled: parsed.dmWelcomeEnabled ?? false,
               dmWelcomeMessage: parsed.dmWelcomeMessage ?? null,
@@ -206,25 +230,12 @@ export default function AutomationPage() {
               dmWelcomeAttachmentsByPlatform: safeAtts,
               dmNewFollowerEnabled: parsed.dmNewFollowerEnabled ?? false,
               dmNewFollowerMessage: parsed.dmNewFollowerMessage ?? null,
+              dmNewFollowerEnabledByPlatform: newFollowerEnabledBy,
+              dmNewFollowerMessagesByPlatform: newFollowerMessagesBy,
             });
           }
         } else {
           setLoading(true);
-        }
-        const savedNewFollowerDmPlatform =
-          sessionStorage.getItem(AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY) ??
-          localStorage.getItem(AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY);
-        if (savedNewFollowerDmPlatform) setDmNewFollowerPlatform(savedNewFollowerDmPlatform);
-        const savedNewFollowerMessages =
-          sessionStorage.getItem(AUTOMATION_NEW_FOLLOWER_MESSAGES_KEY) ??
-          localStorage.getItem(AUTOMATION_NEW_FOLLOWER_MESSAGES_KEY);
-        if (savedNewFollowerMessages) {
-          try {
-            const parsed = JSON.parse(savedNewFollowerMessages) as Record<string, string>;
-            if (parsed && typeof parsed === 'object') setNewFollowerMessages(parsed);
-          } catch {
-            // ignore parse issues
-          }
         }
         const savedKeywordSteps =
           sessionStorage.getItem(AUTOMATION_KEYWORD_STEPS_KEY) ??
@@ -294,6 +305,14 @@ export default function AutomationPage() {
             dmWelcomeAttachmentsByPlatform: safeAtts,
             dmNewFollowerEnabled: data.dmNewFollowerEnabled ?? false,
             dmNewFollowerMessage: data.dmNewFollowerMessage ?? null,
+            dmNewFollowerEnabledByPlatform:
+              data.dmNewFollowerEnabledByPlatform && typeof data.dmNewFollowerEnabledByPlatform === 'object' && !Array.isArray(data.dmNewFollowerEnabledByPlatform)
+                ? (data.dmNewFollowerEnabledByPlatform as Record<string, boolean>)
+                : {},
+            dmNewFollowerMessagesByPlatform:
+              data.dmNewFollowerMessagesByPlatform && typeof data.dmNewFollowerMessagesByPlatform === 'object' && !Array.isArray(data.dmNewFollowerMessagesByPlatform)
+                ? (data.dmNewFollowerMessagesByPlatform as Record<string, string | null>)
+                : {},
           };
           setSettings(next);
           try {
@@ -384,6 +403,22 @@ export default function AutomationPage() {
           ...patch.dmWelcomeAttachmentsByPlatform,
         };
       }
+      if (patch.dmNewFollowerEnabledByPlatform !== undefined) {
+        const combined = { ...(prev.dmNewFollowerEnabledByPlatform ?? {}), ...patch.dmNewFollowerEnabledByPlatform };
+        for (const key of Object.keys(combined)) {
+          if (!combined[key]) delete combined[key];
+        }
+        merged.dmNewFollowerEnabledByPlatform = combined;
+        if (patch.dmNewFollowerEnabled === undefined) {
+          merged.dmNewFollowerEnabled = Object.values(combined).some(Boolean);
+        }
+      }
+      if (patch.dmNewFollowerMessagesByPlatform !== undefined) {
+        merged.dmNewFollowerMessagesByPlatform = {
+          ...(prev.dmNewFollowerMessagesByPlatform ?? {}),
+          ...patch.dmNewFollowerMessagesByPlatform,
+        };
+      }
       try {
         if (typeof window !== 'undefined') {
           const str = JSON.stringify(merged);
@@ -419,24 +454,108 @@ export default function AutomationPage() {
     }
   }
 
-  async function saveAutomationSettings() {
-    const s = settingsRef.current;
-    const platform = dmNewFollowerPlatformRef.current;
-    const msgs = newFollowerMessagesRef.current;
-    const dmNewFollowerMessage =
-      s.dmNewFollowerEnabled && platform ? (msgs[platform]?.trim() || null) : s.dmNewFollowerMessage;
-    const payload = {
-      ...s,
-      dmNewFollowerMessage,
+  function buildFullAutomationPayload(snapshot: AutomationSettings) {
+    return {
+      ...snapshot,
       keywordAutomationSteps: keywordStepsRef.current,
     };
-    setSaving(true);
+  }
+
+  async function savePlatformToggles() {
+    const s = settingsRef.current;
+    setSavingPlatformToggles(true);
     try {
-      await api.patch('/automation/settings', payload);
+      await api.patch('/automation/settings', {
+        dmWelcomeEnabled: s.dmWelcomeEnabled,
+        dmWelcomeEnabledByPlatform: s.dmWelcomeEnabledByPlatform,
+        dmNewFollowerEnabled: s.dmNewFollowerEnabled,
+        dmNewFollowerEnabledByPlatform: s.dmNewFollowerEnabledByPlatform,
+      });
     } catch {
       // keep local state; user can retry
     } finally {
-      setSaving(false);
+      setSavingPlatformToggles(false);
+    }
+  }
+
+  function newFollowerPatchPayloadForPlatform(platform: string, snapshot: AutomationSettings) {
+    return {
+      dmNewFollowerMessagesByPlatform: {
+        [platform]: snapshot.dmNewFollowerMessagesByPlatform?.[platform] ?? null,
+      },
+    };
+  }
+
+  async function flushNewFollowerPlatformToServer(platform: string, snapshot: AutomationSettings) {
+    setSavingNewFollowerPlatform(platform);
+    try {
+      await api.patch('/automation/settings', newFollowerPatchPayloadForPlatform(platform, snapshot));
+    } catch {
+      // keep local state; user can retry Save
+    } finally {
+      setSavingNewFollowerPlatform(null);
+    }
+  }
+
+  async function saveKeywordStep(stepId: string) {
+    setSavingKeywordStepId(stepId);
+    try {
+      await api.patch('/automation/settings', { keywordAutomationSteps: keywordStepsRef.current });
+    } catch {
+      // keep local state; user can retry
+    } finally {
+      setSavingKeywordStepId(null);
+    }
+  }
+
+  async function saveAllFirstDmSection() {
+    const s = settingsRef.current;
+    setSavingAllFirstDm(true);
+    try {
+      await api.patch('/automation/settings', {
+        dmWelcomeMessagesByPlatform: s.dmWelcomeMessagesByPlatform,
+        dmWelcomeAttachmentsByPlatform: s.dmWelcomeAttachmentsByPlatform,
+      });
+    } catch {
+      // keep local state; user can retry
+    } finally {
+      setSavingAllFirstDm(false);
+    }
+  }
+
+  async function saveAllNewFollowerSection() {
+    const s = settingsRef.current;
+    setSavingAllNewFollower(true);
+    try {
+      await api.patch('/automation/settings', {
+        dmNewFollowerMessagesByPlatform: s.dmNewFollowerMessagesByPlatform,
+      });
+    } catch {
+      // keep local state; user can retry
+    } finally {
+      setSavingAllNewFollower(false);
+    }
+  }
+
+  async function saveAllKeywordSection() {
+    setSavingAllKeyword(true);
+    try {
+      await api.patch('/automation/settings', { keywordAutomationSteps: keywordStepsRef.current });
+    } catch {
+      // keep local state; user can retry
+    } finally {
+      setSavingAllKeyword(false);
+    }
+  }
+
+  async function saveAllAutomation() {
+    setSavingAll(true);
+    try {
+      await api.patch('/automation/settings', buildFullAutomationPayload(settingsRef.current));
+    } catch {
+      // keep local state; user can retry
+    } finally {
+      setSavingAll(false);
     }
   }
 
@@ -485,32 +604,6 @@ export default function AutomationPage() {
       setWelcomeReadinessLoading(false);
     }
   }
-
-  useEffect(() => {
-    if (!settings.dmNewFollowerEnabled) return;
-    if (dmNewFollowerPlatform) return;
-    const fallback = 'X (Twitter)';
-    setDmNewFollowerPlatform(fallback);
-    try {
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem(AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY, fallback);
-        localStorage.setItem(AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY, fallback);
-      }
-    } catch {
-      // ignore storage errors
-    }
-  }, [settings.dmNewFollowerEnabled, dmNewFollowerPlatform]);
-
-  useEffect(() => {
-    try {
-      if (typeof window === 'undefined') return;
-      const str = JSON.stringify(newFollowerMessages);
-      sessionStorage.setItem(AUTOMATION_NEW_FOLLOWER_MESSAGES_KEY, str);
-      localStorage.setItem(AUTOMATION_NEW_FOLLOWER_MESSAGES_KEY, str);
-    } catch {
-      // ignore storage errors
-    }
-  }, [newFollowerMessages]);
 
   useEffect(() => {
     try {
@@ -612,9 +705,19 @@ export default function AutomationPage() {
       const atts = settings.dmWelcomeAttachmentsByPlatform?.[platform];
       return Boolean(msg) || (Array.isArray(atts) && atts.length > 0);
     }
-    const source = newFollowerMessages;
-    return Boolean(source[platform]?.trim());
+    const msg = settings.dmNewFollowerMessagesByPlatform?.[platform]?.trim();
+    return Boolean(msg);
   };
+
+  const anySaveInProgress =
+    savingAll ||
+    savingPlatformToggles ||
+    savingAllFirstDm ||
+    savingAllNewFollower ||
+    savingAllKeyword ||
+    savingFirstDmPlatform !== null ||
+    savingNewFollowerPlatform !== null ||
+    savingKeywordStepId !== null;
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-10">
@@ -707,7 +810,7 @@ export default function AutomationPage() {
                     <label className="mt-2 inline-flex items-center gap-2 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={settings.dmNewFollowerEnabled && dmNewFollowerPlatform === row.platform}
+                        checked={Boolean(settings.dmNewFollowerEnabledByPlatform?.[row.platform])}
                         onChange={(e) => {
                           const checked = e.target.checked;
                           if (checked && !hasSetupMessage('follower', row.platform)) {
@@ -716,25 +819,8 @@ export default function AutomationPage() {
                             return;
                           }
                           setNewFollowerSetupMessage(null);
-                          setDmNewFollowerPlatform(checked ? row.platform : null);
-                          try {
-                            if (typeof window !== 'undefined') {
-                              if (checked) {
-                                sessionStorage.setItem(AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY, row.platform);
-                                localStorage.setItem(AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY, row.platform);
-                              } else {
-                                sessionStorage.removeItem(AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY);
-                                localStorage.removeItem(AUTOMATION_NEW_FOLLOWER_DM_PLATFORM_KEY);
-                              }
-                            }
-                          } catch {
-                            // ignore storage errors
-                          }
                           mergeLocalSettings({
-                            dmNewFollowerEnabled: checked,
-                            ...(checked
-                              ? { dmNewFollowerMessage: newFollowerMessages[row.platform]?.trim() || null }
-                              : {}),
+                            dmNewFollowerEnabledByPlatform: { [row.platform]: checked },
                           });
                         }}
                         className="rounded border-neutral-300 text-[var(--button)] focus:ring-[var(--button)]/50"
@@ -756,15 +842,24 @@ export default function AutomationPage() {
               );
           })}
         </div>
-        <div className="mt-4 flex justify-end">
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
           <button
             type="button"
-            onClick={() => void saveAutomationSettings()}
-            disabled={saving || savingFirstDmPlatform !== null}
+            onClick={() => void savePlatformToggles()}
+            disabled={anySaveInProgress && !savingPlatformToggles}
+            className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50"
+          >
+            {savingPlatformToggles ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            Save
+          </button>
+          <button
+            type="button"
+            onClick={() => void saveAllAutomation()}
+            disabled={anySaveInProgress && !savingAll}
             className="inline-flex items-center gap-2 rounded-xl bg-[var(--button)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
-            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            Save
+            {savingAll ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            Save all
           </button>
         </div>
       </div>
@@ -871,15 +966,26 @@ export default function AutomationPage() {
                 <button
                   type="button"
                   onClick={() => void flushFirstDmPlatformToServer(platform, settingsRef.current)}
-                  disabled={saving || savingFirstDmPlatform === platform}
+                  disabled={(savingFirstDmPlatform !== null && savingFirstDmPlatform !== platform) || savingAllFirstDm}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
                   {savingFirstDmPlatform === platform ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                  save
+                  Save
                 </button>
               </div>
             </div>
           ))}
+        </div>
+        <div className="flex flex-wrap justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => void saveAllFirstDmSection()}
+            disabled={anySaveInProgress && !savingAllFirstDm}
+            className="inline-flex items-center gap-2 rounded-xl bg-[var(--button)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {savingAllFirstDm ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            Save all
+          </button>
         </div>
       </div>
 
@@ -919,10 +1025,12 @@ export default function AutomationPage() {
             <div key={`new-follower-dm-${platform}`} className="rounded-xl border border-neutral-200 bg-white p-3">
               <label className="block text-sm font-medium text-neutral-800 mb-1.5">{platform}</label>
               <textarea
-                value={newFollowerMessages[platform] ?? ''}
+                value={settings.dmNewFollowerMessagesByPlatform?.[platform] ?? ''}
                 onChange={(e) => {
                   const value = e.target.value;
-                  setNewFollowerMessages((prev) => ({ ...prev, [platform]: value }));
+                  mergeLocalSettings({
+                    dmNewFollowerMessagesByPlatform: { [platform]: value || null },
+                  });
                 }}
                 placeholder={`Enter welcome DM for new followers on ${platform}`}
                 rows={3}
@@ -931,16 +1039,27 @@ export default function AutomationPage() {
               <div className="mt-3 flex justify-end">
                 <button
                   type="button"
-                  onClick={() => void saveAutomationSettings()}
-                  disabled={saving || savingFirstDmPlatform !== null}
+                  onClick={() => void flushNewFollowerPlatformToServer(platform, settingsRef.current)}
+                  disabled={(savingNewFollowerPlatform !== null && savingNewFollowerPlatform !== platform) || savingAllNewFollower}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
-                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  {savingNewFollowerPlatform === platform ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                   Save
                 </button>
               </div>
             </div>
           ))}
+        </div>
+        <div className="flex flex-wrap justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => void saveAllNewFollowerSection()}
+            disabled={anySaveInProgress && !savingAllNewFollower}
+            className="inline-flex items-center gap-2 rounded-xl bg-[var(--button)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {savingAllNewFollower ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            Save all
+          </button>
         </div>
       </div>
 
@@ -1102,39 +1221,50 @@ export default function AutomationPage() {
               <div className="flex justify-end pt-1">
                 <button
                   type="button"
-                  onClick={() => void saveAutomationSettings()}
-                  disabled={saving || savingFirstDmPlatform !== null}
+                  onClick={() => void saveKeywordStep(step.id)}
+                  disabled={(savingKeywordStepId !== null && savingKeywordStepId !== step.id) || savingAllKeyword}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
-                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                  {savingKeywordStepId === step.id ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                   Save
                 </button>
               </div>
             </div>
           ))}
         </div>
-        <button
-          type="button"
-          onClick={() =>
-            setKeywordSteps((prev) => [
-              ...prev,
-              {
-                id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                keyword: '',
-                platforms: ['Instagram'],
-                actionType: 'reply',
-                actionValue: '',
-                replyVariants: [],
-                replyVariantStrategy: 'rotate',
-                enabled: true,
-              },
-            ])
-          }
-          className="inline-flex items-center gap-2 mt-1 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
-        >
-          <Plus size={14} />
-          Add step
-        </button>
+        <div className="flex flex-wrap items-center justify-between gap-2 mt-1">
+          <button
+            type="button"
+            onClick={() =>
+              setKeywordSteps((prev) => [
+                ...prev,
+                {
+                  id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                  keyword: '',
+                  platforms: ['Instagram'],
+                  actionType: 'reply',
+                  actionValue: '',
+                  replyVariants: [],
+                  replyVariantStrategy: 'rotate',
+                  enabled: true,
+                },
+              ])
+            }
+            className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100"
+          >
+            <Plus size={14} />
+            Add step
+          </button>
+          <button
+            type="button"
+            onClick={() => void saveAllKeywordSection()}
+            disabled={anySaveInProgress && !savingAllKeyword}
+            className="inline-flex items-center gap-2 rounded-xl bg-[var(--button)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {savingAllKeyword ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            Save all
+          </button>
+        </div>
       </div>
 
     </div>
