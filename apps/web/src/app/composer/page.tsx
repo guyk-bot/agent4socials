@@ -736,6 +736,17 @@ export default function ComposerPage() {
     const [accounts, setAccounts] = useState<{ id: string; platform: string; username?: string | null }[]>([]);
     const [accountsFetched, setAccountsFetched] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [publishModal, setPublishModal] = useState<
+        | { open: false }
+        | { open: true; kind: 'queued'; postId: string; message: string }
+        | { open: true; kind: 'success'; postId: string; message: string }
+        | { open: true; kind: 'scheduled'; message: string }
+        | { open: true; kind: 'failed'; message: string }
+    >({ open: false });
+    const [dmAiModalOpen, setDmAiModalOpen] = useState(false);
+    const [dmAiInstructions, setDmAiInstructions] = useState('');
+    const [dmAiLoading, setDmAiLoading] = useState(false);
+    const [dmAiError, setDmAiError] = useState<string | null>(null);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [sectionOpen, setSectionOpen] = useState({ platforms: true, media: true, content: false, commentAutomation: false, hashtags: false, schedule: false });
     const toggleSection = (key: keyof typeof sectionOpen) => setSectionOpen((s) => ({ ...s, [key]: !s[key] }));
@@ -930,7 +941,6 @@ export default function ComposerPage() {
     const [aiIncludeCtaAndAutomation, setAiIncludeCtaAndAutomation] = useState(false);
     const [aiCtaAutomationPrompt, setAiCtaAutomationPrompt] = useState('');
     const [aiLoading, setAiLoading] = useState(false);
-    const [dmReplyAiLoading, setDmReplyAiLoading] = useState(false);
     const [aiError, setAiError] = useState<string | null>(null);
     const [hasBrandContext, setHasBrandContext] = useState<boolean | null>(() =>
       readComposerBrandReadyCache() ? true : null
@@ -1266,7 +1276,7 @@ export default function ComposerPage() {
                     platforms,
                     includeCtaAndAutomation: aiIncludeCtaAndAutomation,
                     ctaAutomationPrompt: aiIncludeCtaAndAutomation ? aiCtaAutomationPrompt.trim() || undefined : undefined,
-                })
+                }, { timeout: 90_000 })
                     .then((res) => {
                         const { byPlatform, cta, keywords, replyTemplate } = res.data;
                         const ctaText = aiIncludeCtaAndAutomation ? (cta?.trim() ?? '') : '';
@@ -1303,7 +1313,7 @@ export default function ComposerPage() {
                     platform: firstPlatform,
                     includeCtaAndAutomation: aiIncludeCtaAndAutomation,
                     ctaAutomationPrompt: aiIncludeCtaAndAutomation ? aiCtaAutomationPrompt.trim() || undefined : undefined,
-                })
+                }, { timeout: 60_000 })
                     .then((res) => {
                         const d = res.data;
                         const ctaText = aiIncludeCtaAndAutomation ? d?.cta?.trim() ?? '' : '';
@@ -1331,7 +1341,7 @@ export default function ComposerPage() {
                 platform: aiPlatform || undefined,
                 includeCtaAndAutomation: aiIncludeCtaAndAutomation,
                 ctaAutomationPrompt: aiIncludeCtaAndAutomation ? aiCtaAutomationPrompt.trim() || undefined : undefined,
-            }).then((res) => {
+            }, { timeout: 60_000 }).then((res) => {
                 const data = res.data;
                 const isTwitter = (aiPlatform || '').toUpperCase() === 'TWITTER';
                 const ctaText = aiIncludeCtaAndAutomation ? (data?.cta?.trim() ?? '') : '';
@@ -1348,6 +1358,47 @@ export default function ComposerPage() {
             }).finally(() => setAiLoading(false));
         }
     }, [aiTopic, aiPrompt, aiPlatform, aiIncludeCtaAndAutomation, aiCtaAutomationPrompt, differentContentPerPlatform, platforms, clampTwitterAiText, hasBrandContext]);
+
+    const openDmAiModal = useCallback(() => {
+        if (hasBrandContext === false) {
+            setAlertMessage('Set up your brand context in Dashboard → AI Assistant before using Generate with AI.');
+            return;
+        }
+        setDmAiError(null);
+        setDmAiInstructions('');
+        setDmAiModalOpen(true);
+    }, [hasBrandContext]);
+
+    const handleDmAiGenerate = useCallback(() => {
+        setDmAiLoading(true);
+        setDmAiError(null);
+        const publicReply =
+            (commentAutomationReplyByPlatform['INSTAGRAM'] ?? commentAutomationReplyTemplate).trim() ||
+            'Thanks for commenting!';
+        api
+            .post<{ content?: string }>(
+                '/ai/generate-composer-dm',
+                {
+                    instructions: dmAiInstructions.trim() || 'Short Instagram DM when someone comments the keyword. Send them the link.',
+                    context: `Public comment reply we post: ${publicReply}`,
+                },
+                { timeout: 45_000 }
+            )
+            .then((res) => {
+                const text = res.data?.content?.trim();
+                if (text) {
+                    setCommentAutomationInstagramDmMessage(text);
+                    setDmAiModalOpen(false);
+                } else {
+                    setDmAiError('AI returned an empty message. Try again.');
+                }
+            })
+            .catch((err: { response?: { data?: { message?: string } }; message?: string }) => {
+                const msg = err.response?.data?.message ?? err.message ?? 'Failed to generate DM. Try again.';
+                setDmAiError(msg);
+            })
+            .finally(() => setDmAiLoading(false));
+    }, [dmAiInstructions, commentAutomationReplyByPlatform, commentAutomationReplyTemplate]);
 
     // Persist composer draft when state changes (debounced; shorter delay when only media changed so carousel keeps all images after upload)
     const mediaSignature = mediaList.map((m) => m.fileUrl).join('|');
@@ -2032,6 +2083,80 @@ export default function ComposerPage() {
         return { previewUrl, previewKind: (hasVideo ? 'video' : 'photo') as 'video' | 'photo' };
     }, [getEffectiveMediaListForPlatform]);
 
+    const publishPostInBackground = useCallback(
+        (
+            postId: string,
+            publishPath: string,
+            publishBody: ReturnType<typeof buildPublishRequestBody>,
+            includesTikTok: boolean
+        ) => {
+            void (async () => {
+                try {
+                    const publishRes = await api.post<{
+                        ok: boolean;
+                        results?: PublishResultItem[];
+                        message?: string;
+                    }>(publishPath, publishBody, { timeout: 330_000 });
+                    const results = publishRes.data?.results;
+                    if (
+                        handlePublishResultOutcome('created', results, postId, (msg) => {
+                            setPublishModal({ open: true, kind: 'failed', message: msg });
+                        }, (q) => router.push(`/posts?${q}`))
+                    ) {
+                        return;
+                    }
+                    const mediaSkipped = results?.filter((r) => r.mediaSkipped).map((r) => r.platform) ?? [];
+                    const tiktokOk = results?.some((r) => String(r.platform).toUpperCase() === 'TIKTOK' && r.ok);
+                    if (tiktokOk && includesTikTok) {
+                        tiktokPostPublishFollowUpPostIdRef.current = postId;
+                        const detail =
+                            mediaSkipped.length > 0
+                                ? `Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).`
+                                : undefined;
+                        setTiktokPostPublishFollowUp({ open: true, detail });
+                    } else {
+                        let successMsg = 'Your post has been successfully published.';
+                        if (mediaSkipped.length > 0) {
+                            successMsg += ` Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).`;
+                        }
+                        setPublishModal({
+                            open: true,
+                            kind: 'success',
+                            postId,
+                            message: `${successMsg}\n\nOpen History to review status on each platform.`,
+                        });
+                    }
+                    void api
+                        .get('/posts')
+                        .then((listRes) => {
+                            const list = Array.isArray(listRes.data) ? listRes.data : [];
+                            appData?.setScheduledPosts?.(list);
+                        })
+                        .catch(() => {});
+                } catch (err: unknown) {
+                    const res =
+                        err && typeof err === 'object' && 'response' in err
+                            ? (err as { response?: { status?: number; data?: { message?: string } } }).response
+                            : undefined;
+                    const status = res?.status;
+                    const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : undefined;
+                    const isTimeout =
+                        code === 'ECONNABORTED' ||
+                        (typeof (err as Error)?.message === 'string' && (err as Error).message.includes('timeout'));
+                    const msg =
+                        res?.data?.message ??
+                        (status === 401
+                            ? 'Session expired. Sign in again, then open the post from History and try Post now.'
+                            : isTimeout
+                              ? 'Publishing is taking longer than usual. Open History in a few minutes to confirm status or retry.'
+                              : 'Publish failed. Open the post from History and try Post now again.');
+                    setPublishModal({ open: true, kind: 'failed', message: msg });
+                }
+            })();
+        },
+        [router, appData]
+    );
+
     const runComposerCommit = async (saveAsDraft: boolean) => {
         saveAsDraftRef.current = saveAsDraft;
         const tiktokProcessingNotice = 'API Clients must clearly notify users that after they finish publishing their content, it may take a few minutes for the content to process and be visible on their profile.';
@@ -2426,116 +2551,64 @@ export default function ComposerPage() {
                     setLoading(false);
                     return;
                 }
-            if (postId && !scheduledAt) {
+            const isScheduled = Boolean(scheduledAt?.trim());
+            if (isScheduled && postId) {
+                setLoading(false);
+                let whenLabel = scheduledAt!.trim();
                 try {
-                        const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
-                        if (debug) sessionStorage.removeItem('publish_debug');
-                        const publishBodyCreate = buildPublishRequestBody(mediaType, tiktokPublishByAccountId);
-                        const publishPathCreate = `/posts/${postId}/publish${debug ? '?debug=1' : ''}`;
-                        if (includesTikTokTarget) {
-                            tiktokPostPublishFollowUpPostIdRef.current = postId;
-                            setTiktokPostPublishFollowUp({ open: true });
-                            void api
-                                .post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(
-                                    publishPathCreate,
-                                    publishBodyCreate,
-                                    { timeout: 330_000 }
-                                )
-                                .then((publishRes) => {
-                                    const results = publishRes.data?.results;
-                                    if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
-                                    if (
-                                        handlePublishResultOutcome('created', results, postId, (msg) =>
-                                            setAlertMessage(withTikTokProcessingNotice(msg)),
-                                            (q) => router.push(`/posts?${q}`)
-                                        )
-                                    ) {
-                                        return;
-                                    }
-                                })
-                                .catch((err: unknown) => {
-                                    const res = err && typeof err === 'object' && 'response' in err ? (err as { response?: { status?: number; data?: { message?: string } } }).response : undefined;
-                                    const status = res?.status;
-                                    const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : undefined;
-                                    const isTimeout = code === 'ECONNABORTED' || (typeof (err as Error)?.message === 'string' && (err as Error).message.includes('timeout'));
-                                    const msg = res?.data?.message ?? (status === 401 ? 'Session expired. Sign in again, then open the post from History and try Post now.' : isTimeout ? 'Publish is taking longer than usual (e.g. uploading media). Open the post from History and try Post now again; it may have already gone through.' : 'Publish failed. Open the post from History and try Post now again.');
-                                    setAlertMessage(withTikTokProcessingNotice(msg));
-                                });
-                            return;
-                        }
-                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(
-                            publishPathCreate,
-                            publishBodyCreate,
-                            { timeout: 330_000 }
-                        );
-                    const results = publishRes.data?.results;
-                        if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
-                    if (
-                            handlePublishResultOutcome('created', results, postId, (msg) =>
-                                setAlertMessage(withTikTokProcessingNotice(msg)),
-                                (q) => router.push(`/posts?${q}`)
-                            )
-                        ) {
-                            return;
-                        }
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const mediaSkippedCreate = (results as any[])?.filter((r) => r.mediaSkipped).map((r) => r.platform as string);
-                        const createDetailLines: string[] = [];
-                        if (mediaSkippedCreate?.length) {
-                            createDetailLines.push(`Note: ${mediaSkippedCreate.join(', ')} posted as text only (image upload was not allowed).`);
-                        }
-                        const createFollowDetail = createDetailLines.length > 0 ? createDetailLines.join('\n\n') : undefined;
-                        const tiktokCreatePublishedOk = results?.some((r) => String(r.platform).toUpperCase() === 'TIKTOK' && r.ok);
-                        if (tiktokCreatePublishedOk) {
-                            tiktokPostPublishFollowUpPostIdRef.current = postId;
-                            setTiktokPostPublishFollowUp({ open: true, detail: createFollowDetail });
-                            void api
-                                .get('/posts')
-                                .then((listRes) => {
-                                    const list = Array.isArray(listRes.data) ? listRes.data : [];
-                                    appData?.setScheduledPosts?.(list);
-                                })
-                                .catch(() => {});
-                            return;
-                        }
-                        let createMsg = 'Post published.';
-                        if (mediaSkippedCreate?.length) createMsg += ` Note: ${mediaSkippedCreate.join(', ')} posted as text only (image upload was not allowed).`;
-                        setAlertMessage(createMsg);
-                    } catch (err: unknown) {
-                        const res = err && typeof err === 'object' && 'response' in err ? (err as { response?: { status?: number; data?: { message?: string } } }).response : undefined;
-                        const status = res?.status;
-                        const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : undefined;
-                        const isTimeout = code === 'ECONNABORTED' || (typeof (err as Error)?.message === 'string' && (err as Error).message.includes('timeout'));
-                        const msg = res?.data?.message ?? (status === 401 ? 'Session expired. Sign in again, then open the post from History and try Post now.' : isTimeout ? 'Publish is taking longer than usual (e.g. uploading media). Open the post from History and try Post now again; it may have already gone through.' : 'Publish failed. Open the post from History and try Post now again.');
-                        setAlertMessage(withTikTokProcessingNotice(msg));
-                        return;
-                    }
+                    whenLabel = new Date(scheduledAt!.trim()).toLocaleString();
+                } catch {
+                    /* keep raw */
                 }
-                if (!postId && !scheduledAt) {
-                    setAlertMessage(withTikTokProcessingNotice('Post was created but we could not publish it. Open it from History and try Post now.'));
-                    router.push('/posts');
-                    void api
-                        .get('/posts')
-                        .then((listRes) => {
-                            const list = Array.isArray(listRes.data) ? listRes.data : [];
-                            appData?.setScheduledPosts?.(list);
-                        })
-                        .catch(() => {});
-                    return;
-                }
-                if (scheduledAt) {
-                    const schedParams = new URLSearchParams({ scheduled: '1', delivery: scheduleDelivery === 'email_links' ? 'email' : 'auto', platforms: platforms.join(','), at: new Date(scheduledAt).toISOString() });
-                    router.push(`/calendar?${schedParams.toString()}`);
-                } else {
-                    router.push(`/posts?published=1&highlight=${encodeURIComponent(postId)}`);
-                    void api
-                        .get('/posts')
-                        .then((listRes) => {
-                            const list = Array.isArray(listRes.data) ? listRes.data : [];
-                            appData?.setScheduledPosts?.(list);
-                        })
-                        .catch(() => {});
-                }
+                setPublishModal({
+                    open: true,
+                    kind: 'scheduled',
+                    message: `Your post is scheduled for ${whenLabel}. We will publish it automatically at that time.\n\nOpen Calendar or History to review or change the schedule.`,
+                });
+                const schedParams = new URLSearchParams({
+                    scheduled: '1',
+                    delivery: scheduleDelivery === 'email_links' ? 'email' : 'auto',
+                    platforms: platforms.join(','),
+                    at: new Date(scheduledAt!.trim()).toISOString(),
+                });
+                router.push(`/calendar?${schedParams.toString()}`);
+                void api
+                    .get('/posts')
+                    .then((listRes) => {
+                        const list = Array.isArray(listRes.data) ? listRes.data : [];
+                        appData?.setScheduledPosts?.(list);
+                    })
+                    .catch(() => {});
+                return;
+            }
+            if (postId) {
+                setLoading(false);
+                const platformLabels = platforms.map((p) => PLATFORM_LABELS[p] ?? p).join(', ');
+                setPublishModal({
+                    open: true,
+                    kind: 'queued',
+                    postId,
+                    message: `Your request has been sent. We are publishing to ${platformLabels} now.\n\nYou will get a confirmation when publishing finishes. In a few minutes, open History to check status on each platform.`,
+                });
+                const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
+                if (debug) sessionStorage.removeItem('publish_debug');
+                const publishBodyCreate = buildPublishRequestBody(mediaType, tiktokPublishByAccountId);
+                const publishPathCreate = `/posts/${postId}/publish${debug ? '?debug=1' : ''}`;
+                publishPostInBackground(postId, publishPathCreate, publishBodyCreate, includesTikTokTarget);
+                return;
+            }
+            if (!postId) {
+                setAlertMessage(withTikTokProcessingNotice('Post was created but we could not publish it. Open it from History and try Post now.'));
+                router.push('/posts');
+                void api
+                    .get('/posts')
+                    .then((listRes) => {
+                        const list = Array.isArray(listRes.data) ? listRes.data : [];
+                        appData?.setScheduledPosts?.(list);
+                    })
+                    .catch(() => {});
+                return;
+            }
             }
         } catch (err: unknown) {
             let msg = 'Failed to create post';
@@ -2641,14 +2714,6 @@ export default function ComposerPage() {
 
     return (
         <div className="max-w-6xl mx-auto px-2 sm:px-4 space-y-6">
-            {loading && typeof document !== 'undefined' && createPortal(
-                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(23,23,23,0.82)' }} role="status" aria-live="polite">
-                    <Loader2 size={48} className="animate-spin text-white mb-4" aria-hidden />
-                    <p className="text-white font-medium text-lg">Publishing to {platforms.map((p) => PLATFORM_LABELS[p] ?? p).join(', ')}…</p>
-                    <p className="text-neutral-300 text-sm mt-1 text-center max-w-md px-4">Keep this tab open. Most posts finish in a few seconds; large video uploads can take longer.</p>
-                </div>,
-                document.body,
-            )}
             {storyCropFile && (
                 <StoryImageCropModal
                     file={storyCropFile}
@@ -2667,6 +2732,56 @@ export default function ComposerPage() {
                 message={alertMessage ?? ''}
                 variant="alert"
                 confirmLabel="OK"
+            />
+            <ConfirmModal
+                open={publishModal.open && publishModal.kind === 'queued'}
+                onClose={() => setPublishModal({ open: false })}
+                title="Request sent"
+                variant="info"
+                stack="high"
+                confirmLabel="History"
+                cancelLabel="Stay here"
+                message={publishModal.open && publishModal.kind === 'queued' ? publishModal.message : ''}
+                onConfirm={() => {
+                    const id = publishModal.open && publishModal.kind === 'queued' ? publishModal.postId : '';
+                    setPublishModal({ open: false });
+                    router.push(id ? `/posts?highlight=${encodeURIComponent(id)}` : '/posts');
+                }}
+            />
+            <ConfirmModal
+                open={publishModal.open && publishModal.kind === 'success'}
+                onClose={() => setPublishModal({ open: false })}
+                title="Published"
+                variant="alert"
+                stack="high"
+                confirmLabel="History"
+                message={publishModal.open && publishModal.kind === 'success' ? publishModal.message : ''}
+                onConfirm={() => {
+                    const id = publishModal.open && publishModal.kind === 'success' ? publishModal.postId : '';
+                    setPublishModal({ open: false });
+                    router.push(id ? `/posts?published=1&highlight=${encodeURIComponent(id)}` : '/posts');
+                }}
+            />
+            <ConfirmModal
+                open={publishModal.open && publishModal.kind === 'scheduled'}
+                onClose={() => setPublishModal({ open: false })}
+                title="Scheduled"
+                variant="info"
+                stack="high"
+                confirmLabel="OK"
+                cancelLabel="Calendar"
+                message={publishModal.open && publishModal.kind === 'scheduled' ? publishModal.message : ''}
+                onConfirm={() => setPublishModal({ open: false })}
+            />
+            <ConfirmModal
+                open={publishModal.open && publishModal.kind === 'failed'}
+                onClose={() => setPublishModal({ open: false })}
+                title="Publishing issue"
+                variant="alert"
+                stack="high"
+                confirmLabel="History"
+                message={publishModal.open && publishModal.kind === 'failed' ? publishModal.message : ''}
+                onConfirm={() => setPublishModal({ open: false })}
             />
             <ConfirmModal
                 open={tiktokPostPublishFollowUp.open}
@@ -2828,7 +2943,7 @@ export default function ComposerPage() {
                                 )}
                                 <div className="mt-6 flex flex-wrap justify-end gap-3">
                                     <button type="button" onClick={() => !aiLoading && setAiModalOpen(false)} className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Cancel</button>
-                                    <button type="button" onClick={handleAiGenerate} disabled={aiLoading} className="inline-flex items-center gap-2 rounded-lg bg-[var(--button)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--button-hover)] disabled:opacity-50">
+                                    <button type="button" onClick={handleAiGenerate} disabled={aiLoading} className="inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold text-white shadow-md gradient-cta-pro disabled:opacity-50 disabled:shadow-none">
                                         {aiLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
                                         Generate
                                     </button>
@@ -2836,6 +2951,39 @@ export default function ComposerPage() {
                             </>
                         )}
                     </div>
+                    </div>
+                </>,
+                document.body,
+            )}
+            {dmAiModalOpen && typeof document !== 'undefined' && createPortal(
+                <>
+                    <div
+                        className="fixed z-[10050] min-h-screen min-h-[100dvh] w-screen bg-neutral-900/50 backdrop-blur-sm"
+                        style={{ top: 0, left: 0, right: 0, bottom: 0 }}
+                        onClick={() => !dmAiLoading && setDmAiModalOpen(false)}
+                        aria-hidden="true"
+                    />
+                    <div className="fixed inset-0 z-[10051] flex items-center justify-center p-4 pointer-events-none" role="dialog" aria-modal="true">
+                        <div className="pointer-events-auto relative w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                            <h3 className="text-lg font-semibold text-neutral-900">Generate DM with AI</h3>
+                            <p className="mt-1 text-sm text-neutral-600">Short private message sent when someone comments your keyword on Instagram.</p>
+                            <label className="mt-4 block text-sm font-medium text-neutral-700">Instructions (optional)</label>
+                            <textarea
+                                value={dmAiInstructions}
+                                onChange={(e) => setDmAiInstructions(e.target.value)}
+                                placeholder="e.g. Thank them and say you will send the free trial link in DM"
+                                rows={3}
+                                className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                            />
+                            {dmAiError && <p className="mt-2 text-sm text-red-600">{dmAiError}</p>}
+                            <div className="mt-6 flex flex-wrap justify-end gap-3">
+                                <button type="button" onClick={() => !dmAiLoading && setDmAiModalOpen(false)} className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Cancel</button>
+                                <button type="button" onClick={handleDmAiGenerate} disabled={dmAiLoading} className="inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold text-white shadow-md gradient-cta-pro disabled:opacity-50 disabled:shadow-none">
+                                    {dmAiLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                                    Generate
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </>,
                 document.body,
@@ -3504,35 +3652,11 @@ export default function ComposerPage() {
                                                                         />
                                                                         <button
                                                                             type="button"
-                                                                            onClick={async () => {
-                                                                                if (hasBrandContext === false) {
-                                                                                    setAlertMessage(
-                                                                                        'Set up your brand context in Dashboard → AI Assistant before using Generate with AI.'
-                                                                                    );
-                                                                                    return;
-                                                                                }
-                                                                                try {
-                                                                                    setDmReplyAiLoading(true);
-                                                                                    const res = await api.post<{ content?: string }>('/ai/generate-description', {
-                                                                                        topic: 'Comment reply',
-                                                                                        prompt: 'Short, friendly Instagram DM reply when someone comments with interest. Keep under 200 characters.',
-                                                                                        platform: 'INSTAGRAM',
-                                                                                    });
-                                                                                    const text = res.data?.content?.trim();
-                                                                                    if (text) setCommentAutomationInstagramDmMessage(text);
-                                                                                } catch (err: unknown) {
-                                                                                    const msg =
-                                                                                        err &&
-                                                                                        typeof err === 'object' &&
-                                                                                        'response' in err &&
-                                                                                        (err as { response?: { data?: { message?: string } } }).response?.data?.message;
-                                                                                    if (typeof msg === 'string' && msg.trim()) setAlertMessage(msg);
-                                                                                } finally { setDmReplyAiLoading(false); }
-                                                                            }}
-                                                                            disabled={dmReplyAiLoading || hasBrandContext === false}
-                                                                            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--primary)]/15 text-[var(--primary)] hover:bg-[var(--primary)]/20 rounded-lg text-sm font-medium disabled:opacity-50"
+                                                                            onClick={openDmAiModal}
+                                                                            disabled={hasBrandContext === false}
+                                                                            className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold text-white shadow-md gradient-cta-pro disabled:opacity-50 disabled:shadow-none"
                                                                         >
-                                                                            {dmReplyAiLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                                                                            <Sparkles size={16} />
                                                                             Generate with AI
                                                                         </button>
                                                                     </div>

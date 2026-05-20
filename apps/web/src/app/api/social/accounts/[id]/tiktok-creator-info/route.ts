@@ -88,10 +88,21 @@ export async function GET(
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json; charset=UTF-8',
         },
-        timeout: 12_000,
+        timeout: 20_000,
         validateStatus: () => true,
       }
     );
+    if (res.status < 200 || res.status >= 300) {
+      const errBody = res.data as { error?: { message?: string; code?: string } } | undefined;
+      const msg = errBody?.error?.message ?? `TikTok API HTTP ${res.status}`;
+      const scopeHint = /scope|permission|authorized|token/i.test(msg)
+        ? ' Reconnect TikTok in Accounts and approve video publish permissions.'
+        : '';
+      return NextResponse.json(
+        { message: `${msg}${scopeHint}`.slice(0, 400) },
+        { status: res.status === 401 ? 401 : 502 }
+      );
+    }
     const parsed = parseTikTokCreatorInfoResponse(res.data);
     if (!parsed.ok) {
       const tokenError = /access token is invalid|not found in the request|invalid_access_token|access_token_invalid/i.test(parsed.error);

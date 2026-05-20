@@ -29,6 +29,8 @@ function isPriorityApiPath(url?: string): boolean {
   return (
     url.includes('/ai/brand-context') ||
     url.includes('/ai/generate-description') ||
+    url.includes('/ai/generate-composer-dm') ||
+    url.includes('/tiktok-creator-info') ||
     url.includes('/ai/generate-inbox-reply') ||
     url.includes('/ai/generate-inbox-reply-batch') ||
     url.includes('/comments/reply') ||

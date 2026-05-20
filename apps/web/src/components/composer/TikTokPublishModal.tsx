@@ -117,9 +117,12 @@ export function TikTokPublishModal({
       const responseMessage = e && typeof e === 'object' && 'response' in e
         ? (e as { response?: { data?: { message?: string } } }).response?.data?.message
         : undefined;
-      const msg = status === 429
+      let msg = status === 429
         ? 'TikTok says this account cannot post right now. Please try again later.'
         : String(responseMessage ?? 'Could not load TikTok creator info.');
+      if (/reconnect|scope|permission|token|unauthorized/i.test(msg)) {
+        msg += ' Open Accounts, disconnect TikTok, and connect again with video publish permissions.';
+      }
       setCreatorErrorById((prev) => ({ ...prev, [accountId]: msg }));
       setCreatorById((prev) => ({ ...prev, [accountId]: null }));
     } finally {

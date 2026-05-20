@@ -234,6 +234,78 @@ async function generateDescriptionForPlatform(
   return { content };
 }
 
+/** One OpenAI call for all platforms (much faster than N parallel calls). */
+async function generateDescriptionsAllPlatforms(
+  brand: BrandFields,
+  topic: string,
+  prompt: string | undefined,
+  platforms: string[],
+  closingCta?: string
+): Promise<Record<string, string>> {
+  const requiredClosingCta = closingCta?.trim();
+  const systemPrompt = buildSystemPrompt(brand, { appendCtaSeparately: !!requiredClosingCta });
+  const hints = platforms
+    .map((p) => {
+      const h = getPlatformHint(p);
+      return h ? `${p}: ${h}` : p;
+    })
+    .join('\n');
+  let userContent = [
+    topic && `Topic: ${topic}`,
+    prompt && `Instructions: ${prompt}`,
+    `Write one caption per platform. Platforms: ${platforms.join(', ')}`,
+    hints && `Platform notes:\n${hints}`,
+    'Do not include hashtags.',
+    'Return JSON only: an object whose keys are platform ids (e.g. INSTAGRAM, FACEBOOK) and values are caption strings.',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+  if (requiredClosingCta) {
+    userContent +=
+      '\n\nDo not put the call-to-action inside captions; it will be appended automatically after generation.';
+  }
+  const result = await openAiChat(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userContent },
+    ],
+    { max_tokens: 1400, response_format: { type: 'json_object' } }
+  );
+  const parsed = parseJsonObject(result.content);
+  const out: Record<string, string> = {};
+  for (const p of platforms) {
+    const raw =
+      (parsed?.[p] as string | undefined) ??
+      (parsed?.[p.toLowerCase()] as string | undefined) ??
+      (parsed?.[p.toUpperCase()] as string | undefined);
+    if (typeof raw !== 'string' || !raw.trim()) continue;
+    let content = cleanGeneratedText(raw);
+    const platformUpper = p.toUpperCase();
+    if (platformUpper === 'TWITTER' || platformUpper === 'X') {
+      content = clampTwitterCaption(content, p, requiredClosingCta);
+    }
+    if (requiredClosingCta) {
+      content = ensureClosingCtaInContent(content, requiredClosingCta);
+    }
+    out[p] = content;
+  }
+  const missing = platforms.filter((p) => !out[p]?.trim());
+  if (missing.length > 0) {
+    const fallback = await Promise.all(
+      missing.map((p) =>
+        generateDescriptionForPlatform(brand, topic, prompt, p, { requiredClosingCta }).then((r) => ({
+          p,
+          content: r.content,
+        }))
+      )
+    );
+    for (const { p, content } of fallback) {
+      if (content.trim()) out[p] = content;
+    }
+  }
+  return out;
+}
+
 async function generateWithCtaAndAutomation(
   brand: BrandFields,
   topic: string,
@@ -318,44 +390,48 @@ export async function POST(request: NextRequest) {
   };
 
   if (platformsMulti.length > 1) {
-    trackUsage(userId, 'ai_generation', platformsMulti.length + (includeCtaAndAutomation ? 1 : 0));
+    trackUsage(userId, 'ai_generation', includeCtaAndAutomation ? 2 : 1);
     try {
       let ctaBundle: CtaBundle | null = null;
       if (includeCtaAndAutomation && ctaInstructions) {
         ctaBundle = await generateCtaBundle(brand, topic, prompt, ctaInstructions);
       }
 
-      const results: PlatformDescriptionResult[] = await Promise.all(
-        platformsMulti.map((p): Promise<PlatformDescriptionResult> => {
-          if (includeCtaAndAutomation && ctaBundle) {
-            return generateDescriptionForPlatform(brand, topic, prompt || undefined, p, {
-              requiredClosingCta: ctaBundle.cta,
-            }).then((r) => ({
-              content: r.content,
-              cta: ctaBundle.cta,
-              keywords: ctaBundle.keywords,
-              replyTemplate: ctaBundle.replyTemplate,
-            }));
-          }
-          if (includeCtaAndAutomation) {
-            return generateWithCtaAndAutomation(brand, topic, prompt || undefined, p, ctaInstructions);
-          }
-          return generateDescriptionForPlatform(brand, topic, prompt || undefined, p, {
-            emphasizeInPostCta: promptRequestsInPostCta(prompt),
-          }).then((r) => ({ content: r.content }));
-        })
-      );
+      const byPlatform =
+        platformsMulti.length >= 2
+          ? await generateDescriptionsAllPlatforms(
+              brand,
+              topic,
+              prompt || undefined,
+              platformsMulti,
+              ctaBundle?.cta
+            )
+          : (
+              await (async (): Promise<Record<string, string>> => {
+                const p = platformsMulti[0];
+                if (includeCtaAndAutomation && ctaBundle) {
+                  const r = await generateDescriptionForPlatform(brand, topic, prompt || undefined, p, {
+                    requiredClosingCta: ctaBundle.cta,
+                  });
+                  return { [p]: r.content };
+                }
+                if (includeCtaAndAutomation) {
+                  const r = await generateWithCtaAndAutomation(brand, topic, prompt || undefined, p, ctaInstructions);
+                  return { [p]: r.content };
+                }
+                const r = await generateDescriptionForPlatform(brand, topic, prompt || undefined, p, {
+                  emphasizeInPostCta: promptRequestsInPostCta(prompt),
+                });
+                return { [p]: r.content };
+              })()
+            );
 
-      const byPlatform: Record<string, string> = {};
-      for (let i = 0; i < platformsMulti.length; i++) {
-        byPlatform[platformsMulti[i]] = results[i].content;
-      }
-      const automationMeta = ctaBundle ?? results.find((r) => r.cta || r.keywords?.length || r.replyTemplate) ?? results[0];
+      const automationMeta = ctaBundle;
       return NextResponse.json({
         byPlatform,
-        ...(typeof automationMeta.cta === 'string' ? { cta: automationMeta.cta } : {}),
-        ...(automationMeta.keywords?.length ? { keywords: automationMeta.keywords } : {}),
-        ...(automationMeta.replyTemplate ? { replyTemplate: automationMeta.replyTemplate } : {}),
+        ...(automationMeta?.cta ? { cta: automationMeta.cta } : {}),
+        ...(automationMeta?.keywords?.length ? { keywords: automationMeta.keywords } : {}),
+        ...(automationMeta?.replyTemplate ? { replyTemplate: automationMeta.replyTemplate } : {}),
       });
     } catch (e) {
       console.error('[OpenAI] generate-description batch', e instanceof Error ? e.message : e);
