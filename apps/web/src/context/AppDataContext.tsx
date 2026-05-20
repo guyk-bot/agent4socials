@@ -9,6 +9,10 @@ import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
 import { computeInboxHeaderUnread } from '@/lib/inbox/unread-count';
 import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
 import {
+  INBOX_NOTIFICATION_POLL_MS,
+  pollInboxNotifications,
+} from '@/lib/inbox/poll-inbox-notifications';
+import {
   readScheduledPostsClientCache,
   writeScheduledPostsClientCache,
 } from '@/lib/scheduled-posts-client-cache';
@@ -230,6 +234,73 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       comments: unread.comments,
     }));
   }, [user?.id, conversationsByAccountId, commentsByAccountId]);
+
+  const conversationsByAccountIdRef = useRef(conversationsByAccountId);
+  conversationsByAccountIdRef.current = conversationsByAccountId;
+  const commentsByAccountIdRef = useRef(commentsByAccountId);
+  commentsByAccountIdRef.current = commentsByAccountId;
+  const inboxPollInFlightRef = useRef(false);
+
+  // Background poll: refresh DMs + comments for nav badge (~90s, any dashboard page).
+  useEffect(() => {
+    if (!user?.id) return;
+
+    let cancelled = false;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const runPoll = async () => {
+      if (cancelled || inboxPollInFlightRef.current) return;
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+
+      inboxPollInFlightRef.current = true;
+      try {
+        const accountsRes = await api.get<{ id: string; platform: string }[]>('/social/accounts');
+        const accounts = Array.isArray(accountsRes.data) ? accountsRes.data : [];
+        if (cancelled || accounts.length === 0) return;
+
+        await pollInboxNotifications({
+          accounts,
+          userId: user.id,
+          getConversations: (id) => conversationsByAccountIdRef.current[id],
+          getComments: (id) => commentsByAccountIdRef.current[id],
+          onConversations: (accountId, list) => {
+            if (!cancelled) {
+              setConversationsByAccountId((prev) => ({ ...prev, [accountId]: list }));
+            }
+          },
+          onComments: (accountId, list) => {
+            if (!cancelled) {
+              setCommentsByAccountId((prev) => ({ ...prev, [accountId]: list }));
+            }
+          },
+        });
+      } catch {
+        /* ignore */
+      } finally {
+        inboxPollInFlightRef.current = false;
+      }
+    };
+
+    const initialDelay = setTimeout(() => {
+      void runPoll();
+    }, 6_000);
+
+    intervalId = setInterval(() => {
+      void runPoll();
+    }, INBOX_NOTIFICATION_POLL_MS);
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void runPoll();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(initialDelay);
+      if (intervalId) clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [user?.id]);
 
   const setPostsForAccount = useCallback((accountId: string, posts: CachedPost[]) => {
     setPostsByAccountId((prev) => ({ ...prev, [accountId]: posts }));

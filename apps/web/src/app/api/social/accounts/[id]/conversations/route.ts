@@ -77,6 +77,8 @@ export async function GET(
   const freshRetry = searchParams.get('fresh') === '1' || searchParams.get('fresh') === 'true';
   if (freshRetry) clearMetaThrottle();
   const cacheOnly = searchParams.get('cacheOnly') === '1' || searchParams.get('cacheOnly') === 'true';
+  /** Lightweight live list for nav badge polling (no avatar enrichment or message counts). */
+  const badgePoll = searchParams.get('badgePoll') === '1' || searchParams.get('badgePoll') === 'true';
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
     select: {
@@ -784,7 +786,7 @@ export async function GET(
       };
     });
 
-    if (isInstagram && list.length > 0) {
+    if (isInstagram && list.length > 0 && !badgePoll) {
       list = (await enrichInstagramAvatarsFromParticipants({
         userId,
         list: list as InboxConversationListItem[],
@@ -804,9 +806,15 @@ export async function GET(
         if (s.id && !s.pictureUrl) idsToEnrich.add(s.id);
       }
     }
-    const skipProfileEnrich = isMetaNonCriticalThrottled();
+    const skipProfileEnrich = badgePoll || isMetaNonCriticalThrottled();
     const profileCachePlatform = isInstagram ? 'instagram' : 'facebook';
-    if (idsToEnrich.size > 0) {
+    if (badgePoll && isInstagram && list.length > 0) {
+      list = (await mergeInboxProfileCacheIntoConversations(
+        'instagram',
+        list as InboxConversationListItem[]
+      )) as typeof list;
+    }
+    if (idsToEnrich.size > 0 && !badgePoll) {
       try {
         const profiles = new Map<
           string,
@@ -959,7 +967,7 @@ export async function GET(
 
     // Optional message counts: capped + sequential (25 parallel Meta calls caused app rate-limit spikes).
     const metaThrottle = isInstagram && isMetaNonCriticalThrottled();
-    if (includeMessageCounts && list.length > 0 && !metaThrottle) {
+    if (includeMessageCounts && list.length > 0 && !metaThrottle && !badgePoll) {
       const toFetch = list.slice(0, 12);
       const counts: number[] = [];
       for (const conv of toFetch) {

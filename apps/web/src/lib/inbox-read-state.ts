@@ -63,6 +63,15 @@ export function markConversationsAsRead(ids: Iterable<string>, userId?: string |
   saveSet(key, set);
 }
 
+/** Mark a thread unread again (e.g. new message arrived while user is elsewhere). */
+export function unmarkConversationAsRead(conversationId: string, userId?: string | null): void {
+  if (!conversationId) return;
+  const key = getKey(KEY_CONVERSATIONS, userId);
+  const set = loadSet(key);
+  if (!set.delete(conversationId)) return;
+  saveSet(key, set);
+}
+
 export function markEngagementAsRead(ids: Iterable<string>, userId?: string | null): void {
   const key = getKey(KEY_ENGAGEMENT, userId);
   const set = loadSet(key);
