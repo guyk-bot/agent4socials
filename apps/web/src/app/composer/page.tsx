@@ -4008,7 +4008,12 @@ export default function ComposerPage() {
                     className="hidden lg:flex flex-col flex-shrink-0 space-y-3 lg:pl-2"
                     style={{ width: `${previewWidthPx}px`, minWidth: 300, maxWidth: 920 }}
                 >
-                    <h2 className="text-sm font-semibold text-neutral-600 uppercase tracking-wide">Preview</h2>
+                    <div>
+                        <h2 className="text-sm font-semibold text-neutral-600 uppercase tracking-wide">Preview</h2>
+                        {(mediaType === 'video' || mediaType === 'reel' || mediaType === 'story') && mediaList.some((m) => m.type === 'VIDEO') ? (
+                            <p className="mt-1 text-xs text-neutral-500">Hover or tap a preview to play. Use the speaker icon for sound.</p>
+                        ) : null}
+                    </div>
                     <div className="sticky top-6 space-y-3 overflow-y-auto max-h-[calc(100vh-8rem)]">
                         {platforms.length === 0 ? (
                             <div className="rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 flex flex-col items-center justify-center py-8 text-neutral-400">
@@ -4071,7 +4076,12 @@ export default function ComposerPage() {
                 </div>
                 {/* Mobile: preview below form (no resize) */}
                 <div className="lg:hidden w-full mt-6 space-y-3">
-                    <h2 className="text-sm font-semibold text-neutral-600 uppercase tracking-wide">Preview</h2>
+                    <div>
+                        <h2 className="text-sm font-semibold text-neutral-600 uppercase tracking-wide">Preview</h2>
+                        {(mediaType === 'video' || mediaType === 'reel' || mediaType === 'story') && mediaList.some((m) => m.type === 'VIDEO') ? (
+                            <p className="mt-1 text-xs text-neutral-500">Hover or tap a preview to play. Use the speaker icon for sound.</p>
+                        ) : null}
+                    </div>
                     <div className="space-y-3">
                         {platforms.length === 0 ? (
                             <div className="rounded-xl border-2 border-dashed border-neutral-200 bg-neutral-50/50 flex flex-col items-center justify-center py-8 text-neutral-400">
