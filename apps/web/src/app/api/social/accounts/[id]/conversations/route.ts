@@ -76,6 +76,7 @@ export async function GET(
     searchParams.get('manualInboxSync') === '1' || searchParams.get('manualInboxSync') === 'true';
   const freshRetry = searchParams.get('fresh') === '1' || searchParams.get('fresh') === 'true';
   if (freshRetry) clearMetaThrottle();
+  const cacheOnly = searchParams.get('cacheOnly') === '1' || searchParams.get('cacheOnly') === 'true';
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
     select: {
@@ -118,6 +119,16 @@ export async function GET(
       conversations: [],
       hint: 'Conversations are only available for Instagram, Facebook, and X (Twitter).',
     });
+  }
+
+  // cacheOnly=1: return DB-cached list immediately (no Meta API call). Used by AppDataContext
+  // to populate badge counts without burning API quota.
+  if (cacheOnly && account.platform !== 'TWITTER') {
+    const cached = await getInboxConversationListFromDb(id);
+    if (cached && cached.length > 0) {
+      return NextResponse.json({ conversations: cached, fromCache: true });
+    }
+    return NextResponse.json({ conversations: [] });
   }
 
   const token = (account.accessToken || '').trim();
@@ -781,7 +792,7 @@ export async function GET(
         accessToken: isInstagramBusinessLogin ? igUserToken! : activeToken,
         ourIds,
         ourUsernames,
-        maxConversations: 50,
+        maxConversations: 8,
       })) as typeof list;
     }
 
@@ -808,7 +819,7 @@ export async function GET(
             if (cached) profiles.set(enrichId, cached);
           }
         } else if (isInstagram) {
-          const enrichIds = Array.from(idsToEnrich).slice(0, 35);
+          const enrichIds = Array.from(idsToEnrich).slice(0, 8);
           const enrichIdSet = new Set(enrichIds);
           const convBySender = new Map<string, string>();
           for (const conv of list) {

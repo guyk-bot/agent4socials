@@ -540,16 +540,16 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             } catch { /* skip */ }
           }
           if (cancelled) break;
-          // Skip conversations prefetch for Instagram/Facebook — profile enrichment inside
-          // GET /conversations fetches each sender's profile picture (many Graph calls). Inbox
-          // already loads conversations on-demand when the user opens it.
-          if (CONVO_PLATFORMS.has(acc.platform) && !isMetaAccount) {
+            // For Instagram/Facebook: use cacheOnly=1 so we read the DB-cached conversation list
+          // without making live Meta API calls. This populates badge counts in the nav.
+          // When the user opens Inbox, the live fetch replaces this with fresh data.
+          if (CONVO_PLATFORMS.has(acc.platform)) {
             try {
               const r = await api.get<{ conversations?: CachedConversation[]; error?: string }>(
-                `/social/accounts/${acc.id}/conversations`
+                `/social/accounts/${acc.id}/conversations?cacheOnly=1`
               );
-              if (!cancelled && shouldApplyPhase2Write() && !r.data?.error) {
-                setConversationsByAccountId((prev) => ({ ...prev, [acc.id]: r.data?.conversations ?? [] }));
+              if (!cancelled && shouldApplyPhase2Write() && !r.data?.error && r.data?.conversations?.length) {
+                setConversationsByAccountId((prev) => ({ ...prev, [acc.id]: r.data!.conversations! }));
               }
             } catch { /* skip */ }
           }

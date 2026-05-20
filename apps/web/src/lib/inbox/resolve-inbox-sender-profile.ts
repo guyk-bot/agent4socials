@@ -232,6 +232,30 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
     .slice(0, maxConversations);
 
   for (const conv of toFetch) {
+    const idx = out.findIndex((c) => c.id === conv.id);
+    if (idx < 0) continue;
+
+    // Check profile cache first — avoids a Meta API call when we already have the picture.
+    const cacheResolved = await Promise.all(
+      out[idx].senders.map(async (s) => {
+        if (s.pictureUrl) return s;
+        const cached = s.id ? await readInboxProfileCache('instagram', s.id) : null;
+        const cachedByUsername = !cached?.pictureUrl && s.username
+          ? await readInboxProfileCacheByUsername('instagram', s.username)
+          : null;
+        const best = cached?.pictureUrl ? cached : (cachedByUsername ?? cached);
+        if (!best) return s;
+        return { ...s, pictureUrl: s.pictureUrl ?? best.pictureUrl ?? null, name: s.name || best.name, username: s.username || best.username };
+      })
+    );
+    const allHavePictures = cacheResolved.every((s) => !!s.pictureUrl);
+    if (allHavePictures) {
+      out[idx] = { ...out[idx], senders: cacheResolved };
+      continue;
+    }
+    // At least one sender still missing picture — call Meta participants endpoint.
+    out[idx] = { ...out[idx], senders: cacheResolved };
+
     try {
       const convUrl = isInstagramBusinessLogin
         ? `${igBaseUrl}/${conv.id}`
@@ -252,9 +276,6 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
         if (p.username && ourUsernames.has(p.username.toLowerCase())) return false;
         return true;
       });
-
-      const idx = out.findIndex((c) => c.id === conv.id);
-      if (idx < 0) continue;
 
       out[idx] = {
         ...out[idx],

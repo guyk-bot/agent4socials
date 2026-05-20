@@ -1654,14 +1654,20 @@ function InboxPage() {
           .filter((v): v is string => typeof v === 'string' && v.length > 0)
           .sort((a, b) => b.localeCompare(a))[0] ?? undefined;
       const hasIgInList = merge.some((c) => c.platform === 'INSTAGRAM');
+      // Delta mode: cache exists AND this is a periodic refresh (not the first open).
+      // On first open (conversationsRefreshKey === 0) always do a full live fetch so
+      // new messages that arrived since the DB-cache snapshot are picked up immediately.
       const shouldDeltaFetch =
         useCache &&
         conversationsRefreshKey > 0 &&
         !(platform === 'INSTAGRAM' && !hasIgInList);
 
-      if (!useCache || shouldDeltaFetch) {
-        // No cache: fetch live.
-        // Cache exists and refresh key changed: fetch only new/changed conversations since latest cached item.
+      // Always fetch on first open to catch messages that arrived since the cached snapshot.
+      const shouldFullFetchOnFirstOpen = useCache && conversationsRefreshKey === 0;
+
+      if (!useCache || shouldDeltaFetch || shouldFullFetchOnFirstOpen) {
+        // No cache / first open / periodic delta: fetch from server.
+        // Delta: only fetch conversations newer than the latest cached updatedTime.
         needsFetch = true;
         platformsToFetch.push({
           platform,
@@ -1669,7 +1675,7 @@ function InboxPage() {
           ...(shouldDeltaFetch && newestCachedUpdatedAt ? { since: newestCachedUpdatedAt } : {}),
         });
       } else {
-        // Cache hit: decrement pending now so finishConversationMerge fires correctly.
+        // Cache hit (shouldn't happen since we always fetch): decrement pending so finishConversationMerge fires.
         if (--pending === 0 && !cancelled) finishConversationMerge();
       }
     });
