@@ -13,7 +13,14 @@ const igBaseUrl = 'https://graph.instagram.com/v25.0';
 const fbBaseUrl = facebookGraphBaseUrl;
 
 /** Caps IGBusinessScopedID User Profile API calls per inbox conversations request. */
-const MAX_IG_SCOPED_PROFILE_CALLS_PER_REQUEST = 6;
+const MAX_IG_SCOPED_PROFILE_CALLS_PER_REQUEST = 4;
+
+/** Meta user / IGSID node ids are numeric strings (10–20 digits). Avoid InvalidID on bad ids. */
+export function isLikelyMetaScopedUserId(id: string | undefined | null): boolean {
+  if (!id) return false;
+  const t = id.trim();
+  return /^\d{10,20}$/.test(t);
+}
 let igScopedProfileCallsThisRequest = 0;
 
 export function resetIgScopedProfileCallBudget(): void {
@@ -69,6 +76,7 @@ async function fetchIgUserProfileViaPageToken(
   senderId: string,
   pageToken: string
 ): Promise<InboxSenderProfile | null> {
+  if (!isLikelyMetaScopedUserId(senderId)) return null;
   const profileRes = await axios.get<ParticipantRow & { id?: string }>(`${fbBaseUrl}/${senderId}`, {
     params: { fields: 'name,username,profile_pic', access_token: pageToken },
     timeout: 12_000,
@@ -83,6 +91,7 @@ async function fetchIgUserProfileViaInstagramHost(
   senderId: string,
   accessToken: string
 ): Promise<InboxSenderProfile | null> {
+  if (!isLikelyMetaScopedUserId(senderId)) return null;
   const profileRes = await axios.get<ParticipantRow & { id?: string }>(`${igBaseUrl}/${senderId}`, {
     params: {
       fields: 'name,username,profile_pic,profile_picture_url',
@@ -185,34 +194,11 @@ export async function resolveInstagramInboxSenderProfile(args: {
       const profile = await fetchIgUserProfileViaInstagramHost(senderId, accessToken);
       if (profile) {
         cacheProfile(senderId, profile);
-        if (profile.pictureUrl) return profile;
+        if (profile.pictureUrl || profile.name || profile.username) return profile;
       }
     } catch {
       /* fall through */
     }
-  }
-
-  try {
-    const profileRes = await axios.get<ParticipantRow & { id?: string }>(`${fbBaseUrl}/${senderId}`, {
-      params: {
-        fields: 'id,name,username,profile_pic,profile_picture_url,picture.type(large)',
-        access_token: accessToken,
-        platform: 'instagram',
-      },
-      timeout: 12_000,
-    });
-    const p = profileRes.data;
-    const profile: InboxSenderProfile = {
-      name: p.name,
-      username: p.username,
-      pictureUrl: pictureFromRow(p),
-    };
-    if (profile.pictureUrl || profile.name || profile.username) {
-      cacheProfile(senderId, profile, p.id);
-    }
-    if (profile.pictureUrl) return profile;
-  } catch {
-    /* ignore */
   }
 
   return cached ?? null;
@@ -238,7 +224,7 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
     accessToken,
     ourIds = new Set<string>(),
     ourUsernames = new Set<string>(),
-    maxConversations = 12,
+    maxConversations = 6,
   } = args;
 
   const pageToken = await resolveFacebookPageTokenForUser(userId);
@@ -321,10 +307,10 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
       /* next conversation */
     }
 
-    // User Profile API (page token): only for a few senders still missing a display name (IGBusinessScopedID).
+    // User Profile API (page token): only when display name is still missing (bills IGBusinessScopedID).
     if (pageToken) {
       for (const s of out[idx].senders) {
-        if (!s.id) continue;
+        if (!s.id || !isLikelyMetaScopedUserId(s.id)) continue;
         if (s.name?.trim() || s.username?.trim()) continue;
         if (igScopedProfileCallsThisRequest >= MAX_IG_SCOPED_PROFILE_CALLS_PER_REQUEST) break;
         try {

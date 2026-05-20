@@ -16,10 +16,12 @@ const META_THROTTLE_DB_KEY = 'meta:throttle-until';
 const META_THROTTLE_HARD_MINUTES = 15;
 /** x-app-usage header high, or short burst of calls on one server instance. */
 const META_THROTTLE_SOFT_MINUTES = 5;
-/** Soft backoff when Meta dashboard app usage crosses this (target: stay under ~50%). */
-const META_USAGE_HIGH_PCT = 50;
-/** Skip avatar/name enrichment and other fan-out calls below hard throttle. */
-const META_USAGE_SKIP_ENRICH_PCT = 42;
+/** Soft backoff when Meta x-app-usage crosses this (target: stay under ~50% on dashboard). */
+const META_USAGE_HIGH_PCT = 55;
+/** Skip live avatar/name enrichment only when usage is clearly elevated (not at ~50%). */
+const META_USAGE_SKIP_ENRICH_PCT = 72;
+/** Reduce per-request fan-out (fewer participant/profile calls) above this. */
+const META_USAGE_REDUCE_FANOUT_PCT = 58;
 const L1_TTL_MS = 15_000;
 
 let l1ThrottleUntil = 0;
@@ -143,6 +145,12 @@ export function getMetaAppUsagePct(): number {
 export function shouldSkipMetaProfileEnrichment(): boolean {
   if (isMetaNonCriticalThrottled()) return true;
   return l1LastUsagePct >= META_USAGE_SKIP_ENRICH_PCT;
+}
+
+/** Use smaller enrichment caps (still runs cache merge and list participants). */
+export function shouldReduceMetaProfileFanOut(): boolean {
+  if (isMetaNonCriticalThrottled()) return true;
+  return l1LastUsagePct >= META_USAGE_REDUCE_FANOUT_PCT;
 }
 
 /** True when non-critical Meta calls should be skipped. Synchronous; DB refresh is async. */

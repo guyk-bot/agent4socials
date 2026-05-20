@@ -7,7 +7,9 @@ import {
   loadInstagramConversationMessages,
   type ConversationUiMessage,
 } from '@/lib/inbox/load-meta-conversation-messages';
-import { resolveInstagramInboxSenderProfile } from '@/lib/inbox/resolve-inbox-sender-profile';
+import { readInboxProfileCache, writeInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
+import { shouldSkipMetaProfileEnrichment } from '@/lib/meta-usage-guard';
+import { isLikelyMetaScopedUserId, resolveInstagramInboxSenderProfile } from '@/lib/inbox/resolve-inbox-sender-profile';
 import { loadTwitterConversationForFirstWelcome } from '@/lib/inbox/twitter-conversation-for-first-welcome';
 
 const fbBaseUrl = facebookGraphBaseUrl;
@@ -86,16 +88,27 @@ async function loadMetaConversationForFirstWelcome(
             break;
           }
         }
-        const profile = await resolveInstagramInboxSenderProfile({
-          userId,
-          senderId: recipientId,
-          accessToken: activeToken,
-          isInstagramBusinessLogin,
-          conversationId,
-          username: recipientUsername ?? undefined,
-        });
-        recipientName = profile?.name ?? profile?.username ?? null;
-        recipientPictureUrl = profile?.pictureUrl ?? null;
+        const cached = await readInboxProfileCache('instagram', recipientId);
+        if (cached && (cached.name || cached.username || cached.pictureUrl)) {
+          recipientName = cached.name ?? cached.username ?? recipientUsername;
+          recipientPictureUrl = cached.pictureUrl ?? null;
+        } else if (!shouldSkipMetaProfileEnrichment() && isLikelyMetaScopedUserId(recipientId)) {
+          const profile = await resolveInstagramInboxSenderProfile({
+            userId,
+            senderId: recipientId,
+            accessToken: activeToken,
+            isInstagramBusinessLogin,
+            conversationId,
+            username: recipientUsername ?? undefined,
+          });
+          recipientName = profile?.name ?? profile?.username ?? recipientUsername;
+          recipientPictureUrl = profile?.pictureUrl ?? null;
+          if (profile && (profile.name || profile.username || profile.pictureUrl)) {
+            void writeInboxProfileCache('instagram', recipientId, profile);
+          }
+        } else {
+          recipientName = recipientUsername;
+        }
       }
 
       const firstWelcomeRows: FirstWelcomeMessageRow[] = messages.map((m) => ({
@@ -143,21 +156,34 @@ async function loadMetaConversationForFirstWelcome(
     let recipientName: string | null = null;
     let recipientPictureUrl: string | null = null;
     if (recipientId && account.platform === 'FACEBOOK') {
-      try {
-        const pr = await axios.get<{
-          name?: string;
-          first_name?: string;
-          last_name?: string;
-          picture?: { data?: { url?: string } };
-        }>(`${fbBaseUrl}/${recipientId}`, {
-          params: { fields: 'name,first_name,last_name,picture.type(large)', access_token: activeToken },
-          timeout: 12_000,
-        });
-        const v = pr.data;
-        recipientName = v.name || [v.first_name, v.last_name].filter(Boolean).join(' ').trim() || null;
-        recipientPictureUrl = v.picture?.data?.url ?? null;
-      } catch {
-        // ignore
+      const cached = await readInboxProfileCache('facebook', recipientId);
+      if (cached && (cached.name || cached.pictureUrl)) {
+        recipientName = cached.name ?? null;
+        recipientPictureUrl = cached.pictureUrl ?? null;
+      } else if (!shouldSkipMetaProfileEnrichment() && isLikelyMetaScopedUserId(recipientId)) {
+        try {
+          const pr = await axios.get<{
+            name?: string;
+            first_name?: string;
+            last_name?: string;
+            profile_pic?: string;
+            picture?: { data?: { url?: string } };
+          }>(`${fbBaseUrl}/${recipientId}`, {
+            params: { fields: 'name,first_name,last_name,profile_pic,picture.type(large)', access_token: activeToken },
+            timeout: 12_000,
+          });
+          const v = pr.data;
+          recipientName = v.name || [v.first_name, v.last_name].filter(Boolean).join(' ').trim() || null;
+          recipientPictureUrl = v.profile_pic ?? v.picture?.data?.url ?? null;
+          if (recipientName || recipientPictureUrl) {
+            void writeInboxProfileCache('facebook', recipientId, {
+              name: recipientName ?? undefined,
+              pictureUrl: recipientPictureUrl,
+            });
+          }
+        } catch {
+          // ignore
+        }
       }
     }
 

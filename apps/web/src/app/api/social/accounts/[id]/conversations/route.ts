@@ -13,12 +13,14 @@ import {
   META_APP_BACKOFF_INBOX_MESSAGE,
   noteMetaUsageFromHeaders,
   noteMetaRateLimitError,
+  shouldReduceMetaProfileFanOut,
   shouldSkipMetaProfileEnrichment,
 } from '@/lib/meta-usage-guard';
 import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
 import { readInboxProfileCache, writeInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
 import {
   enrichInstagramAvatarsFromParticipants,
+  isLikelyMetaScopedUserId,
   mergeInboxProfileCacheIntoConversations,
   resetIgScopedProfileCallBudget,
   resolveInstagramInboxSenderProfile,
@@ -764,6 +766,7 @@ export async function GET(
     const ourUsernames = new Set<string>();
     if (account.username) ourUsernames.add(account.username.toLowerCase());
 
+    const profileCachePlatform = isInstagram ? 'instagram' : 'facebook';
     let list = rawConversations.map((c) => {
       const participants = c.participants?.data ?? [];
       const others = participants.filter((p) => {
@@ -773,28 +776,42 @@ export async function GET(
         return true;
       });
       const sendersData = others.length > 0 ? others : participants;
-      return {
-      id: c.id,
-      updatedTime: c.updated_time ?? null,
-        senders: sendersData.map((s) => ({
+      const senders = sendersData.map((s) => {
+        const pictureUrl = (s.profile_pic ?? s.profile_picture_url ?? s.picture?.data?.url ?? null) as
+          | string
+          | null;
+        const row = {
           id: s.id,
           name: s.name,
           username: s.username,
-          pictureUrl: (s.profile_pic ?? s.profile_picture_url ?? s.picture?.data?.url ?? null) as
-            | string
-            | null,
-        })),
+          pictureUrl,
+        };
+        if (s.id && (row.name || row.username || row.pictureUrl)) {
+          void writeInboxProfileCache(profileCachePlatform, s.id, {
+            name: row.name,
+            username: row.username,
+            pictureUrl: row.pictureUrl,
+          });
+        }
+        return row;
+      });
+      return {
+        id: c.id,
+        updatedTime: c.updated_time ?? null,
+        senders,
         messageCount: undefined as number | undefined,
       };
     });
 
-    if (isInstagram && list.length > 0) {
+    if (list.length > 0) {
       list = (await mergeInboxProfileCacheIntoConversations(
-        'instagram',
+        profileCachePlatform,
         list as InboxConversationListItem[]
       )) as typeof list;
     }
 
+    const reduceFanOut = shouldReduceMetaProfileFanOut();
+    const igEnrichMax = reduceFanOut ? 4 : 6;
     if (isInstagram && list.length > 0 && !badgePoll && !shouldSkipMetaProfileEnrichment()) {
       resetIgScopedProfileCallBudget();
       list = (await enrichInstagramAvatarsFromParticipants({
@@ -804,7 +821,7 @@ export async function GET(
         accessToken: isInstagramBusinessLogin ? igUserToken! : activeToken,
         ourIds,
         ourUsernames,
-        maxConversations: 12,
+        maxConversations: igEnrichMax,
       })) as typeof list;
     }
 
@@ -819,10 +836,9 @@ export async function GET(
       }
     }
     const skipProfileEnrich = badgePoll || shouldSkipMetaProfileEnrichment();
-    const profileCachePlatform = isInstagram ? 'instagram' : 'facebook';
-    if (badgePoll && isInstagram && list.length > 0) {
+    if (badgePoll && list.length > 0) {
       list = (await mergeInboxProfileCacheIntoConversations(
-        'instagram',
+        profileCachePlatform,
         list as InboxConversationListItem[]
       )) as typeof list;
     }
@@ -839,7 +855,7 @@ export async function GET(
             if (cached) profiles.set(enrichId, cached);
           }
         } else if (isInstagram) {
-          const enrichIds = Array.from(idsToEnrich).slice(0, 8);
+          const enrichIds = Array.from(idsToEnrich).slice(0, reduceFanOut ? 5 : 8);
           const enrichIdSet = new Set(enrichIds);
           const convBySender = new Map<string, string>();
           for (const conv of list) {
@@ -850,7 +866,7 @@ export async function GET(
             }
           }
           let liveProfileLookups = 0;
-          const maxLiveProfileLookups = 4;
+          const maxLiveProfileLookups = reduceFanOut ? 2 : 4;
           for (const enrichId of enrichIds) {
             const cached = await readInboxProfileCache('instagram', enrichId);
             if (cached && (cached.name || cached.username || cached.pictureUrl)) {
@@ -888,7 +904,7 @@ export async function GET(
               profiles.set(id, cached);
             }
           }
-          const needBatch = enrichIds.filter((id) => !profiles.has(id));
+          const needBatch = enrichIds.filter((id) => !profiles.has(id) && isLikelyMetaScopedUserId(id));
           if (needBatch.length > 0) {
             try {
               const profileRes = await axios.get<
@@ -905,7 +921,7 @@ export async function GET(
               >(baseUrl, {
                 params: {
                   ids: needBatch.join(','),
-                  fields: 'id,name,first_name,last_name,picture.type(large)',
+                  fields: 'id,name,first_name,last_name,profile_pic,picture.type(large)',
                   access_token: token,
                 },
                 timeout: 30_000,
@@ -916,10 +932,14 @@ export async function GET(
                   v.name ||
                   [v.first_name, v.last_name].filter(Boolean).join(' ').trim() ||
                   undefined;
+                const pic =
+                  (v as { profile_pic?: string }).profile_pic ??
+                  v.picture?.data?.url ??
+                  null;
                 const profileData = {
                   name: fullName,
                   username: undefined,
-                  pictureUrl: v.picture?.data?.url ?? null,
+                  pictureUrl: pic,
                 };
                 profiles.set(k, profileData);
                 void writeInboxProfileCache('facebook', k, profileData);
@@ -929,15 +949,17 @@ export async function GET(
             }
           }
           for (const id of enrichIds) {
+            if (!isLikelyMetaScopedUserId(id)) continue;
             if (profiles.get(id)?.pictureUrl) continue;
             try {
               const profileRes = await axios.get<{
                 name?: string;
                 first_name?: string;
                 last_name?: string;
+                profile_pic?: string;
                 picture?: { data?: { url?: string } };
               }>(`${baseUrl}/${id}`, {
-                params: { fields: 'name,first_name,last_name,picture.type(large)', access_token: token },
+                params: { fields: 'name,first_name,last_name,profile_pic,picture.type(large)', access_token: token },
                 timeout: 12_000,
               });
               const v = profileRes.data;
@@ -948,7 +970,7 @@ export async function GET(
               const profileData = {
                 name: fullName,
                 username: undefined,
-                pictureUrl: v.picture?.data?.url ?? null,
+                pictureUrl: v.profile_pic ?? v.picture?.data?.url ?? null,
               };
               profiles.set(id, profileData);
               void writeInboxProfileCache('facebook', id, profileData);

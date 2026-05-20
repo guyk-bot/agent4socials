@@ -14,6 +14,7 @@ import {
   shouldSkipMetaProfileEnrichment,
 } from '@/lib/meta-usage-guard';
 import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
+import { readInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
 import { fetchAllPublishedPostsForPage, sortFbPublishedPostsNewestFirst } from '@/lib/facebook/fetchers';
 
 /**
@@ -526,11 +527,19 @@ export async function GET(
             for (const c of list) {
               const fromId = c.from?.id;
               const isFromMe = fromId === account.platformUserId;
+              let authorName = isFromMe ? 'You' : (c.from?.username ?? 'Unknown');
+              let authorPictureUrl: string | null = null;
+              if (!isFromMe && fromId) {
+                const cached = await readInboxProfileCache('instagram', fromId);
+                if (cached?.username) authorName = cached.username.startsWith('@') ? cached.username : `@${cached.username}`;
+                else if (cached?.name) authorName = cached.name;
+                authorPictureUrl = cached?.pictureUrl ?? null;
+              }
               comments.push({
                 commentId: c.id, postTargetId, platformPostId, accountId, postPreview, postImageUrl,
                 postPublishedAt: postPublishedAtResolved ?? null, postUrl,
-                text: c.text ?? '', authorName: isFromMe ? 'You' : (c.from?.username ?? 'Unknown'),
-                authorPictureUrl: null, createdAt: c.timestamp ?? new Date().toISOString(), platform,
+                text: c.text ?? '', authorName, authorPictureUrl,
+                createdAt: c.timestamp ?? new Date().toISOString(), platform,
                 isFromMe,
               });
             }

@@ -1,7 +1,10 @@
 /** @jest-environment node */
 
 import axios from 'axios';
-import { resolveInstagramInboxSenderProfile } from '../resolve-inbox-sender-profile';
+import {
+  isLikelyMetaScopedUserId,
+  resolveInstagramInboxSenderProfile,
+} from '../resolve-inbox-sender-profile';
 import { readInboxProfileCache, writeInboxProfileCache } from '../inbox-profile-cache';
 
 jest.mock('axios');
@@ -20,6 +23,16 @@ jest.mock('@/lib/db', () => ({
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 const readCache = readInboxProfileCache as jest.Mock;
 const writeCache = writeInboxProfileCache as jest.Mock;
+
+describe('isLikelyMetaScopedUserId', () => {
+  it('accepts numeric IGSID-style ids', () => {
+    expect(isLikelyMetaScopedUserId('17841400000000000')).toBe(true);
+  });
+  it('rejects non-numeric ids that cause InvalidID', () => {
+    expect(isLikelyMetaScopedUserId('not-a-user')).toBe(false);
+    expect(isLikelyMetaScopedUserId('')).toBe(false);
+  });
+});
 
 describe('resolveInstagramInboxSenderProfile', () => {
   beforeEach(() => {
@@ -53,15 +66,16 @@ describe('resolveInstagramInboxSenderProfile', () => {
         profile_pic: 'https://fbcdn-profile.example/pic.jpg',
       },
     });
+    const senderId = '17841400000000123';
     const profile = await resolveInstagramInboxSenderProfile({
       userId: 'u1',
-      senderId: 'igsid-123',
+      senderId,
       accessToken: 'ig-token',
       isInstagramBusinessLogin: false,
     });
     expect(profile?.pictureUrl).toBe('https://fbcdn-profile.example/pic.jpg');
     expect(mockedAxios.get).toHaveBeenCalledWith(
-      expect.stringContaining('/igsid-123'),
+      expect.stringContaining(`/${senderId}`),
       expect.objectContaining({
         params: expect.objectContaining({
           fields: 'name,username,profile_pic',
@@ -72,7 +86,7 @@ describe('resolveInstagramInboxSenderProfile', () => {
     expect(mockedAxios.get.mock.calls[0][1]?.params?.platform).toBeUndefined();
     expect(writeCache).toHaveBeenCalledWith(
       'instagram',
-      'igsid-123',
+      senderId,
       expect.objectContaining({ pictureUrl: 'https://fbcdn-profile.example/pic.jpg' })
     );
   });
