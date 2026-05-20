@@ -45,6 +45,7 @@ import {
   markCommentsAsRead,
   markConversationsAsRead,
   markEngagementAsRead,
+  INBOX_READ_STATE_CHANGED_EVENT,
   getInboxInitializedAccountIds,
   addInboxInitializedAccount,
   getInboxInitializedAccountIdsForConversations,
@@ -518,10 +519,7 @@ function MessagesConversationList({
   setSelectedConversationId,
   setSelectedConversationIds,
   setUnreadConversationIds,
-  markConversationsAsRead,
-  setTotalUnreadMessages,
-  getConversationLastReadCounts,
-  setConversationLastReadCount,
+  onOpenConversation,
   user,
   threadPictureByConvId,
   onWarmConversation,
@@ -540,10 +538,7 @@ function MessagesConversationList({
   setSelectedConversationId: (id: string | null) => void;
   setSelectedConversationIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   setUnreadConversationIds: React.Dispatch<React.SetStateAction<Set<string>>>;
-  markConversationsAsRead: (ids: string[], userId: string | undefined) => void;
-  setTotalUnreadMessages: React.Dispatch<React.SetStateAction<number>>;
-  getConversationLastReadCounts: (userId: string | undefined) => Record<string, number>;
-  setConversationLastReadCount: (convId: string, count: number, userId: string | undefined) => void;
+  onOpenConversation: (conversationId: string, messageCount?: number) => void;
   user: { id: string } | null;
   threadPictureByConvId: Record<string, string | null | undefined>;
   onWarmConversation?: (conv: Conversation & { platform?: string; messageAccountId?: string }) => void;
@@ -620,22 +615,7 @@ function MessagesConversationList({
               onWarmConversation?.(c as Conversation & { platform?: string; messageAccountId?: string });
               if (platform) setSelectedPlatform(platform);
               setSelectedConversationId(c.id);
-              markConversationsAsRead([c.id], user?.id);
-              setUnreadConversationIds((prev) => {
-                const next = new Set(prev);
-                next.delete(c.id);
-                return next;
-              });
-              const lastRead = getConversationLastReadCounts(user?.id);
-              const count = (c as Conversation).messageCount;
-              if (typeof count === 'number') {
-                const readUpTo = lastRead[c.id] ?? 0;
-                const unreadForThis = Math.max(0, count - readUpTo);
-                setTotalUnreadMessages((prev) => Math.max(0, prev - unreadForThis));
-                setConversationLastReadCount(c.id, count, user?.id);
-              } else {
-                setTotalUnreadMessages((prev) => Math.max(0, prev - 1));
-              }
+              onOpenConversation(c.id, (c as Conversation).messageCount);
             }}
             className={rowCls}
           >
@@ -775,6 +755,8 @@ function InboxPage() {
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
   const [unreadCommentIds, setUnreadCommentIds] = useState<Set<string>>(new Set());
   const [unreadConversationIds, setUnreadConversationIds] = useState<Set<string>>(new Set());
+  /** Bumps when localStorage read/pending badge state changes (nav + row dots stay in sync). */
+  const [inboxReadStateVersion, setInboxReadStateVersion] = useState(0);
   const [totalUnreadMessages, setTotalUnreadMessages] = useState(0); // sum of unread message counts when messageCount is available
   const [unreadEngagementIds, setUnreadEngagementIds] = useState<Set<string>>(new Set());
   const previousTopLevelCommentIdsRef = useRef<Set<string>>(new Set());
@@ -1027,15 +1009,67 @@ function InboxPage() {
     return result;
   }, [conversations]);
 
+  useEffect(() => {
+    const onReadChanged = () => setInboxReadStateVersion((v) => v + 1);
+    window.addEventListener(INBOX_READ_STATE_CHANGED_EVENT, onReadChanged);
+    return () => window.removeEventListener(INBOX_READ_STATE_CHANGED_EVENT, onReadChanged);
+  }, []);
+
   const pendingUnreadCommentIds = useMemo(
     () => getPendingUnreadCommentIds(user?.id ?? ''),
-    [user?.id]
+    [user?.id, inboxReadStateVersion]
   );
 
   const pendingUnreadConversationIds = useMemo(
     () => getPendingUnreadConversationIds(user?.id ?? ''),
+    [user?.id, inboxReadStateVersion]
+  );
+
+  const markInboxCommentRead = useCallback(
+    (commentId: string) => {
+      if (!commentId) return;
+      setUnreadCommentIds((prev) => {
+        const next = new Set(prev);
+        next.delete(commentId);
+        return next;
+      });
+      markCommentsAsRead([commentId], user?.id);
+    },
     [user?.id]
   );
+
+  const markInboxConversationRead = useCallback(
+    (conversationId: string, messageCount?: number) => {
+      if (!conversationId) return;
+      setUnreadConversationIds((prev) => {
+        const next = new Set(prev);
+        next.delete(conversationId);
+        return next;
+      });
+      markConversationsAsRead([conversationId], user?.id);
+      if (typeof messageCount === 'number') {
+        const lastRead = getConversationLastReadCounts(user?.id);
+        const readUpTo = lastRead[conversationId] ?? 0;
+        const unreadForThis = Math.max(0, messageCount - readUpTo);
+        setTotalUnreadMessages((prev) => Math.max(0, prev - unreadForThis));
+        setConversationLastReadCount(conversationId, messageCount, user?.id);
+      } else {
+        setTotalUnreadMessages((prev) => Math.max(0, prev - 1));
+      }
+    },
+    [user?.id]
+  );
+
+  useEffect(() => {
+    if (!selectedComment?.commentId || selectMode) return;
+    markInboxCommentRead(selectedComment.commentId);
+  }, [selectedComment?.commentId, selectMode, markInboxCommentRead]);
+
+  useEffect(() => {
+    if (!selectedConversationId || selectMode) return;
+    const conv = conversations.find((c) => c.id === selectedConversationId);
+    markInboxConversationRead(selectedConversationId, conv?.messageCount);
+  }, [selectedConversationId, selectMode, conversations, markInboxConversationRead]);
 
   /** Per-conversation unread message counts (for row badges). */
   const unreadCountByConversationId = useMemo(() => {
@@ -1050,7 +1084,13 @@ function InboxPage() {
       }
     }
     return map;
-  }, [conversations, unreadConversationIds, pendingUnreadConversationIds, user?.id]);
+  }, [
+    conversations,
+    unreadConversationIds,
+    pendingUnreadConversationIds,
+    user?.id,
+    inboxReadStateVersion,
+  ]);
 
   /** Per-platform unread DM message totals (platform filter badges + summary). */
   const unreadMessagesByPlatform = useMemo(() => {
@@ -1090,6 +1130,27 @@ function InboxPage() {
       unreadCommentIds.has(commentId) || pendingUnreadCommentIds.has(commentId),
     [unreadCommentIds, pendingUnreadCommentIds]
   );
+
+  const commentsTabUnreadCount = useMemo(() => {
+    return comments.filter((c) => !c.parentCommentId && isCommentNewNotification(c.commentId)).length;
+  }, [comments, isCommentNewNotification]);
+
+  const messagesTabUnreadCount = useMemo(() => {
+    let total = 0;
+    for (const c of conversations) {
+      const n = unreadCountByConversationId[c.id] ?? 0;
+      if (n > 0) total += n;
+      else if (unreadConversationIds.has(c.id) || pendingUnreadConversationIds.has(c.id)) {
+        total += 1;
+      }
+    }
+    return total;
+  }, [
+    conversations,
+    unreadCountByConversationId,
+    unreadConversationIds,
+    pendingUnreadConversationIds,
+  ]);
 
   /** Per-platform unread comment counts (used for badges on the platform filter icons). */
   const unreadCommentsByPlatform = useMemo(() => {
@@ -2290,7 +2351,7 @@ function InboxPage() {
       .map((c) => c.commentId);
     setUnreadCommentIds(new Set(unreadIds));
     previousTopLevelCommentIdsRef.current = topLevelIds;
-  }, [comments, user?.id]);
+  }, [comments, user?.id, inboxReadStateVersion]);
 
   // NOTE: Auto-refresh for comments was removed. Comments are now refreshed only via the
   // backend cron job every 30 minutes to avoid hammering Meta's API rate limits.
@@ -2407,7 +2468,7 @@ function InboxPage() {
       setTotalUnreadMessages(Math.max(unreadIds.size, pendingUnreadConversationIds.size));
     }
     previousConversationIdsRef.current = ids;
-  }, [conversations, user?.id, pendingUnreadConversationIds]);
+  }, [conversations, user?.id, pendingUnreadConversationIds, inboxReadStateVersion]);
 
   // Track unread engagement ids: engagement items not in persisted read set
   useEffect(() => {
@@ -2695,13 +2756,8 @@ function InboxPage() {
                         });
                         return;
                       }
-                      markCommentsAsRead([c.commentId], user?.id);
                       setSelectedComment(c);
-                      setUnreadCommentIds((prev) => {
-                        const next = new Set(prev);
-                        next.delete(c.commentId);
-                        return next;
-                      });
+                      markInboxCommentRead(c.commentId);
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
@@ -3068,10 +3124,7 @@ function InboxPage() {
           setSelectedConversationId={setSelectedConversationId}
           setSelectedConversationIds={setSelectedConversationIds}
           setUnreadConversationIds={setUnreadConversationIds}
-          markConversationsAsRead={markConversationsAsRead}
-          setTotalUnreadMessages={setTotalUnreadMessages}
-          getConversationLastReadCounts={getConversationLastReadCounts}
-          setConversationLastReadCount={setConversationLastReadCount}
+          onOpenConversation={markInboxConversationRead}
           user={user}
           threadPictureByConvId={threadPictureByConvId}
           onWarmConversation={(conv) => {
@@ -3097,9 +3150,11 @@ function InboxPage() {
               // conversations loaded for this platform (always available, no API needed).
               // For comments: use unread count; fall back to API byPlatform.comments.
               const msgUnread =
-                unreadMessagesByPlatform[p.id] ?? byPlatform[p.id]?.messages ?? 0;
+                unreadMessagesByPlatform[p.id] ??
+                (conversations.length === 0 ? (byPlatform[p.id]?.messages ?? 0) : 0);
               const cmtUnread =
-                unreadCommentsByPlatform[p.id] ?? byPlatform[p.id]?.comments ?? 0;
+                unreadCommentsByPlatform[p.id] ??
+                (comments.length === 0 ? (byPlatform[p.id]?.comments ?? 0) : 0);
               const displayCount = msgUnread + cmtUnread;
               const msgLabel =
                 msgUnread > 0 ? `${msgUnread} message${msgUnread === 1 ? '' : 's'}` : '';
@@ -3165,17 +3220,11 @@ function InboxPage() {
             }`}
           >
             Messages
-            {(() => {
-              const msgBadge = Math.max(
-                totalUnreadMessages > 0 ? totalUnreadMessages : unreadConversationIds.size,
-                effectiveNotifications.messages
-              );
-              return msgBadge > 0 ? (
-                <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
-                  {msgBadge > 99 ? '99' : msgBadge}
-                </span>
-              ) : null;
-            })()}
+            {messagesTabUnreadCount > 0 ? (
+              <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+                {messagesTabUnreadCount > 99 ? '99' : messagesTabUnreadCount}
+              </span>
+            ) : null}
           </button>
           <button
             type="button"
@@ -3187,14 +3236,11 @@ function InboxPage() {
             }`}
           >
             Comments
-            {(() => {
-              const cmtBadge = Math.max(unreadCommentIds.size, effectiveNotifications.comments);
-              return cmtBadge > 0 ? (
-                <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
-                  {cmtBadge > 99 ? '99' : cmtBadge}
-                </span>
-              ) : null;
-            })()}
+            {commentsTabUnreadCount > 0 ? (
+              <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+                {commentsTabUnreadCount > 99 ? '99' : commentsTabUnreadCount}
+              </span>
+            ) : null}
           </button>
         </div>
 
