@@ -3287,6 +3287,19 @@ function InboxPage() {
 
         {inboxMode === 'comments' && commentsSupportedPlatforms.length > 0 && (
           <div className="flex flex-col border-b border-neutral-200 dark:border-neutral-800">
+            {replySendError && !selectMode && (
+              <div className="flex items-start gap-2 px-2 py-2 text-xs text-red-700 bg-red-50 border-b border-red-100 dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/50">
+                <span className="flex-1">{replySendError}</span>
+                <button
+                  type="button"
+                  onClick={() => setReplySendError(null)}
+                  className="shrink-0 text-red-400 hover:text-red-600"
+                  aria-label="Dismiss"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
             <div className="flex border-b border-neutral-100 dark:border-neutral-800">
               <button
                 type="button"
@@ -3548,47 +3561,64 @@ function InboxPage() {
                     <button
                       type="button"
                       disabled={
-                        replySending ||
                         aiReplyLoading ||
                         replyable.length === 0 ||
                         !replyable.some((c) => (batchCommentTexts[c.commentId] ?? '').trim())
                       }
-                      onClick={async () => {
-                        setReplySending(true);
+                      onClick={() => {
+                        const toSend = replyable
+                          .map((c) => {
+                            const msg = (batchCommentTexts[c.commentId] ?? '').trim();
+                            if (!msg) return null;
+                            const account = effectiveAccounts.find((a) => a.platform === c.platform);
+                            if (!account) return null;
+                            return { c, msg, account };
+                          })
+                          .filter((x): x is NonNullable<typeof x> => x !== null);
+                        if (toSend.length === 0) return;
+
                         setReplySendError(null);
-                        const failed: string[] = [];
-                        for (const c of replyable) {
-                          const msg = (batchCommentTexts[c.commentId] ?? '').trim();
-                          if (!msg) continue;
-                          const account = effectiveAccounts.find((a) => a.platform === c.platform);
-                          if (!account) continue;
-                          try {
-                            await api.post(`/social/accounts/${account.id}/comments/reply`, {
+                        const sentIds = toSend.map((x) => x.c.commentId);
+                        markCommentsAsRead(sentIds, user?.id);
+                        setUnreadCommentIds((prev) => {
+                          const next = new Set(prev);
+                          for (const id of sentIds) next.delete(id);
+                          return next;
+                        });
+                        setBatchCommentTexts({});
+                        setReplyText('');
+                        setSelectedCommentIds(new Set());
+                        setSelectMode(false);
+                        setCommentsRefreshKey((k) => k + 1);
+
+                        void Promise.allSettled(
+                          toSend.map(({ c, msg, account }) =>
+                            api.post(`/social/accounts/${account.id}/comments/reply`, {
                               commentId: c.commentId,
                               message: msg,
                               ...(c.platform === 'LINKEDIN' && c.linkedInObjectUrn
                                 ? { linkedInObjectUrn: c.linkedInObjectUrn }
                                 : {}),
-                            });
-                            markCommentsAsRead([c.commentId], user?.id);
-                            setUnreadCommentIds((prev) => { const next = new Set(prev); next.delete(c.commentId); return next; });
-                          } catch {
-                            failed.push(c.authorName || c.commentId);
+                            })
+                          )
+                        ).then((results) => {
+                          const failed: string[] = [];
+                          results.forEach((r, i) => {
+                            if (r.status === 'rejected') {
+                              failed.push(toSend[i].c.authorName || toSend[i].c.commentId);
+                            }
+                          });
+                          if (failed.length > 0) {
+                            setReplySendError(
+                              `Some replies failed: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '...' : ''}`
+                            );
+                            setCommentsRefreshKey((k) => k + 1);
                           }
-                        }
-                        setReplySending(false);
-                        if (failed.length > 0) setReplySendError(`Failed for: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '...' : ''}`);
-                        else {
-                          setBatchCommentTexts({});
-                          setReplyText('');
-                          setSelectedCommentIds(new Set());
-                          setSelectMode(false);
-                          setCommentsRefreshKey((k) => k + 1);
-                        }
+                        });
                       }}
                       className="inbox-reply-send-btn mt-3 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
                     >
-                      {replySending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                      <Send size={18} />
                       Send replies ({replyable.filter((c) => (batchCommentTexts[c.commentId] ?? '').trim()).length || replyable.length})
                     </button>
                     {replySendError && <p className="text-sm text-red-600 mt-2">{replySendError}</p>}
