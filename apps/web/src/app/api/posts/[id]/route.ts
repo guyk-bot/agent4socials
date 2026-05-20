@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
-import { prisma } from '@/lib/db';
+import { isPrismaPoolError, prisma, withPrismaPoolRetry } from '@/lib/db';
 import { PostStatus, Platform, Prisma } from '@prisma/client';
 import { isTikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
 import { friendlyMessageIfPrismaSchemaDrift } from '@/lib/prisma-db-hints';
@@ -27,24 +27,33 @@ export async function GET(
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   const { id } = await params;
-  const post = await prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
-    prisma.post.findFirst({
-      where: { id, userId },
-      select: {
-        ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
-        media: true,
-        targets: {
-          include: {
-            socialAccount: { select: { id: true, platform: true, username: true } },
+  try {
+    const post = await withPrismaPoolRetry('GET /api/posts/:id', () =>
+      prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+        prisma.post.findFirst({
+          where: { id, userId },
+          select: {
+            ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
+            media: true,
+            targets: {
+              include: {
+                socialAccount: { select: { id: true, platform: true, username: true } },
+              },
+            },
           },
-        },
-      },
-    })
-  );
-  if (!post) {
-    return NextResponse.json({ message: 'Post not found' }, { status: 404 });
+        })
+      )
+    );
+    if (!post) {
+      return NextResponse.json({ message: 'Post not found' }, { status: 404 });
+    }
+    return NextResponse.json(post);
+  } catch (e) {
+    if (isPrismaPoolError(e)) {
+      return NextResponse.json({ message: 'Database is busy. Try again in a moment.' }, { status: 503 });
+    }
+    throw e;
   }
-  return NextResponse.json(post);
 }
 
 /**

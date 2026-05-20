@@ -4,7 +4,7 @@
  * N parallel HTTP publishes each opening their own connection (pool exhaustion).
  */
 
-import { prisma } from '@/lib/db';
+import { prisma, withPrismaPoolRetry } from '@/lib/db';
 import { PostStatus } from '@prisma/client';
 import axios from 'axios';
 import { publishTarget } from '@/lib/publish-target';
@@ -35,6 +35,42 @@ export type PublishPostWorkflowResult = {
   body: Record<string, unknown>;
 };
 
+/** If publish was killed mid-flight, derive final post status from per-platform targets. */
+export async function finalizePostPublishState(postId: string): Promise<void> {
+  await withPrismaPoolRetry('finalizePostPublishState', async () => {
+    const post = await prisma.post.findUnique({
+      where: { id: postId },
+      select: { status: true },
+    });
+    if (!post || post.status !== PostStatus.POSTING) return;
+
+    const targetsNow = await prisma.postTarget.findMany({
+      where: { postId },
+      select: { status: true },
+    });
+    const totalTargets = targetsNow.length;
+    const postedCount = targetsNow.filter((t) => t.status === PostStatus.POSTED).length;
+    const allTargetsPosted = totalTargets > 0 && postedCount === totalTargets;
+    const nextPostStatus =
+      totalTargets === 0
+        ? PostStatus.FAILED
+        : allTargetsPosted
+          ? PostStatus.POSTED
+          : postedCount > 0
+            ? PostStatus.POSTED
+            : PostStatus.FAILED;
+
+    await prisma.post.update({
+      where: { id: postId },
+      data: {
+        status: nextPostStatus,
+        ...(postedCount > 0 ? { postedAt: new Date() } : {}),
+      },
+      select: { id: true },
+    });
+  });
+}
+
 export async function runPublishPostWorkflow(input: {
   postId: string;
   isCron: boolean;
@@ -45,7 +81,9 @@ export async function runPublishPostWorkflow(input: {
 }): Promise<PublishPostWorkflowResult> {
   const { postId, isCron, userId, linkToken, requestBody, isDebug } = input;
 
-  const post = await prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+  try {
+  const post = await withPrismaPoolRetry('publish-find-post', () =>
+    prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
     prisma.post.findFirst({
       where: isCron
         ? { id: postId, status: PostStatus.SCHEDULED, scheduledAt: { lte: new Date() }, scheduleDelivery: 'auto' }
@@ -72,7 +110,7 @@ export async function runPublishPostWorkflow(input: {
         },
       },
     })
-  );
+  ));
   if (!post) {
     return { status: 404, body: { message: 'Post not found' } };
   }
@@ -80,11 +118,13 @@ export async function runPublishPostWorkflow(input: {
     return { status: 400, body: { message: 'Post already published' } };
   }
 
-  await prisma.post.update({
+  await withPrismaPoolRetry('publish-mark-posting', () =>
+    prisma.post.update({
     where: { id: postId },
     data: { status: PostStatus.POSTING },
     select: { id: true },
-  });
+  })
+  );
 
   const contentByPlatform = (post as { contentByPlatform?: Record<string, string> | null }).contentByPlatform ?? null;
   const mediaByPlatform = (post as { mediaByPlatform?: Record<string, { fileUrl: string; type: string }[]> | null }).mediaByPlatform ?? null;
@@ -519,19 +559,33 @@ export async function runPublishPostWorkflow(input: {
         : PostStatus.POSTED
       : allTargetsPosted
         ? PostStatus.POSTED
-        : PostStatus.FAILED;
+        : postedCount > 0
+          ? PostStatus.POSTED
+          : PostStatus.FAILED;
   const bodyOk = totalTargets === 0 ? !anyFailed : allTargetsPosted;
 
-  await prisma.post.update({
-    where: { id: postId },
-    data: {
-      status: nextPostStatus,
-      ...(allTargetsPosted ? { postedAt: new Date() } : {}),
-    },
-    select: { id: true },
-  });
+  await withPrismaPoolRetry('publish-finalize-post', () =>
+    prisma.post.update({
+      where: { id: postId },
+      data: {
+        status: nextPostStatus,
+        ...(postedCount > 0 ? { postedAt: new Date() } : {}),
+      },
+      select: { id: true },
+    })
+  );
 
   const body: Record<string, unknown> = { ok: bodyOk, results };
   if (isDebug && debugInfo) body.debugInfo = debugInfo;
   return { status: 200, body };
+  } catch (e) {
+    console.error('[publish-post-workflow]', postId, e instanceof Error ? e.message : e);
+    throw e;
+  } finally {
+    try {
+      await finalizePostPublishState(postId);
+    } catch (finalizeErr) {
+      console.error('[publish-post-workflow] finalize', postId, finalizeErr);
+    }
+  }
 }

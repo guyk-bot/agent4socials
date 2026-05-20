@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
-import { prisma } from '@/lib/db';
+import { isPrismaPoolError, prisma, withPrismaPoolRetry } from '@/lib/db';
 import { PostStatus, Platform, Prisma } from '@prisma/client';
 import { isTikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
 import { sendScheduleConfirmationEmail } from '@/lib/resend';
@@ -22,20 +22,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   try {
-    const posts = await prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
-      prisma.post.findMany({
-        where: { userId },
-        select: {
-          ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
-          media: true,
-          targets: {
-            include: {
-              socialAccount: { select: { username: true } },
+    const posts = await withPrismaPoolRetry('GET /api/posts', () =>
+      prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+        prisma.post.findMany({
+          where: { userId },
+          select: {
+            ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
+            media: true,
+            targets: {
+              include: {
+                socialAccount: { select: { username: true } },
+              },
             },
           },
-        },
-        orderBy: { createdAt: 'desc' },
-      })
+          orderBy: { createdAt: 'desc' },
+        })
+      )
     );
     return NextResponse.json(posts);
   } catch (e) {
@@ -43,6 +45,16 @@ export async function GET(request: NextRequest) {
     if (drift) {
       console.error('[GET /api/posts] schema drift:', e);
       return NextResponse.json({ message: drift }, { status: 503 });
+    }
+    if (isPrismaPoolError(e)) {
+      console.error('[GET /api/posts] pool:', e);
+      return NextResponse.json(
+        {
+          message:
+            'Database is busy. Wait a few seconds and refresh History. If this keeps happening, open fewer dashboard tabs at once.',
+        },
+        { status: 503 }
+      );
     }
     console.error('[GET /api/posts]', e);
     return NextResponse.json({ message: 'Failed to load posts' }, { status: 500 });

@@ -2083,6 +2083,80 @@ export default function ComposerPage() {
         return { previewUrl, previewKind: (hasVideo ? 'video' : 'photo') as 'video' | 'photo' };
     }, [getEffectiveMediaListForPlatform]);
 
+    const showPublishOutcomeFromPost = useCallback(
+        (
+            postId: string,
+            post: { status?: string; targets?: Array<{ platform?: string; status?: string }> },
+            includesTikTok: boolean
+        ) => {
+            const targets = Array.isArray(post.targets) ? post.targets : [];
+            const results: PublishResultItem[] = targets.map((t) => ({
+                platform: String(t.platform ?? ''),
+                ok: t.status === 'POSTED',
+                error: t.status === 'FAILED' ? 'Failed on platform' : undefined,
+            }));
+            if (
+                handlePublishResultOutcome('created', results, postId, (msg) => {
+                    setPublishModal({ open: true, kind: 'failed', message: msg });
+                }, (q) => router.push(`/posts?${q}`))
+            ) {
+                return;
+            }
+            const mediaSkipped = results.filter((r) => r.mediaSkipped).map((r) => r.platform);
+            const tiktokOk = results.some((r) => String(r.platform).toUpperCase() === 'TIKTOK' && r.ok);
+            const anyPosted = targets.some((t) => t.status === 'POSTED');
+            if (tiktokOk && includesTikTok) {
+                tiktokPostPublishFollowUpPostIdRef.current = postId;
+                const detail =
+                    mediaSkipped.length > 0
+                        ? `Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).`
+                        : undefined;
+                setTiktokPostPublishFollowUp({ open: true, detail });
+            } else if (anyPosted) {
+                let successMsg = 'Your post has been successfully published.';
+                const failedPlatforms = targets.filter((t) => t.status === 'FAILED').map((t) => t.platform);
+                if (failedPlatforms.length > 0) {
+                    successMsg = `Published on some platforms. Failed on: ${failedPlatforms.filter(Boolean).join(', ')}. Open History for details.`;
+                }
+                if (mediaSkipped.length > 0) {
+                    successMsg += ` Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).`;
+                }
+                setPublishModal({
+                    open: true,
+                    kind: 'success',
+                    postId,
+                    message: `${successMsg}\n\nOpen History to review status on each platform.`,
+                });
+            } else {
+                setPublishModal({
+                    open: true,
+                    kind: 'failed',
+                    message: 'Publishing finished but no platform succeeded. Open History to see errors and retry failed platforms from Composer.',
+                });
+            }
+        },
+        [router]
+    );
+
+    const pollPostPublishUntilSettled = useCallback(async (postId: string) => {
+        const deadline = Date.now() + 300_000;
+        while (Date.now() < deadline) {
+            try {
+                const res = await api.get<{ status?: string; targets?: Array<{ platform?: string; status?: string }> }>(
+                    `/posts/${postId}`,
+                    { timeout: 30_000 }
+                );
+                if (res.data?.status && res.data.status !== 'POSTING') {
+                    return res.data;
+                }
+            } catch {
+                /* retry */
+            }
+            await new Promise((r) => setTimeout(r, 2500));
+        }
+        return null;
+    }, []);
+
     const publishPostInBackground = useCallback(
         (
             postId: string,
@@ -2093,38 +2167,44 @@ export default function ComposerPage() {
             void (async () => {
                 try {
                     const publishRes = await api.post<{
-                        ok: boolean;
+                        accepted?: boolean;
+                        ok?: boolean;
                         results?: PublishResultItem[];
                         message?: string;
-                    }>(publishPath, publishBody, { timeout: 330_000 });
-                    const results = publishRes.data?.results;
-                    if (
-                        handlePublishResultOutcome('created', results, postId, (msg) => {
-                            setPublishModal({ open: true, kind: 'failed', message: msg });
-                        }, (q) => router.push(`/posts?${q}`))
-                    ) {
-                        return;
-                    }
-                    const mediaSkipped = results?.filter((r) => r.mediaSkipped).map((r) => r.platform) ?? [];
-                    const tiktokOk = results?.some((r) => String(r.platform).toUpperCase() === 'TIKTOK' && r.ok);
-                    if (tiktokOk && includesTikTok) {
-                        tiktokPostPublishFollowUpPostIdRef.current = postId;
-                        const detail =
-                            mediaSkipped.length > 0
-                                ? `Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).`
-                                : undefined;
-                        setTiktokPostPublishFollowUp({ open: true, detail });
-                    } else {
-                        let successMsg = 'Your post has been successfully published.';
-                        if (mediaSkipped.length > 0) {
-                            successMsg += ` Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).`;
+                    }>(publishPath, publishBody, { timeout: 45_000 });
+
+                    if (publishRes.status === 202 || publishRes.data?.accepted) {
+                        const settled = await pollPostPublishUntilSettled(postId);
+                        if (!settled) {
+                            setPublishModal({
+                                open: true,
+                                kind: 'failed',
+                                message:
+                                    'Publishing is still running. Open History in a few minutes to check per-platform status, or retry from Composer.',
+                            });
+                            return;
                         }
-                        setPublishModal({
-                            open: true,
-                            kind: 'success',
+                        showPublishOutcomeFromPost(postId, settled, includesTikTok);
+                    } else {
+                        const results = publishRes.data?.results;
+                        if (
+                            handlePublishResultOutcome('created', results, postId, (msg) => {
+                                setPublishModal({ open: true, kind: 'failed', message: msg });
+                            }, (q) => router.push(`/posts?${q}`))
+                        ) {
+                            return;
+                        }
+                        showPublishOutcomeFromPost(
                             postId,
-                            message: `${successMsg}\n\nOpen History to review status on each platform.`,
-                        });
+                            {
+                                status: publishRes.data?.ok ? 'POSTED' : 'FAILED',
+                                targets: results?.map((r) => ({
+                                    platform: r.platform,
+                                    status: r.ok ? 'POSTED' : 'FAILED',
+                                })),
+                            },
+                            includesTikTok
+                        );
                     }
                     void api
                         .get('/posts')
@@ -2148,13 +2228,13 @@ export default function ComposerPage() {
                         (status === 401
                             ? 'Session expired. Sign in again, then open the post from History and try Post now.'
                             : isTimeout
-                              ? 'Publishing is taking longer than usual. Open History in a few minutes to confirm status or retry.'
+                              ? 'Publishing may still be running. Open History in a few minutes to confirm status.'
                               : 'Publish failed. Open the post from History and try Post now again.');
                     setPublishModal({ open: true, kind: 'failed', message: msg });
                 }
             })();
         },
-        [router, appData]
+        [router, appData, pollPostPublishUntilSettled, showPublishOutcomeFromPost]
     );
 
     const runComposerCommit = async (saveAsDraft: boolean) => {

@@ -214,10 +214,27 @@ export default function PostsPage() {
             } catch (err) {
                 if (cancelled) return;
                 console.error('Failed to fetch posts', err);
+                const res =
+                    err && typeof err === 'object' && 'response' in err
+                        ? (err as { response?: { status?: number; data?: { message?: string } } }).response
+                        : undefined;
+                const serverMsg =
+                    typeof res?.data?.message === 'string' && res.data.message.trim()
+                        ? res.data.message.trim()
+                        : null;
+                const poolBusy = res?.status === 503;
                 if (hasCachedList || immediateCached.length > 0) {
-                    setLoadError('Could not refresh history right now. Showing latest available data.');
+                    setLoadError(
+                        poolBusy
+                            ? serverMsg ?? 'Database is busy. Showing cached history; refresh again in a few seconds.'
+                            : 'Could not refresh history right now. Showing latest available data.'
+                    );
                 } else {
-                    setLoadError('Could not load post history. Check your connection and try again.');
+                    setLoadError(
+                        poolBusy
+                            ? serverMsg ?? 'Database is busy. Wait a few seconds and refresh, or close extra dashboard tabs.'
+                            : 'Could not load post history. Check your connection and try again.'
+                    );
                 }
             } finally {
                 if (!cancelled) setLoading(false);
@@ -466,7 +483,15 @@ export default function PostsPage() {
                                                                       .join(' · ')
                                                                 : String(t.platform || t)
                                                         }
-                                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${(t.status || post.status) === 'POSTED' ? 'bg-green-100 text-green-800' : (t.status || post.status) === 'FAILED' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-700'}`}
+                                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
+                                                            (t.status || post.status) === 'POSTED'
+                                                                ? 'bg-green-100 text-green-800'
+                                                                : (t.status || post.status) === 'FAILED'
+                                                                  ? 'bg-red-100 text-red-800'
+                                                                  : (t.status || post.status) === 'POSTING'
+                                                                    ? 'bg-blue-100 text-blue-800'
+                                                                    : 'bg-gray-100 text-gray-700'
+                                                        }`}
                                                     >
                                                         {t.platform === 'INSTAGRAM' && <InstagramIcon size={14} />}
                                                         {t.platform === 'YOUTUBE' && <YoutubeIcon size={14} />}
@@ -490,16 +515,22 @@ export default function PostsPage() {
                                             const hasPosted = targets.some((t) => t.status === 'POSTED');
                                             const hasFailed = targets.some((t) => t.status === 'FAILED');
                                             const partial = hasPosted && hasFailed;
-                                            const label = partial ? 'PARTIAL' : post.status;
+                                            const label = partial
+                                                ? 'PARTIAL'
+                                                : post.status === 'POSTING'
+                                                  ? 'PUBLISHING'
+                                                  : post.status;
                                             const cls = partial
                                                 ? 'bg-amber-100 text-amber-800'
-                                                : post.status === 'POSTED'
+                                                : post.status === 'POSTING'
+                                                  ? 'bg-blue-100 text-blue-800'
+                                                  : post.status === 'POSTED'
                                                     ? 'bg-green-100 text-green-800'
                                                     : post.status === 'FAILED'
-                                                        ? 'bg-red-100 text-red-800'
-                                                        : post.status === 'SCHEDULED'
-                                                            ? 'bg-neutral-200 text-neutral-700'
-                                                            : 'bg-neutral-100 text-neutral-700';
+                                                      ? 'bg-red-100 text-red-800'
+                                                      : post.status === 'SCHEDULED'
+                                                        ? 'bg-neutral-200 text-neutral-700'
+                                                        : 'bg-neutral-100 text-neutral-700';
                                             return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls}`}>{label}</span>;
                                         })()}
                                     </td>

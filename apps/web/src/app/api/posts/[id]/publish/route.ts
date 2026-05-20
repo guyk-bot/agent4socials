@@ -1,10 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { trackUsage } from '@/lib/usage-tracking';
-import { runPublishPostWorkflow, type PublishPostRequestBody } from '@/lib/publish-post-workflow';
+import {
+  finalizePostPublishState,
+  runPublishPostWorkflow,
+  type PublishPostRequestBody,
+} from '@/lib/publish-post-workflow';
 
-export const maxDuration = 60;
+/** Multi-platform video publish can exceed 60s; run in after() for user requests. */
+export const maxDuration = 300;
 
 export async function POST(
   request: NextRequest,
@@ -45,13 +50,45 @@ export async function POST(
   }
   if (userId) trackUsage(userId, 'publish');
 
+  const isDebug = request.nextUrl.searchParams.get('debug') === '1';
+
+  if (!isCron && !linkToken) {
+    after(async () => {
+      try {
+        await runPublishPostWorkflow({
+          postId,
+          isCron: false,
+          userId,
+          linkToken: null,
+          requestBody,
+          isDebug,
+        });
+      } catch (e) {
+        console.error('[publish after]', postId, e instanceof Error ? e.message : e);
+        try {
+          await finalizePostPublishState(postId);
+        } catch (finalizeErr) {
+          console.error('[publish after] finalize', postId, finalizeErr);
+        }
+      }
+    });
+    return NextResponse.json(
+      {
+        accepted: true,
+        postId,
+        message: 'Publishing started. Check History for per-platform status.',
+      },
+      { status: 202 }
+    );
+  }
+
   const wf = await runPublishPostWorkflow({
     postId,
     isCron,
     userId,
     linkToken,
     requestBody,
-    isDebug: request.nextUrl.searchParams.get('debug') === '1',
+    isDebug,
   });
   return NextResponse.json(wf.body, { status: wf.status });
 }

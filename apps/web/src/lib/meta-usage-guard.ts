@@ -4,6 +4,9 @@
  * This is Agent4Socials' own backoff layer. It is NOT the same as the "Rate Limit"
  * percentages in Meta Developer Dashboard (those can show 10% while we still pause).
  *
+ * Target: keep Meta app dashboard usage under ~50%. We react to x-app-usage headers
+ * and pause non-essential work well before the dashboard hits red.
+ *
  * STRATEGY:
  *   L1 (in-process): checked first, avoids a DB round-trip on every request.
  *   L2 (Postgres via raw SQL): shared globally across all Lambda instances.
@@ -12,21 +15,28 @@
 import type { AxiosResponseHeaders, RawAxiosResponseHeaders } from 'axios';
 
 const META_THROTTLE_DB_KEY = 'meta:throttle-until';
+const META_USAGE_PCT_DB_KEY = 'meta:app-usage-pct';
 /** Meta returned 429 / explicit rate-limit error. */
-const META_THROTTLE_HARD_MINUTES = 15;
+const META_THROTTLE_HARD_MINUTES = 20;
 /** x-app-usage header high, or short burst of calls on one server instance. */
-const META_THROTTLE_SOFT_MINUTES = 5;
-/** Soft backoff when Meta x-app-usage crosses this (target: stay under ~50% on dashboard). */
-const META_USAGE_HIGH_PCT = 55;
-/** Skip live avatar/name enrichment only when usage is clearly elevated (not at ~50%). */
-const META_USAGE_SKIP_ENRICH_PCT = 72;
+const META_THROTTLE_SOFT_MINUTES = 10;
+/** Soft backoff when Meta x-app-usage crosses this (stay under ~50% on dashboard). */
+const META_USAGE_HIGH_PCT = 38;
+/** Skip live avatar/name enrichment above this. */
+const META_USAGE_SKIP_ENRICH_PCT = 40;
 /** Reduce per-request fan-out (fewer participant/profile calls) above this. */
-const META_USAGE_REDUCE_FANOUT_PCT = 58;
-const L1_TTL_MS = 15_000;
+const META_USAGE_REDUCE_FANOUT_PCT = 35;
+/** Block comments fan-out, message-count probes, and latest-message enrichment. */
+const META_USAGE_BLOCK_NON_ESSENTIAL_PCT = 42;
+/** Hard pause non-critical Meta work when dashboard usage is near the limit. */
+const META_USAGE_EMERGENCY_PCT = 48;
+const L1_TTL_MS = 10_000;
+const USAGE_PCT_TTL_MS = 5 * 60_000;
 
 let l1ThrottleUntil = 0;
 let l1ReadAt = 0;
 let l1LastUsagePct = 0;
+let l1UsageHydrateAt = 0;
 let _tableEnsured = false;
 
 /** Shown in Inbox when our backoff blocks a fetch (not when Meta dashboard is at 10%). */
@@ -84,6 +94,23 @@ async function readThrottleFromDb(): Promise<number> {
   }
 }
 
+async function readUsagePctFromDb(): Promise<number> {
+  try {
+    await ensureTable();
+    const { prisma } = await import('@/lib/db');
+    const rows = await prisma.$queryRaw<Array<{ value: string; expiresAt: Date | null }>>`
+      SELECT value, "expiresAt" FROM app_kv WHERE key = ${META_USAGE_PCT_DB_KEY} LIMIT 1
+    `;
+    const row = rows[0];
+    if (!row) return 0;
+    if (row.expiresAt && row.expiresAt < new Date()) return 0;
+    const pct = Number(row.value);
+    return Number.isFinite(pct) ? pct : 0;
+  } catch {
+    return 0;
+  }
+}
+
 async function deleteThrottleFromDb(): Promise<void> {
   try {
     await ensureTable();
@@ -112,11 +139,37 @@ async function writeThrottleToDb(until: number): Promise<void> {
   }
 }
 
+async function writeUsagePctToDb(pct: number): Promise<void> {
+  try {
+    await ensureTable();
+    const { prisma } = await import('@/lib/db');
+    const expiresAt = new Date(Date.now() + USAGE_PCT_TTL_MS);
+    await prisma.$executeRaw`
+      INSERT INTO app_kv (key, value, "expiresAt", "updatedAt")
+      VALUES (${META_USAGE_PCT_DB_KEY}, ${String(pct)}, ${expiresAt}, now())
+      ON CONFLICT (key) DO UPDATE
+        SET value = ${String(pct)}, "expiresAt" = ${expiresAt}, "updatedAt" = now()
+    `;
+  } catch {
+    /* ignore */
+  }
+}
+
 function activateThrottle(untilMs: number): void {
   const next = Math.max(l1ThrottleUntil, untilMs);
   l1ThrottleUntil = next;
   l1ReadAt = Date.now();
   void writeThrottleToDb(next);
+}
+
+/** Refresh shared usage % from DB (all lambdas). */
+function hydrateUsagePctAsync(): void {
+  const now = Date.now();
+  if (now - l1UsageHydrateAt < L1_TTL_MS) return;
+  l1UsageHydrateAt = now;
+  void readUsagePctFromDb().then((pct) => {
+    if (pct > 0) l1LastUsagePct = Math.max(l1LastUsagePct, pct);
+  });
 }
 
 /** Clear app-level backoff (e.g. after a successful inbox fetch or admin resume). */
@@ -138,23 +191,13 @@ export function getMetaThrottleRemainingMinutes(): number {
 
 /** Last x-app-usage % seen from Meta (call_count / total_time / total_cputime max). */
 export function getMetaAppUsagePct(): number {
+  hydrateUsagePctAsync();
   return l1LastUsagePct;
-}
-
-/** Skip per-user IG profile lookups and similar fan-out when usage is elevated. */
-export function shouldSkipMetaProfileEnrichment(): boolean {
-  if (isMetaNonCriticalThrottled()) return true;
-  return l1LastUsagePct >= META_USAGE_SKIP_ENRICH_PCT;
-}
-
-/** Use smaller enrichment caps (still runs cache merge and list participants). */
-export function shouldReduceMetaProfileFanOut(): boolean {
-  if (isMetaNonCriticalThrottled()) return true;
-  return l1LastUsagePct >= META_USAGE_REDUCE_FANOUT_PCT;
 }
 
 /** True when non-critical Meta calls should be skipped. Synchronous; DB refresh is async. */
 export function isMetaNonCriticalThrottled(): boolean {
+  hydrateUsagePctAsync();
   const now = Date.now();
   if (now - l1ReadAt < L1_TTL_MS) return now < l1ThrottleUntil;
   l1ReadAt = now;
@@ -162,6 +205,38 @@ export function isMetaNonCriticalThrottled(): boolean {
     l1ThrottleUntil = until;
   });
   return now < l1ThrottleUntil;
+}
+
+/** Skip per-user IG profile lookups and similar fan-out when usage is elevated. */
+export function shouldSkipMetaProfileEnrichment(): boolean {
+  hydrateUsagePctAsync();
+  if (isMetaNonCriticalThrottled()) return true;
+  return l1LastUsagePct >= META_USAGE_SKIP_ENRICH_PCT;
+}
+
+/** Use smaller enrichment caps (still runs cache merge and list participants). */
+export function shouldReduceMetaProfileFanOut(): boolean {
+  hydrateUsagePctAsync();
+  if (isMetaNonCriticalThrottled()) return true;
+  return l1LastUsagePct >= META_USAGE_REDUCE_FANOUT_PCT;
+}
+
+/**
+ * Block expensive inbox extras: comment post fan-out, message-count probes,
+ * latest-message sender lookups, and live profile enrichment.
+ */
+export function shouldBlockMetaNonEssentialCalls(): boolean {
+  hydrateUsagePctAsync();
+  if (isMetaNonCriticalThrottled()) return true;
+  return l1LastUsagePct >= META_USAGE_BLOCK_NON_ESSENTIAL_PCT;
+}
+
+/** Live inbox avatar/name enrichment (IGBusinessScopedID, participant edges). */
+export function shouldAllowMetaInboxProfileEnrichment(): boolean {
+  hydrateUsagePctAsync();
+  if (isMetaNonCriticalThrottled()) return false;
+  if (shouldBlockMetaNonEssentialCalls()) return false;
+  return l1LastUsagePct < META_USAGE_REDUCE_FANOUT_PCT;
 }
 
 /** Call when Meta returns an explicit rate-limit error (429). */
@@ -176,7 +251,7 @@ export function noteMetaSoftBackoff(): void {
 
 /**
  * Capture x-app-usage header from any Meta Graph response.
- * Enters soft backoff when dashboard app usage crosses META_USAGE_HIGH_PCT (~50%).
+ * Enters soft backoff when dashboard app usage crosses META_USAGE_HIGH_PCT (~38%).
  */
 export function noteMetaUsageFromHeaders(
   headers: RawAxiosResponseHeaders | AxiosResponseHeaders | Record<string, unknown> | undefined
@@ -187,7 +262,10 @@ export function noteMetaUsageFromHeaders(
     parseAppUsageHeader((headers['X-App-Usage'] as string | undefined) ?? null);
   if (pct === null) return;
   l1LastUsagePct = Math.max(l1LastUsagePct, pct);
-  if (pct >= META_USAGE_HIGH_PCT) {
+  void writeUsagePctToDb(l1LastUsagePct);
+  if (pct >= META_USAGE_EMERGENCY_PCT) {
+    activateThrottle(Date.now() + META_THROTTLE_HARD_MINUTES * 60_000);
+  } else if (pct >= META_USAGE_HIGH_PCT) {
     noteMetaSoftBackoff();
   }
 }
@@ -207,6 +285,7 @@ export function shouldRunMetaPostsHttpSync(
 ): boolean {
   if (!syncRequested) return false;
   if (!isMetaPlatform(platform)) return true;
+  if (shouldBlockMetaNonEssentialCalls() && !forceRequested) return false;
   if (isMetaNonCriticalThrottled() && !forceRequested) return false;
   return forceRequested;
 }
