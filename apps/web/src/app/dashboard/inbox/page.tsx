@@ -53,6 +53,7 @@ import {
 import {
   getInboxSenderPicture,
   mergeSenderPicturesIntoConversations,
+  getInboxSenderStoredMeta,
   setInboxSenderPicture,
 } from '@/lib/inbox/inbox-sender-pictures';
 import {
@@ -469,8 +470,7 @@ function inboxSenderDisplayName(
   const name = sender?.name?.trim();
   if (name) return name;
   if (platform === 'TWITTER') return 'X user';
-  if (platform === 'INSTAGRAM') return 'Instagram user';
-  if (sender?.id) return `User …${sender.id.slice(-6)}`;
+  if (sender?.id) return `…${sender.id.slice(-8)}`;
   return 'Unknown';
 }
 
@@ -573,7 +573,15 @@ function MessagesConversationList({
         const firstSender = c.senders?.[0];
         const convPlatform = (c as Conversation & { platform?: string }).platform ?? (messageInboxPlatformIds.length === 1 ? messageInboxPlatformIds[0] : undefined);
         const platform = convPlatform ?? (c as Conversation & { platform?: string }).platform;
-        const name = inboxSenderDisplayName(firstSender, platform);
+        const storedMeta = user?.id ? getInboxSenderStoredMeta(user.id, c.id, firstSender?.username) : null;
+        const name = inboxSenderDisplayName(
+          {
+            ...firstSender,
+            name: firstSender?.name || storedMeta?.name,
+            username: firstSender?.username || storedMeta?.username,
+          },
+          platform
+        );
         const pictureUrl = resolveConversationListAvatarUrl(c, user?.id, threadPictureByConvId);
         const initials = (name.startsWith('@') ? name.slice(1) : name).slice(0, 2).toUpperCase();
         const isSelected = selectedConversationIds.has(c.id);
@@ -795,7 +803,6 @@ function InboxPage() {
   const conversationMessagesCacheRef = useRef(conversationMessagesCache);
   conversationMessagesCacheRef.current = conversationMessagesCache;
   /** One backfill fetch for Instagram avatars when list rows lack pictureUrl (e.g. stale client cache). */
-  const igAvatarBackfillRef = useRef(false);
 
   // Multi-select state for conversations
   const [selectedConversationIds, setSelectedConversationIds] = useState<Set<string>>(new Set());
@@ -984,57 +991,6 @@ function InboxPage() {
     if (inboxMode !== 'messages') return;
     triggerInboxWarmClient();
   }, [user?.id, inboxMode]);
-
-  useEffect(() => {
-    if (igAvatarBackfillRef.current || inboxMode !== 'messages' || conversationsLoading) return;
-    const igAcc = effectiveAccounts.find((a) => a.platform === 'INSTAGRAM');
-    if (!igAcc) return;
-    const needsAvatar = conversations.some((c) => {
-      if (c.platform !== 'INSTAGRAM' || c.messageAccountId !== igAcc.id) return false;
-      const s = c.senders?.[0];
-      const missingPicture = !(s?.pictureUrl ?? '').trim();
-      const missingName = !(s?.username?.trim() || s?.name?.trim());
-      return missingPicture || missingName;
-    });
-    if (!needsAvatar) return;
-    igAvatarBackfillRef.current = true;
-    void api
-      .get<{ conversations?: Conversation[] }>(`/social/accounts/${igAcc.id}/conversations?fresh=1`, {
-        timeout: 90_000,
-      })
-      .then((res) => {
-        const incoming = (res.data?.conversations ?? []).map((c) => ({
-          ...c,
-          platform: 'INSTAGRAM' as const,
-          messageAccountId: igAcc.id,
-        }));
-        if (incoming.length === 0) return;
-        setConversations((prev) => {
-          const byKey = new Map(prev.map((c) => [`${c.platform ?? ''}:${c.id}`, c]));
-          for (const c of incoming) {
-            const key = `INSTAGRAM:${c.id}`;
-            const existing = byKey.get(key);
-            byKey.set(
-              key,
-              existing
-                ? {
-                    ...existing,
-                    senders: (c.senders ?? []).map((s, i) => ({
-                      ...s,
-                      pictureUrl: s.pictureUrl ?? existing.senders?.[i]?.pictureUrl ?? null,
-                      name: s.name ?? existing.senders?.[i]?.name,
-                      username: s.username ?? existing.senders?.[i]?.username,
-                    })),
-                  }
-                : (c as Conversation & { platform: string; messageAccountId: string })
-            );
-          }
-          return [...byKey.values()].sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
-        });
-        appData?.setConversationsForAccount(igAcc.id, incoming);
-      })
-      .catch(() => {});
-  }, [inboxMode, conversations, conversationsLoading, effectiveAccounts, appData]);
 
   const connectedPlatforms = INBOX_PLATFORM_DEFS.filter((p) => effectiveAccounts.some((a) => a.platform === p.id));
   const platformsToShow =
@@ -1967,7 +1923,6 @@ function InboxPage() {
           convParams.push('fresh=1');
           forceFreshConversationsRef.current = false;
         }
-        convParams.push('includeMessageCounts=1');
         if (since) {
           convParams.push(`since=${encodeURIComponent(since)}`);
           convParams.push('delta=1');

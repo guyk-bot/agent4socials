@@ -16,12 +16,15 @@ const META_THROTTLE_DB_KEY = 'meta:throttle-until';
 const META_THROTTLE_HARD_MINUTES = 15;
 /** x-app-usage header high, or short burst of calls on one server instance. */
 const META_THROTTLE_SOFT_MINUTES = 5;
-/** Only back off when Meta's x-app-usage header is clearly high (dashboard can still show low %). */
-const META_USAGE_HIGH_PCT = 85;
+/** Soft backoff when Meta dashboard app usage crosses this (target: stay under ~50%). */
+const META_USAGE_HIGH_PCT = 50;
+/** Skip avatar/name enrichment and other fan-out calls below hard throttle. */
+const META_USAGE_SKIP_ENRICH_PCT = 42;
 const L1_TTL_MS = 15_000;
 
 let l1ThrottleUntil = 0;
 let l1ReadAt = 0;
+let l1LastUsagePct = 0;
 let _tableEnsured = false;
 
 /** Shown in Inbox when our backoff blocks a fetch (not when Meta dashboard is at 10%). */
@@ -131,6 +134,17 @@ export function getMetaThrottleRemainingMinutes(): number {
   return remaining > 0 ? Math.ceil(remaining / 60_000) : 0;
 }
 
+/** Last x-app-usage % seen from Meta (call_count / total_time / total_cputime max). */
+export function getMetaAppUsagePct(): number {
+  return l1LastUsagePct;
+}
+
+/** Skip per-user IG profile lookups and similar fan-out when usage is elevated. */
+export function shouldSkipMetaProfileEnrichment(): boolean {
+  if (isMetaNonCriticalThrottled()) return true;
+  return l1LastUsagePct >= META_USAGE_SKIP_ENRICH_PCT;
+}
+
 /** True when non-critical Meta calls should be skipped. Synchronous; DB refresh is async. */
 export function isMetaNonCriticalThrottled(): boolean {
   const now = Date.now();
@@ -154,7 +168,7 @@ export function noteMetaSoftBackoff(): void {
 
 /**
  * Capture x-app-usage header from any Meta Graph response.
- * Only enters soft backoff when usage is clearly high (85%+).
+ * Enters soft backoff when dashboard app usage crosses META_USAGE_HIGH_PCT (~50%).
  */
 export function noteMetaUsageFromHeaders(
   headers: RawAxiosResponseHeaders | AxiosResponseHeaders | Record<string, unknown> | undefined
@@ -164,6 +178,7 @@ export function noteMetaUsageFromHeaders(
     parseAppUsageHeader((headers['x-app-usage'] as string | undefined) ?? null) ??
     parseAppUsageHeader((headers['X-App-Usage'] as string | undefined) ?? null);
   if (pct === null) return;
+  l1LastUsagePct = Math.max(l1LastUsagePct, pct);
   if (pct >= META_USAGE_HIGH_PCT) {
     noteMetaSoftBackoff();
   }

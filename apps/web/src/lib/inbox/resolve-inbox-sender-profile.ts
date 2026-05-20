@@ -12,6 +12,25 @@ import type { InboxConversationListItem } from '@/lib/inbox/inbox-db-cache';
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
 const fbBaseUrl = facebookGraphBaseUrl;
 
+/** Caps IGBusinessScopedID User Profile API calls per inbox conversations request. */
+const MAX_IG_SCOPED_PROFILE_CALLS_PER_REQUEST = 6;
+let igScopedProfileCallsThisRequest = 0;
+
+export function resetIgScopedProfileCallBudget(): void {
+  igScopedProfileCallsThisRequest = 0;
+}
+
+async function fetchIgUserProfileViaPageTokenBudgeted(
+  senderId: string,
+  pageToken: string
+): Promise<InboxSenderProfile | null> {
+  if (igScopedProfileCallsThisRequest >= MAX_IG_SCOPED_PROFILE_CALLS_PER_REQUEST) {
+    return null;
+  }
+  igScopedProfileCallsThisRequest += 1;
+  return fetchIgUserProfileViaPageToken(senderId, pageToken);
+}
+
 export type InboxSenderProfile = InboxProfileCacheEntry;
 
 type ParticipantRow = {
@@ -219,7 +238,7 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
     accessToken,
     ourIds = new Set<string>(),
     ourUsernames = new Set<string>(),
-    maxConversations = 30,
+    maxConversations = 12,
   } = args;
 
   const pageToken = await resolveFacebookPageTokenForUser(userId);
@@ -302,13 +321,14 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
       /* next conversation */
     }
 
-    // User Profile API (page token): Meta often omits name/username on the list participants edge.
+    // User Profile API (page token): only for a few senders still missing a display name (IGBusinessScopedID).
     if (pageToken) {
       for (const s of out[idx].senders) {
         if (!s.id) continue;
         if (s.name?.trim() || s.username?.trim()) continue;
+        if (igScopedProfileCallsThisRequest >= MAX_IG_SCOPED_PROFILE_CALLS_PER_REQUEST) break;
         try {
-          const profile = await fetchIgUserProfileViaPageToken(s.id, pageToken);
+          const profile = await fetchIgUserProfileViaPageTokenBudgeted(s.id, pageToken);
           if (!profile) continue;
           const si = out[idx].senders.findIndex((x) => x.id === s.id);
           if (si < 0) continue;

@@ -8,7 +8,11 @@ import { getValidYoutubeToken } from '@/lib/youtube-token';
 import { linkedInAuthorUrnForUgc, parseLinkedInRestPostElement } from '@/lib/linkedin/sync-ugc-posts';
 import { buildLinkedInRestPostsByAuthorUrl, linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 import { getCached, setCached } from '@/lib/server-memory-cache';
-import { isMetaNonCriticalThrottled, noteMetaRateLimitError } from '@/lib/meta-usage-guard';
+import {
+  isMetaNonCriticalThrottled,
+  noteMetaRateLimitError,
+  shouldSkipMetaProfileEnrichment,
+} from '@/lib/meta-usage-guard';
 import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
 import { fetchAllPublishedPostsForPage, sortFbPublishedPostsNewestFirst } from '@/lib/facebook/fetchers';
 
@@ -73,7 +77,8 @@ export async function GET(
   const { id } = await params;
   const { searchParams } = new URL(request.url);
   const deltaMode = searchParams.get('delta') === '1' || searchParams.get('delta') === 'true';
-  const refresh = searchParams.get('refresh') === '1' || searchParams.get('refresh') === 'true';
+  const refreshRequested = searchParams.get('refresh') === '1' || searchParams.get('refresh') === 'true';
+  const refresh = refreshRequested && !shouldSkipMetaProfileEnrichment();
   const sinceParam = searchParams.get('since');
   const sinceIso = sinceParam && !Number.isNaN(Date.parse(sinceParam)) ? new Date(sinceParam).toISOString() : null;
 
@@ -108,7 +113,9 @@ export async function GET(
   }
 
   const platform = account.platform;
-  const metaThrottle = (platform === 'INSTAGRAM' || platform === 'FACEBOOK') && isMetaNonCriticalThrottled();
+  const metaThrottle =
+    (platform === 'INSTAGRAM' || platform === 'FACEBOOK') &&
+    (isMetaNonCriticalThrottled() || shouldSkipMetaProfileEnrichment());
   if (metaThrottle && !deltaMode) {
     const payload = {
       comments: [] as unknown[],

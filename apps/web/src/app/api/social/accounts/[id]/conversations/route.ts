@@ -13,12 +13,14 @@ import {
   META_APP_BACKOFF_INBOX_MESSAGE,
   noteMetaUsageFromHeaders,
   noteMetaRateLimitError,
+  shouldSkipMetaProfileEnrichment,
 } from '@/lib/meta-usage-guard';
 import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
 import { readInboxProfileCache, writeInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
 import {
   enrichInstagramAvatarsFromParticipants,
   mergeInboxProfileCacheIntoConversations,
+  resetIgScopedProfileCallBudget,
   resolveInstagramInboxSenderProfile,
 } from '@/lib/inbox/resolve-inbox-sender-profile';
 import {
@@ -786,7 +788,15 @@ export async function GET(
       };
     });
 
-    if (isInstagram && list.length > 0 && !badgePoll) {
+    if (isInstagram && list.length > 0) {
+      list = (await mergeInboxProfileCacheIntoConversations(
+        'instagram',
+        list as InboxConversationListItem[]
+      )) as typeof list;
+    }
+
+    if (isInstagram && list.length > 0 && !badgePoll && !shouldSkipMetaProfileEnrichment()) {
+      resetIgScopedProfileCallBudget();
       list = (await enrichInstagramAvatarsFromParticipants({
         userId,
         list: list as InboxConversationListItem[],
@@ -794,7 +804,7 @@ export async function GET(
         accessToken: isInstagramBusinessLogin ? igUserToken! : activeToken,
         ourIds,
         ourUsernames,
-        maxConversations: 30,
+        maxConversations: 12,
       })) as typeof list;
     }
 
@@ -808,7 +818,7 @@ export async function GET(
         if (needsProfile) idsToEnrich.add(s.id!);
       }
     }
-    const skipProfileEnrich = badgePoll || isMetaNonCriticalThrottled();
+    const skipProfileEnrich = badgePoll || shouldSkipMetaProfileEnrichment();
     const profileCachePlatform = isInstagram ? 'instagram' : 'facebook';
     if (badgePoll && isInstagram && list.length > 0) {
       list = (await mergeInboxProfileCacheIntoConversations(
@@ -829,7 +839,7 @@ export async function GET(
             if (cached) profiles.set(enrichId, cached);
           }
         } else if (isInstagram) {
-          const enrichIds = Array.from(idsToEnrich).slice(0, 24);
+          const enrichIds = Array.from(idsToEnrich).slice(0, 8);
           const enrichIdSet = new Set(enrichIds);
           const convBySender = new Map<string, string>();
           for (const conv of list) {
@@ -839,12 +849,18 @@ export async function GET(
               }
             }
           }
+          let liveProfileLookups = 0;
+          const maxLiveProfileLookups = 4;
           for (const enrichId of enrichIds) {
             const cached = await readInboxProfileCache('instagram', enrichId);
-            if (cached?.pictureUrl) {
+            if (cached && (cached.name || cached.username || cached.pictureUrl)) {
               profiles.set(enrichId, cached);
-              continue;
+              if (cached.name || cached.username) continue;
             }
+            const needsName = !cached?.name && !cached?.username;
+            if (!needsName) continue;
+            if (liveProfileLookups >= maxLiveProfileLookups) continue;
+            liveProfileLookups += 1;
             try {
               const convForSender = list.find((c) =>
                 c.senders.some((s) => s.id === enrichId)
@@ -969,8 +985,8 @@ export async function GET(
 
     // Optional message counts: capped + sequential (25 parallel Meta calls caused app rate-limit spikes).
     const metaThrottle = isInstagram && isMetaNonCriticalThrottled();
-    if (includeMessageCounts && list.length > 0 && !metaThrottle && !badgePoll) {
-      const toFetch = list.slice(0, 12);
+    if (includeMessageCounts && list.length > 0 && !metaThrottle && !badgePoll && !shouldSkipMetaProfileEnrichment()) {
+      const toFetch = list.slice(0, 4);
       const counts: number[] = [];
       for (const conv of toFetch) {
         try {

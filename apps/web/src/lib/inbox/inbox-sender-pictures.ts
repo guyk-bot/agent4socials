@@ -39,6 +39,19 @@ function saveStore(userId: string, store: PictureStore): void {
   }
 }
 
+function lookupStoredEntry(
+  store: PictureStore,
+  convId: string,
+  username?: string | null
+): PictureStore[string] | undefined {
+  if (store[convId]) return store[convId];
+  if (username) {
+    const u = username.replace(/^@/, '').toLowerCase();
+    return store[`u:${u}`];
+  }
+  return undefined;
+}
+
 export function getInboxSenderPicture(
   userId: string | null | undefined,
   convId: string,
@@ -46,13 +59,20 @@ export function getInboxSenderPicture(
 ): string | null {
   if (!userId || !convId) return null;
   const store = loadStore(userId);
-  if (store[convId]?.pictureUrl) return store[convId].pictureUrl;
-  if (username) {
-    const u = username.replace(/^@/, '').toLowerCase();
-    const byUser = store[`u:${u}`];
-    if (byUser?.pictureUrl) return byUser.pictureUrl;
-  }
-  return null;
+  return lookupStoredEntry(store, convId, username)?.pictureUrl ?? null;
+}
+
+/** Names/usernames saved when a thread was opened (avoids extra Meta profile calls). */
+export function getInboxSenderStoredMeta(
+  userId: string | null | undefined,
+  convId: string,
+  username?: string | null
+): { name?: string; username?: string } | null {
+  if (!userId || !convId) return null;
+  const store = loadStore(userId);
+  const entry = lookupStoredEntry(store, convId, username);
+  if (!entry?.name && !entry?.username) return null;
+  return { name: entry.name, username: entry.username };
 }
 
 export function setInboxSenderPicture(
@@ -93,7 +113,16 @@ export function mergeSenderPicturesIntoConversations<
     const stored =
       store[c.id] ??
       (first.username ? store[`u:${first.username.replace(/^@/, '').toLowerCase()}`] : undefined);
-    if (!stored?.pictureUrl && !first.pictureUrl) return c;
+    if (
+      !stored?.pictureUrl &&
+      !first.pictureUrl &&
+      !stored?.name &&
+      !stored?.username &&
+      !first.name &&
+      !first.username
+    ) {
+      return c;
+    }
     return {
       ...c,
       senders: [

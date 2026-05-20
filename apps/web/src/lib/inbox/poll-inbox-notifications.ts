@@ -23,8 +23,8 @@ import {
   unmarkConversationAsRead,
 } from '@/lib/inbox-read-state';
 
-/** Poll every 60s so new items show within ~2 minutes without opening Inbox. */
-export const INBOX_NOTIFICATION_POLL_MS = 60_000;
+/** Poll every 90s so new items show without stacking Meta calls on inbox open. */
+export const INBOX_NOTIFICATION_POLL_MS = 90_000;
 
 const MESSAGE_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
 const COMMENT_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
@@ -226,7 +226,7 @@ export async function pollInboxNotifications(args: {
       } catch {
         /* skip account */
       }
-      await new Promise((r) => setTimeout(r, 350));
+      await new Promise((r) => setTimeout(r, 500));
     }
 
     if (COMMENT_PLATFORMS.has(acc.platform)) {
@@ -253,7 +253,7 @@ export async function pollInboxNotifications(args: {
       } catch {
         /* skip account */
       }
-      await new Promise((r) => setTimeout(r, 350));
+      await new Promise((r) => setTimeout(r, 500));
     }
   }
 
