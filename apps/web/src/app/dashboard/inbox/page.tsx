@@ -477,6 +477,7 @@ function MessagesConversationList({
   selectedConversationIds,
   selectedConversationId,
   unreadConversationIds,
+  unreadCountByConversationId,
   setSelectedPlatform,
   setSelectedConversationId,
   setSelectedConversationIds,
@@ -497,6 +498,7 @@ function MessagesConversationList({
   selectedConversationIds: Set<string>;
   selectedConversationId: string | null;
   unreadConversationIds: Set<string>;
+  unreadCountByConversationId: Record<string, number>;
   setSelectedPlatform: (p: string | null) => void;
   setSelectedConversationId: (id: string | null) => void;
   setSelectedConversationIds: React.Dispatch<React.SetStateAction<Set<string>>>;
@@ -601,10 +603,21 @@ function MessagesConversationList({
                 <PlatformSourcePill platformId={platform} />
               </div>
             </div>
-            <div className="shrink-0 flex items-center gap-1">
-              {unreadConversationIds.has(c.id) && <span className="w-2 h-2 rounded-full bg-red-500" aria-hidden />}
+            <div className="shrink-0 flex flex-col items-end gap-1">
+              {(() => {
+                const unreadN = unreadCountByConversationId[c.id] ?? 0;
+                if (unreadN <= 0) return null;
+                return (
+                  <span
+                    className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold"
+                    title={`${unreadN} unread message${unreadN === 1 ? '' : 's'}`}
+                  >
+                    {unreadN > 99 ? '99' : unreadN}
+                  </span>
+                );
+              })()}
               {c.updatedTime && <span className="text-xs text-neutral-400">{new Date(c.updatedTime).toLocaleDateString()}</span>}
-              {!unreadConversationIds.has(c.id) && (
+              {(unreadCountByConversationId[c.id] ?? 0) === 0 && (
                 <Check
                   size={14}
                   className="inbox-row-check shrink-0 text-neutral-300 dark:text-neutral-600 group-hover:text-neutral-500 dark:group-hover:text-neutral-400 transition-colors pointer-events-none"
@@ -617,6 +630,10 @@ function MessagesConversationList({
       })}
     </div>
   );
+}
+
+function platformLabelFromId(platformId: string): string {
+  return INBOX_PLATFORM_DEFS.find((p) => p.id === platformId)?.label ?? platformId;
 }
 
 function InboxPage() {
@@ -987,16 +1004,54 @@ function InboxPage() {
     return result;
   }, [conversations]);
 
-  /** Per-platform unread DM counts (used for badges on the platform filter icons). */
+  /** Per-conversation unread message counts (for row badges). */
+  const unreadCountByConversationId = useMemo(() => {
+    const lastRead = getConversationLastReadCounts(user?.id);
+    const map: Record<string, number> = {};
+    for (const c of conversations) {
+      if (typeof c.messageCount === 'number') {
+        const n = Math.max(0, c.messageCount - (lastRead[c.id] ?? 0));
+        if (n > 0) map[c.id] = n;
+      } else if (unreadConversationIds.has(c.id)) {
+        map[c.id] = 1;
+      }
+    }
+    return map;
+  }, [conversations, unreadConversationIds, user?.id]);
+
+  /** Per-platform unread DM message totals (platform filter badges + summary). */
   const unreadMessagesByPlatform = useMemo(() => {
     const result: Record<string, number> = {};
     for (const c of conversations) {
-      if (c.platform && unreadConversationIds.has(c.id)) {
-        result[c.platform] = (result[c.platform] ?? 0) + 1;
+      if (!c.platform) continue;
+      const n = unreadCountByConversationId[c.id] ?? 0;
+      if (n > 0) result[c.platform] = (result[c.platform] ?? 0) + n;
+    }
+    for (const [platform, row] of Object.entries(byPlatform)) {
+      if ((row?.messages ?? 0) > 0 && !result[platform]) {
+        result[platform] = row.messages;
       }
     }
     return result;
-  }, [conversations, unreadConversationIds]);
+  }, [conversations, unreadCountByConversationId, byPlatform]);
+
+  /** Top unread threads for the summary strip (name, platform, count). */
+  const unreadThreadSummary = useMemo(() => {
+    const rows: Array<{ name: string; platform: string; count: number }> = [];
+    for (const c of conversations) {
+      const count = unreadCountByConversationId[c.id] ?? 0;
+      if (count <= 0) continue;
+      const rawName = c.senders?.[0]?.username ?? c.senders?.[0]?.name;
+      const platform = c.platform ?? 'UNKNOWN';
+      rows.push({
+        name: rawName?.trim() || (platform === 'TWITTER' ? 'X user' : 'Unknown'),
+        platform,
+        count,
+      });
+    }
+    rows.sort((a, b) => b.count - a.count);
+    return rows;
+  }, [conversations, unreadCountByConversationId]);
 
   /** Per-platform unread comment counts (used for badges on the platform filter icons). */
   const unreadCommentsByPlatform = useMemo(() => {
@@ -2005,6 +2060,14 @@ function InboxPage() {
     const next = commentsSupportedPlatforms[0] ?? null;
     if (next) setSelectedPlatform(next);
   }, [inboxMode, selectedPlatform, commentsSupportedPlatforms.join(',')]);
+
+  // Opening Comments always triggers a live fetch (Meta is not prefetched in the background).
+  useEffect(() => {
+    if (inboxMode === 'comments') {
+      setCommentsRefreshKey((k) => k + 1);
+    }
+  }, [inboxMode]);
+
   useEffect(() => {
     if (platformsToFetchComments.length === 0) {
       setComments([]);
@@ -2031,7 +2094,7 @@ function InboxPage() {
       const fromCache = appData?.getComments(account.id);
       const useCache = fromCache !== undefined && fromCache !== null;
       const fromCacheList = useCache ? fromCache : [];
-      if (useCache) {
+      if (useCache && fromCacheList.length > 0) {
         const withAccountId = fromCacheList.map((c) => ({ ...c, accountId: (c as PostComment).accountId ?? account.id }));
         merge.push(...withAccountId);
       }
@@ -2041,9 +2104,13 @@ function InboxPage() {
           .map((c) => c.createdAt)
           .filter((v): v is string => typeof v === 'string' && v.length > 0)
           .sort((a, b) => b.localeCompare(a))[0] ?? undefined;
-      const shouldDeltaFetch = useCache && commentsRefreshKey > 0;
+      const isMeta = account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK';
+      const shouldDeltaFetch =
+        useCache && fromCacheList.length > 0 && commentsRefreshKey > 0 && !isMeta;
+      const shouldLiveFetch =
+        !useCache || fromCacheList.length === 0 || shouldDeltaFetch || (isMeta && inboxMode === 'comments');
 
-      if (!useCache || shouldDeltaFetch) {
+      if (shouldLiveFetch) {
         needsFetch = true;
         const url =
           `/social/accounts/${account.id}/comments` +
@@ -2107,13 +2174,13 @@ function InboxPage() {
     }
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [platformsToFetchComments.join(','), effectiveAccounts.map((a) => a.id).join(','), commentsRefreshKey]);
+  }, [platformsToFetchComments.join(','), effectiveAccounts.map((a) => a.id).join(','), commentsRefreshKey, inboxMode]);
 
-  // Keep inbox comments fresh (0 to 5 min target) while comments tab is active.
+  // Refresh comments while the Comments tab is open (Meta needs live fetch; 90s target).
   useEffect(() => {
     if (inboxMode !== 'comments') return;
     if (platformsToFetchComments.length === 0) return;
-    const interval = setInterval(() => setCommentsRefreshKey((k) => k + 1), 5 * 60_000);
+    const interval = setInterval(() => setCommentsRefreshKey((k) => k + 1), 90_000);
     return () => clearInterval(interval);
   }, [inboxMode, platformsToFetchComments.join(',')]);
 
@@ -2575,6 +2642,14 @@ function InboxPage() {
                         </div>
                       </div>
                     </div>
+                    {isUnread && (
+                      <span
+                        className="shrink-0 min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold"
+                        title="Unread comment on your post"
+                      >
+                        1
+                      </span>
+                    )}
                     {canDelete && (
                       <button
                         type="button"
@@ -2892,6 +2967,7 @@ function InboxPage() {
           selectedConversationIds={selectedConversationIds}
           selectedConversationId={selectedConversationId}
           unreadConversationIds={unreadConversationIds}
+          unreadCountByConversationId={unreadCountByConversationId}
           setSelectedPlatform={setSelectedPlatform}
           setSelectedConversationId={setSelectedConversationId}
           setSelectedConversationIds={setSelectedConversationIds}
@@ -2929,6 +3005,10 @@ function InboxPage() {
               const cmtUnread =
                 unreadCommentsByPlatform[p.id] ?? byPlatform[p.id]?.comments ?? 0;
               const displayCount = msgUnread + cmtUnread;
+              const msgLabel =
+                msgUnread > 0 ? `${msgUnread} message${msgUnread === 1 ? '' : 's'}` : '';
+              const cmtLabel =
+                cmtUnread > 0 ? `${cmtUnread} comment${cmtUnread === 1 ? '' : 's'}` : '';
               return (
                 <button
                   key={p.id}
@@ -2946,7 +3026,7 @@ function InboxPage() {
                       ? `Hide ${p.label}`
                       : `Show ${p.label}${
                           displayCount > 0
-                            ? ` (${msgUnread} message${msgUnread === 1 ? '' : 's'}, ${cmtUnread} comment${cmtUnread === 1 ? '' : 's'} unread)`
+                            ? ` (${[msgLabel, cmtLabel].filter(Boolean).join(', ')} unread)`
                             : ''
                         }`
                   }
@@ -3022,10 +3102,45 @@ function InboxPage() {
           </button>
         </div>
 
+        {inboxMode === 'messages' && (totalUnreadMessages > 0 || unreadThreadSummary.length > 0) ? (
+          <div className="px-3 py-2.5 text-xs border-b border-neutral-200 bg-neutral-50/90 text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900/80 dark:text-neutral-200 space-y-1.5">
+            <p className="font-semibold text-neutral-900 dark:text-neutral-100">
+              {totalUnreadMessages > 0
+                ? `${totalUnreadMessages} unread message${totalUnreadMessages === 1 ? '' : 's'}`
+                : `${unreadThreadSummary.length} unread conversation${unreadThreadSummary.length === 1 ? '' : 's'}`}
+            </p>
+            {Object.keys(unreadMessagesByPlatform).length > 0 ? (
+              <p className="text-neutral-600 dark:text-neutral-400">
+                {Object.entries(unreadMessagesByPlatform)
+                  .map(([plat, n]) => `${platformLabelFromId(plat)}: ${n} message${n === 1 ? '' : 's'}`)
+                  .join(' · ')}
+              </p>
+            ) : null}
+            {unreadThreadSummary.length > 0 ? (
+              <ul className="space-y-0.5 text-neutral-700 dark:text-neutral-300">
+                {unreadThreadSummary.slice(0, 4).map((row) => (
+                  <li key={`${row.platform}-${row.name}`}>
+                    <span className="font-medium">{row.name}</span>
+                    <span className="text-neutral-500">
+                      {' '}
+                      ({platformLabelFromId(row.platform)}: {row.count} message{row.count === 1 ? '' : 's'})
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+
         {inboxMode === 'messages' && effectiveNotifications.comments > 0 ? (
           <div className="px-3 py-2 text-xs border-b border-orange-100 bg-orange-50/90 text-orange-950 dark:border-orange-900/40 dark:bg-orange-950/30 dark:text-orange-100 flex items-center justify-between gap-2">
             <span>
               {effectiveNotifications.comments} unread comment{effectiveNotifications.comments === 1 ? '' : 's'} on your posts
+              {Object.keys(unreadCommentsByPlatform).length > 0
+                ? ` (${Object.entries(unreadCommentsByPlatform)
+                    .map(([plat, n]) => `${platformLabelFromId(plat)}: ${n}`)
+                    .join(', ')})`
+                : ''}
             </span>
             <button
               type="button"
