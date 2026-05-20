@@ -646,6 +646,7 @@ export default function ComposerPage() {
     const appData = useAppData();
     const accountsCache = useAccountsCache();
     const cachedAccounts = accountsCache?.cachedAccounts ?? EMPTY_CACHED_ACCOUNTS;
+    const accountsLoadError = accountsCache?.accountsLoadError ?? null;
     const searchParams = useSearchParams();
     const editPostId = searchParams.get('edit');
     const [platforms, setPlatforms] = useState<string[]>([]);
@@ -1404,10 +1405,13 @@ export default function ComposerPage() {
             api
                 .get('/social/accounts')
                 .then((res) => {
-                    if (!cancelled) setAccounts(Array.isArray(res.data) ? res.data : []);
+                    if (!cancelled) {
+                        const data = Array.isArray(res.data) ? res.data : [];
+                        if (data.length > 0) setAccounts(data);
+                    }
                 })
                 .catch(() => {
-                    if (!cancelled) setAccounts([]);
+                    // Keep cached/primed accounts on transient API errors (do not wipe IG/FB toggles).
                 }),
             wait,
         ]).finally(() => {
@@ -1418,9 +1422,18 @@ export default function ComposerPage() {
         };
     }, []);
 
+    const effectiveAccounts = useMemo(() => {
+        if (accounts.length > 0) return accounts;
+        return cachedAccounts.map((a) => ({
+            id: String(a.id),
+            platform: String(a.platform),
+            username: (typeof a.username === 'string' ? a.username : null) as string | null,
+        }));
+    }, [accounts, cachedAccounts]);
+
     const connectedPlatformSet = useMemo(
-        () => new Set(accounts.map((a) => String(a.platform).toUpperCase())),
-        [accounts]
+        () => new Set(effectiveAccounts.map((a) => String(a.platform).toUpperCase())),
+        [effectiveAccounts]
     );
 
     const selectablePlatforms = useMemo(() => {
@@ -1440,6 +1453,18 @@ export default function ComposerPage() {
             return next;
         });
     }, [accountsFetched, mediaType, connectedPlatformSet]);
+
+    // Story: auto-select connected IG/FB when nothing is selected yet (sidebar clicks do not set composer targets).
+    useEffect(() => {
+        if (!accountsFetched || mediaType !== 'story' || selectablePlatforms.length === 0) return;
+        setPlatforms((prev) => {
+            const valid = prev
+                .map((p) => String(p).toUpperCase())
+                .filter((p) => selectablePlatforms.includes(p));
+            if (valid.length > 0) return valid;
+            return [...selectablePlatforms];
+        });
+    }, [accountsFetched, mediaType, selectablePlatforms]);
 
     // Photo / Video / Reel / Story: only one item allowed; trim if more
     useEffect(() => {
@@ -1974,7 +1999,7 @@ export default function ComposerPage() {
             Object.values(mediaByPlatform).some((arr) => Array.isArray(arr) && arr.length > 0);
         const targets = platforms
             .map((p) => {
-                const acc = accounts.find((a: { platform: string }) => String(a.platform).toUpperCase() === String(p).toUpperCase());
+                const acc = effectiveAccounts.find((a: { platform: string }) => String(a.platform).toUpperCase() === String(p).toUpperCase());
                 if (!acc?.id) return null;
                 return { platform: p, socialAccountId: acc.id };
             })
@@ -2609,7 +2634,7 @@ export default function ComposerPage() {
                     void runComposerCommit(saveAsDraftRef.current);
                 }}
                 accounts={tiktokModalAccountIds.map((id) => {
-                    const a = accounts.find((x) => x.id === id);
+                    const a = effectiveAccounts.find((x) => x.id === id);
                     return { id, username: a?.username };
                 })}
                 defaultCaption={computeTikTokCaptionPreview()}
@@ -2771,10 +2796,21 @@ export default function ComposerPage() {
                         {selectablePlatforms.length === 0 && (
                             <p className="pt-3 text-sm text-amber-700 dark:text-amber-400">
                                 {mediaType === 'story'
-                                    ? 'Connect Instagram or Facebook in the sidebar to post Stories.'
+                                    ? accountsLoadError
+                                        ? 'Could not load connected accounts. Refresh the page, then select Instagram or Facebook in Select Platforms above (sidebar accounts are for navigation only).'
+                                        : 'Connect Instagram or Facebook in Accounts, then select them in Select Platforms above (not the sidebar).'
                                     : mediaType === 'video'
-                                      ? 'Connect YouTube in the sidebar to post videos.'
-                                      : 'Connect a platform in the sidebar that supports this post type.'}
+                                      ? accountsLoadError
+                                        ? 'Could not load connected accounts. Refresh the page, then select YouTube above.'
+                                        : 'Connect YouTube in Accounts, then select it in Select Platforms above.'
+                                      : accountsLoadError
+                                        ? 'Could not load connected accounts. Refresh the page, then select a platform above.'
+                                        : 'Connect a platform in Accounts that supports this post type, then select it above.'}
+                            </p>
+                        )}
+                        {selectablePlatforms.length > 0 && platforms.length === 0 && mediaType === 'story' && (
+                            <p className="pt-3 text-sm text-neutral-600 dark:text-neutral-400">
+                                Select Instagram and/or Facebook above. Sidebar account clicks switch the dashboard view, not Story targets.
                             </p>
                         )}
                         </>
@@ -2808,12 +2844,20 @@ export default function ComposerPage() {
                                             onClick={() => {
                                                 if (type !== mediaType) {
                                                     setMediaType(type);
-                                                    setMediaList([]);
-                                                    setMediaByPlatform((prev) => {
-                                                        const next = { ...prev };
-                                                        for (const p of Object.keys(next)) next[p] = [];
-                                                        return next;
-                                                    });
+                                                    const keepSingleMedia =
+                                                        mediaList.length === 1 &&
+                                                        (type === 'story' ||
+                                                            type === 'photo' ||
+                                                            type === 'reel' ||
+                                                            (type === 'video' && mediaList[0]?.type === 'VIDEO'));
+                                                    if (!keepSingleMedia) {
+                                                        setMediaList([]);
+                                                        setMediaByPlatform((prev) => {
+                                                            const next = { ...prev };
+                                                            for (const p of Object.keys(next)) next[p] = [];
+                                                            return next;
+                                                        });
+                                                    }
                                                     const allowed = new Set(platformsAllowedForMediaType(type));
                                                     setPlatforms((prev) =>
                                                         prev
@@ -3671,7 +3715,12 @@ export default function ComposerPage() {
                                 const baseContent = differentContentPerPlatform ? (contentByPlatform[p] ?? '') : content;
                                 const tags = differentHashtagsPerPlatform ? (selectedHashtagsByPlatform[p] ?? []) : selectedHashtags;
                                 const contentWithHashtags = baseContent.trim() + (tags.length ? ' ' + tags.join(' ') : '');
-                                    const accountForPlatform = accounts.find((a: { platform: string }) => a.platform === p) as { username?: string; profilePicture?: string } | undefined;
+                                    const acc = effectiveAccounts.find((a) => String(a.platform).toUpperCase() === String(p).toUpperCase());
+                                    const cachedAcc = cachedAccounts.find((a) => String(a.platform).toUpperCase() === String(p).toUpperCase());
+                                    const accountForPlatform = {
+                                        username: acc?.username ?? (typeof cachedAcc?.username === 'string' ? cachedAcc.username : undefined),
+                                        profilePicture: typeof cachedAcc?.profilePicture === 'string' ? cachedAcc.profilePicture : undefined,
+                                    };
                                     const mediaForPlatform = differentMediaPerPlatform ? (mediaByPlatform[p] ?? []) : mediaList;
                                     const effectiveMedia = (mediaType === 'video' || mediaType === 'reel' || mediaType === 'story') && mediaForPlatform.length === 1 && differentThumbnailPerPlatform
                                         ? mediaForPlatform.map((m, i) => (i === 0 && m.type === 'VIDEO' ? { ...m, thumbnailUrl: thumbnailByPlatform[p] ?? (m as MediaItem).thumbnailUrl } : m))
@@ -3680,8 +3729,8 @@ export default function ComposerPage() {
                                     <PostPreview
                                         key={p}
                                         platform={p}
-                                            profileName={accountForPlatform?.username ?? ''}
-                                            profilePicture={accountForPlatform?.profilePicture ?? undefined}
+                                            profileName={accountForPlatform.username ?? ''}
+                                            profilePicture={accountForPlatform.profilePicture}
                                         content={contentWithHashtags}
                                             media={effectiveMedia}
                                             mediaType={mediaType}
@@ -3729,7 +3778,12 @@ export default function ComposerPage() {
                                     const baseContent = differentContentPerPlatform ? (contentByPlatform[p] ?? '') : content;
                                     const tags = differentHashtagsPerPlatform ? (selectedHashtagsByPlatform[p] ?? []) : selectedHashtags;
                                     const contentWithHashtags = baseContent.trim() + (tags.length ? ' ' + tags.join(' ') : '');
-                                    const accountForPlatform = accounts.find((a: { platform: string }) => a.platform === p) as { username?: string; profilePicture?: string } | undefined;
+                                    const acc = effectiveAccounts.find((a) => String(a.platform).toUpperCase() === String(p).toUpperCase());
+                                    const cachedAcc = cachedAccounts.find((a) => String(a.platform).toUpperCase() === String(p).toUpperCase());
+                                    const accountForPlatform = {
+                                        username: acc?.username ?? (typeof cachedAcc?.username === 'string' ? cachedAcc.username : undefined),
+                                        profilePicture: typeof cachedAcc?.profilePicture === 'string' ? cachedAcc.profilePicture : undefined,
+                                    };
                                     const mediaForPlatform = differentMediaPerPlatform ? (mediaByPlatform[p] ?? []) : mediaList;
                                     const effectiveMedia = (mediaType === 'video' || mediaType === 'reel' || mediaType === 'story') && mediaForPlatform.length === 1 && differentThumbnailPerPlatform
                                         ? mediaForPlatform.map((m, i) => (i === 0 && m.type === 'VIDEO' ? { ...m, thumbnailUrl: thumbnailByPlatform[p] ?? (m as MediaItem).thumbnailUrl } : m))
@@ -3738,8 +3792,8 @@ export default function ComposerPage() {
                                         <PostPreview
                                             key={p}
                                             platform={p}
-                                            profileName={accountForPlatform?.username ?? ''}
-                                            profilePicture={accountForPlatform?.profilePicture ?? undefined}
+                                            profileName={accountForPlatform.username ?? ''}
+                                            profilePicture={accountForPlatform.profilePicture}
                                             content={contentWithHashtags}
                                             media={effectiveMedia}
                                             mediaType={mediaType}
