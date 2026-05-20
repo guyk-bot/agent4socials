@@ -121,7 +121,9 @@ export async function getInboxMessagesFromDb(
   /** ISO timestamp of the conversation's last update. When provided and newer than
    * the cache write time (derived from expiresAt - TTL), the cache is treated as
    * stale and null is returned so the caller fetches fresh messages from the API. */
-  convUpdatedTime?: string | null
+  convUpdatedTime?: string | null,
+  /** When true (e.g. X rate limit), return cache even if convUpdatedTime is newer. */
+  allowStale?: boolean
 ): Promise<ConversationUiMessage[] | null> {
   try {
     await ensureAppKvTable();
@@ -137,7 +139,7 @@ export async function getInboxMessagesFromDb(
     // Derive when the cache was written: writtenAt = expiresAt - TTL.
     // If the conversation was updated after the cache was written, a new message
     // arrived — bypass the cache so the caller fetches fresh from the platform API.
-    if (convUpdatedTime && row.expiresAt) {
+    if (!allowStale && convUpdatedTime && row.expiresAt) {
       const writtenAtMs = row.expiresAt.getTime() - INBOX_MESSAGES_DB_TTL_MS;
       const convMs = Date.parse(convUpdatedTime);
       if (Number.isFinite(convMs) && convMs > writtenAtMs) return null;

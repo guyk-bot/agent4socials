@@ -2,6 +2,7 @@ import type { Platform } from '@prisma/client';
 import axios from 'axios';
 import { signTwitterRequest } from '@/lib/twitter-oauth1';
 import { checkAndIncrementXApiUsage } from '@/lib/x/x-api-usage';
+import { isXApiThrottled, noteXApiRateLimit, X_APP_BACKOFF_INBOX_MESSAGE } from '@/lib/x/x-api-throttle';
 import type { FirstWelcomeMessageRow } from '@/lib/dm-first-welcome';
 
 export type ConversationUiMessage = {
@@ -48,6 +49,10 @@ export async function loadTwitterConversationForFirstWelcome(
   const useOAuth1ForDm = Boolean(oauth1UserToken && oauth1UserSecret && process.env.TWITTER_API_KEY && process.env.TWITTER_API_SECRET);
   const ourId = String(account.platformUserId ?? '');
 
+  if (isXApiThrottled(account.id)) {
+    return { ok: false, status: 429, error: X_APP_BACKOFF_INBOX_MESSAGE };
+  }
+
   try {
     if (conversationId.startsWith('mention:')) {
       const tweetId = conversationId.slice('mention:'.length).trim();
@@ -71,7 +76,10 @@ export async function loadTwitterConversationForFirstWelcome(
         timeout: 15_000,
         validateStatus: () => true,
       });
-      if (twRes.status === 429) return { ok: false, status: 429, error: 'X is limiting requests. Wait a few minutes and try again.' };
+      if (twRes.status === 429) {
+        noteXApiRateLimit(account.id);
+        return { ok: false, status: 429, error: X_APP_BACKOFF_INBOX_MESSAGE };
+      }
       const tw = twRes.data?.data?.[0];
       if (!tw) return { ok: false, error: 'Could not load this mention. It may have been deleted or is unavailable.' };
       const author = twRes.data?.includes?.users?.find((u) => u.id === tw.author_id);
@@ -106,7 +114,7 @@ export async function loadTwitterConversationForFirstWelcome(
     const allEventParticipantIds = new Set<string>();
     let nextToken: string | null = null;
     let pageCount = 0;
-    const maxPages = 5;
+    const maxPages = 2;
     const userMap = new Map<string, string>();
     const userObjMap = new Map<string, { name?: string; username?: string; profile_image_url?: string }>();
     const dmConversationUrl = `https://api.x.com/2/dm_conversations/${conversationId}/dm_events`;
@@ -149,7 +157,10 @@ export async function loadTwitterConversationForFirstWelcome(
         meta?: { next_token?: string };
         error?: { message?: string };
       }>(dmConversationUrl, requestConfig);
-      if (res.status === 429) return { ok: false, status: 429, error: 'X is limiting requests. Wait a few minutes and try again.' };
+      if (res.status === 429) {
+        noteXApiRateLimit(account.id);
+        return { ok: false, status: 429, error: X_APP_BACKOFF_INBOX_MESSAGE };
+      }
       if (res.data?.error) return { ok: false, error: res.data.error.message ?? 'Could not load X messages.' };
 
       for (const u of res.data?.includes?.users ?? []) {
@@ -183,7 +194,8 @@ export async function loadTwitterConversationForFirstWelcome(
         break;
       }
     }
-    if (recipientIdFromConvo && allMessages.length < 50) {
+    // Secondary "with/{user}/dm_events" doubles API usage; only when the primary thread is thin.
+    if (recipientIdFromConvo && allMessages.length < 12) {
       try {
         const withUrl = `https://api.x.com/2/dm_conversations/with/${encodeURIComponent(recipientIdFromConvo)}/dm_events`;
         const existingIds = new Set(allMessages.map((m) => m.id));
@@ -232,7 +244,7 @@ export async function loadTwitterConversationForFirstWelcome(
           }
           withNext = withRes.data?.meta?.next_token ?? null;
           withPages++;
-        } while (withNext && withPages < 5);
+        } while (withNext && withPages < 2);
       } catch {
         // ignore
       }
@@ -317,7 +329,10 @@ export async function loadTwitterConversationForFirstWelcome(
         : typeof bodyError === 'object' && bodyError && 'message' in bodyError
           ? String((bodyError as { message?: string }).message)
           : err?.message ?? 'Could not load X messages.';
-    if (status === 429) return { ok: false, status: 429, error: 'X is limiting requests. Wait a few minutes and try again.' };
+    if (status === 429) {
+      noteXApiRateLimit(account.id);
+      return { ok: false, status: 429, error: X_APP_BACKOFF_INBOX_MESSAGE };
+    }
     return { ok: false, error: msg };
   }
 }

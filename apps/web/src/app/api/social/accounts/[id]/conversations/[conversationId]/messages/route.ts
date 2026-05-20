@@ -8,6 +8,11 @@ import { loadConversationForFirstWelcome } from '@/lib/inbox/load-conversation-f
 import { isMetaNonCriticalThrottled } from '@/lib/meta-usage-guard';
 import { deleteInboxMessagesFromDb, getInboxMessagesFromDb, setInboxMessagesInDb } from '@/lib/inbox/inbox-db-cache';
 import { readInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
+import {
+  isXApiThrottled,
+  noteXApiRateLimit,
+  X_APP_BACKOFF_INBOX_MESSAGE,
+} from '@/lib/x/x-api-throttle';
 
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 
@@ -109,54 +114,86 @@ export async function GET(
   // pre-warms every conversation every ~30 min, so returning users never hit
   // the Meta/X API for already-seen conversations.
   // Pass convUpdatedTime so new messages (conv updated after cache write) bypass the cache.
-  if (!forceRefresh && (account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK')) {
-    const cached = await getInboxMessagesFromDb(account.id, conversationId, convUpdatedTime);
-    if (cached) {
-      // recipientId: pick first sender that isn't us from the cached messages
-      const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
-        ? account.credentialsJson : {}) as { linkedPageId?: string };
-      const ourIds = new Set<string>(
-        [account.platformUserId, credJson.linkedPageId].filter((x): x is string => !!x)
-      );
-      let recipientId: string | null = null;
-      for (const m of cached) {
-        if (m.fromId && !ourIds.has(m.fromId)) { recipientId = m.fromId; break; }
+  const serveCachedMessages = async (allowStale: boolean, rateLimitHint?: string | null) => {
+    const cached = await getInboxMessagesFromDb(account.id, conversationId, convUpdatedTime, allowStale);
+    if (!cached?.length) return null;
+    const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
+      ? account.credentialsJson : {}) as { linkedPageId?: string };
+    const ourIds = new Set<string>(
+      [account.platformUserId, credJson.linkedPageId].filter((x): x is string => !!x)
+    );
+    let recipientId: string | null = null;
+    for (const m of cached) {
+      if (m.fromId && !ourIds.has(m.fromId)) {
+        recipientId = m.fromId;
+        break;
       }
-      let recipientName: string | null = null;
-      let recipientPictureUrl: string | null = null;
-      if (recipientId) {
-        const profilePlatform = account.platform === 'INSTAGRAM' ? 'instagram' : 'facebook';
-        const profile = await readInboxProfileCache(profilePlatform, recipientId);
-        if (profile) {
-          recipientName = profile.name ?? profile.username ?? null;
-          recipientPictureUrl = profile.pictureUrl ?? null;
+    }
+    if (!recipientId && account.platform === 'TWITTER') {
+      for (const part of conversationId.split('-')) {
+        if (part && part !== account.platformUserId) {
+          recipientId = part;
+          break;
         }
       }
-      return NextResponse.json({
-        messages: cached,
-        recipientId,
-        error: null,
-        ...(recipientName ? { recipientName } : {}),
-        ...(recipientPictureUrl ? { recipientPictureUrl } : {}),
-      });
     }
+    let recipientName: string | null = null;
+    let recipientPictureUrl: string | null = null;
+    if (recipientId && account.platform !== 'TWITTER') {
+      const profilePlatform = account.platform === 'INSTAGRAM' ? 'instagram' : 'facebook';
+      const profile = await readInboxProfileCache(profilePlatform, recipientId);
+      if (profile) {
+        recipientName = profile.name ?? profile.username ?? null;
+        recipientPictureUrl = profile.pictureUrl ?? null;
+      }
+    }
+    return NextResponse.json({
+      messages: cached,
+      recipientId,
+      error: rateLimitHint ?? null,
+      cached: true,
+      ...(recipientName ? { recipientName } : {}),
+      ...(recipientPictureUrl ? { recipientPictureUrl } : {}),
+    });
+  };
+
+  if (!forceRefresh && (account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK' || account.platform === 'TWITTER')) {
+    const cachedResponse = await serveCachedMessages(false);
+    if (cachedResponse) return cachedResponse;
   }
 
-  // Background prefetch fast-fails when Meta API usage is high (will be retried later).
+  // Background prefetch fast-fails when platform API usage is high (retried later).
+  if (isBackground && account.platform === 'TWITTER' && isXApiThrottled(account.id)) {
+    const stale = await serveCachedMessages(true, X_APP_BACKOFF_INBOX_MESSAGE);
+    if (stale) return stale;
+    return NextResponse.json({ messages: [], error: 'throttled', recipientId: null });
+  }
   if (isBackground && (account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK') && isMetaNonCriticalThrottled()) {
     return NextResponse.json({ messages: [], error: 'throttled', recipientId: null });
+  }
+
+  if (!forceRefresh && account.platform === 'TWITTER' && isXApiThrottled(account.id)) {
+    const stale = await serveCachedMessages(true, X_APP_BACKOFF_INBOX_MESSAGE);
+    if (stale) return stale;
+    return NextResponse.json(
+      { messages: [], recipientId: null, error: X_APP_BACKOFF_INBOX_MESSAGE },
+      { status: 429 }
+    );
   }
 
   const loaded = await loadConversationForFirstWelcome(account, conversationId, userId);
   if (!loaded.ok) {
     if (loaded.status === 429) {
+      noteXApiRateLimit(account.id);
+      const stale = await serveCachedMessages(true, loaded.error ?? X_APP_BACKOFF_INBOX_MESSAGE);
+      if (stale) return stale;
       return NextResponse.json({ messages: [], recipientId: null, error: loaded.error }, { status: 429 });
     }
     return NextResponse.json({ messages: [], recipientId: null, error: loaded.error });
   }
 
   // Write messages to DB so subsequent opens are instant (served from cache above).
-  if (account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK') {
+  if (account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK' || account.platform === 'TWITTER') {
     void setInboxMessagesInDb(account.id, conversationId, loaded.messages).catch(() => {});
   }
 

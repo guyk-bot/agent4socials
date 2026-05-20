@@ -185,6 +185,10 @@ const INBOX_MESSAGES_CACHE_MAX_ENTRIES = 150;
 const INBOX_CLIENT_PREFETCH_MAX = 150;
 /** While Inbox is open, refresh conversation list and open thread about every 90s. */
 const INBOX_LIVE_POLL_MS = 90_000;
+/** X DM threads change less often; longer client cache avoids repeated api.x.com calls. */
+const INBOX_TWITTER_CACHE_MS = 10 * 60_000;
+const INBOX_TWITTER_BACKGROUND_REFRESH_MS = 30 * 60_000;
+const INBOX_TWITTER_BACKGROUND_MAX = 2;
 type ConvCache = {
   messages: ConversationMessage[];
   recipientId: string | null;
@@ -219,11 +223,13 @@ function isConvCacheUsable(cached: ConvCache | undefined, accountId: string): bo
 function isConvCacheFresh(
   cached: ConvCache | undefined,
   accountId: string,
-  convUpdatedTime?: string | null
+  convUpdatedTime?: string | null,
+  platform?: string | null
 ): boolean {
   if (!isConvCacheUsable(cached, accountId)) return false;
   if (!cached!._ts) return true; // legacy: no timestamp = assume fresh
-  if (Date.now() - cached!._ts > INBOX_LIVE_POLL_MS) return false;
+  const maxAge = platform === 'TWITTER' ? INBOX_TWITTER_CACHE_MS : INBOX_LIVE_POLL_MS;
+  if (Date.now() - cached!._ts > maxAge) return false;
   if (convUpdatedTime) {
     const convMs = Date.parse(convUpdatedTime);
     if (Number.isFinite(convMs) && convMs > cached!._ts) return false;
@@ -1352,7 +1358,12 @@ function InboxPage() {
     const run = async () => {
       const cached = conversationMessagesCacheRef.current[convId];
       const cacheUsable = isConvCacheUsable(cached, accountIdForFetch);
-      const cacheFresh = isConvCacheFresh(cached, accountIdForFetch, convForRecipient?.updatedTime);
+      const cacheFresh = isConvCacheFresh(
+        cached,
+        accountIdForFetch,
+        convForRecipient?.updatedTime,
+        convForRecipient?.platform ?? dmThreadPlatform
+      );
 
       if (cacheUsable) applyCacheToUi(cached);
       if (cacheFresh) return;
@@ -1366,7 +1377,16 @@ function InboxPage() {
         if (cancelled || ac.signal.aborted) return;
         const afterWarm = conversationMessagesCacheRef.current[convId];
         if (applyCacheToUi(afterWarm)) {
-          if (isConvCacheFresh(afterWarm, accountIdForFetch, convForRecipient?.updatedTime)) return;
+          if (
+            isConvCacheFresh(
+              afterWarm,
+              accountIdForFetch,
+              convForRecipient?.updatedTime,
+              convForRecipient?.platform ?? dmThreadPlatform
+            )
+          ) {
+            return;
+          }
         }
       }
 
@@ -1381,6 +1401,8 @@ function InboxPage() {
         if (ac.signal.aborted || cancelled) return;
         const freshMessages = res.data?.messages ?? [];
         const error = res.data?.error ?? null;
+        const rateLimitHint =
+          typeof error === 'string' && /limiting requests|rate limit/i.test(error) ? error : null;
         const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
         const recipientName = res.data?.recipientName ?? null;
         const recipientPictureUrl = res.data?.recipientPictureUrl ?? null;
@@ -1409,7 +1431,9 @@ function InboxPage() {
           setConversationMessages(displayMessages);
           setConversationLastReadCount(convId, displayMessages.length, user?.id);
           setConversationRecipientId(recipientId);
-          setConversationMessagesError(displayMessages.length > 0 ? null : error);
+          setConversationMessagesError(
+            displayMessages.length > 0 ? rateLimitHint : error
+          );
           markConversationsAsRead([convId], user?.id);
           const convUpdated =
             conversationsRef.current.find((c) => c.id === convId)?.updatedTime ??
@@ -1431,9 +1455,17 @@ function InboxPage() {
           }
         }
       } catch (e: unknown) {
-        const err = e as { code?: string; name?: string; response?: { data?: { error?: string } }; message?: string };
+        const err = e as {
+          code?: string;
+          name?: string;
+          response?: { status?: number; data?: { error?: string } };
+          message?: string;
+        };
         if (ac.signal.aborted || cancelled || err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
         const isTimeout = err?.code === 'ECONNABORTED' || /timeout/i.test(err?.message ?? '');
+        const isRateLimit =
+          err?.response?.status === 429 ||
+          /limiting requests|rate limit|usage limits/i.test(err?.response?.data?.error ?? '');
         const apiError =
           err?.response?.data?.error ??
           (isTimeout
@@ -1457,7 +1489,7 @@ function InboxPage() {
         if (selectedConversationId === convId) {
           if (keepMessages.length > 0) {
             setConversationMessages(keepMessages);
-            setConversationMessagesError(null);
+            setConversationMessagesError(isRateLimit ? apiError : null);
           } else {
             setConversationMessagesError(apiError);
           }
@@ -1574,6 +1606,10 @@ function InboxPage() {
       if (!conv.id || !conv.platform || !DM_THREAD_PLATFORM_IDS.has(conv.platform)) {
         return Promise.resolve();
       }
+      // X rate-limits DM event reads; only fetch when the user opens a thread (not bulk prefetch).
+      if (conv.platform === 'TWITTER') {
+        return Promise.resolve();
+      }
       const account = conv.messageAccountId
         ? effectiveAccounts.find((a) => a.id === conv.messageAccountId)
         : effectiveAccounts.find((a) => a.platform === conv.platform);
@@ -1584,7 +1620,7 @@ function InboxPage() {
       if (inFlight) return inFlight;
 
       const existing = conversationMessagesCacheRef.current[conv.id];
-      if (isConvCacheFresh(existing, account.id, conv.updatedTime)) {
+      if (isConvCacheFresh(existing, account.id, conv.updatedTime, conv.platform)) {
         prefetchedConversationMessagesRef.current.add(cacheKey);
         return Promise.resolve();
       }
@@ -2024,8 +2060,7 @@ function InboxPage() {
     };
   }, [inboxMode, messageFetchPlatformIds.join(',')]);
 
-  // Twitter/X thread cache refresher: refreshes message payloads every 5 minutes in background.
-  // This keeps X conversations fast to open from cache and avoids stale thread bodies.
+  // Twitter/X: lightly refresh a couple of stale threads (not all 8) to stay under X rate limits.
   useEffect(() => {
     if (inboxMode !== 'messages') return;
     if (!user?.id) return;
@@ -2034,11 +2069,18 @@ function InboxPage() {
 
     let cancelled = false;
     const refreshTwitterThreadCache = async () => {
-      // Only refresh the most recently-used 8 threads to limit memory growth and X API usage.
-      const twitterConversations = conversations.filter((c) => c.platform === 'TWITTER' && !!c.id).slice(0, 8);
+      const twitterConversations = conversations
+        .filter((c) => c.platform === 'TWITTER' && !!c.id)
+        .filter((c) => {
+          const entry = conversationMessagesCacheRef.current[c.id];
+          const account = c.messageAccountId
+            ? effectiveAccounts.find((a) => a.id === c.messageAccountId)
+            : effectiveAccounts.find((a) => a.platform === 'TWITTER');
+          return account && !isConvCacheFresh(entry, account.id, c.updatedTime, 'TWITTER');
+        })
+        .slice(0, INBOX_TWITTER_BACKGROUND_MAX);
       if (twitterConversations.length === 0) return;
 
-      // Sequential (not parallel) to avoid hammering X API and avoid concurrent React state updates.
       for (const conv of twitterConversations) {
         if (cancelled) return;
         const account = conv.messageAccountId
@@ -2047,6 +2089,7 @@ function InboxPage() {
         if (!account) continue;
         try {
           const res = await api.get(`/social/accounts/${account.id}/conversations/${conv.id}/messages`, { timeout: 60_000 });
+          if (res.status === 429 || res.data?.error === 'throttled') continue;
           if (cancelled) return;
           const messages = res.data?.messages ?? [];
           const recipientFromConv = conv.senders?.[0]?.id ?? null;
@@ -2069,7 +2112,7 @@ function InboxPage() {
 
     const interval = setInterval(() => {
       void refreshTwitterThreadCache();
-    }, 10 * 60_000); // 10 min — was 5 min, reduced to halve background memory pressure
+    }, INBOX_TWITTER_BACKGROUND_REFRESH_MS);
 
     return () => {
       cancelled = true;
