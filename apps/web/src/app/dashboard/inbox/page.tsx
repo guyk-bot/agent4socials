@@ -797,7 +797,7 @@ function InboxPage() {
   const conversationsLoadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const conversationsLoadedRef = useRef(false);
   const commentsEverLoadedRef = useRef(false);
-  const inboxFullEnrichStartedRef = useRef(false);
+  const commentsStableRef = useRef<PostComment[]>([]);
   // Stable ref so effects that call appData setters don't list appData as a dep
   // (which would cause infinite re-run loops whenever context state updates).
   const appDataRef = useRef(appData);
@@ -1868,14 +1868,13 @@ function InboxPage() {
       .catch(() => setNotifications({ comments: 0, messages: 0 }));
   }, [selectedPlatform, inboxMode, appData]);
 
-  // One-shot: refresh Instagram/Facebook sender names from Meta when Inbox opens.
+  // Refresh Instagram/Facebook names and comments from Meta when Inbox opens (once per visit).
   useEffect(() => {
-    if (pathname !== '/dashboard/inbox' || !user?.id || inboxFullEnrichStartedRef.current) return;
+    if (pathname !== '/dashboard/inbox' || !user?.id) return;
     const metaAccounts = effectiveAccounts.filter(
       (a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK'
     );
     if (metaAccounts.length === 0) return;
-    inboxFullEnrichStartedRef.current = true;
     void (async () => {
       for (const acc of metaAccounts) {
         try {
@@ -1971,7 +1970,6 @@ function InboxPage() {
     user?.id,
     connectedPlatforms.map((p) => p.id).join(','),
     appData?.conversationsByAccountId,
-    appData?.inboxSystemSyncTick,
   ]);
 
   // Messages mode: YouTube/TikTok have no DM strip; switch to a message-capable platform.
@@ -2006,10 +2004,24 @@ function InboxPage() {
     [connectedPlatforms.map((p) => p.id).join(',')]
   );
 
+  const commentCacheSnapshot = useMemo(() => {
+    const parts: string[] = [];
+    for (const platform of commentCachePlatforms) {
+      const account = effectiveAccounts.find((a) => a.platform === platform);
+      if (!account) continue;
+      const list = appData?.getComments(account.id) ?? [];
+      parts.push(
+        `${account.id}:${list.map((c) => `${c.commentId}:${c.authorName ?? ''}:${c.authorPictureUrl ? '1' : '0'}`).join(',')}`
+      );
+    }
+    return parts.join('|');
+  }, [commentCachePlatforms.join(','), effectiveAccounts.map((a) => a.id).join(','), appData?.commentsByAccountId]);
+
   const visibleComments = useMemo(() => {
-    if (selectedPlatforms.length === 0) return comments;
-    return comments.filter((c) => !c.platform || selectedPlatforms.includes(c.platform));
-  }, [comments, selectedPlatforms.join(',')]);
+    const base = commentsStableRef.current.length > 0 ? commentsStableRef.current : comments;
+    if (selectedPlatforms.length === 0) return base;
+    return base.filter((c) => !c.platform || selectedPlatforms.includes(c.platform));
+  }, [comments, selectedPlatforms.join(','), commentCacheSnapshot]);
 
   const visibleConversations = useMemo(() => {
     if (selectedPlatforms.length === 0) return conversations;
@@ -2019,34 +2031,14 @@ function InboxPage() {
   }, [conversations, selectedPlatforms.join(',')]);
 
   useEffect(() => {
-    if (comments.length > 0) return;
-    const merged: PostComment[] = [];
-    for (const acc of effectiveAccounts) {
-      if (!COMMENT_STRIP_PLATFORM_IDS.has(acc.platform)) continue;
-      const cached = appData?.getComments(acc.id);
-      if (!cached?.length) continue;
-      merged.push(
-        ...cached.map((c) => ({ ...c, accountId: (c as PostComment).accountId ?? acc.id }) as PostComment)
-      );
-    }
-    if (merged.length > 0) {
-      setComments(merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-    }
-  }, [comments.length, effectiveAccounts, appData]);
-
-  useEffect(() => {
     if (selectedPlatform && COMMENT_STRIP_PLATFORM_IDS.has(selectedPlatform)) return;
     const next = commentsSupportedPlatforms[0] ?? null;
     if (next) setSelectedPlatform(next);
   }, [inboxMode, selectedPlatform, commentsSupportedPlatforms.join(',')]);
 
-  // Comments: read AppData cache only (background sync every 2 min).
+  // Comments: hydrate from AppData/DB cache; never clear after first load.
   useEffect(() => {
     if (commentCachePlatforms.length === 0) {
-      if (comments.length === 0) {
-        setComments([]);
-        setCommentsLoading(false);
-      }
       setCommentsError(null);
       return;
     }
@@ -2064,28 +2056,27 @@ function InboxPage() {
     }
 
     const sorted = merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    setComments((prev) => {
-      const stable = mergeStableKeyedList(prev, sorted, (c) => c.commentId, (old, row) => ({
+    const stable = mergeStableKeyedList(
+      commentsStableRef.current,
+      sorted,
+      (c) => c.commentId,
+      (old, row) => ({
         ...old,
         ...row,
-        authorPictureUrl: row.authorPictureUrl ?? old?.authorPictureUrl,
-        authorName: (row.authorName?.trim() ? row.authorName : old?.authorName) ?? '',
-      }));
-      return stable;
-    });
-    if (sorted.length > 0) commentsEverLoadedRef.current = true;
-    setCommentsLoading(sorted.length === 0 && !commentsEverLoadedRef.current);
+        authorPictureUrl: row.authorPictureUrl ?? old?.authorPictureUrl ?? null,
+        authorName: row.authorName?.trim() ? row.authorName : old?.authorName ?? row.authorName,
+      })
+    );
+    commentsStableRef.current = stable;
+    setComments(stable);
+    if (stable.length > 0) commentsEverLoadedRef.current = true;
+    setCommentsLoading(false);
     setCommentsError(
-      sorted.length === 0 && !commentsEverLoadedRef.current
+      stable.length === 0 && !commentsEverLoadedRef.current
         ? 'Comments sync automatically every 2 minutes. They will appear after the next sync.'
         : null
     );
-  }, [
-    commentCachePlatforms.join(','),
-    effectiveAccounts.map((a) => a.id).join(','),
-    appData?.commentsByAccountId,
-    appData?.inboxSystemSyncTick,
-  ]);
+  }, [commentCachePlatforms.join(','), effectiveAccounts.map((a) => a.id).join(','), commentCacheSnapshot]);
 
   // Track unread comment ids. When we first load comments for an account, mark them all as read so we only highlight new notifications after connection.
   useEffect(() => {

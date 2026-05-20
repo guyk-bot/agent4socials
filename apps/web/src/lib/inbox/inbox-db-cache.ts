@@ -190,6 +190,103 @@ export async function deleteInboxMessagesFromDb(
   }
 }
 
+/** Cached inbox comment rows (mirrors AppData CachedComment). */
+export type InboxCommentRow = {
+  commentId: string;
+  accountId: string;
+  platform: string;
+  authorName: string;
+  authorPictureUrl?: string | null;
+  text: string;
+  createdAt: string;
+  isFromMe?: boolean;
+  parentCommentId?: string | null;
+  postTargetId?: string;
+  platformPostId?: string;
+  postPreview?: string;
+  postImageUrl?: string | null;
+  postPublishedAt?: string | null;
+  postUrl?: string | null;
+};
+
+export function inboxCommentsKey(socialAccountId: string): string {
+  return `inbox_comments_v1:${socialAccountId}`;
+}
+
+/** 30 days — refreshed on successful live fetch. */
+export const INBOX_COMMENTS_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+export async function getInboxCommentsFromDb(
+  socialAccountId: string
+): Promise<InboxCommentRow[] | null> {
+  try {
+    await ensureAppKvTable();
+    const rows = await prisma.$queryRaw<Array<{ value: string; expiresAt: Date | null }>>`
+      SELECT value, "expiresAt"
+      FROM app_kv
+      WHERE key = ${inboxCommentsKey(socialAccountId)}
+      LIMIT 1
+    `;
+    const row = rows[0];
+    if (!row) return null;
+    if (row.expiresAt && row.expiresAt < new Date()) return null;
+    const parsed = JSON.parse(row.value) as InboxCommentRow[];
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function mergeCommentRows(existing: InboxCommentRow[], incoming: InboxCommentRow[]): InboxCommentRow[] {
+  if (incoming.length === 0) return existing;
+  const byId = new Map<string, InboxCommentRow>();
+  for (const row of existing) byId.set(row.commentId, row);
+  for (const row of incoming) {
+    const prev = byId.get(row.commentId);
+    byId.set(row.commentId, {
+      ...prev,
+      ...row,
+      authorPictureUrl: row.authorPictureUrl ?? prev?.authorPictureUrl ?? null,
+      authorName: row.authorName?.trim() ? row.authorName : prev?.authorName ?? row.authorName,
+    });
+  }
+  return [...byId.values()].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+}
+
+export async function mergeInboxCommentsInDb(
+  socialAccountId: string,
+  incoming: InboxCommentRow[]
+): Promise<InboxCommentRow[]> {
+  if (incoming.length === 0) {
+    return (await getInboxCommentsFromDb(socialAccountId)) ?? [];
+  }
+  const existing = (await getInboxCommentsFromDb(socialAccountId)) ?? [];
+  const merged = mergeCommentRows(existing, incoming);
+  await setInboxCommentsInDb(socialAccountId, merged);
+  return merged;
+}
+
+export async function setInboxCommentsInDb(
+  socialAccountId: string,
+  comments: InboxCommentRow[]
+): Promise<void> {
+  if (comments.length === 0) return;
+  try {
+    await ensureAppKvTable();
+    const key = inboxCommentsKey(socialAccountId);
+    const expiresAt = new Date(Date.now() + INBOX_COMMENTS_TTL_MS);
+    const value = JSON.stringify(comments);
+    await prisma.$executeRaw`
+      INSERT INTO app_kv (key, value, "expiresAt", "updatedAt")
+      VALUES (${key}, ${value}, ${expiresAt}, now())
+      ON CONFLICT (key) DO UPDATE
+        SET value = ${value}, "expiresAt" = ${expiresAt}, "updatedAt" = now()
+    `;
+  } catch {
+    /* non-critical */
+  }
+}
+
 export async function isInboxMessagesCached(
   socialAccountId: string,
   conversationId: string

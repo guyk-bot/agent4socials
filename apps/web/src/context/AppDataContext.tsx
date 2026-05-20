@@ -14,6 +14,7 @@ import {
 } from '@/lib/inbox/unread-count';
 import { INBOX_READ_STATE_CHANGED_EVENT } from '@/lib/inbox-read-state';
 import { INBOX_SYSTEM_SYNC_MS } from '@/lib/inbox/inbox-sync-config';
+import { mergeStableKeyedList } from '@/lib/inbox/merge-inbox-lists';
 import {
   mergeConversationLists,
   pollInboxNotifications,
@@ -351,7 +352,18 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
               setCommentsByAccountId((prev) => {
                 const existing = prev[accountId] ?? [];
                 if (list.length === 0 && existing.length > 0) return prev;
-                return { ...prev, [accountId]: list };
+                const merged = mergeStableKeyedList(
+                  existing,
+                  list,
+                  (c) => c.commentId,
+                  (old, row) => ({
+                    ...old,
+                    ...row,
+                    authorPictureUrl: row.authorPictureUrl ?? old?.authorPictureUrl ?? null,
+                    authorName: row.authorName?.trim() ? row.authorName : old?.authorName ?? row.authorName,
+                  })
+                );
+                return { ...prev, [accountId]: merged };
               });
             }
           },
@@ -434,11 +446,32 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setCommentsForAccount = useCallback((accountId: string, comments: CachedComment[]) => {
-    setCommentsByAccountId((prev) => ({ ...prev, [accountId]: comments }));
+    setCommentsByAccountId((prev) => {
+      const existing = prev[accountId] ?? [];
+      if (comments.length === 0 && existing.length > 0) return prev;
+      const merged = mergeStableKeyedList(
+        existing,
+        comments,
+        (c) => c.commentId,
+        (old, row) => ({
+          ...old,
+          ...row,
+          authorPictureUrl: row.authorPictureUrl ?? old?.authorPictureUrl ?? null,
+          authorName: row.authorName?.trim() ? row.authorName : old?.authorName ?? row.authorName,
+        })
+      );
+      return { ...prev, [accountId]: merged };
+    });
   }, []);
 
   const setConversationsForAccount = useCallback((accountId: string, conversations: CachedConversation[]) => {
-    setConversationsByAccountId((prev) => ({ ...prev, [accountId]: conversations }));
+    setConversationsByAccountId((prev) => {
+      const existing = prev[accountId] ?? [];
+      if (conversations.length === 0 && existing.length > 0) return prev;
+      const merged =
+        existing.length > 0 ? mergeConversationLists(existing, conversations) : conversations;
+      return { ...prev, [accountId]: merged };
+    });
   }, []);
 
   const setScheduledPosts = useCallback((posts: CachedScheduledPost[]) => {

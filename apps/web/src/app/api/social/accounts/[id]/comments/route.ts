@@ -15,7 +15,12 @@ import {
   shouldSkipMetaProfileEnrichment,
 } from '@/lib/meta-usage-guard';
 import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
-import { readInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
+import { readInboxProfileCache, writeInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
+import {
+  getInboxCommentsFromDb,
+  mergeInboxCommentsInDb,
+  type InboxCommentRow,
+} from '@/lib/inbox/inbox-db-cache';
 import { fetchAllPublishedPostsForPage, sortFbPublishedPostsNewestFirst } from '@/lib/facebook/fetchers';
 
 /**
@@ -79,6 +84,7 @@ export async function GET(
   const { id } = await params;
   const { searchParams } = new URL(request.url);
   const deltaMode = searchParams.get('delta') === '1' || searchParams.get('delta') === 'true';
+  const cacheOnly = searchParams.get('cacheOnly') === '1' || searchParams.get('cacheOnly') === 'true';
   const refreshRequested = searchParams.get('refresh') === '1' || searchParams.get('refresh') === 'true';
   const refresh = refreshRequested && !shouldSkipMetaProfileEnrichment();
   const sinceParam = searchParams.get('since');
@@ -114,6 +120,14 @@ export async function GET(
     return NextResponse.json({ comments: [], error: 'Account not found' }, { status: 404 });
   }
 
+  if (cacheOnly) {
+    const stored = await getInboxCommentsFromDb(id);
+    return NextResponse.json({
+      comments: stored ?? [],
+      fromCache: true,
+    });
+  }
+
   const platform = account.platform;
   const metaThrottle =
     (platform === 'INSTAGRAM' || platform === 'FACEBOOK') &&
@@ -121,6 +135,18 @@ export async function GET(
       shouldSkipMetaProfileEnrichment() ||
       shouldBlockMetaNonEssentialCalls());
   if (metaThrottle) {
+    const stored = await getInboxCommentsFromDb(id);
+    if (stored && stored.length > 0) {
+      const res = NextResponse.json({
+        comments: stored,
+        metaThrottled: true,
+        stale: true,
+        fromCache: true,
+        hint: 'Showing saved comments while Meta usage is high. Live sync resumes automatically.',
+      });
+      res.headers.set('X-Comments-Cache', 'STALE-DB');
+      return res;
+    }
     const stale = getCached<{ comments?: unknown[] }>(cacheKey);
     if (stale && Array.isArray(stale.comments) && stale.comments.length > 0) {
       const res = NextResponse.json({
@@ -603,9 +629,6 @@ export async function GET(
             );
             for (const c of list) {
               const from = c.from;
-              const authorName = (platform === 'INSTAGRAM' ? from?.username : from?.name) ?? 'Unknown';
-              const authorPictureUrl = (from as { picture?: { data?: { url?: string } } })?.picture?.data?.url ?? null;
-              const text = (platform === 'INSTAGRAM' ? c.text : c.message) ?? '';
               const fromId = (from as { id?: string })?.id;
               const isFromMe = Boolean(
                 fromId &&
@@ -615,6 +638,33 @@ export async function GET(
                       credExtra.facebookUserId !== '' &&
                       fromId === credExtra.facebookUserId))
               );
+              let authorName = (platform === 'INSTAGRAM' ? from?.username : from?.name) ?? 'Unknown';
+              let authorPictureUrl =
+                (from as { picture?: { data?: { url?: string } } })?.picture?.data?.url ?? null;
+              if (!isFromMe && fromId) {
+                const profilePlatform = platform === 'INSTAGRAM' ? 'instagram' : 'facebook';
+                const cached = await readInboxProfileCache(profilePlatform, fromId);
+                if (cached?.username) {
+                  authorName = cached.username.startsWith('@') ? cached.username : `@${cached.username}`;
+                } else if (cached?.name) {
+                  authorName = cached.name;
+                }
+                authorPictureUrl = authorPictureUrl ?? cached?.pictureUrl ?? null;
+                if (cached?.name || cached?.username || cached?.pictureUrl) {
+                  void writeInboxProfileCache(profilePlatform, fromId, {
+                    name: cached?.name ?? (platform === 'FACEBOOK' ? from?.name : undefined),
+                    username: cached?.username ?? from?.username,
+                    pictureUrl: authorPictureUrl,
+                  });
+                } else if (authorName !== 'Unknown' || authorPictureUrl) {
+                  void writeInboxProfileCache(profilePlatform, fromId, {
+                    name: platform === 'FACEBOOK' ? from?.name : undefined,
+                    username: from?.username,
+                    pictureUrl: authorPictureUrl,
+                  });
+                }
+              }
+              const text = (platform === 'INSTAGRAM' ? c.text : c.message) ?? '';
               comments.push({
                 commentId: c.id, postTargetId, platformPostId, accountId, postPreview, postImageUrl,
                 postPublishedAt: postPublishedAtResolved ?? null, postUrl,
@@ -854,10 +904,18 @@ export async function GET(
     }
   }
 
-  const payload = { comments: filteredComments, ...(error ? { error } : {}) };
+  let responseComments = filteredComments as InboxCommentRow[];
+  if (!error && responseComments.length > 0) {
+    responseComments = await mergeInboxCommentsInDb(id, responseComments);
+  } else if (!error) {
+    const stored = await getInboxCommentsFromDb(id);
+    if (stored && stored.length > 0) responseComments = stored;
+  }
+
+  const payload = { comments: responseComments, ...(error ? { error } : {}) };
   // Only cache successful responses (no upstream token/permission errors) — we never want to
   // lock in a "permission denied" blip into a 3-minute cache.
-  if (!deltaMode && !error) setCached(cacheKey, payload, COMMENTS_CACHE_TTL_MS);
+  if (!error && responseComments.length > 0) setCached(cacheKey, payload, COMMENTS_CACHE_TTL_MS);
 
   const res = NextResponse.json(payload);
   // 5-min private cache lets the browser reuse the last response without another Lambda roundtrip.
