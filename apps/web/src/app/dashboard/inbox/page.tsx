@@ -41,6 +41,7 @@ import {
   getReadEngagementIds,
   getConversationLastReadCounts,
   setConversationLastReadCount,
+  setConversationLastSeenUpdated,
   markCommentsAsRead,
   markConversationsAsRead,
   markEngagementAsRead,
@@ -1265,6 +1266,10 @@ function InboxPage() {
           setConversationRecipientId(recipientId);
           setConversationMessagesError(displayMessages.length > 0 ? null : error);
           markConversationsAsRead([convId], user?.id);
+          const convUpdated =
+            conversationsRef.current.find((c) => c.id === convId)?.updatedTime ??
+            convForRecipient?.updatedTime;
+          if (convUpdated) setConversationLastSeenUpdated(convId, convUpdated, user?.id);
           setUnreadConversationIds((prev) => {
             const next = new Set(prev);
             next.delete(convId);

@@ -7,6 +7,8 @@ const KEY_COMMENTS = 'agent4socials_read_comments';
 const KEY_CONVERSATIONS = 'agent4socials_read_conversations';
 const KEY_ENGAGEMENT = 'agent4socials_read_engagement';
 const KEY_CONVERSATION_LAST_READ = 'agent4socials_conversation_last_read';
+/** Last seen thread updated_time (detect new messages in already-read threads). */
+const KEY_CONVERSATION_LAST_SEEN_UPDATED = 'agent4socials_conversation_last_seen_updated';
 const MAX_STORED = 2000; // cap to avoid localStorage bloat
 
 function getKey(base: string, userId?: string | null): string {
@@ -91,6 +93,35 @@ export function getConversationLastReadCounts(userId?: string | null): Record<st
     return obj as Record<string, number>;
   } catch {
     return {};
+  }
+}
+
+export function getConversationLastSeenUpdated(userId?: string | null): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const key = getKey(KEY_CONVERSATION_LAST_SEEN_UPDATED, userId);
+    const raw = localStorage.getItem(key);
+    if (!raw) return {};
+    const obj = JSON.parse(raw) as unknown;
+    if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) return {};
+    return obj as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+export function setConversationLastSeenUpdated(
+  conversationId: string,
+  updatedTime: string,
+  userId?: string | null
+): void {
+  if (typeof window === 'undefined' || !conversationId || !updatedTime) return;
+  try {
+    const key = getKey(KEY_CONVERSATION_LAST_SEEN_UPDATED, userId);
+    const prev = getConversationLastSeenUpdated(userId);
+    localStorage.setItem(key, JSON.stringify({ ...prev, [conversationId]: updatedTime }));
+  } catch {
+    /* ignore */
   }
 }
 

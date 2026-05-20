@@ -1,5 +1,6 @@
 import {
   getConversationLastReadCounts,
+  getConversationLastSeenUpdated,
   getInboxInitializedAccountIdsForConversations,
   getReadCommentIds,
   getReadConversationIds,
@@ -19,6 +20,7 @@ export function computeInboxHeaderUnread(
 ): { inbox: number; messages: number; comments: number } {
   const readConversations = getReadConversationIds(userId);
   const lastRead = getConversationLastReadCounts(userId);
+  const lastSeenUpdated = getConversationLastSeenUpdated(userId);
   const initializedConvAccounts = getInboxInitializedAccountIdsForConversations(userId);
   const readComments = getReadCommentIds(userId);
 
@@ -27,22 +29,39 @@ export function computeInboxHeaderUnread(
   // last-read count stored in localStorage.
   const hasMessageCount = conversations.some((c) => typeof c.messageCount === 'number');
   let messages = 0;
-  if (hasMessageCount) {
-    for (const c of conversations) {
-      const count = c.messageCount ?? 0;
+  for (const c of conversations) {
+    const seenAt = lastSeenUpdated[c.id];
+    if (c.updatedTime && seenAt && c.updatedTime.localeCompare(seenAt) > 0) {
+      messages += 1;
+      continue;
+    }
+
+    if (hasMessageCount) {
+      const count = c.messageCount;
       const read = lastRead[c.id];
       if (read === undefined) {
         const accId = c.messageAccountId;
-        // If account has been initialized but this conversation has no lastRead, treat as unread.
-        if (accId && initializedConvAccounts.has(accId) && count > 0) {
-          messages += 1;
-          continue;
+        if (accId && initializedConvAccounts.has(accId)) {
+          if (typeof count === 'number' && count > 0) {
+            messages += 1;
+            continue;
+          }
+          if (!readConversations.has(c.id)) {
+            messages += 1;
+            continue;
+          }
         }
       }
-      if (count > (read ?? 0)) messages += 1;
+      if (typeof count === 'number' && count > (read ?? 0)) {
+        messages += 1;
+        continue;
+      }
+      if (!readConversations.has(c.id)) {
+        messages += 1;
+      }
+    } else if (!readConversations.has(c.id)) {
+      messages += 1;
     }
-  } else {
-    messages = conversations.filter((c) => !readConversations.has(c.id)).length;
   }
 
   const comments = commentIds.filter((id) => !readComments.has(id)).length;

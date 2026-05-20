@@ -13,25 +13,64 @@ import {
   markCommentsAsRead,
   markConversationsAsRead,
   setConversationLastReadCount,
+  setConversationLastSeenUpdated,
   unmarkConversationAsRead,
 } from '@/lib/inbox-read-state';
 
-/** Poll every 90s so new items show within ~2 minutes without opening Inbox. */
-export const INBOX_NOTIFICATION_POLL_MS = 90_000;
+/** Poll every 60s so new items show within ~2 minutes without opening Inbox. */
+export const INBOX_NOTIFICATION_POLL_MS = 60_000;
 
 const MESSAGE_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
 const COMMENT_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
 
+const COMMENTS_SINCE_KEY = (userId: string) => `agent4socials_badge_poll_comments_since_${userId}`;
+
 type AccountLite = { id: string; platform: string };
 
-function newestIso(
-  items: Array<{ updatedTime?: string | null } | { createdAt?: string }>,
-  field: 'updatedTime' | 'createdAt'
-): string | undefined {
-  return items
-    .map((i) => (field === 'updatedTime' ? (i as { updatedTime?: string | null }).updatedTime : (i as { createdAt?: string }).createdAt))
+function commentSinceForPoll(userId: string, existing: CachedComment[]): string | undefined {
+  if (typeof sessionStorage !== 'undefined') {
+    try {
+      const stored = sessionStorage.getItem(COMMENTS_SINCE_KEY(userId));
+      if (stored) return stored;
+    } catch {
+      /* ignore */
+    }
+  }
+  const newest = existing
+    .map((c) => c.createdAt)
     .filter((v): v is string => typeof v === 'string' && v.length > 0)
     .sort((a, b) => b.localeCompare(a))[0];
+  return newest;
+}
+
+function markConversationActivity(
+  conversationId: string,
+  prev: CachedConversation | undefined,
+  next: CachedConversation,
+  userId: string,
+  accountId: string
+): void {
+  if (!prev) {
+    if (getInboxInitializedAccountIdsForConversations(userId).has(accountId)) {
+      unmarkConversationAsRead(conversationId, userId);
+    }
+    return;
+  }
+  if (
+    prev.updatedTime &&
+    next.updatedTime &&
+    next.updatedTime.localeCompare(prev.updatedTime) > 0
+  ) {
+    unmarkConversationAsRead(conversationId, userId);
+    const count = next.messageCount ?? prev.messageCount;
+    if (typeof count === 'number' && count > 0) {
+      const lastRead = getConversationLastReadCounts(userId)[conversationId] ?? count;
+      setConversationLastReadCount(conversationId, Math.min(lastRead, count - 1), userId);
+    }
+    if (prev.updatedTime) {
+      setConversationLastSeenUpdated(conversationId, prev.updatedTime, userId);
+    }
+  }
 }
 
 function mergeConversations(
@@ -45,18 +84,7 @@ function mergeConversations(
 
   for (const c of incoming) {
     const prev = byId.get(c.id);
-    if (
-      prev?.updatedTime &&
-      c.updatedTime &&
-      c.updatedTime.localeCompare(prev.updatedTime) > 0
-    ) {
-      unmarkConversationAsRead(c.id, userId);
-      const count = c.messageCount ?? prev.messageCount;
-      if (typeof count === 'number' && count > 0) {
-        const lastRead = getConversationLastReadCounts(userId)[c.id] ?? count;
-        setConversationLastReadCount(c.id, Math.min(lastRead, count - 1), userId);
-      }
-    }
+    markConversationActivity(c.id, prev, c, userId, accountId);
     byId.set(c.id, {
       ...prev,
       ...c,
@@ -75,7 +103,10 @@ function mergeConversations(
   if (!initialized.has(accountId) && merged.length > 0) {
     markConversationsAsRead(merged.map((c) => c.id), userId);
     merged.forEach((c) => {
-      if (typeof c.messageCount === 'number') setConversationLastReadCount(c.id, c.messageCount, userId);
+      if (typeof c.messageCount === 'number') {
+        setConversationLastReadCount(c.id, c.messageCount, userId);
+      }
+      if (c.updatedTime) setConversationLastSeenUpdated(c.id, c.updatedTime, userId);
     });
     addInboxInitializedAccountForConversations(accountId, userId);
   }
@@ -115,53 +146,60 @@ export async function pollInboxNotifications(args: {
 }): Promise<void> {
   const { accounts, userId, getConversations, getComments, onConversations, onComments } = args;
 
+  const commentSinceStart = commentSinceForPoll(userId, accounts.flatMap((a) => getComments(a.id) ?? []));
+
   for (const acc of accounts) {
     if (MESSAGE_PLATFORMS.has(acc.platform)) {
       try {
         const existing = getConversations(acc.id) ?? [];
-        const since = newestIso(existing, 'updatedTime');
-        const params = new URLSearchParams({ badgePoll: '1' });
-        if (since && existing.length > 0) {
-          params.set('delta', '1');
-          params.set('since', since);
-        }
+        // Always full list for badge poll. Delta with global "since" misses new messages in older threads.
         const res = await api.get<{ conversations?: CachedConversation[]; error?: string }>(
-          `/social/accounts/${acc.id}/conversations?${params.toString()}`,
-          { timeout: 60_000 }
+          `/social/accounts/${acc.id}/conversations?badgePoll=1`,
+          { timeout: 90_000 }
         );
         if (res.data?.error) continue;
         const incoming = res.data?.conversations ?? [];
-        if (incoming.length === 0) continue;
+        if (incoming.length === 0 && existing.length === 0) continue;
         onConversations(acc.id, mergeConversations(existing, incoming, userId, acc.id));
       } catch {
         /* skip account */
       }
-      await new Promise((r) => setTimeout(r, 400));
+      await new Promise((r) => setTimeout(r, 350));
     }
 
     if (COMMENT_PLATFORMS.has(acc.platform)) {
       try {
         const existing = getComments(acc.id) ?? [];
-        const since = newestIso(existing, 'createdAt');
         const params = new URLSearchParams();
-        if (since && existing.length > 0) {
+        if (commentSinceStart && (existing.length > 0 || commentSinceStart)) {
           params.set('delta', '1');
-          params.set('since', since);
+          params.set('since', commentSinceStart);
         }
         const qs = params.toString();
         const res = await api.get<{ comments?: CachedComment[]; error?: string }>(
           `/social/accounts/${acc.id}/comments${qs ? `?${qs}` : ''}`,
-          { timeout: 60_000 }
+          { timeout: 90_000 }
         );
         if (res.data?.error) continue;
         const incoming = res.data?.comments ?? [];
-        if (incoming.length === 0 && since) continue;
-        const merged = mergeComments(existing, incoming, userId, acc.id);
-        onComments(acc.id, merged);
+        if (incoming.length === 0 && existing.length > 0 && commentSinceStart) continue;
+        const merged = incoming.length > 0 ? mergeComments(existing, incoming, userId, acc.id) : existing;
+        if (incoming.length > 0 || existing.length === 0) {
+          onComments(acc.id, merged);
+        }
       } catch {
         /* skip account */
       }
-      await new Promise((r) => setTimeout(r, 400));
+      await new Promise((r) => setTimeout(r, 350));
+    }
+  }
+
+  if (typeof sessionStorage !== 'undefined') {
+    try {
+      const overlap = new Date(Date.now() - 3 * 60_000).toISOString();
+      sessionStorage.setItem(COMMENTS_SINCE_KEY(userId), overlap);
+    } catch {
+      /* ignore */
     }
   }
 }

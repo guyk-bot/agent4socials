@@ -283,11 +283,16 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
     const initialDelay = setTimeout(() => {
       void runPoll();
-    }, 6_000);
+    }, 3_000);
 
     intervalId = setInterval(() => {
       void runPoll();
     }, INBOX_NOTIFICATION_POLL_MS);
+
+    // Run again once startup cache has conversation rows (cacheOnly prefetch).
+    const afterPrefetch = setTimeout(() => {
+      void runPoll();
+    }, 12_000);
 
     const onVisible = () => {
       if (document.visibilityState === 'visible') void runPoll();
@@ -297,6 +302,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
       clearTimeout(initialDelay);
+      clearTimeout(afterPrefetch);
       if (intervalId) clearInterval(intervalId);
       document.removeEventListener('visibilitychange', onVisible);
     };
