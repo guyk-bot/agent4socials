@@ -37,7 +37,8 @@ const MAX_LENGTH = {
 
 export default function AIAssistantPage() {
   const [form, setForm] = useState<BrandContextPayload>(defaultForm);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
 
@@ -49,6 +50,7 @@ export default function AIAssistantPage() {
       .get('/ai/brand-context', { signal: ctrl.signal })
       .then((res) => {
         if (cancelled) return;
+        setLoadFailed(false);
         const data = res.data;
         if (data && typeof data === 'object') {
           setForm({
@@ -65,13 +67,15 @@ export default function AIAssistantPage() {
       .catch((err: { response?: { status?: number }; code?: string; name?: string }) => {
         if (cancelled) return;
         if (err.code === 'ERR_CANCELED' || err.name === 'CanceledError') {
-          setMessage({ type: 'warning', text: 'Loading took too long. You can fill the form and save; try refreshing if data looks wrong.' });
+          setLoadFailed(true);
+          setMessage({ type: 'warning', text: 'Loading took too long. Refresh the page before saving so you do not overwrite saved context.' });
           return;
         }
+        setLoadFailed(true);
         if (err.response?.status === 401) {
           setMessage({ type: 'error', text: 'Please log in again to load your saved context.' });
         } else {
-          setMessage({ type: 'warning', text: 'Couldn\'t load your saved context. You can still fill the form and save.' });
+          setMessage({ type: 'warning', text: 'Could not load your saved context. Refresh the page before saving. Saving now may clear fields that did not load.' });
         }
       })
       .finally(() => {
@@ -96,6 +100,14 @@ export default function AIAssistantPage() {
   });
 
   const handleSave = () => {
+    if (loading) {
+      setMessage({ type: 'warning', text: 'Still loading your saved context. Wait a moment, then save again.' });
+      return;
+    }
+    if (loadFailed) {
+      setMessage({ type: 'warning', text: 'Your saved context did not load. Refresh the page first so you do not overwrite existing data.' });
+      return;
+    }
     setSaving(true);
     setMessage(null);
     let willRetry = false;
@@ -267,12 +279,13 @@ export default function AIAssistantPage() {
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || loading}
             className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-white bg-[var(--button)] hover:bg-[var(--button-hover)] disabled:opacity-50"
           >
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
             Save brand context
           </button>
+          {loading && <span className="ml-3 text-xs text-gray-500">Loading saved context…</span>}
         </div>
       </div>
 
@@ -313,7 +326,7 @@ export default function AIAssistantPage() {
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || loading}
             className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-white bg-[var(--button)] hover:bg-[var(--button-hover)] disabled:opacity-50"
           >
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
@@ -359,7 +372,7 @@ export default function AIAssistantPage() {
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || loading}
             className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-white bg-[var(--button)] hover:bg-[var(--button-hover)] disabled:opacity-50"
           >
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}

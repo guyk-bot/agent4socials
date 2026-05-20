@@ -41,6 +41,7 @@ import {
     isTenMinuteLocalScheduleString,
     isoInstantToLocalTenMinuteSnappedUp,
 } from '@/lib/schedule-ten-minute';
+import { hasComposerBrandContext } from '@/lib/brand-context-utils';
 
 const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
 
@@ -1067,16 +1068,29 @@ export default function ComposerPage() {
         } catch (_) { /* ignore */ }
     }, []);
 
-    const openAiModal = useCallback(() => {
+    const openAiModal = useCallback(async () => {
         setAiError(null);
+        try {
+            const res = await api.get('/ai/brand-context');
+            const ok = hasComposerBrandContext(res.data);
+            setHasBrandContext(ok);
+            if (!ok) {
+                setAlertMessage(
+                    'Set up your brand context in Dashboard → AI Assistant first (target audience, tone of voice, or product description). Then you can use Generate with AI.'
+                );
+                return;
+            }
+        } catch {
+            setHasBrandContext(false);
+            setAlertMessage(
+                'Could not load AI Assistant settings. Open Dashboard → AI Assistant, save your brand context, then try again.'
+            );
+            return;
+        }
         setAiTopic('');
         setAiPrompt('');
         setAiPlatform(platforms[0] || '');
         setAiModalOpen(true);
-        api.get('/ai/brand-context').then((res) => {
-            const data = res.data;
-            setHasBrandContext(!!(data && typeof data === 'object' && (data.targetAudience ?? data.toneOfVoice ?? data.productDescription)));
-        }).catch(() => setHasBrandContext(false));
     }, [platforms]);
 
     const clampTwitterAiText = useCallback((text: string): string => {
@@ -1088,6 +1102,10 @@ export default function ComposerPage() {
     }, []);
 
     const handleAiGenerate = useCallback(() => {
+        if (hasBrandContext === false) {
+            setAiError('Set up your brand context in Dashboard → AI Assistant first.');
+            return;
+        }
         if (!aiTopic.trim()) {
             setAiError('Describe what this post is about.');
             return;
@@ -1214,7 +1232,7 @@ export default function ComposerPage() {
                 setAiError(msg);
             }).finally(() => setAiLoading(false));
         }
-    }, [aiTopic, aiPrompt, aiPlatform, aiIncludeCtaAndAutomation, aiCtaAutomationPrompt, differentContentPerPlatform, platforms, clampTwitterAiText]);
+    }, [aiTopic, aiPrompt, aiPlatform, aiIncludeCtaAndAutomation, aiCtaAutomationPrompt, differentContentPerPlatform, platforms, clampTwitterAiText, hasBrandContext]);
 
     // Persist composer draft when state changes (debounced; shorter delay when only media changed so carousel keeps all images after upload)
     const mediaSignature = mediaList.map((m) => m.fileUrl).join('|');
@@ -2354,9 +2372,7 @@ export default function ComposerPage() {
             .then((res) => {
                 if (cancelled) return;
                 const data = res.data;
-                setHasBrandContext(
-                    !!(data && typeof data === 'object' && (data.targetAudience ?? data.toneOfVoice ?? data.productDescription))
-                );
+                setHasBrandContext(hasComposerBrandContext(data));
             })
             .catch(() => {
                 if (!cancelled) setHasBrandContext(false);
@@ -3024,15 +3040,25 @@ export default function ComposerPage() {
                             />
                             <span className="text-sm text-neutral-700">Use different content per platform</span>
                         </label>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
                             <button
                                 type="button"
-                                onClick={openAiModal}
-                                className="inline-flex items-center gap-1.5 px-3 py-2 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 rounded-lg text-sm font-medium transition-colors"
+                                onClick={() => void openAiModal()}
+                                disabled={hasBrandContext === false}
+                                className="inline-flex items-center gap-1.5 px-3 py-2 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-neutral-100"
                             >
                                 <Sparkles size={16} className="text-[var(--button)] shrink-0" aria-hidden />
                                 Generate with AI
                             </button>
+                            {hasBrandContext === false && (
+                                <p className="text-xs text-amber-700 dark:text-amber-400">
+                                    Set up{' '}
+                                    <Link href="/dashboard/ai-assistant" className="underline font-medium">
+                                        AI Assistant
+                                    </Link>{' '}
+                                    before generating captions.
+                                </p>
+                            )}
                         </div>
                         {!differentContentPerPlatform ? (
                             <div>
@@ -3188,6 +3214,12 @@ export default function ComposerPage() {
                                                                         <button
                                                                             type="button"
                                                                             onClick={async () => {
+                                                                                if (hasBrandContext === false) {
+                                                                                    setAlertMessage(
+                                                                                        'Set up your brand context in Dashboard → AI Assistant before using Generate with AI.'
+                                                                                    );
+                                                                                    return;
+                                                                                }
                                                                                 try {
                                                                                     setDmReplyAiLoading(true);
                                                                                     const res = await api.post<{ content?: string }>('/ai/generate-description', {
@@ -3197,10 +3229,16 @@ export default function ComposerPage() {
                                                                                     });
                                                                                     const text = res.data?.content?.trim();
                                                                                     if (text) setCommentAutomationInstagramDmMessage(text);
-                                                                                } catch (_) {}
-                                                                                finally { setDmReplyAiLoading(false); }
+                                                                                } catch (err: unknown) {
+                                                                                    const msg =
+                                                                                        err &&
+                                                                                        typeof err === 'object' &&
+                                                                                        'response' in err &&
+                                                                                        (err as { response?: { data?: { message?: string } } }).response?.data?.message;
+                                                                                    if (typeof msg === 'string' && msg.trim()) setAlertMessage(msg);
+                                                                                } finally { setDmReplyAiLoading(false); }
                                                                             }}
-                                                                            disabled={dmReplyAiLoading}
+                                                                            disabled={dmReplyAiLoading || hasBrandContext === false}
                                                                             className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--primary)]/15 text-[var(--primary)] hover:bg-[var(--primary)]/20 rounded-lg text-sm font-medium disabled:opacity-50"
                                                                         >
                                                                             {dmReplyAiLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
+import { mergeBrandContextOnSave } from '@/lib/brand-context-utils';
 
 export async function GET(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
@@ -67,7 +68,7 @@ export async function PUT(request: NextRequest) {
   } catch {
     return NextResponse.json({ message: 'Invalid JSON' }, { status: 400 });
   }
-  const data = {
+  const incoming = {
     targetAudience: truncate(body.targetAudience, MAX_LENGTH.targetAudience),
     toneOfVoice: truncate(body.toneOfVoice, MAX_LENGTH.toneOfVoice),
     toneExamples: truncate(body.toneExamples, MAX_LENGTH.toneExamples),
@@ -77,6 +78,11 @@ export async function PUT(request: NextRequest) {
     commentReplyExamples: truncate(body.commentReplyExamples, MAX_LENGTH.commentReplyExamples),
   };
   try {
+    const existing = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { brandContext: true },
+    });
+    const data = mergeBrandContextOnSave(existing?.brandContext, incoming);
     await prisma.user.update({
       where: { id: userId },
       data: { brandContext: data as object },

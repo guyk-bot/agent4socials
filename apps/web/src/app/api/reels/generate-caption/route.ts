@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { openAiChat } from '@/lib/openai-client';
+import { hasComposerBrandContext } from '@/lib/brand-context-utils';
 
 function buildSystemPrompt(brand: {
   targetAudience: string | null;
@@ -79,19 +80,20 @@ export async function POST(request: NextRequest) {
 
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { brandContext: true } });
   const ctx = user?.brandContext as Record<string, unknown> | null;
-  if (!ctx) {
+  if (!hasComposerBrandContext(ctx)) {
     return NextResponse.json(
-      { message: 'Set up your brand in Dashboard > AI Assistant to generate captions.' },
+      { message: 'Set up your brand context in Dashboard → AI Assistant to generate captions.' },
       { status: 400 }
     );
   }
 
+  const saved = ctx as Record<string, unknown>;
   const brand = {
-    targetAudience: (ctx.targetAudience as string | undefined) ?? null,
-    toneOfVoice: (ctx.toneOfVoice as string | undefined) ?? null,
-    toneExamples: (ctx.toneExamples as string | undefined) ?? null,
-    productDescription: (ctx.productDescription as string | undefined) ?? null,
-    additionalContext: (ctx.additionalContext as string | undefined) ?? null,
+    targetAudience: (saved.targetAudience as string | undefined) ?? null,
+    toneOfVoice: (saved.toneOfVoice as string | undefined) ?? null,
+    toneExamples: (saved.toneExamples as string | undefined) ?? null,
+    productDescription: (saved.productDescription as string | undefined) ?? null,
+    additionalContext: (saved.additionalContext as string | undefined) ?? null,
   };
 
   const systemPrompt = buildSystemPrompt(brand);
