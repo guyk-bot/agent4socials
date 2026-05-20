@@ -200,7 +200,7 @@ export function StoryImageCropModal({
             className="flex-1 py-2.5 rounded-xl bg-[#ff7a00] hover:bg-[#ff9220] text-white text-sm font-medium disabled:opacity-50 inline-flex items-center justify-center gap-2"
           >
             {exporting ? <Loader2 size={16} className="animate-spin" /> : null}
-            Use this crop
+            {exporting ? 'Saving…' : 'Save'}
           </button>
         </div>
       </div>

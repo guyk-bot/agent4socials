@@ -619,6 +619,15 @@ export default function ComposerPage() {
     const [storyCropFile, setStoryCropFile] = useState<File | null>(null);
     const [storyCropPlatform, setStoryCropPlatform] = useState<string | null>(null);
     const [storyAdjustIndex, setStoryAdjustIndex] = useState<number | null>(null);
+    const storyPreviewBlobRef = useRef<string | null>(null);
+    useEffect(() => {
+        return () => {
+            if (storyPreviewBlobRef.current) {
+                URL.revokeObjectURL(storyPreviewBlobRef.current);
+                storyPreviewBlobRef.current = null;
+            }
+        };
+    }, []);
     const [mediaType, setMediaType] = useState<MediaTypeChoice>('photo');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const thumbnailFileInputRef = useRef<HTMLInputElement>(null);
@@ -1406,18 +1415,45 @@ export default function ComposerPage() {
 
     async function uploadFile(file: File): Promise<{ fileUrl: string; type: 'IMAGE' | 'VIDEO' }> {
         const type: 'IMAGE' | 'VIDEO' = file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE';
-        const res = await api.post<{ uploadUrl: string; fileUrl: string }>('/media/upload-url', {
-            fileName: file.name,
-            contentType: file.type || 'application/octet-stream',
-        });
-        const { uploadUrl, fileUrl } = res.data;
+        const contentType = file.type?.split(';')[0]?.trim() || (type === 'VIDEO' ? 'video/mp4' : 'image/jpeg');
+        const safeName = (file.name || (type === 'VIDEO' ? 'video.mp4' : 'image.jpg'))
+            .replace(/[^a-zA-Z0-9._-]/g, '_')
+            .slice(0, 200) || (type === 'VIDEO' ? 'video.mp4' : 'image.jpg');
+        let uploadUrl: string;
+        let fileUrl: string;
+        try {
+            const res = await api.post<{ uploadUrl: string; fileUrl: string }>('/media/upload-url', {
+                fileName: safeName,
+                contentType,
+            });
+            uploadUrl = res.data.uploadUrl;
+            fileUrl = res.data.fileUrl;
+        } catch (err: unknown) {
+            const rawMsg =
+                err &&
+                typeof err === 'object' &&
+                'response' in err &&
+                (err as { response?: { data?: { message?: string }; status?: number } }).response?.data?.message;
+            const apiMsg = typeof rawMsg === 'string' ? rawMsg : undefined;
+            const status = (err as { response?: { status?: number } })?.response?.status;
+            if (status === 503) {
+                throw new Error(apiMsg || 'Media storage is not configured on the server.');
+            }
+            if (status === 401) {
+                throw new Error('Session expired. Sign in again, then retry the upload.');
+            }
+            throw new Error(apiMsg || 'Could not start upload. Check your connection and try again.');
+        }
         const putRes = await fetch(uploadUrl, {
             method: 'PUT',
             body: file,
-            headers: { 'Content-Type': file.type || 'application/octet-stream' },
+            headers: { 'Content-Type': contentType },
         });
         if (!putRes.ok) {
-            throw new Error(`Upload failed: ${putRes.status}`);
+            const detail = await putRes.text().catch(() => '');
+            throw new Error(
+                `Storage upload failed (${putRes.status})${detail ? `: ${detail.slice(0, 120)}` : ''}`
+            );
         }
         return { fileUrl, type };
     }
@@ -1538,25 +1574,60 @@ export default function ComposerPage() {
     );
 
     const applyStoryCrop = async ({ blob, fileName }: StoryCropResult) => {
-        setMediaUploading(true);
-        setMediaUploadError(null);
-        try {
-            const file = new File([blob], fileName, { type: 'image/jpeg' });
-            const item = await uploadFile(file);
-            if (storyCropPlatform) {
-                setMediaByPlatform((prev) => ({ ...prev, [storyCropPlatform]: [item] }));
-            } else if (storyAdjustIndex != null) {
-                setMediaList((prev) => prev.map((m, i) => (i === storyAdjustIndex ? item : m)));
-            } else {
-                setMediaList([item]);
-            }
-        } catch {
-            setMediaUploadError('Upload failed after crop. Try again.');
-        } finally {
-            setMediaUploading(false);
+        if (!blob || blob.size < 64) {
+            setMediaUploadError('Could not save crop. Try again or pick another image.');
             setStoryCropFile(null);
             setStoryCropPlatform(null);
             setStoryAdjustIndex(null);
+            return;
+        }
+
+        const platformTarget = storyCropPlatform;
+        const adjustIndex = storyAdjustIndex;
+
+        setMediaUploadError(null);
+        setStoryCropFile(null);
+        setStoryCropPlatform(null);
+        setStoryAdjustIndex(null);
+
+        if (storyPreviewBlobRef.current) {
+            URL.revokeObjectURL(storyPreviewBlobRef.current);
+            storyPreviewBlobRef.current = null;
+        }
+        const previewUrl = URL.createObjectURL(blob);
+        storyPreviewBlobRef.current = previewUrl;
+        const previewItem: MediaItem = { fileUrl: previewUrl, type: 'IMAGE' };
+
+        if (platformTarget) {
+            setMediaByPlatform((prev) => ({ ...prev, [platformTarget]: [previewItem] }));
+        } else if (adjustIndex != null) {
+            setMediaList((prev) => prev.map((m, i) => (i === adjustIndex ? previewItem : m)));
+        } else {
+            setMediaList([previewItem]);
+        }
+
+        const safeName = (fileName || 'story.jpg').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200) || 'story.jpg';
+        const file = new File([blob], safeName.endsWith('.jpg') ? safeName : `${safeName}.jpg`, { type: 'image/jpeg' });
+
+        setMediaUploading(true);
+        try {
+            const item = await uploadFile(file);
+            if (storyPreviewBlobRef.current === previewUrl) {
+                URL.revokeObjectURL(previewUrl);
+                storyPreviewBlobRef.current = null;
+            }
+            if (platformTarget) {
+                setMediaByPlatform((prev) => ({ ...prev, [platformTarget]: [item] }));
+            } else if (adjustIndex != null) {
+                setMediaList((prev) => prev.map((m, i) => (i === adjustIndex ? item : m)));
+            } else {
+                setMediaList([item]);
+            }
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'Upload failed after crop. Try again.';
+            setMediaUploadError(msg);
+        } finally {
+            setMediaUploading(false);
         }
     };
 
