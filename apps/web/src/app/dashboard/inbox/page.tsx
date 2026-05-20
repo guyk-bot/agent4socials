@@ -819,7 +819,9 @@ function InboxPage() {
   // Keep the ref current every render so effects that use appDataRef always see the latest value.
   appDataRef.current = appData;
 
+  const [inboxAiBetaEnabled, setInboxAiBetaEnabled] = useState(false);
   const hasInboxExamples = !!(inboxReplyExamples?.trim());
+  const canUseInboxMessageAi = hasInboxExamples || inboxAiBetaEnabled;
 
   const toggleSelectMode = useCallback(() => {
     setSelectMode((v) => {
@@ -891,14 +893,21 @@ function InboxPage() {
   // Load inbox/comment reply examples from AI Assistant to gate AI draft features
   const [commentReplyExamples, setCommentReplyExamples] = useState<string | null>(null);
   const hasCommentExamples = !!(commentReplyExamples?.trim());
+  const canUseCommentAi = hasCommentExamples || inboxAiBetaEnabled;
 
   useEffect(() => {
     if (inboxExamplesLoaded) return;
     api.get('/ai/brand-context').then((res) => {
       const d = res.data;
       if (d && typeof d === 'object') {
-        setInboxReplyExamples((d as { inboxReplyExamples?: string | null }).inboxReplyExamples ?? null);
-        setCommentReplyExamples((d as { commentReplyExamples?: string | null }).commentReplyExamples ?? null);
+        const row = d as {
+          inboxReplyExamples?: string | null;
+          commentReplyExamples?: string | null;
+          inboxAiBetaEnabled?: boolean;
+        };
+        setInboxReplyExamples(row.inboxReplyExamples ?? null);
+        setCommentReplyExamples(row.commentReplyExamples ?? null);
+        setInboxAiBetaEnabled(row.inboxAiBetaEnabled === true);
       }
     }).catch(() => {}).finally(() => setInboxExamplesLoaded(true));
   }, [inboxExamplesLoaded]);
@@ -3427,7 +3436,7 @@ function InboxPage() {
                   )}
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {!hasCommentExamples && inboxExamplesLoaded && (
+                  {!canUseCommentAi && inboxExamplesLoaded && (
                     <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                       AI reply drafts are disabled.{' '}
                       <a href="/dashboard/ai-assistant" className="font-medium underline">
@@ -3439,7 +3448,7 @@ function InboxPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      disabled={aiReplyLoading || replySending || !hasCommentExamples || replyable.length === 0}
+                      disabled={aiReplyLoading || replySending || !canUseCommentAi || replyable.length === 0}
                       onClick={async () => {
                         setAiReplyError(null);
                         setAiReplyLoading(true);
@@ -3475,7 +3484,7 @@ function InboxPage() {
                         }
                       }}
                       className="inbox-reply-ai-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
-                      title={hasCommentExamples ? 'Generate a unique reply for each selected comment' : 'Add examples in AI Assistant'}
+                      title={canUseCommentAi ? 'Generate a unique reply for each selected comment' : 'Add examples in AI Assistant'}
                     >
                       {aiReplyLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
                       Generate all with AI
@@ -3596,7 +3605,7 @@ function InboxPage() {
                 <h2 className="text-lg font-semibold text-neutral-900">Reply to {selectedConversationIds.size} conversation{selectedConversationIds.size !== 1 ? 's' : ''}</h2>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {!hasInboxExamples && inboxExamplesLoaded && (
+                {!canUseInboxMessageAi && inboxExamplesLoaded && (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                     AI reply drafts are disabled.{' '}
                     <a href="/dashboard/ai-assistant" className="font-medium underline">
@@ -3651,7 +3660,7 @@ function InboxPage() {
                             <div className="flex flex-wrap gap-2 mb-2">
                               <button
                                 type="button"
-                                disabled={aiReplyLoading || dmReplySending || !hasInboxExamples || batchWindowClosed}
+                                disabled={aiReplyLoading || dmReplySending || !canUseInboxMessageAi || batchWindowClosed}
                                 onClick={async () => {
                                   if (batchWindowClosed) return;
                                   setAiReplyError(null);
@@ -3677,7 +3686,7 @@ function InboxPage() {
                                   }
                                 }}
                                 className="inbox-reply-ai-btn inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
-                                title={hasInboxExamples ? 'Generate reply with AI' : 'Add inbox reply examples in AI Assistant'}
+                                title={canUseInboxMessageAi ? 'Generate reply with AI' : 'Add inbox reply examples in AI Assistant'}
                               >
                                 {aiReplyLoading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                                 Generate with AI
@@ -3998,7 +4007,7 @@ function InboxPage() {
                   />
                   <button
                     type="button"
-                    disabled={aiReplyLoading || replySending || !hasCommentExamples}
+                    disabled={aiReplyLoading || replySending || !canUseCommentAi}
                     onClick={async () => {
                       if (!selectedComment) return;
                       setAiReplyError(null);
@@ -4021,7 +4030,7 @@ function InboxPage() {
                       }
                     }}
                     className="inbox-reply-ai-btn p-3 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-                    title={hasCommentExamples ? 'Generate reply with AI' : 'Add comment reply examples in AI Assistant to enable AI drafts'}
+                    title={canUseCommentAi ? 'Generate reply with AI' : 'Add comment reply examples in AI Assistant to enable AI drafts'}
                   >
                     {aiReplyLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
                   </button>
@@ -4089,7 +4098,7 @@ function InboxPage() {
                     <button type="button" onClick={() => setReplySendError(null)} className="ml-auto shrink-0 text-red-400 hover:text-red-600">✕</button>
                   </div>
                 )}
-                {!hasCommentExamples && inboxExamplesLoaded && (
+                {!canUseCommentAi && inboxExamplesLoaded && (
                   <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
                     AI comment drafts are disabled. <a href="/dashboard/ai-assistant" className="font-medium underline">Add comment reply examples in AI Assistant</a> to enable them.
                   </p>
@@ -4369,7 +4378,7 @@ function InboxPage() {
                 />
                 <button
                   type="button"
-                    disabled={dmReplySending || aiReplyLoading || !hasInboxExamples || !!dmSendBlockedReason}
+                    disabled={dmReplySending || aiReplyLoading || !canUseInboxMessageAi || !!dmSendBlockedReason}
                     onClick={async () => {
                       if (dmSendBlockedReason) return;
                       const lastFromUser = [...conversationMessages].reverse().find((m) => !m.isFromPage && m.message);
@@ -4401,11 +4410,11 @@ function InboxPage() {
                       }
                     }}
                     className="inbox-reply-ai-btn p-3 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-                    title={hasInboxExamples ? 'Generate reply with AI' : 'Add inbox reply examples in AI Assistant to enable AI drafts'}
+                    title={canUseInboxMessageAi ? 'Generate reply with AI' : 'Add inbox reply examples in AI Assistant to enable AI drafts'}
                   >
                     {aiReplyLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
                 </button>
-                  {!hasInboxExamples && inboxExamplesLoaded && (
+                  {!canUseInboxMessageAi && inboxExamplesLoaded && (
                     <div className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap px-2.5 py-1.5 rounded-lg bg-neutral-800 text-white text-xs pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-10">
                       Add reply examples in AI Assistant to unlock
               </div>

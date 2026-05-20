@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { mergeBrandContextOnSave } from '@/lib/brand-context-utils';
+import { isAiInboxBetaUser } from '@/lib/ai/inbox-ai-beta';
 
 export async function GET(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
@@ -17,7 +18,11 @@ export async function GET(request: NextRequest) {
       select: { brandContext: true },
     });
     const brandContext = (user?.brandContext as object | null) ?? null;
-    return NextResponse.json(brandContext);
+    const inboxAiBetaEnabled = await isAiInboxBetaUser(userId);
+    return NextResponse.json({
+      ...(brandContext && typeof brandContext === 'object' ? brandContext : {}),
+      inboxAiBetaEnabled,
+    });
   } catch (e) {
     console.error('[Brand context GET]', e);
     const errMsg = (e as { message?: string })?.message ?? '';

@@ -3,6 +3,8 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { trackUsage } from '@/lib/usage-tracking';
 import { generateInboxReply, type InboxReplyBrandContext } from '@/lib/ai/generate-inbox-reply-core';
+import { brandContextForInboxAi, isAiInboxBetaUser } from '@/lib/ai/inbox-ai-beta';
+import { hasCommentReplyExamples, hasInboxReplyExamples } from '@/lib/brand-context-utils';
 
 const MAX_BATCH_ITEMS = 25;
 
@@ -64,7 +66,22 @@ export async function POST(request: NextRequest) {
   }
 
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { brandContext: true } });
-  const brand = (user?.brandContext ?? null) as InboxReplyBrandContext | null;
+  const rawBrand = (user?.brandContext ?? null) as InboxReplyBrandContext | null;
+  const isBeta = await isAiInboxBetaUser(userId);
+  const hasExamples =
+    type === 'comment' ? hasCommentReplyExamples(rawBrand) : hasInboxReplyExamples(rawBrand);
+  if (!hasExamples && !isBeta) {
+    return NextResponse.json(
+      {
+        message:
+          type === 'comment'
+            ? 'Add comment reply examples in Dashboard → AI Assistant before using bulk AI comment replies.'
+            : 'Add inbox reply examples in Dashboard → AI Assistant before using bulk AI message replies.',
+      },
+      { status: 400 }
+    );
+  }
+  const brand = brandContextForInboxAi(rawBrand, isBeta);
 
   trackUsage(userId, 'ai_generation', items.length);
 
