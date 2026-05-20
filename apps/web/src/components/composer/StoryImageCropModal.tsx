@@ -59,23 +59,28 @@ export function StoryImageCropModal({
         img.onerror = () => reject(new Error('Image load failed'));
         img.src = src;
       });
+      const iw = img.naturalWidth;
+      const ih = img.naturalHeight;
       const vw = viewportRef.current.clientWidth;
-      const vh = vw / STORY_ASPECT_RATIO;
-      const displayedW = natural.w * scale;
-      const displayedH = natural.h * scale;
-      const imgLeft = vw / 2 - displayedW / 2 + offset.x;
-      const imgTop = vh / 2 - displayedH / 2 + offset.y;
-      const sx = Math.max(0, Math.min(natural.w, (-imgLeft / displayedW) * natural.w));
-      const sy = Math.max(0, Math.min(natural.h, (-imgTop / displayedH) * natural.h));
-      const sw = Math.max(1, Math.min(natural.w - sx, (vw / displayedW) * natural.w));
-      const sh = Math.max(1, Math.min(natural.h - sy, (vh / displayedH) * natural.h));
+      const outW = STORY_OUTPUT_WIDTH;
+      const outH = STORY_OUTPUT_HEIGHT;
+      const k = outW / vw;
 
       const canvas = document.createElement('canvas');
-      canvas.width = STORY_OUTPUT_WIDTH;
-      canvas.height = STORY_OUTPUT_HEIGHT;
+      canvas.width = outW;
+      canvas.height = outH;
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Canvas unavailable');
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, STORY_OUTPUT_WIDTH, STORY_OUTPUT_HEIGHT);
+
+      // WYSIWYG: match the editor viewport (black letterbox + image position/zoom).
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, outW, outH);
+
+      const drawW = iw * scale * k;
+      const drawH = ih * scale * k;
+      const drawX = outW / 2 - drawW / 2 + offset.x * k;
+      const drawY = outH / 2 - drawH / 2 + offset.y * k;
+      ctx.drawImage(img, drawX, drawY, drawW, drawH);
 
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
       if (!blob) throw new Error('Export failed');
@@ -84,7 +89,7 @@ export function StoryImageCropModal({
     } finally {
       setExporting(false);
     }
-  }, [src, natural, scale, offset, file.name, onConfirm]);
+  }, [src, natural.w, scale, offset, file.name, onConfirm]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     e.preventDefault();

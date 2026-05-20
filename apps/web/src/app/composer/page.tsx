@@ -2949,7 +2949,12 @@ export default function ComposerPage() {
                                                     const effectiveThumbnail = differentThumbnailPerPlatform && selectedPlatformForThumbnail
                                                         ? (thumbnailByPlatform[selectedPlatformForThumbnail] ?? mediaList[0].thumbnailUrl)
                                                         : mediaList[0].thumbnailUrl;
-                                                    const fitClass = mediaType === 'reel' || mediaType === 'story' ? 'object-cover' : 'object-contain';
+                                                    const fitClass =
+                                                        mediaType === 'story'
+                                                            ? 'object-contain'
+                                                            : mediaType === 'reel'
+                                                              ? 'object-cover'
+                                                              : 'object-contain';
                                                     const cors = mediaList[0].fileUrl.startsWith('blob:') ? undefined : 'anonymous' as const;
                                                     return thumbnailChoice === 'frame' ? (
                                                     <div className="absolute inset-0 w-full h-full bg-neutral-900 flex items-center justify-center">
@@ -3797,7 +3802,7 @@ function PostPreview({
         >
             {mediaType === 'story' && (
                 <div className="bg-gradient-to-r from-orange-500 via-pink-500 to-orange-400 text-white text-[10px] font-semibold text-center py-1 tracking-wide">
-                    Story preview (Instagram only)
+                    Story preview
                 </div>
             )}
             <div className={`${reelPreview ? '' : 'border-b border-neutral-100'} flex items-center gap-1.5 ${compact ? 'p-1.5' : 'p-3'}`}>
@@ -3856,7 +3861,11 @@ function PostPreview({
                                 />
                             )
                         ) : (
-                            <img src={mediaDisplayUrl(currentMedia.fileUrl)} alt="preview" className="w-full h-full object-cover" />
+                            <img
+                                src={mediaDisplayUrl(currentMedia.fileUrl)}
+                                alt="preview"
+                                className={`w-full h-full ${mediaType === 'story' ? 'object-contain' : 'object-cover'}`}
+                            />
                         )}
                         {media.length > 1 && (
                             <>
