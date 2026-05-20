@@ -321,7 +321,12 @@ export async function runPublishPostWorkflow(input: {
       targetMedia[0] && targetMedia[0].type === 'VIDEO' ? (targetMedia[0] as { thumbnailUrl?: string }).thumbnailUrl : undefined;
     let imageUrls: string[] | undefined;
     if (platform === 'TIKTOK' && firstMediaUrl) {
-      firstMediaUrl = publicMediaUrlForMeta(firstMediaUrl);
+      const directR2 = directR2IfOurs(firstMediaUrl);
+      firstMediaUrl = directR2 ?? publicMediaUrlForMeta(firstMediaUrl);
+    }
+    if (platform === 'LINKEDIN' && firstMediaUrl) {
+      const directR2 = directR2IfOurs(firstMediaUrl);
+      if (directR2) firstMediaUrl = directR2;
     }
     if (platform === 'PINTEREST' && firstImageUrl) {
       firstImageUrl = publicMediaUrlForMeta(firstImageUrl);
@@ -415,6 +420,7 @@ export async function runPublishPostWorkflow(input: {
       twitterOAuth1AccessTokenSecret?: string;
       grantedScope?: string;
       pinterestDefaultBoardId?: string | null;
+      linkedinRestPersonUrn?: string;
     } | null;
     const twitterOAuth1 =
       platform === 'TWITTER' && creds?.twitterOAuth1AccessToken && creds?.twitterOAuth1AccessTokenSecret
@@ -536,6 +542,11 @@ export async function runPublishPostWorkflow(input: {
         ? { tiktokPostMediaKind: (isTiktokPhoto ? 'photo' : 'video') as 'photo' | 'video' }
         : {}),
       ...(isStory ? { isStory: true } : {}),
+      ...(platform === 'LINKEDIN' &&
+      typeof creds?.linkedinRestPersonUrn === 'string' &&
+      creds.linkedinRestPersonUrn.startsWith('urn:li:')
+        ? { linkedInAuthorUrn: creds.linkedinRestPersonUrn }
+        : {}),
     };
     const publishDeps = { fetch, axios };
     const targetTimeoutLabel = `${platform} publish timed out after ${publishTargetTimeoutMs(platform) / 1000}s`;

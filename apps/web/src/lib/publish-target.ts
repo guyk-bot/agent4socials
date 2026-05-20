@@ -39,6 +39,8 @@ export type PublishTargetOptions = {
   tiktokPostMediaKind?: 'video' | 'photo';
   /** Instagram/Facebook: publish as a Story instead of a feed post. */
   isStory?: boolean;
+  /** LinkedIn REST author URN (urn:li:person:… or urn:li:organization:…). */
+  linkedInAuthorUrn?: string;
 };
 
 export type PublishTargetResult = {
@@ -86,6 +88,26 @@ const TIKTOK_MULTIPART_CHUNK_BYTES = 10 * 1024 * 1024;
 const TIKTOK_MAX_CHUNK_COUNT = 1000;
 /** Max size for each non-final chunk (final chunk may be up to 128 MB per TikTok). */
 const TIKTOK_MAX_CHUNK_BYTES = 64 * 1024 * 1024;
+
+/** TikTok cannot reliably download from our signed serve URLs (video_pull_failed); upload bytes instead. */
+function tiktokVideoUrlNeedsFileUpload(videoUrl: string): boolean {
+  if (!videoUrl?.startsWith('http')) return true;
+  if (/\/api\/media\/(serve|proxy)/i.test(videoUrl)) return true;
+  if (/[?&]t=/.test(videoUrl)) return true;
+  try {
+    const appBase = (process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')).replace(
+      /\/$/,
+      ''
+    );
+    if (appBase) {
+      const appHost = new URL(appBase.startsWith('http') ? appBase : `https://${appBase}`).hostname.toLowerCase();
+      if (appHost && new URL(videoUrl).hostname.toLowerCase() === appHost) return true;
+    }
+  } catch {
+    return true;
+  }
+  return false;
+}
 
 function tiktokFileUploadChunkPlan(videoSize: number): { chunkSize: number; totalChunkCount: number } {
   const n = Math.max(0, Math.floor(videoSize));
@@ -797,7 +819,12 @@ export async function publishTarget(
     }
 
     if (platform === 'LINKEDIN') {
-      const author = platformUserId.startsWith('urn:li:') ? platformUserId : `urn:li:person:${platformUserId}`;
+      const author =
+        typeof options.linkedInAuthorUrn === 'string' && options.linkedInAuthorUrn.startsWith('urn:li:')
+          ? options.linkedInAuthorUrn
+          : platformUserId.startsWith('urn:li:')
+            ? platformUserId
+            : `urn:li:person:${platformUserId}`;
       let postBody: {
         author: string;
         commentary: string;
@@ -1791,63 +1818,17 @@ export async function publishTarget(
 
       // Direct post only (/v2/post/publish/video/init/) — requires video.publish + Content Posting audit.
       let publishId: string | undefined;
+      let usedPullFromUrl = false;
 
-      console.log('[TikTok] Starting PULL_FROM_URL init', { videoUrl: videoUrl?.slice(0, 120) });
-      let pullInitRes = await initDirectVideo(
-        tikTokPostInfo,
-        { source: 'PULL_FROM_URL', video_url: videoUrl },
-        'direct PULL_FROM_URL init'
-      );
-      let pullBody = pullInitRes.data ?? {};
-      let pullErr = pullBody.error;
-
-      if (pullErr?.code === 'unaudited_client_can_only_post_to_private_accounts' && tikTokPostInfoSelfOnly) {
-        console.log('[TikTok] PULL_FROM_URL: retrying with SELF_ONLY');
-        pullInitRes = await initDirectVideo(
-          tikTokPostInfoSelfOnly,
-          { source: 'PULL_FROM_URL', video_url: videoUrl },
-          'direct PULL_FROM_URL SELF_ONLY init'
-        );
-        pullBody = pullInitRes.data ?? {};
-        pullErr = pullBody.error;
-      }
-
-      console.log('[TikTok] PULL_FROM_URL init response', { error: pullErr, publishId: pullBody.data?.publish_id });
-
-      const urlOwnershipError = pullErr && (
-        pullErr.code === 'url_ownership_unverified' ||
-        (pullErr.message ?? '').toLowerCase().includes('ownership')
-      );
-
-      if (!pullErr || pullErr.code === 'ok') {
-        publishId = pullBody.data?.publish_id;
-      } else if (pullErr.code === 'scope_not_authorized' || pullErr.code === 'access_token_invalid') {
-        return { ok: false, error: tiktokReconnectPublishError };
-      } else if (pullErr.code === 'spam_risk_too_many_pending_share') {
-        return {
-          ok: false,
-          error:
-            `TikTok sandbox${tiktokIdentity ? ` (${tiktokIdentity})` : ''}: too many pending posts. Open TikTok mobile app on the SAME connected account, check Inbox and Drafts, then accept or delete all pending items and retry.`,
-        };
-      } else if (pullErr.code === 'unaudited_client_can_only_post_to_private_accounts') {
-        return {
-          ok: false,
-          error:
-            'TikTok: public posting is not available for this app or account. Choose Only me in Post to TikTok, or complete TikTok Content Posting audit.',
-        };
-      } else if (!urlOwnershipError) {
-        return { ok: false, error: `TikTok: ${pullErr.message || pullErr.code || 'Init failed'}`.slice(0, 300) };
-      }
-
-      // FILE_UPLOAD fallback when PULL_FROM_URL is blocked by URL ownership verification.
-      if (!publishId) {
+      const runTikTokFileUpload = async (postInfo: Record<string, unknown>): Promise<string> => {
         const { buffer, contentType: videoContentType } = await fetchMediaBuffer(videoUrl, fetchFn);
         const videoSize = buffer.length;
         const { chunkSize: CHUNK_SIZE, totalChunkCount } = tiktokFileUploadChunkPlan(videoSize);
-        const mimeType = videoContentType && /video\/(mp4|webm|quicktime)/i.test(videoContentType) ? videoContentType : 'video/mp4';
+        const mimeType =
+          videoContentType && /video\/(mp4|webm|quicktime)/i.test(videoContentType) ? videoContentType : 'video/mp4';
 
         let fileInitRes = await initDirectVideo(
-          tikTokPostInfo,
+          postInfo,
           {
             source: 'FILE_UPLOAD',
             video_size: videoSize,
@@ -1876,19 +1857,79 @@ export async function publishTarget(
         }
 
         if (fileInitErr?.code === 'scope_not_authorized' || fileInitErr?.code === 'access_token_invalid') {
-          return { ok: false, error: tiktokReconnectPublishError };
+          throw new Error(tiktokReconnectPublishError);
         }
         if (fileInitErr && fileInitErr.code !== 'ok') {
-          return { ok: false, error: `TikTok: ${fileInitErr.message || fileInitErr.code || 'Init failed'}`.slice(0, 300) };
+          throw new Error(`TikTok: ${fileInitErr.message || fileInitErr.code || 'Init failed'}`.slice(0, 300));
         }
-        publishId = fileInitBody.data?.publish_id;
+        const nextPublishId = fileInitBody.data?.publish_id;
         const uploadUrl = fileInitBody.data?.upload_url;
-        if (!publishId || !uploadUrl) {
-          return { ok: false, error: 'TikTok init did not return publish_id or upload_url.' };
+        if (!nextPublishId || !uploadUrl) {
+          throw new Error('TikTok init did not return publish_id or upload_url.');
+        }
+        await putTikTokResumableChunks(buffer, uploadUrl, mimeType, CHUNK_SIZE, totalChunkCount, fetchFn);
+        return nextPublishId;
+      };
+
+      const skipPull = tiktokVideoUrlNeedsFileUpload(videoUrl);
+      if (skipPull) {
+        console.log('[TikTok] Using FILE_UPLOAD (app-hosted media URL cannot be pulled by TikTok)', {
+          videoUrl: videoUrl?.slice(0, 120),
+        });
+      } else {
+        console.log('[TikTok] Starting PULL_FROM_URL init', { videoUrl: videoUrl?.slice(0, 120) });
+        usedPullFromUrl = true;
+        let pullInitRes = await initDirectVideo(
+          tikTokPostInfo,
+          { source: 'PULL_FROM_URL', video_url: videoUrl },
+          'direct PULL_FROM_URL init'
+        );
+        let pullBody = pullInitRes.data ?? {};
+        let pullErr = pullBody.error;
+
+        if (pullErr?.code === 'unaudited_client_can_only_post_to_private_accounts' && tikTokPostInfoSelfOnly) {
+          console.log('[TikTok] PULL_FROM_URL: retrying with SELF_ONLY');
+          pullInitRes = await initDirectVideo(
+            tikTokPostInfoSelfOnly,
+            { source: 'PULL_FROM_URL', video_url: videoUrl },
+            'direct PULL_FROM_URL SELF_ONLY init'
+          );
+          pullBody = pullInitRes.data ?? {};
+          pullErr = pullBody.error;
         }
 
+        console.log('[TikTok] PULL_FROM_URL init response', { error: pullErr, publishId: pullBody.data?.publish_id });
+
+        const urlOwnershipError = pullErr && (
+          pullErr.code === 'url_ownership_unverified' ||
+          (pullErr.message ?? '').toLowerCase().includes('ownership')
+        );
+
+        if (!pullErr || pullErr.code === 'ok') {
+          publishId = pullBody.data?.publish_id;
+        } else if (pullErr.code === 'scope_not_authorized' || pullErr.code === 'access_token_invalid') {
+          return { ok: false, error: tiktokReconnectPublishError };
+        } else if (pullErr.code === 'spam_risk_too_many_pending_share') {
+          return {
+            ok: false,
+            error:
+              `TikTok sandbox${tiktokIdentity ? ` (${tiktokIdentity})` : ''}: too many pending posts. Open TikTok mobile app on the SAME connected account, check Inbox and Drafts, then accept or delete all pending items and retry.`,
+          };
+        } else if (pullErr.code === 'unaudited_client_can_only_post_to_private_accounts') {
+          return {
+            ok: false,
+            error:
+              'TikTok: public posting is not available for this app or account. Choose Only me in Post to TikTok, or complete TikTok Content Posting audit.',
+          };
+        } else if (!urlOwnershipError) {
+          return { ok: false, error: `TikTok: ${pullErr.message || pullErr.code || 'Init failed'}`.slice(0, 300) };
+        }
+      }
+
+      if (!publishId) {
         try {
-          await putTikTokResumableChunks(buffer, uploadUrl, mimeType, CHUNK_SIZE, totalChunkCount, fetchFn);
+          publishId = await runTikTokFileUpload(tikTokPostInfo);
+          usedPullFromUrl = false;
         } catch (e) {
           return { ok: false, error: (e as Error).message.slice(0, 300) };
         }
@@ -1902,8 +1943,10 @@ export async function publishTarget(
       const maxWait = 120_000;
       const pollInterval = 3_000;
       let platformPostId: string | undefined;
-      for (let elapsed = 0; elapsed < maxWait; elapsed += pollInterval) {
+      let elapsed = 0;
+      while (elapsed < maxWait) {
         await new Promise((r) => setTimeout(r, pollInterval));
+        elapsed += pollInterval;
         const statusRes = await tiktokPostWithRetry(
           `${tiktokBase}/v2/post/publish/status/fetch/`,
           { publish_id: publishId },
@@ -1930,10 +1973,30 @@ export async function publishTarget(
         }
         if (status === 'FAILED') {
           const reason = statusBody.data?.fail_reason ?? 'Publish failed';
+          if (reason === 'video_pull_failed' && usedPullFromUrl) {
+            console.log('[TikTok] PULL_FROM_URL video_pull_failed, retrying with FILE_UPLOAD');
+            try {
+              publishId = await runTikTokFileUpload(tikTokPostInfo);
+              usedPullFromUrl = false;
+              elapsed = pollInterval;
+              continue;
+            } catch (e) {
+              return {
+                ok: false,
+                error:
+                  `TikTok could not download the video from our server (video_pull_failed). We retried a direct upload but that failed too: ${(e as Error).message}`.slice(
+                    0,
+                    300
+                  ),
+              };
+            }
+          }
           const reasonHint =
             reason === 'frame_rate_check_failed'
               ? ' Re-export as H.264 MP4 at a standard fps (e.g. 30 or 60).'
-              : '';
+              : reason === 'video_pull_failed'
+                ? ' TikTok could not download the video URL. We now upload the file directly; try Post now again.'
+                : '';
           return { ok: false, error: `TikTok: ${reason}${reasonHint}`.slice(0, 300) };
         }
         // status === 'PROCESSING_UPLOAD' or 'PROCESSING_DOWNLOAD' — keep polling
