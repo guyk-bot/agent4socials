@@ -8,7 +8,11 @@ import { prisma, withPrismaPoolRetry } from '@/lib/db';
 import { PostStatus, Prisma } from '@prisma/client';
 import axios from 'axios';
 import { publishTarget } from '@/lib/publish-target';
-import { isTikTokDirectPostPayload, type TikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
+import {
+  buildDefaultTikTokDirectPostPayload,
+  isTikTokDirectPostPayload,
+  type TikTokDirectPostPayload,
+} from '@/lib/tiktok/tiktok-publish-compliance';
 import { createMediaServeToken } from '@/lib/media-serve-token';
 import { ensureInstagramJpegOnR2 } from '@/lib/instagram-media-r2';
 import { ensureStoryJpegOnR2 } from '@/lib/story-media-r2';
@@ -63,8 +67,10 @@ export async function preparePostForBackgroundPublish(
       select: {
         id: true,
         status: true,
+        content: true,
+        title: true,
         tiktokPublishByAccountId: true,
-        targets: { select: { id: true, socialAccountId: true } },
+        targets: { select: { id: true, socialAccountId: true, platform: true } },
       },
     });
     if (!post) {
@@ -94,6 +100,13 @@ export async function preparePostForBackgroundPublish(
           merged[accountId] = payload;
         }
       }
+    }
+
+    const captionSeed = String(post.title || post.content || '').trim();
+    for (const target of post.targets) {
+      if (target.platform !== 'TIKTOK') continue;
+      if (isTikTokDirectPostPayload(merged[target.socialAccountId])) continue;
+      merged[target.socialAccountId] = buildDefaultTikTokDirectPostPayload(captionSeed);
     }
 
     const updateData: Prisma.PostUpdateInput = {
@@ -129,6 +142,9 @@ export async function finalizePostPublishState(postId: string): Promise<void> {
       where: { postId },
       select: { status: true },
     });
+    if (targetsNow.some((t) => t.status === PostStatus.POSTING)) {
+      return;
+    }
     const totalTargets = targetsNow.length;
     const postedCount = targetsNow.filter((t) => t.status === PostStatus.POSTED).length;
     const allTargetsPosted = totalTargets > 0 && postedCount === totalTargets;

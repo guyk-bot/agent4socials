@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import Link from 'next/link';
@@ -41,7 +41,12 @@ import {
     type PostHistoryFormatKey,
 } from '@/lib/post-history-format';
 import { PostHistoryFilterDropdown } from '@/components/posts/PostHistoryFilterDropdown';
-import { mergePostsHistoryLists } from '@/lib/posts-history-merge';
+import {
+    mergePostsHistoryLists,
+    postsHistoryListsVisuallyEqual,
+    upsertPostInHistoryList,
+    type PostHistoryRow,
+} from '@/lib/posts-history-merge';
 
 function postMediaThumbUrl(mediaItem: { fileUrl: string; type: string; metadata?: { thumbnailUrl?: string } | null } | undefined): string | null {
     if (!mediaItem?.fileUrl) return null;
@@ -150,7 +155,8 @@ export default function PostsPage() {
     const appData = useAppData();
     const appDataRef = useRef(appData);
     appDataRef.current = appData;
-    const [posts, setPosts] = useState<any[]>([]);
+    const [posts, setPosts] = useState<PostHistoryRow[]>([]);
+    const postsRef = useRef<PostHistoryRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [filter, setFilter] = useState('ALL');
@@ -187,18 +193,35 @@ export default function PostsPage() {
     const draftSavedParam = searchParams.get('draft_saved');
     const refreshParam = searchParams.get('refresh');
 
+    const applyHistoryList = useCallback((incoming: PostHistoryRow[]) => {
+        const merged = mergePostsHistoryLists(postsRef.current, incoming);
+        if (postsHistoryListsVisuallyEqual(postsRef.current, merged)) return;
+        postsRef.current = merged;
+        setPosts(merged);
+        appDataRef.current?.setScheduledPosts?.(merged as never);
+        writeScheduledPostsClientCache(merged);
+    }, []);
+
+    const applyHistoryPost = useCallback((post: PostHistoryRow) => {
+        const merged = upsertPostInHistoryList(postsRef.current, post);
+        if (postsHistoryListsVisuallyEqual(postsRef.current, merged)) return;
+        postsRef.current = merged;
+        setPosts(merged);
+        appDataRef.current?.setScheduledPosts?.(merged as never);
+        writeScheduledPostsClientCache(merged);
+    }, []);
+
     useEffect(() => {
         if (pathname !== '/posts') return;
         let cancelled = false;
-        const forceRefresh = draftSavedParam === '1' || refreshParam === '1';
         const fromApp = appDataRef.current?.getScheduledPosts?.();
         const fromLocal = readScheduledPostsClientCache();
-        const appList = Array.isArray(fromApp) ? (fromApp as any[]) : [];
-        const immediateCached = appList.length > 0 ? appList : fromLocal;
+        const appList = Array.isArray(fromApp) ? (fromApp as PostHistoryRow[]) : [];
+        const immediateCached = appList.length > 0 ? appList : (fromLocal as PostHistoryRow[]);
         const hasCachedList = immediateCached.length > 0;
 
         if (hasCachedList) {
-            setPosts(immediateCached);
+            applyHistoryList(immediateCached);
             setLoading(false);
         }
 
@@ -207,13 +230,8 @@ export default function PostsPage() {
             try {
                 const res = await api.get('/posts', { timeout: 45_000 });
                 if (cancelled) return;
-                const list = Array.isArray(res.data) ? res.data : [];
-                setPosts((prev) => {
-                    const merged = mergePostsHistoryLists(prev, list);
-                    appDataRef.current?.setScheduledPosts?.(merged);
-                    writeScheduledPostsClientCache(merged);
-                    return merged;
-                });
+                const list = Array.isArray(res.data) ? (res.data as PostHistoryRow[]) : [];
+                applyHistoryList(list);
                 setLoadError(null);
             } catch (err) {
                 if (cancelled) return;
@@ -248,63 +266,59 @@ export default function PostsPage() {
         return () => {
             cancelled = true;
         };
-    }, [pathname, draftSavedParam, refreshParam]);
+    }, [pathname, draftSavedParam, refreshParam, applyHistoryList]);
 
-    const hasPublishingPosts = posts.some((p: { status?: string }) => p.status === 'POSTING');
+    const publishingPostIds = useMemo(
+        () =>
+            posts
+                .filter(
+                    (p) =>
+                        p?.status === 'POSTING' &&
+                        typeof p?.id === 'string' &&
+                        p.id.length > 0 &&
+                        !p.id.startsWith('pending-')
+                )
+                .map((p) => p.id as string),
+        [posts]
+    );
 
     useEffect(() => {
-        if (pathname !== '/posts' || !hasPublishingPosts) return;
+        if (pathname !== '/posts' || publishingPostIds.length === 0) return;
         let cancelled = false;
         const tick = async () => {
-            try {
-                const res = await api.get('/posts', { timeout: 45_000 });
-                if (cancelled) return;
-                const list = Array.isArray(res.data) ? res.data : [];
-                setPosts((prev) => {
-                    const merged = mergePostsHistoryLists(prev, list);
-                    appDataRef.current?.setScheduledPosts?.(merged);
-                    writeScheduledPostsClientCache(merged);
-                    return merged;
-                });
-                setLoadError(null);
-                const postingIds = list
-                    .filter((p: { status?: string; id?: string }) => p?.status === 'POSTING' && p?.id && !String(p.id).startsWith('pending-'))
-                    .map((p: { id: string }) => p.id);
-                if (postingIds.length > 0) {
-                    await Promise.all(
-                        postingIds.map((id: string) =>
-                            api.post(`/posts/${id}/finalize-publish-status`, {}, { timeout: 30_000 }).catch(() => undefined)
-                        )
-                    );
-                }
-            } catch {
-                /* keep cached list */
+            const results = await Promise.all(
+                publishingPostIds.map((id) =>
+                    api.get<PostHistoryRow>(`/posts/${id}`, { timeout: 30_000 }).then((r) => r.data).catch(() => null)
+                )
+            );
+            if (cancelled) return;
+            for (const post of results) {
+                if (post && typeof post === 'object' && post.id) applyHistoryPost(post);
             }
         };
         void tick();
-        const id = window.setInterval(() => void tick(), 20_000);
+        const id = window.setInterval(() => void tick(), 8_000);
         return () => {
             cancelled = true;
             window.clearInterval(id);
         };
-    }, [pathname, hasPublishingPosts]);
+    }, [pathname, publishingPostIds.join(','), applyHistoryPost]);
 
     useEffect(() => {
         if (pathname !== '/posts') return;
         const onRefresh = (ev: Event) => {
-            const detail = (ev as CustomEvent<{ posts?: unknown[] }>).detail;
+            const detail = (ev as CustomEvent<{ posts?: PostHistoryRow[]; post?: PostHistoryRow }>).detail;
+            if (detail?.post && typeof detail.post === 'object') {
+                applyHistoryPost(detail.post);
+                return;
+            }
             const list = Array.isArray(detail?.posts) ? detail.posts : [];
             if (list.length === 0) return;
-            setPosts((prev) => {
-                const merged = mergePostsHistoryLists(prev, list as Parameters<typeof mergePostsHistoryLists>[0]);
-                appDataRef.current?.setScheduledPosts?.(merged);
-                writeScheduledPostsClientCache(merged);
-                return merged;
-            });
+            applyHistoryList(list);
         };
         window.addEventListener('agent4socials:posts-history-refresh', onRefresh);
         return () => window.removeEventListener('agent4socials:posts-history-refresh', onRefresh);
-    }, [pathname]);
+    }, [pathname, applyHistoryList, applyHistoryPost]);
 
     const highlightId = searchParams.get('highlight');
     useEffect(() => {
@@ -320,6 +334,7 @@ export default function PostsPage() {
     }, [highlightId, loading, posts.length, router]);
 
     const filteredPosts = posts.filter((p: any) => {
+        if (p?.status === 'POSTING' || p?._optimistic) return true;
         const d = postCalendarDate(p);
         if (d && (d < dateRange.start || d > dateRange.end)) return false;
         if (!postMatchesSearch(p, searchQuery)) return false;

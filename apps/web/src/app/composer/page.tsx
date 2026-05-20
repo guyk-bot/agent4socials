@@ -2639,6 +2639,12 @@ export default function ComposerPage() {
                 if (debug) sessionStorage.removeItem('publish_debug');
                 const publishBody = buildPublishRequestBody(mediaType, tiktokPublishByAccountId);
                 const publishPath = `/posts/${editPostId}/publish${debug ? '?debug=1' : ''}`;
+                if (includesTikTokTarget && !tiktokAccountIdsNeedingUi.every((id) => isTikTokDirectPostPayload(tiktokPublishByAccountId[id]))) {
+                    setPublishModal({ open: false });
+                    setTiktokModalAccountIds(tiktokAccountIdsNeedingUi);
+                    setTiktokPublishModalOpen(true);
+                    return;
+                }
                 void (async () => {
                     try {
                         await api.patch(`/posts/${editPostId}`, payload, { timeout: 180_000 });
@@ -2732,6 +2738,12 @@ export default function ComposerPage() {
                 if (debug) sessionStorage.removeItem('publish_debug');
                 const publishBodyCreate = buildPublishRequestBody(mediaType, tiktokPublishByAccountId);
                 const publishPathCreate = `/posts/${postId}/publish${debug ? '?debug=1' : ''}`;
+                if (includesTikTokTarget && !tiktokAccountIdsNeedingUi.every((id) => isTikTokDirectPostPayload(tiktokPublishByAccountId[id]))) {
+                    setPublishModal({ open: false });
+                    setTiktokModalAccountIds(tiktokAccountIdsNeedingUi);
+                    setTiktokPublishModalOpen(true);
+                    return;
+                }
                 publishPostInBackground(postId, publishPathCreate, publishBodyCreate, includesTikTokTarget);
                 return;
             }

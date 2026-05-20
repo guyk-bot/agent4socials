@@ -182,6 +182,22 @@ export function buildTikTokPhotoPostInfoFromPayload(
   return { post_info };
 }
 
+/** Last-resort Direct Post settings when composer payload was not persisted (e.g. pool timeout on save). */
+export function buildDefaultTikTokDirectPostPayload(titleSeed: string): TikTokDirectPostPayload {
+  const opts = TIKTOK_CREATOR_INFO_FALLBACK.privacy_level_options ?? [];
+  return {
+    title: titleSeed.trim().slice(0, 2200),
+    privacyLevel: opts[0] ?? 'PUBLIC_TO_EVERYONE',
+    allowComment: !TIKTOK_CREATOR_INFO_FALLBACK.comment_disabled,
+    allowDuet: !TIKTOK_CREATOR_INFO_FALLBACK.duet_disabled,
+    allowStitch: !TIKTOK_CREATOR_INFO_FALLBACK.stitch_disabled,
+    commercialDisclosureOn: false,
+    yourBrand: false,
+    brandedContent: false,
+    userConsentedToPublish: true,
+  };
+}
+
 export function isTikTokDirectPostPayload(v: unknown): v is TikTokDirectPostPayload {
   if (!v || typeof v !== 'object') return false;
   const o = v as Record<string, unknown>;
