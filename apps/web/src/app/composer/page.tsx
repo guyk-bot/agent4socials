@@ -2181,6 +2181,18 @@ export default function ComposerPage() {
             }
             await new Promise((r) => setTimeout(r, 2500));
         }
+        try {
+            const syncRes = await api.post<{ post?: { status?: string; targets?: Array<{ platform?: string; status?: string }> } }>(
+                `/posts/${postId}/finalize-publish-status`,
+                {},
+                { timeout: 45_000 }
+            );
+            if (syncRes.data?.post?.status && syncRes.data.post.status !== 'POSTING') {
+                return syncRes.data.post;
+            }
+        } catch {
+            /* still stuck */
+        }
         return null;
     }, []);
 

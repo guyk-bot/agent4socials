@@ -31,6 +31,15 @@ export type TikTokDirectPostPayload = {
   videoDurationSec?: number;
 };
 
+/** Used when creator_info cannot load (e.g. DB pool busy) so the user can still complete Post to TikTok. */
+export const TIKTOK_CREATOR_INFO_FALLBACK: TikTokCreatorInfoData = {
+  privacy_level_options: ['PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS', 'FOLLOWER_OF_CREATOR', 'SELF_ONLY'],
+  comment_disabled: false,
+  duet_disabled: false,
+  stitch_disabled: false,
+  max_video_post_duration_sec: 600,
+};
+
 export const TIKTOK_PRIVACY_LABELS: Record<string, string> = {
   PUBLIC_TO_EVERYONE: 'Public',
   MUTUAL_FOLLOW_FRIENDS: 'Friends',

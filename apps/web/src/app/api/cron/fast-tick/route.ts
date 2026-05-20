@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeCommentAutomation } from '@/lib/comment-automation';
 import { executeProcessScheduled } from '@/lib/cron/process-scheduled-run';
+import { finalizeStalePostingPosts } from '@/lib/finalize-stale-posting';
 
 export const maxDuration = 60;
 
@@ -40,14 +41,16 @@ async function handle(request: NextRequest) {
   try {
     const scheduled = await executeProcessScheduled({ chainCommentAutomation: false });
     const commentAutomation = await executeCommentAutomation();
+    const stalePosting = await finalizeStalePostingPosts(15);
     console.log(
       '[Cron] fast-tick done',
       JSON.stringify({
         scheduledProcessed: scheduled.processed,
         commentAutomationOk: commentAutomation.ok,
+        stalePostingFinalized: stalePosting.finalized.length,
       })
     );
-    return NextResponse.json({ ok: true, scheduled, commentAutomation });
+    return NextResponse.json({ ok: true, scheduled, commentAutomation, stalePosting });
   } catch (e) {
     console.error('[Cron] fast-tick error:', e);
     return NextResponse.json(

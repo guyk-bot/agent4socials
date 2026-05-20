@@ -35,6 +35,21 @@ export type PublishPostWorkflowResult = {
   body: Record<string, unknown>;
 };
 
+function promiseWithTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error(label)), ms);
+    }),
+  ]);
+}
+
+function publishTargetTimeoutMs(platform: string): number {
+  if (platform === 'YOUTUBE' || platform === 'TIKTOK') return 180_000;
+  if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') return 150_000;
+  return 120_000;
+}
+
 /** If publish was killed mid-flight, derive final post status from per-platform targets. */
 export async function finalizePostPublishState(postId: string): Promise<void> {
   await withPrismaPoolRetry('finalizePostPublishState', async () => {
@@ -194,6 +209,7 @@ export async function runPublishPostWorkflow(input: {
 
   const results: PublishOutcome[] = await Promise.all(
     post.targets.map(async (target): Promise<PublishOutcome> => {
+    try {
     const { platform, socialAccount } = target;
     let token = socialAccount.accessToken;
     if (platform === 'PINTEREST') {
@@ -421,24 +437,30 @@ export async function runPublishPostWorkflow(input: {
       }
     }
 
-    let result = await publishTarget(
-      {
-        platform,
-        token,
-        platformUserId,
-        caption,
-        firstImageUrl,
-        firstMediaUrl,
-        imageUrls,
-        videoThumbnailUrl,
-        twitterOAuth1,
-        pinterestBoardId,
-        pinterestSandbox: requestBody.pinterestSandbox === true,
-        ...(tiktokDirectPost ? { tiktokDirectPost } : {}),
-        ...(platform === 'TIKTOK' ? { tiktokPostMediaKind: isTiktokPhoto ? 'photo' : 'video' } : {}),
-        ...(isStory ? { isStory: true } : {}),
-      },
-      { fetch, axios }
+    const publishOpts = {
+      platform,
+      token,
+      platformUserId,
+      caption,
+      firstImageUrl,
+      firstMediaUrl,
+      imageUrls,
+      videoThumbnailUrl,
+      twitterOAuth1,
+      pinterestBoardId,
+      pinterestSandbox: requestBody.pinterestSandbox === true,
+      ...(tiktokDirectPost ? { tiktokDirectPost } : {}),
+      ...(platform === 'TIKTOK'
+        ? { tiktokPostMediaKind: (isTiktokPhoto ? 'photo' : 'video') as 'photo' | 'video' }
+        : {}),
+      ...(isStory ? { isStory: true } : {}),
+    };
+    const publishDeps = { fetch, axios };
+    const targetTimeoutLabel = `${platform} publish timed out after ${publishTargetTimeoutMs(platform) / 1000}s`;
+    let result = await promiseWithTimeout(
+      publishTarget(publishOpts, publishDeps),
+      publishTargetTimeoutMs(platform),
+      targetTimeoutLabel
     );
 
     const isTwitterUnauthorized =
@@ -453,22 +475,10 @@ export async function runPublishPostWorkflow(input: {
           data: { accessToken: newAccess, ...(newRefresh ? { refreshToken: newRefresh } : {}) },
         });
         token = newAccess;
-        result = await publishTarget(
-          {
-            platform,
-            token,
-            platformUserId,
-            caption,
-            firstImageUrl,
-            firstMediaUrl,
-            imageUrls,
-            videoThumbnailUrl,
-            twitterOAuth1,
-            pinterestBoardId,
-            pinterestSandbox: requestBody.pinterestSandbox === true,
-            ...(tiktokDirectPost ? { tiktokDirectPost } : {}),
-          },
-          { fetch, axios }
+        result = await promiseWithTimeout(
+          publishTarget({ ...publishOpts, token }, publishDeps),
+          publishTargetTimeoutMs(platform),
+          targetTimeoutLabel
         );
       } catch (refreshErr) {
         result = {
@@ -489,23 +499,10 @@ export async function runPublishPostWorkflow(input: {
     if (isTwitterNetworkError(result)) {
       for (let attempt = 0; attempt < 2 && isTwitterNetworkError(result); attempt++) {
         await new Promise((r) => setTimeout(r, 2000));
-        result = await publishTarget(
-          {
-            platform,
-            token,
-            platformUserId,
-            caption,
-            firstImageUrl,
-            firstMediaUrl,
-            imageUrls,
-            videoThumbnailUrl,
-            twitterOAuth1,
-            pinterestBoardId,
-            pinterestSandbox: requestBody.pinterestSandbox === true,
-            ...(tiktokDirectPost ? { tiktokDirectPost } : {}),
-            ...(platform === 'TIKTOK' ? { tiktokPostMediaKind: isTiktokPhoto ? 'photo' : 'video' } : {}),
-          },
-          { fetch, axios }
+        result = await promiseWithTimeout(
+          publishTarget(publishOpts, publishDeps),
+          publishTargetTimeoutMs(platform),
+          targetTimeoutLabel
         );
       }
     }
@@ -514,14 +511,16 @@ export async function runPublishPostWorkflow(input: {
       const inboxNote = result.sentToInbox
         ? 'TikTok queued this in your app Inbox instead of publishing directly. Open the TikTok app to finish posting.'
         : undefined;
-      await prisma.postTarget.update({
-        where: { id: target.id },
-        data: {
-          status: PostStatus.POSTED,
-          ...(result.platformPostId ? { platformPostId: result.platformPostId } : {}),
-          ...(inboxNote ? { error: inboxNote } : {}),
-        },
-      });
+      await withPrismaPoolRetry('publish-target-posted', () =>
+        prisma.postTarget.update({
+          where: { id: target.id },
+          data: {
+            status: PostStatus.POSTED,
+            ...(result.platformPostId ? { platformPostId: result.platformPostId } : {}),
+            ...(inboxNote ? { error: inboxNote } : {}),
+          },
+        })
+      );
       return { platform, ok: true, ...(result.mediaSkipped ? { mediaSkipped: true } : {}), ...(result.sentToInbox ? { sentToInbox: true } : {}) };
     }
     if (platform === 'INSTAGRAM') {
@@ -533,14 +532,31 @@ export async function runPublishPostWorkflow(input: {
     // Do not overwrite POSTED: overlapping publishes (double submit / retry) can succeed on
     // the platform first, then a slower duplicate attempt returns an error and would wrongly
     // mark the target FAILED and hide it from dashboard Content History.
-    await prisma.postTarget.updateMany({
-      where: { id: target.id, status: { not: PostStatus.POSTED } },
-      data: { status: PostStatus.FAILED, error: result.error?.slice(0, 500) },
-    });
+    await withPrismaPoolRetry('publish-target-failed', () =>
+      prisma.postTarget.updateMany({
+        where: { id: target.id, status: { not: PostStatus.POSTED } },
+        data: { status: PostStatus.FAILED, error: result.error?.slice(0, 500) },
+      })
+    );
     if (isDebug && debugInfo?.fullErrors && result.error) {
       debugInfo.fullErrors[platform] = result.error;
     }
     return { platform, ok: false, error: result.error?.slice(0, 200) };
+    } catch (targetErr) {
+      const platform = target.socialAccount.platform;
+      const err = (targetErr as Error)?.message ?? String(targetErr);
+      try {
+        await withPrismaPoolRetry('publish-target-exception', () =>
+          prisma.postTarget.updateMany({
+            where: { id: target.id, status: { not: PostStatus.POSTED } },
+            data: { status: PostStatus.FAILED, error: err.slice(0, 500) },
+          })
+        );
+      } catch {
+        /* pool */
+      }
+      return { platform, ok: false, error: err.slice(0, 200) };
+    }
   })
   );
 

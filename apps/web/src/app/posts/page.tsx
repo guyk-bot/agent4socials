@@ -246,6 +246,49 @@ export default function PostsPage() {
         };
     }, [pathname, draftSavedParam, refreshParam]);
 
+    const hasPublishingPosts = posts.some((p: { status?: string }) => p.status === 'POSTING');
+
+    useEffect(() => {
+        if (pathname !== '/posts' || !hasPublishingPosts) return;
+        let cancelled = false;
+        const tick = async () => {
+            try {
+                const res = await api.get('/posts', { timeout: 45_000 });
+                if (cancelled) return;
+                const list = Array.isArray(res.data) ? res.data : [];
+                setPosts(list);
+                appDataRef.current?.setScheduledPosts?.(list);
+                writeScheduledPostsClientCache(list);
+                setLoadError(null);
+                const stillPublishing = list.some((p: { status?: string }) => p.status === 'POSTING');
+                if (stillPublishing) {
+                    for (const p of list) {
+                        if (p?.status !== 'POSTING' || !p?.id) continue;
+                        try {
+                            await api.post(`/posts/${p.id}/finalize-publish-status`, {}, { timeout: 30_000 });
+                        } catch {
+                            /* retry next poll */
+                        }
+                    }
+                    const res2 = await api.get('/posts', { timeout: 45_000 });
+                    if (!cancelled && Array.isArray(res2.data)) {
+                        setPosts(res2.data);
+                        appDataRef.current?.setScheduledPosts?.(res2.data);
+                        writeScheduledPostsClientCache(res2.data);
+                    }
+                }
+            } catch {
+                /* keep cached list */
+            }
+        };
+        void tick();
+        const id = window.setInterval(() => void tick(), 12_000);
+        return () => {
+            cancelled = true;
+            window.clearInterval(id);
+        };
+    }, [pathname, hasPublishingPosts]);
+
     const highlightId = searchParams.get('highlight');
     useEffect(() => {
         if (!highlightId || loading || posts.length === 0) return;
@@ -488,7 +531,7 @@ export default function PostsPage() {
                                                                 ? 'bg-green-100 text-green-800'
                                                                 : (t.status || post.status) === 'FAILED'
                                                                   ? 'bg-red-100 text-red-800'
-                                                                  : (t.status || post.status) === 'POSTING'
+                                                                  : (t.status || post.status) === 'POSTING' || post.status === 'POSTING'
                                                                     ? 'bg-blue-100 text-blue-800'
                                                                     : 'bg-gray-100 text-gray-700'
                                                         }`}

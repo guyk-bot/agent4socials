@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
-import { prisma } from '@/lib/db';
+import { isPrismaPoolError, prisma, withPrismaPoolRetry } from '@/lib/db';
 import { parseTikTokCreatorInfoResponse } from '@/lib/tiktok/tiktok-publish-compliance';
 
 type TikTokOAuthRefreshResponse = {
@@ -39,14 +39,16 @@ async function refreshTikTokAccessToken(account: {
   if (r.status < 200 || r.status >= 300 || !data?.access_token || data?.error) return null;
 
   const expiresInSec = typeof data.expires_in === 'number' && Number.isFinite(data.expires_in) ? data.expires_in : 86_400;
-  await prisma.socialAccount.update({
-    where: { id: account.id },
-    data: {
-      accessToken: data.access_token,
-      ...(data.refresh_token ? { refreshToken: data.refresh_token } : {}),
-      expiresAt: new Date(Date.now() + expiresInSec * 1000),
-    },
-  });
+  await withPrismaPoolRetry('tiktok-refresh-token', () =>
+    prisma.socialAccount.update({
+      where: { id: account.id },
+      data: {
+        accessToken: data.access_token,
+        ...(data.refresh_token ? { refreshToken: data.refresh_token } : {}),
+        expiresAt: new Date(Date.now() + expiresInSec * 1000),
+      },
+    })
+  );
   return data.access_token;
 }
 
@@ -65,10 +67,26 @@ export async function GET(
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   const { id } = await params;
-  const account = await prisma.socialAccount.findFirst({
-    where: { id, userId, platform: 'TIKTOK' },
-    select: { id: true, accessToken: true, refreshToken: true, expiresAt: true },
-  });
+  let account: { id: string; accessToken: string | null; refreshToken: string | null; expiresAt: Date | null } | null;
+  try {
+    account = await withPrismaPoolRetry('tiktok-creator-info-account', () =>
+      prisma.socialAccount.findFirst({
+        where: { id, userId, platform: 'TIKTOK' },
+        select: { id: true, accessToken: true, refreshToken: true, expiresAt: true },
+      })
+    );
+  } catch (e) {
+    if (isPrismaPoolError(e)) {
+      return NextResponse.json(
+        {
+          message:
+            'Our database is busy right now. Wait a few seconds and tap Retry, or use default TikTok settings to continue.',
+        },
+        { status: 503 }
+      );
+    }
+    throw e;
+  }
   if (!account?.accessToken) {
     return NextResponse.json({ message: 'TikTok account not found' }, { status: 404 });
   }

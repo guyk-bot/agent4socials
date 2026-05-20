@@ -1576,7 +1576,7 @@ export async function publishTarget(
         },
         maxBodyLength: Infinity,
         maxContentLength: Infinity,
-        timeout: 300_000, // 5 minutes
+        timeout: 180_000,
         validateStatus: () => true,
       });
 

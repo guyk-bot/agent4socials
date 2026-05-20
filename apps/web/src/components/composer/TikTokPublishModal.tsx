@@ -4,7 +4,11 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom';
 import api from '@/lib/api';
 import type { TikTokCreatorInfoData, TikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
-import { TIKTOK_MAX_VIDEO_DURATION_EXCEEDED_MESSAGE, TIKTOK_PRIVACY_LABELS } from '@/lib/tiktok/tiktok-publish-compliance';
+import {
+  TIKTOK_CREATOR_INFO_FALLBACK,
+  TIKTOK_MAX_VIDEO_DURATION_EXCEEDED_MESSAGE,
+  TIKTOK_PRIVACY_LABELS,
+} from '@/lib/tiktok/tiktok-publish-compliance';
 import { X, Loader2 } from 'lucide-react';
 
 export type TikTokModalAccount = { id: string; username?: string | null };
@@ -119,7 +123,9 @@ export function TikTokPublishModal({
         : undefined;
       let msg = status === 429
         ? 'TikTok says this account cannot post right now. Please try again later.'
-        : String(responseMessage ?? 'Could not load TikTok creator info.');
+        : status === 503
+          ? String(responseMessage ?? 'Our server is busy loading TikTok options. Wait a few seconds, retry, or use default settings below.')
+          : String(responseMessage ?? 'Could not load TikTok creator info.');
       if (/reconnect|scope|permission|token|unauthorized/i.test(msg)) {
         msg += ' Open Accounts, disconnect TikTok, and connect again with video publish permissions.';
       }
@@ -129,6 +135,30 @@ export function TikTokPublishModal({
       setLoadingCreatorById((prev) => ({ ...prev, [accountId]: false }));
     }
   }, []);
+
+  const applyFallbackCreator = useCallback((accountId: string) => {
+    setCreatorById((prev) => ({ ...prev, [accountId]: TIKTOK_CREATOR_INFO_FALLBACK }));
+    setCreatorErrorById((prev) => {
+      const next = { ...prev };
+      delete next[accountId];
+      return next;
+    });
+    setFormById((prev) => {
+      const cur = prev[accountId] ?? defaultForm(defaultCaption.trim().slice(0, captionMax));
+      const opts = TIKTOK_CREATOR_INFO_FALLBACK.privacy_level_options ?? [];
+      const privacy = cur.privacyLevel && opts.includes(cur.privacyLevel) ? cur.privacyLevel : opts[0] ?? 'PUBLIC_TO_EVERYONE';
+      return {
+        ...prev,
+        [accountId]: {
+          ...cur,
+          privacyLevel: privacy,
+          allowComment: !TIKTOK_CREATOR_INFO_FALLBACK.comment_disabled,
+          allowDuet: !TIKTOK_CREATOR_INFO_FALLBACK.duet_disabled,
+          allowStitch: !TIKTOK_CREATOR_INFO_FALLBACK.stitch_disabled,
+        },
+      };
+    });
+  }, [defaultCaption, captionMax]);
 
   useEffect(() => {
     if (!open) {
@@ -330,14 +360,26 @@ export function TikTokPublishModal({
             <div className="py-4 space-y-3">
               <p className="text-sm text-red-600">{creatorErrorById[activeId ?? '']}</p>
               {activeId ? (
-                <button
-                  type="button"
-                  onClick={() => void loadCreator(activeId)}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-orange-300 bg-white text-orange-700 text-xs font-medium hover:bg-orange-50"
-                >
-                  Retry loading TikTok options
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void loadCreator(activeId)}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-orange-300 bg-white text-orange-700 text-xs font-medium hover:bg-orange-50"
+                  >
+                    Retry loading TikTok options
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyFallbackCreator(activeId)}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-neutral-300 bg-white text-neutral-800 text-xs font-medium hover:bg-neutral-50"
+                  >
+                    Use default TikTok settings
+                  </button>
+                </div>
               ) : null}
+              <p className="text-xs text-neutral-500">
+                If loading keeps failing, use default settings to continue, then verify visibility in the TikTok app after posting.
+              </p>
             </div>
           ) : f && activeId ? (
             <div className="grid grid-cols-1 md:grid-cols-[minmax(260px,300px)_1fr] gap-4 md:gap-6">
@@ -613,7 +655,11 @@ export function TikTokPublishModal({
             <button
               type="button"
               onClick={handleConfirm}
-              disabled={anyLoadingCreator || Boolean(activeId && creatorErrorById[activeId]) || Boolean(activeId && disclosureNeedsSelection)}
+              disabled={
+                anyLoadingCreator ||
+                Boolean(activeId && creatorErrorById[activeId] && !creatorById[activeId]) ||
+                Boolean(activeId && disclosureNeedsSelection)
+              }
               className="px-6 py-2.5 text-sm font-semibold rounded-full text-white shadow-md transition-all active:scale-[0.98] gradient-cta-pro disabled:opacity-50 disabled:shadow-none"
             >
               Continue

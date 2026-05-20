@@ -19,7 +19,7 @@ const api = axios.create({
 // Excess requests are queued and executed as earlier ones complete.
 // Keep this high enough that dashboard prefetch + navigation to another page
 // (e.g. AI Assistant) does not sit behind the queue so long the UI looks broken.
-const MAX_CONCURRENT = 14;
+const MAX_CONCURRENT = 6;
 let _inFlight = 0;
 const _queue: Array<{ resolve: () => void }> = [];
 
@@ -35,7 +35,7 @@ function isPriorityApiPath(url?: string): boolean {
     url.includes('/ai/generate-inbox-reply-batch') ||
     url.includes('/comments/reply') ||
     /\/conversations(\?|$|\/)/.test(url) ||
-    /\/posts\/[^/]+(\/publish)?$/.test(url)
+    /\/posts\/[^/]+(\/publish|\/finalize-publish-status)?$/.test(url)
   );
 }
 
