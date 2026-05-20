@@ -747,6 +747,7 @@ function InboxPage() {
   const [dmRecipientLookupError, setDmRecipientLookupError] = useState<string | null>(null);
   // Per-conversation batch replies
   const [batchDmTexts, setBatchDmTexts] = useState<Record<string, string>>({});
+  const [batchCommentTexts, setBatchCommentTexts] = useState<Record<string, string>>({});
   const [aiReplyLoading, setAiReplyLoading] = useState(false);
   const [aiReplyError, setAiReplyError] = useState<string | null>(null);
 
@@ -3471,13 +3472,74 @@ function InboxPage() {
                   )}
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {!hasCommentExamples && inboxExamplesLoaded && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      AI reply drafts are disabled.{' '}
+                      <a href="/dashboard/ai-assistant" className="font-medium underline">
+                        Add comment reply examples in AI Assistant
+                      </a>{' '}
+                      to enable them.
+                    </div>
+                  )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={aiReplyLoading || replySending || !hasCommentExamples || replyable.length === 0}
+                      onClick={async () => {
+                        setAiReplyError(null);
+                        setAiReplyLoading(true);
+                        try {
+                          const res = await api.post<{
+                            replies?: Record<string, string>;
+                            errors?: Record<string, string>;
+                          }>('/ai/generate-inbox-reply-batch', {
+                            type: 'comment',
+                            items: replyable.map((c) => ({
+                              id: c.commentId,
+                              text: c.text,
+                              context: c.postPreview ?? undefined,
+                              platform: c.platform,
+                            })),
+                          }, { timeout: 90_000 });
+                          const replies = res.data?.replies ?? {};
+                          if (Object.keys(replies).length === 0) {
+                            setAiReplyError('No replies generated. Try again.');
+                            return;
+                          }
+                          setBatchCommentTexts((prev) => ({ ...prev, ...replies }));
+                          const errCount = Object.keys(res.data?.errors ?? {}).length;
+                          if (errCount > 0) {
+                            setAiReplyError(
+                              `Generated ${Object.keys(replies).length} of ${replyable.length} replies. Fill in any missing ones manually.`
+                            );
+                          }
+                        } catch (e: unknown) {
+                          setAiReplyError(readApiErrorMessage(e, AI_REPLY_FAILED_MESSAGE));
+                        } finally {
+                          setAiReplyLoading(false);
+                        }
+                      }}
+                      className="inbox-reply-ai-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+                      title={hasCommentExamples ? 'Generate a unique reply for each selected comment' : 'Add examples in AI Assistant'}
+                    >
+                      {aiReplyLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                      Generate all with AI
+                    </button>
+                    {aiReplyLoading && (
+                      <span className="text-sm text-neutral-500">Writing {replyable.length} replies…</span>
+                    )}
+                  </div>
+                  {aiReplyError && <p className="text-sm text-amber-700">{aiReplyError}</p>}
                   <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Selected comments</p>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {selectedComments.map((c) => {
                       const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === c.platform);
                       const Icon = plat?.icon;
+                      const canReply =
+                        replyable.some((r) => r.commentId === c.commentId);
+                      const draft = batchCommentTexts[c.commentId] ?? '';
                       return (
-                        <div key={c.commentId} className="rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4 shadow-sm">
+                        <div key={c.commentId} className="rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4 shadow-sm space-y-3">
                           <div className="flex items-start gap-3">
                             <div className="w-10 h-10 rounded-full bg-neutral-200 shrink-0 overflow-hidden flex items-center justify-center">
                               {c.authorPictureUrl ? (
@@ -3488,70 +3550,52 @@ function InboxPage() {
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-medium text-neutral-900">{c.authorName}</span>
+                                <span className="font-medium text-neutral-900 dark:text-neutral-100">{c.authorName}</span>
                                 {Icon && <Icon size={14} className="opacity-70" />}
                                 <span className="text-xs text-neutral-500">{new Date(c.createdAt).toLocaleString()}</span>
                               </div>
-                              <p className="text-sm text-neutral-700 mt-1 line-clamp-2">{c.text}</p>
-                              {c.postPreview && <p className="text-xs text-neutral-500 mt-1 truncate">Post: {c.postPreview.slice(0, 50)}…</p>}
+                              <p className="text-sm text-neutral-700 dark:text-neutral-300 mt-1">{c.text}</p>
+                              {c.postPreview && (
+                                <p className="text-xs text-neutral-500 mt-1 truncate">Post: {c.postPreview.slice(0, 80)}…</p>
+                              )}
                             </div>
                           </div>
+                          {canReply ? (
+                            <textarea
+                              placeholder={aiReplyLoading ? 'Generating…' : 'Your reply to this comment'}
+                              rows={2}
+                              value={draft}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setBatchCommentTexts((prev) => ({ ...prev, [c.commentId]: v }));
+                              }}
+                              disabled={aiReplyLoading || replySending}
+                              readOnly={aiReplyLoading}
+                              className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none bg-white dark:bg-neutral-900 dark:text-neutral-100 disabled:opacity-60"
+                            />
+                          ) : (
+                            <p className="text-xs text-amber-700">This comment cannot be replied to from the app.</p>
+                          )}
                         </div>
                       );
                     })}
                   </div>
-                  <div className="pt-4 border-t border-neutral-200">
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      <button
-                        type="button"
-                        disabled={aiReplyLoading || replySending || !hasCommentExamples}
-                        onClick={async () => {
-                          setAiReplyError(null);
-                          setReplyText('');
-                          setAiReplyLoading(true);
-                          try {
-                            const first = replyable[0];
-                            const res = await api.post<{ reply?: string }>('/ai/generate-inbox-reply', {
-                              type: 'comment',
-                              text: first?.text ?? 'Comment',
-                              context: first?.postPreview ?? undefined,
-                              platform: selectedPlatform ?? undefined,
-                            });
-                            const reply = res.data?.reply?.trim();
-                            if (reply) setReplyText(reply);
-                            else setAiReplyError('No reply generated. Try again.');
-                          } catch (e: unknown) {
-                            setAiReplyError(readApiErrorMessage(e, AI_REPLY_FAILED_MESSAGE));
-                          } finally {
-                            setAiReplyLoading(false);
-                          }
-                        }}
-                        className="inbox-reply-ai-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
-                        title={hasCommentExamples ? 'Generate reply with AI' : 'Add examples in AI Assistant'}
-                      >
-                        {aiReplyLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-                        Generate with AI
-                      </button>
-                    </div>
-                    <textarea
-                      placeholder={aiReplyLoading ? 'Generating reply…' : 'Type a reply to send to all selected (or generate with AI above)...'}
-                      rows={3}
-                      value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
-                      disabled={aiReplyLoading || replySending}
-                      readOnly={aiReplyLoading}
-                      className="w-full px-4 py-3 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none bg-white dark:bg-neutral-800 dark:text-neutral-100 disabled:opacity-60 disabled:cursor-not-allowed"
-                    />
-                    {aiReplyError && <p className="text-sm text-amber-700 mt-2">{aiReplyError}</p>}
+                  <div className="pt-2 border-t border-neutral-200 sticky bottom-0 bg-white dark:bg-neutral-900 pb-2">
                     <button
                       type="button"
-                      disabled={replySending || aiReplyLoading || !replyText.trim() || replyable.length === 0}
+                      disabled={
+                        replySending ||
+                        aiReplyLoading ||
+                        replyable.length === 0 ||
+                        !replyable.some((c) => (batchCommentTexts[c.commentId] ?? '').trim())
+                      }
                       onClick={async () => {
-                        const msg = replyText.trim();
                         setReplySending(true);
                         setReplySendError(null);
                         const failed: string[] = [];
                         for (const c of replyable) {
+                          const msg = (batchCommentTexts[c.commentId] ?? '').trim();
+                          if (!msg) continue;
                           const account = effectiveAccounts.find((a) => a.platform === c.platform);
                           if (!account) continue;
                           try {
@@ -3571,6 +3615,7 @@ function InboxPage() {
                         setReplySending(false);
                         if (failed.length > 0) setReplySendError(`Failed for: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '...' : ''}`);
                         else {
+                          setBatchCommentTexts({});
                           setReplyText('');
                           setSelectedCommentIds(new Set());
                           setSelectMode(false);
@@ -3580,7 +3625,7 @@ function InboxPage() {
                       className="inbox-reply-send-btn mt-3 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
                     >
                       {replySending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-                      Send to all ({replyable.length})
+                      Send replies ({replyable.filter((c) => (batchCommentTexts[c.commentId] ?? '').trim()).length || replyable.length})
                     </button>
                     {replySendError && <p className="text-sm text-red-600 mt-2">{replySendError}</p>}
                   </div>

@@ -28,6 +28,7 @@ function isPriorityApiPath(url?: string): boolean {
   if (!url) return false;
   return (
     url.includes('/ai/generate-inbox-reply') ||
+    url.includes('/ai/generate-inbox-reply-batch') ||
     /\/conversations(\?|$|\/)/.test(url)
   );
 }
