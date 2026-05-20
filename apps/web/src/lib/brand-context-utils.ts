@@ -12,15 +12,53 @@ export type BrandContextRecord = {
   commentReplyExamples?: string | null;
 };
 
+/** Strip API-only fields from GET /ai/brand-context before reading form fields. */
+export function parseBrandContextApiPayload(data: unknown): BrandContextRecord {
+  if (!data || typeof data !== 'object') return {};
+  const d = data as Record<string, unknown>;
+  return {
+    targetAudience: (d.targetAudience as string | null | undefined) ?? null,
+    toneOfVoice: (d.toneOfVoice as string | null | undefined) ?? null,
+    toneExamples: (d.toneExamples as string | null | undefined) ?? null,
+    productDescription: (d.productDescription as string | null | undefined) ?? null,
+    additionalContext: (d.additionalContext as string | null | undefined) ?? null,
+    inboxReplyExamples: (d.inboxReplyExamples as string | null | undefined) ?? null,
+    commentReplyExamples: (d.commentReplyExamples as string | null | undefined) ?? null,
+  };
+}
+
 /** True when enough brand context exists for Composer "Generate with AI". */
 export function hasComposerBrandContext(ctx: unknown): boolean {
-  if (!ctx || typeof ctx !== 'object') return false;
-  const c = ctx as BrandContextRecord;
+  const c = parseBrandContextApiPayload(ctx);
   return !!(
     String(c.targetAudience ?? '').trim() ||
     String(c.toneOfVoice ?? '').trim() ||
-    String(c.productDescription ?? '').trim()
+    String(c.productDescription ?? '').trim() ||
+    String(c.toneExamples ?? '').trim() ||
+    String(c.additionalContext ?? '').trim()
   );
+}
+
+const COMPOSER_BRAND_READY_KEY = 'agent4socials_composer_brand_ready';
+
+/** Optimistic flag so Composer can open AI modal before a slow brand-context fetch finishes. */
+export function readComposerBrandReadyCache(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return sessionStorage.getItem(COMPOSER_BRAND_READY_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function writeComposerBrandReadyCache(ready: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (ready) sessionStorage.setItem(COMPOSER_BRAND_READY_KEY, '1');
+    else sessionStorage.removeItem(COMPOSER_BRAND_READY_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 export function hasInboxReplyExamples(ctx: unknown): boolean {

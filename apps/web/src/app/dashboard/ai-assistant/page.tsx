@@ -3,6 +3,11 @@
 import React, { useEffect, useState } from 'react';
 import { Sparkles, Loader2, MessageCircle, MessagesSquare } from 'lucide-react';
 import api from '@/lib/api';
+import {
+  hasComposerBrandContext,
+  parseBrandContextApiPayload,
+  writeComposerBrandReadyCache,
+} from '@/lib/brand-context-utils';
 
 type BrandContextPayload = {
   id?: string;
@@ -47,22 +52,21 @@ export default function AIAssistantPage() {
     const t = window.setTimeout(() => ctrl.abort(), 45_000);
     let cancelled = false;
     api
-      .get('/ai/brand-context', { signal: ctrl.signal })
+      .get('/ai/brand-context', { signal: ctrl.signal, timeout: 30_000 })
       .then((res) => {
         if (cancelled) return;
         setLoadFailed(false);
-        const data = res.data;
-        if (data && typeof data === 'object') {
-          setForm({
-            targetAudience: data.targetAudience ?? null,
-            toneOfVoice: data.toneOfVoice ?? null,
-            toneExamples: data.toneExamples ?? null,
-            productDescription: data.productDescription ?? null,
-            additionalContext: data.additionalContext ?? null,
-            inboxReplyExamples: (data as { inboxReplyExamples?: string | null }).inboxReplyExamples ?? null,
-            commentReplyExamples: (data as { commentReplyExamples?: string | null }).commentReplyExamples ?? null,
-          });
-        }
+        const data = parseBrandContextApiPayload(res.data);
+        setForm({
+          targetAudience: data.targetAudience ?? null,
+          toneOfVoice: data.toneOfVoice ?? null,
+          toneExamples: data.toneExamples ?? null,
+          productDescription: data.productDescription ?? null,
+          additionalContext: data.additionalContext ?? null,
+          inboxReplyExamples: data.inboxReplyExamples ?? null,
+          commentReplyExamples: data.commentReplyExamples ?? null,
+        });
+        writeComposerBrandReadyCache(hasComposerBrandContext(data));
       })
       .catch((err: { response?: { status?: number }; code?: string; name?: string }) => {
         if (cancelled) return;
@@ -113,7 +117,10 @@ export default function AIAssistantPage() {
     let willRetry = false;
     const doPut = () => api.put('/ai/brand-context', savePayload());
     doPut()
-      .then(() => setMessage({ type: 'success', text: 'Brand context saved. You can use "Generate with AI" in the Composer.' }))
+      .then((res) => {
+        writeComposerBrandReadyCache(hasComposerBrandContext(res.data));
+        setMessage({ type: 'success', text: 'Brand context saved. You can use "Generate with AI" in the Composer.' });
+      })
       .catch((err: { response?: { data?: { message?: string }; status?: number }; message?: string }) => {
         const status = err.response?.status;
         const msg = err.response?.data?.message
@@ -123,7 +130,10 @@ export default function AIAssistantPage() {
           setMessage({ type: 'error', text: msg + ' Retrying once in a moment…' });
           window.setTimeout(() => {
             doPut()
-              .then(() => setMessage({ type: 'success', text: 'Brand context saved. You can use "Generate with AI" in the Composer.' }))
+              .then((res) => {
+                writeComposerBrandReadyCache(hasComposerBrandContext(res.data));
+                setMessage({ type: 'success', text: 'Brand context saved. You can use "Generate with AI" in the Composer.' });
+              })
               .catch((retryErr: { response?: { data?: { message?: string }; status?: number }; message?: string }) => {
                 const retryMsg = retryErr.response?.data?.message || retryErr.message || msg;
                 setMessage({ type: 'error', text: retryMsg + ' Click "Save brand context" again to retry.' });

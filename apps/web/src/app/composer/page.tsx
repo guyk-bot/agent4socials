@@ -41,7 +41,11 @@ import {
     isTenMinuteLocalScheduleString,
     isoInstantToLocalTenMinuteSnappedUp,
 } from '@/lib/schedule-ten-minute';
-import { hasComposerBrandContext } from '@/lib/brand-context-utils';
+import {
+  hasComposerBrandContext,
+  readComposerBrandReadyCache,
+  writeComposerBrandReadyCache,
+} from '@/lib/brand-context-utils';
 import { resolveComposerMediaType } from '@/lib/composer-media-type';
 import { mergeCaptionWithCta } from '@/lib/composer/cta-caption';
 
@@ -924,7 +928,10 @@ export default function ComposerPage() {
     const [aiLoading, setAiLoading] = useState(false);
     const [dmReplyAiLoading, setDmReplyAiLoading] = useState(false);
     const [aiError, setAiError] = useState<string | null>(null);
-    const [hasBrandContext, setHasBrandContext] = useState<boolean | null>(null);
+    const [hasBrandContext, setHasBrandContext] = useState<boolean | null>(() =>
+      readComposerBrandReadyCache() ? true : null
+    );
+    const [brandContextChecked, setBrandContextChecked] = useState(() => readComposerBrandReadyCache());
 
     useEffect(() => {
         if (typeof document === 'undefined') return;
@@ -1174,17 +1181,28 @@ export default function ComposerPage() {
         } catch (_) { /* ignore */ }
     }, []);
 
+    const refreshBrandContext = useCallback(() => {
+        api
+            .get('/ai/brand-context', { timeout: 30_000 })
+            .then((res) => {
+                const ready = hasComposerBrandContext(res.data);
+                setHasBrandContext(ready);
+                writeComposerBrandReadyCache(ready);
+            })
+            .catch(() => {
+                setHasBrandContext((prev) => (prev === true ? true : false));
+            })
+            .finally(() => setBrandContextChecked(true));
+    }, []);
+
     const openAiModal = useCallback(() => {
         setAiError(null);
         setAiTopic('');
         setAiPrompt('');
         setAiPlatform(platforms[0] || '');
         setAiModalOpen(true);
-        if (hasBrandContext !== null) return;
-        api.get('/ai/brand-context')
-            .then((res) => setHasBrandContext(hasComposerBrandContext(res.data)))
-            .catch(() => setHasBrandContext(false));
-    }, [platforms, hasBrandContext]);
+        refreshBrandContext();
+    }, [platforms, refreshBrandContext]);
 
     const clampTwitterAiText = useCallback((text: string): string => {
         const raw = text.trim();
@@ -2563,22 +2581,28 @@ export default function ComposerPage() {
         }
     }, [composerReady]);
 
-    // Prefetch AI brand context in parallel with composer load so the modal can open instantly.
+    // Revalidate brand context on mount (priority API path; not blocked by dashboard prefetch queue).
     useEffect(() => {
-        if (hasBrandContext !== null) return;
         let cancelled = false;
-        api.get('/ai/brand-context')
+        api
+            .get('/ai/brand-context', { timeout: 30_000 })
             .then((res) => {
                 if (cancelled) return;
-                setHasBrandContext(hasComposerBrandContext(res.data));
+                const ready = hasComposerBrandContext(res.data);
+                setHasBrandContext(ready);
+                writeComposerBrandReadyCache(ready);
             })
             .catch(() => {
-                if (!cancelled) setHasBrandContext(false);
+                if (cancelled) return;
+                setHasBrandContext((prev) => (prev === true ? true : false));
+            })
+            .finally(() => {
+                if (!cancelled) setBrandContextChecked(true);
             });
         return () => {
             cancelled = true;
         };
-    }, [hasBrandContext]);
+    }, []);
 
     if (!composerReady) {
     return (
@@ -3292,19 +3316,18 @@ export default function ComposerPage() {
                             <button
                                 type="button"
                                 onClick={openAiModal}
-                                disabled={hasBrandContext === false}
-                                className="inline-flex items-center gap-1.5 px-3 py-2 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-neutral-100"
+                                className="inline-flex items-center gap-1.5 px-3 py-2 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 rounded-lg text-sm font-medium transition-colors"
                             >
                                 <Sparkles size={16} className="text-[var(--button)] shrink-0" aria-hidden />
                                 Generate with AI
                             </button>
-                            {hasBrandContext === false && (
+                            {brandContextChecked && hasBrandContext === false && (
                                 <p className="text-xs text-amber-700 dark:text-amber-400">
-                                    Set up{' '}
+                                    Add target audience, tone, or product description in{' '}
                                     <Link href="/dashboard/ai-assistant" className="underline font-medium">
                                         AI Assistant
                                     </Link>{' '}
-                                    before generating captions.
+                                    to guide captions.
                                 </p>
                             )}
                         </div>
