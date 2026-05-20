@@ -37,6 +37,7 @@ import {
   shouldRunMetaPostsHttpSync,
 } from '@/lib/meta-usage-guard';
 import { runMetaGraphRequest } from '@/lib/meta-graph-queue';
+import { resolveComposerMediaType } from '@/lib/composer-media-type';
 
 export const maxDuration = 60;
 
@@ -892,7 +893,15 @@ export async function GET(
         status: PostStatus.POSTED,
         platformPostId: { not: null },
       },
-      include: { post: { select: { content: true, media: { select: { fileUrl: true, type: true, metadata: true }, take: 1 } } } },
+      include: {
+        post: {
+          select: {
+            content: true,
+            mediaType: true,
+            media: { select: { fileUrl: true, type: true, metadata: true }, take: 1 },
+          },
+        },
+      },
       orderBy: { updatedAt: 'desc' },
       take: 200,
     });
@@ -1856,6 +1865,12 @@ export async function GET(
             }
           : {};
 
+        const composerMediaType = resolveComposerMediaType({
+          postMediaType: t.post?.mediaType,
+          media: t.post?.media ?? [],
+        });
+        const isComposerStory = composerMediaType === 'story';
+
         return {
           id: `target-${t.id}`,
           platformPostId: pid,
@@ -1887,8 +1902,11 @@ export async function GET(
           sharesCount: account.platform === 'TWITTER' && twE ? twE.quoteCount : sharesCount,
           savesCount: 0,
           publishedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : String(t.updatedAt),
-          mediaType: t.post?.media[0]?.type ?? null,
+          mediaType: isComposerStory ? 'STORY' : (t.post?.media[0]?.type ?? null),
           platform: account.platform,
+          ...(isComposerStory
+            ? { platformMetadata: { media_product_type: 'STORY', composerMediaType: 'story' } }
+            : {}),
           ...(live && Object.keys(live).length > 0 ? { facebookInsights: live } : {}),
           ...(account.platform === 'YOUTUBE' && Object.keys(ytMeta).length > 0 ? { platformMetadata: ytMeta } : {}),
         };
@@ -2081,10 +2099,23 @@ function isInstagramLikelyReel(m: {
   media_product_type?: string;
   permalink?: string;
 }): boolean {
+  if ((m.media_product_type ?? '').toUpperCase() === 'STORY') return false;
   const p = (m.permalink ?? '').toLowerCase();
   if (p.includes('/reel/')) return true;
   if ((m.media_product_type ?? '').toUpperCase() === 'REELS') return true;
   return (m.media_type ?? '').toUpperCase() === 'VIDEO';
+}
+
+function igStoryMediaType(m: IgSyncMediaItem): string {
+  if ((m.media_product_type ?? '').toUpperCase() === 'STORY') return 'STORY';
+  return m.media_type ?? 'IMAGE';
+}
+
+function igStoryPlatformMetadata(m: IgSyncMediaItem): Record<string, unknown> {
+  return {
+    media_product_type: m.media_product_type ?? null,
+    media_type: m.media_type ?? null,
+  };
 }
 
 type IgSyncMediaItem = {
@@ -2243,6 +2274,28 @@ async function syncImportedPosts(
       throw primaryError;
     }
 
+    const storyFields =
+      'id,media_type,media_product_type,media_url,permalink,caption,timestamp,thumbnail_url,like_count,comments_count';
+    for (const apiBase of igBases) {
+      if (merged.size >= maxMedia) break;
+      try {
+        const storiesRes = await runMetaGraphRequest<IgSyncMediaPage>('ig-sync-stories', () =>
+          axios.get<IgSyncMediaPage>(`${apiBase}/${platformUserId}/stories`, {
+            params: { fields: storyFields, access_token: accessToken },
+            timeout: 12_000,
+          })
+        );
+        for (const m of storiesRes.data?.data ?? []) {
+          if (!m?.id) continue;
+          const prev = merged.get(m.id);
+          merged.set(m.id, prev ? mergeIgSyncMediaItem(prev, m) : m);
+        }
+        if ((storiesRes.data?.data?.length ?? 0) > 0) break;
+      } catch {
+        // active stories edge may be unavailable on some hosts
+      }
+    }
+
     const items = Array.from(merged.values());
 
     for (const m of items) {
@@ -2255,6 +2308,8 @@ async function syncImportedPosts(
       const likeCount = m.like_count ?? 0;
       const commentsCount = m.comments_count ?? 0;
       const interactions = likeCount + commentsCount;
+      const mediaType = igStoryMediaType(m);
+      const platformMetadata = igStoryPlatformMetadata(m);
       // Do not call GET /{media-id}/insights during bulk sync: N media × several hosts/metric
       // probes burned Meta app-level quota (ShadowIGMedia/insights). Impressions and rich IG
       // metrics are updated by the sync engine post_metrics scope (single batched metric call).
@@ -2267,7 +2322,8 @@ async function syncImportedPosts(
           thumbnailUrl,
           permalinkUrl: m.permalink ?? null,
           publishedAt,
-          mediaType: m.media_type ?? null,
+          mediaType,
+          platformMetadata: platformMetadata as object,
           interactions,
           likeCount,
           commentsCount,
@@ -2281,7 +2337,8 @@ async function syncImportedPosts(
           thumbnailUrl,
           permalinkUrl: m.permalink ?? null,
           publishedAt,
-          mediaType: m.media_type ?? null,
+          mediaType,
+          platformMetadata: platformMetadata as object,
           impressions: 0,
           interactions,
           likeCount,

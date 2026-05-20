@@ -4499,7 +4499,18 @@ type PostsUploadDayTooltipAgg = {
   }, [selectedStoryMetrics, chartByMode]);
 
   const trafficTicks = useMemo(
-    () => buildKeyDateTicks(trafficTimelineData, (d) => (d.postImpressions ?? 0) > 0 || (d.nonviral ?? 0) > 0 || (d.viral ?? 0) > 0 || (d.uniqueReachProxy ?? 0) > 0, 10),
+    () =>
+      buildKeyDateTicks(
+        trafficTimelineData,
+        (d) =>
+          (d.postImpressions ?? 0) > 0 ||
+          (d.nonviral ?? 0) > 0 ||
+          (d.viral ?? 0) > 0 ||
+          (d.uniqueReachProxy ?? 0) > 0 ||
+          (d.storyViews ?? 0) > 0 ||
+          (d.storyUniqueViewers ?? 0) > 0,
+        10
+      ),
     [trafficTimelineData]
   );
   const reelsTicks = useMemo(
@@ -6071,7 +6082,13 @@ type PostsUploadDayTooltipAgg = {
             <>
           <div
             className={`grid gap-3 sm:grid-cols-2 ${
-              isInstagram || isPinterest ? 'xl:grid-cols-2' : isFacebook ? 'xl:grid-cols-5' : 'xl:grid-cols-4'
+              isInstagram
+                ? 'xl:grid-cols-4'
+                : isPinterest
+                  ? 'xl:grid-cols-2'
+                  : isFacebook
+                    ? 'xl:grid-cols-7'
+                    : 'xl:grid-cols-4'
             }`}
           >
             <MetricCard
@@ -6113,6 +6130,36 @@ type PostsUploadDayTooltipAgg = {
                   onClick={() =>
                     setSelectedTrafficMetrics((prev) =>
                       prev.includes('uniqueReachProxy') ? prev.filter((m) => m !== 'uniqueReachProxy') : [...prev, 'uniqueReachProxy']
+                    )
+                  }
+                />
+              </>
+            ) : null}
+            {isFacebook || isInstagram ? (
+              <>
+                <MetricCard
+                  label="Story Views"
+                  source="story_media_view"
+                  color={TRAFFIC_METRIC_CONFIG.storyViews.color}
+                  value={formatNumber(trafficTotalsFromTimeline.storyViews)}
+                  active={selectedTrafficMetrics.includes('storyViews')}
+                  onClick={() =>
+                    setSelectedTrafficMetrics((prev) =>
+                      prev.includes('storyViews') ? prev.filter((m) => m !== 'storyViews') : [...prev, 'storyViews']
+                    )
+                  }
+                />
+                <MetricCard
+                  label="Story Unique Viewers"
+                  source="story_total_media_view_unique"
+                  color={TRAFFIC_METRIC_CONFIG.storyUniqueViewers.color}
+                  value={formatNumber(trafficTotalsFromTimeline.storyUniqueViewers)}
+                  active={selectedTrafficMetrics.includes('storyUniqueViewers')}
+                  onClick={() =>
+                    setSelectedTrafficMetrics((prev) =>
+                      prev.includes('storyUniqueViewers')
+                        ? prev.filter((m) => m !== 'storyUniqueViewers')
+                        : [...prev, 'storyUniqueViewers']
                     )
                   }
                 />
@@ -6197,6 +6244,28 @@ type PostsUploadDayTooltipAgg = {
                       dataKey="viral"
                       name={TRAFFIC_METRIC_CONFIG.viral.label}
                       fill={COLOR.magenta}
+                      radius={[6, 6, 0, 0]}
+                      barSize={UNIFIED_BAR_SIZE}
+                      shape={<MinWidthBarShape />}
+                      isAnimationActive={false}
+                    />
+                  ) : null}
+                  {selectedTrafficMetrics.includes('storyViews') ? (
+                    <Bar
+                      dataKey="storyViews"
+                      name={TRAFFIC_METRIC_CONFIG.storyViews.label}
+                      fill={TRAFFIC_METRIC_CONFIG.storyViews.color}
+                      radius={[6, 6, 0, 0]}
+                      barSize={UNIFIED_BAR_SIZE}
+                      shape={<MinWidthBarShape />}
+                      isAnimationActive={false}
+                    />
+                  ) : null}
+                  {selectedTrafficMetrics.includes('storyUniqueViewers') ? (
+                    <Bar
+                      dataKey="storyUniqueViewers"
+                      name={TRAFFIC_METRIC_CONFIG.storyUniqueViewers.label}
+                      fill={TRAFFIC_METRIC_CONFIG.storyUniqueViewers.color}
                       radius={[6, 6, 0, 0]}
                       barSize={UNIFIED_BAR_SIZE}
                       shape={<MinWidthBarShape />}
@@ -6879,6 +6948,104 @@ type PostsUploadDayTooltipAgg = {
       </section>
       ) : null}
 
+      {(isFacebook || isInstagram) && !isLinkedIn ? (
+      <section id={FACEBOOK_ANALYTICS_SECTION_IDS.stories} className="scroll-mt-28 space-y-6">
+        {overviewSkeleton ? (
+          <AnalyticsReelsSkeleton />
+        ) : (
+        <div
+          className="rounded-[20px] border p-4 sm:p-5 space-y-4"
+          style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}
+        >
+          <div>
+            <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Stories</h2>
+            <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+              Story views and interactions in this date range, including synced stories and app-published Stories.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricCard
+              label="Story Views"
+              source="story_media_view"
+              color={STORY_CHART_METRIC_CONFIG.views.color}
+              value={formatNumber(storyTotals.views)}
+              active={selectedStoryChartMetrics.includes('views')}
+              onClick={() =>
+                setSelectedStoryChartMetrics((prev) =>
+                  prev.includes('views') ? prev.filter((m) => m !== 'views') : [...prev, 'views']
+                )
+              }
+            />
+            <MetricCard
+              label="Unique Viewers"
+              source="story_total_media_view_unique"
+              color={COLOR.coral}
+              value={formatNumber(storyTotals.uniqueViewers)}
+            />
+            <MetricCard
+              label="Interactions"
+              source="Story likes, comments, shares, and replies"
+              color={COLOR.violet}
+              value={formatNumber(storyTotals.interactions)}
+            />
+            <MetricCard
+              label="Stories Published"
+              source="Synced stories with publish dates in range"
+              color={COLOR.mint}
+              value={formatNumber(storyTotals.count)}
+            />
+          </div>
+          <InsightChartCard title="Story performance" hideHeader flat>
+            {storyChartData.length === 0 || (storyTotals.count === 0 && (bundle?.totals.storyMediaViews ?? 0) === 0) ? (
+              <div className="h-[240px] rounded-[20px] border flex flex-col items-center justify-center text-center px-6" style={{ background: COLOR.card, borderColor: COLOR.border }}>
+                <p className="text-sm font-semibold" style={{ color: COLOR.text }}>No stories in this period</p>
+                <p className="mt-1 text-sm" style={{ color: COLOR.textSecondary }}>
+                  Publish a Story from Composer or wait for Meta to sync active stories into your inventory.
+                </p>
+              </div>
+            ) : selectedStoryChartMetrics.length === 0 ? (
+              <AnalyticsChartSelectMetricPlaceholder />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={storyChartData}
+                  barCategoryGap={UNIFIED_BAR_CATEGORY_GAP}
+                  barGap={UNIFIED_BAR_GAP}
+                  margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
+                  <XAxis dataKey="date" tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    cursor={{ fill: analyticsBarTooltipCursorFill(isAnalyticsDark) }}
+                    contentStyle={{ background: COLOR.card, border: `1px solid ${COLOR.border}`, borderRadius: 12 }}
+                    formatter={(v: number | string | undefined, n?: string) => [
+                      formatNumber(Number(v) || 0),
+                      STORY_CHART_METRIC_CONFIG[n as StoryChartMetricKey]?.label ?? String(n ?? ''),
+                    ]}
+                    labelFormatter={(l) => formatShortDate(String(l))}
+                  />
+                  {selectedStoryChartMetrics.includes('views') ? (
+                    <Bar dataKey="views" name="views" fill={STORY_CHART_METRIC_CONFIG.views.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} />
+                  ) : null}
+                  {selectedStoryChartMetrics.includes('likes') ? (
+                    <Bar dataKey="likes" name="likes" fill={STORY_CHART_METRIC_CONFIG.likes.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} />
+                  ) : null}
+                  {selectedStoryChartMetrics.includes('comments') ? (
+                    <Bar dataKey="comments" name="comments" fill={STORY_CHART_METRIC_CONFIG.comments.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} />
+                  ) : null}
+                  {selectedStoryChartMetrics.includes('shares') ? (
+                    <Bar dataKey="shares" name="shares" fill={STORY_CHART_METRIC_CONFIG.shares.color} radius={[6, 6, 0, 0]} barSize={UNIFIED_BAR_SIZE} shape={<MinWidthBarShape />} isAnimationActive={false} />
+                  ) : null}
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </InsightChartCard>
+        </div>
+        )}
+      </section>
+      ) : null}
+
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.history} className="scroll-mt-28 space-y-4">
         {overviewSkeleton ? (
           <AnalyticsHistorySkeleton />
@@ -6892,6 +7059,9 @@ type PostsUploadDayTooltipAgg = {
               { id: 'all' as const, label: isYouTube ? 'All videos' : 'All' },
               { id: 'posts' as const, label: isTwitter ? 'Tweets' : isPinterest ? 'Pins' : 'Posts' },
               { id: 'reels' as const, label: isPinterest || isYouTube ? 'Videos' : 'Reels' },
+              ...(isFacebook || isInstagram
+                ? [{ id: 'stories' as const, label: 'Stories' }]
+                : []),
             ]).map((f) => (
               <button
                 key={f.id}
@@ -6910,9 +7080,12 @@ type PostsUploadDayTooltipAgg = {
           </div>
           {(() => {
             const twitterFallback = isTwitter && contentHistoryRows.length === 0
-              ? twitterFallbackRows.filter((r) =>
-                  historyFilter === 'reels' ? r.type === 'Reel' : true
-                )
+              ? twitterFallbackRows.filter((r) => {
+                  if (historyFilter === 'reels') return r.type === 'Reel';
+                  if (historyFilter === 'stories') return false;
+                  if (historyFilter === 'posts') return r.type === 'Post';
+                  return true;
+                })
               : [];
             const historyRows = contentHistoryRows.length > 0 ? contentHistoryRows : twitterFallback;
             if (postsLoading && posts.length === 0 && historyRows.length === 0) {
