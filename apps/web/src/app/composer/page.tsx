@@ -2975,19 +2975,19 @@ export default function ComposerPage() {
                                 {mediaUploadError && <p className="text-sm text-red-600">{mediaUploadError}</p>}
                                 {(mediaType === 'video' || mediaType === 'reel' || mediaType === 'story') && mediaList.length === 1 && mediaList[0].type === 'VIDEO' ? (
                                     <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-start">
-                                        <div className="p-4 rounded-2xl bg-gradient-to-b from-neutral-50 to-white border border-neutral-200/90 shadow-sm space-y-3 shrink-0 min-w-0">
+                                        <div className="p-4 rounded-2xl bg-gradient-to-b from-neutral-50 to-white dark:from-neutral-900 dark:to-neutral-950 border border-neutral-200/90 dark:border-neutral-700 shadow-sm space-y-3 shrink-0 min-w-0">
                                             <div>
-                                                <h4 className="text-sm font-semibold text-neutral-800">Thumbnail (optional)</h4>
-                                                <p className="text-xs text-neutral-500 mt-0.5">{mediaType === 'reel' ? '9:16 (1080×1920) for best results.' : 'Cover for your video.'}</p>
+                                                <h4 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">Thumbnail (optional)</h4>
+                                                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">{mediaType === 'reel' ? '9:16 (1080×1920) for best results.' : 'Cover for your video.'}</p>
                                                 {platforms.length > 1 && (
                                                     <label className="mt-3 flex items-center gap-2 cursor-pointer">
                                                         <input
                                                             type="checkbox"
                                                             checked={differentThumbnailPerPlatform}
                                                             onChange={(e) => handleDifferentThumbnailToggle(e.target.checked)}
-                                                            className="rounded border-neutral-300 text-neutral-500 focus:ring-neutral-300"
+                                                            className="rounded border-neutral-300 dark:border-neutral-600 text-neutral-500 focus:ring-neutral-300 dark:focus:ring-orange-500/40 dark:accent-orange-500"
                                                         />
-                                                        <span className="text-sm text-neutral-700">Use different thumbnail per platform</span>
+                                                        <span className="text-sm text-neutral-700 dark:text-neutral-300">Use different thumbnail per platform</span>
                                                     </label>
                                                 )}
                                                 {differentThumbnailPerPlatform && platforms.length > 1 && (
@@ -3004,52 +3004,52 @@ export default function ComposerPage() {
                                                                         onClick={() => setSelectedPlatformForThumbnail(p)}
                                                                         className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs transition-colors ${
                                                                             active
-                                                                                ? 'border-slate-300 sidebar-item-selected text-neutral-700'
-                                                                                : 'border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                                                                                ? (isDark ? 'border-orange-500/60 bg-neutral-800 text-neutral-100' : 'border-slate-300 sidebar-item-selected text-neutral-700')
+                                                                                : (isDark ? 'border-neutral-600 text-neutral-400 hover:border-neutral-500' : 'border-neutral-200 text-neutral-600 hover:border-neutral-300')
                                                                         }`}
                                                                     >
                                                                         <PlatformGlyph platform={p as PlatformKey} size={14} />
                                                                         <span className="font-medium">{PLATFORM_LABELS[p] ?? p}</span>
-                                                                        <span className={`inline-block h-1.5 w-1.5 rounded-full ${hasThumb ? 'bg-emerald-500' : 'bg-neutral-300'}`} />
+                                                                        <span className={`inline-block h-1.5 w-1.5 rounded-full ${hasThumb ? 'bg-emerald-500' : isDark ? 'bg-neutral-600' : 'bg-neutral-300'}`} />
                                                                         {thumb ? (
-                                                                            <img src={mediaDisplayUrl(thumb)} alt="" className="ml-auto h-7 w-7 rounded object-cover border border-neutral-200" />
+                                                                            <img src={mediaDisplayUrl(thumb)} alt="" className="ml-auto h-7 w-7 rounded object-cover border border-neutral-200 dark:border-neutral-600" />
                                                                         ) : (
-                                                                            <span className="ml-auto text-[10px] text-neutral-400">No thumb</span>
+                                                                            <span className="ml-auto text-[10px] text-neutral-400 dark:text-neutral-500">No thumb</span>
                                                                         )}
                                                                     </button>
                                                                 );
                                                             })}
                                                         </div>
-                                                        <p className="mt-1 text-[11px] text-neutral-500">Pick a platform, then set thumbnail options below for that platform.</p>
+                                                        <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">Pick a platform, then set thumbnail options below for that platform.</p>
                                                     </div>
                                                 )}
-                                                <p className="text-xs text-neutral-400 mt-1 font-medium">Choose one option:</p>
+                                                <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1 font-medium">Choose one option:</p>
                                             </div>
                                             <div className="flex flex-col gap-2">
-                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'none' ? 'border-neutral-400 bg-neutral-100' : 'border-neutral-200 hover:border-neutral-300'}`}>
-                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'none'} onChange={() => { setThumbnailChoice('none'); handleRemoveThumbnail(); }} className="text-neutral-500 focus:ring-neutral-300" />
-                                                    <span className="text-sm font-medium text-neutral-800">No custom thumbnail</span>
-                                                    <span className="text-xs text-neutral-500">(use video default)</span>
+                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'none' ? 'border-orange-500/70 bg-neutral-100 dark:border-orange-500/60 dark:bg-neutral-800' : 'border-neutral-200 hover:border-neutral-300 dark:border-neutral-600 dark:hover:border-neutral-500 dark:bg-neutral-900/40'}`}>
+                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'none'} onChange={() => { setThumbnailChoice('none'); handleRemoveThumbnail(); }} className="text-orange-600 focus:ring-orange-500/40 dark:accent-orange-500" />
+                                                    <span className="text-sm font-medium text-neutral-800 dark:text-neutral-100">No custom thumbnail</span>
+                                                    <span className="text-xs text-neutral-500 dark:text-neutral-400">(use video default)</span>
                                                 </label>
-                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'upload' ? 'border-neutral-400 bg-neutral-100' : 'border-neutral-200 hover:border-neutral-300'}`}>
-                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'upload'} onChange={() => setThumbnailChoice('upload')} className="text-neutral-500 focus:ring-neutral-300" />
-                                                    <span className="text-sm font-medium text-neutral-800">Upload image</span>
+                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'upload' ? 'border-orange-500/70 bg-neutral-100 dark:border-orange-500/60 dark:bg-neutral-800' : 'border-neutral-200 hover:border-neutral-300 dark:border-neutral-600 dark:hover:border-neutral-500 dark:bg-neutral-900/40'}`}>
+                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'upload'} onChange={() => setThumbnailChoice('upload')} className="text-orange-600 focus:ring-orange-500/40 dark:accent-orange-500" />
+                                                    <span className="text-sm font-medium text-neutral-800 dark:text-neutral-100">Upload image</span>
                                                 </label>
                                                 {thumbnailChoice === 'upload' && (
                                                     <div className="ml-6 flex flex-wrap items-center gap-2">
                                                         <input ref={thumbnailFileInputRef} type="file" accept="image/*" className="hidden" onChange={handleThumbnailImageSelect} />
-                                                        <button type="button" onClick={() => thumbnailFileInputRef.current?.click()} disabled={mediaUploading} className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-medium border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 disabled:opacity-50">
+                                                        <button type="button" onClick={() => thumbnailFileInputRef.current?.click()} disabled={mediaUploading} className="inline-flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-medium border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 disabled:opacity-50">
                                                             <ImageIcon size={14} />
                                                             Choose file
                                                         </button>
                                                         {(differentThumbnailPerPlatform && selectedPlatformForThumbnail ? thumbnailByPlatform[selectedPlatformForThumbnail] : mediaList[0].thumbnailUrl) && (
-                                                            <button type="button" onClick={handleRemoveThumbnail} className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium border border-red-200 text-red-700 hover:bg-red-50">Remove</button>
+                                                            <button type="button" onClick={handleRemoveThumbnail} className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium border border-red-200 dark:border-red-800/60 text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40">Remove</button>
                                                         )}
                                                     </div>
                                                 )}
-                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'frame' ? 'border-neutral-400 bg-neutral-100' : 'border-neutral-200 hover:border-neutral-300'}`}>
-                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'frame'} onChange={() => setThumbnailChoice('frame')} className="text-neutral-500 focus:ring-neutral-300" />
-                                                    <span className="text-sm font-medium text-neutral-800">Pick a frame from video</span>
+                                                <label className={`flex items-center gap-2.5 p-2.5 rounded-lg border-2 cursor-pointer transition-colors ${thumbnailChoice === 'frame' ? 'border-orange-500/70 bg-neutral-100 dark:border-orange-500/60 dark:bg-neutral-800' : 'border-neutral-200 hover:border-neutral-300 dark:border-neutral-600 dark:hover:border-neutral-500 dark:bg-neutral-900/40'}`}>
+                                                    <input type="radio" name="thumbnailOption" checked={thumbnailChoice === 'frame'} onChange={() => setThumbnailChoice('frame')} className="text-orange-600 focus:ring-orange-500/40 dark:accent-orange-500" />
+                                                    <span className="text-sm font-medium text-neutral-800 dark:text-neutral-100">Pick a frame from video</span>
                                                 </label>
                                                 {thumbnailChoice === 'frame' && (
                                                     <div className="ml-6 flex flex-col gap-1.5">
@@ -3062,10 +3062,10 @@ export default function ComposerPage() {
                                                             onChange={(e) => handleThumbnailSliderChange(parseFloat(e.target.value))}
                                                             onInput={(e) => handleThumbnailSliderChange(parseFloat((e.target as HTMLInputElement).value))}
                                                             onPointerUp={(e) => flushFrameThumbnailApply(parseFloat((e.currentTarget as HTMLInputElement).value))}
-                                                            className="w-full max-w-[240px] h-2 rounded-full accent-neutral-500"
+                                                            className="w-full max-w-[240px] h-2 rounded-full accent-neutral-500 dark:accent-orange-500"
                                                         />
                                                         {thumbnailPicking ? (
-                                                            <p className="text-[11px] text-neutral-500 flex items-center gap-1.5">
+                                                            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
                                                                 <Loader2 size={12} className="animate-spin shrink-0" />
                                                                 Saving thumbnail…
                                                             </p>
@@ -3076,7 +3076,7 @@ export default function ComposerPage() {
                                         </div>
                                         <div className="shrink-0 sm:pt-0 pt-0">
                                             <div
-                                                className={`relative group min-h-0 self-start overflow-hidden rounded-lg border-2 border-neutral-200 bg-neutral-100 shrink-0 ${mediaType === 'video' ? 'aspect-video w-64 max-w-full' : (mediaType === 'reel' || mediaType === 'story' ? 'aspect-[9/16] w-44' : 'aspect-video w-52')}`}
+                                                className={`relative group min-h-0 self-start overflow-hidden rounded-lg border-2 border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-900 shrink-0 ${mediaType === 'video' ? 'aspect-video w-64 max-w-full' : (mediaType === 'reel' || mediaType === 'story' ? 'aspect-[9/16] w-44' : 'aspect-video w-52')}`}
                                                 onMouseEnter={handleMediaPeekEnter}
                                                 onMouseLeave={handleMediaPeekLeave}
                                             >
