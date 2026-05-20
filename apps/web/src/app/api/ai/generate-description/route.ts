@@ -21,6 +21,13 @@ type CtaBundle = {
   replyTemplate?: string;
 };
 
+type PlatformDescriptionResult = {
+  content: string;
+  cta?: string;
+  keywords?: string[];
+  replyTemplate?: string;
+};
+
 function buildSystemPrompt(brand: BrandFields): string {
   const parts: string[] = [
     'You are a social media copywriter. Generate a short, engaging post description that fits the brand.',
@@ -309,16 +316,16 @@ export async function POST(request: NextRequest) {
         ctaBundle = await generateCtaBundle(brand, topic, prompt, ctaInstructions);
       }
 
-      const results = await Promise.all(
-        platformsMulti.map((p) => {
+      const results: PlatformDescriptionResult[] = await Promise.all(
+        platformsMulti.map((p): Promise<PlatformDescriptionResult> => {
           if (includeCtaAndAutomation && ctaBundle) {
             return generateDescriptionForPlatform(brand, topic, prompt || undefined, p, {
               requiredClosingCta: ctaBundle.cta,
             }).then((r) => ({
               content: r.content,
-              cta: ctaBundle!.cta,
-              keywords: ctaBundle!.keywords,
-              replyTemplate: ctaBundle!.replyTemplate,
+              cta: ctaBundle.cta,
+              keywords: ctaBundle.keywords,
+              replyTemplate: ctaBundle.replyTemplate,
             }));
           }
           if (includeCtaAndAutomation) {
@@ -334,12 +341,12 @@ export async function POST(request: NextRequest) {
       for (let i = 0; i < platformsMulti.length; i++) {
         byPlatform[platformsMulti[i]] = results[i].content;
       }
-      const first = results[0];
+      const automationMeta = ctaBundle ?? results.find((r) => r.cta || r.keywords?.length || r.replyTemplate) ?? results[0];
       return NextResponse.json({
         byPlatform,
-        ...(typeof first.cta === 'string' ? { cta: first.cta } : {}),
-        ...(first.keywords?.length ? { keywords: first.keywords } : {}),
-        ...(first.replyTemplate ? { replyTemplate: first.replyTemplate } : {}),
+        ...(typeof automationMeta.cta === 'string' ? { cta: automationMeta.cta } : {}),
+        ...(automationMeta.keywords?.length ? { keywords: automationMeta.keywords } : {}),
+        ...(automationMeta.replyTemplate ? { replyTemplate: automationMeta.replyTemplate } : {}),
       });
     } catch (e) {
       console.error('[OpenAI] generate-description batch', e instanceof Error ? e.message : e);
@@ -352,7 +359,7 @@ export async function POST(request: NextRequest) {
 
   trackUsage(userId, 'ai_generation', includeCtaAndAutomation ? 2 : 1);
   try {
-    const out = includeCtaAndAutomation
+    const out: PlatformDescriptionResult = includeCtaAndAutomation
       ? await generateWithCtaAndAutomation(brand, topic, prompt || undefined, platform, ctaInstructions)
       : await generateDescriptionForPlatform(brand, topic, prompt || undefined, platform, {
           emphasizeInPostCta: promptRequestsInPostCta(prompt),
