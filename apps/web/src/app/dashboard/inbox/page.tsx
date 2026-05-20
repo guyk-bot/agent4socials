@@ -819,6 +819,8 @@ function InboxPage() {
   const messagesFetchAbortRef = useRef<AbortController | null>(null);
   const conversationsRef = useRef(conversations);
   conversationsRef.current = conversations;
+  const effectiveAccountsRef = useRef(effectiveAccounts);
+  effectiveAccountsRef.current = effectiveAccounts;
   const conversationRecipientIdRef = useRef(conversationRecipientId);
   conversationRecipientIdRef.current = conversationRecipientId;
   const dmSendInFlightRef = useRef(false);
@@ -1066,16 +1068,16 @@ function InboxPage() {
   useEffect(() => {
     if (!user?.id || conversationsLoading || commentsLoading) return;
     const convIdSet = new Set(conversations.map((c) => c.id));
-    for (const acc of effectiveAccounts) {
-      for (const c of appData?.getConversations(acc.id) ?? []) {
+    for (const acc of effectiveAccountsRef.current) {
+      for (const c of appDataRef.current?.getConversations(acc.id) ?? []) {
         convIdSet.add(c.id);
       }
     }
     const commentIdSet = new Set(
       comments.filter((c) => !c.parentCommentId).map((c) => c.commentId)
     );
-    for (const acc of effectiveAccounts) {
-      for (const c of appData?.getComments(acc.id) ?? []) {
+    for (const acc of effectiveAccountsRef.current) {
+      for (const c of appDataRef.current?.getComments(acc.id) ?? []) {
         if (!c.parentCommentId) commentIdSet.add(c.commentId);
       }
     }
@@ -1099,8 +1101,6 @@ function InboxPage() {
     comments,
     conversationsLoading,
     commentsLoading,
-    effectiveAccounts,
-    appData,
   ]);
 
   const pendingUnreadCommentIds = useMemo(
@@ -1778,11 +1778,13 @@ function InboxPage() {
   );
 
   // Background prefetch: newest conversations first so manual clicks on recent threads are usually instant.
+  // Dep uses joined IDs (not the array ref) so sender-picture patches don't cancel+restart this effect.
   useEffect(() => {
     if (!user?.id) return;
-    if (conversations.length === 0) return;
+    const convs = conversationsRef.current;
+    if (convs.length === 0) return;
 
-    const targets = conversations
+    const targets = convs
       .filter((c) => c.id && c.platform && DM_THREAD_PLATFORM_IDS.has(c.platform))
       .sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''))
       .slice(0, INBOX_CLIENT_PREFETCH_MAX);
@@ -1805,7 +1807,8 @@ function InboxPage() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, conversations, warmConversationMessages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, conversations.map((c) => c.id).join(','), warmConversationMessages]);
 
   // Fetch last message per selected conversation for batch reply cards (show "message user sent" instead of "How do you want to reply?")
   useEffect(() => {
@@ -1935,9 +1938,16 @@ function InboxPage() {
     [user?.id]
   );
 
+  // Stable refs so refreshInboxFromServer never needs to be recreated (avoids interval restart).
+  const applyCommentsToUiRef = useRef(applyCommentsToUi);
+  applyCommentsToUiRef.current = applyCommentsToUi;
+  const applyConversationsToUiRef = useRef(applyConversationsToUi);
+  applyConversationsToUiRef.current = applyConversationsToUi;
+
   const refreshInboxFromServer = useCallback(
     async (opts?: { liveMeta?: boolean }) => {
-      if (!user?.id || effectiveAccounts.length === 0 || inboxRefreshInFlightRef.current) return;
+      const accs = effectiveAccountsRef.current;
+      if (!user?.id || accs.length === 0 || inboxRefreshInFlightRef.current) return;
       inboxRefreshInFlightRef.current = true;
       try {
         const boot = await api.get<{
@@ -1947,7 +1957,7 @@ function InboxPage() {
 
         const commentRows: PostComment[] = [];
         const convRows: Array<Conversation & { platform: string; messageAccountId: string }> = [];
-        for (const acc of effectiveAccounts) {
+        for (const acc of accs) {
           const cs = boot.data?.commentsByAccountId?.[acc.id] ?? [];
           commentRows.push(
             ...cs.map((c) => ({ ...c, accountId: c.accountId ?? acc.id, platform: c.platform ?? acc.platform }))
@@ -1962,20 +1972,20 @@ function InboxPage() {
           }
         }
         if (commentRows.length > 0) {
-          applyCommentsToUi(commentRows);
-          for (const acc of effectiveAccounts) {
+          applyCommentsToUiRef.current(commentRows);
+          for (const acc of accs) {
             const perAcc = commentRows.filter((c) => c.accountId === acc.id);
             if (perAcc.length) appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
           }
         }
         if (convRows.length > 0) {
-          applyConversationsToUi(convRows);
-          for (const acc of effectiveAccounts) {
+          applyConversationsToUiRef.current(convRows);
+          for (const acc of accs) {
             const list = boot.data?.conversationsByAccountId?.[acc.id];
             if (list?.length) appDataRef.current?.setConversationsForAccount(acc.id, list);
           }
           if (user.id) {
-            for (const acc of effectiveAccounts) {
+            for (const acc of accs) {
               if (!DM_THREAD_PLATFORM_IDS.has(acc.platform)) continue;
               const list = boot.data?.conversationsByAccountId?.[acc.id] ?? [];
               if (list.length > 0) {
@@ -1995,7 +2005,7 @@ function InboxPage() {
         }
 
         if (opts?.liveMeta) {
-          const metaAccounts = effectiveAccounts.filter(
+          const metaAccounts = accs.filter(
             (a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK'
           );
           for (const acc of metaAccounts) {
@@ -2014,7 +2024,7 @@ function InboxPage() {
           }>('/inbox/bootstrap', { timeout: 60_000 });
           const commentRows2: PostComment[] = [];
           const convRows2: Array<Conversation & { platform: string; messageAccountId: string }> = [];
-          for (const acc of effectiveAccounts) {
+          for (const acc of accs) {
             const cs = boot2.data?.commentsByAccountId?.[acc.id] ?? [];
             commentRows2.push(
               ...cs.map((c) => ({
@@ -2029,15 +2039,15 @@ function InboxPage() {
             }
           }
           if (commentRows2.length > 0) {
-            applyCommentsToUi(commentRows2);
-            for (const acc of effectiveAccounts) {
+            applyCommentsToUiRef.current(commentRows2);
+            for (const acc of accs) {
               const perAcc = commentRows2.filter((c) => c.accountId === acc.id);
               if (perAcc.length) appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
             }
           }
           if (convRows2.length > 0) {
-            applyConversationsToUi(convRows2);
-            for (const acc of effectiveAccounts) {
+            applyConversationsToUiRef.current(convRows2);
+            for (const acc of accs) {
               const list = boot2.data?.conversationsByAccountId?.[acc.id];
               if (list?.length) appDataRef.current?.setConversationsForAccount(acc.id, list);
             }
@@ -2047,7 +2057,7 @@ function InboxPage() {
         inboxRefreshInFlightRef.current = false;
       }
     },
-    [user?.id, effectiveAccounts, applyCommentsToUi, applyConversationsToUi]
+    [user?.id]
   );
 
   useLayoutEffect(() => {
@@ -2060,14 +2070,17 @@ function InboxPage() {
     if (cachedConvs.length > 0) applyConversationsToUi(cachedConvs);
   }, [pathname, user?.id, applyCommentsToUi, applyConversationsToUi]);
 
+  const refreshInboxFromServerRef = useRef(refreshInboxFromServer);
+  refreshInboxFromServerRef.current = refreshInboxFromServer;
+
   useEffect(() => {
     if (pathname !== '/dashboard/inbox' || !user?.id || effectiveAccounts.length === 0) return;
-    void refreshInboxFromServer({ liveMeta: true });
+    void refreshInboxFromServerRef.current({ liveMeta: true });
     const intervalId = setInterval(() => {
-      void refreshInboxFromServer({ liveMeta: false });
+      void refreshInboxFromServerRef.current({ liveMeta: false });
     }, INBOX_SYSTEM_SYNC_MS);
     return () => clearInterval(intervalId);
-  }, [pathname, user?.id, effectiveAccounts.map((a) => a.id).join(','), refreshInboxFromServer]);
+  }, [pathname, user?.id, effectiveAccounts.map((a) => a.id).join(',')]);
 
   // Messages mode: YouTube/TikTok have no DM strip; switch to a message-capable platform.
   useEffect(() => {
