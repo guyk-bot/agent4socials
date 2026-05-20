@@ -35,6 +35,7 @@ import {
   META_MESSAGING_WINDOW_BLOCKED_MESSAGE,
 } from '@/lib/inbox/meta-messaging-window';
 import { useAuth } from '@/context/AuthContext';
+import { readBrandContextCache, writeBrandContextCache } from '@/lib/brand-context-utils';
 import {
   getReadCommentIds,
   getReadConversationIds,
@@ -880,6 +881,11 @@ function InboxPage() {
 
   useEffect(() => {
     if (inboxExamplesLoaded) return;
+    const cached = readBrandContextCache(user?.id);
+    if (cached) {
+      setInboxReplyExamples(cached.inboxReplyExamples ?? null);
+      setCommentReplyExamples(cached.commentReplyExamples ?? null);
+    }
     api.get('/ai/brand-context').then((res) => {
       const d = res.data;
       if (d && typeof d === 'object') {
@@ -891,9 +897,19 @@ function InboxPage() {
         setInboxReplyExamples(row.inboxReplyExamples ?? null);
         setCommentReplyExamples(row.commentReplyExamples ?? null);
         setInboxAiBetaEnabled(row.inboxAiBetaEnabled === true);
+        if (user?.id) {
+          writeBrandContextCache(
+            {
+              ...cached,
+              inboxReplyExamples: row.inboxReplyExamples ?? null,
+              commentReplyExamples: row.commentReplyExamples ?? null,
+            },
+            user.id
+          );
+        }
       }
     }).catch(() => {}).finally(() => setInboxExamplesLoaded(true));
-  }, [inboxExamplesLoaded]);
+  }, [inboxExamplesLoaded, user?.id]);
 
   useEffect(() => {
     if (platformFromUrl && INBOX_PLATFORM_DEFS.some((p) => p.id === platformFromUrl)) {

@@ -1,11 +1,16 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Sparkles, Loader2, MessageCircle, MessagesSquare } from 'lucide-react';
 import api from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 import {
+  brandContextToFormFields,
   hasComposerBrandContext,
   parseBrandContextApiPayload,
+  readBrandContextCache,
+  readBrandContextCacheHasContent,
+  writeBrandContextCache,
   writeComposerBrandReadyCache,
 } from '@/lib/brand-context-utils';
 
@@ -40,58 +45,60 @@ const MAX_LENGTH = {
   commentReplyExamples: 1000,
 } as const;
 
+function formFromCache(userId?: string | null): BrandContextPayload {
+  const cached = readBrandContextCache(userId);
+  if (!cached) return defaultForm;
+  return brandContextToFormFields(cached);
+}
+
 export default function AIAssistantPage() {
-  const [form, setForm] = useState<BrandContextPayload>(defaultForm);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const [form, setForm] = useState<BrandContextPayload>(() => formFromCache());
+  const [hydratedFromCache, setHydratedFromCache] = useState(() => readBrandContextCacheHasContent());
   const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
 
+  const applyBrandContext = useCallback(
+    (data: ReturnType<typeof parseBrandContextApiPayload>) => {
+      setForm(brandContextToFormFields(data));
+      writeComposerBrandReadyCache(hasComposerBrandContext(data));
+      if (user?.id) writeBrandContextCache(data, user.id);
+      setHydratedFromCache(true);
+    },
+    [user?.id]
+  );
+
   useEffect(() => {
+    if (!user?.id) return;
+    const cached = readBrandContextCache(user.id);
+    if (cached) applyBrandContext(cached);
+
     const ctrl = new AbortController();
-    const t = window.setTimeout(() => ctrl.abort(), 45_000);
-    let cancelled = false;
     api
       .get('/ai/brand-context', { signal: ctrl.signal, timeout: 30_000 })
       .then((res) => {
-        if (cancelled) return;
         setLoadFailed(false);
-        const data = parseBrandContextApiPayload(res.data);
-        setForm({
-          targetAudience: data.targetAudience ?? null,
-          toneOfVoice: data.toneOfVoice ?? null,
-          toneExamples: data.toneExamples ?? null,
-          productDescription: data.productDescription ?? null,
-          additionalContext: data.additionalContext ?? null,
-          inboxReplyExamples: data.inboxReplyExamples ?? null,
-          commentReplyExamples: data.commentReplyExamples ?? null,
-        });
-        writeComposerBrandReadyCache(hasComposerBrandContext(data));
+        applyBrandContext(parseBrandContextApiPayload(res.data));
       })
       .catch((err: { response?: { status?: number }; code?: string; name?: string }) => {
-        if (cancelled) return;
-        if (err.code === 'ERR_CANCELED' || err.name === 'CanceledError') {
-          setLoadFailed(true);
-          setMessage({ type: 'warning', text: 'Loading took too long. Refresh the page before saving so you do not overwrite saved context.' });
+        if (err.code === 'ERR_CANCELED' || err.name === 'CanceledError') return;
+        if (readBrandContextCacheHasContent(user.id)) {
+          setLoadFailed(false);
           return;
         }
         setLoadFailed(true);
         if (err.response?.status === 401) {
           setMessage({ type: 'error', text: 'Please log in again to load your saved context.' });
         } else {
-          setMessage({ type: 'warning', text: 'Could not load your saved context. Refresh the page before saving. Saving now may clear fields that did not load.' });
+          setMessage({
+            type: 'warning',
+            text: 'Could not refresh from the server. Your last saved copy is shown. Try again later or refresh the page.',
+          });
         }
-      })
-      .finally(() => {
-        window.clearTimeout(t);
-        if (!cancelled) setLoading(false);
       });
-    return () => {
-      cancelled = true;
-      ctrl.abort();
-      window.clearTimeout(t);
-    };
-  }, []);
+    return () => ctrl.abort();
+  }, [user?.id, applyBrandContext]);
 
   const savePayload = () => ({
     targetAudience: form.targetAudience || null,
@@ -104,21 +111,27 @@ export default function AIAssistantPage() {
   });
 
   const handleSave = () => {
-    if (loading) {
-      setMessage({ type: 'warning', text: 'Still loading your saved context. Wait a moment, then save again.' });
-      return;
-    }
-    if (loadFailed) {
-      setMessage({ type: 'warning', text: 'Your saved context did not load. Refresh the page first so you do not overwrite existing data.' });
+    if (loadFailed && !hydratedFromCache) {
+      setMessage({
+        type: 'warning',
+        text: 'Your saved context did not load. Refresh the page first so you do not overwrite existing data.',
+      });
       return;
     }
     setSaving(true);
     setMessage(null);
+    const payload = savePayload();
+    if (user?.id) {
+      writeBrandContextCache(payload, user.id);
+      writeComposerBrandReadyCache(hasComposerBrandContext(payload));
+      setHydratedFromCache(true);
+    }
     let willRetry = false;
-    const doPut = () => api.put('/ai/brand-context', savePayload());
+    const doPut = () => api.put('/ai/brand-context', payload);
     doPut()
       .then((res) => {
-        writeComposerBrandReadyCache(hasComposerBrandContext(res.data));
+        const data = parseBrandContextApiPayload(res.data);
+        applyBrandContext(data);
         setMessage({ type: 'success', text: 'Brand context saved. You can use "Generate with AI" in the Composer.' });
       })
       .catch((err: { response?: { data?: { message?: string }; status?: number }; message?: string }) => {
@@ -131,7 +144,7 @@ export default function AIAssistantPage() {
           window.setTimeout(() => {
             doPut()
               .then((res) => {
-                writeComposerBrandReadyCache(hasComposerBrandContext(res.data));
+                applyBrandContext(parseBrandContextApiPayload(res.data));
                 setMessage({ type: 'success', text: 'Brand context saved. You can use "Generate with AI" in the Composer.' });
               })
               .catch((retryErr: { response?: { data?: { message?: string }; status?: number }; message?: string }) => {
@@ -151,12 +164,6 @@ export default function AIAssistantPage() {
 
   return (
       <div className="w-full min-h-[calc(100vh-5.5rem)] flex flex-col -mx-8 -my-8 px-8 py-8">
-      {loading && (
-        <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-2 text-xs text-neutral-500 inline-flex items-center gap-2 mb-3">
-          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          Loading your saved AI context in the background...
-        </div>
-      )}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -289,13 +296,12 @@ export default function AIAssistantPage() {
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || loading}
+            disabled={saving}
             className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-white bg-[var(--button)] hover:bg-[var(--button-hover)] disabled:opacity-50"
           >
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
             Save brand context
           </button>
-          {loading && <span className="ml-3 text-xs text-gray-500">Loading saved context…</span>}
         </div>
       </div>
 
@@ -336,7 +342,7 @@ export default function AIAssistantPage() {
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || loading}
+            disabled={saving}
             className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-white bg-[var(--button)] hover:bg-[var(--button-hover)] disabled:opacity-50"
           >
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
@@ -382,7 +388,7 @@ export default function AIAssistantPage() {
           <button
             type="button"
             onClick={handleSave}
-            disabled={saving || loading}
+            disabled={saving}
             className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-white bg-[var(--button)] hover:bg-[var(--button-hover)] disabled:opacity-50"
           >
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}

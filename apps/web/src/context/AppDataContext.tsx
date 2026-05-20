@@ -22,6 +22,13 @@ import {
   readScheduledPostsClientCache,
   writeScheduledPostsClientCache,
 } from '@/lib/scheduled-posts-client-cache';
+import {
+  clearBrandContextCache,
+  hasComposerBrandContext,
+  parseBrandContextApiPayload,
+  writeBrandContextCache,
+  writeComposerBrandReadyCache,
+} from '@/lib/brand-context-utils';
 
 export type CachedPost = {
   id: string;
@@ -478,6 +485,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(CACHE_KEY);
       if (typeof localStorage !== 'undefined') localStorage.removeItem(CACHE_KEY);
     if (typeof localStorage !== 'undefined') localStorage.removeItem(CACHE_KEY);
+    clearBrandContextCache();
   }, []);
 
   const invalidateConversations = useCallback(() => {
@@ -610,6 +618,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           }).catch(() => {}),
           api.get<CachedScheduledPost[]>('/posts').then((r) => {
             if (!cancelled && Array.isArray(r.data)) setScheduledPostsState(r.data);
+          }).catch(() => {}),
+          api.get('/ai/brand-context', { timeout: 30_000 }).then((r) => {
+            if (cancelled || !user?.id) return;
+            const data = parseBrandContextApiPayload(r.data);
+            writeBrandContextCache(data, user.id);
+            writeComposerBrandReadyCache(hasComposerBrandContext(data));
           }).catch(() => {}),
         ]);
         if (cancelled) return;

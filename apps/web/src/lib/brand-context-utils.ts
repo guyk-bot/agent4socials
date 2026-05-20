@@ -40,12 +40,79 @@ export function hasComposerBrandContext(ctx: unknown): boolean {
 }
 
 const COMPOSER_BRAND_READY_KEY = 'agent4socials_composer_brand_ready';
+const BRAND_CONTEXT_CACHE_PREFIX = 'agent4socials_brand_context_';
+const BRAND_CONTEXT_LAST_UID_KEY = 'agent4socials_brand_context_last_uid';
+
+export function brandContextCacheKey(userId: string): string {
+  return `${BRAND_CONTEXT_CACHE_PREFIX}${userId}`;
+}
+
+/** Read cached brand context (instant UI). Uses last saved user when userId omitted. */
+export function readBrandContextCache(userId?: string | null): BrandContextRecord | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const uid = userId ?? localStorage.getItem(BRAND_CONTEXT_LAST_UID_KEY);
+    if (!uid) return null;
+    const raw = localStorage.getItem(brandContextCacheKey(uid));
+    if (!raw) return null;
+    return parseBrandContextApiPayload(JSON.parse(raw) as unknown);
+  } catch {
+    return null;
+  }
+}
+
+export function writeBrandContextCache(data: BrandContextRecord, userId: string): void {
+  if (typeof window === 'undefined' || !userId) return;
+  try {
+    const payload = parseBrandContextApiPayload(data);
+    localStorage.setItem(brandContextCacheKey(userId), JSON.stringify(payload));
+    localStorage.setItem(BRAND_CONTEXT_LAST_UID_KEY, userId);
+  } catch {
+    /* ignore quota */
+  }
+}
+
+export function clearBrandContextCache(userId?: string | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const uid = userId ?? localStorage.getItem(BRAND_CONTEXT_LAST_UID_KEY);
+    if (uid) localStorage.removeItem(brandContextCacheKey(uid));
+    if (!userId) localStorage.removeItem(BRAND_CONTEXT_LAST_UID_KEY);
+    sessionStorage.removeItem(COMPOSER_BRAND_READY_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function brandContextToFormFields(data: BrandContextRecord): Required<BrandContextRecord> {
+  return {
+    targetAudience: data.targetAudience ?? null,
+    toneOfVoice: data.toneOfVoice ?? null,
+    toneExamples: data.toneExamples ?? null,
+    productDescription: data.productDescription ?? null,
+    additionalContext: data.additionalContext ?? null,
+    inboxReplyExamples: data.inboxReplyExamples ?? null,
+    commentReplyExamples: data.commentReplyExamples ?? null,
+  };
+}
+
+/** True when localStorage has any saved AI Assistant fields for this user. */
+export function readBrandContextCacheHasContent(userId?: string | null): boolean {
+  const c = readBrandContextCache(userId);
+  if (!c) return false;
+  return (
+    hasComposerBrandContext(c) ||
+    hasInboxReplyExamples(c) ||
+    hasCommentReplyExamples(c)
+  );
+}
 
 /** Optimistic flag so Composer can open AI modal before a slow brand-context fetch finishes. */
 export function readComposerBrandReadyCache(): boolean {
   if (typeof window === 'undefined') return false;
   try {
-    return sessionStorage.getItem(COMPOSER_BRAND_READY_KEY) === '1';
+    if (sessionStorage.getItem(COMPOSER_BRAND_READY_KEY) === '1') return true;
+    return hasComposerBrandContext(readBrandContextCache() ?? {});
   } catch {
     return false;
   }

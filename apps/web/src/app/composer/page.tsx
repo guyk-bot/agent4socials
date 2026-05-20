@@ -43,7 +43,10 @@ import {
 } from '@/lib/schedule-ten-minute';
 import {
   hasComposerBrandContext,
+  parseBrandContextApiPayload,
+  readBrandContextCache,
   readComposerBrandReadyCache,
+  writeBrandContextCache,
   writeComposerBrandReadyCache,
 } from '@/lib/brand-context-utils';
 import { resolveComposerMediaType } from '@/lib/composer-media-type';
@@ -682,6 +685,7 @@ function MediaRequirementsHint({ mediaType }: { mediaType: keyof typeof MEDIA_SP
 }
 
 export default function ComposerPage() {
+    const { user } = useAuth();
     const { theme } = useTheme();
     const isDark = theme === 'dark';
     const router = useRouter();
@@ -1182,18 +1186,26 @@ export default function ComposerPage() {
     }, []);
 
     const refreshBrandContext = useCallback(() => {
+        const cached = user?.id ? readBrandContextCache(user.id) : readBrandContextCache();
+        if (cached) {
+            const ready = hasComposerBrandContext(cached);
+            setHasBrandContext(ready);
+            writeComposerBrandReadyCache(ready);
+            setBrandContextChecked(true);
+        }
         api
             .get('/ai/brand-context', { timeout: 30_000 })
             .then((res) => {
                 const ready = hasComposerBrandContext(res.data);
                 setHasBrandContext(ready);
                 writeComposerBrandReadyCache(ready);
+                if (user?.id) writeBrandContextCache(parseBrandContextApiPayload(res.data), user.id);
             })
             .catch(() => {
                 setHasBrandContext((prev) => (prev === true ? true : false));
             })
             .finally(() => setBrandContextChecked(true));
-    }, []);
+    }, [user?.id]);
 
     const openAiModal = useCallback(() => {
         setAiError(null);
@@ -2581,9 +2593,16 @@ export default function ComposerPage() {
         }
     }, [composerReady]);
 
-    // Revalidate brand context on mount (priority API path; not blocked by dashboard prefetch queue).
+    // Hydrate from local cache immediately; revalidate in background (priority API path).
     useEffect(() => {
         let cancelled = false;
+        const cached = user?.id ? readBrandContextCache(user.id) : readBrandContextCache();
+        if (cached) {
+            const ready = hasComposerBrandContext(cached);
+            setHasBrandContext(ready);
+            writeComposerBrandReadyCache(ready);
+            setBrandContextChecked(true);
+        }
         api
             .get('/ai/brand-context', { timeout: 30_000 })
             .then((res) => {
@@ -2591,6 +2610,7 @@ export default function ComposerPage() {
                 const ready = hasComposerBrandContext(res.data);
                 setHasBrandContext(ready);
                 writeComposerBrandReadyCache(ready);
+                if (user?.id) writeBrandContextCache(parseBrandContextApiPayload(res.data), user.id);
             })
             .catch(() => {
                 if (cancelled) return;
@@ -2602,7 +2622,7 @@ export default function ComposerPage() {
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [user?.id]);
 
     if (!composerReady) {
     return (
