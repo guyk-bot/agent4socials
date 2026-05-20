@@ -24,7 +24,7 @@ import {
   AI_REPLY_FAILED_MESSAGE,
   AI_REPLY_NOT_CONFIGURED_MESSAGE,
 } from '@/lib/api-error-message';
-import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
+import { INBOX_SYSTEM_SYNC_MS } from '@/lib/inbox/inbox-sync-config';
 import {
   markInboxAccountRecentlyConnected,
   isInboxAccountRecentlyConnected,
@@ -194,7 +194,8 @@ const INBOX_MESSAGES_CACHE_MAX_ENTRIES = 150;
 /** Prefetch/warm this many threads in the browser (newest first). */
 const INBOX_CLIENT_PREFETCH_MAX = 150;
 /** While Inbox is open, refresh conversation list and open thread about every 90s. */
-const INBOX_LIVE_POLL_MS = 90_000;
+/** How long open-thread client message cache stays fresh (background sync handles list data). */
+const INBOX_THREAD_CACHE_MS = INBOX_SYSTEM_SYNC_MS;
 /** X DM threads change less often; longer client cache avoids repeated api.x.com calls. */
 const INBOX_TWITTER_CACHE_MS = 10 * 60_000;
 const INBOX_TWITTER_BACKGROUND_REFRESH_MS = 30 * 60_000;
@@ -238,7 +239,7 @@ function isConvCacheFresh(
 ): boolean {
   if (!isConvCacheUsable(cached, accountId)) return false;
   if (!cached!._ts) return true; // legacy: no timestamp = assume fresh
-  const maxAge = platform === 'TWITTER' ? INBOX_TWITTER_CACHE_MS : INBOX_LIVE_POLL_MS;
+  const maxAge = platform === 'TWITTER' ? INBOX_TWITTER_CACHE_MS : INBOX_THREAD_CACHE_MS;
   if (Date.now() - cached!._ts > maxAge) return false;
   if (convUpdatedTime) {
     const convMs = Date.parse(convUpdatedTime);
@@ -781,8 +782,6 @@ function InboxPage() {
   const [engagementLoading, setEngagementLoading] = useState(false);
   const [engagementError, setEngagementError] = useState<string | null>(null);
   const [selectedEngagement, setSelectedEngagement] = useState<EngagementItem | null>(null);
-  const [commentsRefreshKey, setCommentsRefreshKey] = useState(0);
-  const [conversationsRefreshKey, setConversationsRefreshKey] = useState(0);
   const [deleteCommentLoading, setDeleteCommentLoading] = useState(false);
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
   const [unreadCommentIds, setUnreadCommentIds] = useState<Set<string>>(new Set());
@@ -800,9 +799,7 @@ function InboxPage() {
   // (which would cause infinite re-run loops whenever context state updates).
   const appDataRef = useRef(appData);
   /** Next X (Twitter) inbox fetch for these account IDs should send `manualInboxSync=1` (15m server cooldown). */
-  const pendingManualInboxByAccountRef = useRef<Set<string>>(new Set());
   /** Next conversations fetch sends fresh=1 to clear Agent4Socials Meta backoff (not Meta dashboard limits). */
-  const forceFreshConversationsRef = useRef(false);
   /** Completed warm keys: `${accountId}:${conversationId}` */
   const prefetchedConversationMessagesRef = useRef<Set<string>>(new Set());
   /** In-flight warm promises keyed by `${accountId}:${conversationId}` */
@@ -1022,13 +1019,6 @@ function InboxPage() {
       if (persistCacheTimeoutRef.current) clearTimeout(persistCacheTimeoutRef.current);
     };
   }, [conversationMessagesCache]);
-
-  // Server-side warm (debounced): populate message cache without hammering Meta on every list refresh.
-  useEffect(() => {
-    if (!user?.id) return;
-    if (inboxMode !== 'messages') return;
-    triggerInboxWarmClient();
-  }, [user?.id, inboxMode]);
 
   const connectedPlatforms = INBOX_PLATFORM_DEFS.filter((p) => effectiveAccounts.some((a) => a.platform === p.id));
   const platformsToShow =
@@ -1701,10 +1691,8 @@ function InboxPage() {
     };
 
     void refreshOpenThread();
-    const interval = setInterval(() => void refreshOpenThread(), INBOX_LIVE_POLL_MS);
     return () => {
       cancelled = true;
-      clearInterval(interval);
     };
   }, [
     inboxMode,
@@ -1877,6 +1865,7 @@ function InboxPage() {
       .catch(() => setNotifications({ comments: 0, messages: 0 }));
   }, [selectedPlatform, inboxMode, appData]);
 
+  // Conversations: read AppData cache only. Background sync runs every 2 min in AppDataContext.
   useEffect(() => {
     if (messageFetchPlatformIds.length === 0) {
       setConversations([]);
@@ -1887,361 +1876,52 @@ function InboxPage() {
       setConversationsDebug(null);
       return;
     }
-    let cancelled = false;
+
     const merge: Array<Conversation & { platform: string; messageAccountId: string }> = [];
-    const errors: string[] = [];
-    const errorsByPlatform: Record<string, string> = {};
-    const hintsByPlatform: Record<string, string> = {};
-    const debugs: Array<{ rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string }> = [];
-    let pending = messageFetchPlatformIds.length;
-    let needsFetch = false;
-    const platformsToFetch: Array<{ platform: string; account: { id: string; platform: string }; since?: string }> = [];
-
-    const applyConversationMergeResult = (sorted: Array<Conversation & { platform: string; messageAccountId: string }>) => {
-      const withPictures = user?.id ? mergeSenderPicturesIntoConversations(sorted, user.id) : sorted;
-      setConversations(withPictures);
-      if (sorted.length > 0) conversationsLoadedRef.current = true;
-      setConversationsErrorsByPlatform({ ...errorsByPlatform });
-      setConversationsHintsByPlatform({ ...hintsByPlatform });
-      const firstPlatformError = Object.values(errorsByPlatform)[0] ?? null;
-      setConversationsError(sorted.length === 0 ? (firstPlatformError ?? errors[0] ?? null) : firstPlatformError);
-      setConversationsDebug(sorted.length === 0 ? (debugs[0] ?? null) : null);
-      setConversationsLoading(false);
-    };
-
-    const finishConversationMerge = () => {
-      const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
-      applyConversationMergeResult(sorted);
-    };
-
-    messageFetchPlatformIds.forEach((platform) => {
+    for (const platform of messageFetchPlatformIds) {
       const account = effectiveAccounts.find((a) => a.platform === platform);
-      if (!account) {
-        if (--pending === 0 && !cancelled) finishConversationMerge();
-        return;
-      }
-      // LinkedIn/Pinterest are on the message strip for UX but have no DM API in this app; skip HTTP to avoid axios "Network Error".
+      if (!account) continue;
       if (!DM_THREAD_PLATFORM_IDS.has(platform)) {
         appData?.setConversationsForAccount(account.id, []);
-        if (--pending === 0 && !cancelled) finishConversationMerge();
-        return;
+        continue;
       }
-      const fromCache = appData?.getConversations(account.id);
-      const fromCacheList =
-        fromCache !== undefined && fromCache !== null ? (fromCache as Conversation[]) : [];
-      // Empty cached lists are treated as a miss so Instagram/Facebook refetch after reconnect.
-      const useCache = fromCacheList.length > 0;
-      if (useCache) {
-        const list: Array<Conversation & { platform: string; messageAccountId: string }> = fromCacheList.map((c: Conversation) => ({
-          ...c,
-          platform,
-          messageAccountId: account.id,
-        }));
-        merge.push(...list);
-        if (list.length > 0 && user?.id) {
-          const initialized = getInboxInitializedAccountIdsForConversations(user.id);
-          if (!initialized.has(account.id)) {
-            const ids = list.map((c) => c.id);
-            markConversationsAsRead(ids, user.id);
-            list.forEach((c) => {
-              const count = c.messageCount;
-              if (typeof count === 'number') setConversationLastReadCount(c.id, count, user.id);
-            });
-            addInboxInitializedAccountForConversations(account.id, user.id);
-          }
-        }
+      const fromCacheList = (appData?.getConversations(account.id) ?? []) as Conversation[];
+      for (const c of fromCacheList) {
+        merge.push({ ...c, platform, messageAccountId: account.id });
       }
-      const newestCachedUpdatedAt =
-        fromCacheList
-          .map((c) => c.updatedTime)
-          .filter((v): v is string => typeof v === 'string' && v.length > 0)
-          .sort((a, b) => b.localeCompare(a))[0] ?? undefined;
-      const hasIgInList = merge.some((c) => c.platform === 'INSTAGRAM');
-      // Delta mode: cache exists AND this is a periodic refresh (not the first open).
-      // On first open (conversationsRefreshKey === 0) always do a full live fetch so
-      // new messages that arrived since the DB-cache snapshot are picked up immediately.
-      const shouldDeltaFetch =
-        useCache &&
-        conversationsRefreshKey > 0 &&
-        !(platform === 'INSTAGRAM' && !hasIgInList);
-
-      // Always fetch on first open to catch messages that arrived since the cached snapshot.
-      const shouldFullFetchOnFirstOpen = useCache && conversationsRefreshKey === 0;
-
-      if (!useCache || shouldDeltaFetch || shouldFullFetchOnFirstOpen) {
-        // No cache / first open / periodic delta: fetch from server.
-        // Delta: only fetch conversations newer than the latest cached updatedTime.
-        needsFetch = true;
-        platformsToFetch.push({
-          platform,
-          account,
-          ...(shouldDeltaFetch && newestCachedUpdatedAt ? { since: newestCachedUpdatedAt } : {}),
-        });
-      } else {
-        // Cache hit (shouldn't happen since we always fetch): decrement pending so finishConversationMerge fires.
-        if (--pending === 0 && !cancelled) finishConversationMerge();
-      }
-    });
-
-    // Show cached conversations immediately so inbox opens faster; then fetch missing platforms in background
-    if (merge.length > 0 && !cancelled) {
-      const sorted = [...merge].sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
-      setConversations(sorted);
-      conversationsLoadedRef.current = true;
-      setConversationsLoading(false);
-    }
-
-    const applyPlatformFetchResult = (
-      platform: string,
-      account: { id: string; platform: string },
-      res: {
-        data?: {
-          conversations?: Conversation[];
-          error?: string;
-          emptyHint?: string;
-          fromCache?: boolean;
-          stale?: boolean;
-          debug?: unknown;
-        };
-      },
-      opts?: { deltaFetch?: boolean }
-    ) => {
-      const list = (res.data?.conversations ?? []).map((c: Conversation) => ({
-        ...c,
-        platform,
-        messageAccountId: account.id,
-      }));
-      // Delta poll with zero new rows must not wipe existing threads for this platform.
-      if (opts?.deltaFetch && list.length === 0 && !res.data?.error) {
-        const deltaHint = typeof res.data?.emptyHint === 'string' ? res.data.emptyHint : null;
-        if (deltaHint && !errorsByPlatform[platform]) hintsByPlatform[platform] = deltaHint;
-        return;
-      }
-      const kept = merge.filter((c) => c.platform !== platform);
-      merge.length = 0;
-      merge.push(...kept, ...list);
-      const emptyHint = typeof res.data?.emptyHint === 'string' ? res.data.emptyHint : null;
-      if (res.data?.error && list.length === 0) {
-        errors.push(res.data.error);
-        errorsByPlatform[platform] = res.data.error;
-      } else {
-        delete errorsByPlatform[platform];
-        if (emptyHint && list.length > 0) hintsByPlatform[platform] = emptyHint;
-        else if (emptyHint && list.length === 0) hintsByPlatform[platform] = emptyHint;
-        else delete hintsByPlatform[platform];
-      }
-      if (res.data?.debug) {
-        debugs.push(res.data.debug as { rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string });
-      }
-      const incoming = (res.data?.conversations ?? []) as Conversation[];
-      if (incoming.length > 0) {
-        const cachedForAccount = appData?.getConversations(account.id) ?? [];
-        const mergedById = new Map<string, Conversation>();
-        for (const item of cachedForAccount) mergedById.set(item.id, item);
-        for (const item of incoming) {
-          const existing = mergedById.get(item.id);
-          mergedById.set(item.id, {
-            ...item,
-            senders: (item.senders ?? []).map((s, i) => ({
-              ...s,
-              pictureUrl: s.pictureUrl ?? existing?.senders?.[i]?.pictureUrl ?? null,
-              name: s.name ?? existing?.senders?.[i]?.name,
-              username: s.username ?? existing?.senders?.[i]?.username,
-            })),
-          });
-        }
-        appData?.setConversationsForAccount(
-          account.id,
-          Array.from(mergedById.values()).sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''))
-        );
-      }
-      if (list.length > 0 && user?.id) {
+      if (fromCacheList.length > 0 && user?.id) {
         const initialized = getInboxInitializedAccountIdsForConversations(user.id);
         if (!initialized.has(account.id)) {
-          type ConvWithPlatform = Conversation & { platform: string; messageAccountId: string };
-          const ids = list.map((c: ConvWithPlatform) => c.id);
+          const ids = fromCacheList.map((c) => c.id);
           markConversationsAsRead(ids, user.id);
-          list.forEach((c: ConvWithPlatform) => {
+          fromCacheList.forEach((c) => {
             const count = c.messageCount;
             if (typeof count === 'number') setConversationLastReadCount(c.id, count, user.id);
           });
           addInboxInitializedAccountForConversations(account.id, user.id);
         }
       }
-    };
-
-    void (async () => {
-      for (let i = 0; i < platformsToFetch.length; i++) {
-        const { platform, account, since } = platformsToFetch[i];
-        if (cancelled) return;
-        if (i > 0) await new Promise((r) => setTimeout(r, 600));
-        const wantManual = platform === 'TWITTER' && pendingManualInboxByAccountRef.current.has(account.id);
-        if (wantManual) pendingManualInboxByAccountRef.current.delete(account.id);
-        const convParams: string[] = [];
-        if (wantManual) convParams.push('manualInboxSync=1');
-        if (forceFreshConversationsRef.current) {
-          convParams.push('fresh=1');
-          forceFreshConversationsRef.current = false;
-        }
-        if (since) {
-          convParams.push(`since=${encodeURIComponent(since)}`);
-          convParams.push('delta=1');
-        } else {
-          convParams.push('includeMessageCounts=1');
-        }
-        const convUrl = `/social/accounts/${account.id}/conversations${convParams.length ? `?${convParams.join('&')}` : ''}`;
-        try {
-          const res = await api.get(convUrl, { timeout: 90_000 });
-          if (cancelled) return;
-          applyPlatformFetchResult(platform, account, res, { deltaFetch: !!since });
-        } catch (err: unknown) {
-          if (cancelled) return;
-          const e = err as {
-            message?: string;
-            code?: string;
-            response?: { status?: number; data?: { error?: string; conversations?: Conversation[]; emptyHint?: string } };
-          };
-          const status = e?.response?.status;
-          if (status === 404 && setCachedAccounts) {
-            api.get('/social/accounts').then((res) => {
-              const data = Array.isArray(res?.data) ? res.data : [];
-              setCachedAccounts(data);
-            }).catch(() => {});
-          }
-          const partial = e?.response?.data?.conversations;
-          if (partial && partial.length > 0) {
-            applyPlatformFetchResult(platform, account, { data: e.response?.data }, { deltaFetch: !!since });
-            continue;
-          }
-          const apiError = typeof e?.response?.data?.error === 'string' ? e.response.data.error : null;
-          const msg = apiError ?? e?.message ?? 'Could not load conversations.';
-          const isTimeout = e?.code === 'ECONNABORTED' || status === 408 || /timeout|408/i.test(msg);
-          const isRateLimit = status === 429 || /throttl|rate limit|usage limits/i.test(msg);
-          const errText = isRateLimit
-            ? msg
-            : isTimeout
-              ? 'Request timed out. The server or Meta may be slow.'
-              : msg;
-          errors.push(errText);
-          errorsByPlatform[platform] = errText;
-        }
-      }
-      if (!cancelled) {
-        if (conversationsLoadTimeoutRef.current) {
-          clearTimeout(conversationsLoadTimeoutRef.current);
-          conversationsLoadTimeoutRef.current = null;
-        }
-        finishConversationMerge();
-      }
-    })();
-
-    if (needsFetch) {
-      if (merge.length === 0) {
-        conversationsLoadedRef.current = false;
-        setConversationsLoading(true);
-        setConversationsError(null);
-        setConversationsDebug(null);
-      }
-      // Use a longer timeout (55s) so we don't show an error while Meta/API is slow after re-login; avoids confusing flash of error then partial load.
-      conversationsLoadTimeoutRef.current = setTimeout(() => {
-        if (cancelled) return;
-        setConversationsLoading(false);
-        if (!conversationsLoadedRef.current) {
-          setConversationsError('Loading is taking longer than usual. Try refreshing.');
-        }
-      }, 55000);
     }
-    return () => {
-      cancelled = true;
-      if (conversationsLoadTimeoutRef.current) {
-        clearTimeout(conversationsLoadTimeoutRef.current);
-        conversationsLoadTimeoutRef.current = null;
-      }
-      setConversationsLoading(false);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messageFetchPlatformIds.join(','), effectiveAccounts.map((a) => a.id).join(','), conversationsRefreshKey, user?.id]);
 
-  // Live refresh: conversation list every ~90s while Inbox is open (new DMs within 1–2 min).
-  useEffect(() => {
-    if (inboxMode !== 'messages') return;
-    if (messageFetchPlatformIds.length === 0) return;
-    const interval = setInterval(() => setConversationsRefreshKey((k) => k + 1), INBOX_LIVE_POLL_MS);
-    // Also refresh immediately when the tab becomes visible again (user switches back).
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') setConversationsRefreshKey((k) => k + 1);
-    };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, [inboxMode, messageFetchPlatformIds.join(',')]);
-
-  // Twitter/X: lightly refresh a couple of stale threads (not all 8) to stay under X rate limits.
-  useEffect(() => {
-    if (inboxMode !== 'messages') return;
-    if (!user?.id) return;
-    const hasTwitter = messageFetchPlatformIds.includes('TWITTER');
-    if (!hasTwitter) return;
-
-    let cancelled = false;
-    const refreshTwitterThreadCache = async () => {
-      const twitterConversations = conversations
-        .filter((c) => c.platform === 'TWITTER' && !!c.id)
-        .filter((c) => {
-          const entry = conversationMessagesCacheRef.current[c.id];
-          const account = c.messageAccountId
-            ? effectiveAccounts.find((a) => a.id === c.messageAccountId)
-            : effectiveAccounts.find((a) => a.platform === 'TWITTER');
-          return account && !isConvCacheFresh(entry, account.id, c.updatedTime, 'TWITTER');
-        })
-        .slice(0, INBOX_TWITTER_BACKGROUND_MAX);
-      if (twitterConversations.length === 0) return;
-
-      for (const conv of twitterConversations) {
-        if (cancelled) return;
-        const account = conv.messageAccountId
-          ? effectiveAccounts.find((a) => a.id === conv.messageAccountId)
-          : effectiveAccounts.find((a) => a.platform === 'TWITTER');
-        if (!account) continue;
-        try {
-          const res = await api.get(`/social/accounts/${account.id}/conversations/${conv.id}/messages`, { timeout: 60_000 });
-          if (res.status === 429 || res.data?.error === 'throttled') continue;
-          if (cancelled) return;
-          const messages = res.data?.messages ?? [];
-          const recipientFromConv = conv.senders?.[0]?.id ?? null;
-          const recipientId = res.data?.recipientId ?? recipientFromConv ?? null;
-          setConversationMessagesCache((prev) =>
-            withCacheEntry(prev, conv.id, {
-              messages,
-              recipientId,
-              recipientName: res.data?.recipientName ?? null,
-              recipientPictureUrl: res.data?.recipientPictureUrl ?? null,
-              error: res.data?.error ?? null,
-              accountId: account.id,
-            })
-          );
-        } catch {
-          // Silent refresh failure; foreground open still uses existing cache/fetch flow.
-        }
-      }
-    };
-
-    const interval = setInterval(() => {
-      void refreshTwitterThreadCache();
-    }, INBOX_TWITTER_BACKGROUND_REFRESH_MS);
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
+    const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
+    const withPictures = user?.id ? mergeSenderPicturesIntoConversations(sorted, user.id) : sorted;
+    setConversations(withPictures);
+    conversationsLoadedRef.current = sorted.length > 0;
+    setConversationsLoading(sorted.length === 0);
+    setConversationsErrorsByPlatform({});
+    setConversationsHintsByPlatform({});
+    setConversationsDebug(null);
+    setConversationsError(
+      sorted.length === 0
+        ? 'Inbox syncs automatically every 2 minutes. Your conversations will appear after the next sync.'
+        : null
+    );
   }, [
-    inboxMode,
-    user?.id,
     messageFetchPlatformIds.join(','),
-    conversations.map((c) => `${c.id}:${c.platform ?? ''}:${c.messageAccountId ?? ''}`).join('|'),
-    effectiveAccounts.map((a) => `${a.id}:${a.platform}`).join(','),
+    effectiveAccounts.map((a) => a.id).join(','),
+    user?.id,
+    appData?.conversationsByAccountId,
+    appData?.inboxSystemSyncTick,
   ]);
 
   // Messages mode: YouTube/TikTok have no DM strip; switch to a message-capable platform.
@@ -2294,13 +1974,7 @@ function InboxPage() {
     if (next) setSelectedPlatform(next);
   }, [inboxMode, selectedPlatform, commentsSupportedPlatforms.join(',')]);
 
-  // Opening Comments always triggers a live fetch (Meta is not prefetched in the background).
-  useEffect(() => {
-    if (inboxMode === 'comments') {
-      setCommentsRefreshKey((k) => k + 1);
-    }
-  }, [inboxMode]);
-
+  // Comments: read AppData cache only (background sync every 2 min).
   useEffect(() => {
     if (platformsToFetchComments.length === 0) {
       setComments([]);
@@ -2308,119 +1982,33 @@ function InboxPage() {
       setCommentsError(null);
       return;
     }
-    let cancelled = false;
+
     const merge: PostComment[] = [];
-    let pending = platformsToFetchComments.length;
-    let needsFetch = false;
-    const errorsFound: string[] = [];
-
-    platformsToFetchComments.forEach((platform) => {
+    for (const platform of platformsToFetchComments) {
       const account = effectiveAccounts.find((a) => a.platform === platform);
-      if (!account) {
-        if (--pending === 0 && !cancelled) {
-          setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-          setCommentsLoading(false);
-          setCommentsError(merge.length === 0 ? (errorsFound[0] ?? null) : null);
-        }
-        return;
-      }
-      const fromCache = appData?.getComments(account.id);
-      const useCache = fromCache !== undefined && fromCache !== null;
-      const fromCacheList = useCache ? fromCache : [];
-      if (useCache && fromCacheList.length > 0) {
-        const withAccountId = fromCacheList.map((c) => ({ ...c, accountId: (c as PostComment).accountId ?? account.id }));
-        merge.push(...withAccountId);
-      }
-
-      const newestCachedCreatedAt =
-        fromCacheList
-          .map((c) => c.createdAt)
-          .filter((v): v is string => typeof v === 'string' && v.length > 0)
-          .sort((a, b) => b.localeCompare(a))[0] ?? undefined;
-      const isMeta = account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK';
-      const shouldDeltaFetch =
-        useCache && fromCacheList.length > 0 && commentsRefreshKey > 0 && !isMeta;
-      const shouldLiveFetch =
-        !useCache || fromCacheList.length === 0 || shouldDeltaFetch || (isMeta && inboxMode === 'comments');
-
-      if (shouldLiveFetch) {
-        needsFetch = true;
-        const qs = new URLSearchParams();
-        if (shouldDeltaFetch && newestCachedCreatedAt) {
-          qs.set('since', newestCachedCreatedAt);
-          qs.set('delta', '1');
-        } else if (shouldLiveFetch && (account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK')) {
-          qs.set('refresh', '1');
-        }
-        const url = `/social/accounts/${account.id}/comments${qs.toString() ? `?${qs}` : ''}`;
-        api.get(url)
-          .then((res) => {
-            if (cancelled) return;
-            const list: PostComment[] = res.data?.comments ?? [];
-            const apiError: string | null = res.data?.error ?? null;
-            if (apiError) {
-              errorsFound.push(apiError);
-            } else {
-              const mergedById = new Map<string, PostComment>();
-              for (const existing of fromCacheList) {
-                const normalized = { ...existing, accountId: (existing as PostComment).accountId ?? account.id } as PostComment;
-                mergedById.set(normalized.commentId, normalized);
-              }
-              for (const incoming of list) {
-                const normalized = { ...incoming, accountId: incoming.accountId ?? account.id } as PostComment;
-                mergedById.set(normalized.commentId, normalized);
-              }
-              const mergedAccountList = Array.from(mergedById.values()).sort(
-                (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-              );
-              appData?.setCommentsForAccount(account.id, mergedAccountList);
-              merge.push(...mergedAccountList);
-            }
-            if (--pending === 0) {
-              setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-              setCommentsError(merge.length === 0 && errorsFound.length > 0 ? errorsFound[0] : null);
-              setCommentsLoading(false);
-            }
-          })
-          .catch((err: { response?: { status?: number } }) => {
-            if (cancelled) return;
-            errorsFound.push('Could not load comments.');
-            if (err?.response?.status === 404 && setCachedAccounts) {
-              api.get('/social/accounts').then((res) => {
-                const data = Array.isArray(res?.data) ? res.data : [];
-                setCachedAccounts(data);
-              }).catch(() => {});
-            }
-            if (--pending === 0) {
-              setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-              setCommentsError(merge.length === 0 ? (errorsFound[0] ?? 'Could not load comments.') : null);
-              setCommentsLoading(false);
-            }
-          });
-      } else {
-        if (--pending === 0 && !cancelled) {
-          setComments(merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-          setCommentsError(null);
-          setCommentsLoading(false);
-        }
-      }
-    });
-
-    if (needsFetch) {
-      if (merge.length === 0) setCommentsLoading(true);
-      setCommentsError(null);
+      if (!account) continue;
+      const fromCacheList = appData?.getComments(account.id) ?? [];
+      merge.push(
+        ...fromCacheList.map(
+          (c) => ({ ...c, accountId: (c as PostComment).accountId ?? account.id }) as PostComment
+        )
+      );
     }
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [platformsToFetchComments.join(','), effectiveAccounts.map((a) => a.id).join(','), commentsRefreshKey, inboxMode]);
 
-  // Refresh comments while the Comments tab is open (Meta needs live fetch; 90s target).
-  useEffect(() => {
-    if (inboxMode !== 'comments') return;
-    if (platformsToFetchComments.length === 0) return;
-    const interval = setInterval(() => setCommentsRefreshKey((k) => k + 1), 90_000);
-    return () => clearInterval(interval);
-  }, [inboxMode, platformsToFetchComments.join(',')]);
+    const sorted = merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    setComments(sorted);
+    setCommentsLoading(sorted.length === 0);
+    setCommentsError(
+      sorted.length === 0
+        ? 'Comments sync automatically every 2 minutes. They will appear after the next sync.'
+        : null
+    );
+  }, [
+    platformsToFetchComments.join(','),
+    effectiveAccounts.map((a) => a.id).join(','),
+    appData?.commentsByAccountId,
+    appData?.inboxSystemSyncTick,
+  ]);
 
   // Track unread comment ids. When we first load comments for an account, mark them all as read so we only highlight new notifications after connection.
   useEffect(() => {
@@ -2756,14 +2344,7 @@ function InboxPage() {
               <p className="text-xs text-amber-700 mt-1">{commentsError}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setCommentsRefreshKey((k) => k + 1)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700"
-              >
-                <RefreshCw size={14} />
-                Retry
-              </button>
+              <p className="text-xs text-amber-700">Comments refresh automatically every 2 minutes.</p>
               {effectiveAccounts.some((a) => a.platform === 'TWITTER') && (
                 <button
                   type="button"
@@ -2804,14 +2385,7 @@ function InboxPage() {
             <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
             <p className="text-sm text-neutral-500">No comments yet.</p>
             <p className="text-xs text-neutral-400 mt-1">Comments on your posts will appear here. Make sure to sync your posts first from the Dashboard.</p>
-            <button
-              type="button"
-              onClick={() => setCommentsRefreshKey((k) => k + 1)}
-              className="mt-3 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700"
-            >
-              <RefreshCw size={14} />
-              Refresh comments
-            </button>
+            <p className="text-xs text-neutral-400 mt-3">Comments sync automatically every 2 minutes.</p>
           </div>
         );
       }
@@ -2990,22 +2564,7 @@ function InboxPage() {
             )}
             <div className="mt-3 flex flex-col gap-2">
               {isTimeout && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    forceFreshConversationsRef.current = true;
-                    appData?.invalidateConversations?.();
-                    for (const a of effectiveAccounts) {
-                      if (a.platform === 'TWITTER') pendingManualInboxByAccountRef.current.add(a.id);
-                    }
-                    setConversationsRefreshKey((k) => k + 1);
-                    setConversationsLoading(true);
-                  }}
-                  className="px-4 py-2 rounded-lg bg-[var(--button)] text-white text-sm font-medium hover:bg-[var(--button-hover)] inline-flex items-center justify-center gap-2"
-                >
-                  <RefreshCw size={16} />
-                  Try again
-                </button>
+                <p className="text-xs text-amber-800">Messages sync automatically every 2 minutes. Wait for the next sync, then reopen Inbox.</p>
               )}
               {(isAuthError || !isTimeout) && (
                 <>
@@ -3110,22 +2669,7 @@ function InboxPage() {
             </>
           )}
           {!dmNotInApp && (
-            <button
-              type="button"
-              onClick={() => {
-                forceFreshConversationsRef.current = true;
-                appData?.invalidateConversations?.();
-                for (const a of effectiveAccounts) {
-                  if (a.platform === 'TWITTER') pendingManualInboxByAccountRef.current.add(a.id);
-                }
-                setConversationsRefreshKey((k) => k + 1);
-                setConversationsLoading(true);
-              }}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700"
-            >
-              <RefreshCw size={16} />
-              Refresh conversations
-            </button>
+            <p className="text-xs text-neutral-400 mt-4">Messages sync automatically every 2 minutes.</p>
           )}
           {!dmNotInApp && messageFetchPlatformIds.includes('INSTAGRAM') && (
             <p className="text-xs text-amber-700 mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
@@ -3169,23 +2713,6 @@ function InboxPage() {
                 {bannerText}
               </p>
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    forceFreshConversationsRef.current = true;
-                    appData?.invalidateConversations?.();
-                    for (const a of effectiveAccounts) {
-                      if (a.platform === platformId) {
-                        appData?.setConversationsForAccount?.(a.id, []);
-                      }
-                      if (a.platform === 'TWITTER') pendingManualInboxByAccountRef.current.add(a.id);
-                    }
-                    setConversationsRefreshKey((k) => k + 1);
-                  }}
-                  className="text-xs px-2 py-1 rounded bg-amber-200 text-amber-900 font-medium hover:bg-amber-300"
-                >
-                  Retry
-                </button>
                 {platformId === 'INSTAGRAM' && (
                   <button
                     type="button"
@@ -3746,7 +3273,6 @@ function InboxPage() {
                         setReplyText('');
                         setSelectedCommentIds(new Set());
                         setSelectMode(false);
-                        setCommentsRefreshKey((k) => k + 1);
 
                         void Promise.allSettled(
                           toSend.map(({ c, msg, account }) =>
@@ -3769,7 +3295,6 @@ function InboxPage() {
                             setReplySendError(
                               `Some replies failed: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '...' : ''}`
                             );
-                            setCommentsRefreshKey((k) => k + 1);
                           }
                         });
                       }}
@@ -4259,10 +3784,6 @@ function InboxPage() {
                       setComments((prev) => [myReply, ...prev]);
                       setReplyText('');
                       setReplySendError(null);
-                      // Refresh so the API-side reply appears. Skip for YouTube: API returns only top-level comments, so refetch would remove the reply from the list.
-                      if (selectedComment.platform !== 'YOUTUBE' && selectedComment.platform !== 'TWITTER') {
-                        setTimeout(() => setCommentsRefreshKey((k) => k + 1), 3000);
-                      }
                     } catch (e: unknown) {
                       const err = e as { response?: { data?: unknown }; message?: string };
                       const data = err?.response?.data;

@@ -21,7 +21,6 @@ import {
   clearStoredInsightsForAccount,
 } from '@/lib/dashboard-insights-session-cache';
 import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
-import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
 import { markInboxAccountRecentlyConnected } from '@/lib/inbox/inbox-recent-connect';
 import {
   localCalendarDateFromIso,
@@ -622,7 +621,6 @@ export default function DashboardPage() {
         appDataRef.current?.clearAccountData(accountIdFromUrl);
         router.replace('/dashboard', { scroll: false });
         setJustConnected(true);
-        triggerInboxWarmClient(true);
         timeoutId = setTimeout(() => setJustConnected(false), 5000);
       })
       .catch(() => {
@@ -640,7 +638,6 @@ export default function DashboardPage() {
     let cancelled = false;
     const timeoutId = setTimeout(() => setJustConnected(false), 5000);
     setJustConnected(true);
-    triggerInboxWarmClient(true);
     void fetchAccounts().then((list) => {
       if (cancelled) return;
       for (const a of list) {

@@ -1,9 +1,10 @@
 /**
- * Background inbox poll for nav badge counts (messages + comments).
- * Runs on an interval from AppDataContext while the user is logged in.
+ * Systematic inbox sync (AppDataContext timer). Updates nav badge + in-memory cache.
+ * Does not run when the user opens Inbox; the Inbox UI reads this cache only.
  */
 import api from '@/lib/api';
 import type { CachedComment, CachedConversation } from '@/context/AppDataContext';
+import { INBOX_SYSTEM_SYNC_MS } from '@/lib/inbox/inbox-sync-config';
 import {
   addPendingUnreadCommentIds,
   addPendingUnreadConversationIds,
@@ -24,8 +25,8 @@ import {
 } from '@/lib/inbox-read-state';
 import { shouldBlockMetaNonEssentialCalls } from '@/lib/meta-usage-guard';
 
-/** Poll every 3 min to limit Meta Graph usage (badge uses cacheOnly conversations). */
-export const INBOX_NOTIFICATION_POLL_MS = 180_000;
+/** @deprecated Use INBOX_SYSTEM_SYNC_MS */
+export const INBOX_NOTIFICATION_POLL_MS = INBOX_SYSTEM_SYNC_MS;
 
 const MESSAGE_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
 const COMMENT_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
@@ -41,13 +42,6 @@ function pickNewerUpdatedTime(
   if (!a) return b ?? null;
   if (!b) return a;
   return a.localeCompare(b) >= 0 ? a : b;
-}
-
-function newestConversationUpdated(list: CachedConversation[]): string | undefined {
-  return list
-    .map((c) => c.updatedTime)
-    .filter((v): v is string => typeof v === 'string' && v.length > 0)
-    .sort((a, b) => b.localeCompare(a))[0];
 }
 
 /** Merge one row without wiping messageCount/platform (badgePoll omits counts). */
@@ -199,6 +193,7 @@ function mergeComments(
   return merged;
 }
 
+/** Scheduled inbox sync: conversations (light Meta list) + comment deltas. */
 export async function pollInboxNotifications(args: {
   accounts: AccountLite[];
   userId: string;
@@ -210,15 +205,16 @@ export async function pollInboxNotifications(args: {
   const { accounts, userId, getConversations, getComments, onConversations, onComments } = args;
 
   const commentSinceStart = commentSinceForPoll(userId, accounts.flatMap((a) => getComments(a.id) ?? []));
+  const metaBlocked = shouldBlockMetaNonEssentialCalls();
 
   for (const acc of accounts) {
     if (MESSAGE_PLATFORMS.has(acc.platform)) {
       try {
         const existing = getConversations(acc.id) ?? [];
-        // DB cache only: no live Meta on background poll (user gets live list when opening Inbox).
+        const convQs = metaBlocked ? 'cacheOnly=1' : 'badgePoll=1';
         const res = await api.get<{ conversations?: CachedConversation[]; error?: string }>(
-          `/social/accounts/${acc.id}/conversations?cacheOnly=1`,
-          { timeout: 30_000 }
+          `/social/accounts/${acc.id}/conversations?${convQs}`,
+          { timeout: metaBlocked ? 30_000 : 90_000 }
         );
         if (res.data?.error) continue;
         const incoming = res.data?.conversations ?? [];
@@ -227,14 +223,13 @@ export async function pollInboxNotifications(args: {
       } catch {
         /* skip account */
       }
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 800));
     }
 
-    if (COMMENT_PLATFORMS.has(acc.platform) && !shouldBlockMetaNonEssentialCalls()) {
+    if (COMMENT_PLATFORMS.has(acc.platform) && !metaBlocked) {
       try {
         const existing = getComments(acc.id) ?? [];
         const params = new URLSearchParams();
-        // Delta only when we already have comments in memory; otherwise fetch full list.
         if (commentSinceStart && existing.length > 0) {
           params.set('delta', '1');
           params.set('since', commentSinceStart);
@@ -254,7 +249,7 @@ export async function pollInboxNotifications(args: {
       } catch {
         /* skip account */
       }
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 800));
     }
   }
 

@@ -1,6 +1,6 @@
 /**
- * Fire-and-forget inbox warm from the browser.
- * Called on login, right after connect (connecting=1), and when Inbox opens.
+ * Legacy fire-and-forget inbox warm. Prefer AppDataContext systematic sync (every 2 min).
+ * Still used sparingly after connect; not called when opening Inbox.
  */
 import api from '@/lib/api';
 

@@ -13,9 +13,8 @@ import {
   stabilizeInboxHeaderUnread,
 } from '@/lib/inbox/unread-count';
 import { INBOX_READ_STATE_CHANGED_EVENT } from '@/lib/inbox-read-state';
-import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
+import { INBOX_SYSTEM_SYNC_MS } from '@/lib/inbox/inbox-sync-config';
 import {
-  INBOX_NOTIFICATION_POLL_MS,
   mergeConversationLists,
   pollInboxNotifications,
 } from '@/lib/inbox/poll-inbox-notifications';
@@ -124,6 +123,8 @@ type AppDataContextType = {
   setNotifications: (n: NotificationsCache) => void;
   invalidate: () => void;
   invalidateConversations: () => void;
+  /** Increments every ~2 min after background inbox sync (for Inbox UI to re-read cache). */
+  inboxSystemSyncTick: number;
 };
 
 const defaultNotifications: NotificationsCache = { inbox: 0, comments: 0, messages: 0 };
@@ -309,8 +310,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   commentsByAccountIdRef.current = commentsByAccountId;
   const inboxPollInFlightRef = useRef(false);
   const runInboxPollRef = useRef<(() => Promise<void>) | null>(null);
+  const [inboxSystemSyncTick, setInboxSystemSyncTick] = useState(0);
 
-  // Background poll: refresh DMs + comments for nav badge (~60s, any dashboard page).
+  // Systematic inbox sync every 2 min while logged in (not tied to opening Inbox).
   useEffect(() => {
     if (!user?.id) return;
 
@@ -319,7 +321,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
     const runPoll = async () => {
       if (cancelled || inboxPollInFlightRef.current) return;
-      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
 
       inboxPollInFlightRef.current = true;
       try {
@@ -347,6 +348,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             }
           },
         });
+        if (!cancelled) setInboxSystemSyncTick((t) => t + 1);
       } catch {
         /* ignore */
       } finally {
@@ -356,19 +358,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
     runInboxPollRef.current = runPoll;
 
+    void runPoll();
     intervalId = setInterval(() => {
       void runPoll();
-    }, INBOX_NOTIFICATION_POLL_MS);
-
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') void runPoll();
-    };
-    document.addEventListener('visibilitychange', onVisible);
+    }, INBOX_SYSTEM_SYNC_MS);
 
     return () => {
       cancelled = true;
       if (intervalId) clearInterval(intervalId);
-      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [user?.id]);
 
@@ -635,11 +632,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         setPrefetchHasLoadedOnce(true);
         if (typeof sessionStorage !== 'undefined') sessionStorage.setItem('appDataPhase1Done', '1');
 
-        // Pre-warm Instagram/Facebook DM cache on login and after connect (not only on Inbox).
-        if (accounts.some((a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK')) {
-          triggerInboxWarmClient(true);
-        }
-
         // Phase 2: load per-account data ONE REQUEST AT A TIME.
         // Each request = 1 serverless function = 1 DB connection.
         // The global API limiter (api.ts) caps concurrent requests to 4,
@@ -784,11 +776,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       setNotifications,
       invalidate,
       invalidateConversations,
+      inboxSystemSyncTick,
     }),
     [
       notifications,
       postsByAccountId,
       insightsByAccountId,
+      inboxSystemSyncTick,
       commentsByAccountId,
       conversationsByAccountId,
       scheduledPosts,
