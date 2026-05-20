@@ -46,7 +46,7 @@ import { resolveComposerMediaType } from '@/lib/composer-media-type';
 
 const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
 
-const EMPTY_CACHED_ACCOUNTS: { id: string; platform: string; username?: string | null }[] = [];
+const EMPTY_CACHED_ACCOUNTS: { id: string; platform: string; username?: string | null; profilePicture?: string | null }[] = [];
 
 type MediaItem = { fileUrl: string; type: 'IMAGE' | 'VIDEO'; thumbnailUrl?: string };
 type PlatformKey = 'INSTAGRAM' | 'FACEBOOK' | 'TIKTOK' | 'YOUTUBE' | 'TWITTER' | 'LINKEDIN' | 'PINTEREST';
@@ -1457,10 +1457,11 @@ export default function ComposerPage() {
     // Story: auto-select connected IG/FB when nothing is selected yet (sidebar clicks do not set composer targets).
     useEffect(() => {
         if (!accountsFetched || mediaType !== 'story' || selectablePlatforms.length === 0) return;
+        const selectableSet = new Set<string>(selectablePlatforms);
         setPlatforms((prev) => {
             const valid = prev
                 .map((p) => String(p).toUpperCase())
-                .filter((p) => selectablePlatforms.includes(p));
+                .filter((p) => selectableSet.has(p));
             if (valid.length > 0) return valid;
             return [...selectablePlatforms];
         });
