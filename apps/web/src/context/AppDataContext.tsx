@@ -10,6 +10,7 @@ import { computeInboxHeaderUnread } from '@/lib/inbox/unread-count';
 import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
 import {
   INBOX_NOTIFICATION_POLL_MS,
+  mergeConversationLists,
   pollInboxNotifications,
 } from '@/lib/inbox/poll-inbox-notifications';
 import {
@@ -233,12 +234,21 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       .filter((c) => !c.parentCommentId)
       .map((c) => c.commentId);
     const unread = computeInboxHeaderUnread(allConversations, commentIds, user.id);
-    setNotificationsState((prev) => ({
-      ...prev,
-      inbox: unread.inbox,
-      messages: unread.messages,
-      comments: unread.comments,
-    }));
+    setNotificationsState((prev) => {
+      if (
+        prev.inbox === unread.inbox &&
+        prev.messages === unread.messages &&
+        prev.comments === unread.comments
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        inbox: unread.inbox,
+        messages: unread.messages,
+        comments: unread.comments,
+      };
+    });
   }, [user?.id, conversationsByAccountId, commentsByAccountId]);
 
   const conversationsByAccountIdRef = useRef(conversationsByAccountId);
@@ -246,8 +256,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const commentsByAccountIdRef = useRef(commentsByAccountId);
   commentsByAccountIdRef.current = commentsByAccountId;
   const inboxPollInFlightRef = useRef(false);
+  const runInboxPollRef = useRef<(() => Promise<void>) | null>(null);
 
-  // Background poll: refresh DMs + comments for nav badge (~90s, any dashboard page).
+  // Background poll: refresh DMs + comments for nav badge (~60s, any dashboard page).
   useEffect(() => {
     if (!user?.id) return;
 
@@ -287,18 +298,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    const initialDelay = setTimeout(() => {
-      void runPoll();
-    }, 3_000);
+    runInboxPollRef.current = runPoll;
 
     intervalId = setInterval(() => {
       void runPoll();
     }, INBOX_NOTIFICATION_POLL_MS);
-
-    // Run again once startup cache has conversation rows (cacheOnly prefetch).
-    const afterPrefetch = setTimeout(() => {
-      void runPoll();
-    }, 12_000);
 
     const onVisible = () => {
       if (document.visibilityState === 'visible') void runPoll();
@@ -307,12 +311,19 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       cancelled = true;
-      clearTimeout(initialDelay);
-      clearTimeout(afterPrefetch);
       if (intervalId) clearInterval(intervalId);
       document.removeEventListener('visibilitychange', onVisible);
     };
   }, [user?.id]);
+
+  // First poll after startup prefetch (avoid racing cacheOnly with live poll).
+  useEffect(() => {
+    if (!user?.id || !prefetchPhase2Done) return;
+    const t = setTimeout(() => {
+      void runInboxPollRef.current?.();
+    }, 2_000);
+    return () => clearTimeout(t);
+  }, [user?.id, prefetchPhase2Done]);
 
   const setPostsForAccount = useCallback((accountId: string, posts: CachedPost[]) => {
     setPostsByAccountId((prev) => ({ ...prev, [accountId]: posts }));
@@ -632,7 +643,29 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
                 `/social/accounts/${acc.id}/conversations?cacheOnly=1`
               );
               if (!cancelled && shouldApplyPhase2Write() && !r.data?.error && r.data?.conversations?.length) {
-                setConversationsByAccountId((prev) => ({ ...prev, [acc.id]: r.data!.conversations! }));
+                const incoming = r.data!.conversations!;
+                setConversationsByAccountId((prev) => {
+                  const existing = prev[acc.id] ?? [];
+                  if (existing.length === 0) {
+                    return { ...prev, [acc.id]: incoming };
+                  }
+                  const existingNewest = existing
+                    .map((c) => c.updatedTime)
+                    .filter((v): v is string => typeof v === 'string' && v.length > 0)
+                    .sort((a, b) => b.localeCompare(a))[0];
+                  const incomingNewest = incoming
+                    .map((c) => c.updatedTime)
+                    .filter((v): v is string => typeof v === 'string' && v.length > 0)
+                    .sort((a, b) => b.localeCompare(a))[0];
+                  if (
+                    existingNewest &&
+                    incomingNewest &&
+                    incomingNewest.localeCompare(existingNewest) < 0
+                  ) {
+                    return prev;
+                  }
+                  return { ...prev, [acc.id]: mergeConversationLists(existing, incoming) };
+                });
               }
             } catch { /* skip */ }
           }

@@ -2,6 +2,10 @@
  * Persist inbox read state in localStorage so refresh keeps read/unread.
  * Keys are scoped per user by optional userId to avoid cross-account leakage.
  */
+import {
+  removePendingUnreadCommentIds,
+  removePendingUnreadConversationIds,
+} from '@/lib/inbox/inbox-badge-pending';
 
 const KEY_COMMENTS = 'agent4socials_read_comments';
 const KEY_CONVERSATIONS = 'agent4socials_read_conversations';
@@ -56,6 +60,7 @@ export function markCommentsAsRead(ids: Iterable<string>, userId?: string | null
   const set = loadSet(key);
   for (const id of ids) set.add(id);
   saveSet(key, set);
+  if (userId) removePendingUnreadCommentIds(ids, userId);
 }
 
 export function markConversationsAsRead(ids: Iterable<string>, userId?: string | null): void {
@@ -63,6 +68,7 @@ export function markConversationsAsRead(ids: Iterable<string>, userId?: string |
   const set = loadSet(key);
   for (const id of ids) set.add(id);
   saveSet(key, set);
+  if (userId) removePendingUnreadConversationIds(ids, userId);
 }
 
 /** Mark a thread unread again (e.g. new message arrived while user is elsewhere). */

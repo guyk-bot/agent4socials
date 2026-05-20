@@ -5,11 +5,16 @@
 import api from '@/lib/api';
 import type { CachedComment, CachedConversation } from '@/context/AppDataContext';
 import {
+  addPendingUnreadCommentIds,
+  addPendingUnreadConversationIds,
+} from '@/lib/inbox/inbox-badge-pending';
+import {
   addInboxInitializedAccount,
   addInboxInitializedAccountForConversations,
   getConversationLastReadCounts,
   getInboxInitializedAccountIds,
   getInboxInitializedAccountIdsForConversations,
+  getReadCommentIds,
   markCommentsAsRead,
   markConversationsAsRead,
   setConversationLastReadCount,
@@ -26,6 +31,46 @@ const COMMENT_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
 const COMMENTS_SINCE_KEY = (userId: string) => `agent4socials_badge_poll_comments_since_${userId}`;
 
 type AccountLite = { id: string; platform: string };
+
+function pickNewerUpdatedTime(
+  a: string | null | undefined,
+  b: string | null | undefined
+): string | null {
+  if (!a) return b ?? null;
+  if (!b) return a;
+  return a.localeCompare(b) >= 0 ? a : b;
+}
+
+function newestConversationUpdated(list: CachedConversation[]): string | undefined {
+  return list
+    .map((c) => c.updatedTime)
+    .filter((v): v is string => typeof v === 'string' && v.length > 0)
+    .sort((a, b) => b.localeCompare(a))[0];
+}
+
+/** Merge lists without dropping threads or regressing updatedTime (avoids badge flicker). */
+export function mergeConversationLists(
+  existing: CachedConversation[],
+  incoming: CachedConversation[]
+): CachedConversation[] {
+  const byId = new Map<string, CachedConversation>();
+  for (const c of existing) byId.set(c.id, c);
+  for (const c of incoming) {
+    const prev = byId.get(c.id);
+    byId.set(c.id, {
+      ...prev,
+      ...c,
+      updatedTime: pickNewerUpdatedTime(prev?.updatedTime, c.updatedTime),
+      senders: (c.senders ?? []).map((s, i) => ({
+        ...s,
+        pictureUrl: s.pictureUrl ?? prev?.senders?.[i]?.pictureUrl ?? null,
+        name: s.name ?? prev?.senders?.[i]?.name,
+        username: s.username ?? prev?.senders?.[i]?.username,
+      })),
+    });
+  }
+  return [...byId.values()].sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
+}
 
 function commentSinceForPoll(userId: string, existing: CachedComment[]): string | undefined {
   if (typeof sessionStorage !== 'undefined') {
@@ -52,6 +97,7 @@ function markConversationActivity(
 ): void {
   if (!prev) {
     if (getInboxInitializedAccountIdsForConversations(userId).has(accountId)) {
+      addPendingUnreadConversationIds([conversationId], userId);
       unmarkConversationAsRead(conversationId, userId);
     }
     return;
@@ -61,6 +107,7 @@ function markConversationActivity(
     next.updatedTime &&
     next.updatedTime.localeCompare(prev.updatedTime) > 0
   ) {
+    addPendingUnreadConversationIds([conversationId], userId);
     unmarkConversationAsRead(conversationId, userId);
     const count = next.messageCount ?? prev.messageCount;
     if (typeof count === 'number' && count > 0) {
@@ -84,17 +131,19 @@ function mergeConversations(
 
   for (const c of incoming) {
     const prev = byId.get(c.id);
-    markConversationActivity(c.id, prev, c, userId, accountId);
-    byId.set(c.id, {
+    const row: CachedConversation = {
       ...prev,
       ...c,
+      updatedTime: pickNewerUpdatedTime(prev?.updatedTime, c.updatedTime),
       senders: (c.senders ?? []).map((s, i) => ({
         ...s,
         pictureUrl: s.pictureUrl ?? prev?.senders?.[i]?.pictureUrl ?? null,
         name: s.name ?? prev?.senders?.[i]?.name,
         username: s.username ?? prev?.senders?.[i]?.username,
       })),
-    });
+    };
+    markConversationActivity(c.id, prev, row, userId, accountId);
+    byId.set(c.id, row);
   }
 
   const merged = [...byId.values()].sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
@@ -122,7 +171,13 @@ function mergeComments(
 ): CachedComment[] {
   const byId = new Map<string, CachedComment>();
   for (const c of existing) byId.set(c.commentId, c);
-  for (const c of incoming) byId.set(c.commentId, c);
+  const readComments = getReadCommentIds(userId);
+  for (const c of incoming) {
+    if (!c.parentCommentId && !readComments.has(c.commentId)) {
+      addPendingUnreadCommentIds([c.commentId], userId);
+    }
+    byId.set(c.commentId, c);
+  }
 
   const merged = [...byId.values()].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
 
