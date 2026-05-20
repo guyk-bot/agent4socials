@@ -32,6 +32,12 @@ import {
     readScheduledPostsClientCache,
     writeScheduledPostsClientCache,
 } from '@/lib/scheduled-posts-client-cache';
+import {
+    getPostHistoryFormat,
+    isPostHistoryVerticalThumb,
+    type PostHistoryFormat,
+    type PostHistoryFormatKey,
+} from '@/lib/post-history-format';
 
 function postMediaThumbUrl(mediaItem: { fileUrl: string; type: string; metadata?: { thumbnailUrl?: string } | null } | undefined): string | null {
     if (!mediaItem?.fileUrl) return null;
@@ -78,15 +84,23 @@ function postMatchesSearch(post: any, query: string): boolean {
     return postSearchHaystack(post).includes(q);
 }
 
-function isReelLikePost(post: any): boolean {
-    if (typeof post?.mediaType === 'string' && post.mediaType.toLowerCase() === 'reel') return true;
-    const firstType = Array.isArray(post?.media) && post.media.length > 0 ? post.media[0]?.type : null;
-    const targets = Array.isArray(post?.targetPlatforms) ? post.targetPlatforms : [];
-    return firstType === 'VIDEO' && (targets.includes('TIKTOK') || targets.includes('YOUTUBE') || targets.includes('INSTAGRAM'));
-}
+const POST_FORMAT_BADGE_CLASS: Record<PostHistoryFormatKey, string> = {
+    photo: 'bg-slate-100 text-slate-800 dark:bg-neutral-800 dark:text-neutral-200',
+    carousel: 'bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-200',
+    story: 'bg-orange-100 text-orange-800 dark:bg-orange-950/50 dark:text-orange-200',
+    reel: 'bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-950/50 dark:text-fuchsia-200',
+    video: 'bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-200',
+    text: 'bg-gray-100 text-gray-700 dark:bg-neutral-800 dark:text-neutral-300',
+};
 
-function isStoryPost(post: any): boolean {
-    return typeof post?.mediaType === 'string' && post.mediaType.toLowerCase() === 'story';
+function PostFormatBadge({ format }: { format: PostHistoryFormat }) {
+    return (
+        <span
+            className={`mr-1.5 inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${POST_FORMAT_BADGE_CLASS[format.key]}`}
+        >
+            {format.label}
+        </span>
+    );
 }
 
 function postMatchesStatusFilter(post: any, filter: string): boolean {
@@ -378,7 +392,9 @@ export default function PostsPage() {
                             </tr>
                         </thead>
                         <tbody className="bg-white dark:bg-transparent divide-y divide-gray-200 dark:divide-neutral-800">
-                            {filteredPosts.map((post: any) => (
+                            {filteredPosts.map((post: any) => {
+                                const postFormat = getPostHistoryFormat(post);
+                                return (
                                 <tr
                                     key={post.id}
                                     id={`post-row-${post.id}`}
@@ -402,18 +418,19 @@ export default function PostsPage() {
                                     <td className="px-6 py-4">
                                         <div className="flex items-center space-x-3">
                                             {post.media?.[0] && (
-                                                <PostMediaThumb mediaItem={post.media[0]} reelLike={isReelLikePost(post) || isStoryPost(post)} />
+                                                <PostMediaThumb
+                                                    mediaItem={post.media[0]}
+                                                    reelLike={isPostHistoryVerticalThumb(postFormat)}
+                                                />
                                             )}
                                             {!post.media?.length && (
                                                 <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-400"><ImageIcon size={20} /></div>
                                             )}
                                             <div className="text-sm font-medium text-gray-900 dark:text-neutral-100 truncate max-w-xs">
-                                                {isStoryPost(post) && (
-                                                    <span className="mr-1.5 inline-flex items-center rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-orange-800">
-                                                        Story
-                                                    </span>
+                                                <PostFormatBadge format={postFormat} />
+                                                {post.title || post.content || (
+                                                    <span className="text-gray-400 dark:text-neutral-500">No caption</span>
                                                 )}
-                                                {post.title || post.content}
                                             </div>
                                         </div>
                                     </td>
@@ -485,7 +502,8 @@ export default function PostsPage() {
                                         </Link>
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
                 ) : posts.length === 0 ? (
