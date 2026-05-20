@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { trackUsage } from '@/lib/usage-tracking';
 import {
   finalizePostPublishState,
+  preparePostForBackgroundPublish,
   runPublishPostWorkflow,
   type PublishPostRequestBody,
 } from '@/lib/publish-post-workflow';
@@ -53,6 +54,10 @@ export async function POST(
   const isDebug = request.nextUrl.searchParams.get('debug') === '1';
 
   if (!isCron && !linkToken) {
+    const prep = await preparePostForBackgroundPublish(postId, userId!, requestBody);
+    if (!prep.ok) {
+      return NextResponse.json({ message: prep.message }, { status: prep.status });
+    }
     after(async () => {
       try {
         await runPublishPostWorkflow({

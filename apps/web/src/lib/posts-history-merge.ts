@@ -8,34 +8,47 @@ function postIdKey(post: PostHistoryRow): string | null {
 }
 
 /**
- * Merge `incoming` into `previous` by id. Keeps prior rows not in incoming (stale but visible until next good fetch).
- * Incoming wins on id conflicts. Order: incoming order first, then prior-only rows in prior order.
+ * Merge `incoming` into `previous` by id. Keeps prior rows not in incoming.
+ * Preserves stable row order: existing rows stay in place; new ids append at the end.
  */
 export function mergePostsHistoryLists(previous: PostHistoryRow[], incoming: PostHistoryRow[]): PostHistoryRow[] {
   if (!incoming.length) return previous.length ? [...previous] : [];
+
   const byId = new Map<string, PostHistoryRow>();
   for (const p of previous) {
     const id = postIdKey(p);
     if (id) byId.set(id, p);
   }
-  const ordered: PostHistoryRow[] = [];
-  const seen = new Set<string>();
   for (const p of incoming) {
     const id = postIdKey(p);
     if (id) {
-      seen.add(id);
       byId.set(id, { ...(byId.get(id) ?? {}), ...p });
-      ordered.push(byId.get(id)!);
+    }
+  }
+
+  const ordered: PostHistoryRow[] = [];
+  const seen = new Set<string>();
+
+  for (const p of previous) {
+    const id = postIdKey(p);
+    if (id) {
+      seen.add(id);
+      ordered.push(byId.get(id) ?? p);
     } else {
       ordered.push(p);
     }
   }
-  for (const p of previous) {
+
+  for (const p of incoming) {
     const id = postIdKey(p);
     if (id && !seen.has(id)) {
-      ordered.push(byId.get(id) ?? p);
+      seen.add(id);
+      ordered.push(byId.get(id)!);
+    } else if (!id) {
+      ordered.push(p);
     }
   }
+
   return ordered;
 }
 

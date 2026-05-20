@@ -51,6 +51,72 @@ function publishTargetTimeoutMs(platform: string): number {
 }
 
 /** If publish was killed mid-flight, derive final post status from per-platform targets. */
+/** Mark post and targets POSTING and persist TikTok settings before returning HTTP 202. */
+export async function preparePostForBackgroundPublish(
+  postId: string,
+  userId: string,
+  requestBody: PublishPostRequestBody
+): Promise<{ ok: true } | { ok: false; message: string; status: number }> {
+  return withPrismaPoolRetry('prepare-post-publish', async () => {
+    const post = await prisma.post.findFirst({
+      where: { id: postId, userId },
+      select: {
+        id: true,
+        status: true,
+        tiktokPublishByAccountId: true,
+        targets: { select: { id: true, socialAccountId: true } },
+      },
+    });
+    if (!post) {
+      return { ok: false, message: 'Post not found', status: 404 };
+    }
+    if (
+      post.status !== PostStatus.DRAFT &&
+      post.status !== PostStatus.SCHEDULED &&
+      post.status !== PostStatus.POSTING
+    ) {
+      return { ok: false, message: 'Post already published', status: 400 };
+    }
+
+    const stored =
+      post.tiktokPublishByAccountId &&
+      typeof post.tiktokPublishByAccountId === 'object' &&
+      !Array.isArray(post.tiktokPublishByAccountId)
+        ? (post.tiktokPublishByAccountId as Record<string, unknown>)
+        : {};
+    const bodyTiktok = requestBody.tiktokPublishByAccountId;
+    const allowedAccountIds = new Set(post.targets.map((t) => t.socialAccountId));
+    const merged: Record<string, unknown> = { ...stored };
+    if (bodyTiktok && typeof bodyTiktok === 'object' && !Array.isArray(bodyTiktok)) {
+      for (const [accountId, payload] of Object.entries(bodyTiktok)) {
+        if (!allowedAccountIds.has(accountId)) continue;
+        if (isTikTokDirectPostPayload(payload)) {
+          merged[accountId] = payload;
+        }
+      }
+    }
+
+    const updateData: { status: PostStatus; tiktokPublishByAccountId?: Record<string, unknown> } = {
+      status: PostStatus.POSTING,
+    };
+    if (Object.keys(merged).length > 0) {
+      updateData.tiktokPublishByAccountId = merged;
+    }
+
+    await prisma.post.update({
+      where: { id: postId },
+      data: updateData,
+      select: { id: true },
+    });
+    await prisma.postTarget.updateMany({
+      where: { postId },
+      data: { status: PostStatus.POSTING, error: null },
+    });
+
+    return { ok: true };
+  });
+}
+
 export async function finalizePostPublishState(postId: string): Promise<void> {
   await withPrismaPoolRetry('finalizePostPublishState', async () => {
     const post = await prisma.post.findUnique({

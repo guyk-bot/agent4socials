@@ -1129,7 +1129,7 @@ export async function GET(
           : 'No Instagram conversations returned. Open Meta App Dashboard and ensure instagram_manage_messages is approved for your Page, then reconnect Facebook and Instagram.'
         : undefined;
 
-    if (list.length > 0 && account.platform !== 'TWITTER') {
+    if (list.length > 0) {
       const profilePlatform = isInstagram ? 'instagram' : 'facebook';
       list = (await mergeInboxProfileCacheIntoConversations(
         profilePlatform,

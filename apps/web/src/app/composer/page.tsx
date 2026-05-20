@@ -39,6 +39,12 @@ import { StoryImageCropModal, type StoryCropResult } from '@/components/composer
 import { PlatformIconToggle } from '@/components/PlatformIconToggle';
 import { isTikTokDirectPostPayload, type TikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
 import {
+    buildOptimisticPostingRow,
+    pushPostsHistoryClientUpdate,
+    replacePostIdInHistoryClient,
+    upsertPostInHistoryClient,
+} from '@/lib/posts-history-client';
+import {
     nextFutureTenMinuteLocalString,
     isTenMinuteLocalScheduleString,
     isoInstantToLocalTenMinuteSnappedUp,
@@ -784,6 +790,7 @@ export default function ComposerPage() {
     const previewResizeRef = useRef<{ startX: number; startW: number } | null>(null);
     const saveAsDraftRef = useRef(false);
     const skipTiktokGateRef = useRef(false);
+    const optimisticPostIdRef = useRef<string | null>(null);
     const [tiktokPublishByAccountId, setTiktokPublishByAccountId] = useState<Record<string, TikTokDirectPostPayload>>({});
     const [tiktokPublishModalOpen, setTiktokPublishModalOpen] = useState(false);
     const [tiktokModalAccountIds, setTiktokModalAccountIds] = useState<string[]>([]);
@@ -2213,6 +2220,14 @@ export default function ComposerPage() {
                     }>(publishPath, publishBody, { timeout: 45_000 });
 
                     if (publishRes.status === 202 || publishRes.data?.accepted) {
+                        void api
+                            .get(`/posts/${postId}`, { timeout: 30_000 })
+                            .then((res) => {
+                                if (res.data && typeof res.data === 'object') {
+                                    upsertPostInHistoryClient(res.data as Record<string, unknown>);
+                                }
+                            })
+                            .catch(() => undefined);
                         const settled = await pollPostPublishUntilSettled(postId);
                         if (!settled) {
                             setPublishModal({
@@ -2320,11 +2335,15 @@ export default function ComposerPage() {
         }
         skipTiktokGateRef.current = false;
 
+        const isPostNowCommit = !saveAsDraft && !scheduledAt?.trim();
+
             // Append hashtags after content (per platform when "different hashtags per platform" is on)
             const hashtagSuffix = (tags: string[]) => (tags.length ? ' ' + tags.join(' ') : '');
             let contentFinal = content.trim() + hashtagSuffix(selectedHashtags);
 
-        setLoading(true);
+        if (!isPostNowCommit) {
+            setLoading(true);
+        }
         if (typeof window !== 'undefined') sessionStorage.removeItem('composer_alert');
         try {
             let contentByPlatformFinal: Record<string, string> | undefined;
@@ -2516,6 +2535,40 @@ export default function ComposerPage() {
             if (Object.keys(tiktokPublishByAccountId).length > 0) {
                 payload.tiktokPublishByAccountId = tiktokPublishByAccountId;
             }
+
+            const updateExisting = editPostId && !editPostAlreadyPosted;
+            if (isPostNowCommit) {
+                const platformLabelsEarly = platforms.map((p) => PLATFORM_LABELS[p] ?? p).join(', ');
+                setPublishModal({
+                    open: true,
+                    kind: 'queued',
+                    postId: updateExisting && editPostId ? editPostId : '',
+                    message: updateExisting
+                        ? `Your request has been sent. We are updating and publishing to ${platformLabelsEarly} now.\n\nYou will get a confirmation when publishing finishes. Open History to watch status on each platform.`
+                        : `Your request has been sent. We are publishing to ${platformLabelsEarly} now.\n\nYour post will appear in History as Publishing right away. You will get a confirmation when publishing finishes.`,
+                });
+                if (updateExisting && editPostId) {
+                    upsertPostInHistoryClient({
+                        id: editPostId,
+                        status: 'POSTING',
+                        content: contentFinal,
+                        targetPlatforms: platforms,
+                        targets: platforms.map((platform) => ({ platform, status: 'POSTING' })),
+                    });
+                } else {
+                    const tempId = `pending-${Date.now()}`;
+                    optimisticPostIdRef.current = tempId;
+                    pushPostsHistoryClientUpdate([
+                        buildOptimisticPostingRow({
+                            id: tempId,
+                            content: contentFinal,
+                            platforms,
+                            media: mediaList.map((m) => ({ fileUrl: m.fileUrl, type: m.type })),
+                        }),
+                    ]);
+                }
+            }
+
             if (differentMediaPerPlatform) {
                 payload.mediaByPlatform = platforms.reduce((acc, p) => {
                     let list = mediaByPlatform[p];
@@ -2560,7 +2613,6 @@ export default function ComposerPage() {
                 }, {} as Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO'; thumbnailUrl?: string }[]>);
             }
             // If editing an already-posted post, create a new post (and publish/schedule) instead of updating the original
-            const updateExisting = editPostId && !editPostAlreadyPosted;
             if (updateExisting) {
                 if (saveAsDraft) {
                     await api.patch(`/posts/${editPostId}`, payload, { timeout: 180_000 });
@@ -2578,13 +2630,6 @@ export default function ComposerPage() {
                     return;
                 }
                 setLoading(false);
-                const platformLabels = platforms.map((p) => PLATFORM_LABELS[p] ?? p).join(', ');
-                setPublishModal({
-                    open: true,
-                    kind: 'queued',
-                    postId: editPostId,
-                    message: `Your request has been sent. We are updating and publishing to ${platformLabels} now.\n\nYou will get a confirmation when publishing finishes. In a few minutes, open History to check status on each platform.`,
-                });
                 const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
                 if (debug) sessionStorage.removeItem('publish_debug');
                 const publishBody = buildPublishRequestBody(mediaType, tiktokPublishByAccountId);
@@ -2650,13 +2695,34 @@ export default function ComposerPage() {
             }
             if (postId) {
                 setLoading(false);
-                const platformLabels = platforms.map((p) => PLATFORM_LABELS[p] ?? p).join(', ');
-                setPublishModal({
-                    open: true,
-                    kind: 'queued',
-                    postId,
-                    message: `Your request has been sent. We are publishing to ${platformLabels} now.\n\nYou will get a confirmation when publishing finishes. In a few minutes, open History to check status on each platform.`,
-                });
+                if (optimisticPostIdRef.current) {
+                    replacePostIdInHistoryClient(optimisticPostIdRef.current, {
+                        id: postId,
+                        status: 'POSTING',
+                        content: contentFinal,
+                        targetPlatforms: platforms,
+                        targets: platforms.map((platform) => ({ platform, status: 'POSTING' })),
+                    });
+                    optimisticPostIdRef.current = null;
+                } else {
+                    upsertPostInHistoryClient({
+                        id: postId,
+                        status: 'POSTING',
+                        content: contentFinal,
+                        targetPlatforms: platforms,
+                        targets: platforms.map((platform) => ({ platform, status: 'POSTING' })),
+                    });
+                }
+                setPublishModal((prev) =>
+                    prev.open && prev.kind === 'queued'
+                        ? { ...prev, postId }
+                        : {
+                              open: true,
+                              kind: 'queued',
+                              postId,
+                              message: `Your request has been sent. We are publishing now.\n\nOpen History to watch status on each platform.`,
+                          }
+                );
                 const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
                 if (debug) sessionStorage.removeItem('publish_debug');
                 const publishBodyCreate = buildPublishRequestBody(mediaType, tiktokPublishByAccountId);
