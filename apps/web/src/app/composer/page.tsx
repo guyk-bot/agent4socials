@@ -447,6 +447,33 @@ function imageFileNeedsVerticalCrop(mediaType: MediaTypeChoice, file: File): boo
     return file.type.startsWith('image/') && (mediaType === 'story' || mediaType === 'reel');
 }
 
+const COMPOSER_PLATFORM_ORDER = [
+    'INSTAGRAM',
+    'TIKTOK',
+    'YOUTUBE',
+    'FACEBOOK',
+    'LINKEDIN',
+    'PINTEREST',
+    'TWITTER',
+] as const;
+
+/** Platforms offered in Select Platforms for each media type (connected accounts only are shown). */
+function platformsAllowedForMediaType(mediaType: MediaTypeChoice): readonly string[] {
+    switch (mediaType) {
+        case 'story':
+            return ['INSTAGRAM', 'FACEBOOK'];
+        case 'video':
+            return ['YOUTUBE'];
+        case 'photo':
+        case 'carousel':
+            return ['INSTAGRAM', 'TIKTOK', 'FACEBOOK', 'LINKEDIN', 'PINTEREST', 'TWITTER'];
+        case 'reel':
+            return COMPOSER_PLATFORM_ORDER;
+        default:
+            return COMPOSER_PLATFORM_ORDER;
+    }
+}
+
 function normalizeHashtag(t: string): string {
     const s = t.trim().replace(/^#+/, '');
     return s ? `#${s}` : '';
@@ -1360,17 +1387,28 @@ export default function ComposerPage() {
         };
     }, []);
 
-    // Drafts (and edited posts) can list platforms that are no longer connected. Toggles show those as
-    // disabled gray, so they look "off" while previews still map `platforms` and show ghost cards.
+    const connectedPlatformSet = useMemo(
+        () => new Set(accounts.map((a) => String(a.platform).toUpperCase())),
+        [accounts]
+    );
+
+    const selectablePlatforms = useMemo(() => {
+        const allowed = new Set(platformsAllowedForMediaType(mediaType));
+        return COMPOSER_PLATFORM_ORDER.filter((p) => allowed.has(p) && connectedPlatformSet.has(p));
+    }, [mediaType, connectedPlatformSet]);
+
+    // Drop platforms that are disconnected or not valid for the current media type.
     useEffect(() => {
         if (!accountsFetched) return;
-        const allowed = new Set(accounts.map((a) => String(a.platform).toUpperCase()));
+        const allowed = new Set(platformsAllowedForMediaType(mediaType));
         setPlatforms((prev) => {
-            const next = prev.map((p) => String(p).toUpperCase()).filter((p) => allowed.has(p));
+            const next = prev
+                .map((p) => String(p).toUpperCase())
+                .filter((p) => allowed.has(p) && connectedPlatformSet.has(p));
             if (next.length === prev.length && next.every((p, i) => p === prev[i])) return prev;
             return next;
         });
-    }, [accountsFetched, accounts, platforms]);
+    }, [accountsFetched, mediaType, connectedPlatformSet]);
 
     // Photo / Video / Reel / Story: only one item allowed; trim if more
     useEffect(() => {
@@ -2677,8 +2715,7 @@ export default function ComposerPage() {
                         {sectionOpen.platforms && (
                         <>
                         <div className="pt-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
-                            {(['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'LINKEDIN', 'PINTEREST', 'TWITTER'] as const).map((p) => {
-                                const connected = accounts.some((a) => a.platform === p);
+                            {selectablePlatforms.map((p) => {
                                 const icons: Record<string, React.ReactNode> = {
                                     INSTAGRAM: <InstagramIcon size={26} />,
                                     TIKTOK: <TikTokIcon size={26} />,
@@ -2696,12 +2733,21 @@ export default function ComposerPage() {
                                         label={labels[p]}
                                         icon={icons[p]}
                                         active={platforms.includes(p)}
-                                        connected={connected}
+                                        connected
                                         onClick={() => setPlatforms(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])}
                                     />
                                 );
                             })}
                         </div>
+                        {selectablePlatforms.length === 0 && (
+                            <p className="pt-3 text-sm text-amber-700 dark:text-amber-400">
+                                {mediaType === 'story'
+                                    ? 'Connect Instagram or Facebook in the sidebar to post Stories.'
+                                    : mediaType === 'video'
+                                      ? 'Connect YouTube in the sidebar to post videos.'
+                                      : 'Connect a platform in the sidebar that supports this post type.'}
+                            </p>
+                        )}
                         </>
                         )}
                     </div>
@@ -2739,6 +2785,12 @@ export default function ComposerPage() {
                                                         for (const p of Object.keys(next)) next[p] = [];
                                                         return next;
                                                     });
+                                                    const allowed = new Set(platformsAllowedForMediaType(type));
+                                                    setPlatforms((prev) =>
+                                                        prev
+                                                            .map((x) => String(x).toUpperCase())
+                                                            .filter((x) => allowed.has(x) && connectedPlatformSet.has(x))
+                                                    );
                                                 }
                                             }}
                                             className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${mediaType === type
