@@ -4,6 +4,8 @@ import {
   getInboxInitializedAccountIdsForConversations,
   getReadCommentIds,
   getReadConversationIds,
+  markConversationsAsRead,
+  setConversationLastSeenUpdated,
 } from '@/lib/inbox-read-state';
 import {
   getPendingUnreadCommentIds,
@@ -37,37 +39,44 @@ export type InboxHeaderUnread = {
   byPlatform: Record<string, { comments: number; messages: number }>;
 };
 
-function isConversationUnread(
+/** Whether a DM thread should count as unread (nav badge + inbox row highlight). */
+export function isConversationUnread(
   c: InboxUnreadConversation,
   readConversations: Set<string>,
   lastRead: Record<string, number>,
   lastSeenUpdated: Record<string, string>,
   initializedConvAccounts: Set<string>
 ): boolean {
-  const seenAt = lastSeenUpdated[c.id];
-  if (c.updatedTime && seenAt && c.updatedTime.localeCompare(seenAt) > 0) {
-    return true;
-  }
-
+  const markedRead = readConversations.has(c.id);
   const hasCount = typeof c.messageCount === 'number';
   const read = lastRead[c.id];
-  const markedRead = readConversations.has(c.id);
+  const seenAt = lastSeenUpdated[c.id];
+
+  if (hasCount && c.messageCount! <= (read ?? 0)) {
+    return false;
+  }
 
   if (markedRead) {
     if (hasCount) return c.messageCount! > (read ?? 0);
+    if (c.updatedTime && seenAt && c.updatedTime.localeCompare(seenAt) > 0) {
+      return true;
+    }
     return false;
+  }
+
+  if (c.updatedTime && seenAt && c.updatedTime.localeCompare(seenAt) > 0) {
+    return true;
   }
 
   if (hasCount) {
     if (read === undefined) {
       const accId = c.messageAccountId;
       if (accId && initializedConvAccounts.has(accId)) {
-        if (c.messageCount! > 0) return true;
+        return c.messageCount! > 0;
       }
       return true;
     }
-    if (c.messageCount! > read) return true;
-    return false;
+    return c.messageCount! > read;
   }
 
   const accId = c.messageAccountId;
@@ -75,7 +84,68 @@ function isConversationUnread(
     return false;
   }
 
-  return true;
+  return false;
+}
+
+/**
+ * When the inbox list is fully loaded, clear stale pending badge IDs and sync
+ * last-seen timestamps so the nav badge matches visible rows.
+ */
+export function reconcileInboxReadStateWithConversations(
+  conversations: InboxUnreadConversation[],
+  userId: string
+): boolean {
+  const readConversations = getReadConversationIds(userId);
+  const lastRead = getConversationLastReadCounts(userId);
+  const lastSeenUpdated = getConversationLastSeenUpdated(userId);
+  const initializedConvAccounts = getInboxInitializedAccountIdsForConversations(userId);
+  const convById = new Map(conversations.map((c) => [c.id, c]));
+
+  const stalePending: string[] = [];
+  for (const id of getPendingUnreadConversationIds(userId)) {
+    const c = convById.get(id);
+    if (!c) continue;
+    if (
+      !isConversationUnread(c, readConversations, lastRead, lastSeenUpdated, initializedConvAccounts)
+    ) {
+      stalePending.push(id);
+    }
+  }
+
+  const syncSeen: Array<{ id: string; updatedTime: string }> = [];
+  const markRead: string[] = [];
+  for (const c of conversations) {
+    const unread = isConversationUnread(
+      c,
+      readConversations,
+      lastRead,
+      lastSeenUpdated,
+      initializedConvAccounts
+    );
+    if (!unread && c.updatedTime) {
+      syncSeen.push({ id: c.id, updatedTime: c.updatedTime });
+      if (!readConversations.has(c.id)) markRead.push(c.id);
+    }
+  }
+
+  let changed = false;
+  if (stalePending.length) {
+    removePendingUnreadConversationIds(stalePending, userId);
+    changed = true;
+  }
+  if (markRead.length) {
+    markConversationsAsRead(markRead, userId);
+    changed = true;
+  }
+  for (const { id, updatedTime } of syncSeen) {
+    const prev = lastSeenUpdated[id];
+    if (!prev || updatedTime.localeCompare(prev) > 0) {
+      setConversationLastSeenUpdated(id, updatedTime, userId);
+      changed = true;
+    }
+  }
+  if (changed) notifyInboxReadStateChanged();
+  return changed;
 }
 
 function bumpPlatform(
@@ -138,9 +208,18 @@ export function computeInboxHeaderUnread(
     }
   }
 
+  const convById = new Map(conversations.map((c) => [c.id, c]));
+  const stalePending: string[] = [];
   for (const id of getPendingUnreadConversationIds(userId)) {
-    if (convIds.has(id)) unreadConvIds.add(id);
+    const c = convById.get(id);
+    if (!c) continue;
+    if (isConversationUnread(c, readConversations, lastRead, lastSeenUpdated, initializedConvAccounts)) {
+      unreadConvIds.add(id);
+    } else {
+      stalePending.push(id);
+    }
   }
+  if (stalePending.length) removePendingUnreadConversationIds(stalePending, userId);
 
   const commentIds = new Set(
     comments.map((c) => c.commentId).filter((id): id is string => typeof id === 'string' && id.length > 0)
@@ -199,8 +278,8 @@ export function formatInboxBadgeTitle(unread: InboxHeaderUnread): string | undef
 }
 
 /**
- * Nav badge must not drop on partial poll/cache merges. Only accept a lower count
- * after the user marks items read (readStateVersion bump).
+ * Nav badge: reset on read-state changes; otherwise only hold counts up during
+ * partial poll merges (never keep a false high count when computed drops).
  */
 export function stabilizeInboxHeaderUnread(
   computed: InboxHeaderUnread,
@@ -215,17 +294,16 @@ export function stabilizeInboxHeaderUnread(
     return computed;
   }
 
-  const inbox = Math.max(stableRef.inbox, computed.inbox);
-  const messages = Math.max(stableRef.messages, computed.messages);
-  const comments = Math.max(stableRef.comments, computed.comments);
-
-  if (inbox === computed.inbox && messages === computed.messages && comments === computed.comments) {
-    stableRef.inbox = inbox;
-    stableRef.messages = messages;
-    stableRef.comments = comments;
+  if (computed.inbox <= stableRef.inbox) {
+    stableRef.inbox = computed.inbox;
+    stableRef.messages = computed.messages;
+    stableRef.comments = computed.comments;
     return computed;
   }
 
+  const inbox = Math.max(stableRef.inbox, computed.inbox);
+  const messages = Math.max(stableRef.messages, computed.messages);
+  const comments = Math.max(stableRef.comments, computed.comments);
   stableRef.inbox = inbox;
   stableRef.messages = messages;
   stableRef.comments = comments;

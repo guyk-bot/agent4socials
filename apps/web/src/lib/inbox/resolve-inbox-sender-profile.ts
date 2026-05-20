@@ -363,3 +363,113 @@ export async function mergeInboxProfileCacheIntoConversations(
   }
   return out;
 }
+
+type MessageFromRow = {
+  id?: string;
+  name?: string;
+  username?: string;
+  profile_pic?: string;
+  profile_picture_url?: string;
+  picture?: { data?: { url?: string } };
+};
+
+function pictureFromMessageFrom(row: MessageFromRow | undefined): string | null {
+  if (!row) return null;
+  return row.profile_pic ?? row.profile_picture_url ?? row.picture?.data?.url ?? null;
+}
+
+/**
+ * When Meta's conversation list omits participant ids/names, read the latest message's
+ * `from` field to identify the other party (common on Instagram Business Login).
+ */
+export async function enrichInboxSendersFromLatestMessages(args: {
+  platform: 'instagram' | 'facebook';
+  list: InboxConversationListItem[];
+  ourIds: Set<string>;
+  accessToken: string;
+  isInstagramBusinessLogin: boolean;
+  pageToken?: string | null;
+  maxConversations?: number;
+}): Promise<InboxConversationListItem[]> {
+  const {
+    platform,
+    list,
+    ourIds,
+    accessToken,
+    isInstagramBusinessLogin,
+    pageToken,
+    maxConversations = 12,
+  } = args;
+  const token = pageToken ?? accessToken;
+  if (!token) return list;
+
+  const senderNeedsIdentity = (s: InboxConversationListItem['senders'][number]) =>
+    !(s.name?.trim() || s.username?.trim());
+
+  const out = list.map((c) => ({ ...c, senders: [...c.senders] }));
+  const toFetch = out
+    .filter((c) => c.senders.length === 0 || c.senders.some(senderNeedsIdentity))
+    .slice(0, maxConversations);
+
+  for (const conv of toFetch) {
+    const idx = out.findIndex((c) => c.id === conv.id);
+    if (idx < 0) continue;
+    try {
+      let from: MessageFromRow | undefined;
+      if (platform === 'instagram') {
+        const url = isInstagramBusinessLogin ? `${igBaseUrl}/${conv.id}` : `${fbBaseUrl}/${conv.id}`;
+        const params: Record<string, string> = {
+          fields: 'messages.limit(1){from,to}',
+          access_token: token,
+        };
+        if (!isInstagramBusinessLogin) params.platform = 'instagram';
+        const res = await axios.get<{
+          messages?: { data?: Array<{ from?: MessageFromRow; to?: { data?: MessageFromRow[] } }> };
+        }>(url, { params, timeout: 10_000 });
+        const msg = res.data?.messages?.data?.[0];
+        from = msg?.from;
+        const toOther = msg?.to?.data?.[0];
+        if (from?.id && ourIds.has(from.id) && toOther?.id && !ourIds.has(toOther.id)) {
+          from = toOther;
+        }
+      } else {
+        const res = await axios.get<{
+          data?: Array<{ from?: MessageFromRow; to?: { data?: MessageFromRow[] } }>;
+        }>(`${fbBaseUrl}/${conv.id}/messages`, {
+          params: { fields: 'from,to', limit: '1', access_token: token },
+          timeout: 10_000,
+        });
+        const msg = res.data?.data?.[0];
+        from = msg?.from;
+        const toOther = msg?.to?.data?.[0];
+        if (from?.id && ourIds.has(from.id) && toOther?.id && !ourIds.has(toOther.id)) {
+          from = toOther;
+        }
+      }
+      if (!from?.id || ourIds.has(from.id)) continue;
+
+      const profile: InboxSenderProfile = {
+        name: from.name,
+        username: from.username,
+        pictureUrl: pictureFromMessageFrom(from),
+      };
+      const existing = out[idx].senders[0];
+      out[idx] = {
+        ...out[idx],
+        senders: [
+          {
+            id: from.id,
+            name: existing?.name || profile.name,
+            username: existing?.username || profile.username,
+            pictureUrl: existing?.pictureUrl ?? profile.pictureUrl ?? null,
+          },
+        ],
+      };
+      void writeInboxProfileCache(platform, from.id, profile);
+    } catch {
+      /* next conversation */
+    }
+  }
+
+  return out;
+}

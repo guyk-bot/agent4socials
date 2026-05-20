@@ -8,6 +8,7 @@ import { getDefaultAnalyticsDateRange } from '@/lib/calendar-date';
 import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
 import {
   computeInboxHeaderUnread,
+  reconcileInboxReadStateWithConversations,
   pruneStalePendingUnread,
   stabilizeInboxHeaderUnread,
 } from '@/lib/inbox/unread-count';
@@ -272,6 +273,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       allConversations.map((c) => c.id),
       unreadComments.map((c) => c.commentId)
     );
+    if (allConversations.length > 0) {
+      reconcileInboxReadStateWithConversations(allConversations, user.id);
+    }
     const computed = computeInboxHeaderUnread(allConversations, unreadComments, user.id);
     const unread = stabilizeInboxHeaderUnread(
       computed,

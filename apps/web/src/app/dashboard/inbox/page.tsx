@@ -43,6 +43,7 @@ import {
   getConversationLastReadCounts,
   setConversationLastReadCount,
   setConversationLastSeenUpdated,
+  getConversationLastSeenUpdated,
   markCommentsAsRead,
   markConversationsAsRead,
   markEngagementAsRead,
@@ -63,7 +64,11 @@ import {
   getPendingUnreadConversationIds,
   removePendingUnreadConversationIds,
 } from '@/lib/inbox/inbox-badge-pending';
-import { pruneStalePendingUnread } from '@/lib/inbox/unread-count';
+import {
+  isConversationUnread,
+  pruneStalePendingUnread,
+  reconcileInboxReadStateWithConversations,
+} from '@/lib/inbox/unread-count';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
@@ -584,8 +589,32 @@ function MessagesConversationList({
         const initials = (name.startsWith('@') ? name.slice(1) : name).slice(0, 2).toUpperCase();
         const isSelected = selectedConversationIds.has(c.id);
         const isActiveConv = selectedConversationId === c.id;
-        const isUnread =
-          unreadConversationIds.has(c.id) || pendingUnreadConversationIds.has(c.id);
+        const isUnread = (() => {
+          if (!user?.id) {
+            return unreadConversationIds.has(c.id) || pendingUnreadConversationIds.has(c.id);
+          }
+          const readSet = getReadConversationIds(user.id);
+          const lastRead = getConversationLastReadCounts(user.id);
+          const lastSeen = getConversationLastSeenUpdated(user.id);
+          const initialized = getInboxInitializedAccountIdsForConversations(user.id);
+          return (
+            isConversationUnread(
+              {
+                id: c.id,
+                messageCount: c.messageCount,
+                messageAccountId: (c as Conversation & { messageAccountId?: string }).messageAccountId,
+                updatedTime: c.updatedTime,
+                platform,
+              },
+              readSet,
+              lastRead,
+              lastSeen,
+              initialized
+            ) ||
+            unreadConversationIds.has(c.id) ||
+            pendingUnreadConversationIds.has(c.id)
+          );
+        })();
         const rowCls = [
           'inbox-conversation-row group w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/30',
           selectMode && isSelected
@@ -1051,6 +1080,18 @@ function InboxPage() {
     }
     if (convIdSet.size === 0 && commentIdSet.size === 0) return;
     pruneStalePendingUnread(user.id, convIdSet, commentIdSet);
+    if (!conversationsLoading && conversations.length > 0) {
+      reconcileInboxReadStateWithConversations(
+        conversations.map((c) => ({
+          id: c.id,
+          messageCount: c.messageCount,
+          messageAccountId: (c as Conversation & { messageAccountId?: string }).messageAccountId,
+          updatedTime: c.updatedTime,
+          platform: c.platform,
+        })),
+        user.id
+      );
+    }
   }, [
     user?.id,
     conversations,
@@ -1085,7 +1126,7 @@ function InboxPage() {
   );
 
   const markInboxConversationRead = useCallback(
-    (conversationId: string, messageCount?: number) => {
+    (conversationId: string, messageCount?: number, updatedTime?: string | null) => {
       if (!conversationId) return;
       setUnreadConversationIds((prev) => {
         const next = new Set(prev);
@@ -1093,6 +1134,9 @@ function InboxPage() {
         return next;
       });
       markConversationsAsRead([conversationId], user?.id);
+      if (updatedTime) {
+        setConversationLastSeenUpdated(conversationId, updatedTime, user?.id);
+      }
       if (typeof messageCount === 'number') {
         const lastRead = getConversationLastReadCounts(user?.id);
         const readUpTo = lastRead[conversationId] ?? 0;
@@ -1114,7 +1158,7 @@ function InboxPage() {
   useEffect(() => {
     if (!selectedConversationId || selectMode) return;
     const conv = conversations.find((c) => c.id === selectedConversationId);
-    markInboxConversationRead(selectedConversationId, conv?.messageCount);
+    markInboxConversationRead(selectedConversationId, conv?.messageCount, conv?.updatedTime);
   }, [selectedConversationId, selectMode, conversations, markInboxConversationRead]);
 
   /** Per-conversation unread message counts (for row badges). */
@@ -2042,6 +2086,8 @@ function InboxPage() {
         if (since) {
           convParams.push(`since=${encodeURIComponent(since)}`);
           convParams.push('delta=1');
+        } else {
+          convParams.push('includeMessageCounts=1');
         }
         const convUrl = `/social/accounts/${account.id}/conversations${convParams.length ? `?${convParams.join('&')}` : ''}`;
         try {

@@ -19,6 +19,7 @@ import {
 import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
 import { readInboxProfileCache, writeInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
 import {
+  enrichInboxSendersFromLatestMessages,
   enrichInstagramAvatarsFromParticipants,
   isLikelyMetaScopedUserId,
   mergeInboxProfileCacheIntoConversations,
@@ -825,6 +826,29 @@ export async function GET(
       })) as typeof list;
     }
 
+    if (!badgePoll && list.length > 0 && !shouldSkipMetaProfileEnrichment()) {
+      const latestMsgMax = reduceFanOut ? 6 : 12;
+      if (isInstagram) {
+        list = (await enrichInboxSendersFromLatestMessages({
+          platform: 'instagram',
+          list: list as InboxConversationListItem[],
+          ourIds,
+          accessToken: isInstagramBusinessLogin ? igUserToken! : activeToken,
+          isInstagramBusinessLogin,
+          maxConversations: latestMsgMax,
+        })) as typeof list;
+      } else {
+        list = (await enrichInboxSendersFromLatestMessages({
+          platform: 'facebook',
+          list: list as InboxConversationListItem[],
+          ourIds,
+          accessToken: token,
+          isInstagramBusinessLogin: false,
+          maxConversations: latestMsgMax,
+        })) as typeof list;
+      }
+    }
+
     // Enrich senders with profile picture only when data is missing from the conversation list.
     const idsToEnrich = new Set<string>();
     for (const conv of list) {
@@ -1016,40 +1040,43 @@ export async function GET(
 
     // Optional message counts: capped + sequential (25 parallel Meta calls caused app rate-limit spikes).
     const metaThrottle = isInstagram && isMetaNonCriticalThrottled();
-    if (includeMessageCounts && list.length > 0 && !metaThrottle && !badgePoll && !shouldSkipMetaProfileEnrichment()) {
-      const toFetch = list.slice(0, 4);
-      const counts: number[] = [];
-      for (const conv of toFetch) {
-        try {
-          if (isInstagram) {
-            const res = await runMetaGraphRequest(
-              'conversations-message-count',
-              () =>
+    const wantMessageCounts =
+      (includeMessageCounts || !badgePoll) &&
+      list.length > 0 &&
+      !metaThrottle &&
+      !badgePoll &&
+      !shouldSkipMetaProfileEnrichment();
+    if (wantMessageCounts) {
+      const countCap = reduceFanOut ? 8 : 16;
+      const toFetch = list.slice(0, countCap);
+      const counts = await Promise.all(
+        toFetch.map(async (conv) => {
+          try {
+            if (isInstagram) {
+              const res = await runMetaGraphRequest('conversations-message-count', () =>
                 axios.get<{ messages?: { data?: unknown[] }; error?: { message?: string } }>(
                   `${igBaseUrl}/${conv.id}`,
                   { params: { fields: 'messages', access_token: activeToken }, timeout: 8_000 }
                 )
+              );
+              if (res.data?.error) return 0;
+              return (res.data?.messages?.data ?? []).length;
+            }
+            const res = await runMetaGraphRequest('conversations-message-count', () =>
+              axios.get<{ data?: unknown[] }>(`${baseUrl}/${conv.id}/messages`, {
+                params: { fields: 'id', access_token: token },
+                timeout: 8_000,
+              })
             );
-            if (res.data?.error) counts.push(0);
-            else counts.push((res.data?.messages?.data ?? []).length);
-          } else {
-            const res = await runMetaGraphRequest(
-              'conversations-message-count',
-              () =>
-                axios.get<{ data?: unknown[] }>(`${baseUrl}/${conv.id}/messages`, {
-                  params: { fields: 'id', access_token: token },
-                  timeout: 8_000,
-                })
-            );
-            counts.push((res.data?.data ?? []).length);
+            return (res.data?.data ?? []).length;
+          } catch {
+            return 0;
           }
-        } catch {
-          counts.push(0);
-        }
-      }
+        })
+      );
       list = list.map((c, i) => ({
         ...c,
-        messageCount: i < counts.length ? counts[i] : undefined,
+        messageCount: i < counts.length ? counts[i] : c.messageCount,
       }));
     }
 
