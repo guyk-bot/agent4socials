@@ -329,7 +329,7 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
       for (const s of out[idx].senders) {
         if (!s.id || !isLikelyMetaScopedUserId(s.id)) continue;
         if (s.name?.trim() || s.username?.trim()) continue;
-        if (igScopedProfileCallsThisRequest >= MAX_IG_SCOPED_PROFILE_CALLS_PER_REQUEST) break;
+        if (igScopedProfileCallsThisRequest >= maxIgScopedProfileCallsThisRequest) break;
         try {
           const profile = await fetchIgUserProfileViaPageTokenBudgeted(s.id, pageToken);
           if (!profile) continue;

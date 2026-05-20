@@ -2069,7 +2069,7 @@ function InboxPage() {
         ...old,
         ...row,
         authorPictureUrl: row.authorPictureUrl ?? old?.authorPictureUrl,
-        authorName: row.authorName?.trim() ? row.authorName : old?.authorName,
+        authorName: (row.authorName?.trim() ? row.authorName : old?.authorName) ?? '',
       }));
       return stable;
     });

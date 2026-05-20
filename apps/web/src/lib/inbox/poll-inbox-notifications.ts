@@ -243,7 +243,7 @@ export async function pollInboxNotifications(args: {
           params.set('since', commentSinceStart);
         }
         const qs = params.toString();
-        const res = await api.get<{ comments?: CachedComment[]; error?: string }>(
+        const res = await api.get<{ comments?: CachedComment[]; error?: string; metaThrottled?: boolean }>(
           `/social/accounts/${acc.id}/comments${qs ? `?${qs}` : ''}`,
           { timeout: 90_000 }
         );
