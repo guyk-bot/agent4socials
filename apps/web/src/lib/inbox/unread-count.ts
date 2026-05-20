@@ -10,7 +10,10 @@ import {
   getPendingUnreadCommentPlatforms,
   getPendingUnreadConversationIds,
   getPendingUnreadConversationPlatforms,
+  removePendingUnreadCommentIds,
+  removePendingUnreadConversationIds,
 } from '@/lib/inbox/inbox-badge-pending';
+import { notifyInboxReadStateChanged } from '@/lib/inbox-read-state';
 
 export type InboxUnreadConversation = {
   id: string;
@@ -85,6 +88,28 @@ function bumpPlatform(
   byPlatform[key][kind] += 1;
 }
 
+/**
+ * Drop pending badge IDs that no longer exist in the loaded inbox lists (stale poll/cache).
+ * Returns true if anything was removed.
+ */
+export function pruneStalePendingUnread(
+  userId: string,
+  conversationIds: Iterable<string>,
+  commentIds: Iterable<string>
+): boolean {
+  const convSet = new Set(conversationIds);
+  const commentSet = new Set(commentIds);
+  const staleConv = [...getPendingUnreadConversationIds(userId)].filter((id) => !convSet.has(id));
+  const staleComments = [...getPendingUnreadCommentIds(userId)].filter((id) => !commentSet.has(id));
+  if (staleConv.length) removePendingUnreadConversationIds(staleConv, userId);
+  if (staleComments.length) removePendingUnreadCommentIds(staleComments, userId);
+  if (staleConv.length || staleComments.length) {
+    notifyInboxReadStateChanged();
+    return true;
+  }
+  return false;
+}
+
 /** Unread DM threads + comment count for header badge (client-only, uses localStorage). */
 export function computeInboxHeaderUnread(
   conversations: InboxUnreadConversation[],
@@ -102,6 +127,7 @@ export function computeInboxHeaderUnread(
   const pendingConvPlatforms = getPendingUnreadConversationPlatforms(userId);
   const pendingCommentPlatforms = getPendingUnreadCommentPlatforms(userId);
 
+  const convIds = new Set(conversations.map((c) => c.id));
   const unreadConvIds = new Set<string>();
   const convPlatformById = new Map<string, string | undefined>();
 
@@ -113,9 +139,12 @@ export function computeInboxHeaderUnread(
   }
 
   for (const id of getPendingUnreadConversationIds(userId)) {
-    unreadConvIds.add(id);
+    if (convIds.has(id)) unreadConvIds.add(id);
   }
 
+  const commentIds = new Set(
+    comments.map((c) => c.commentId).filter((id): id is string => typeof id === 'string' && id.length > 0)
+  );
   const unreadCommentIds = new Set<string>();
   const commentPlatformById = new Map<string, string | undefined>();
   for (const c of comments) {
@@ -124,7 +153,7 @@ export function computeInboxHeaderUnread(
     if (!readComments.has(c.commentId)) unreadCommentIds.add(c.commentId);
   }
   for (const id of getPendingUnreadCommentIds(userId)) {
-    unreadCommentIds.add(id);
+    if (commentIds.has(id)) unreadCommentIds.add(id);
   }
 
   const byPlatform: Record<string, { comments: number; messages: number }> = {};

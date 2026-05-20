@@ -17,7 +17,7 @@ const MAX_STORED = 2000; // cap to avoid localStorage bloat
 
 export const INBOX_READ_STATE_CHANGED_EVENT = 'agent4socials-inbox-read-changed';
 
-function notifyInboxReadStateChanged(): void {
+export function notifyInboxReadStateChanged(): void {
   if (typeof window === 'undefined') return;
   try {
     window.dispatchEvent(new CustomEvent(INBOX_READ_STATE_CHANGED_EVENT));

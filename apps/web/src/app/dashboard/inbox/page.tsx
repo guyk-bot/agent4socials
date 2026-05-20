@@ -61,6 +61,7 @@ import {
   getPendingUnreadCommentIds,
   getPendingUnreadConversationIds,
 } from '@/lib/inbox/inbox-badge-pending';
+import { pruneStalePendingUnread } from '@/lib/inbox/unread-count';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
@@ -1014,6 +1015,34 @@ function InboxPage() {
     window.addEventListener(INBOX_READ_STATE_CHANGED_EVENT, onReadChanged);
     return () => window.removeEventListener(INBOX_READ_STATE_CHANGED_EVENT, onReadChanged);
   }, []);
+
+  useEffect(() => {
+    if (!user?.id || conversationsLoading || commentsLoading) return;
+    const convIdSet = new Set(conversations.map((c) => c.id));
+    for (const acc of effectiveAccounts) {
+      for (const c of appData?.getConversations(acc.id) ?? []) {
+        convIdSet.add(c.id);
+      }
+    }
+    const commentIdSet = new Set(
+      comments.filter((c) => !c.parentCommentId).map((c) => c.commentId)
+    );
+    for (const acc of effectiveAccounts) {
+      for (const c of appData?.getComments(acc.id) ?? []) {
+        if (!c.parentCommentId) commentIdSet.add(c.commentId);
+      }
+    }
+    if (convIdSet.size === 0 && commentIdSet.size === 0) return;
+    pruneStalePendingUnread(user.id, convIdSet, commentIdSet);
+  }, [
+    user?.id,
+    conversations,
+    comments,
+    conversationsLoading,
+    commentsLoading,
+    effectiveAccounts,
+    appData,
+  ]);
 
   const pendingUnreadCommentIds = useMemo(
     () => getPendingUnreadCommentIds(user?.id ?? ''),
@@ -2454,18 +2483,26 @@ function InboxPage() {
           total += unread;
         }
       }
+      let pendingInList = 0;
       for (const id of pendingUnreadConversationIds) {
-        if (ids.has(id)) unreadIds.add(id);
+        if (ids.has(id)) {
+          unreadIds.add(id);
+          pendingInList += 1;
+        }
       }
       setUnreadConversationIds(unreadIds);
-      setTotalUnreadMessages(Math.max(total, pendingUnreadConversationIds.size));
+      setTotalUnreadMessages(Math.max(total, pendingInList));
     } else {
       const unreadIds = new Set([...ids].filter((id) => !readSet.has(id)));
+      let pendingInList = 0;
       for (const id of pendingUnreadConversationIds) {
-        if (ids.has(id)) unreadIds.add(id);
+        if (ids.has(id)) {
+          unreadIds.add(id);
+          pendingInList += 1;
+        }
       }
       setUnreadConversationIds(unreadIds);
-      setTotalUnreadMessages(Math.max(unreadIds.size, pendingUnreadConversationIds.size));
+      setTotalUnreadMessages(Math.max(unreadIds.size, pendingInList));
     }
     previousConversationIdsRef.current = ids;
   }, [conversations, user?.id, pendingUnreadConversationIds, inboxReadStateVersion]);

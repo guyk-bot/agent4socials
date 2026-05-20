@@ -6,7 +6,11 @@ import { useAccountsCache } from '@/context/AccountsCacheContext';
 import api from '@/lib/api';
 import { getDefaultAnalyticsDateRange } from '@/lib/calendar-date';
 import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
-import { computeInboxHeaderUnread, stabilizeInboxHeaderUnread } from '@/lib/inbox/unread-count';
+import {
+  computeInboxHeaderUnread,
+  pruneStalePendingUnread,
+  stabilizeInboxHeaderUnread,
+} from '@/lib/inbox/unread-count';
 import { INBOX_READ_STATE_CHANGED_EVENT } from '@/lib/inbox-read-state';
 import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
 import {
@@ -256,6 +260,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             isFromMe: c.isFromMe,
           }))
       );
+    pruneStalePendingUnread(
+      user.id,
+      allConversations.map((c) => c.id),
+      unreadComments.map((c) => c.commentId)
+    );
     const computed = computeInboxHeaderUnread(allConversations, unreadComments, user.id);
     const unread = stabilizeInboxHeaderUnread(
       computed,
