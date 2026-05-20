@@ -28,6 +28,10 @@ const META_USAGE_SKIP_ENRICH_PCT = 40;
 const META_USAGE_REDUCE_FANOUT_PCT = 35;
 /** Block comments fan-out, message-count probes, and latest-message enrichment. */
 const META_USAGE_BLOCK_NON_ESSENTIAL_PCT = 42;
+/** One lightweight conversation-list call per account (participants include names; no IGBusinessScopedID fan-out). */
+const META_USAGE_ALLOW_LIST_SYNC_PCT = 72;
+/** Up to 2 live profile lookups per inbox sync when usage is elevated but below list-sync cap. */
+const META_USAGE_MINIMAL_PROFILE_PCT = 73;
 /** Hard pause non-critical Meta work when dashboard usage is near the limit. */
 const META_USAGE_EMERGENCY_PCT = 48;
 const L1_TTL_MS = 10_000;
@@ -237,6 +241,20 @@ export function shouldAllowMetaInboxProfileEnrichment(): boolean {
   if (isMetaNonCriticalThrottled()) return false;
   if (shouldBlockMetaNonEssentialCalls()) return false;
   return l1LastUsagePct < META_USAGE_REDUCE_FANOUT_PCT;
+}
+
+/** Lightweight DM list refresh (one Graph call per account; fills participant names from list payload). */
+export function shouldAllowInboxListSync(): boolean {
+  hydrateUsagePctAsync();
+  if (isMetaNonCriticalThrottled()) return false;
+  return l1LastUsagePct < META_USAGE_ALLOW_LIST_SYNC_PCT;
+}
+
+/** Small budget of live profile API calls during 2 min sync (2 lookups max per route). */
+export function shouldAllowMinimalProfileEnrichment(): boolean {
+  hydrateUsagePctAsync();
+  if (isMetaNonCriticalThrottled()) return false;
+  return l1LastUsagePct < META_USAGE_MINIMAL_PROFILE_PCT;
 }
 
 /** Call when Meta returns an explicit rate-limit error (429). */

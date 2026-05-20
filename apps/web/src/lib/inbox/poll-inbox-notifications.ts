@@ -23,7 +23,11 @@ import {
   setConversationLastSeenUpdated,
   unmarkConversationAsRead,
 } from '@/lib/inbox-read-state';
-import { shouldBlockMetaNonEssentialCalls } from '@/lib/meta-usage-guard';
+import {
+  shouldAllowInboxListSync,
+  shouldAllowMinimalProfileEnrichment,
+  shouldBlockMetaNonEssentialCalls,
+} from '@/lib/meta-usage-guard';
 
 /** @deprecated Use INBOX_SYSTEM_SYNC_MS */
 export const INBOX_NOTIFICATION_POLL_MS = INBOX_SYSTEM_SYNC_MS;
@@ -205,16 +209,24 @@ export async function pollInboxNotifications(args: {
   const { accounts, userId, getConversations, getComments, onConversations, onComments } = args;
 
   const commentSinceStart = commentSinceForPoll(userId, accounts.flatMap((a) => getComments(a.id) ?? []));
+  const listSyncAllowed = shouldAllowInboxListSync();
+  const minimalEnrich = shouldAllowMinimalProfileEnrichment();
   const metaBlocked = shouldBlockMetaNonEssentialCalls();
 
   for (const acc of accounts) {
     if (MESSAGE_PLATFORMS.has(acc.platform)) {
       try {
         const existing = getConversations(acc.id) ?? [];
-        const convQs = metaBlocked ? 'cacheOnly=1' : 'badgePoll=1';
+        const convParams = new URLSearchParams();
+        if (listSyncAllowed) {
+          convParams.set('badgePoll', '1');
+          if (minimalEnrich) convParams.set('minimalEnrich', '1');
+        } else {
+          convParams.set('cacheOnly', '1');
+        }
         const res = await api.get<{ conversations?: CachedConversation[]; error?: string }>(
-          `/social/accounts/${acc.id}/conversations?${convQs}`,
-          { timeout: metaBlocked ? 30_000 : 90_000 }
+          `/social/accounts/${acc.id}/conversations?${convParams.toString()}`,
+          { timeout: listSyncAllowed ? 90_000 : 30_000 }
         );
         if (res.data?.error) continue;
         const incoming = res.data?.conversations ?? [];

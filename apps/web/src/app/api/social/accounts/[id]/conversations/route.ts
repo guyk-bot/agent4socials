@@ -14,6 +14,7 @@ import {
   noteMetaUsageFromHeaders,
   noteMetaRateLimitError,
   shouldAllowMetaInboxProfileEnrichment,
+  shouldAllowMinimalProfileEnrichment,
   shouldBlockMetaNonEssentialCalls,
   shouldReduceMetaProfileFanOut,
   shouldSkipMetaProfileEnrichment,
@@ -86,6 +87,9 @@ export async function GET(
   const cacheOnly = searchParams.get('cacheOnly') === '1' || searchParams.get('cacheOnly') === 'true';
   /** Lightweight live list for nav badge polling (no avatar enrichment or message counts). */
   const badgePoll = searchParams.get('badgePoll') === '1' || searchParams.get('badgePoll') === 'true';
+  /** Up to 2 live profile lookups during systematic sync when Meta usage is elevated. */
+  const minimalEnrich =
+    searchParams.get('minimalEnrich') === '1' || searchParams.get('minimalEnrich') === 'true';
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
     select: {
@@ -135,7 +139,9 @@ export async function GET(
   if (cacheOnly && account.platform !== 'TWITTER') {
     const cached = await getInboxConversationListFromDb(id);
     if (cached && cached.length > 0) {
-      return NextResponse.json({ conversations: cached, fromCache: true });
+      const platform = account.platform === 'INSTAGRAM' ? 'instagram' : 'facebook';
+      const merged = await mergeInboxProfileCacheIntoConversations(platform, cached);
+      return NextResponse.json({ conversations: merged, fromCache: true });
     }
     return NextResponse.json({ conversations: [] });
   }
@@ -815,7 +821,20 @@ export async function GET(
 
     const reduceFanOut = shouldReduceMetaProfileFanOut();
     const allowProfileEnrich = shouldAllowMetaInboxProfileEnrichment();
+    const allowMinimalLive = badgePoll && minimalEnrich && shouldAllowMinimalProfileEnrichment();
     const igEnrichMax = reduceFanOut ? 2 : 4;
+    if (isInstagram && list.length > 0 && allowMinimalLive) {
+      resetIgScopedProfileCallBudget();
+      list = (await enrichInstagramAvatarsFromParticipants({
+        userId,
+        list: list as InboxConversationListItem[],
+        isInstagramBusinessLogin,
+        accessToken: isInstagramBusinessLogin ? igUserToken! : activeToken,
+        ourIds,
+        ourUsernames,
+        maxConversations: 2,
+      })) as typeof list;
+    }
     if (isInstagram && list.length > 0 && !badgePoll && allowProfileEnrich) {
       resetIgScopedProfileCallBudget();
       list = (await enrichInstagramAvatarsFromParticipants({
@@ -852,6 +871,13 @@ export async function GET(
       }
     }
 
+    if (badgePoll && list.length > 0) {
+      list = (await mergeInboxProfileCacheIntoConversations(
+        profileCachePlatform,
+        list as InboxConversationListItem[]
+      )) as typeof list;
+    }
+
     // Enrich senders with profile picture only when data is missing from the conversation list.
     const idsToEnrich = new Set<string>();
     for (const conv of list) {
@@ -862,14 +888,10 @@ export async function GET(
         if (needsProfile) idsToEnrich.add(s.id!);
       }
     }
-    const skipProfileEnrich = badgePoll || !allowProfileEnrich || shouldSkipMetaProfileEnrichment();
-    if (badgePoll && list.length > 0) {
-      list = (await mergeInboxProfileCacheIntoConversations(
-        profileCachePlatform,
-        list as InboxConversationListItem[]
-      )) as typeof list;
-    }
-    if (idsToEnrich.size > 0 && !badgePoll) {
+    const skipProfileEnrich =
+      shouldSkipMetaProfileEnrichment() ||
+      (!allowProfileEnrich && !allowMinimalLive);
+    if (idsToEnrich.size > 0) {
       try {
         const profiles = new Map<
           string,
@@ -882,7 +904,8 @@ export async function GET(
             if (cached) profiles.set(enrichId, cached);
           }
         } else if (isInstagram) {
-          const enrichIds = Array.from(idsToEnrich).slice(0, reduceFanOut ? 3 : 6);
+          const enrichCap = allowMinimalLive ? 2 : reduceFanOut ? 3 : 6;
+          const enrichIds = Array.from(idsToEnrich).slice(0, enrichCap);
           const enrichIdSet = new Set(enrichIds);
           const convBySender = new Map<string, string>();
           for (const conv of list) {
@@ -892,7 +915,7 @@ export async function GET(
               }
             }
           }
-          const maxLiveProfileLookups = reduceFanOut ? 1 : 2;
+          const maxLiveProfileLookups = allowMinimalLive ? 2 : reduceFanOut ? 1 : 2;
           // Check cache for all IDs first (parallel), then fire live lookups in parallel
           // for any still missing a display name.
           const cacheResults = await Promise.all(
@@ -933,7 +956,7 @@ export async function GET(
           );
         } else {
           // Facebook Page messaging: batch lookup, then per-user fallback for any still missing.
-          const enrichIds = Array.from(idsToEnrich).slice(0, 50);
+          const enrichIds = Array.from(idsToEnrich).slice(0, allowMinimalLive ? 2 : 50);
           for (const id of enrichIds) {
             const cached = await readInboxProfileCache('facebook', id);
             if (cached?.pictureUrl || cached?.name) {
