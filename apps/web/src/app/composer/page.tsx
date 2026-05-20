@@ -43,6 +43,7 @@ import {
 } from '@/lib/schedule-ten-minute';
 import { hasComposerBrandContext } from '@/lib/brand-context-utils';
 import { resolveComposerMediaType } from '@/lib/composer-media-type';
+import { mergeCaptionWithCta } from '@/lib/composer/cta-caption';
 
 const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
 
@@ -1193,14 +1194,6 @@ export default function ComposerPage() {
         return (lastSpace > 120 ? sliced.slice(0, lastSpace) : sliced).trim();
     }, []);
 
-    const appendCtaToCaption = useCallback((caption: string, cta: string) => {
-        const body = caption.trim();
-        const line = cta.trim();
-        if (!line) return body;
-        if (body.toLowerCase().includes(line.toLowerCase())) return body;
-        return `${body}\n\n${line}`;
-    }, []);
-
     const handleAiGenerate = useCallback(() => {
         if (hasBrandContext === false) {
             setAiError('Set up your brand context in Dashboard → AI Assistant first.');
@@ -1215,16 +1208,11 @@ export default function ComposerPage() {
         const topic = aiTopic.trim();
         const prompt = aiPrompt.trim() || undefined;
 
-        const applyCtaAndAutomation = (
-            data: { content?: string; cta?: string; keywords?: string[]; replyTemplate?: string },
-            platformForContent?: string
-        ) => {
+        const applyCommentAutomationFromAi = (data: {
+            keywords?: string[];
+            replyTemplate?: string;
+        }) => {
             if (!data) return;
-            if (data.cta && typeof data.content === 'string') {
-                const withCta = appendCtaToCaption(data.content, data.cta);
-                const isTwitter = (platformForContent ?? aiPlatform).toUpperCase() === 'TWITTER';
-                setContent(isTwitter ? clampTwitterAiText(withCta) : withCta);
-            }
             if (Array.isArray(data.keywords) && data.keywords.length > 0) {
                 setCommentAutomationEnabled(true);
                 setCommentAutomationKeywords(data.keywords.join(', '));
@@ -1258,7 +1246,7 @@ export default function ComposerPage() {
                             for (const platform of platforms) {
                                 let text = byPlatform?.[platform] ?? '';
                                 if (aiIncludeCtaAndAutomation && ctaText) {
-                                    text = appendCtaToCaption(text, ctaText);
+                                    text = mergeCaptionWithCta(text, ctaText);
                                 }
                                 if (platform === 'TWITTER') {
                                     text = clampTwitterAiText(text);
@@ -1268,15 +1256,7 @@ export default function ComposerPage() {
                             return next;
                         });
                         if (aiIncludeCtaAndAutomation) {
-                            applyCtaAndAutomation(
-                                {
-                                    content: byPlatform?.[firstPlatform] ?? '',
-                                    ...(typeof cta === 'string' ? { cta } : {}),
-                                    ...(keywords?.length ? { keywords } : {}),
-                                    ...(typeof replyTemplate === 'string' ? { replyTemplate } : {}),
-                                },
-                                firstPlatform
-                            );
+                            applyCommentAutomationFromAi({ keywords, replyTemplate });
                         }
                         setAiModalOpen(false);
                     })
@@ -1299,13 +1279,13 @@ export default function ComposerPage() {
                         const ctaText = aiIncludeCtaAndAutomation ? d?.cta?.trim() ?? '' : '';
                         let text = d?.content ?? '';
                         if (aiIncludeCtaAndAutomation && ctaText) {
-                            text = appendCtaToCaption(text, ctaText);
+                            text = mergeCaptionWithCta(text, ctaText);
                         }
                         if (firstPlatform === 'TWITTER') {
                             text = clampTwitterAiText(text);
                         }
                         setContentByPlatform((prev) => ({ ...prev, [firstPlatform]: text }));
-                        if (aiIncludeCtaAndAutomation && d) applyCtaAndAutomation(d, firstPlatform);
+                        if (aiIncludeCtaAndAutomation && d) applyCommentAutomationFromAi(d);
                         setAiModalOpen(false);
                     })
                     .catch((err) => {
@@ -1327,25 +1307,17 @@ export default function ComposerPage() {
                 const ctaText = aiIncludeCtaAndAutomation ? (data?.cta?.trim() ?? '') : '';
                 let text = data?.content ?? '';
                 if (aiIncludeCtaAndAutomation && ctaText) {
-                    text = appendCtaToCaption(text, ctaText);
+                    text = mergeCaptionWithCta(text, ctaText);
                 }
                 setContent(isTwitter ? clampTwitterAiText(text) : text);
-                if (aiIncludeCtaAndAutomation && data) {
-                    if (Array.isArray(data.keywords) && data.keywords.length > 0) {
-                        setCommentAutomationEnabled(true);
-                        setCommentAutomationKeywords(data.keywords.join(', '));
-                    }
-                    if (typeof data.replyTemplate === 'string' && data.replyTemplate.trim()) {
-                        setCommentAutomationReplyTemplate(data.replyTemplate.trim());
-                    }
-                }
+                if (aiIncludeCtaAndAutomation && data) applyCommentAutomationFromAi(data);
                 setAiModalOpen(false);
             }).catch((err) => {
                 const msg = err.response?.data?.message ?? 'Failed to generate. Try again.';
                 setAiError(msg);
             }).finally(() => setAiLoading(false));
         }
-    }, [aiTopic, aiPrompt, aiPlatform, aiIncludeCtaAndAutomation, aiCtaAutomationPrompt, differentContentPerPlatform, platforms, clampTwitterAiText, appendCtaToCaption, hasBrandContext]);
+    }, [aiTopic, aiPrompt, aiPlatform, aiIncludeCtaAndAutomation, aiCtaAutomationPrompt, differentContentPerPlatform, platforms, clampTwitterAiText, hasBrandContext]);
 
     // Persist composer draft when state changes (debounced; shorter delay when only media changed so carousel keeps all images after upload)
     const mediaSignature = mediaList.map((m) => m.fileUrl).join('|');

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { openAiChat } from '@/lib/openai-client';
 import { trackUsage } from '@/lib/usage-tracking';
 import { hasComposerBrandContext } from '@/lib/brand-context-utils';
+import { mergeCaptionWithCta } from '@/lib/composer/cta-caption';
 
 const TWITTER_AI_MAX_CHARS = 230;
 
@@ -92,11 +93,7 @@ function promptRequestsInPostCta(prompt: string): boolean {
 }
 
 function ensureClosingCtaInContent(content: string, closingCta: string): string {
-  const body = content.trim();
-  const cta = closingCta.trim();
-  if (!cta) return body;
-  if (body.toLowerCase().includes(cta.toLowerCase())) return body;
-  return `${body}\n\n${cta}`;
+  return mergeCaptionWithCta(content, closingCta);
 }
 
 function clampTwitterCaption(content: string, platform: string, closingCta?: string): string {
@@ -200,9 +197,11 @@ async function generateDescriptionForPlatform(
   }
 
   if (requiredClosingCta) {
-    userContent += `\n\nRequired closing call-to-action (include as the final line of the caption, use these words):\n${requiredClosingCta}`;
     userContent +=
-      '\nDo not add any other call-to-action (no link in bio, no tap the link) unless it matches the required closing line above.';
+      '\n\nDo not write the call-to-action in the caption. It will be appended automatically after generation.';
+    userContent += `\n\nRequired call-to-action (for reference only, do not paste into the caption):\n${requiredClosingCta}`;
+    userContent +=
+      '\nDo not add any other call-to-action (no link in bio, no tap the link).';
   }
 
   const result = await openAiChat(
