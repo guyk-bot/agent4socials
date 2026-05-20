@@ -451,11 +451,11 @@ function InboxAvatar({
   );
 }
 
-/** Orange dot for inbox rows tied to a new notification. */
+/** Orange dot for inbox rows tied to a new notification (sits on the avatar edge, not clipped inside). */
 function InboxNewDot({ className = '' }: { className?: string }) {
   return (
     <span
-      className={`absolute top-0 right-0 z-10 w-3 h-3 rounded-full bg-orange-500 border-2 border-white dark:border-neutral-900 shadow-sm ${className}`}
+      className={`absolute -top-0.5 -right-0.5 z-10 w-3 h-3 rounded-full bg-orange-500 pointer-events-none ${className}`}
       title="New notification"
       aria-label="New notification"
     />
@@ -606,7 +606,7 @@ function MessagesConversationList({
                 {isSelected && <Check size={12} className="text-white" />}
               </div>
             ) : (
-              <div className="relative shrink-0">
+              <div className="relative shrink-0 w-10 h-10">
                 <InboxAvatar pictureUrl={pictureUrl} label={name} />
                 {(isUnread || (unreadCountByConversationId[c.id] ?? 0) > 0) && <InboxNewDot />}
               </div>
@@ -2670,12 +2670,14 @@ function InboxPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-neutral-400 mb-1">{new Date(c.createdAt).toLocaleString()}</p>
                       <div className="flex items-start gap-3">
-                        <div className="relative w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
-                          {c.authorPictureUrl ? (
-                            <img src={c.authorPictureUrl} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-xs font-semibold text-neutral-600">{(c.authorName || '?').slice(0, 2).toUpperCase()}</span>
-                          )}
+                        <div className="relative shrink-0 w-9 h-9">
+                          <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center overflow-hidden">
+                            {c.authorPictureUrl ? (
+                              <img src={c.authorPictureUrl} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-xs font-semibold text-neutral-600">{(c.authorName || '?').slice(0, 2).toUpperCase()}</span>
+                            )}
+                          </div>
                           {isUnread && <InboxNewDot />}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -3664,14 +3666,16 @@ function InboxPage() {
               <div className="max-w-2xl mx-auto">
                 <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
                   <div className="p-4 border-b border-neutral-100 flex items-center gap-3">
-                    <div className="relative w-10 h-10 rounded-full bg-neutral-200 shrink-0 overflow-hidden">
-                      {selectedComment.authorPictureUrl ? (
-                        <img src={selectedComment.authorPictureUrl} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="w-full h-full flex items-center justify-center text-sm font-semibold text-neutral-600">
-                          {(selectedComment.authorName || '?').slice(0, 2).toUpperCase()}
-                        </span>
-                      )}
+                    <div className="relative shrink-0 w-10 h-10">
+                      <div className="w-10 h-10 rounded-full bg-neutral-200 overflow-hidden">
+                        {selectedComment.authorPictureUrl ? (
+                          <img src={selectedComment.authorPictureUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="w-full h-full flex items-center justify-center text-sm font-semibold text-neutral-600">
+                            {(selectedComment.authorName || '?').slice(0, 2).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
                       {isCommentNewNotification(selectedComment.commentId) && <InboxNewDot />}
                     </div>
                     <div className="min-w-0 flex-1">
