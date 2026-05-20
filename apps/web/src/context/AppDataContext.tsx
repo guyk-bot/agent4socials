@@ -212,13 +212,19 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!user?.id) return;
-    const allConversations: Array<{ id: string; messageCount?: number; messageAccountId?: string }> = [];
+    const allConversations: Array<{
+      id: string;
+      messageCount?: number;
+      messageAccountId?: string;
+      updatedTime?: string | null;
+    }> = [];
     for (const [accountId, list] of Object.entries(conversationsByAccountId)) {
       for (const c of list) {
         allConversations.push({
           id: c.id,
           messageCount: c.messageCount,
           messageAccountId: accountId,
+          updatedTime: c.updatedTime,
         });
       }
     }

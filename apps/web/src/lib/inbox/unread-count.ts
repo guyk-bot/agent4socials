@@ -10,6 +10,7 @@ export type InboxUnreadConversation = {
   id: string;
   messageCount?: number;
   messageAccountId?: string;
+  updatedTime?: string | null;
 };
 
 /** Unread DM threads + comment count for header badge (client-only, uses localStorage). */

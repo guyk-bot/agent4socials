@@ -2233,6 +2233,7 @@ function InboxPage() {
       id: c.id,
       messageCount: c.messageCount,
       messageAccountId: (c as Conversation & { messageAccountId?: string }).messageAccountId,
+      updatedTime: c.updatedTime,
     }));
     const unread = computeInboxHeaderUnread(convs, commentIds, user.id);
     appDataRef.current.setNotifications({
