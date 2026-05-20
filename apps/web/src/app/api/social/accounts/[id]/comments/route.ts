@@ -11,6 +11,7 @@ import { getCached, setCached } from '@/lib/server-memory-cache';
 import {
   isMetaNonCriticalThrottled,
   noteMetaRateLimitError,
+  shouldBlockMetaNonEssentialCalls,
   shouldSkipMetaProfileEnrichment,
 } from '@/lib/meta-usage-guard';
 import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
@@ -28,9 +29,9 @@ import { fetchAllPublishedPostsForPage, sortFbPublishedPostsNewestFirst } from '
  *     cadence via the sync engine.
  *   - REPLY_FETCH_LIMIT: how many top-level comments we fan out replies for.
  */
-const MAX_SOURCES = 30; // Each post = 1+ Graph calls; capped to limit Meta fan-out per inbox load
-const COMMENTS_CACHE_TTL_MS = 8 * 60 * 1000; // 8 min — longer TTL reduces re-fetches across Vercel instances
-const REPLY_FETCH_LIMIT = 8;
+const MAX_SOURCES = 12; // Each post = 1+ Graph calls; keep low to stay under Meta 50% app usage
+const COMMENTS_CACHE_TTL_MS = 15 * 60 * 1000; // 15 min — longer TTL reduces re-fetches across Vercel instances
+const REPLY_FETCH_LIMIT = 4;
 
 async function fetchAllPages<T>(
   initialUrl: string,
@@ -116,8 +117,10 @@ export async function GET(
   const platform = account.platform;
   const metaThrottle =
     (platform === 'INSTAGRAM' || platform === 'FACEBOOK') &&
-    (isMetaNonCriticalThrottled() || shouldSkipMetaProfileEnrichment());
-  if (metaThrottle && !deltaMode) {
+    (isMetaNonCriticalThrottled() ||
+      shouldSkipMetaProfileEnrichment() ||
+      shouldBlockMetaNonEssentialCalls());
+  if (metaThrottle) {
     const payload = {
       comments: [] as unknown[],
       metaThrottled: true,

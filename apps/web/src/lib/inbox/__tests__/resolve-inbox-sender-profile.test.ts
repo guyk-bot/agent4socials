@@ -12,6 +12,10 @@ jest.mock('../inbox-profile-cache', () => ({
   readInboxProfileCache: jest.fn(),
   writeInboxProfileCache: jest.fn(),
 }));
+jest.mock('@/lib/meta-usage-guard', () => ({
+  shouldAllowMetaInboxProfileEnrichment: jest.fn().mockReturnValue(true),
+  noteMetaUsageFromHeaders: jest.fn(),
+}));
 jest.mock('@/lib/db', () => ({
   prisma: {
     socialAccount: {

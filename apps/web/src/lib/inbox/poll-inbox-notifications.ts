@@ -22,9 +22,10 @@ import {
   setConversationLastSeenUpdated,
   unmarkConversationAsRead,
 } from '@/lib/inbox-read-state';
+import { shouldBlockMetaNonEssentialCalls } from '@/lib/meta-usage-guard';
 
-/** Poll every 90s so new items show without stacking Meta calls on inbox open. */
-export const INBOX_NOTIFICATION_POLL_MS = 90_000;
+/** Poll every 3 min to limit Meta Graph usage (badge uses cacheOnly conversations). */
+export const INBOX_NOTIFICATION_POLL_MS = 180_000;
 
 const MESSAGE_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
 const COMMENT_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
@@ -214,10 +215,10 @@ export async function pollInboxNotifications(args: {
     if (MESSAGE_PLATFORMS.has(acc.platform)) {
       try {
         const existing = getConversations(acc.id) ?? [];
-        // Always full list for badge poll. Delta with global "since" misses new messages in older threads.
+        // DB cache only: no live Meta on background poll (user gets live list when opening Inbox).
         const res = await api.get<{ conversations?: CachedConversation[]; error?: string }>(
-          `/social/accounts/${acc.id}/conversations?badgePoll=1`,
-          { timeout: 90_000 }
+          `/social/accounts/${acc.id}/conversations?cacheOnly=1`,
+          { timeout: 30_000 }
         );
         if (res.data?.error) continue;
         const incoming = res.data?.conversations ?? [];
@@ -229,7 +230,7 @@ export async function pollInboxNotifications(args: {
       await new Promise((r) => setTimeout(r, 500));
     }
 
-    if (COMMENT_PLATFORMS.has(acc.platform)) {
+    if (COMMENT_PLATFORMS.has(acc.platform) && !shouldBlockMetaNonEssentialCalls()) {
       try {
         const existing = getComments(acc.id) ?? [];
         const params = new URLSearchParams();

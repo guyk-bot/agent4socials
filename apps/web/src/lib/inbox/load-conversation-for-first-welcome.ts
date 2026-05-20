@@ -8,7 +8,7 @@ import {
   type ConversationUiMessage,
 } from '@/lib/inbox/load-meta-conversation-messages';
 import { readInboxProfileCache, writeInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
-import { shouldSkipMetaProfileEnrichment } from '@/lib/meta-usage-guard';
+import { shouldAllowMetaInboxProfileEnrichment } from '@/lib/meta-usage-guard';
 import { isLikelyMetaScopedUserId, resolveInstagramInboxSenderProfile } from '@/lib/inbox/resolve-inbox-sender-profile';
 import { loadTwitterConversationForFirstWelcome } from '@/lib/inbox/twitter-conversation-for-first-welcome';
 
@@ -92,7 +92,7 @@ async function loadMetaConversationForFirstWelcome(
         if (cached && (cached.name || cached.username || cached.pictureUrl)) {
           recipientName = cached.name ?? cached.username ?? recipientUsername;
           recipientPictureUrl = cached.pictureUrl ?? null;
-        } else if (!shouldSkipMetaProfileEnrichment() && isLikelyMetaScopedUserId(recipientId)) {
+        } else if (shouldAllowMetaInboxProfileEnrichment() && isLikelyMetaScopedUserId(recipientId)) {
           const profile = await resolveInstagramInboxSenderProfile({
             userId,
             senderId: recipientId,
@@ -160,7 +160,7 @@ async function loadMetaConversationForFirstWelcome(
       if (cached && (cached.name || cached.pictureUrl)) {
         recipientName = cached.name ?? null;
         recipientPictureUrl = cached.pictureUrl ?? null;
-      } else if (!shouldSkipMetaProfileEnrichment() && isLikelyMetaScopedUserId(recipientId)) {
+      } else if (shouldAllowMetaInboxProfileEnrichment() && isLikelyMetaScopedUserId(recipientId)) {
         try {
           const pr = await axios.get<{
             name?: string;

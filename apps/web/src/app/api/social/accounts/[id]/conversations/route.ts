@@ -13,6 +13,8 @@ import {
   META_APP_BACKOFF_INBOX_MESSAGE,
   noteMetaUsageFromHeaders,
   noteMetaRateLimitError,
+  shouldAllowMetaInboxProfileEnrichment,
+  shouldBlockMetaNonEssentialCalls,
   shouldReduceMetaProfileFanOut,
   shouldSkipMetaProfileEnrichment,
 } from '@/lib/meta-usage-guard';
@@ -812,8 +814,9 @@ export async function GET(
     }
 
     const reduceFanOut = shouldReduceMetaProfileFanOut();
-    const igEnrichMax = reduceFanOut ? 6 : 12;
-    if (isInstagram && list.length > 0 && !badgePoll && !shouldSkipMetaProfileEnrichment()) {
+    const allowProfileEnrich = shouldAllowMetaInboxProfileEnrichment();
+    const igEnrichMax = reduceFanOut ? 2 : 4;
+    if (isInstagram && list.length > 0 && !badgePoll && allowProfileEnrich) {
       resetIgScopedProfileCallBudget();
       list = (await enrichInstagramAvatarsFromParticipants({
         userId,
@@ -826,8 +829,8 @@ export async function GET(
       })) as typeof list;
     }
 
-    if (!badgePoll && list.length > 0 && !shouldSkipMetaProfileEnrichment()) {
-      const latestMsgMax = reduceFanOut ? 6 : 12;
+    if (!badgePoll && list.length > 0 && allowProfileEnrich && !shouldBlockMetaNonEssentialCalls()) {
+      const latestMsgMax = reduceFanOut ? 1 : 3;
       if (isInstagram) {
         list = (await enrichInboxSendersFromLatestMessages({
           platform: 'instagram',
@@ -859,7 +862,7 @@ export async function GET(
         if (needsProfile) idsToEnrich.add(s.id!);
       }
     }
-    const skipProfileEnrich = badgePoll || shouldSkipMetaProfileEnrichment();
+    const skipProfileEnrich = badgePoll || !allowProfileEnrich || shouldSkipMetaProfileEnrichment();
     if (badgePoll && list.length > 0) {
       list = (await mergeInboxProfileCacheIntoConversations(
         profileCachePlatform,
@@ -879,7 +882,7 @@ export async function GET(
             if (cached) profiles.set(enrichId, cached);
           }
         } else if (isInstagram) {
-          const enrichIds = Array.from(idsToEnrich).slice(0, reduceFanOut ? 10 : 24);
+          const enrichIds = Array.from(idsToEnrich).slice(0, reduceFanOut ? 3 : 6);
           const enrichIdSet = new Set(enrichIds);
           const convBySender = new Map<string, string>();
           for (const conv of list) {
@@ -889,7 +892,7 @@ export async function GET(
               }
             }
           }
-          const maxLiveProfileLookups = reduceFanOut ? 6 : 14;
+          const maxLiveProfileLookups = reduceFanOut ? 1 : 2;
           // Check cache for all IDs first (parallel), then fire live lookups in parallel
           // for any still missing a display name.
           const cacheResults = await Promise.all(
@@ -1045,9 +1048,10 @@ export async function GET(
       list.length > 0 &&
       !metaThrottle &&
       !badgePoll &&
-      !shouldSkipMetaProfileEnrichment();
+      allowProfileEnrich &&
+      !shouldBlockMetaNonEssentialCalls();
     if (wantMessageCounts) {
-      const countCap = reduceFanOut ? 8 : 16;
+      const countCap = reduceFanOut ? 2 : 4;
       const toFetch = list.slice(0, countCap);
       const counts = await Promise.all(
         toFetch.map(async (conv) => {

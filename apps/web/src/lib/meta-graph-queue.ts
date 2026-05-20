@@ -4,16 +4,17 @@ import {
   noteMetaRateLimitError,
   noteMetaSoftBackoff,
   noteMetaUsageFromHeaders,
+  shouldBlockMetaNonEssentialCalls,
 } from '@/lib/meta-usage-guard';
 
 /** Max concurrent Meta Graph calls per serverless instance. */
-const MAX_IN_FLIGHT = 2;
+const MAX_IN_FLIGHT = 1;
 /** Minimum gap between Graph calls on this instance. */
-const MIN_GAP_MS = 300;
+const MIN_GAP_MS = 600;
 
 /** Rolling cap across all requests sharing this warm lambda (stops multi-tab spikes). */
 const BURST_WINDOW_MS = 60_000;
-const BURST_MAX_CALLS = 64;
+const BURST_MAX_CALLS = 20;
 
 let inFlight = 0;
 let lastStartedAt = 0;
@@ -75,7 +76,10 @@ export async function runMetaGraphRequest<T>(
   fn: () => Promise<AxiosResponse<T>>,
   opts?: { allowWhenThrottled?: boolean }
 ): Promise<AxiosResponse<T>> {
-  if (!opts?.allowWhenThrottled && isMetaNonCriticalThrottled()) {
+  if (
+    !opts?.allowWhenThrottled &&
+    (isMetaNonCriticalThrottled() || shouldBlockMetaNonEssentialCalls())
+  ) {
     throw new MetaGraphThrottledError(label);
   }
   noteInstanceBurst();

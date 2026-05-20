@@ -8,12 +8,16 @@ import {
   type InboxProfileCacheEntry,
 } from '@/lib/inbox/inbox-profile-cache';
 import type { InboxConversationListItem } from '@/lib/inbox/inbox-db-cache';
+import {
+  noteMetaUsageFromHeaders,
+  shouldAllowMetaInboxProfileEnrichment,
+} from '@/lib/meta-usage-guard';
 
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
 const fbBaseUrl = facebookGraphBaseUrl;
 
 /** Caps IGBusinessScopedID User Profile API calls per inbox conversations request. */
-const MAX_IG_SCOPED_PROFILE_CALLS_PER_REQUEST = 16;
+const MAX_IG_SCOPED_PROFILE_CALLS_PER_REQUEST = 3;
 
 /** Meta user / IGSID node ids are numeric strings (10–20 digits). Avoid InvalidID on bad ids. */
 export function isLikelyMetaScopedUserId(id: string | undefined | null): boolean {
@@ -81,6 +85,7 @@ async function fetchIgUserProfileViaPageToken(
     params: { fields: 'name,username,profile_pic', access_token: pageToken },
     timeout: 12_000,
   });
+  noteMetaUsageFromHeaders(profileRes.headers);
   const p = profileRes.data;
   const pictureUrl = pictureFromRow(p);
   if (!pictureUrl && !p.name && !p.username) return null;
@@ -140,6 +145,8 @@ export async function resolveInstagramInboxSenderProfile(args: {
 
   const cached = await readInboxProfileCache('instagram', senderId);
   if (cached && (cached.pictureUrl || cached.name || cached.username)) return cached;
+  if (!shouldAllowMetaInboxProfileEnrichment()) return cached ?? null;
+  if (!isLikelyMetaScopedUserId(senderId)) return cached ?? null;
 
   const pageToken = await resolveFacebookPageTokenForUser(userId);
 
@@ -224,8 +231,10 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
     accessToken,
     ourIds = new Set<string>(),
     ourUsernames = new Set<string>(),
-    maxConversations = 6,
+    maxConversations = 4,
   } = args;
+
+  if (!shouldAllowMetaInboxProfileEnrichment()) return list;
 
   const pageToken = await resolveFacebookPageTokenForUser(userId);
   const token = pageToken ?? accessToken;
@@ -398,8 +407,9 @@ export async function enrichInboxSendersFromLatestMessages(args: {
     accessToken,
     isInstagramBusinessLogin,
     pageToken,
-    maxConversations = 12,
+    maxConversations = 3,
   } = args;
+  if (!shouldAllowMetaInboxProfileEnrichment()) return list;
   const token = pageToken ?? accessToken;
   if (!token) return list;
 
