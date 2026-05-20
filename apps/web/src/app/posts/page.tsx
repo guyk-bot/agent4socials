@@ -35,9 +35,12 @@ import {
 import {
     getPostHistoryFormat,
     isPostHistoryVerticalThumb,
+    POST_HISTORY_FORMAT_FILTER_OPTIONS,
     type PostHistoryFormat,
+    type PostHistoryFormatFilterValue,
     type PostHistoryFormatKey,
 } from '@/lib/post-history-format';
+import { PostHistoryFilterDropdown } from '@/components/posts/PostHistoryFilterDropdown';
 
 function postMediaThumbUrl(mediaItem: { fileUrl: string; type: string; metadata?: { thumbnailUrl?: string } | null } | undefined): string | null {
     if (!mediaItem?.fileUrl) return null;
@@ -150,6 +153,7 @@ export default function PostsPage() {
     const [loading, setLoading] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [filter, setFilter] = useState('ALL');
+    const [formatFilter, setFormatFilter] = useState<PostHistoryFormatFilterValue>('ALL');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
     const [dateRange, setDateRange] = useState(() => getDefaultAnalyticsDateRange());
@@ -244,6 +248,7 @@ export default function PostsPage() {
         if (!postMatchesSearch(p, searchQuery)) return false;
         if (!postMatchesPlatformFilter(p, selectedPlatforms)) return false;
         if (!postMatchesStatusFilter(p, filter)) return false;
+        if (formatFilter !== 'ALL' && getPostHistoryFormat(p).key !== formatFilter) return false;
         return true;
     });
 
@@ -355,17 +360,24 @@ export default function PostsPage() {
                             className="pl-10 pr-4 py-2 border border-gray-200 dark:border-neutral-700 rounded-lg text-sm focus:ring-[var(--button)] focus:border-[var(--button)] bg-white dark:bg-neutral-900 dark:text-neutral-100 w-48 sm:w-56"
                         />
                     </div>
-                    <select
+                    <PostHistoryFilterDropdown
+                        ariaLabel="Filter by status"
                         value={filter}
-                        onChange={(e) => setFilter(e.target.value)}
-                        className="pl-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm focus:ring-[var(--button)] focus:border-[var(--button)] bg-white cursor-pointer"
-                    >
-                        <option value="ALL">All Status</option>
-                        <option value="POSTED">Posted</option>
-                        <option value="SCHEDULED">Scheduled</option>
-                        <option value="DRAFT">Draft</option>
-                        <option value="FAILED">Failed</option>
-                    </select>
+                        onChange={setFilter}
+                        options={[
+                            { value: 'ALL', label: 'All Status' },
+                            { value: 'POSTED', label: 'Posted' },
+                            { value: 'SCHEDULED', label: 'Scheduled' },
+                            { value: 'DRAFT', label: 'Draft' },
+                            { value: 'FAILED', label: 'Failed' },
+                        ]}
+                    />
+                    <PostHistoryFilterDropdown
+                        ariaLabel="Filter by format"
+                        value={formatFilter}
+                        onChange={(v) => setFormatFilter(v as PostHistoryFormatFilterValue)}
+                        options={POST_HISTORY_FORMAT_FILTER_OPTIONS}
+                    />
                 </div>
             </div>
 
@@ -523,8 +535,8 @@ export default function PostsPage() {
                 ) : (
                     <div className="p-20 text-center">
                         <p className="text-gray-500 dark:text-neutral-400">
-                            {searchQuery.trim() || selectedPlatforms.length > 0
-                                ? 'No posts match your search, platform, status, or date filters.'
+                            {searchQuery.trim() || selectedPlatforms.length > 0 || formatFilter !== 'ALL'
+                                ? 'No posts match your search, platform, status, format, or date filters.'
                                 : 'No posts match this filter or date range.'}
                         </p>
                     </div>

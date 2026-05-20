@@ -95,3 +95,15 @@ export function getPostHistoryFormat(post: PostLike): PostHistoryFormat {
 export function isPostHistoryVerticalThumb(format: PostHistoryFormat): boolean {
   return format.key === 'reel' || format.key === 'story';
 }
+
+export type PostHistoryFormatFilterValue = 'ALL' | PostHistoryFormatKey;
+
+export const POST_HISTORY_FORMAT_FILTER_OPTIONS: { value: PostHistoryFormatFilterValue; label: string }[] = [
+  { value: 'ALL', label: 'All formats' },
+  { value: 'photo', label: 'Photo' },
+  { value: 'carousel', label: 'Carousel' },
+  { value: 'story', label: 'Story' },
+  { value: 'reel', label: 'Reel' },
+  { value: 'video', label: 'Video' },
+  { value: 'text', label: 'Text' },
+];
