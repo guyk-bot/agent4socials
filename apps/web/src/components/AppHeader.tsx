@@ -9,6 +9,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
+import { formatInboxBadgeTitle } from '@/lib/inbox/unread-count';
 
 export const topNavItems = [
   { icon: MessageCircle, label: 'Inbox', href: '/dashboard/inbox', badgeKey: 'inbox' as const },
@@ -84,12 +85,26 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
               : pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href.split('?')[0]));
             const inboxRaw = appData?.notifications?.inbox ?? inboxCount;
             const badge = item.badgeKey === 'inbox' ? inboxRaw : 0;
+            const inboxBadgeTitle =
+              item.badgeKey === 'inbox' && appData?.notifications
+                ? formatInboxBadgeTitle({
+                    inbox: appData.notifications.inbox,
+                    messages: appData.notifications.messages,
+                    comments: appData.notifications.comments,
+                    byPlatform: appData.notifications.byPlatform ?? {},
+                  })
+                : badge > 0
+                  ? `${badge} unread`
+                  : undefined;
             const content = (
               <>
                 <item.icon size={18} />
                 {item.label}
                 {badge > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+                  <span
+                    title={inboxBadgeTitle}
+                    className="absolute -top-0.5 -right-0.5 min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold"
+                  >
                     {badge > 99 ? '99' : badge}
                   </span>
                 )}
@@ -101,6 +116,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
                 href={item.href}
                 prefetch={item.href === '/composer'}
                 className={navLinkClass(isActive)}
+                title={item.badgeKey === 'inbox' ? inboxBadgeTitle : undefined}
               >
                 {content}
               </Link>
@@ -165,6 +181,17 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
                 : pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href.split('?')[0]));
               const inboxRaw = appData?.notifications?.inbox ?? inboxCount;
               const badge = item.badgeKey === 'inbox' ? inboxRaw : 0;
+              const inboxBadgeTitle =
+                item.badgeKey === 'inbox' && appData?.notifications
+                  ? formatInboxBadgeTitle({
+                      inbox: appData.notifications.inbox,
+                      messages: appData.notifications.messages,
+                      comments: appData.notifications.comments,
+                      byPlatform: appData.notifications.byPlatform ?? {},
+                    })
+                  : badge > 0
+                    ? `${badge} unread`
+                    : undefined;
               const mobileLinkClass = `flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${
                 isActive ? 'bg-white/15 text-white' : 'text-neutral-300 hover:text-white hover:bg-white/10'
               }`;
@@ -175,11 +202,15 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
                   prefetch={item.href === '/composer'}
                   onClick={() => setTopNavOpen(false)}
                   className={mobileLinkClass}
+                  title={item.badgeKey === 'inbox' ? inboxBadgeTitle : undefined}
                 >
                   <item.icon size={18} className="shrink-0" />
                   <span className="flex-1">{item.label}</span>
                   {badge > 0 && (
-                    <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+                    <span
+                      title={inboxBadgeTitle}
+                      className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold"
+                    >
                       {badge > 99 ? '99' : badge}
                     </span>
                   )}

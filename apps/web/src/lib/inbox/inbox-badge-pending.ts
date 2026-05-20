@@ -6,6 +6,8 @@
 
 const KEY_CONV = 'agent4socials_badge_pending_conv';
 const KEY_COMMENT = 'agent4socials_badge_pending_comment';
+const KEY_CONV_PLATFORM = 'agent4socials_badge_pending_conv_platform';
+const KEY_COMMENT_PLATFORM = 'agent4socials_badge_pending_comment_platform';
 
 function storageKey(base: string, userId: string): string {
   return `${base}_${userId}`;
@@ -33,11 +35,74 @@ function saveSet(key: string, set: Set<string>): void {
   }
 }
 
+function loadPlatformMap(key: string): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return {};
+    const out: Record<string, string> = {};
+    for (const [id, platform] of Object.entries(parsed)) {
+      if (typeof id === 'string' && typeof platform === 'string' && platform) {
+        out[id] = platform;
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function savePlatformMap(key: string, map: Record<string, string>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const entries = Object.entries(map).slice(-500);
+    localStorage.setItem(key, JSON.stringify(Object.fromEntries(entries)));
+  } catch {
+    /* ignore */
+  }
+}
+
+function setPlatformsForIds(
+  platformKey: string,
+  ids: Iterable<string>,
+  platform?: string
+): void {
+  if (!platform) return;
+  const map = loadPlatformMap(platformKey);
+  let changed = false;
+  for (const id of ids) {
+    if (id && map[id] !== platform) {
+      map[id] = platform;
+      changed = true;
+    }
+  }
+  if (changed) savePlatformMap(platformKey, map);
+}
+
+function removePlatformsForIds(platformKey: string, ids: Iterable<string>): void {
+  const map = loadPlatformMap(platformKey);
+  let changed = false;
+  for (const id of ids) {
+    if (map[id] && delete map[id]) changed = true;
+  }
+  if (changed) savePlatformMap(platformKey, map);
+}
+
 export function getPendingUnreadConversationIds(userId: string): Set<string> {
   return loadSet(storageKey(KEY_CONV, userId));
 }
 
-export function addPendingUnreadConversationIds(ids: Iterable<string>, userId: string): void {
+export function getPendingUnreadConversationPlatforms(userId: string): Record<string, string> {
+  return loadPlatformMap(storageKey(KEY_CONV_PLATFORM, userId));
+}
+
+export function addPendingUnreadConversationIds(
+  ids: Iterable<string>,
+  userId: string,
+  platform?: string
+): void {
   const key = storageKey(KEY_CONV, userId);
   const set = loadSet(key);
   let changed = false;
@@ -48,6 +113,7 @@ export function addPendingUnreadConversationIds(ids: Iterable<string>, userId: s
     }
   }
   if (changed) saveSet(key, set);
+  setPlatformsForIds(storageKey(KEY_CONV_PLATFORM, userId), ids, platform);
 }
 
 export function removePendingUnreadConversationIds(ids: Iterable<string>, userId: string): void {
@@ -58,13 +124,22 @@ export function removePendingUnreadConversationIds(ids: Iterable<string>, userId
     if (set.delete(id)) changed = true;
   }
   if (changed) saveSet(key, set);
+  removePlatformsForIds(storageKey(KEY_CONV_PLATFORM, userId), ids);
 }
 
 export function getPendingUnreadCommentIds(userId: string): Set<string> {
   return loadSet(storageKey(KEY_COMMENT, userId));
 }
 
-export function addPendingUnreadCommentIds(ids: Iterable<string>, userId: string): void {
+export function getPendingUnreadCommentPlatforms(userId: string): Record<string, string> {
+  return loadPlatformMap(storageKey(KEY_COMMENT_PLATFORM, userId));
+}
+
+export function addPendingUnreadCommentIds(
+  ids: Iterable<string>,
+  userId: string,
+  platform?: string
+): void {
   const key = storageKey(KEY_COMMENT, userId);
   const set = loadSet(key);
   let changed = false;
@@ -75,6 +150,7 @@ export function addPendingUnreadCommentIds(ids: Iterable<string>, userId: string
     }
   }
   if (changed) saveSet(key, set);
+  setPlatformsForIds(storageKey(KEY_COMMENT_PLATFORM, userId), ids, platform);
 }
 
 export function removePendingUnreadCommentIds(ids: Iterable<string>, userId: string): void {
@@ -85,4 +161,5 @@ export function removePendingUnreadCommentIds(ids: Iterable<string>, userId: str
     if (set.delete(id)) changed = true;
   }
   if (changed) saveSet(key, set);
+  removePlatformsForIds(storageKey(KEY_COMMENT_PLATFORM, userId), ids);
 }

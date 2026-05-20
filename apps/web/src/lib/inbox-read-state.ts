@@ -15,6 +15,17 @@ const KEY_CONVERSATION_LAST_READ = 'agent4socials_conversation_last_read';
 const KEY_CONVERSATION_LAST_SEEN_UPDATED = 'agent4socials_conversation_last_seen_updated';
 const MAX_STORED = 2000; // cap to avoid localStorage bloat
 
+export const INBOX_READ_STATE_CHANGED_EVENT = 'agent4socials-inbox-read-changed';
+
+function notifyInboxReadStateChanged(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.dispatchEvent(new CustomEvent(INBOX_READ_STATE_CHANGED_EVENT));
+  } catch {
+    /* ignore */
+  }
+}
+
 function getKey(base: string, userId?: string | null): string {
   if (userId) return `${base}_${userId}`;
   return base;
@@ -61,6 +72,7 @@ export function markCommentsAsRead(ids: Iterable<string>, userId?: string | null
   for (const id of ids) set.add(id);
   saveSet(key, set);
   if (userId) removePendingUnreadCommentIds(ids, userId);
+  notifyInboxReadStateChanged();
 }
 
 export function markConversationsAsRead(ids: Iterable<string>, userId?: string | null): void {
@@ -69,6 +81,7 @@ export function markConversationsAsRead(ids: Iterable<string>, userId?: string |
   for (const id of ids) set.add(id);
   saveSet(key, set);
   if (userId) removePendingUnreadConversationIds(ids, userId);
+  notifyInboxReadStateChanged();
 }
 
 /** Mark a thread unread again (e.g. new message arrived while user is elsewhere). */

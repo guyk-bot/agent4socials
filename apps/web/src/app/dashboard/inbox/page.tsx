@@ -50,7 +50,6 @@ import {
   getInboxInitializedAccountIdsForConversations,
   addInboxInitializedAccountForConversations,
 } from '@/lib/inbox-read-state';
-import { computeInboxHeaderUnread } from '@/lib/inbox/unread-count';
 import {
   getInboxSenderPicture,
   mergeSenderPicturesIntoConversations,
@@ -89,6 +88,29 @@ const MESSAGE_STRIP_PLATFORM_IDS = new Set<string>(
 const COMMENT_STRIP_PLATFORM_IDS = new Set<string>(INBOX_PLATFORM_DEFS.map((p) => p.id));
 /** Platforms where we can open a DM thread (Meta + X). */
 const DM_THREAD_PLATFORM_IDS = new Set<string>(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
+
+function PlatformSourcePill({
+  platformId,
+  size = 'sm',
+}: {
+  platformId?: string | null;
+  size?: 'sm' | 'md';
+}) {
+  if (!platformId) return null;
+  const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === platformId);
+  if (!plat) return null;
+  const Icon = plat.icon;
+  const textCls = size === 'md' ? 'text-xs' : 'text-[10px]';
+  const iconSize = size === 'md' ? 13 : 11;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 ${textCls} font-semibold text-neutral-700 dark:text-neutral-200 shrink-0`}
+    >
+      {Icon && <Icon size={iconSize} className="shrink-0" />}
+      {plat.label}
+    </span>
+  );
+}
 
 type Account = { id: string; platform: string; username?: string | null };
 type Conversation = {
@@ -575,13 +597,9 @@ function MessagesConversationList({
             )}
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-neutral-900 truncate">{name}</p>
-              <p className="text-xs text-neutral-500 truncate flex items-center gap-1.5">
-                {platform ? (() => {
-                  const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === platform);
-                  const Icon = plat?.icon;
-                  return Icon ? <><Icon size={12} className="shrink-0 opacity-70" /><span>{plat?.label ?? platform}</span></> : null;
-                })() : 'Conversation'}
-              </p>
+              <div className="mt-1 flex items-center gap-2">
+                <PlatformSourcePill platformId={platform} />
+              </div>
             </div>
             <div className="shrink-0 flex items-center gap-1">
               {unreadConversationIds.has(c.id) && <span className="w-2 h-2 rounded-full bg-red-500" aria-hidden />}
@@ -2223,27 +2241,6 @@ function InboxPage() {
     previousEngagementIdsRef.current = ids;
   }, [engagement, user?.id]);
 
-  // Sync unread-only counts to appData so the top Inbox nav badge matches local read state.
-  useEffect(() => {
-    if (!user?.id || !appDataRef.current) return;
-    const commentIds = comments
-      .filter((c) => c.commentId && !c.parentCommentId)
-      .map((c) => c.commentId as string);
-    const convs = conversations.map((c) => ({
-      id: c.id,
-      messageCount: c.messageCount,
-      messageAccountId: (c as Conversation & { messageAccountId?: string }).messageAccountId,
-      updatedTime: c.updatedTime,
-    }));
-    const unread = computeInboxHeaderUnread(convs, commentIds, user.id);
-    appDataRef.current.setNotifications({
-      ...(appDataRef.current.notifications ?? { inbox: 0, comments: 0, messages: 0, byPlatform: {} }),
-      inbox: unread.inbox,
-      messages: unread.messages,
-      comments: unread.comments,
-    });
-  }, [user?.id, conversations, comments, unreadCommentIds.size, unreadConversationIds.size, totalUnreadMessages]);
-
   const handlePlatformClick = (platformId: string) => {
     setSelectedPlatforms((prev) => {
       const next = prev.includes(platformId) ? prev.filter((p) => p !== platformId) : [...prev, platformId];
@@ -2543,14 +2540,7 @@ function InboxPage() {
                       </div>
                     ) : null}
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-neutral-400 flex items-center gap-1 mb-1">
-                        {(() => {
-                          const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === c.platform);
-                          const Icon = plat?.icon;
-                          return Icon ? <Icon size={12} className="opacity-70" /> : null;
-                        })()}
-                        <span>{new Date(c.createdAt).toLocaleString()}</span>
-                      </p>
+                      <p className="text-xs text-neutral-400 mb-1">{new Date(c.createdAt).toLocaleString()}</p>
                       <div className="flex items-start gap-3">
                         <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
                           {c.authorPictureUrl ? (
@@ -2560,7 +2550,10 @@ function InboxPage() {
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
+                            <PlatformSourcePill platformId={c.platform} />
+                          </div>
                           <p className="text-xs text-neutral-500 truncate mt-0.5">{(c.postPreview || '').slice(0, 20)}{(c.postPreview?.length ?? 0) > 20 ? '…' : ''}</p>
                           <p className="text-xs text-neutral-600 line-clamp-2 mt-0.5">{c.text}</p>
                         </div>
@@ -3531,19 +3524,11 @@ function InboxPage() {
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs text-neutral-500 flex items-center gap-1.5">
-                        {(() => {
-                          const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === selectedComment.platform);
-                          const Icon = plat?.icon;
-                          return (
-                            <>
-                              {Icon && <Icon size={12} className="shrink-0 opacity-70" />}
-                              <span>{new Date(selectedComment.createdAt).toLocaleString()}</span>
-                            </>
-                          );
-                        })()}
-                      </p>
-                      <p className="text-sm font-medium text-neutral-800 mt-0.5">Comment on your post</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <PlatformSourcePill platformId={selectedComment.platform} size="md" />
+                        <span className="text-xs text-neutral-500">{new Date(selectedComment.createdAt).toLocaleString()}</span>
+                      </div>
+                      <p className="text-sm font-medium text-neutral-800 mt-1">Comment on your post</p>
                       <p className="text-xs text-neutral-500 mt-0.5">{selectedComment.authorName}</p>
                     </div>
                   </div>
@@ -3975,18 +3960,10 @@ function InboxPage() {
                             />
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-medium text-neutral-800">{chatWithLabel}</p>
-                              <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5">
-                                {stripPlat && (() => {
-                                  const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === stripPlat);
-                                  const Icon = plat?.icon;
-                                  return (
-                                    <span className="inline-flex items-center gap-1 font-medium text-neutral-600">
-                                      {Icon && <Icon size={14} />}
-                                      {plat?.label ?? stripPlat} inbox
-                                    </span>
-                                  );
-                                })()}
-                              </p>
+                              <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                                <PlatformSourcePill platformId={stripPlat} size="md" />
+                                <span className="text-xs text-neutral-500">Direct message</span>
+                              </div>
                             </div>
                           </div>
                         );

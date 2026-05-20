@@ -7,6 +7,7 @@ import api from '@/lib/api';
 import { getDefaultAnalyticsDateRange } from '@/lib/calendar-date';
 import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
 import { computeInboxHeaderUnread } from '@/lib/inbox/unread-count';
+import { INBOX_READ_STATE_CHANGED_EVENT } from '@/lib/inbox-read-state';
 import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
 import {
   INBOX_NOTIFICATION_POLL_MS,
@@ -70,6 +71,7 @@ export type CachedConversation = {
   id: string;
   updatedTime: string | null;
   messageCount?: number;
+  platform?: string;
   senders: Array<{ id?: string; username?: string; name?: string; pictureUrl?: string | null }>;
 };
 
@@ -210,14 +212,23 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [prefetchHasLoadedOnce, setPrefetchHasLoadedOnce] = useState(false);
   const [prefetchPhase2Done, setPrefetchPhase2Done] = useState(false);
   const [cacheRehydrated, setCacheRehydrated] = useState(false);
+  const [inboxReadStateVersion, setInboxReadStateVersion] = useState(0);
+
+  useEffect(() => {
+    const onReadChanged = () => setInboxReadStateVersion((v) => v + 1);
+    window.addEventListener(INBOX_READ_STATE_CHANGED_EVENT, onReadChanged);
+    return () => window.removeEventListener(INBOX_READ_STATE_CHANGED_EVENT, onReadChanged);
+  }, []);
 
   useEffect(() => {
     if (!user?.id) return;
+    const accountPlatform = new Map<string, string>();
     const allConversations: Array<{
       id: string;
       messageCount?: number;
       messageAccountId?: string;
       updatedTime?: string | null;
+      platform?: string;
     }> = [];
     for (const [accountId, list] of Object.entries(conversationsByAccountId)) {
       for (const c of list) {
@@ -226,19 +237,32 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           messageCount: c.messageCount,
           messageAccountId: accountId,
           updatedTime: c.updatedTime,
+          platform: c.platform,
         });
       }
     }
-    const commentIds = Object.values(commentsByAccountId)
-      .flat()
-      .filter((c) => !c.parentCommentId)
-      .map((c) => c.commentId);
-    const unread = computeInboxHeaderUnread(allConversations, commentIds, user.id);
+    for (const [accountId, list] of Object.entries(commentsByAccountId)) {
+      const first = list[0];
+      if (first?.platform) accountPlatform.set(accountId, first.platform);
+    }
+    const unreadComments = Object.entries(commentsByAccountId)
+      .flatMap(([accountId, list]) =>
+        list
+          .filter((c) => !c.parentCommentId)
+          .map((c) => ({
+            commentId: c.commentId,
+            platform: c.platform ?? accountPlatform.get(accountId),
+          }))
+      );
+    const unread = computeInboxHeaderUnread(allConversations, unreadComments, user.id);
     setNotificationsState((prev) => {
+      const byPlatformSame =
+        JSON.stringify(prev.byPlatform ?? {}) === JSON.stringify(unread.byPlatform);
       if (
         prev.inbox === unread.inbox &&
         prev.messages === unread.messages &&
-        prev.comments === unread.comments
+        prev.comments === unread.comments &&
+        byPlatformSame
       ) {
         return prev;
       }
@@ -247,9 +271,10 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         inbox: unread.inbox,
         messages: unread.messages,
         comments: unread.comments,
+        byPlatform: unread.byPlatform,
       };
     });
-  }, [user?.id, conversationsByAccountId, commentsByAccountId]);
+  }, [user?.id, conversationsByAccountId, commentsByAccountId, inboxReadStateVersion]);
 
   const conversationsByAccountIdRef = useRef(conversationsByAccountId);
   conversationsByAccountIdRef.current = conversationsByAccountId;
@@ -282,7 +307,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           getComments: (id) => commentsByAccountIdRef.current[id],
           onConversations: (accountId, list) => {
             if (!cancelled) {
-              setConversationsByAccountId((prev) => ({ ...prev, [accountId]: list }));
+              const platform = accounts.find((a) => a.id === accountId)?.platform;
+              setConversationsByAccountId((prev) => ({
+                ...prev,
+                [accountId]: list.map((c) => ({ ...c, platform: c.platform ?? platform })),
+              }));
             }
           },
           onComments: (accountId, list) => {

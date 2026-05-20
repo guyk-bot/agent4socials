@@ -93,11 +93,12 @@ function markConversationActivity(
   prev: CachedConversation | undefined,
   next: CachedConversation,
   userId: string,
-  accountId: string
+  accountId: string,
+  platform: string
 ): void {
   if (!prev) {
     if (getInboxInitializedAccountIdsForConversations(userId).has(accountId)) {
-      addPendingUnreadConversationIds([conversationId], userId);
+      addPendingUnreadConversationIds([conversationId], userId, platform);
       unmarkConversationAsRead(conversationId, userId);
     }
     return;
@@ -107,7 +108,7 @@ function markConversationActivity(
     next.updatedTime &&
     next.updatedTime.localeCompare(prev.updatedTime) > 0
   ) {
-    addPendingUnreadConversationIds([conversationId], userId);
+    addPendingUnreadConversationIds([conversationId], userId, platform);
     unmarkConversationAsRead(conversationId, userId);
     const count = next.messageCount ?? prev.messageCount;
     if (typeof count === 'number' && count > 0) {
@@ -124,7 +125,8 @@ function mergeConversations(
   existing: CachedConversation[],
   incoming: CachedConversation[],
   userId: string,
-  accountId: string
+  accountId: string,
+  platform: string
 ): CachedConversation[] {
   const byId = new Map<string, CachedConversation>();
   for (const c of existing) byId.set(c.id, c);
@@ -142,7 +144,7 @@ function mergeConversations(
         username: s.username ?? prev?.senders?.[i]?.username,
       })),
     };
-    markConversationActivity(c.id, prev, row, userId, accountId);
+    markConversationActivity(c.id, prev, row, userId, accountId, platform);
     byId.set(c.id, row);
   }
 
@@ -167,14 +169,16 @@ function mergeComments(
   existing: CachedComment[],
   incoming: CachedComment[],
   userId: string,
-  accountId: string
+  accountId: string,
+  platform: string
 ): CachedComment[] {
   const byId = new Map<string, CachedComment>();
   for (const c of existing) byId.set(c.commentId, c);
   const readComments = getReadCommentIds(userId);
   for (const c of incoming) {
-    if (!c.parentCommentId && !readComments.has(c.commentId)) {
-      addPendingUnreadCommentIds([c.commentId], userId);
+    const isNew = !byId.has(c.commentId);
+    if (isNew && !c.parentCommentId && !readComments.has(c.commentId)) {
+      addPendingUnreadCommentIds([c.commentId], userId, platform);
     }
     byId.set(c.commentId, c);
   }
@@ -215,7 +219,7 @@ export async function pollInboxNotifications(args: {
         if (res.data?.error) continue;
         const incoming = res.data?.conversations ?? [];
         if (incoming.length === 0 && existing.length === 0) continue;
-        onConversations(acc.id, mergeConversations(existing, incoming, userId, acc.id));
+        onConversations(acc.id, mergeConversations(existing, incoming, userId, acc.id, acc.platform));
       } catch {
         /* skip account */
       }
@@ -238,7 +242,7 @@ export async function pollInboxNotifications(args: {
         if (res.data?.error) continue;
         const incoming = res.data?.comments ?? [];
         if (incoming.length === 0 && existing.length > 0 && commentSinceStart) continue;
-        const merged = incoming.length > 0 ? mergeComments(existing, incoming, userId, acc.id) : existing;
+        const merged = incoming.length > 0 ? mergeComments(existing, incoming, userId, acc.id, acc.platform) : existing;
         if (incoming.length > 0 || existing.length === 0) {
           onComments(acc.id, merged);
         }
