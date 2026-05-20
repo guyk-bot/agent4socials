@@ -2250,6 +2250,11 @@ export default function ComposerPage() {
                         .then((listRes) => {
                             const list = Array.isArray(listRes.data) ? listRes.data : [];
                             appData?.setScheduledPosts?.(list);
+                            if (typeof window !== 'undefined') {
+                                window.dispatchEvent(
+                                    new CustomEvent('agent4socials:posts-history-refresh', { detail: { posts: list } })
+                                );
+                            }
                         })
                         .catch(() => {});
                 } catch (err: unknown) {
@@ -2557,110 +2562,53 @@ export default function ComposerPage() {
             // If editing an already-posted post, create a new post (and publish/schedule) instead of updating the original
             const updateExisting = editPostId && !editPostAlreadyPosted;
             if (updateExisting) {
-                await api.patch(`/posts/${editPostId}`, payload, { timeout: 180_000 });
-                clearComposerDraft();
                 if (saveAsDraft) {
+                    await api.patch(`/posts/${editPostId}`, payload, { timeout: 180_000 });
+                    clearComposerDraft();
                     router.push('/posts?draft_saved=1');
                     setLoading(false);
                     return;
                 }
                 if (scheduledAt) {
+                    await api.patch(`/posts/${editPostId}`, payload, { timeout: 180_000 });
+                    clearComposerDraft();
                     const schedParams = new URLSearchParams({ scheduled: '1', delivery: scheduleDelivery === 'email_links' ? 'email' : 'auto', platforms: platforms.join(','), at: new Date(scheduledAt).toISOString() });
                     router.push(`/calendar?${schedParams.toString()}`);
-                } else {
-                    // Post now: publish immediately after update (same as create + Post now)
-                    try {
-                        const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
-                        if (debug) sessionStorage.removeItem('publish_debug');
-                        const publishBody = buildPublishRequestBody(mediaType, tiktokPublishByAccountId);
-                        const publishPath = `/posts/${editPostId}/publish${debug ? '?debug=1' : ''}`;
-                        if (includesTikTokTarget) {
-                            tiktokPostPublishFollowUpPostIdRef.current = editPostId;
-                            setTiktokPostPublishFollowUp({ open: true });
-                            void api
-                                .post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(
-                                    publishPath,
-                                    publishBody,
-                                    { timeout: 330_000 }
-                                )
-                                .then((publishRes) => {
-                                    const results = publishRes.data?.results;
-                                    if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
-                                    if (
-                                        handlePublishResultOutcome('updated', results, editPostId, (msg) =>
-                                            setAlertMessage(withTikTokProcessingNotice(msg)),
-                                            (q) => router.push(`/posts?${q}`)
-                                        )
-                                    ) {
-                                        return;
-                                    }
-                                })
-                                .catch((err: unknown) => {
-                                    const res = err && typeof err === 'object' && 'response' in err ? (err as { response?: { status?: number; data?: { message?: string } } }).response : undefined;
-                                    const status = res?.status;
-                                    const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : undefined;
-                                    const isTimeout = code === 'ECONNABORTED' || (typeof (err as Error)?.message === 'string' && (err as Error).message.includes('timeout'));
-                                    const msg = res?.data?.message ?? (status === 401 ? 'Session expired. Sign in again, then open the post from History and try Post now.' : isTimeout ? 'Publish is taking longer than usual (e.g. uploading media). Open the post from History and try Post now again; it may have already gone through.' : 'Publish failed. Open the post from History and try Post now again.');
-                                    setAlertMessage(withTikTokProcessingNotice(msg));
-                                });
-                            return;
-                        }
-                        const publishRes = await api.post<{ ok: boolean; results?: { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean }[]; message?: string; debugInfo?: { mediaUrlsByPlatform?: Record<string, string>; fullErrors?: Record<string, string> } }>(
-                            publishPath,
-                            publishBody,
-                            { timeout: 330_000 }
-                        );
-                        const results = publishRes.data?.results;
-                        if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
-                        if (
-                            handlePublishResultOutcome('updated', results, editPostId, (msg) =>
-                                setAlertMessage(withTikTokProcessingNotice(msg)),
-                                (q) => router.push(`/posts?${q}`)
-                            )
-                        ) {
-                            return;
-                        }
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const mediaSkipped = (results as any[])?.filter((r) => r.mediaSkipped).map((r) => r.platform as string);
-                        const detailLines: string[] = [];
-                        if (mediaSkipped?.length) {
-                            detailLines.push(`Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).`);
-                        }
-                        const followDetail = detailLines.length > 0 ? detailLines.join('\n\n') : undefined;
-                        const tiktokPublishedOk = results?.some((r) => String(r.platform).toUpperCase() === 'TIKTOK' && r.ok);
-                        if (tiktokPublishedOk) {
-                            tiktokPostPublishFollowUpPostIdRef.current = editPostId;
-                            setTiktokPostPublishFollowUp({ open: true, detail: followDetail });
-                            void api
-                                .get('/posts')
-                                .then((listRes) => {
-                                    const list = Array.isArray(listRes.data) ? listRes.data : [];
-                                    appData?.setScheduledPosts?.(list);
-                                })
-                                .catch(() => {});
-                            return;
-                        }
-                        let msg = 'Post updated and published.';
-                        if (mediaSkipped?.length) msg += ` Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).`;
-                        setAlertMessage(msg);
-                        router.push(`/posts?published=1&highlight=${encodeURIComponent(editPostId)}`);
-                        void api
-                            .get('/posts')
-                            .then((listRes) => {
-                                const list = Array.isArray(listRes.data) ? listRes.data : [];
-                                appData?.setScheduledPosts?.(list);
-                            })
-                            .catch(() => {});
-                    } catch (err: unknown) {
-                        const res = err && typeof err === 'object' && 'response' in err ? (err as { response?: { status?: number; data?: { message?: string } } }).response : undefined;
-                        const status = res?.status;
-                        const code = err && typeof err === 'object' && 'code' in err ? (err as { code?: string }).code : undefined;
-                        const isTimeout = code === 'ECONNABORTED' || (typeof (err as Error)?.message === 'string' && (err as Error).message.includes('timeout'));
-                        const msg = res?.data?.message ?? (status === 401 ? 'Session expired. Sign in again, then open the post from History and try Post now.' : isTimeout ? 'Publish is taking longer than usual (e.g. uploading media). Open the post from History and try Post now again; it may have already gone through.' : 'Publish failed. Open the post from History and try Post now again.');
-                        setAlertMessage(withTikTokProcessingNotice(msg));
-                        return;
-                    }
+                    setLoading(false);
+                    return;
                 }
+                setLoading(false);
+                const platformLabels = platforms.map((p) => PLATFORM_LABELS[p] ?? p).join(', ');
+                setPublishModal({
+                    open: true,
+                    kind: 'queued',
+                    postId: editPostId,
+                    message: `Your request has been sent. We are updating and publishing to ${platformLabels} now.\n\nYou will get a confirmation when publishing finishes. In a few minutes, open History to check status on each platform.`,
+                });
+                const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
+                if (debug) sessionStorage.removeItem('publish_debug');
+                const publishBody = buildPublishRequestBody(mediaType, tiktokPublishByAccountId);
+                const publishPath = `/posts/${editPostId}/publish${debug ? '?debug=1' : ''}`;
+                void (async () => {
+                    try {
+                        await api.patch(`/posts/${editPostId}`, payload, { timeout: 180_000 });
+                        clearComposerDraft();
+                        publishPostInBackground(editPostId, publishPath, publishBody, includesTikTokTarget);
+                    } catch (err: unknown) {
+                        const res =
+                            err && typeof err === 'object' && 'response' in err
+                                ? (err as { response?: { status?: number; data?: { message?: string } } }).response
+                                : undefined;
+                        const status = res?.status;
+                        const msg =
+                            res?.data?.message ??
+                            (status === 401
+                                ? 'Session expired. Sign in again, then open the post from History and try Post now.'
+                                : 'Could not update the post before publishing. Open History and try again.');
+                        setPublishModal({ open: true, kind: 'failed', message: withTikTokProcessingNotice(msg) });
+                    }
+                })();
+                return;
             } else {
             const createRes = await api.post<{ id: string }>('/posts', payload, { timeout: 180_000 });
             const postId = createRes.data?.id;

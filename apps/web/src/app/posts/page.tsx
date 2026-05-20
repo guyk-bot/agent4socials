@@ -41,6 +41,7 @@ import {
     type PostHistoryFormatKey,
 } from '@/lib/post-history-format';
 import { PostHistoryFilterDropdown } from '@/components/posts/PostHistoryFilterDropdown';
+import { mergePostsHistoryLists } from '@/lib/posts-history-merge';
 
 function postMediaThumbUrl(mediaItem: { fileUrl: string; type: string; metadata?: { thumbnailUrl?: string } | null } | undefined): string | null {
     if (!mediaItem?.fileUrl) return null;
@@ -207,9 +208,12 @@ export default function PostsPage() {
                 const res = await api.get('/posts', { timeout: 45_000 });
                 if (cancelled) return;
                 const list = Array.isArray(res.data) ? res.data : [];
-                setPosts(list);
-                appDataRef.current?.setScheduledPosts?.(list);
-                writeScheduledPostsClientCache(list);
+                setPosts((prev) => {
+                    const merged = mergePostsHistoryLists(prev, list);
+                    appDataRef.current?.setScheduledPosts?.(merged);
+                    writeScheduledPostsClientCache(merged);
+                    return merged;
+                });
                 setLoadError(null);
             } catch (err) {
                 if (cancelled) return;
@@ -256,25 +260,30 @@ export default function PostsPage() {
                 const res = await api.get('/posts', { timeout: 45_000 });
                 if (cancelled) return;
                 const list = Array.isArray(res.data) ? res.data : [];
-                setPosts(list);
-                appDataRef.current?.setScheduledPosts?.(list);
-                writeScheduledPostsClientCache(list);
+                setPosts((prev) => {
+                    const merged = mergePostsHistoryLists(prev, list);
+                    appDataRef.current?.setScheduledPosts?.(merged);
+                    writeScheduledPostsClientCache(merged);
+                    return merged;
+                });
                 setLoadError(null);
-                const stillPublishing = list.some((p: { status?: string }) => p.status === 'POSTING');
-                if (stillPublishing) {
-                    for (const p of list) {
-                        if (p?.status !== 'POSTING' || !p?.id) continue;
-                        try {
-                            await api.post(`/posts/${p.id}/finalize-publish-status`, {}, { timeout: 30_000 });
-                        } catch {
-                            /* retry next poll */
-                        }
-                    }
+                const postingIds = list
+                    .filter((p: { status?: string; id?: string }) => p?.status === 'POSTING' && p?.id)
+                    .map((p: { id: string }) => p.id);
+                if (postingIds.length > 0) {
+                    await Promise.all(
+                        postingIds.map((id: string) =>
+                            api.post(`/posts/${id}/finalize-publish-status`, {}, { timeout: 30_000 }).catch(() => undefined)
+                        )
+                    );
                     const res2 = await api.get('/posts', { timeout: 45_000 });
                     if (!cancelled && Array.isArray(res2.data)) {
-                        setPosts(res2.data);
-                        appDataRef.current?.setScheduledPosts?.(res2.data);
-                        writeScheduledPostsClientCache(res2.data);
+                        setPosts((prev) => {
+                            const merged = mergePostsHistoryLists(prev, res2.data);
+                            appDataRef.current?.setScheduledPosts?.(merged);
+                            writeScheduledPostsClientCache(merged);
+                            return merged;
+                        });
                     }
                 }
             } catch {
@@ -288,6 +297,23 @@ export default function PostsPage() {
             window.clearInterval(id);
         };
     }, [pathname, hasPublishingPosts]);
+
+    useEffect(() => {
+        if (pathname !== '/posts') return;
+        const onRefresh = (ev: Event) => {
+            const detail = (ev as CustomEvent<{ posts?: unknown[] }>).detail;
+            const list = Array.isArray(detail?.posts) ? detail.posts : [];
+            if (list.length === 0) return;
+            setPosts((prev) => {
+                const merged = mergePostsHistoryLists(prev, list as Parameters<typeof mergePostsHistoryLists>[0]);
+                appDataRef.current?.setScheduledPosts?.(merged);
+                writeScheduledPostsClientCache(merged);
+                return merged;
+            });
+        };
+        window.addEventListener('agent4socials:posts-history-refresh', onRefresh);
+        return () => window.removeEventListener('agent4socials:posts-history-refresh', onRefresh);
+    }, [pathname]);
 
     const highlightId = searchParams.get('highlight');
     useEffect(() => {
@@ -574,7 +600,22 @@ export default function PostsPage() {
                                                       : post.status === 'SCHEDULED'
                                                         ? 'bg-neutral-200 text-neutral-700'
                                                         : 'bg-neutral-100 text-neutral-700';
-                                            return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls}`}>{label}</span>;
+                                            const failedErrors = (Array.isArray(post.targets) ? post.targets : [])
+                                                .filter((t: { status?: string; error?: string }) => t.status === 'FAILED' && typeof t.error === 'string' && t.error.trim())
+                                                .map((t: { platform?: string; error?: string }) => `${t.platform ?? 'Platform'}: ${t.error!.trim()}`);
+                                            return (
+                                                <div className="space-y-1">
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls}`}>{label}</span>
+                                                    {failedErrors.length > 0 ? (
+                                                        <p
+                                                            className="max-w-[14rem] truncate text-xs text-red-600 dark:text-red-400"
+                                                            title={failedErrors.join('\n')}
+                                                        >
+                                                            {failedErrors[0]}
+                                                        </p>
+                                                    ) : null}
+                                                </div>
+                                            );
                                         })()}
                                     </td>
                                     <td className="px-6 py-4 text-right">
