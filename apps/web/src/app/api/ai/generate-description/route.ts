@@ -15,6 +15,12 @@ type BrandFields = {
   additionalContext: string | null;
 };
 
+type CtaBundle = {
+  cta: string;
+  keywords?: string[];
+  replyTemplate?: string;
+};
+
 function buildSystemPrompt(brand: BrandFields): string {
   const parts: string[] = [
     'You are a social media copywriter. Generate a short, engaging post description that fits the brand.',
@@ -36,7 +42,8 @@ function buildSystemPrompt(brand: BrandFields): string {
   }
   parts.push(
     'Output only the post caption text, no meta-commentary. Keep it concise and platform-ready (e.g. 1-3 short paragraphs or bullet points).',
-    'Rules: Use plain text only. Do not use markdown (no ** for bold, no * for italic). Do not use em dashes or en dashes; use commas, colons, or " to " instead. Do not include hashtags.'
+    'Rules: Use plain text only. Do not use markdown (no ** for bold, no * for italic). Do not use em dashes or en dashes; use commas, colons, or " to " instead. Do not include hashtags.',
+    'When Instructions specify a call-to-action (e.g. comment a keyword to receive a link), include that exact CTA in the caption. Do not replace it with a generic "link in bio" or "tap the link" unless the user asked for that.'
   );
   return parts.join('\n\n');
 }
@@ -48,15 +55,15 @@ function cleanGeneratedText(text: string): string {
     .replace(/[\u2013\u2014]/g, ', ')
     .replace(/,(\s*,)+/g, ',')
     .replace(/\s+,/g, ',')
-    .replace(/#\w+/g, '')             // remove #hashtags
-    .replace(/\n\s*\n\s*\n/g, '\n\n') // collapse extra blank lines
-    .replace(/  +/g, ' ')             // collapse multiple spaces
+    .replace(/#\w+/g, '')
+    .replace(/\n\s*\n\s*\n/g, '\n\n')
+    .replace(/  +/g, ' ')
     .trim();
 }
 
 function getPlatformHint(platform: string): string {
   const p = platform.toUpperCase();
-  if (p === 'TWITTER') return `X (Twitter) has a ${TWITTER_AI_MAX_CHARS} character target including spaces. Keep the main post text under ${TWITTER_AI_MAX_CHARS} characters. Do not include hashtags. Be concise. A clear CTA works well.`;
+  if (p === 'TWITTER') return `X (Twitter) has a ${TWITTER_AI_MAX_CHARS} character target including spaces. Keep the main post text under ${TWITTER_AI_MAX_CHARS} characters. Do not include hashtags. Be concise.`;
   if (p === 'LINKEDIN') return 'Professional tone. One to three short paragraphs. Suitable for a business audience.';
   if (p === 'INSTAGRAM') return 'Engaging and visual. Line breaks work well.';
   if (p === 'FACEBOOK') return 'Conversational. One or two short paragraphs.';
@@ -66,24 +73,129 @@ function getPlatformHint(platform: string): string {
   return '';
 }
 
+/** Merge CTA/automation instructions from the dedicated field and extra instructions. */
+function mergeCtaInstructionSources(prompt: string, ctaAutomationPrompt: string): string {
+  const parts = [ctaAutomationPrompt.trim(), prompt.trim()].filter(Boolean);
+  return parts.join('\n');
+}
+
+function promptRequestsInPostCta(prompt: string): boolean {
+  if (!prompt.trim()) return false;
+  return /\b(call[\s-]?to[\s-]?action|cta|comment\s+["']?\w+|reply\s+with|dm\s+me|send\s+(you\s+)?(the\s+)?link|keyword)\b/i.test(prompt);
+}
+
+function ensureClosingCtaInContent(content: string, closingCta: string): string {
+  const body = content.trim();
+  const cta = closingCta.trim();
+  if (!cta) return body;
+  if (body.toLowerCase().includes(cta.toLowerCase())) return body;
+  return `${body}\n\n${cta}`;
+}
+
+function clampTwitterCaption(content: string, platform: string, closingCta?: string): string {
+  const platformUpper = platform.toUpperCase();
+  if (platformUpper !== 'TWITTER' && platformUpper !== 'X') return content;
+  const combined = closingCta ? `${content.trim()}\n\n${closingCta.trim()}` : content;
+  if (combined.length <= TWITTER_AI_MAX_CHARS) return content;
+  const maxContent = closingCta
+    ? Math.max(0, TWITTER_AI_MAX_CHARS - closingCta.length - 2)
+    : TWITTER_AI_MAX_CHARS;
+  return content.slice(0, maxContent).trim();
+}
+
+function parseJsonObject(raw: string): Record<string, unknown> | null {
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+  try {
+    return JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+/** Step 1: derive CTA line, comment keywords, and reply template from user instructions. */
+async function generateCtaBundle(
+  brand: BrandFields,
+  topic: string,
+  prompt: string,
+  ctaInstructions: string
+): Promise<CtaBundle | null> {
+  const systemPrompt = [
+    buildSystemPrompt(brand),
+    'You configure comment-to-DM automation for social posts.',
+    'Respond with JSON only, no markdown.',
+  ].join('\n\n');
+
+  const userContent = [
+    topic && `Post topic: ${topic}`,
+    prompt && `Post context: ${prompt}`,
+    ctaInstructions && `User requirements (follow exactly): ${ctaInstructions}`,
+    'Return JSON: {"cta":"one short call-to-action line for the post caption","keywords":["keyword1"],"replyTemplate":"short reply when someone comments the keyword"}.',
+    'Rules for cta: MUST match the user requirements (e.g. if they want people to comment "AI" to get a link, say that clearly). Do NOT use generic "link in bio", "tap the link", or "check our bio" unless the user explicitly asked for bio links.',
+    'Rules for keywords: use the exact comment trigger words the user wants (e.g. "ai" if they said comment AI).',
+    'Rules for replyTemplate: mention sending the link or next step when appropriate.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const result = await openAiChat(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userContent },
+    ],
+    { max_tokens: 350 }
+  );
+
+  const parsed = parseJsonObject(result.content);
+  if (!parsed || typeof parsed.cta !== 'string') return null;
+
+  const cta = cleanGeneratedText(parsed.cta).slice(0, 200);
+  if (!cta) return null;
+
+  const keywords = Array.isArray(parsed.keywords)
+    ? (parsed.keywords as unknown[])
+        .filter((k): k is string => typeof k === 'string')
+        .map((k) => k.trim().toLowerCase())
+        .filter(Boolean)
+        .slice(0, 5)
+    : undefined;
+  const replyTemplate =
+    typeof parsed.replyTemplate === 'string'
+      ? cleanGeneratedText(parsed.replyTemplate).slice(0, 500)
+      : undefined;
+
+  return {
+    cta,
+    ...(keywords?.length ? { keywords } : {}),
+    ...(replyTemplate ? { replyTemplate } : {}),
+  };
+}
+
 async function generateDescriptionForPlatform(
   brand: BrandFields,
   topic: string,
   prompt: string | undefined,
   platform: string,
-  includeCtaAndAutomation: boolean,
-  ctaAutomationPrompt: string | undefined
-): Promise<{ content: string; cta?: string; keywords?: string[]; replyTemplate?: string }> {
+  options?: { requiredClosingCta?: string; emphasizeInPostCta?: boolean }
+): Promise<{ content: string }> {
   const systemPrompt = buildSystemPrompt(brand);
   const platformHint = platform ? getPlatformHint(platform) : '';
-  let userContent = [topic && `Topic: ${topic}`, prompt && `Instructions: ${prompt}`, platform && `Platform: ${platform}${platformHint ? `. ${platformHint}` : ''}. Do not include any hashtags in the content.`]
-    .filter(Boolean)
-    .join('\n') || 'Write a short social post that fits my brand. Do not include hashtags.';
-  if (includeCtaAndAutomation) {
-    userContent += '\n\nAlso provide: (1) a short CTA (call-to-action) line. (2) Comment automation: 1-2 keywords and a short reply template for when someone comments with that keyword. Respond with a JSON object only, no markdown: {"content":"...","cta":"...","keywords":["keyword1","keyword2"],"replyTemplate":"..."}. Use double quotes. Content = main post text; cta = one line; keywords = array of strings; replyTemplate = one short reply sentence.';
-    if (ctaAutomationPrompt) {
-      userContent += `\n\nUser instructions for CTA and automation: ${ctaAutomationPrompt}`;
-    }
+  const requiredClosingCta = options?.requiredClosingCta?.trim();
+
+  let userContent =
+    [topic && `Topic: ${topic}`, prompt && `Instructions: ${prompt}`, platform && `Platform: ${platform}${platformHint ? `. ${platformHint}` : ''}. Do not include any hashtags in the content.`]
+      .filter(Boolean)
+      .join('\n') || 'Write a short social post that fits my brand. Do not include hashtags.';
+
+  if (options?.emphasizeInPostCta && prompt?.trim()) {
+    userContent +=
+      '\n\nImportant: Include the call-to-action from Instructions in the post caption (exact wording or very close). Do not substitute a different CTA such as "link in bio".';
+  }
+
+  if (requiredClosingCta) {
+    userContent += `\n\nRequired closing call-to-action (include as the final line of the caption, use these words):\n${requiredClosingCta}`;
+    userContent +=
+      '\nDo not add any other call-to-action (no link in bio, no tap the link) unless it matches the required closing line above.';
   }
 
   const result = await openAiChat(
@@ -91,45 +203,42 @@ async function generateDescriptionForPlatform(
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userContent },
     ],
-    { max_tokens: includeCtaAndAutomation ? 600 : 500 }
+    { max_tokens: 500 }
   );
-  const raw = result.content;
 
-  if (includeCtaAndAutomation) {
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    const parsed = jsonMatch ? (() => { try { return JSON.parse(jsonMatch[0]) as Record<string, unknown>; } catch { return null; } })() : null;
-    if (parsed && typeof parsed.content === 'string') {
-      let content = cleanGeneratedText(parsed.content);
-      const cta = typeof parsed.cta === 'string' ? cleanGeneratedText(parsed.cta).slice(0, 200) : undefined;
-      const platformUpper = platform.toUpperCase();
-      if (platformUpper === 'TWITTER' || platformUpper === 'X') {
-        // Keep content + CTA within Twitter AI target.
-        const combined = cta ? `${content.trim()}\n\n${cta.trim()}` : content;
-        if (combined.length > TWITTER_AI_MAX_CHARS) {
-          const maxContent = cta ? Math.max(0, TWITTER_AI_MAX_CHARS - cta.length - 2) : TWITTER_AI_MAX_CHARS;
-          content = content.slice(0, maxContent).trim();
-        }
-      }
-      const keywords = Array.isArray(parsed.keywords)
-        ? (parsed.keywords as unknown[]).filter((k): k is string => typeof k === 'string').map((k) => k.trim().toLowerCase()).filter(Boolean).slice(0, 5)
-        : undefined;
-      const replyTemplate = typeof parsed.replyTemplate === 'string' ? cleanGeneratedText(parsed.replyTemplate).slice(0, 500) : undefined;
-      return {
-        content,
-        ...(cta !== undefined ? { cta } : {}),
-        ...(keywords?.length ? { keywords } : {}),
-        ...(replyTemplate ? { replyTemplate } : {}),
-      };
-    }
-  }
-
-  let content = cleanGeneratedText(raw);
+  let content = cleanGeneratedText(result.content);
   const platformUpper = platform.toUpperCase();
   if (platformUpper === 'TWITTER' || platformUpper === 'X') {
-    const max = TWITTER_AI_MAX_CHARS;
-    if (content.length > max) content = content.slice(0, max).trim();
+    content = clampTwitterCaption(content, platform, requiredClosingCta);
   }
+  if (requiredClosingCta) {
+    content = ensureClosingCtaInContent(content, requiredClosingCta);
+  }
+
   return { content };
+}
+
+async function generateWithCtaAndAutomation(
+  brand: BrandFields,
+  topic: string,
+  prompt: string | undefined,
+  platform: string,
+  ctaInstructions: string
+): Promise<{ content: string; cta?: string; keywords?: string[]; replyTemplate?: string }> {
+  const bundle = await generateCtaBundle(brand, topic, prompt ?? '', ctaInstructions);
+  const closingCta = bundle?.cta;
+
+  const { content } = await generateDescriptionForPlatform(brand, topic, prompt, platform, {
+    requiredClosingCta: closingCta,
+    emphasizeInPostCta: !closingCta && !!prompt?.trim() && promptRequestsInPostCta(prompt),
+  });
+
+  return {
+    content,
+    ...(bundle?.cta ? { cta: bundle.cta } : {}),
+    ...(bundle?.keywords?.length ? { keywords: bundle.keywords } : {}),
+    ...(bundle?.replyTemplate ? { replyTemplate: bundle.replyTemplate } : {}),
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -173,6 +282,7 @@ export async function POST(request: NextRequest) {
   const platform = typeof body.platform === 'string' ? body.platform.trim() : '';
   const includeCtaAndAutomation = body.includeCtaAndAutomation === true;
   const ctaAutomationPrompt = typeof body.ctaAutomationPrompt === 'string' ? body.ctaAutomationPrompt.trim() : '';
+  const ctaInstructions = mergeCtaInstructionSources(prompt, ctaAutomationPrompt);
 
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { brandContext: true } });
   const ctx = user?.brandContext as Record<string, unknown> | null;
@@ -192,20 +302,34 @@ export async function POST(request: NextRequest) {
   };
 
   if (platformsMulti.length > 1) {
-    trackUsage(userId, 'ai_generation', platformsMulti.length);
+    trackUsage(userId, 'ai_generation', platformsMulti.length + (includeCtaAndAutomation ? 1 : 0));
     try {
+      let ctaBundle: CtaBundle | null = null;
+      if (includeCtaAndAutomation && ctaInstructions) {
+        ctaBundle = await generateCtaBundle(brand, topic, prompt, ctaInstructions);
+      }
+
       const results = await Promise.all(
-        platformsMulti.map((p, i) =>
-          generateDescriptionForPlatform(
-            brand,
-            topic,
-            prompt || undefined,
-            p,
-            i === 0 && includeCtaAndAutomation,
-            i === 0 && includeCtaAndAutomation ? ctaAutomationPrompt || undefined : undefined
-          )
-        )
+        platformsMulti.map((p) => {
+          if (includeCtaAndAutomation && ctaBundle) {
+            return generateDescriptionForPlatform(brand, topic, prompt || undefined, p, {
+              requiredClosingCta: ctaBundle.cta,
+            }).then((r) => ({
+              content: r.content,
+              cta: ctaBundle!.cta,
+              keywords: ctaBundle!.keywords,
+              replyTemplate: ctaBundle!.replyTemplate,
+            }));
+          }
+          if (includeCtaAndAutomation) {
+            return generateWithCtaAndAutomation(brand, topic, prompt || undefined, p, ctaInstructions);
+          }
+          return generateDescriptionForPlatform(brand, topic, prompt || undefined, p, {
+            emphasizeInPostCta: promptRequestsInPostCta(prompt),
+          }).then((r) => ({ content: r.content }));
+        })
       );
+
       const byPlatform: Record<string, string> = {};
       for (let i = 0; i < platformsMulti.length; i++) {
         byPlatform[platformsMulti[i]] = results[i].content;
@@ -226,16 +350,14 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  trackUsage(userId, 'ai_generation');
+  trackUsage(userId, 'ai_generation', includeCtaAndAutomation ? 2 : 1);
   try {
-    const out = await generateDescriptionForPlatform(
-      brand,
-      topic,
-      prompt || undefined,
-      platform,
-      includeCtaAndAutomation,
-      includeCtaAndAutomation ? ctaAutomationPrompt || undefined : undefined
-    );
+    const out = includeCtaAndAutomation
+      ? await generateWithCtaAndAutomation(brand, topic, prompt || undefined, platform, ctaInstructions)
+      : await generateDescriptionForPlatform(brand, topic, prompt || undefined, platform, {
+          emphasizeInPostCta: promptRequestsInPostCta(prompt),
+        }).then((r) => ({ content: r.content }));
+
     if (includeCtaAndAutomation && (out.cta !== undefined || out.keywords?.length || out.replyTemplate)) {
       return NextResponse.json({
         content: out.content,

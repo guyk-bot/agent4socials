@@ -1193,6 +1193,14 @@ export default function ComposerPage() {
         return (lastSpace > 120 ? sliced.slice(0, lastSpace) : sliced).trim();
     }, []);
 
+    const appendCtaToCaption = useCallback((caption: string, cta: string) => {
+        const body = caption.trim();
+        const line = cta.trim();
+        if (!line) return body;
+        if (body.toLowerCase().includes(line.toLowerCase())) return body;
+        return `${body}\n\n${line}`;
+    }, []);
+
     const handleAiGenerate = useCallback(() => {
         if (hasBrandContext === false) {
             setAiError('Set up your brand context in Dashboard → AI Assistant first.');
@@ -1213,7 +1221,7 @@ export default function ComposerPage() {
         ) => {
             if (!data) return;
             if (data.cta && typeof data.content === 'string') {
-                const withCta = data.content.trim() + '\n\n' + data.cta.trim();
+                const withCta = appendCtaToCaption(data.content, data.cta);
                 const isTwitter = (platformForContent ?? aiPlatform).toUpperCase() === 'TWITTER';
                 setContent(isTwitter ? clampTwitterAiText(withCta) : withCta);
             }
@@ -1250,7 +1258,7 @@ export default function ComposerPage() {
                             for (const platform of platforms) {
                                 let text = byPlatform?.[platform] ?? '';
                                 if (aiIncludeCtaAndAutomation && ctaText) {
-                                    text = text.trim() + '\n\n' + ctaText;
+                                    text = appendCtaToCaption(text, ctaText);
                                 }
                                 if (platform === 'TWITTER') {
                                     text = clampTwitterAiText(text);
@@ -1291,7 +1299,7 @@ export default function ComposerPage() {
                         const ctaText = aiIncludeCtaAndAutomation ? d?.cta?.trim() ?? '' : '';
                         let text = d?.content ?? '';
                         if (aiIncludeCtaAndAutomation && ctaText) {
-                            text = text.trim() + '\n\n' + ctaText;
+                            text = appendCtaToCaption(text, ctaText);
                         }
                         if (firstPlatform === 'TWITTER') {
                             text = clampTwitterAiText(text);
@@ -1316,15 +1324,28 @@ export default function ComposerPage() {
             }).then((res) => {
                 const data = res.data;
                 const isTwitter = (aiPlatform || '').toUpperCase() === 'TWITTER';
-                setContent(isTwitter ? clampTwitterAiText(data?.content ?? '') : (data?.content ?? ''));
-                if (aiIncludeCtaAndAutomation && data) applyCtaAndAutomation(data);
+                const ctaText = aiIncludeCtaAndAutomation ? (data?.cta?.trim() ?? '') : '';
+                let text = data?.content ?? '';
+                if (aiIncludeCtaAndAutomation && ctaText) {
+                    text = appendCtaToCaption(text, ctaText);
+                }
+                setContent(isTwitter ? clampTwitterAiText(text) : text);
+                if (aiIncludeCtaAndAutomation && data) {
+                    if (Array.isArray(data.keywords) && data.keywords.length > 0) {
+                        setCommentAutomationEnabled(true);
+                        setCommentAutomationKeywords(data.keywords.join(', '));
+                    }
+                    if (typeof data.replyTemplate === 'string' && data.replyTemplate.trim()) {
+                        setCommentAutomationReplyTemplate(data.replyTemplate.trim());
+                    }
+                }
                 setAiModalOpen(false);
             }).catch((err) => {
                 const msg = err.response?.data?.message ?? 'Failed to generate. Try again.';
                 setAiError(msg);
             }).finally(() => setAiLoading(false));
         }
-    }, [aiTopic, aiPrompt, aiPlatform, aiIncludeCtaAndAutomation, aiCtaAutomationPrompt, differentContentPerPlatform, platforms, clampTwitterAiText, hasBrandContext]);
+    }, [aiTopic, aiPrompt, aiPlatform, aiIncludeCtaAndAutomation, aiCtaAutomationPrompt, differentContentPerPlatform, platforms, clampTwitterAiText, appendCtaToCaption, hasBrandContext]);
 
     // Persist composer draft when state changes (debounced; shorter delay when only media changed so carousel keeps all images after upload)
     const mediaSignature = mediaList.map((m) => m.fileUrl).join('|');
@@ -2760,7 +2781,7 @@ export default function ComposerPage() {
                                         <textarea
                                             value={aiCtaAutomationPrompt}
                                             onChange={(e) => setAiCtaAutomationPrompt(e.target.value)}
-                                            placeholder="e.g. CTA: invite people to comment 'demo' for a 30-day free trial. Keywords: demo, yes. Reply: Thanks! We'll DM you the coupon code."
+                                            placeholder="e.g. Ask people to comment AI and say we will send the link. Keywords: ai. Reply: Thanks, check your DMs for the link."
                                             rows={3}
                                             className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm placeholder:text-neutral-400"
                                         />
