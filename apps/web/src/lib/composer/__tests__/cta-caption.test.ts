@@ -17,6 +17,18 @@ describe('mergeCaptionWithCta', () => {
     const dup = `${cta}\n\n${cta}`;
     expect(dedupeTrailingParagraphs(dup)).toBe(cta);
   });
+
+  it('collapses duplicated CTA blocks to one closing line', () => {
+    const body = `Ready to level up?\n\n${cta}\n\n${cta}`;
+    expect(mergeCaptionWithCta(body, cta)).toBe(`Ready to level up?\n\n${cta}`);
+  });
+
+  it('treats quoted keyword CTA as the same line', () => {
+    const quoted =
+      "Try Agent4Socials for free today! Comment 'AI' and I will send you the link.";
+    const body = `Hook line.\n\n${quoted}\n\n${cta}`;
+    expect(mergeCaptionWithCta(body, cta)).toBe(`Hook line.\n\n${cta}`);
+  });
 });
 
 describe('captionContainsCta', () => {

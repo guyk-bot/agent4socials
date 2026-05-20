@@ -29,7 +29,7 @@ type PlatformDescriptionResult = {
   replyTemplate?: string;
 };
 
-function buildSystemPrompt(brand: BrandFields): string {
+function buildSystemPrompt(brand: BrandFields, options?: { appendCtaSeparately?: boolean }): string {
   const parts: string[] = [
     'You are a social media copywriter. Generate a short, engaging post description that fits the brand.',
   ];
@@ -50,9 +50,17 @@ function buildSystemPrompt(brand: BrandFields): string {
   }
   parts.push(
     'Output only the post caption text, no meta-commentary. Keep it concise and platform-ready (e.g. 1-3 short paragraphs or bullet points).',
-    'Rules: Use plain text only. Do not use markdown (no ** for bold, no * for italic). Do not use em dashes or en dashes; use commas, colons, or " to " instead. Do not include hashtags.',
-    'When Instructions specify a call-to-action (e.g. comment a keyword to receive a link), include that exact CTA in the caption. Do not replace it with a generic "link in bio" or "tap the link" unless the user asked for that.'
+    'Rules: Use plain text only. Do not use markdown (no ** for bold, no * for italic). Do not use em dashes or en dashes; use commas, colons, or " to " instead. Do not include hashtags.'
   );
+  if (!options?.appendCtaSeparately) {
+    parts.push(
+      'When Instructions specify a call-to-action (e.g. comment a keyword to receive a link), include that exact CTA in the caption. Do not replace it with a generic "link in bio" or "tap the link" unless the user asked for that.'
+    );
+  } else {
+    parts.push(
+      'Do not include a call-to-action, link-in-bio line, or comment-for-link line in the caption. The CTA will be added automatically after generation.'
+    );
+  }
   return parts.join('\n\n');
 }
 
@@ -125,7 +133,7 @@ async function generateCtaBundle(
   ctaInstructions: string
 ): Promise<CtaBundle | null> {
   const systemPrompt = [
-    buildSystemPrompt(brand),
+    buildSystemPrompt(brand, { appendCtaSeparately: true }),
     'You configure comment-to-DM automation for social posts.',
     'Respond with JSON only, no markdown.',
   ].join('\n\n');
@@ -182,9 +190,11 @@ async function generateDescriptionForPlatform(
   platform: string,
   options?: { requiredClosingCta?: string; emphasizeInPostCta?: boolean }
 ): Promise<{ content: string }> {
-  const systemPrompt = buildSystemPrompt(brand);
-  const platformHint = platform ? getPlatformHint(platform) : '';
   const requiredClosingCta = options?.requiredClosingCta?.trim();
+  const systemPrompt = buildSystemPrompt(brand, {
+    appendCtaSeparately: !!requiredClosingCta,
+  });
+  const platformHint = platform ? getPlatformHint(platform) : '';
 
   let userContent =
     [topic && `Topic: ${topic}`, prompt && `Instructions: ${prompt}`, platform && `Platform: ${platform}${platformHint ? `. ${platformHint}` : ''}. Do not include any hashtags in the content.`]

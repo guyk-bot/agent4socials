@@ -8,6 +8,27 @@ export function normalizeCtaCompare(s: string): string {
     .trim();
 }
 
+function splitParagraphs(text: string): string[] {
+  return text
+    .split(/\n\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
+
+/** True when a paragraph is the CTA or a near-duplicate of it. */
+export function paragraphMatchesCta(paragraph: string, cta: string): boolean {
+  const line = cta.trim();
+  if (!line) return false;
+  const nPara = normalizeCtaCompare(paragraph);
+  const nCta = normalizeCtaCompare(line);
+  if (!nPara || !nCta) return false;
+  if (nPara === nCta) return true;
+  if (nPara.length >= 20 && nCta.length >= 20) {
+    if (nPara.includes(nCta) || nCta.includes(nPara)) return true;
+  }
+  return false;
+}
+
 /** True when the caption already contains the CTA (exact or as the closing block). */
 export function captionContainsCta(caption: string, cta: string): boolean {
   const line = cta.trim();
@@ -17,12 +38,9 @@ export function captionContainsCta(caption: string, cta: string): boolean {
   if (!nCta) return true;
   if (nBody.includes(nCta)) return true;
 
-  const parts = caption
-    .split(/\n\n+/)
-    .map((p) => p.trim())
-    .filter(Boolean);
+  const parts = splitParagraphs(caption);
   const last = parts[parts.length - 1];
-  if (last && normalizeCtaCompare(last) === nCta) return true;
+  if (last && paragraphMatchesCta(last, line)) return true;
 
   // Opening hook repeated in closing CTA (e.g. "Try X today!" + full CTA line).
   const hook = parts[0];
@@ -34,10 +52,7 @@ export function captionContainsCta(caption: string, cta: string): boolean {
 
 /** Remove consecutive duplicate paragraphs (common when CTA is appended twice). */
 export function dedupeTrailingParagraphs(text: string): string {
-  const parts = text
-    .split(/\n\n+/)
-    .map((p) => p.trim())
-    .filter(Boolean);
+  const parts = splitParagraphs(text);
   while (parts.length >= 2) {
     const last = normalizeCtaCompare(parts[parts.length - 1]);
     const prev = normalizeCtaCompare(parts[parts.length - 2]);
@@ -51,11 +66,22 @@ export function dedupeTrailingParagraphs(text: string): string {
   return parts.join('\n\n');
 }
 
-/** Append CTA once at the end; skip if already present; dedupe repeated closing blocks. */
-export function mergeCaptionWithCta(caption: string, cta: string): string {
-  let body = dedupeTrailingParagraphs(caption.trim());
+/** Drop every paragraph that matches the CTA so we can append it exactly once at the end. */
+export function stripCtaParagraphs(caption: string, cta: string): string {
   const line = cta.trim();
-  if (!line) return body;
-  if (captionContainsCta(body, line)) return body;
+  if (!line) return dedupeTrailingParagraphs(caption.trim());
+  const parts = splitParagraphs(caption);
+  const kept = parts.filter((p) => !paragraphMatchesCta(p, line));
+  return kept.join('\n\n').trim();
+}
+
+/** Append CTA once at the end; strip prior CTA blocks; dedupe repeated closings. */
+export function mergeCaptionWithCta(caption: string, cta: string): string {
+  const line = cta.trim();
+  if (!line) return dedupeTrailingParagraphs(caption.trim());
+
+  let body = stripCtaParagraphs(caption, line);
+  body = dedupeTrailingParagraphs(body);
+  if (!body) return line;
   return dedupeTrailingParagraphs(`${body}\n\n${line}`);
 }
