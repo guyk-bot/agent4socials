@@ -547,17 +547,17 @@ function MessagesConversationList({
                 setTotalUnreadMessages((prev) => Math.max(0, prev - 1));
               }
             }}
-            className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors ${
+            className={`inbox-conversation-row group w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/30 ${
               selectMode && selectedConversationIds.has(c.id) ? 'bg-orange-50 border border-orange-200' :
               selectedConversationId === c.id
-                ? 'sidebar-item-selected border-slate-200/60 dark:bg-neutral-700 dark:border-neutral-600'
+                ? 'sidebar-item-selected'
                 : unreadConversationIds.has(c.id)
                   ? 'bg-orange-50/80 hover:bg-orange-100/80 dark:bg-neutral-900 dark:hover:bg-neutral-700'
                   : 'hover:bg-neutral-50 dark:hover:bg-neutral-700'
             }`}
           >
             {selectMode ? (
-              <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 ${selectedConversationIds.has(c.id) ? 'bg-[var(--button)] border-[var(--button)]' : 'border-neutral-300'}`}>
+              <motion.div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 ${selectedConversationIds.has(c.id) ? 'bg-[var(--button)] border-[var(--button)]' : 'border-neutral-300 dark:border-neutral-600'}`}>
                 {selectedConversationIds.has(c.id) && <Check size={12} className="text-white" />}
               </div>
             ) : (
