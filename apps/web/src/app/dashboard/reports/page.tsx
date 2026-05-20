@@ -260,8 +260,9 @@ export default function ReportsPage() {
               <ul className="space-y-1.5 text-sm text-neutral-600 dark:text-neutral-400">
                 {[
                   '4 KPI cards with period-on-period growth',
-                  'Top 3 posts with engagement stats',
-                  'Impressions and engagement by platform',
+                  'Top 3 posts with likes, comments, shares, views',
+                  'Impressions by platform bar chart',
+                  'Best posting times heatmap (UTC)',
                   'Branded PDF, orange and white design',
                 ].map((f) => (
                   <li key={f} className="flex items-start gap-2">
@@ -319,12 +320,12 @@ export default function ReportsPage() {
             {showFeatures === 'advanced' && (
               <ul className="space-y-1.5 text-sm text-neutral-600 dark:text-neutral-400">
                 {[
-                  'Everything in Simple Report',
-                  'Per-platform metrics table (views, likes, comments, shares)',
-                  'Audience growth trend line chart',
-                  'Content type breakdown: video vs. image vs. carousel',
-                  'AI-generated recommendations (3 to 5 insights)',
-                  'Multi-page format (3 to 5 pages)',
+                  'Everything in Simple Report, plus executive summary',
+                  'Top 5 posts and per-platform table with engagement rate',
+                  'Daily engagement trend and audience growth charts',
+                  'Content type breakdown and top hashtag pillars',
+                  'Engagement mix (likes vs comments vs shares)',
+                  'AI recommendations (5 insights), multi-page PDF',
                 ].map((f) => (
                   <li key={f} className="flex items-start gap-2">
                     <CheckCircle2 size={13} className="text-orange-500 mt-0.5 shrink-0" />
