@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import {
   MessageCircle,
@@ -69,7 +69,13 @@ import {
   pruneStalePendingUnread,
   reconcileInboxReadStateWithConversations,
 } from '@/lib/inbox/unread-count';
-import { mergeStableKeyedList } from '@/lib/inbox/merge-inbox-lists';
+import { mergeInboxSenderRows, mergeStableKeyedList } from '@/lib/inbox/merge-inbox-lists';
+import {
+  readInboxCommentsClientCache,
+  writeInboxCommentsClientCache,
+  readInboxConversationsClientCache,
+  writeInboxConversationsClientCache,
+} from '@/lib/inbox/inbox-client-cache';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
@@ -798,6 +804,8 @@ function InboxPage() {
   const conversationsLoadedRef = useRef(false);
   const commentsEverLoadedRef = useRef(false);
   const commentsStableRef = useRef<PostComment[]>([]);
+  const conversationsStableRef = useRef<Array<Conversation & { platform?: string; messageAccountId?: string }>>([]);
+  const inboxRefreshInFlightRef = useRef(false);
   // Stable ref so effects that call appData setters don't list appData as a dep
   // (which would cause infinite re-run loops whenever context state updates).
   const appDataRef = useRef(appData);
@@ -1868,109 +1876,198 @@ function InboxPage() {
       .catch(() => setNotifications({ comments: 0, messages: 0 }));
   }, [selectedPlatform, inboxMode, appData]);
 
-  // Refresh Instagram/Facebook names and comments from Meta when Inbox opens (once per visit).
-  useEffect(() => {
-    if (pathname !== '/dashboard/inbox' || !user?.id) return;
-    const metaAccounts = effectiveAccounts.filter(
-      (a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK'
-    );
-    if (metaAccounts.length === 0) return;
-    void (async () => {
-      for (const acc of metaAccounts) {
-        try {
-          const [convRes, commentsRes] = await Promise.all([
-            api.get<{ conversations?: Conversation[] }>(
-              `/social/accounts/${acc.id}/conversations?fullEnrich=1&fresh=1`,
-              { timeout: 120_000 }
-            ),
-            api.get<{ comments?: PostComment[]; metaThrottled?: boolean }>(
-              `/social/accounts/${acc.id}/comments?refresh=1`,
-              { timeout: 120_000 }
-            ),
-          ]);
-          const list = convRes.data?.conversations ?? [];
-          if (list.length > 0) {
-            appDataRef.current?.setConversationsForAccount(acc.id, list);
-          }
-          const commentList = commentsRes.data?.comments ?? [];
-          if (commentList.length > 0 && !commentsRes.data?.metaThrottled) {
-            appDataRef.current?.setCommentsForAccount(acc.id, commentList);
-          }
-        } catch {
-          /* keep cached list */
-        }
-      }
-    })();
-  }, [pathname, user?.id, effectiveAccounts.map((a) => a.id).join(',')]);
+  const applyCommentsToUi = useCallback(
+    (incoming: PostComment[]) => {
+      const seed =
+        commentsStableRef.current.length > 0
+          ? commentsStableRef.current
+          : user?.id
+            ? readInboxCommentsClientCache<PostComment>(user.id)
+            : [];
+      const stable = mergeStableKeyedList(seed, incoming, (c) => c.commentId, (old, row) => ({
+        ...old,
+        ...row,
+        authorPictureUrl: row.authorPictureUrl ?? old?.authorPictureUrl ?? null,
+        authorName: row.authorName?.trim() ? row.authorName : old?.authorName ?? row.authorName,
+      }));
+      commentsStableRef.current = stable;
+      if (user?.id) writeInboxCommentsClientCache(user.id, stable);
+      setComments(stable);
+      if (stable.length > 0) commentsEverLoadedRef.current = true;
+      setCommentsLoading(false);
+    },
+    [user?.id]
+  );
 
-  // Conversations: read AppData cache only. Background sync runs every 2 min in AppDataContext.
-  useEffect(() => {
-    const dmPlatforms = connectedPlatforms
-      .filter((p) => DM_THREAD_PLATFORM_IDS.has(p.id))
-      .map((p) => p.id);
-
-    if (dmPlatforms.length === 0) {
-      if (conversations.length === 0) {
-        setConversations([]);
-        setConversationsLoading(false);
-      }
-      setConversationsError(null);
-      setConversationsErrorsByPlatform({});
-      setConversationsHintsByPlatform({});
-      setConversationsDebug(null);
-      return;
-    }
-
-    const merge: Array<Conversation & { platform: string; messageAccountId: string }> = [];
-    for (const platform of dmPlatforms) {
-      const account = effectiveAccounts.find((a) => a.platform === platform);
-      if (!account) continue;
-      const fromCacheList = (appData?.getConversations(account.id) ?? []) as Conversation[];
-      for (const c of fromCacheList) {
-        merge.push({ ...c, platform, messageAccountId: account.id });
-      }
-      if (fromCacheList.length > 0 && user?.id) {
-        const initialized = getInboxInitializedAccountIdsForConversations(user.id);
-        if (!initialized.has(account.id)) {
-          const ids = fromCacheList.map((c) => c.id);
-          markConversationsAsRead(ids, user.id);
-          fromCacheList.forEach((c) => {
-            const count = c.messageCount;
-            if (typeof count === 'number') setConversationLastReadCount(c.id, count, user.id);
-          });
-          addInboxInitializedAccountForConversations(account.id, user.id);
-        }
-      }
-    }
-
-    const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
-    const withPictures = user?.id ? mergeSenderPicturesIntoConversations(sorted, user.id) : sorted;
-    setConversations((prev) => {
+  const applyConversationsToUi = useCallback(
+    (incoming: Array<Conversation & { platform: string; messageAccountId: string }>) => {
+      const seed =
+        conversationsStableRef.current.length > 0
+          ? conversationsStableRef.current
+          : user?.id
+            ? readInboxConversationsClientCache<Conversation & { platform: string; messageAccountId: string }>(
+                user.id
+              )
+            : [];
+      const sorted = incoming.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
+      const withPictures = user?.id ? mergeSenderPicturesIntoConversations(sorted, user.id) : sorted;
       const stable = mergeStableKeyedList(
-        prev as Array<Conversation & { platform?: string; messageAccountId?: string }>,
-        withPictures,
-        (c) => `${(c as Conversation & { platform?: string }).platform ?? ''}:${c.id}`,
-        (old, row) => ({ ...old, ...row })
+        seed,
+        withPictures as Array<Conversation & { platform?: string; messageAccountId?: string }>,
+        (c) => `${c.platform ?? ''}:${c.id}`,
+        (old, row) => ({
+          ...old,
+          ...row,
+          senders: mergeInboxSenderRows(old?.senders, row.senders),
+        })
       );
-      return stable;
-    });
-    conversationsLoadedRef.current = sorted.length > 0;
-    setConversationsLoading(sorted.length === 0 && !conversationsLoadedRef.current);
-    setConversationsErrorsByPlatform({});
-    setConversationsHintsByPlatform({});
-    setConversationsDebug(null);
-    setConversationsError(
-      sorted.length === 0
-        ? 'Inbox syncs automatically every 2 minutes. Your conversations will appear after the next sync.'
-        : null
-    );
-  }, [
-    messageFetchPlatformIds.join(','),
-    effectiveAccounts.map((a) => a.id).join(','),
-    user?.id,
-    connectedPlatforms.map((p) => p.id).join(','),
-    appData?.conversationsByAccountId,
-  ]);
+      conversationsStableRef.current = stable;
+      if (user?.id) writeInboxConversationsClientCache(user.id, stable);
+      setConversations(stable);
+      conversationsLoadedRef.current = stable.length > 0;
+      setConversationsLoading(false);
+      setConversationsError(
+        stable.length === 0
+          ? 'Inbox syncs automatically every 2 minutes. Your conversations will appear after the next sync.'
+          : null
+      );
+    },
+    [user?.id]
+  );
+
+  const refreshInboxFromServer = useCallback(
+    async (opts?: { liveMeta?: boolean }) => {
+      if (!user?.id || effectiveAccounts.length === 0 || inboxRefreshInFlightRef.current) return;
+      inboxRefreshInFlightRef.current = true;
+      try {
+        const boot = await api.get<{
+          commentsByAccountId?: Record<string, PostComment[]>;
+          conversationsByAccountId?: Record<string, Conversation[]>;
+        }>('/inbox/bootstrap', { timeout: 60_000 });
+
+        const commentRows: PostComment[] = [];
+        const convRows: Array<Conversation & { platform: string; messageAccountId: string }> = [];
+        for (const acc of effectiveAccounts) {
+          const cs = boot.data?.commentsByAccountId?.[acc.id] ?? [];
+          commentRows.push(
+            ...cs.map((c) => ({ ...c, accountId: c.accountId ?? acc.id, platform: c.platform ?? acc.platform }))
+          );
+          const cv = boot.data?.conversationsByAccountId?.[acc.id] ?? [];
+          for (const c of cv) {
+            convRows.push({
+              ...c,
+              platform: acc.platform,
+              messageAccountId: acc.id,
+            });
+          }
+        }
+        if (commentRows.length > 0) {
+          applyCommentsToUi(commentRows);
+          for (const acc of effectiveAccounts) {
+            const perAcc = commentRows.filter((c) => c.accountId === acc.id);
+            if (perAcc.length) appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
+          }
+        }
+        if (convRows.length > 0) {
+          applyConversationsToUi(convRows);
+          for (const acc of effectiveAccounts) {
+            const list = boot.data?.conversationsByAccountId?.[acc.id];
+            if (list?.length) appDataRef.current?.setConversationsForAccount(acc.id, list);
+          }
+          if (user.id) {
+            for (const acc of effectiveAccounts) {
+              if (!DM_THREAD_PLATFORM_IDS.has(acc.platform)) continue;
+              const list = boot.data?.conversationsByAccountId?.[acc.id] ?? [];
+              if (list.length > 0) {
+                const initialized = getInboxInitializedAccountIdsForConversations(user.id);
+                if (!initialized.has(acc.id)) {
+                  markConversationsAsRead(list.map((c) => c.id), user.id);
+                  list.forEach((c) => {
+                    if (typeof c.messageCount === 'number') {
+                      setConversationLastReadCount(c.id, c.messageCount, user.id);
+                    }
+                  });
+                  addInboxInitializedAccountForConversations(acc.id, user.id);
+                }
+              }
+            }
+          }
+        }
+
+        if (opts?.liveMeta) {
+          const metaAccounts = effectiveAccounts.filter(
+            (a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK'
+          );
+          for (const acc of metaAccounts) {
+            try {
+              await Promise.all([
+                api.get(`/social/accounts/${acc.id}/conversations?fullEnrich=1&fresh=1`, { timeout: 120_000 }),
+                api.get(`/social/accounts/${acc.id}/comments?refresh=1`, { timeout: 120_000 }),
+              ]);
+            } catch {
+              /* keep bootstrap data */
+            }
+          }
+          const boot2 = await api.get<{
+            commentsByAccountId?: Record<string, PostComment[]>;
+            conversationsByAccountId?: Record<string, Conversation[]>;
+          }>('/inbox/bootstrap', { timeout: 60_000 });
+          const commentRows2: PostComment[] = [];
+          const convRows2: Array<Conversation & { platform: string; messageAccountId: string }> = [];
+          for (const acc of effectiveAccounts) {
+            const cs = boot2.data?.commentsByAccountId?.[acc.id] ?? [];
+            commentRows2.push(
+              ...cs.map((c) => ({
+                ...c,
+                accountId: c.accountId ?? acc.id,
+                platform: c.platform ?? acc.platform,
+              }))
+            );
+            const cv = boot2.data?.conversationsByAccountId?.[acc.id] ?? [];
+            for (const c of cv) {
+              convRows2.push({ ...c, platform: acc.platform, messageAccountId: acc.id });
+            }
+          }
+          if (commentRows2.length > 0) {
+            applyCommentsToUi(commentRows2);
+            for (const acc of effectiveAccounts) {
+              const perAcc = commentRows2.filter((c) => c.accountId === acc.id);
+              if (perAcc.length) appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
+            }
+          }
+          if (convRows2.length > 0) {
+            applyConversationsToUi(convRows2);
+            for (const acc of effectiveAccounts) {
+              const list = boot2.data?.conversationsByAccountId?.[acc.id];
+              if (list?.length) appDataRef.current?.setConversationsForAccount(acc.id, list);
+            }
+          }
+        }
+      } finally {
+        inboxRefreshInFlightRef.current = false;
+      }
+    },
+    [user?.id, effectiveAccounts, applyCommentsToUi, applyConversationsToUi]
+  );
+
+  useLayoutEffect(() => {
+    if (pathname !== '/dashboard/inbox' || !user?.id) return;
+    const cachedComments = readInboxCommentsClientCache<PostComment>(user.id);
+    if (cachedComments.length > 0) applyCommentsToUi(cachedComments);
+    const cachedConvs = readInboxConversationsClientCache<
+      Conversation & { platform: string; messageAccountId: string }
+    >(user.id);
+    if (cachedConvs.length > 0) applyConversationsToUi(cachedConvs);
+  }, [pathname, user?.id, applyCommentsToUi, applyConversationsToUi]);
+
+  useEffect(() => {
+    if (pathname !== '/dashboard/inbox' || !user?.id || effectiveAccounts.length === 0) return;
+    void refreshInboxFromServer({ liveMeta: true });
+    const intervalId = setInterval(() => {
+      void refreshInboxFromServer({ liveMeta: false });
+    }, INBOX_SYSTEM_SYNC_MS);
+    return () => clearInterval(intervalId);
+  }, [pathname, user?.id, effectiveAccounts.map((a) => a.id).join(','), refreshInboxFromServer]);
 
   // Messages mode: YouTube/TikTok have no DM strip; switch to a message-capable platform.
   useEffect(() => {
@@ -2004,24 +2101,8 @@ function InboxPage() {
     [connectedPlatforms.map((p) => p.id).join(',')]
   );
 
-  const commentCacheSnapshot = useMemo(() => {
-    const parts: string[] = [];
-    for (const platform of commentCachePlatforms) {
-      const account = effectiveAccounts.find((a) => a.platform === platform);
-      if (!account) continue;
-      const list = appData?.getComments(account.id) ?? [];
-      parts.push(
-        `${account.id}:${list.map((c) => `${c.commentId}:${c.authorName ?? ''}:${c.authorPictureUrl ? '1' : '0'}`).join(',')}`
-      );
-    }
-    return parts.join('|');
-  }, [commentCachePlatforms.join(','), effectiveAccounts.map((a) => a.id).join(','), appData?.commentsByAccountId]);
-
-  const visibleComments = useMemo(() => {
-    const base = commentsStableRef.current.length > 0 ? commentsStableRef.current : comments;
-    if (selectedPlatforms.length === 0) return base;
-    return base.filter((c) => !c.platform || selectedPlatforms.includes(c.platform));
-  }, [comments, selectedPlatforms.join(','), commentCacheSnapshot]);
+  /** Comments tab shows every cached comment (platform icons filter messages, not comments). */
+  const displayComments = comments;
 
   const visibleConversations = useMemo(() => {
     if (selectedPlatforms.length === 0) return conversations;
@@ -2035,48 +2116,6 @@ function InboxPage() {
     const next = commentsSupportedPlatforms[0] ?? null;
     if (next) setSelectedPlatform(next);
   }, [inboxMode, selectedPlatform, commentsSupportedPlatforms.join(',')]);
-
-  // Comments: hydrate from AppData/DB cache; never clear after first load.
-  useEffect(() => {
-    if (commentCachePlatforms.length === 0) {
-      setCommentsError(null);
-      return;
-    }
-
-    const merge: PostComment[] = [];
-    for (const platform of commentCachePlatforms) {
-      const account = effectiveAccounts.find((a) => a.platform === platform);
-      if (!account) continue;
-      const fromCacheList = appData?.getComments(account.id) ?? [];
-      merge.push(
-        ...fromCacheList.map(
-          (c) => ({ ...c, accountId: (c as PostComment).accountId ?? account.id }) as PostComment
-        )
-      );
-    }
-
-    const sorted = merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    const stable = mergeStableKeyedList(
-      commentsStableRef.current,
-      sorted,
-      (c) => c.commentId,
-      (old, row) => ({
-        ...old,
-        ...row,
-        authorPictureUrl: row.authorPictureUrl ?? old?.authorPictureUrl ?? null,
-        authorName: row.authorName?.trim() ? row.authorName : old?.authorName ?? row.authorName,
-      })
-    );
-    commentsStableRef.current = stable;
-    setComments(stable);
-    if (stable.length > 0) commentsEverLoadedRef.current = true;
-    setCommentsLoading(false);
-    setCommentsError(
-      stable.length === 0 && !commentsEverLoadedRef.current
-        ? 'Comments sync automatically every 2 minutes. They will appear after the next sync.'
-        : null
-    );
-  }, [commentCachePlatforms.join(','), effectiveAccounts.map((a) => a.id).join(','), commentCacheSnapshot]);
 
   // Track unread comment ids. When we first load comments for an account, mark them all as read so we only highlight new notifications after connection.
   useEffect(() => {
@@ -2396,7 +2435,7 @@ function InboxPage() {
       );
     }
     if (inboxMode === 'comments') {
-      if (commentsLoading && visibleComments.length === 0) {
+      if (commentsLoading && displayComments.length === 0) {
         return (
           <div className="p-6 flex flex-col items-center justify-center gap-3">
             <Loader2 size={32} className="text-orange-500 animate-spin" />
@@ -2404,7 +2443,7 @@ function InboxPage() {
           </div>
         );
       }
-      if (commentsError && visibleComments.length === 0) {
+      if (commentsError && displayComments.length === 0) {
         return (
           <div className="p-4 space-y-3">
             <div className="rounded-xl border-2 border-amber-200 bg-amber-50 px-4 py-4">
@@ -2447,7 +2486,7 @@ function InboxPage() {
           </div>
         );
       }
-      if (visibleComments.length === 0) {
+      if (displayComments.length === 0) {
         return (
           <div className="p-6 text-center">
             <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
@@ -2461,9 +2500,9 @@ function InboxPage() {
         <>
           <div className="divide-y divide-neutral-100">
             {(() => {
-              const topLevelOnly = visibleComments.filter((c) => !c.parentCommentId);
+              const topLevelOnly = displayComments.filter((c) => !c.parentCommentId);
               const hasRepliedByParent = new Set(
-                visibleComments.filter((r) => r.isFromMe && r.parentCommentId).map((r) => r.parentCommentId)
+                displayComments.filter((r) => r.isFromMe && r.parentCommentId).map((r) => r.parentCommentId)
               );
               const filtered = topLevelOnly
                 .filter((c) =>

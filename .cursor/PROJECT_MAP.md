@@ -26,7 +26,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | Dashboard home, posts table, sync button, insights loading/cache | `apps/web/src/app/dashboard/page.tsx`, `apps/web/src/context/AppDataContext.tsx`, `apps/web/src/lib/dashboard-insights-session-cache.ts` |
 | Account, brands, team invites (localStorage) | `apps/web/src/app/dashboard/account/page.tsx`, `apps/web/src/components/account/BrandTeamMembersSection.tsx`, `apps/web/src/components/account/ConnectedAccountsPanel.tsx` |
 | OAuth connect, accounts CRUD | `apps/web/src/app/api/social/oauth/`, `apps/web/src/app/api/social/accounts/`, `ConnectView.tsx` |
-| Inbox | `apps/web/src/app/dashboard/inbox/page.tsx`, `api/social/accounts/[id]/conversations/`, `comments/` |
+| Inbox | `apps/web/src/app/dashboard/inbox/page.tsx`, `api/inbox/bootstrap/route.ts`, `api/social/accounts/[id]/conversations/`, `comments/`, `lib/inbox/inbox-client-cache.ts`, `lib/inbox/enrich-conversations-from-messages.ts` |
 | Auth, shell layout | `AuthContext.tsx`, `AuthenticatedShell.tsx`, `middleware.ts`, `app/api/auth/` |
 | Media upload / proxy (R2) | `apps/web/src/app/api/media/`, `instagram-media-r2.ts` |
 | Prisma DB access | `apps/web/prisma/schema.prisma`, `apps/web/src/lib/db.ts` |

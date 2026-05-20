@@ -234,33 +234,7 @@ export async function pollInboxNotifications(args: {
       await new Promise((r) => setTimeout(r, 800));
     }
 
-    if (COMMENT_PLATFORMS.has(acc.platform)) {
-      try {
-        const existing = getComments(acc.id) ?? [];
-        // Live Meta fan-out only when usage allows and we have no DB rows yet.
-        if (!metaBlocked && existing.length === 0) {
-          try {
-            await api.get<{ comments?: CachedComment[] }>(
-              `/social/accounts/${acc.id}/comments?refresh=1`,
-              { timeout: 90_000 }
-            );
-          } catch {
-            /* fall through to DB cache */
-          }
-        }
-        const res = await api.get<{ comments?: CachedComment[]; error?: string }>(
-          `/social/accounts/${acc.id}/comments?cacheOnly=1`,
-          { timeout: 30_000 }
-        );
-        if (res.data?.error) continue;
-        const incoming = res.data?.comments ?? [];
-        if (incoming.length === 0 && existing.length > 0) continue;
-        onComments(acc.id, incoming.length > 0 ? incoming : existing);
-      } catch {
-        /* skip account */
-      }
-      await new Promise((r) => setTimeout(r, 800));
-    }
+    // Comments are loaded by Inbox UI + DB cache only (avoids empty Meta throttle wiping the list).
   }
 
   if (typeof sessionStorage !== 'undefined') {

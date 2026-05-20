@@ -728,7 +728,18 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           ) {
             try {
               const r = await api.get<{ comments?: CachedComment[] }>(`/social/accounts/${acc.id}/comments`);
-              if (!cancelled && shouldApplyPhase2Write() && r.data) setCommentsByAccountId((prev) => ({ ...prev, [acc.id]: r.data.comments ?? [] }));
+              if (!cancelled && shouldApplyPhase2Write() && r.data?.comments?.length) {
+                setCommentsByAccountId((prev) => {
+                  const existing = prev[acc.id] ?? [];
+                  const merged = mergeStableKeyedList(
+                    existing,
+                    r.data!.comments!,
+                    (c) => c.commentId,
+                    (old, row) => ({ ...old, ...row })
+                  );
+                  return { ...prev, [acc.id]: merged };
+                });
+              }
             } catch { /* skip */ }
           }
           if (cancelled) break;

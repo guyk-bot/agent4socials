@@ -86,7 +86,8 @@ export async function GET(
   const deltaMode = searchParams.get('delta') === '1' || searchParams.get('delta') === 'true';
   const cacheOnly = searchParams.get('cacheOnly') === '1' || searchParams.get('cacheOnly') === 'true';
   const refreshRequested = searchParams.get('refresh') === '1' || searchParams.get('refresh') === 'true';
-  const refresh = refreshRequested && !shouldSkipMetaProfileEnrichment();
+  const forceLive = refreshRequested || searchParams.get('forceLive') === '1';
+  const refresh = refreshRequested;
   const sinceParam = searchParams.get('since');
   const sinceIso = sinceParam && !Number.isNaN(Date.parse(sinceParam)) ? new Date(sinceParam).toISOString() : null;
 
@@ -130,6 +131,7 @@ export async function GET(
 
   const platform = account.platform;
   const metaThrottle =
+    !forceLive &&
     (platform === 'INSTAGRAM' || platform === 'FACEBOOK') &&
     (isMetaNonCriticalThrottled() ||
       shouldSkipMetaProfileEnrichment() ||

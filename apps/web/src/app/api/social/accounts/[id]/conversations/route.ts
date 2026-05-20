@@ -35,6 +35,7 @@ import {
   setInboxConversationListInDb,
   type InboxConversationListItem,
 } from '@/lib/inbox/inbox-db-cache';
+import { enrichConversationListFromMessageCache } from '@/lib/inbox/enrich-conversations-from-messages';
 
 const baseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
@@ -144,7 +145,8 @@ export async function GET(
     const cached = await getInboxConversationListFromDb(id);
     if (cached && cached.length > 0) {
       const platform = account.platform === 'INSTAGRAM' ? 'instagram' : 'facebook';
-      const merged = await mergeInboxProfileCacheIntoConversations(platform, cached);
+      let merged = await mergeInboxProfileCacheIntoConversations(platform, cached);
+      merged = await enrichConversationListFromMessageCache(id, platform, merged);
       return NextResponse.json({ conversations: merged, fromCache: true });
     }
     return NextResponse.json({ conversations: [] });
@@ -655,10 +657,9 @@ export async function GET(
   async function returnCachedConversations(reason: string): Promise<NextResponse> {
     const cached = await getInboxConversationListFromDb(id);
     if (cached && cached.length > 0) {
-      const merged = await mergeInboxProfileCacheIntoConversations(
-        isInstagram ? 'instagram' : 'facebook',
-        cached
-      );
+      const profilePlatform = isInstagram ? 'instagram' : 'facebook';
+      let merged = await mergeInboxProfileCacheIntoConversations(profilePlatform, cached);
+      merged = await enrichConversationListFromMessageCache(id, profilePlatform, merged);
       return NextResponse.json({
         conversations: merged,
         fromCache: true,
@@ -1128,9 +1129,15 @@ export async function GET(
           : 'No Instagram conversations returned. Open Meta App Dashboard and ensure instagram_manage_messages is approved for your Page, then reconnect Facebook and Instagram.'
         : undefined;
 
-    if (isInstagram && list.length > 0) {
+    if (list.length > 0 && account.platform !== 'TWITTER') {
+      const profilePlatform = isInstagram ? 'instagram' : 'facebook';
       list = (await mergeInboxProfileCacheIntoConversations(
-        'instagram',
+        profilePlatform,
+        list as InboxConversationListItem[]
+      )) as typeof list;
+      list = (await enrichConversationListFromMessageCache(
+        account.id,
+        profilePlatform,
         list as InboxConversationListItem[]
       )) as typeof list;
     }
