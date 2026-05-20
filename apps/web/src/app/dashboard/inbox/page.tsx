@@ -55,7 +55,10 @@ import {
   mergeSenderPicturesIntoConversations,
   setInboxSenderPicture,
 } from '@/lib/inbox/inbox-sender-pictures';
-import { getPendingUnreadCommentIds } from '@/lib/inbox/inbox-badge-pending';
+import {
+  getPendingUnreadCommentIds,
+  getPendingUnreadConversationIds,
+} from '@/lib/inbox/inbox-badge-pending';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
@@ -451,6 +454,20 @@ function InboxAvatar({
   );
 }
 
+function inboxSenderDisplayName(
+  sender: { name?: string; username?: string; id?: string } | undefined,
+  platform?: string
+): string {
+  const username = sender?.username?.trim();
+  if (username) return username.startsWith('@') ? username : `@${username}`;
+  const name = sender?.name?.trim();
+  if (name) return name;
+  if (platform === 'TWITTER') return 'X user';
+  if (platform === 'INSTAGRAM') return 'Instagram user';
+  if (sender?.id) return `User …${sender.id.slice(-6)}`;
+  return 'Unknown';
+}
+
 /** Orange dot for inbox rows tied to a new notification (sits on the avatar edge, not clipped inside). */
 function InboxNewDot({ className = '' }: { className?: string }) {
   return (
@@ -489,6 +506,7 @@ function MessagesConversationList({
   selectedConversationIds,
   selectedConversationId,
   unreadConversationIds,
+  pendingUnreadConversationIds,
   unreadCountByConversationId,
   setSelectedPlatform,
   setSelectedConversationId,
@@ -510,6 +528,7 @@ function MessagesConversationList({
   selectedConversationIds: Set<string>;
   selectedConversationId: string | null;
   unreadConversationIds: Set<string>;
+  pendingUnreadConversationIds: Set<string>;
   unreadCountByConversationId: Record<string, number>;
   setSelectedPlatform: (p: string | null) => void;
   setSelectedConversationId: (id: string | null) => void;
@@ -526,14 +545,19 @@ function MessagesConversationList({
   const filtered = conversations
     .filter((c) => {
       if (inboxFilter === 'all') return true;
-      if (inboxFilter === 'read') return !unreadConversationIds.has(c.id);
-      if (inboxFilter === 'unread') return unreadConversationIds.has(c.id);
+      if (inboxFilter === 'read') {
+        return !unreadConversationIds.has(c.id) && !pendingUnreadConversationIds.has(c.id);
+      }
+      if (inboxFilter === 'unread') {
+        return unreadConversationIds.has(c.id) || pendingUnreadConversationIds.has(c.id);
+      }
       return true;
     })
     .filter((c) => !searchQuery || (c.senders?.[0]?.username ?? c.senders?.[0]?.name ?? c.id).toLowerCase().includes(searchQuery.toLowerCase()))
     .sort((a, b) => {
       const unreadDiff =
-        (unreadConversationIds.has(b.id) ? 1 : 0) - (unreadConversationIds.has(a.id) ? 1 : 0);
+        (unreadConversationIds.has(b.id) || pendingUnreadConversationIds.has(b.id) ? 1 : 0) -
+        (unreadConversationIds.has(a.id) || pendingUnreadConversationIds.has(a.id) ? 1 : 0);
       if (unreadDiff !== 0) return unreadDiff;
       return (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '');
     });
@@ -541,15 +565,15 @@ function MessagesConversationList({
     <div className="p-2 space-y-0">
       {filtered.map((c) => {
         const firstSender = c.senders?.[0];
-        const rawName = firstSender?.username ?? firstSender?.name;
         const convPlatform = (c as Conversation & { platform?: string }).platform ?? (messageInboxPlatformIds.length === 1 ? messageInboxPlatformIds[0] : undefined);
-        const name = rawName && rawName.trim() ? rawName : (convPlatform === 'TWITTER' ? 'X (Twitter) user' : 'Unknown');
-        const pictureUrl = resolveConversationListAvatarUrl(c, user?.id, threadPictureByConvId);
-        const initials = (name === 'X (Twitter) user' ? 'X' : name).slice(0, 2).toUpperCase();
         const platform = convPlatform ?? (c as Conversation & { platform?: string }).platform;
+        const name = inboxSenderDisplayName(firstSender, platform);
+        const pictureUrl = resolveConversationListAvatarUrl(c, user?.id, threadPictureByConvId);
+        const initials = (name.startsWith('@') ? name.slice(1) : name).slice(0, 2).toUpperCase();
         const isSelected = selectedConversationIds.has(c.id);
         const isActiveConv = selectedConversationId === c.id;
-        const isUnread = unreadConversationIds.has(c.id);
+        const isUnread =
+          unreadConversationIds.has(c.id) || pendingUnreadConversationIds.has(c.id);
         const rowCls = [
           'inbox-conversation-row group w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/30',
           selectMode && isSelected
@@ -619,7 +643,10 @@ function MessagesConversationList({
             </div>
             <div className="shrink-0 flex flex-col items-end gap-1">
               {(() => {
-                const unreadN = unreadCountByConversationId[c.id] ?? 0;
+                const unreadN = Math.max(
+                  unreadCountByConversationId[c.id] ?? 0,
+                  pendingUnreadConversationIds.has(c.id) ? 1 : 0
+                );
                 if (unreadN <= 0) return null;
                 return (
                   <span
@@ -631,7 +658,8 @@ function MessagesConversationList({
                 );
               })()}
               {c.updatedTime && <span className="text-xs text-neutral-400">{new Date(c.updatedTime).toLocaleDateString()}</span>}
-              {(unreadCountByConversationId[c.id] ?? 0) === 0 && (
+              {(unreadCountByConversationId[c.id] ?? 0) === 0 &&
+                !pendingUnreadConversationIds.has(c.id) && (
                 <Check
                   size={14}
                   className="inbox-row-check shrink-0 text-neutral-300 dark:text-neutral-600 group-hover:text-neutral-500 dark:group-hover:text-neutral-400 transition-colors pointer-events-none"
@@ -954,12 +982,13 @@ function InboxPage() {
     if (igAvatarBackfillRef.current || inboxMode !== 'messages' || conversationsLoading) return;
     const igAcc = effectiveAccounts.find((a) => a.platform === 'INSTAGRAM');
     if (!igAcc) return;
-    const needsAvatar = conversations.some(
-      (c) =>
-        c.platform === 'INSTAGRAM' &&
-        c.messageAccountId === igAcc.id &&
-        !(c.senders?.[0]?.pictureUrl ?? '').trim()
-    );
+    const needsAvatar = conversations.some((c) => {
+      if (c.platform !== 'INSTAGRAM' || c.messageAccountId !== igAcc.id) return false;
+      const s = c.senders?.[0];
+      const missingPicture = !(s?.pictureUrl ?? '').trim();
+      const missingName = !(s?.username?.trim() || s?.name?.trim());
+      return missingPicture || missingName;
+    });
     if (!needsAvatar) return;
     igAvatarBackfillRef.current = true;
     void api
@@ -981,7 +1010,15 @@ function InboxPage() {
             byKey.set(
               key,
               existing
-                ? { ...existing, senders: c.senders?.length ? c.senders : existing.senders }
+                ? {
+                    ...existing,
+                    senders: (c.senders ?? []).map((s, i) => ({
+                      ...s,
+                      pictureUrl: s.pictureUrl ?? existing.senders?.[i]?.pictureUrl ?? null,
+                      name: s.name ?? existing.senders?.[i]?.name,
+                      username: s.username ?? existing.senders?.[i]?.username,
+                    })),
+                  }
                 : (c as Conversation & { platform: string; messageAccountId: string })
             );
           }
@@ -1018,6 +1055,16 @@ function InboxPage() {
     return result;
   }, [conversations]);
 
+  const pendingUnreadCommentIds = useMemo(
+    () => getPendingUnreadCommentIds(user?.id ?? ''),
+    [user?.id]
+  );
+
+  const pendingUnreadConversationIds = useMemo(
+    () => getPendingUnreadConversationIds(user?.id ?? ''),
+    [user?.id]
+  );
+
   /** Per-conversation unread message counts (for row badges). */
   const unreadCountByConversationId = useMemo(() => {
     const lastRead = getConversationLastReadCounts(user?.id);
@@ -1026,12 +1073,12 @@ function InboxPage() {
       if (typeof c.messageCount === 'number') {
         const n = Math.max(0, c.messageCount - (lastRead[c.id] ?? 0));
         if (n > 0) map[c.id] = n;
-      } else if (unreadConversationIds.has(c.id)) {
+      } else if (unreadConversationIds.has(c.id) || pendingUnreadConversationIds.has(c.id)) {
         map[c.id] = 1;
       }
     }
     return map;
-  }, [conversations, unreadConversationIds, user?.id]);
+  }, [conversations, unreadConversationIds, pendingUnreadConversationIds, user?.id]);
 
   /** Per-platform unread DM message totals (platform filter badges + summary). */
   const unreadMessagesByPlatform = useMemo(() => {
@@ -1055,10 +1102,9 @@ function InboxPage() {
     for (const c of conversations) {
       const count = unreadCountByConversationId[c.id] ?? 0;
       if (count <= 0) continue;
-      const rawName = c.senders?.[0]?.username ?? c.senders?.[0]?.name;
       const platform = c.platform ?? 'UNKNOWN';
       rows.push({
-        name: rawName?.trim() || (platform === 'TWITTER' ? 'X user' : 'Unknown'),
+        name: inboxSenderDisplayName(c.senders?.[0], platform),
         platform,
         count,
       });
@@ -1066,11 +1112,6 @@ function InboxPage() {
     rows.sort((a, b) => b.count - a.count);
     return rows;
   }, [conversations, unreadCountByConversationId]);
-
-  const pendingUnreadCommentIds = useMemo(
-    () => getPendingUnreadCommentIds(user?.id ?? ''),
-    [user?.id]
-  );
 
   const isCommentNewNotification = useCallback(
     (commentId: string) =>
@@ -1889,6 +1930,7 @@ function InboxPage() {
           convParams.push('fresh=1');
           forceFreshConversationsRef.current = false;
         }
+        convParams.push('includeMessageCounts=1');
         if (since) {
           convParams.push(`since=${encodeURIComponent(since)}`);
           convParams.push('delta=1');
@@ -2343,15 +2385,21 @@ function InboxPage() {
           total += unread;
         }
       }
+      for (const id of pendingUnreadConversationIds) {
+        if (ids.has(id)) unreadIds.add(id);
+      }
       setUnreadConversationIds(unreadIds);
-      setTotalUnreadMessages(total);
+      setTotalUnreadMessages(Math.max(total, pendingUnreadConversationIds.size));
     } else {
-      const unreadIds = [...ids].filter((id) => !readSet.has(id));
-      setUnreadConversationIds(new Set(unreadIds));
-      setTotalUnreadMessages(unreadIds.length);
+      const unreadIds = new Set([...ids].filter((id) => !readSet.has(id)));
+      for (const id of pendingUnreadConversationIds) {
+        if (ids.has(id)) unreadIds.add(id);
+      }
+      setUnreadConversationIds(unreadIds);
+      setTotalUnreadMessages(Math.max(unreadIds.size, pendingUnreadConversationIds.size));
     }
     previousConversationIdsRef.current = ids;
-  }, [conversations, user?.id]);
+  }, [conversations, user?.id, pendingUnreadConversationIds]);
 
   // Track unread engagement ids: engagement items not in persisted read set
   useEffect(() => {
@@ -3006,6 +3054,7 @@ function InboxPage() {
           selectedConversationIds={selectedConversationIds}
           selectedConversationId={selectedConversationId}
           unreadConversationIds={unreadConversationIds}
+          pendingUnreadConversationIds={pendingUnreadConversationIds}
           unreadCountByConversationId={unreadCountByConversationId}
           setSelectedPlatform={setSelectedPlatform}
           setSelectedConversationId={setSelectedConversationId}

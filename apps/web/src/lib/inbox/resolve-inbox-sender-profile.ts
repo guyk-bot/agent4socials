@@ -111,7 +111,7 @@ export async function resolveInstagramInboxSenderProfile(args: {
   if (!senderId || !accessToken) return null;
 
   const cached = await readInboxProfileCache('instagram', senderId);
-  if (cached?.pictureUrl) return cached;
+  if (cached && (cached.pictureUrl || cached.name || cached.username)) return cached;
 
   const pageToken = await resolveFacebookPageTokenForUser(userId);
 
@@ -227,8 +227,11 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
   if (!token) return list;
 
   const out = list.map((c) => ({ ...c, senders: [...c.senders] }));
+  const senderNeedsProfile = (s: InboxConversationListItem['senders'][number]) =>
+    !s.pictureUrl || (!(s.name?.trim()) && !(s.username?.trim()));
+
   const toFetch = out
-    .filter((c) => c.senders.some((s) => !s.pictureUrl))
+    .filter((c) => c.senders.some(senderNeedsProfile))
     .slice(0, maxConversations);
 
   for (const conv of toFetch) {
@@ -248,8 +251,10 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
         return { ...s, pictureUrl: s.pictureUrl ?? best.pictureUrl ?? null, name: s.name || best.name, username: s.username || best.username };
       })
     );
-    const allHavePictures = cacheResolved.every((s) => !!s.pictureUrl);
-    if (allHavePictures) {
+    const allResolved = cacheResolved.every(
+      (s) => !!s.pictureUrl || !!(s.name?.trim() || s.username?.trim())
+    );
+    if (allResolved) {
       out[idx] = { ...out[idx], senders: cacheResolved };
       continue;
     }
@@ -295,6 +300,29 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
       };
     } catch {
       /* next conversation */
+    }
+
+    // User Profile API (page token): Meta often omits name/username on the list participants edge.
+    if (pageToken) {
+      for (const s of out[idx].senders) {
+        if (!s.id) continue;
+        if (s.name?.trim() || s.username?.trim()) continue;
+        try {
+          const profile = await fetchIgUserProfileViaPageToken(s.id, pageToken);
+          if (!profile) continue;
+          const si = out[idx].senders.findIndex((x) => x.id === s.id);
+          if (si < 0) continue;
+          out[idx].senders[si] = {
+            ...out[idx].senders[si],
+            name: out[idx].senders[si].name || profile.name,
+            username: out[idx].senders[si].username || profile.username,
+            pictureUrl: out[idx].senders[si].pictureUrl ?? profile.pictureUrl ?? null,
+          };
+          cacheProfile(s.id, profile);
+        } catch {
+          /* try next sender */
+        }
+      }
     }
   }
 

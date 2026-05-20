@@ -794,7 +794,7 @@ export async function GET(
         accessToken: isInstagramBusinessLogin ? igUserToken! : activeToken,
         ourIds,
         ourUsernames,
-        maxConversations: 8,
+        maxConversations: 30,
       })) as typeof list;
     }
 
@@ -802,8 +802,10 @@ export async function GET(
     const idsToEnrich = new Set<string>();
     for (const conv of list) {
       for (const s of conv.senders) {
-        // Only enrich if we don't already have a picture from the conversation list
-        if (s.id && !s.pictureUrl) idsToEnrich.add(s.id);
+        const needsProfile =
+          s.id &&
+          (!s.pictureUrl || (!(s.name?.trim()) && !(s.username?.trim())));
+        if (needsProfile) idsToEnrich.add(s.id!);
       }
     }
     const skipProfileEnrich = badgePoll || isMetaNonCriticalThrottled();
@@ -827,7 +829,7 @@ export async function GET(
             if (cached) profiles.set(enrichId, cached);
           }
         } else if (isInstagram) {
-          const enrichIds = Array.from(idsToEnrich).slice(0, 8);
+          const enrichIds = Array.from(idsToEnrich).slice(0, 24);
           const enrichIdSet = new Set(enrichIds);
           const convBySender = new Map<string, string>();
           for (const conv of list) {
