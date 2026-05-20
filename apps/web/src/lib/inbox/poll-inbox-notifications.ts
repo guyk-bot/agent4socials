@@ -7,6 +7,7 @@ import type { CachedComment, CachedConversation } from '@/context/AppDataContext
 import {
   addPendingUnreadCommentIds,
   addPendingUnreadConversationIds,
+  removePendingUnreadCommentIds,
 } from '@/lib/inbox/inbox-badge-pending';
 import {
   addInboxInitializedAccount,
@@ -177,7 +178,9 @@ function mergeComments(
   const readComments = getReadCommentIds(userId);
   for (const c of incoming) {
     const isNew = !byId.has(c.commentId);
-    if (isNew && !c.parentCommentId && !readComments.has(c.commentId)) {
+    if (c.isFromMe && !c.parentCommentId) {
+      removePendingUnreadCommentIds([c.commentId], userId);
+    } else if (isNew && !c.parentCommentId && !readComments.has(c.commentId)) {
       addPendingUnreadCommentIds([c.commentId], userId, platform);
     }
     byId.set(c.commentId, c);
@@ -230,7 +233,8 @@ export async function pollInboxNotifications(args: {
       try {
         const existing = getComments(acc.id) ?? [];
         const params = new URLSearchParams();
-        if (commentSinceStart && (existing.length > 0 || commentSinceStart)) {
+        // Delta only when we already have comments in memory; otherwise fetch full list.
+        if (commentSinceStart && existing.length > 0) {
           params.set('delta', '1');
           params.set('since', commentSinceStart);
         }

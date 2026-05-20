@@ -1986,7 +1986,22 @@ function InboxPage() {
   const platformsToFetchComments = commentsSupportedPlatforms;
 
   useEffect(() => {
-    if (inboxMode !== 'comments') return;
+    if (comments.length > 0) return;
+    const merged: PostComment[] = [];
+    for (const acc of effectiveAccounts) {
+      if (!COMMENT_STRIP_PLATFORM_IDS.has(acc.platform)) continue;
+      const cached = appData?.getComments(acc.id);
+      if (!cached?.length) continue;
+      merged.push(
+        ...cached.map((c) => ({ ...c, accountId: (c as PostComment).accountId ?? acc.id }) as PostComment)
+      );
+    }
+    if (merged.length > 0) {
+      setComments(merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    }
+  }, [comments.length, effectiveAccounts, appData]);
+
+  useEffect(() => {
     if (selectedPlatform && COMMENT_STRIP_PLATFORM_IDS.has(selectedPlatform)) return;
     const next = commentsSupportedPlatforms[0] ?? null;
     if (next) setSelectedPlatform(next);
@@ -2116,7 +2131,9 @@ function InboxPage() {
       addInboxInitializedAccount(accountId, user?.id);
     }
     const readSet = getReadCommentIds(user?.id);
-    const unreadIds = [...topLevelIds].filter((id) => !readSet.has(id));
+    const unreadIds = topLevel
+      .filter((c) => !c.isFromMe && !readSet.has(c.commentId))
+      .map((c) => c.commentId);
     setUnreadCommentIds(new Set(unreadIds));
     previousTopLevelCommentIdsRef.current = topLevelIds;
   }, [comments, user?.id]);
@@ -2908,10 +2925,11 @@ function InboxPage() {
               // For messages: prefer locally-tracked unread count; fall back to total
               // conversations loaded for this platform (always available, no API needed).
               // For comments: use unread count; fall back to API byPlatform.comments.
-              const displayCount =
-                inboxMode === 'messages'
-                  ? (unreadMessagesByPlatform[p.id] ?? 0)
-                  : (unreadCommentsByPlatform[p.id] ?? 0);
+              const msgUnread =
+                unreadMessagesByPlatform[p.id] ?? byPlatform[p.id]?.messages ?? 0;
+              const cmtUnread =
+                unreadCommentsByPlatform[p.id] ?? byPlatform[p.id]?.comments ?? 0;
+              const displayCount = msgUnread + cmtUnread;
               return (
                 <button
                   key={p.id}
@@ -2924,7 +2942,15 @@ function InboxPage() {
                   className={`relative w-10 h-10 rounded-lg flex items-center justify-center border cursor-pointer focus:outline-none select-none ${
                     isSelected ? 'bg-neutral-300 border-neutral-400 dark:bg-neutral-600 dark:border-neutral-500' : 'bg-white border-neutral-200 hover:bg-neutral-100 dark:bg-neutral-800 dark:border-neutral-700 dark:hover:bg-neutral-700'
                   }`}
-                  title={isSelected ? `Hide ${p.label}` : `Show ${p.label}${displayCount > 0 ? ` (${displayCount})` : ''}`}
+                  title={
+                    isSelected
+                      ? `Hide ${p.label}`
+                      : `Show ${p.label}${
+                          displayCount > 0
+                            ? ` (${msgUnread} message${msgUnread === 1 ? '' : 's'}, ${cmtUnread} comment${cmtUnread === 1 ? '' : 's'} unread)`
+                            : ''
+                        }`
+                  }
                 >
                   <Icon size={22} className={'color' in p ? p.color : undefined} />
                   {displayCount > 0 && (
@@ -2965,8 +2991,10 @@ function InboxPage() {
           >
             Messages
             {(() => {
-              const msgBadge =
-                totalUnreadMessages > 0 ? totalUnreadMessages : unreadConversationIds.size;
+              const msgBadge = Math.max(
+                totalUnreadMessages > 0 ? totalUnreadMessages : unreadConversationIds.size,
+                effectiveNotifications.messages
+              );
               return msgBadge > 0 ? (
                 <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
                   {msgBadge > 99 ? '99' : msgBadge}
@@ -2985,7 +3013,7 @@ function InboxPage() {
           >
             Comments
             {(() => {
-              const cmtBadge = unreadCommentIds.size;
+              const cmtBadge = Math.max(unreadCommentIds.size, effectiveNotifications.comments);
               return cmtBadge > 0 ? (
                 <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
                   {cmtBadge > 99 ? '99' : cmtBadge}
@@ -2994,6 +3022,24 @@ function InboxPage() {
             })()}
           </button>
         </div>
+
+        {inboxMode === 'messages' && effectiveNotifications.comments > 0 ? (
+          <div className="px-3 py-2 text-xs border-b border-orange-100 bg-orange-50/90 text-orange-950 dark:border-orange-900/40 dark:bg-orange-950/30 dark:text-orange-100 flex items-center justify-between gap-2">
+            <span>
+              {effectiveNotifications.comments} unread comment{effectiveNotifications.comments === 1 ? '' : 's'} on your posts
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setInboxMode('comments');
+                setSelectedConversationId(null);
+              }}
+              className="shrink-0 font-semibold text-orange-700 underline-offset-2 hover:underline dark:text-orange-300"
+            >
+              View Comments
+            </button>
+          </div>
+        ) : null}
 
         {inboxMode === 'messages' && (
           <div className="flex flex-col border-b border-neutral-200 dark:border-neutral-800">

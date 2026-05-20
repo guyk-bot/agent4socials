@@ -253,6 +253,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           .map((c) => ({
             commentId: c.commentId,
             platform: c.platform ?? accountPlatform.get(accountId),
+            isFromMe: c.isFromMe,
           }))
       );
     const computed = computeInboxHeaderUnread(allConversations, unreadComments, user.id);

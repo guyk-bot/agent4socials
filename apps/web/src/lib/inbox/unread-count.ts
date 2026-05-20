@@ -23,6 +23,8 @@ export type InboxUnreadConversation = {
 export type InboxUnreadComment = {
   commentId: string;
   platform?: string;
+  /** Outbound comments you wrote should not inflate the badge. */
+  isFromMe?: boolean;
 };
 
 export type InboxHeaderUnread = {
@@ -117,7 +119,7 @@ export function computeInboxHeaderUnread(
   const unreadCommentIds = new Set<string>();
   const commentPlatformById = new Map<string, string | undefined>();
   for (const c of comments) {
-    if (!c.commentId) continue;
+    if (!c.commentId || c.isFromMe) continue;
     commentPlatformById.set(c.commentId, c.platform);
     if (!readComments.has(c.commentId)) unreadCommentIds.add(c.commentId);
   }
