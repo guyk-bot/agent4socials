@@ -811,7 +811,7 @@ export async function GET(
     }
 
     const reduceFanOut = shouldReduceMetaProfileFanOut();
-    const igEnrichMax = reduceFanOut ? 4 : 6;
+    const igEnrichMax = reduceFanOut ? 6 : 12;
     if (isInstagram && list.length > 0 && !badgePoll && !shouldSkipMetaProfileEnrichment()) {
       resetIgScopedProfileCallBudget();
       list = (await enrichInstagramAvatarsFromParticipants({
@@ -855,7 +855,7 @@ export async function GET(
             if (cached) profiles.set(enrichId, cached);
           }
         } else if (isInstagram) {
-          const enrichIds = Array.from(idsToEnrich).slice(0, reduceFanOut ? 5 : 8);
+          const enrichIds = Array.from(idsToEnrich).slice(0, reduceFanOut ? 10 : 24);
           const enrichIdSet = new Set(enrichIds);
           const convBySender = new Map<string, string>();
           for (const conv of list) {
@@ -865,36 +865,45 @@ export async function GET(
               }
             }
           }
-          let liveProfileLookups = 0;
-          const maxLiveProfileLookups = reduceFanOut ? 2 : 4;
-          for (const enrichId of enrichIds) {
-            const cached = await readInboxProfileCache('instagram', enrichId);
+          const maxLiveProfileLookups = reduceFanOut ? 6 : 14;
+          // Check cache for all IDs first (parallel), then fire live lookups in parallel
+          // for any still missing a display name.
+          const cacheResults = await Promise.all(
+            enrichIds.map((id) => readInboxProfileCache('instagram', id))
+          );
+          const needsLive: string[] = [];
+          for (let i = 0; i < enrichIds.length; i++) {
+            const id = enrichIds[i];
+            const cached = cacheResults[i];
             if (cached && (cached.name || cached.username || cached.pictureUrl)) {
-              profiles.set(enrichId, cached);
-              if (cached.name || cached.username) continue;
+              profiles.set(id, cached);
             }
-            const needsName = !cached?.name && !cached?.username;
-            if (!needsName) continue;
-            if (liveProfileLookups >= maxLiveProfileLookups) continue;
-            liveProfileLookups += 1;
-            try {
-              const convForSender = list.find((c) =>
-                c.senders.some((s) => s.id === enrichId)
-              );
-              const senderRow = convForSender?.senders.find((s) => s.id === enrichId);
-              const profile = await resolveInstagramInboxSenderProfile({
-                userId,
-                senderId: enrichId,
-                accessToken: isInstagramBusinessLogin ? igUserToken! : activeToken,
-                isInstagramBusinessLogin,
-                conversationId: convBySender.get(enrichId),
-                username: senderRow?.username,
-              });
-              if (profile) profiles.set(enrichId, profile);
-            } catch {
-              /* try next sender */
+            if (!cached?.name && !cached?.username) {
+              needsLive.push(id);
             }
           }
+          const liveToFetch = needsLive.slice(0, maxLiveProfileLookups);
+          await Promise.all(
+            liveToFetch.map(async (enrichId) => {
+              try {
+                const convForSender = list.find((c) =>
+                  c.senders.some((s) => s.id === enrichId)
+                );
+                const senderRow = convForSender?.senders.find((s) => s.id === enrichId);
+                const profile = await resolveInstagramInboxSenderProfile({
+                  userId,
+                  senderId: enrichId,
+                  accessToken: isInstagramBusinessLogin ? igUserToken! : activeToken,
+                  isInstagramBusinessLogin,
+                  conversationId: convBySender.get(enrichId),
+                  username: senderRow?.username,
+                });
+                if (profile) profiles.set(enrichId, profile);
+              } catch {
+                /* try next sender */
+              }
+            })
+          );
         } else {
           // Facebook Page messaging: batch lookup, then per-user fallback for any still missing.
           const enrichIds = Array.from(idsToEnrich).slice(0, 50);

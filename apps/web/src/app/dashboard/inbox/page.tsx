@@ -61,6 +61,7 @@ import {
 import {
   getPendingUnreadCommentIds,
   getPendingUnreadConversationIds,
+  removePendingUnreadConversationIds,
 } from '@/lib/inbox/inbox-badge-pending';
 import { pruneStalePendingUnread } from '@/lib/inbox/unread-count';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
@@ -2499,12 +2500,23 @@ function InboxPage() {
           total += unread;
         }
       }
+
+      // Clear stale pending IDs for conversations that are in the loaded list and
+      // confirmed read by message counts. This drops the nav badge when the inbox
+      // loads and verifies there is nothing actually new.
+      const pendingReadable: string[] = [];
       let pendingInList = 0;
       for (const id of pendingUnreadConversationIds) {
-        if (ids.has(id)) {
-          unreadIds.add(id);
+        if (!ids.has(id)) continue;
+        if (unreadIds.has(id)) {
           pendingInList += 1;
+        } else {
+          pendingReadable.push(id);
         }
+      }
+      if (pendingReadable.length > 0 && user?.id) {
+        removePendingUnreadConversationIds(pendingReadable, user.id);
+        markConversationsAsRead(pendingReadable, user.id);
       }
       setUnreadConversationIds(unreadIds);
       setTotalUnreadMessages(Math.max(total, pendingInList));

@@ -13,7 +13,7 @@ const igBaseUrl = 'https://graph.instagram.com/v25.0';
 const fbBaseUrl = facebookGraphBaseUrl;
 
 /** Caps IGBusinessScopedID User Profile API calls per inbox conversations request. */
-const MAX_IG_SCOPED_PROFILE_CALLS_PER_REQUEST = 4;
+const MAX_IG_SCOPED_PROFILE_CALLS_PER_REQUEST = 16;
 
 /** Meta user / IGSID node ids are numeric strings (10–20 digits). Avoid InvalidID on bad ids. */
 export function isLikelyMetaScopedUserId(id: string | undefined | null): boolean {
@@ -344,7 +344,8 @@ export async function mergeInboxProfileCacheIntoConversations(
   for (const conv of list) {
     const senders = await Promise.all(
       conv.senders.map(async (s) => {
-        if (s.pictureUrl) return s;
+        const alreadyFull = !!s.pictureUrl && !!(s.name?.trim() || s.username?.trim());
+        if (alreadyFull) return s;
         let cached = s.id ? await readInboxProfileCache(platform, s.id) : null;
         if (!cached?.pictureUrl && s.username) {
           cached = await readInboxProfileCacheByUsername(platform, s.username);
