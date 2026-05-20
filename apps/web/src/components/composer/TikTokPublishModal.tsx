@@ -11,7 +11,7 @@ import {
 } from '@/lib/tiktok/tiktok-publish-compliance';
 import { X, Loader2 } from 'lucide-react';
 
-export type TikTokModalAccount = { id: string; username?: string | null };
+export type TikTokModalAccount = { id: string; username?: string | null; profilePicture?: string | null };
 
 type FormState = {
   title: string;
@@ -78,7 +78,6 @@ export function TikTokPublishModal({
   const [activeIdx, setActiveIdx] = useState(0);
   const [creatorById, setCreatorById] = useState<Record<string, TikTokCreatorInfoData | null>>({});
   const [creatorErrorById, setCreatorErrorById] = useState<Record<string, string>>({});
-  const [creatorWarningById, setCreatorWarningById] = useState<Record<string, string>>({});
   const [loadingCreatorById, setLoadingCreatorById] = useState<Record<string, boolean>>({});
   const [formById, setFormById] = useState<Record<string, FormState>>({});
   const [videoDurationSec, setVideoDurationSec] = useState<number | undefined>(undefined);
@@ -131,23 +130,17 @@ export function TikTokPublishModal({
       ]);
       const c = res.data?.creator;
       if (!c) {
-        const blockingMsg = res.data?.blockingCode
-          ? 'TikTok says this account cannot post right now. Please try again later.'
-          : undefined;
-        const warn = blockingMsg || res.data?.message || 'Could not load TikTok account options.';
+        if (res.data?.blockingCode) {
+          setCreatorErrorById((prev) => ({
+            ...prev,
+            [accountId]: 'TikTok says this account cannot post right now. Please try again later.',
+          }));
+          return;
+        }
         applyFallbackCreator(accountId);
-        setCreatorWarningById((prev) => ({
-          ...prev,
-          [accountId]: `${warn} Using default TikTok settings so you can continue.`,
-        }));
         return;
       }
       setCreatorById((prev) => ({ ...prev, [accountId]: c }));
-      setCreatorWarningById((prev) => {
-        const next = { ...prev };
-        delete next[accountId];
-        return next;
-      });
     } catch (e: unknown) {
       const status = e && typeof e === 'object' && 'response' in e
         ? (e as { response?: { status?: number } }).response?.status
@@ -164,10 +157,6 @@ export function TikTokPublishModal({
         msg += ' Open Accounts, disconnect TikTok, and connect again with video publish permissions.';
       }
       applyFallbackCreator(accountId);
-      setCreatorWarningById((prev) => ({
-        ...prev,
-        [accountId]: `${msg} Using default TikTok settings so you can continue.`,
-      }));
     } finally {
       setLoadingCreatorById((prev) => ({ ...prev, [accountId]: false }));
     }
@@ -203,7 +192,6 @@ export function TikTokPublishModal({
     setFormById(initial);
     setCreatorById({});
     setCreatorErrorById({});
-    setCreatorWarningById({});
     setLoadingCreatorById({});
     void Promise.all(accounts.map((a) => loadCreator(a.id)));
   }, [open, accountIdsKey, accounts, defaultCaption, initialByAccountId, loadCreator, captionMax]);
@@ -312,7 +300,7 @@ export function TikTokPublishModal({
   const activeLoadingCreator = Boolean(activeId && loadingCreatorById[activeId]);
   const anyLoadingCreator = accounts.some((a) => loadingCreatorById[a.id]);
   const privacyOptions = ci?.privacy_level_options ?? [];
-  const creatorAvatarUrl = ci?.creator_avatar_url;
+  const creatorAvatarUrl = ci?.creator_avatar_url || activeAccount?.profilePicture || undefined;
   const commentDisabledUi = Boolean(ci?.comment_disabled);
   const duetDisabledUi = Boolean(ci?.duet_disabled);
   const stitchDisabledUi = Boolean(ci?.stitch_disabled);
@@ -369,12 +357,6 @@ export function TikTokPublishModal({
               ))}
             </div>
           )}
-
-          {creatorWarningById[activeId ?? ''] ? (
-            <p className="mb-3 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              {creatorWarningById[activeId ?? '']}
-            </p>
-          ) : null}
 
           {creatorErrorById[activeId ?? ''] ? (
             <div className="py-4 space-y-3">
@@ -491,36 +473,6 @@ export function TikTokPublishModal({
                   {brandedRequiresNonPrivate ? (
                     <p className="mt-1 text-xs text-orange-700">Branded content visibility cannot be set to Only me.</p>
                   ) : null}
-                  <details className="mt-2 rounded-lg border border-neutral-200 bg-neutral-50 p-2 text-left" open>
-                    <summary className="cursor-pointer text-xs font-semibold text-neutral-900 select-none">
-                      Creator info (TikTok query fields for this account)
-                    </summary>
-                    <p className="text-[10px] text-neutral-600 mt-1 leading-snug">
-                      The visibility list above is built only from <code className="rounded bg-white px-0.5">privacy_level_options</code>. Our app
-                      loads this via <code className="rounded bg-white px-0.5 text-[9px]">GET …/tiktok-creator-info</code>, which wraps TikTok{' '}
-                      <code className="rounded bg-white px-0.5 text-[9px]">POST /v2/post/publish/creator_info/query/</code>.
-                    </p>
-                    {activeLoadingCreator && !ci ? (
-                      <p className="text-[10px] text-neutral-500 mt-2">Loading creator_info…</p>
-                    ) : null}
-                    {ci ? (
-                      <pre className="mt-1.5 max-h-44 overflow-auto rounded border border-neutral-200 bg-white p-2 text-[10px] leading-relaxed text-neutral-800">
-                        {JSON.stringify(
-                          {
-                            privacy_level_options: ci.privacy_level_options ?? [],
-                            max_video_post_duration_sec: ci.max_video_post_duration_sec,
-                            comment_disabled: ci.comment_disabled,
-                            duet_disabled: ci.duet_disabled,
-                            stitch_disabled: ci.stitch_disabled,
-                          },
-                          null,
-                          2
-                        )}
-                      </pre>
-                    ) : creatorErrorById[activeId ?? ''] ? (
-                      <p className="text-[10px] text-red-700 mt-2">{creatorErrorById[activeId ?? '']}</p>
-                    ) : null}
-                  </details>
                 </label>
 
                 <div>

@@ -2265,11 +2265,7 @@ export default function ComposerPage() {
                         .then((listRes) => {
                             const list = Array.isArray(listRes.data) ? listRes.data : [];
                             appData?.setScheduledPosts?.(list);
-                            if (typeof window !== 'undefined') {
-                                window.dispatchEvent(
-                                    new CustomEvent('agent4socials:posts-history-refresh', { detail: { posts: list } })
-                                );
-                            }
+                            pushPostsHistoryClientUpdate(list);
                         })
                         .catch(() => {});
                 } catch (err: unknown) {
@@ -2336,6 +2332,15 @@ export default function ComposerPage() {
         skipTiktokGateRef.current = false;
 
         const isPostNowCommit = !saveAsDraft && !scheduledAt?.trim();
+        if (isPostNowCommit) {
+            const earlyPostId = editPostId && !editPostAlreadyPosted ? editPostId : '';
+            setPublishModal({
+                open: true,
+                kind: 'queued',
+                postId: earlyPostId,
+                message: 'Sending your request. Publishing runs in the background.',
+            });
+        }
 
             // Append hashtags after content (per platform when "different hashtags per platform" is on)
             const hashtagSuffix = (tags: string[]) => (tags.length ? ' ' + tags.join(' ') : '');
@@ -2962,7 +2967,11 @@ export default function ComposerPage() {
                 }}
                 accounts={tiktokModalAccountIds.map((id) => {
                     const a = effectiveAccounts.find((x) => x.id === id);
-                    return { id, username: a?.username };
+                    return {
+                        id,
+                        username: a?.username,
+                        profilePicture: (a as { profilePicture?: string | null } | undefined)?.profilePicture ?? null,
+                    };
                 })}
                 defaultCaption={computeTikTokCaptionPreview()}
                 previewKind={tikTokModalPreview.previewKind}
@@ -3992,10 +4001,10 @@ export default function ComposerPage() {
                     <button
                         type="submit"
                             value="publish"
-                        disabled={loading}
+                        disabled={loading && !publishModal.open}
                             className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-base font-medium bg-neutral-700 text-white hover:bg-neutral-800 active:bg-neutral-900 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
                         >
-                            {loading ? (
+                            {loading && !publishModal.open ? (
                                 <>
                                     <Loader2 size={20} className="animate-spin shrink-0" />
                                     <span>{saveAsDraftRef.current ? 'Saving…' : scheduledAt?.trim() ? 'Scheduling…' : 'Posting…'}</span>

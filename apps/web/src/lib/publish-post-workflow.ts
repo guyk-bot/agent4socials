@@ -5,7 +5,7 @@
  */
 
 import { prisma, withPrismaPoolRetry } from '@/lib/db';
-import { PostStatus } from '@prisma/client';
+import { PostStatus, Prisma } from '@prisma/client';
 import axios from 'axios';
 import { publishTarget } from '@/lib/publish-target';
 import { isTikTokDirectPostPayload, type TikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
@@ -96,11 +96,11 @@ export async function preparePostForBackgroundPublish(
       }
     }
 
-    const updateData: { status: PostStatus; tiktokPublishByAccountId?: Record<string, unknown> } = {
+    const updateData: Prisma.PostUpdateInput = {
       status: PostStatus.POSTING,
     };
     if (Object.keys(merged).length > 0) {
-      updateData.tiktokPublishByAccountId = merged;
+      updateData.tiktokPublishByAccountId = merged as Prisma.InputJsonValue;
     }
 
     await prisma.post.update({

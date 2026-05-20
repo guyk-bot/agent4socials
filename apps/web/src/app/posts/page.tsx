@@ -268,7 +268,7 @@ export default function PostsPage() {
                 });
                 setLoadError(null);
                 const postingIds = list
-                    .filter((p: { status?: string; id?: string }) => p?.status === 'POSTING' && p?.id)
+                    .filter((p: { status?: string; id?: string }) => p?.status === 'POSTING' && p?.id && !String(p.id).startsWith('pending-'))
                     .map((p: { id: string }) => p.id);
                 if (postingIds.length > 0) {
                     await Promise.all(
@@ -276,22 +276,13 @@ export default function PostsPage() {
                             api.post(`/posts/${id}/finalize-publish-status`, {}, { timeout: 30_000 }).catch(() => undefined)
                         )
                     );
-                    const res2 = await api.get('/posts', { timeout: 45_000 });
-                    if (!cancelled && Array.isArray(res2.data)) {
-                        setPosts((prev) => {
-                            const merged = mergePostsHistoryLists(prev, res2.data);
-                            appDataRef.current?.setScheduledPosts?.(merged);
-                            writeScheduledPostsClientCache(merged);
-                            return merged;
-                        });
-                    }
                 }
             } catch {
                 /* keep cached list */
             }
         };
         void tick();
-        const id = window.setInterval(() => void tick(), 12_000);
+        const id = window.setInterval(() => void tick(), 20_000);
         return () => {
             cancelled = true;
             window.clearInterval(id);
@@ -468,7 +459,7 @@ export default function PostsPage() {
             </div>
 
             <div className="card !p-0 overflow-hidden">
-                {loading ? (
+                {loading && posts.length === 0 ? (
                     <div className="p-12 flex flex-col items-center justify-center gap-4">
                         <Loader2 size={32} className="animate-spin text-[var(--button)]" />
                         <p className="text-gray-500">Loading history...</p>
