@@ -164,6 +164,8 @@ export default function AutomationPage() {
   const [newFollowerSetupMessage, setNewFollowerSetupMessage] = useState<string | null>(null);
   const [welcomeReadinessSummary, setWelcomeReadinessSummary] = useState<string | null>(null);
   const [welcomeReadinessLoading, setWelcomeReadinessLoading] = useState(false);
+  const [resetHistoryLoading, setResetHistoryLoading] = useState(false);
+  const [resetHistoryMsg, setResetHistoryMsg] = useState<string | null>(null);
   const firstDmSectionRef = useRef<HTMLDivElement | null>(null);
   const newFollowerSectionRef = useRef<HTMLDivElement | null>(null);
   const settingsRef = useRef(settings);
@@ -894,6 +896,32 @@ export default function AutomationPage() {
               {welcomeReadinessSummary}
             </span>
           ) : null}
+        </p>
+        <p className="text-sm text-neutral-600">
+          <strong className="font-medium text-neutral-700">Testing again?</strong>{' '}
+          The auto-DM only fires once per conversation. If you sent a test message to the same thread before, reset the send history so the automation can fire again.{' '}
+          <button
+            type="button"
+            className="text-orange-600 font-medium underline hover:opacity-90 disabled:opacity-50"
+            disabled={resetHistoryLoading}
+            onClick={async () => {
+              setResetHistoryLoading(true);
+              setResetHistoryMsg(null);
+              try {
+                const { data } = await api.delete<{ ok: boolean; deleted: number }>('/automation/reset-welcome-history');
+                setResetHistoryMsg(`Done. Cleared ${data.deleted} conversation record${data.deleted === 1 ? '' : 's'}. Send a new message to trigger the auto-DM.`);
+              } catch {
+                setResetHistoryMsg('Could not reset. Try again or refresh the page.');
+              } finally {
+                setResetHistoryLoading(false);
+              }
+            }}
+          >
+            {resetHistoryLoading ? 'Resetting…' : 'Reset sent history'}
+          </button>
+          {resetHistoryMsg && (
+            <span className="block mt-1 text-xs text-neutral-600">{resetHistoryMsg}</span>
+          )}
         </p>
         {firstDmUploadError && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">{firstDmUploadError}</div>

@@ -11,6 +11,7 @@ import { publishTarget } from '@/lib/publish-target';
 import { isTikTokDirectPostPayload, type TikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
 import { createMediaServeToken } from '@/lib/media-serve-token';
 import { ensureInstagramJpegOnR2 } from '@/lib/instagram-media-r2';
+import { ensureStoryJpegOnR2 } from '@/lib/story-media-r2';
 import { refreshTwitterToken } from '@/lib/twitter-refresh';
 import { getValidPinterestToken } from '@/lib/pinterest-token';
 import {
@@ -199,6 +200,10 @@ export async function runPublishPostWorkflow(input: {
         return direct ?? publicMediaUrlForMeta(raw, { instagramImage: true });
       }
       if (firstImageUrl) firstImageUrl = await urlForInstagram(firstImageUrl, isInstagram);
+      if (postMediaType === 'story' && firstImageUrl) {
+        const storyFitted = await ensureStoryJpegOnR2(firstImageUrl, fetch);
+        if (storyFitted) firstImageUrl = storyFitted;
+      }
       if (firstMediaUrl) firstMediaUrl = await urlForInstagram(firstMediaUrl, isInstagram && firstIsImage);
       if (videoThumbnailUrl) {
         const thumbR2 = directR2IfOurs(videoThumbnailUrl);

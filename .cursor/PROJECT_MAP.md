@@ -14,7 +14,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 
 | Task | Primary files |
 |------|----------------|
-| Composer UI, previews, AI modal, media, TikTok Post modal | `apps/web/src/app/composer/page.tsx`, `apps/web/src/components/composer/TikTokPublishModal.tsx` |
+| Composer UI, previews, AI modal, media, TikTok Post modal, Story image crop (9:16) | `apps/web/src/app/composer/page.tsx`, `apps/web/src/components/composer/TikTokPublishModal.tsx`, `apps/web/src/components/composer/StoryImageCropModal.tsx` |
 | Publish to platforms (incl. Pinterest, TikTok Direct Post video + photo `/content/init`) | `apps/web/src/lib/publish-target.ts`, `apps/web/src/lib/tiktok/tiktok-publish-compliance.ts`, `apps/web/src/app/api/posts/[id]/publish/route.ts` |
 | TikTok creator_info for composer | `apps/web/src/app/api/social/accounts/[id]/tiktok-creator-info/route.ts` |
 | Imported posts list, sync, Pinterest thumbnails | `apps/web/src/app/api/social/accounts/[id]/posts/route.ts` (YouTube: live `videos.list` refresh + `lib/youtube/fetch-video-stats-batch.ts`) |

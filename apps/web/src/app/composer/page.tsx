@@ -33,6 +33,7 @@ import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, Lin
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 import { TikTokPublishModal } from '@/components/composer/TikTokPublishModal';
 import { ComposerScheduleDateTime } from '@/components/composer/ComposerScheduleDateTime';
+import { StoryImageCropModal, type StoryCropResult } from '@/components/composer/StoryImageCropModal';
 import { PlatformIconToggle } from '@/components/PlatformIconToggle';
 import { isTikTokDirectPostPayload, type TikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
 import {
@@ -436,10 +437,14 @@ const MEDIA_RECOMMENDATIONS: Record<MediaTypeChoice, { label: string; accept: st
         label: 'Story',
         accept: `image/*,${VIDEO_ACCEPT}`,
         multiple: false,
-        hint: 'Instagram Stories: 1080×1920 (9:16), 15 sec for video. No caption is shown. Published to Instagram only.',
-        formatsHint: 'JPEG, PNG (image) or MP4, MOV (video, up to 15 sec)',
+        hint: 'Instagram and Facebook Stories: 1080×1920 (9:16). After upload, use Adjust fit for landscape images. Video: MP4, up to 15 sec (Instagram) or 60 sec (Facebook).',
+        formatsHint: 'JPEG, PNG (image) or MP4, MOV (video)',
     },
 };
+
+function imageFileNeedsVerticalCrop(mediaType: MediaTypeChoice, file: File): boolean {
+    return file.type.startsWith('image/') && (mediaType === 'story' || mediaType === 'reel');
+}
 
 function normalizeHashtag(t: string): string {
     const s = t.trim().replace(/^#+/, '');
@@ -514,6 +519,7 @@ const MEDIA_SPECS: Record<string, { platform: PlatformKey; name: string; specs: 
     ],
     story: [
         { platform: 'INSTAGRAM', name: 'Instagram Stories', specs: [{ label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Required' }, { label: 'Image', value: 'JPEG or PNG' }, { label: 'Video', value: 'MP4, up to 15 sec' }] },
+        { platform: 'FACEBOOK', name: 'Facebook Stories', specs: [{ label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Required' }, { label: 'Image', value: 'JPEG or PNG' }, { label: 'Video', value: 'MP4, up to 60 sec' }] },
     ],
 };
 
@@ -609,6 +615,9 @@ export default function ComposerPage() {
     const [differentMediaPerPlatform, setDifferentMediaPerPlatform] = useState(false);
     const [mediaUploading, setMediaUploading] = useState(false);
     const [mediaUploadError, setMediaUploadError] = useState<string | null>(null);
+    const [storyCropFile, setStoryCropFile] = useState<File | null>(null);
+    const [storyCropPlatform, setStoryCropPlatform] = useState<string | null>(null);
+    const [storyAdjustIndex, setStoryAdjustIndex] = useState<number | null>(null);
     const [mediaType, setMediaType] = useState<MediaTypeChoice>('photo');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const thumbnailFileInputRef = useRef<HTMLInputElement>(null);
@@ -1510,6 +1519,46 @@ export default function ComposerPage() {
         [applyFrameAsThumbnailAtTime]
     );
 
+    const applyStoryCrop = async ({ blob, fileName }: StoryCropResult) => {
+        setMediaUploading(true);
+        setMediaUploadError(null);
+        try {
+            const file = new File([blob], fileName, { type: 'image/jpeg' });
+            const item = await uploadFile(file);
+            if (storyCropPlatform) {
+                setMediaByPlatform((prev) => ({ ...prev, [storyCropPlatform]: [item] }));
+            } else if (storyAdjustIndex != null) {
+                setMediaList((prev) => prev.map((m, i) => (i === storyAdjustIndex ? item : m)));
+            } else {
+                setMediaList([item]);
+            }
+        } catch {
+            setMediaUploadError('Upload failed after crop. Try again.');
+        } finally {
+            setMediaUploading(false);
+            setStoryCropFile(null);
+            setStoryCropPlatform(null);
+            setStoryAdjustIndex(null);
+        }
+    };
+
+    const openAdjustStoryImage = async (fileUrl: string, index: number) => {
+        setMediaUploadError(null);
+        setMediaUploading(true);
+        try {
+            const res = await fetch(mediaDisplayUrl(fileUrl));
+            if (!res.ok) throw new Error('fetch failed');
+            const blob = await res.blob();
+            setStoryAdjustIndex(index);
+            setStoryCropPlatform(null);
+            setStoryCropFile(new File([blob], 'story-adjust.jpg', { type: blob.type || 'image/jpeg' }));
+        } catch {
+            setMediaUploadError('Could not load image for adjust. Try re-uploading.');
+        } finally {
+            setMediaUploading(false);
+        }
+    };
+
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
         if (!files?.length) return;
@@ -1520,6 +1569,13 @@ export default function ComposerPage() {
         try {
             const valid = Array.from(files).filter((f) => f.type.startsWith('image/') || f.type.startsWith('video/'));
             if (!valid.length) return;
+
+            if (singleFormat && imageFileNeedsVerticalCrop(mediaType, valid[0])) {
+                setStoryCropFile(valid[0]);
+                setStoryCropPlatform(null);
+                setStoryAdjustIndex(null);
+                return;
+            }
 
             if (singleFormat) {
                 const item = await uploadFile(valid[0]);
@@ -1550,6 +1606,12 @@ export default function ComposerPage() {
         try {
             const valid = Array.from(files).filter((f) => f.type.startsWith('image/') || f.type.startsWith('video/'));
             if (!valid.length) return;
+            if (imageFileNeedsVerticalCrop(mediaType, valid[0])) {
+                setStoryCropFile(valid[0]);
+                setStoryCropPlatform(platform);
+                setStoryAdjustIndex(null);
+                return;
+            }
             const items = await Promise.all(valid.map((file) => uploadFile(file)));
             setMediaByPlatform((prev) => ({
                 ...prev,
@@ -2329,6 +2391,18 @@ export default function ComposerPage() {
                 </div>,
                 document.body,
             )}
+            {storyCropFile && (
+                <StoryImageCropModal
+                    file={storyCropFile}
+                    title={mediaType === 'story' ? 'Fit image to Story' : 'Fit image to vertical (9:16)'}
+                    onCancel={() => {
+                        setStoryCropFile(null);
+                        setStoryCropPlatform(null);
+                        setStoryAdjustIndex(null);
+                    }}
+                    onConfirm={(result) => void applyStoryCrop(result)}
+                />
+            )}
             <ConfirmModal
                 open={alertMessage !== null}
                 onClose={() => setAlertMessage(null)}
@@ -2611,6 +2685,18 @@ export default function ComposerPage() {
                                             : <>Add {MEDIA_RECOMMENDATIONS[mediaType].label.toLowerCase()} from <span className="sm:hidden">library</span><span className="hidden sm:inline">computer</span></>}
                                     </button>
                                     {mediaUploading && <span className="text-sm text-neutral-500">Uploading…</span>}
+                                    {(mediaType === 'story' || mediaType === 'reel') &&
+                                        mediaList.length === 1 &&
+                                        mediaList[0].type === 'IMAGE' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => void openAdjustStoryImage(mediaList[0].fileUrl, 0)}
+                                                disabled={mediaUploading}
+                                                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border border-neutral-300 text-neutral-700 hover:border-[var(--primary)]/60 hover:text-[var(--primary)] disabled:opacity-50"
+                                            >
+                                                Adjust fit (9:16)
+                                            </button>
+                                        )}
                                 </div>
                                 {mediaUploadError && <p className="text-sm text-red-600">{mediaUploadError}</p>}
                                 {(mediaType === 'video' || mediaType === 'reel' || mediaType === 'story') && mediaList.length === 1 && mediaList[0].type === 'VIDEO' ? (

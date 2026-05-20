@@ -490,7 +490,7 @@ export async function publishTarget(
               (typeof uploadRes.data === 'string' ? uploadRes.data.slice(0, 400) : JSON.stringify(uploadRes.data));
             throw new Error(`Instagram story video upload failed (${uploadRes.status}): ${detail}`);
           }
-          const wait = await waitForInstagramContainer(creationId, token, 90_000);
+          const wait = await waitForInstagramContainer(creationId, token, 48_000);
           if (!wait.ok) throw new Error(wait.error ?? 'Story video container not ready');
           const publishRes = await axiosInstance.post(
             `${facebookGraphBaseUrl}/${platformUserId}/media_publish`,
@@ -647,6 +647,78 @@ export async function publishTarget(
         const page = data?.data?.find((p) => p.id === platformUserId);
         if (page?.access_token) pageToken = page.access_token;
       } catch (_) {}
+
+      if (isStory) {
+        if (firstImageUrl) {
+          const photoRes = await axiosInstance.post(
+            `${facebookGraphBaseUrl}/${platformUserId}/photos`,
+            null,
+            {
+              params: {
+                url: firstImageUrl,
+                published: false,
+                access_token: pageToken,
+              },
+            }
+          );
+          const photoId = (photoRes.data as { id?: string })?.id;
+          if (!photoId) throw new Error(JSON.stringify(photoRes.data));
+          const storyRes = await axiosInstance.post(
+            `${facebookGraphBaseUrl}/${platformUserId}/photo_stories`,
+            null,
+            { params: { photo_id: photoId, access_token: pageToken } }
+          );
+          const postId = (storyRes.data as { post_id?: string })?.post_id;
+          if (!(storyRes.data as { success?: boolean })?.success && !postId) {
+            throw new Error(JSON.stringify(storyRes.data));
+          }
+          return { ok: true, platformPostId: postId };
+        }
+        if (firstMediaUrl) {
+          const initRes = await axiosInstance.post(
+            `${facebookGraphBaseUrl}/${platformUserId}/video_stories`,
+            null,
+            { params: { upload_phase: 'start', access_token: pageToken } }
+          );
+          const videoId = (initRes.data as { video_id?: string })?.video_id;
+          const uploadUrl = (initRes.data as { upload_url?: string })?.upload_url;
+          if (!videoId || !uploadUrl) throw new Error(JSON.stringify(initRes.data));
+          const uploadRes = await axiosInstance.post(uploadUrl, null, {
+            headers: {
+              Authorization: `OAuth ${pageToken}`,
+              file_url: firstMediaUrl,
+            },
+            validateStatus: () => true,
+            timeout: 120_000,
+          });
+          if (uploadRes.status !== 200 && uploadRes.status !== 201) {
+            const detail =
+              typeof uploadRes.data === 'string'
+                ? uploadRes.data.slice(0, 400)
+                : JSON.stringify(uploadRes.data);
+            throw new Error(`Facebook story video upload failed (${uploadRes.status}): ${detail}`);
+          }
+          const finishRes = await axiosInstance.post(
+            `${facebookGraphBaseUrl}/${platformUserId}/video_stories`,
+            null,
+            {
+              params: {
+                upload_phase: 'finish',
+                video_id: videoId,
+                access_token: pageToken,
+              },
+              timeout: 60_000,
+            }
+          );
+          const postId = (finishRes.data as { post_id?: string })?.post_id;
+          if (!(finishRes.data as { success?: boolean })?.success && !postId) {
+            throw new Error(JSON.stringify(finishRes.data));
+          }
+          return { ok: true, platformPostId: postId };
+        }
+        return { ok: false, error: 'Facebook Story requires an image or video' };
+      }
+
       // Post image as a Page photo. Video: use native /videos upload (not link).
       if (firstImageUrl) {
         const photoParams: Record<string, string> = {

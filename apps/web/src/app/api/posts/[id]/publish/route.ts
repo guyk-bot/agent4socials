@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 import { trackUsage } from '@/lib/usage-tracking';
 import { runPublishPostWorkflow, type PublishPostRequestBody } from '@/lib/publish-post-workflow';
 
-export const maxDuration = 55;
+export const maxDuration = 60;
 
 export async function POST(
   request: NextRequest,
