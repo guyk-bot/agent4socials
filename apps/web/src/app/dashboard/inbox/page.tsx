@@ -557,7 +557,7 @@ function MessagesConversationList({
             }`}
           >
             {selectMode ? (
-              <motion.div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 ${selectedConversationIds.has(c.id) ? 'bg-[var(--button)] border-[var(--button)]' : 'border-neutral-300 dark:border-neutral-600'}`}>
+              <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 ${selectedConversationIds.has(c.id) ? 'bg-[var(--button)] border-[var(--button)]' : 'border-neutral-300 dark:border-neutral-600'}`}>
                 {selectedConversationIds.has(c.id) && <Check size={12} className="text-white" />}
               </div>
             ) : (
@@ -576,9 +576,13 @@ function MessagesConversationList({
             <div className="shrink-0 flex items-center gap-1">
               {unreadConversationIds.has(c.id) && <span className="w-2 h-2 rounded-full bg-red-500" aria-hidden />}
               {c.updatedTime && <span className="text-xs text-neutral-400">{new Date(c.updatedTime).toLocaleDateString()}</span>}
-              <button type="button" className="p-1 rounded hover:bg-neutral-200" title="Mark resolved">
-                <Check size={14} className="text-neutral-400" />
-              </button>
+              {!unreadConversationIds.has(c.id) && (
+                <Check
+                  size={14}
+                  className="inbox-row-check shrink-0 text-neutral-300 dark:text-neutral-600 group-hover:text-neutral-500 dark:group-hover:text-neutral-400 transition-colors pointer-events-none"
+                  aria-hidden
+                />
+              )}
             </div>
           </button>
         );
