@@ -55,6 +55,7 @@ import {
   mergeSenderPicturesIntoConversations,
   setInboxSenderPicture,
 } from '@/lib/inbox/inbox-sender-pictures';
+import { getPendingUnreadCommentIds } from '@/lib/inbox/inbox-badge-pending';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
@@ -520,11 +521,10 @@ function MessagesConversationList({
     })
     .filter((c) => !searchQuery || (c.senders?.[0]?.username ?? c.senders?.[0]?.name ?? c.id).toLowerCase().includes(searchQuery.toLowerCase()))
     .sort((a, b) => {
-      // Primary: newest updatedTime first
-      const timeDiff = (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '');
-      if (timeDiff !== 0) return timeDiff;
-      // Tiebreaker: unread conversations rise above read ones at the same timestamp
-      return (unreadConversationIds.has(b.id) ? 1 : 0) - (unreadConversationIds.has(a.id) ? 1 : 0);
+      const unreadDiff =
+        (unreadConversationIds.has(b.id) ? 1 : 0) - (unreadConversationIds.has(a.id) ? 1 : 0);
+      if (unreadDiff !== 0) return unreadDiff;
+      return (b.updatedTime ?? '').localeCompare(a.updatedTime ?? '');
     });
   return (
     <div className="p-2 space-y-0">
@@ -2112,9 +2112,14 @@ function InboxPage() {
 
       if (shouldLiveFetch) {
         needsFetch = true;
-        const url =
-          `/social/accounts/${account.id}/comments` +
-          `${shouldDeltaFetch && newestCachedCreatedAt ? `?since=${encodeURIComponent(newestCachedCreatedAt)}&delta=1` : ''}`;
+        const qs = new URLSearchParams();
+        if (shouldDeltaFetch && newestCachedCreatedAt) {
+          qs.set('since', newestCachedCreatedAt);
+          qs.set('delta', '1');
+        } else if (shouldLiveFetch && (account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK')) {
+          qs.set('refresh', '1');
+        }
+        const url = `/social/accounts/${account.id}/comments${qs.toString() ? `?${qs}` : ''}`;
         api.get(url)
           .then((res) => {
             if (cancelled) return;
@@ -2192,13 +2197,16 @@ function InboxPage() {
     const accountIds = [...new Set(comments.map((c) => c.accountId).filter(Boolean))];
     for (const accountId of accountIds) {
       if (initializedAccounts.has(accountId)) continue;
-      const idsForAccount = comments.filter((c) => c.accountId === accountId).map((c) => c.commentId);
-      markCommentsAsRead(idsForAccount, user?.id);
       addInboxInitializedAccount(accountId, user?.id);
     }
     const readSet = getReadCommentIds(user?.id);
+    const pendingComments = getPendingUnreadCommentIds(user?.id ?? '');
     const unreadIds = topLevel
-      .filter((c) => !c.isFromMe && !readSet.has(c.commentId))
+      .filter(
+        (c) =>
+          !c.isFromMe &&
+          (!readSet.has(c.commentId) || pendingComments.has(c.commentId))
+      )
       .map((c) => c.commentId);
     setUnreadCommentIds(new Set(unreadIds));
     previousTopLevelCommentIdsRef.current = topLevelIds;
@@ -2568,10 +2576,11 @@ function InboxPage() {
                   );
                 })
                 .sort((a, b) => {
-                  const timeDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-                  if (timeDiff !== 0) return timeDiff;
-                  // Tiebreaker: unread comments rise above read ones with the same timestamp
-                  return (unreadCommentIds.has(b.commentId) ? 1 : 0) - (unreadCommentIds.has(a.commentId) ? 1 : 0);
+                  const unreadDiff =
+                    (unreadCommentIds.has(b.commentId) ? 1 : 0) -
+                    (unreadCommentIds.has(a.commentId) ? 1 : 0);
+                  if (unreadDiff !== 0) return unreadDiff;
+                  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
                 });
               return filtered.map((c) => {
                 const isUnread = unreadCommentIds.has(c.commentId);
@@ -2637,8 +2646,10 @@ function InboxPage() {
                             <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
                             <PlatformSourcePill platformId={c.platform} />
                           </div>
-                          <p className="text-xs text-neutral-500 truncate mt-0.5">{(c.postPreview || '').slice(0, 20)}{(c.postPreview?.length ?? 0) > 20 ? '…' : ''}</p>
-                          <p className="text-xs text-neutral-600 line-clamp-2 mt-0.5">{c.text}</p>
+                          <p className="text-xs font-medium text-neutral-600 dark:text-neutral-300 truncate mt-0.5">
+                            {(c.postPreview || 'Post').slice(0, 48)}{(c.postPreview?.length ?? 0) > 48 ? '…' : ''}
+                          </p>
+                          <p className="text-xs text-neutral-600 dark:text-neutral-400 line-clamp-2 mt-0.5">{c.text}</p>
                         </div>
                       </div>
                     </div>
@@ -3102,58 +3113,6 @@ function InboxPage() {
           </button>
         </div>
 
-        {inboxMode === 'messages' && (totalUnreadMessages > 0 || unreadThreadSummary.length > 0) ? (
-          <div className="px-3 py-2.5 text-xs border-b border-neutral-200 bg-neutral-50/90 text-neutral-800 dark:border-neutral-800 dark:bg-neutral-900/80 dark:text-neutral-200 space-y-1.5">
-            <p className="font-semibold text-neutral-900 dark:text-neutral-100">
-              {totalUnreadMessages > 0
-                ? `${totalUnreadMessages} unread message${totalUnreadMessages === 1 ? '' : 's'}`
-                : `${unreadThreadSummary.length} unread conversation${unreadThreadSummary.length === 1 ? '' : 's'}`}
-            </p>
-            {Object.keys(unreadMessagesByPlatform).length > 0 ? (
-              <p className="text-neutral-600 dark:text-neutral-400">
-                {Object.entries(unreadMessagesByPlatform)
-                  .map(([plat, n]) => `${platformLabelFromId(plat)}: ${n} message${n === 1 ? '' : 's'}`)
-                  .join(' · ')}
-              </p>
-            ) : null}
-            {unreadThreadSummary.length > 0 ? (
-              <ul className="space-y-0.5 text-neutral-700 dark:text-neutral-300">
-                {unreadThreadSummary.slice(0, 4).map((row) => (
-                  <li key={`${row.platform}-${row.name}`}>
-                    <span className="font-medium">{row.name}</span>
-                    <span className="text-neutral-500">
-                      {' '}
-                      ({platformLabelFromId(row.platform)}: {row.count} message{row.count === 1 ? '' : 's'})
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        ) : null}
-
-        {inboxMode === 'messages' && effectiveNotifications.comments > 0 ? (
-          <div className="px-3 py-2 text-xs border-b border-orange-100 bg-orange-50/90 text-orange-950 dark:border-orange-900/40 dark:bg-orange-950/30 dark:text-orange-100 flex items-center justify-between gap-2">
-            <span>
-              {effectiveNotifications.comments} unread comment{effectiveNotifications.comments === 1 ? '' : 's'} on your posts
-              {Object.keys(unreadCommentsByPlatform).length > 0
-                ? ` (${Object.entries(unreadCommentsByPlatform)
-                    .map(([plat, n]) => `${platformLabelFromId(plat)}: ${n}`)
-                    .join(', ')})`
-                : ''}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setInboxMode('comments');
-                setSelectedConversationId(null);
-              }}
-              className="shrink-0 font-semibold text-orange-700 underline-offset-2 hover:underline dark:text-orange-300"
-            >
-              View Comments
-            </button>
-          </div>
-        ) : null}
 
         {inboxMode === 'messages' && (
           <div className="flex flex-col border-b border-neutral-200 dark:border-neutral-800">
@@ -3425,9 +3384,10 @@ function InboxPage() {
                     <div className="flex flex-wrap gap-2 mb-3">
                       <button
                         type="button"
-                        disabled={aiReplyLoading || !hasCommentExamples}
+                        disabled={aiReplyLoading || replySending || !hasCommentExamples}
                         onClick={async () => {
                           setAiReplyError(null);
+                          setReplyText('');
                           setAiReplyLoading(true);
                           try {
                             const first = replyable[0];
@@ -3454,16 +3414,18 @@ function InboxPage() {
                       </button>
                     </div>
                     <textarea
-                      placeholder="Type a reply to send to all selected (or generate with AI above)..."
+                      placeholder={aiReplyLoading ? 'Generating reply…' : 'Type a reply to send to all selected (or generate with AI above)...'}
                       rows={3}
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
-                      className="w-full px-4 py-3 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none bg-white dark:bg-neutral-800 dark:text-neutral-100"
+                      disabled={aiReplyLoading || replySending}
+                      readOnly={aiReplyLoading}
+                      className="w-full px-4 py-3 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none bg-white dark:bg-neutral-800 dark:text-neutral-100 disabled:opacity-60 disabled:cursor-not-allowed"
                     />
                     {aiReplyError && <p className="text-sm text-amber-700 mt-2">{aiReplyError}</p>}
                     <button
                       type="button"
-                      disabled={replySending || !replyText.trim() || replyable.length === 0}
+                      disabled={replySending || aiReplyLoading || !replyText.trim() || replyable.length === 0}
                       onClick={async () => {
                         const msg = replyText.trim();
                         setReplySending(true);
@@ -3569,10 +3531,11 @@ function InboxPage() {
                             <div className="flex flex-wrap gap-2 mb-2">
                               <button
                                 type="button"
-                                disabled={aiReplyLoading || !hasInboxExamples || batchWindowClosed}
+                                disabled={aiReplyLoading || dmReplySending || !hasInboxExamples || batchWindowClosed}
                                 onClick={async () => {
                                   if (batchWindowClosed) return;
                                   setAiReplyError(null);
+                                  setBatchDmTexts((prev) => ({ ...prev, [c.id]: '' }));
                                   setAiReplyLoading(true);
                                   try {
                                     const res = await api.post<{ reply?: string }>('/ai/generate-inbox-reply', {
@@ -3601,23 +3564,24 @@ function InboxPage() {
                               </button>
                             </div>
                             <textarea
-                              placeholder="Type a message for this conversation (or generate with AI above)..."
+                              placeholder={aiReplyLoading ? 'Generating reply…' : 'Type a message for this conversation (or generate with AI above)...'}
                               rows={3}
                               value={value}
                               onChange={(e) => {
                                 const v = e.target.value;
                                 setBatchDmTexts((prev) => ({ ...prev, [c.id]: v }));
                               }}
-                              disabled={batchWindowClosed}
-                              className="w-full px-3 py-2 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none disabled:opacity-60 disabled:cursor-not-allowed"
+                              disabled={batchWindowClosed || aiReplyLoading || dmReplySending}
+                              readOnly={aiReplyLoading}
+                              className="w-full px-3 py-2 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none bg-white dark:bg-neutral-800 dark:text-neutral-100 disabled:opacity-60 disabled:cursor-not-allowed"
                             />
                             <div className="mt-2 flex items-center justify-between gap-2">
                               <button
                                 type="button"
-                                disabled={dmReplySending || !value.trim() || !accountForConv || batchWindowClosed}
+                                disabled={dmReplySending || aiReplyLoading || !value.trim() || !accountForConv || batchWindowClosed}
                                 onClick={async () => {
                                   const text = value.trim();
-                                  if (!text || !accountForConv || batchWindowClosed) return;
+                                  if (!text || !accountForConv || batchWindowClosed || aiReplyLoading) return;
                                   setDmReplySending(true);
                                   setDmSendError(null);
                                   try {
@@ -3688,7 +3652,10 @@ function InboxPage() {
                         <PlatformSourcePill platformId={selectedComment.platform} size="md" />
                         <span className="text-xs text-neutral-500">{new Date(selectedComment.createdAt).toLocaleString()}</span>
                       </div>
-                      <p className="text-sm font-medium text-neutral-800 mt-1">Comment on your post</p>
+                      <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100 mt-1 truncate">
+                        {(selectedComment.postPreview || 'Your post').slice(0, 80)}
+                        {(selectedComment.postPreview?.length ?? 0) > 80 ? '…' : ''}
+                      </p>
                       <p className="text-xs text-neutral-500 mt-0.5">{selectedComment.authorName}</p>
                     </div>
                   </div>
@@ -3898,18 +3865,21 @@ function InboxPage() {
                 <>
                 <div className="flex items-end gap-2">
                   <textarea
-                    placeholder="Type your reply..."
+                    placeholder={aiReplyLoading ? 'Generating reply…' : 'Type your reply...'}
                     rows={2}
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
-                    className="flex-1 px-4 py-3 border border-neutral-200 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none"
+                    disabled={aiReplyLoading || replySending}
+                    readOnly={aiReplyLoading}
+                    className="flex-1 px-4 py-3 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none bg-white dark:bg-neutral-800 dark:text-neutral-100 disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                   <button
                     type="button"
-                    disabled={aiReplyLoading || !hasCommentExamples}
+                    disabled={aiReplyLoading || replySending || !hasCommentExamples}
                     onClick={async () => {
                       if (!selectedComment) return;
                       setAiReplyError(null);
+                      setReplyText('');
                       setAiReplyLoading(true);
                       try {
                         const res = await api.post<{ reply?: string }>('/ai/generate-inbox-reply', {
@@ -3934,10 +3904,11 @@ function InboxPage() {
                   </button>
                   <button
                   type="button"
-                  disabled={replySending || !replyText.trim()}
+                  disabled={replySending || aiReplyLoading || !replyText.trim()}
                   onClick={async () => {
                     const account = effectiveAccounts.find((a) => a.platform === selectedComment.platform);
                     if (!account || !selectedComment) return;
+                    if (aiReplyLoading) return;
                     setReplySending(true);
                     try {
                       const sentMessage = replyText.trim();
@@ -4265,11 +4236,12 @@ function InboxPage() {
                 )}
                 <div className="flex items-end gap-2">
                 <textarea
-                  placeholder="Type a reply..."
+                  placeholder={aiReplyLoading ? 'Generating reply…' : 'Type a reply...'}
                   rows={2}
                     value={dmReplyText}
                     onChange={(e) => setDmReplyText(e.target.value)}
-                    disabled={dmReplySending || !!dmSendBlockedReason}
+                    disabled={dmReplySending || aiReplyLoading || !!dmSendBlockedReason}
+                    readOnly={aiReplyLoading}
                     className="flex-1 px-4 py-3 border border-neutral-200 dark:border-neutral-700 rounded-xl text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none disabled:opacity-60 disabled:cursor-not-allowed bg-white dark:bg-neutral-800 dark:text-neutral-100"
                 />
                 <button
@@ -4280,6 +4252,7 @@ function InboxPage() {
                       const lastFromUser = [...conversationMessages].reverse().find((m) => !m.isFromPage && m.message);
                       const textToReplyTo = (lastFromUser?.message ?? conversationMessages.filter((m) => !m.isFromPage).map((m) => m.message).join('\n')) || 'Hello';
                       setAiReplyError(null);
+                      setDmReplyText('');
                       setAiReplyLoading(true);
                       try {
                         const res = await api.post<{ reply?: string }>(
@@ -4316,7 +4289,7 @@ function InboxPage() {
                   )}
                 <button
                   type="button"
-                  disabled={dmReplySending || !dmReplyText.trim() || !!dmSendBlockedReason}
+                  disabled={dmReplySending || aiReplyLoading || !dmReplyText.trim() || !!dmSendBlockedReason}
                   onClick={async () => {
                     const account = currentAccountForDmThread;
                     if (dmSendBlockedReason) {
@@ -4324,7 +4297,7 @@ function InboxPage() {
                       return;
                     }
                     if (!account || !selectedConversationId || !dmReplyText.trim()) return;
-                    if (dmSendInFlightRef.current) return;
+                    if (dmSendInFlightRef.current || aiReplyLoading) return;
 
                     const textToSend = dmReplyText.trim();
                     const cid2 = selectedConversationId;

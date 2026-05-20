@@ -10,6 +10,7 @@ import { buildLinkedInRestPostsByAuthorUrl, linkedInRestCommunityHeaders } from 
 import { getCached, setCached } from '@/lib/server-memory-cache';
 import { isMetaNonCriticalThrottled, noteMetaRateLimitError } from '@/lib/meta-usage-guard';
 import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
+import { fetchAllPublishedPostsForPage, sortFbPublishedPostsNewestFirst } from '@/lib/facebook/fetchers';
 
 /**
  * Rate-limit guardrails (see Meta app dashboard spikes):
@@ -22,7 +23,7 @@ import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-q
  *     cadence via the sync engine.
  *   - REPLY_FETCH_LIMIT: how many top-level comments we fan out replies for.
  */
-const MAX_SOURCES = 15; // Reduced: each post = 1+ Graph call; 40 posts × N inbox opens = app rate spike
+const MAX_SOURCES = 30; // Each post = 1+ Graph calls; capped to limit Meta fan-out per inbox load
 const COMMENTS_CACHE_TTL_MS = 8 * 60 * 1000; // 8 min — longer TTL reduces re-fetches across Vercel instances
 const REPLY_FETCH_LIMIT = 8;
 
@@ -72,6 +73,7 @@ export async function GET(
   const { id } = await params;
   const { searchParams } = new URL(request.url);
   const deltaMode = searchParams.get('delta') === '1' || searchParams.get('delta') === 'true';
+  const refresh = searchParams.get('refresh') === '1' || searchParams.get('refresh') === 'true';
   const sinceParam = searchParams.get('since');
   const sinceIso = sinceParam && !Number.isNaN(Date.parse(sinceParam)) ? new Date(sinceParam).toISOString() : null;
 
@@ -79,7 +81,7 @@ export async function GET(
   // in AppDataContext from firing the expensive Meta comments fan-out every time the
   // app mounts / the user reopens analytics.
   const cacheKey = `comments:${userId}:${id}`;
-  if (!deltaMode) {
+  if (!deltaMode && !refresh) {
     const cached = getCached<unknown>(cacheKey);
     if (cached) {
       const res = NextResponse.json(cached);
@@ -160,7 +162,7 @@ export async function GET(
       platformPostId: { not: null },
       status: PostStatus.POSTED,
     },
-    include: { post: { select: { id: true, content: true } } },
+    include: { post: { select: { id: true, content: true, scheduledAt: true, createdAt: true } } },
     orderBy: { updatedAt: 'desc' },
     take: 150,
   });
@@ -189,6 +191,9 @@ export async function GET(
       platformPostId: t.platformPostId!,
       postPreview: (t.post?.content ?? '').trim() || 'Post',
       postTargetId: t.id,
+      postPublishedAt:
+        (t.post?.scheduledAt ?? t.post?.createdAt ?? t.updatedAt)?.toISOString?.() ??
+        t.updatedAt.toISOString(),
     })),
     ...importedPostsToFetch.map((p) => ({
       platformPostId: p.platformPostId,
@@ -243,14 +248,18 @@ export async function GET(
           postUrl: m.permalink ?? null,
         }));
       } else if (platform === 'FACEBOOK') {
-        const fbRes = await axios.get<{ data?: Array<{ id: string; message?: string; story?: string }> }>(
-          `${facebookGraphBaseUrl}/${account.platformUserId}/posts`,
-          { params: { fields: 'id,message,story', limit: 50, access_token: liveToken }, timeout: 15_000 }
+        const { items: fbPosts } = await fetchAllPublishedPostsForPage(
+          account.platformUserId,
+          liveToken,
+          50
         );
-        liveSources = (fbRes.data?.data ?? []).map((m, i) => ({
+        const sortedFb = sortFbPublishedPostsNewestFirst(fbPosts);
+        liveSources = sortedFb.map((m, i) => ({
           platformPostId: m.id,
-          postPreview: (m.message ?? m.story ?? '').trim() || `Post ${i + 1}`,
+          postPreview: (m.message ?? '').trim() || `Post ${i + 1}`,
           postTargetId: `live-${m.id}`,
+          postPublishedAt: m.created_time ?? undefined,
+          postUrl: m.permalink_url ?? `https://www.facebook.com/${m.id}`,
         }));
       }
     } catch { /* if live fetch fails, proceed with dbSources only */ }
@@ -318,10 +327,16 @@ export async function GET(
   const extraLive = liveSources.filter((s) => !existingPostIds.has(s.platformPostId));
   const maxSourcesBase = metaThrottle && platform === 'INSTAGRAM' ? 16 : MAX_SOURCES;
   const maxSources = deltaMode ? Math.min(12, maxSourcesBase) : maxSourcesBase;
-  const sources: PostSource[] = [
+  const mergedSources: PostSource[] = [
     ...dbSources,
-    ...extraLive.slice(0, Math.max(0, maxSources - dbSources.length)),
-  ].slice(0, maxSources);
+    ...extraLive,
+  ];
+  mergedSources.sort((a, b) => {
+    const ta = a.postPublishedAt ? Date.parse(a.postPublishedAt) : 0;
+    const tb = b.postPublishedAt ? Date.parse(b.postPublishedAt) : 0;
+    return tb - ta;
+  });
+  const sources: PostSource[] = mergedSources.slice(0, maxSources);
   const credJson = credJsonEarly as { loginMethod?: string; igUserToken?: string };
 
   // Instagram Business Login: account.accessToken IS the long-lived Instagram User token.
@@ -329,6 +344,10 @@ export async function GET(
   const igUserToken = isInstagramBusinessLogin ? account.accessToken : null;
 
   const token = account.accessToken;
+  const credPageIds = new Set<string>();
+  if (account.platformUserId) credPageIds.add(account.platformUserId);
+  const credExtra = credJson as { pageId?: string; facebookUserId?: string };
+  if (credExtra.pageId) credPageIds.add(credExtra.pageId);
   const comments: Array<{
     commentId: string;
     postTargetId: string;
@@ -560,7 +579,14 @@ export async function GET(
               const authorPictureUrl = (from as { picture?: { data?: { url?: string } } })?.picture?.data?.url ?? null;
               const text = (platform === 'INSTAGRAM' ? c.text : c.message) ?? '';
               const fromId = (from as { id?: string })?.id;
-              const isFromMe = fromId === account.platformUserId;
+              const isFromMe = Boolean(
+                fromId &&
+                  (fromId === account.platformUserId ||
+                    credPageIds.has(fromId) ||
+                    (credExtra.facebookUserId != null &&
+                      credExtra.facebookUserId !== '' &&
+                      fromId === credExtra.facebookUserId))
+              );
               comments.push({
                 commentId: c.id, postTargetId, platformPostId, accountId, postPreview, postImageUrl,
                 postPublishedAt: postPublishedAtResolved ?? null, postUrl,
@@ -601,7 +627,14 @@ export async function GET(
                     const rAuthorPictureUrl = (rFrom as { picture?: { data?: { url?: string } } })?.picture?.data?.url ?? null;
                     const rText = (platform === 'INSTAGRAM' ? r.text : r.message) ?? '';
                     const rFromId = (rFrom as { id?: string })?.id;
-                    const rIsFromMe = rFromId === account.platformUserId;
+                    const rIsFromMe = Boolean(
+                      rFromId &&
+                        (rFromId === account.platformUserId ||
+                          credPageIds.has(rFromId) ||
+                          (credExtra.facebookUserId != null &&
+                            credExtra.facebookUserId !== '' &&
+                            rFromId === credExtra.facebookUserId))
+                    );
                     const rCreated = r.created_time ?? (r as { timestamp?: string }).timestamp ?? new Date().toISOString();
                     comments.push({
                       commentId: r.id, postTargetId, platformPostId, accountId, postPreview, postImageUrl,
