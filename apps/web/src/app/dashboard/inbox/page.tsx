@@ -451,6 +451,17 @@ function InboxAvatar({
   );
 }
 
+/** Orange dot for inbox rows tied to a new notification. */
+function InboxNewDot({ className = '' }: { className?: string }) {
+  return (
+    <span
+      className={`absolute top-0 right-0 z-10 w-3 h-3 rounded-full bg-orange-500 border-2 border-white dark:border-neutral-900 shadow-sm ${className}`}
+      title="New notification"
+      aria-label="New notification"
+    />
+  );
+}
+
 function freshPostImageUrl(comment: Pick<PostComment, 'accountId' | 'platformPostId' | 'platform'>): string {
   return `/api/post-image?accountId=${encodeURIComponent(comment.accountId)}&postId=${encodeURIComponent(comment.platformPostId)}`;
 }
@@ -595,7 +606,10 @@ function MessagesConversationList({
                 {isSelected && <Check size={12} className="text-white" />}
               </div>
             ) : (
-              <InboxAvatar pictureUrl={pictureUrl} label={name} />
+              <div className="relative shrink-0">
+                <InboxAvatar pictureUrl={pictureUrl} label={name} />
+                {(isUnread || (unreadCountByConversationId[c.id] ?? 0) > 0) && <InboxNewDot />}
+              </div>
             )}
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-neutral-900 truncate">{name}</p>
@@ -1053,16 +1067,32 @@ function InboxPage() {
     return rows;
   }, [conversations, unreadCountByConversationId]);
 
+  const pendingUnreadCommentIds = useMemo(
+    () => getPendingUnreadCommentIds(user?.id ?? ''),
+    [user?.id]
+  );
+
+  const isCommentNewNotification = useCallback(
+    (commentId: string) =>
+      unreadCommentIds.has(commentId) || pendingUnreadCommentIds.has(commentId),
+    [unreadCommentIds, pendingUnreadCommentIds]
+  );
+
   /** Per-platform unread comment counts (used for badges on the platform filter icons). */
   const unreadCommentsByPlatform = useMemo(() => {
     const result: Record<string, number> = {};
     for (const c of comments) {
-      if (c.commentId && c.platform && !c.parentCommentId && unreadCommentIds.has(c.commentId)) {
+      if (
+        c.commentId &&
+        c.platform &&
+        !c.parentCommentId &&
+        isCommentNewNotification(c.commentId)
+      ) {
         result[c.platform] = (result[c.platform] ?? 0) + 1;
       }
     }
     return result;
-  }, [comments, unreadCommentIds]);
+  }, [comments, isCommentNewNotification]);
 
   const selectedConversation = useMemo(
     () => (selectedConversationId ? conversations.find((c) => c.id === selectedConversationId) : undefined),
@@ -2453,7 +2483,13 @@ function InboxPage() {
                       })()}
                     </p>
                   </div>
-                  {isUnread && <span className="shrink-0 w-2 h-2 rounded-full bg-red-500" aria-hidden />}
+                  {isUnread && (
+                    <span
+                      className="shrink-0 w-2.5 h-2.5 rounded-full bg-orange-500"
+                      title="New notification"
+                      aria-label="New notification"
+                    />
+                  )}
                 </button>
               );
             })}
@@ -2577,13 +2613,13 @@ function InboxPage() {
                 })
                 .sort((a, b) => {
                   const unreadDiff =
-                    (unreadCommentIds.has(b.commentId) ? 1 : 0) -
-                    (unreadCommentIds.has(a.commentId) ? 1 : 0);
+                    (isCommentNewNotification(b.commentId) ? 1 : 0) -
+                    (isCommentNewNotification(a.commentId) ? 1 : 0);
                   if (unreadDiff !== 0) return unreadDiff;
                   return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
                 });
               return filtered.map((c) => {
-                const isUnread = unreadCommentIds.has(c.commentId);
+                const isUnread = isCommentNewNotification(c.commentId);
                 const hasReplied = hasRepliedByParent.has(c.commentId);
                 const isSelected = selectMode && selectedCommentIds.has(c.commentId);
                 const account = effectiveAccounts.find((a) => a.platform === c.platform);
@@ -2634,12 +2670,13 @@ function InboxPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-neutral-400 mb-1">{new Date(c.createdAt).toLocaleString()}</p>
                       <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
+                        <div className="relative w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 overflow-hidden">
                           {c.authorPictureUrl ? (
                             <img src={c.authorPictureUrl} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <span className="text-xs font-semibold text-neutral-600">{(c.authorName || '?').slice(0, 2).toUpperCase()}</span>
                           )}
+                          {isUnread && <InboxNewDot />}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -2653,14 +2690,6 @@ function InboxPage() {
                         </div>
                       </div>
                     </div>
-                    {isUnread && (
-                      <span
-                        className="shrink-0 min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold"
-                        title="Unread comment on your post"
-                      >
-                        1
-                      </span>
-                    )}
                     {canDelete && (
                       <button
                         type="button"
@@ -2698,9 +2727,6 @@ function InboxPage() {
                         <Check size={12} />
                         Replied
                       </span>
-                    )}
-                    {isUnread && (
-                      <span className="shrink-0 w-2 h-2 rounded-full bg-red-500" aria-hidden />
                     )}
                   </div>
                 );
@@ -3638,7 +3664,7 @@ function InboxPage() {
               <div className="max-w-2xl mx-auto">
                 <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
                   <div className="p-4 border-b border-neutral-100 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-neutral-200 shrink-0 overflow-hidden">
+                    <div className="relative w-10 h-10 rounded-full bg-neutral-200 shrink-0 overflow-hidden">
                       {selectedComment.authorPictureUrl ? (
                         <img src={selectedComment.authorPictureUrl} alt="" className="w-full h-full object-cover" />
                       ) : (
@@ -3646,6 +3672,7 @@ function InboxPage() {
                           {(selectedComment.authorName || '?').slice(0, 2).toUpperCase()}
                         </span>
                       )}
+                      {isCommentNewNotification(selectedComment.commentId) && <InboxNewDot />}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
