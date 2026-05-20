@@ -110,7 +110,7 @@ Layouts worth knowing: `composer/layout.tsx` uses `AuthenticatedShell`.
 
 **Media:** `media/upload-url`, `media/proxy`, `media/serve`
 
-**AI:** `ai/brand-context`, `ai/generate-description`, `ai/generate-inbox-reply`
+**AI:** `ai/brand-context`, `ai/generate-description`, `ai/generate-inbox-reply`, `ai/generate-inbox-reply-batch` (parallel bulk comment/DM drafts)
 
 **Automation / cron:** `automation/`, `cron/process-scheduled`, `cron/metric-snapshots`, `cron/comment-automation`, **`cron/dm-first-welcome`**, etc. External schedule examples: `docs/CRON_SCHEDULES.md`.
 
