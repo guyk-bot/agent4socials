@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import {
   MessageCircle,
   Search,
@@ -620,6 +620,7 @@ function MessagesConversationList({
 }
 
 function InboxPage() {
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const platformFromUrl = searchParams.get('platform')?.toUpperCase();
@@ -1967,20 +1968,18 @@ function InboxPage() {
     setSelectedConversationId(null);
   }, [inboxMode, selectedPlatform, selectedPlatforms.join(','), connectedPlatforms.map((p) => p.id).join(',')]);
 
-  // Auto-open the first conversation when the list loads (messages mode). Do not change selectedPlatform to avoid icon flashing.
-  const hasAutoOpenedRef = useRef(false);
+  // When navigating to Inbox, start with no thread open (empty "Select a conversation" pane).
+  const prevPathnameRef = useRef<string | null>(null);
   useEffect(() => {
-    if (inboxMode !== 'messages' || !conversations.length || selectedConversationId) return;
-    if (hasAutoOpenedRef.current) return;
-    hasAutoOpenedRef.current = true;
-    const first = conversations[0];
-    const p = first.platform;
-    if (p && MESSAGE_STRIP_PLATFORM_IDS.has(p)) setSelectedPlatform(p);
-    setSelectedConversationId(first.id);
-  }, [inboxMode, conversations, selectedConversationId]);
-  useEffect(() => {
-    if (inboxMode !== 'messages' || !conversations.length) hasAutoOpenedRef.current = false;
-  }, [inboxMode, conversations.length]);
+    const onInbox = pathname === '/dashboard/inbox';
+    const wasOnInbox = prevPathnameRef.current === '/dashboard/inbox';
+    prevPathnameRef.current = pathname;
+    if (onInbox && !wasOnInbox) {
+      setSelectedConversationId(null);
+      setSelectedComment(null);
+      setSelectedEngagement(null);
+    }
+  }, [pathname]);
 
   const commentsSupportedPlatforms = selectedPlatforms.filter((p) => COMMENT_STRIP_PLATFORM_IDS.has(p));
   const platformsToFetchComments = commentsSupportedPlatforms;
