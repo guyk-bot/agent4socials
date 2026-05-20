@@ -1,5 +1,5 @@
 /**
- * Verifies comment keyword reply automation for X (Twitter); LinkedIn is skipped by cron.
+ * Verifies comment keyword reply automation for X (Twitter) and LinkedIn.
  */
 import axios from 'axios';
 import { NextRequest } from 'next/server';
@@ -45,11 +45,12 @@ describe('comment-automation', () => {
     expect(res.status).toBe(401);
   });
 
-  it('skips LinkedIn (cron does not run comment automation for LinkedIn)', async () => {
+  it('LinkedIn: matches keyword on post comments and posts reply', async () => {
     const postId = 'post-1';
     const targetId = 'target-1';
-    const platformPostId = 'urn:li:share:abc123';
+    const platformPostId = 'urn:li:ugcPost:abc123';
     const platformUserId = 'person456';
+    const commentUrn = 'urn:li:comment:(urn:li:ugcPost:abc123,99)';
     (prisma.post.count as jest.Mock).mockResolvedValue(1);
     (prisma.post.findMany as jest.Mock).mockResolvedValue([
       {
@@ -68,20 +69,36 @@ describe('comment-automation', () => {
               platform: 'LINKEDIN',
               accessToken: 'li-token',
               platformUserId,
+              credentialsJson: { authorType: 'person' },
             },
           },
         ],
       },
     ]);
+    (axios.get as jest.Mock).mockResolvedValueOnce({
+      data: {
+        elements: [
+          {
+            id: '99',
+            commentUrn,
+            message: { text: 'I want a demo please' },
+            object: platformPostId,
+          },
+        ],
+      },
+    });
+    (axios.post as jest.Mock).mockResolvedValueOnce({ data: {} });
 
     const res = await GET(mockRequest(CRON_SECRET));
     const body = await res.json();
 
     expect(res.status).toBe(200);
     expect(body.ok).toBe(true);
-    expect(body.results).toHaveLength(0);
-    expect(axios.get).not.toHaveBeenCalled();
-    expect(axios.post).not.toHaveBeenCalled();
+    expect(body.results).toHaveLength(1);
+    expect(body.results[0].platform).toBe('LINKEDIN');
+    expect(body.results[0].replied).toBe(1);
+    expect(axios.get).toHaveBeenCalled();
+    expect(axios.post).toHaveBeenCalled();
   });
 
   it('Twitter/X: fetches replies by conversation_id, matches keyword, posts reply (280 char limit)', async () => {

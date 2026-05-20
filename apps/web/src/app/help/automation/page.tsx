@@ -24,7 +24,7 @@ export default function HelpAutomationPage() {
           <section>
             <h2 className="text-xl font-semibold text-white">What is automated</h2>
             <p className="mt-3">
-              Keyword-based comment replies (and optional Instagram DM flows where you configure them) for connected Instagram, Facebook, and X accounts. LinkedIn keyword automation is not supported in the current product. Other platforms may have inbox or manual tools but are outside this keyword automation path unless we document otherwise.
+              Keyword-based comment replies (and optional Instagram DM flows where you configure them) for connected Instagram, Facebook, X, YouTube, and LinkedIn accounts on posts you published through Agent4Socials. TikTok keyword automation may be available for some business accounts. Other platforms may have inbox or manual tools but are outside this keyword automation path unless we document otherwise.
             </p>
           </section>
 

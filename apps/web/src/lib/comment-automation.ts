@@ -5,6 +5,8 @@ import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { isMetaNonCriticalThrottled } from '@/lib/meta-usage-guard';
 import { runMetaGraphRequest } from '@/lib/meta-graph-queue';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
+import { linkedInAuthorUrnForUgc } from '@/lib/linkedin/sync-ugc-posts';
+import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 import {
   postScalarsSelectWithMediaType,
   postScalarsSelectWithoutMediaType,
@@ -191,7 +193,6 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
       const platform = target.socialAccount.platform;
       const replyText = getReplyText(ca, platform);
       if (!replyText) continue;
-      if (platform === 'LINKEDIN') continue;
       if (
         (platform === 'INSTAGRAM' || platform === 'FACEBOOK') &&
         isMetaNonCriticalThrottled()
@@ -502,6 +503,83 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
                 where: { postTargetId: target.id, platformCommentId: c.id },
               }).catch(() => {});
               errors.push(`YouTube reply: ${(e as Error)?.message ?? String(e)}`.slice(0, 300));
+            }
+          }
+        } else if (platform === 'LINKEDIN') {
+          const postUrn = platformPostId.startsWith('urn:')
+            ? platformPostId
+            : `urn:li:ugcPost:${platformPostId}`;
+          const actor = linkedInAuthorUrnForUgc(
+            target.socialAccount.platformUserId ?? '',
+            target.socialAccount.credentialsJson
+          );
+          let commentsRes: {
+            elements?: Array<{
+              id?: string;
+              commentUrn?: string;
+              message?: { text?: string };
+              object?: string;
+            }>;
+          };
+          try {
+            commentsRes = (
+              await axios.get(
+                `https://api.linkedin.com/rest/socialActions/${encodeURIComponent(postUrn)}/comments`,
+                {
+                  headers: linkedInRestCommunityHeaders(token),
+                  timeout: 15_000,
+                }
+              )
+            ).data;
+          } catch (e) {
+            errors.push(`LinkedIn list comments: ${(e as Error)?.message ?? String(e)}`.slice(0, 300));
+            commentsRes = { elements: [] };
+          }
+          for (const c of commentsRes.elements ?? []) {
+            if (budgetExpired()) {
+              stoppedForCronBudget = true;
+              break automation;
+            }
+            if (replied >= maxRepliesPerTargetPerRun) break;
+            const text = (c.message?.text ?? '').toLowerCase();
+            if (!keywords.some((k) => text.includes(k))) continue;
+            const objectUrn = typeof c.object === 'string' && c.object.trim() ? c.object.trim() : postUrn;
+            const commentUrn =
+              typeof c.commentUrn === 'string' && c.commentUrn.trim()
+                ? c.commentUrn.trim()
+                : objectUrn && c.id
+                  ? `urn:li:comment:(${objectUrn},${c.id})`
+                  : (c.id ?? '');
+            if (!commentUrn.startsWith('urn:li:comment:')) continue;
+            if (repliedSet.has(commentUrn)) continue;
+            try {
+              await prisma.commentAutomationReply.create({
+                data: { postTargetId: target.id, platformCommentId: commentUrn },
+              });
+              repliedSet.add(commentUrn);
+              await axios.post(
+                `https://api.linkedin.com/rest/socialActions/${encodeURIComponent(commentUrn)}/comments`,
+                {
+                  actor,
+                  message: { text: replyText },
+                  object: objectUrn,
+                  parentComment: commentUrn,
+                },
+                {
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...linkedInRestCommunityHeaders(token),
+                  },
+                  timeout: 20_000,
+                }
+              );
+              replied++;
+              if (interReplyDelayMs > 0) await delay(interReplyDelayMs);
+            } catch (e) {
+              await prisma.commentAutomationReply.deleteMany({
+                where: { postTargetId: target.id, platformCommentId: commentUrn },
+              }).catch(() => {});
+              errors.push(`LinkedIn reply: ${(e as Error)?.message ?? String(e)}`.slice(0, 300));
             }
           }
         }

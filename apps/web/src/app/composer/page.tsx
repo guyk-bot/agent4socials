@@ -23,6 +23,8 @@ import {
     HelpCircle,
     Play,
     Pause,
+    Volume2,
+    VolumeX,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -191,12 +193,17 @@ const ComposerMediaPeekPlayer = React.forwardRef<
         frameSyncTime?: number;
         /** When false, used as the only layer (plain video): show first frame when idle. */
         variant?: 'overlay' | 'inline';
+        /** Show mute/unmute control while the player is active. */
+        enableAudioToggle?: boolean;
+        /** Optional poster image behind the video when idle. */
+        posterUrl?: string;
     }
 >(function ComposerMediaPeekPlayer(
-    { src, active, fitClass, crossOrigin, frameSyncTime, variant = 'overlay' },
+    { src, active, fitClass, crossOrigin, frameSyncTime, variant = 'overlay', enableAudioToggle = false, posterUrl },
     forwardedRef,
 ) {
     const videoRef = useRef<HTMLVideoElement>(null);
+    const [audioOn, setAudioOn] = useState(false);
     const setVideoRef = useCallback(
         (el: HTMLVideoElement | null) => {
             videoRef.current = el;
@@ -232,6 +239,10 @@ const ComposerMediaPeekPlayer = React.forwardRef<
             v.removeEventListener('play', onPlay);
             v.removeEventListener('pause', onPause);
         };
+    }, [src]);
+
+    useEffect(() => {
+        setAudioOn(false);
     }, [src]);
 
     useEffect(() => {
@@ -290,17 +301,33 @@ const ComposerMediaPeekPlayer = React.forwardRef<
                 variant === 'overlay' ? 'bg-black' : 'bg-neutral-900'
             }`}
         >
+            {posterUrl && !active ? (
+                <img src={posterUrl} alt="" className={`absolute inset-0 z-[0] h-full w-full ${fitClass}`} aria-hidden />
+            ) : null}
             <video
                 ref={setVideoRef}
                 src={src}
                 className={`absolute inset-0 z-[1] h-full w-full ${fitClass}`}
                 playsInline
-                muted
+                muted={!audioOn}
                 preload="metadata"
                 crossOrigin={crossOrigin}
             />
             {active ? (
                 <>
+                    {enableAudioToggle ? (
+                        <button
+                            type="button"
+                            className="absolute right-2 top-2 z-40 rounded-md bg-black/55 p-1.5 text-white hover:bg-black/70"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setAudioOn((on) => !on);
+                            }}
+                            aria-label={audioOn ? 'Mute video' : 'Unmute video'}
+                        >
+                            {audioOn ? <Volume2 className="h-4 w-4" aria-hidden /> : <VolumeX className="h-4 w-4" aria-hidden />}
+                        </button>
+                    ) : null}
                     {!playing ? (
                         <button
                             type="button"
@@ -452,7 +479,7 @@ function handlePublishResultOutcome(
 }
 
 // Platforms that support comment-automation (replies to keyword comments)
-const COMMENT_AUTOMATION_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
+const COMMENT_AUTOMATION_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER', 'YOUTUBE', 'LINKEDIN']);
 const TWITTER_AI_MAX_CHARS = 230;
 const TWITTER_POST_LIMIT = 280;
 
@@ -3401,6 +3428,7 @@ export default function ComposerPage() {
                                                                 crossOrigin={cors}
                                                                 frameSyncTime={thumbnailPickerTime}
                                                                 variant="overlay"
+                                                                enableAudioToggle
                                                             />
                                                         </div>
                                                     </div>
@@ -3416,6 +3444,8 @@ export default function ComposerPage() {
                                                                 fitClass={fitClass}
                                                                 crossOrigin={cors}
                                                                 variant="overlay"
+                                                                enableAudioToggle
+                                                                posterUrl={mediaDisplayUrl(effectiveThumbnail)}
                                                             />
                                                         </div>
                                                         <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1 right-1 z-[5] p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={12} /></button>
@@ -3431,6 +3461,7 @@ export default function ComposerPage() {
                                                             fitClass={fitClass}
                                                             crossOrigin={cors}
                                                             variant="inline"
+                                                            enableAudioToggle
                                                         />
                                                         <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1 right-1 z-[5] p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={12} /></button>
                                                         <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1 right-1 z-[5] p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={12} /></a>
@@ -4143,12 +4174,16 @@ function PostPreview({
     composerFramePreview?: { timeSec: number; videoSrc: string };
 }) {
     const [currentSlide, setCurrentSlide] = useState(0);
+    const [previewVideoHover, setPreviewVideoHover] = useState(false);
+    const [previewVideoPinned, setPreviewVideoPinned] = useState(false);
     const slideIndex = media.length > 0 ? Math.min(currentSlide, media.length - 1) : 0;
     const currentMedia = media[slideIndex];
     const isVideoMedia = currentMedia?.type === 'VIDEO';
     const useLiveFrameScrub = Boolean(
         composerFramePreview && isVideoMedia && media.length === 1 && slideIndex === 0
     );
+    const previewVideoActive = previewVideoHover || previewVideoPinned;
+    const videoThumbUrl = (currentMedia as { thumbnailUrl?: string })?.thumbnailUrl;
 
     const PlatformIcon = () => {
         switch (platform) {
@@ -4195,7 +4230,22 @@ function PostPreview({
                     <p className={`truncate text-neutral-500 ${compact ? 'text-[9px]' : 'text-xs'}`}>{PLATFORM_LABELS[platform] || platform}</p>
                 </div>
             </div>
-            <div className={mediaShellClass}>
+            <div
+                className={mediaShellClass}
+                onMouseEnter={() => setPreviewVideoHover(true)}
+                onMouseLeave={() => setPreviewVideoHover(false)}
+                onClick={() => {
+                    if (isVideoMedia && !useLiveFrameScrub) setPreviewVideoPinned((p) => !p);
+                }}
+                onKeyDown={(e) => {
+                    if ((e.key === 'Enter' || e.key === ' ') && isVideoMedia && !useLiveFrameScrub) {
+                        e.preventDefault();
+                        setPreviewVideoPinned((p) => !p);
+                    }
+                }}
+                role={isVideoMedia && !useLiveFrameScrub ? 'button' : undefined}
+                tabIndex={isVideoMedia && !useLiveFrameScrub ? 0 : undefined}
+            >
                 {mediaUploading && !currentMedia ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-neutral-100 animate-pulse">
                         <Loader2 size={compact ? 18 : 28} className="animate-spin text-neutral-400" />
@@ -4222,19 +4272,16 @@ function PostPreview({
                                     timeSec={composerFramePreview.timeSec}
                                     className={videoVisualClass}
                                 />
-                            ) : (currentMedia as { thumbnailUrl?: string }).thumbnailUrl ? (
-                                <img
-                                    src={mediaDisplayUrl((currentMedia as { thumbnailUrl?: string }).thumbnailUrl!)}
-                                    alt="Video cover"
-                                    className={videoVisualClass}
-                                />
                             ) : (
-                                <video
+                                <ComposerMediaPeekPlayer
+                                    key={`preview-${platform}-${currentMedia.fileUrl}`}
                                     src={mediaDisplayUrl(currentMedia.fileUrl)}
-                                    className={videoVisualClass}
-                                    muted
-                                    playsInline
-                                    preload="metadata"
+                                    active={previewVideoActive}
+                                    fitClass={videoVisualClass}
+                                    crossOrigin={currentMedia.fileUrl.startsWith('blob:') ? undefined : 'anonymous'}
+                                    variant="inline"
+                                    enableAudioToggle
+                                    posterUrl={videoThumbUrl ? mediaDisplayUrl(videoThumbUrl) : undefined}
                                 />
                             )
                         ) : (
