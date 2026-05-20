@@ -1,6 +1,11 @@
+import type { Platform } from '@prisma/client';
 import { NextRequest, NextResponse, after } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
-import { prisma } from '@/lib/db';
+import { prisma, withPrismaPoolRetry } from '@/lib/db';
+import {
+  isInboxLiveFetchBudgetError,
+  withInboxLiveFetchBudget,
+} from '@/lib/inbox/live-fetch-budget';
 import axios from 'axios';
 import { signTwitterRequest } from '@/lib/twitter-oauth1';
 import { runFirstWelcomeMaybe } from '@/lib/dm-first-welcome';
@@ -61,18 +66,37 @@ export async function GET(
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   const { id, conversationId } = await params;
-  const account = await prisma.socialAccount.findFirst({
-    where: { id, userId },
-    select: {
-      id: true,
-      platform: true,
-      platformUserId: true,
-      accessToken: true,
-      refreshToken: true,
-      expiresAt: true,
-      credentialsJson: true,
-    },
-  });
+  let account: {
+    id: string;
+    platform: Platform;
+    platformUserId: string;
+    accessToken: string;
+    refreshToken: string | null;
+    expiresAt: Date | null;
+    credentialsJson: unknown;
+  } | null = null;
+  try {
+    account = await withPrismaPoolRetry('messages-get-account', () =>
+      prisma.socialAccount.findFirst({
+        where: { id, userId },
+        select: {
+          id: true,
+          platform: true,
+          platformUserId: true,
+          accessToken: true,
+          refreshToken: true,
+          expiresAt: true,
+          credentialsJson: true,
+        },
+      })
+    );
+  } catch (e) {
+    console.error('[messages] account lookup failed:', (e as Error)?.message?.slice(0, 200));
+    return NextResponse.json(
+      { message: 'Database is busy. Wait a moment and try again.' },
+      { status: 503 }
+    );
+  }
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
   }
@@ -181,7 +205,29 @@ export async function GET(
     );
   }
 
-  const loaded = await loadConversationForFirstWelcome(account, conversationId, userId);
+  let loaded: Awaited<ReturnType<typeof loadConversationForFirstWelcome>>;
+  try {
+    loaded = await withInboxLiveFetchBudget(() =>
+      loadConversationForFirstWelcome(account, conversationId, userId)
+    );
+  } catch (e) {
+    if (isInboxLiveFetchBudgetError(e)) {
+      const stale = await serveCachedMessages(
+        true,
+        'Loading messages took too long. Showing cached messages when available. Tap Retry in a moment.'
+      );
+      if (stale) return stale;
+      return NextResponse.json(
+        {
+          messages: [],
+          recipientId: null,
+          error: 'Loading messages timed out. Try again in a moment.',
+        },
+        { status: 504 }
+      );
+    }
+    throw e;
+  }
   if (!loaded.ok) {
     if (loaded.status === 429) {
       noteXApiRateLimit(account.id);

@@ -471,7 +471,7 @@ export async function loadFacebookGraphConversationMessages(
       error?: { message: string };
     }>(`${fbBaseUrl}/${conversationId}/messages`, {
       params: { ...params, limit: '50' },
-      timeout: 25_000,
+      timeout: 18_000,
     });
 
     if (res.data?.error) {

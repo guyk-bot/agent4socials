@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { prisma } from '@/lib/db';
+import { prisma, withPrismaPoolRetry } from '@/lib/db';
 import { trackUsage } from '@/lib/usage-tracking';
 
 /**
@@ -23,7 +23,9 @@ export async function getPrismaUserIdFromRequest(authHeader: string | null): Pro
   // Fast fail is controlled by DATABASE_POOL_TIMEOUT_SEC on the URL (see db.ts).
   let dbUser: { id: string } | null = null;
   try {
-    dbUser = await prisma.user.findUnique({ where: { supabaseId: user.id } });
+    dbUser = await withPrismaPoolRetry('getPrismaUserIdFromRequest', () =>
+      prisma.user.findUnique({ where: { supabaseId: user.id }, select: { id: true } })
+    );
   } catch (e) {
     console.error('[getPrismaUserIdFromRequest] DB error:', (e as Error)?.message?.slice(0, 200));
     return null;

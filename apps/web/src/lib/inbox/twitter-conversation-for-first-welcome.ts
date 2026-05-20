@@ -2,7 +2,10 @@ import type { Platform } from '@prisma/client';
 import axios from 'axios';
 import { signTwitterRequest } from '@/lib/twitter-oauth1';
 import { checkAndIncrementXApiUsage } from '@/lib/x/x-api-usage';
+import { INBOX_LIVE_FETCH_BUDGET_MS } from '@/lib/inbox/live-fetch-budget';
 import { isXApiThrottled, noteXApiRateLimit, X_APP_BACKOFF_INBOX_MESSAGE } from '@/lib/x/x-api-throttle';
+
+const X_DM_HTTP_TIMEOUT_MS = 10_000;
 import type { FirstWelcomeMessageRow } from '@/lib/dm-first-welcome';
 
 export type ConversationUiMessage = {
@@ -53,6 +56,9 @@ export async function loadTwitterConversationForFirstWelcome(
     return { ok: false, status: 429, error: X_APP_BACKOFF_INBOX_MESSAGE };
   }
 
+  const fetchDeadlineMs = Date.now() + INBOX_LIVE_FETCH_BUDGET_MS - 8_000;
+  const pastFetchDeadline = () => Date.now() >= fetchDeadlineMs;
+
   try {
     if (conversationId.startsWith('mention:')) {
       const tweetId = conversationId.slice('mention:'.length).trim();
@@ -73,7 +79,7 @@ export async function loadTwitterConversationForFirstWelcome(
         headers: useOAuth1ForDm
           ? signTwitterRequest('GET', lookupUrl, { key: oauth1UserToken!, secret: oauth1UserSecret! }, twParams)
           : { Authorization: `Bearer ${token}` },
-        timeout: 15_000,
+        timeout: X_DM_HTTP_TIMEOUT_MS,
         validateStatus: () => true,
       });
       if (twRes.status === 429) {
@@ -114,12 +120,13 @@ export async function loadTwitterConversationForFirstWelcome(
     const allEventParticipantIds = new Set<string>();
     let nextToken: string | null = null;
     let pageCount = 0;
-    const maxPages = 2;
+    const maxPages = 1;
     const userMap = new Map<string, string>();
     const userObjMap = new Map<string, { name?: string; username?: string; profile_image_url?: string }>();
     const dmConversationUrl = `https://api.x.com/2/dm_conversations/${conversationId}/dm_events`;
 
     do {
+      if (pastFetchDeadline()) break;
       await checkAndIncrementXApiUsage(account.id);
       const params: Record<string, string> = {
         'dm_event.fields': 'id,text,sender_id,created_at,participant_ids',
@@ -134,13 +141,13 @@ export async function loadTwitterConversationForFirstWelcome(
         ? {
             params,
             headers: signTwitterRequest('GET', dmConversationUrl, { key: oauth1UserToken!, secret: oauth1UserSecret! }, params),
-            timeout: 15_000,
+            timeout: X_DM_HTTP_TIMEOUT_MS,
             validateStatus: () => true,
           }
         : {
             params,
             headers: { Authorization: `Bearer ${token}` },
-            timeout: 15_000,
+            timeout: X_DM_HTTP_TIMEOUT_MS,
             validateStatus: () => true,
           };
 
@@ -195,13 +202,14 @@ export async function loadTwitterConversationForFirstWelcome(
       }
     }
     // Secondary "with/{user}/dm_events" doubles API usage; only when the primary thread is thin.
-    if (recipientIdFromConvo && allMessages.length < 12) {
+    if (!pastFetchDeadline() && recipientIdFromConvo && allMessages.length < 12) {
       try {
         const withUrl = `https://api.x.com/2/dm_conversations/with/${encodeURIComponent(recipientIdFromConvo)}/dm_events`;
         const existingIds = new Set(allMessages.map((m) => m.id));
         let withNext: string | null = null;
         let withPages = 0;
         do {
+          if (pastFetchDeadline()) break;
           await checkAndIncrementXApiUsage(account.id);
           const withParams: Record<string, string> = {
             'dm_event.fields': 'id,text,sender_id,created_at,event_type',
@@ -221,7 +229,7 @@ export async function loadTwitterConversationForFirstWelcome(
             headers: useOAuth1ForDm
               ? signTwitterRequest('GET', withUrl, { key: oauth1UserToken!, secret: oauth1UserSecret! }, withParams)
               : { Authorization: `Bearer ${token}` },
-            timeout: 15_000,
+            timeout: X_DM_HTTP_TIMEOUT_MS,
             validateStatus: () => true,
           });
           if (withRes.status === 429 || withRes.data?.error) break;
@@ -244,7 +252,7 @@ export async function loadTwitterConversationForFirstWelcome(
           }
           withNext = withRes.data?.meta?.next_token ?? null;
           withPages++;
-        } while (withNext && withPages < 2);
+        } while (withNext && withPages < 1);
       } catch {
         // ignore
       }
@@ -279,7 +287,7 @@ export async function loadTwitterConversationForFirstWelcome(
       }
     }
 
-    if (recipientId && !userObjMap.has(recipientId)) {
+    if (!pastFetchDeadline() && recipientId && !userObjMap.has(recipientId)) {
       try {
         await checkAndIncrementXApiUsage(account.id);
         const recipientRes = await axios.get<{
@@ -287,7 +295,7 @@ export async function loadTwitterConversationForFirstWelcome(
         }>(`https://api.x.com/2/users/${recipientId}`, {
           params: { 'user.fields': 'id,name,username,profile_image_url' },
           headers: { Authorization: `Bearer ${token}` },
-          timeout: 8_000,
+          timeout: 6_000,
         });
         if (recipientRes.data?.data) {
           const u = recipientRes.data.data;
