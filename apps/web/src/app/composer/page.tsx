@@ -42,6 +42,7 @@ import {
     isoInstantToLocalTenMinuteSnappedUp,
 } from '@/lib/schedule-ten-minute';
 import { hasComposerBrandContext } from '@/lib/brand-context-utils';
+import { resolveComposerMediaType } from '@/lib/composer-media-type';
 
 const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
 
@@ -458,6 +459,19 @@ const COMPOSER_PLATFORM_ORDER = [
 ] as const;
 
 /** Platforms offered in Select Platforms for each media type (connected accounts only are shown). */
+function buildPublishRequestBody(
+    mediaType: MediaTypeChoice,
+    tiktokPublishByAccountId: Record<string, TikTokDirectPostPayload>
+): { mediaType: string; tiktokPublishByAccountId?: Record<string, TikTokDirectPostPayload> } {
+    const body: { mediaType: string; tiktokPublishByAccountId?: Record<string, TikTokDirectPostPayload> } = {
+        mediaType,
+    };
+    if (Object.keys(tiktokPublishByAccountId).length > 0) {
+        body.tiktokPublishByAccountId = tiktokPublishByAccountId;
+    }
+    return body;
+}
+
 function platformsAllowedForMediaType(mediaType: MediaTypeChoice): readonly string[] {
     switch (mediaType) {
         case 'story':
@@ -985,7 +999,8 @@ export default function ComposerPage() {
                     title?: string | null;
                     content?: string | null;
                     contentByPlatform?: Record<string, string> | null;
-                    media?: { fileUrl: string; type: string }[];
+                    mediaType?: string | null;
+                    media?: { fileUrl: string; type: string; metadata?: unknown }[];
                     mediaByPlatform?: Record<string, { fileUrl: string; type: string }[]>;
                     targets?: {
                         platform?: string;
@@ -1035,9 +1050,25 @@ export default function ComposerPage() {
                     thumbnailUrl: (m as { metadata?: { thumbnailUrl?: string } }).metadata?.thumbnailUrl,
                 }));
                 setMediaList(mediaList_);
-                if (mediaList_.length === 1 && mediaList_[0].type === 'VIDEO') setMediaType('reel');
-                else if (mediaList_.length === 1) setMediaType('photo');
-                else if (mediaList_.length > 1) setMediaType('carousel');
+                const resolvedMediaType = resolveComposerMediaType({
+                    postMediaType: p.mediaType,
+                    media: p.media,
+                });
+                if (
+                    resolvedMediaType === 'photo' ||
+                    resolvedMediaType === 'video' ||
+                    resolvedMediaType === 'reel' ||
+                    resolvedMediaType === 'carousel' ||
+                    resolvedMediaType === 'story'
+                ) {
+                    setMediaType(resolvedMediaType);
+                } else if (mediaList_.length === 1 && mediaList_[0].type === 'VIDEO') {
+                    setMediaType('reel');
+                } else if (mediaList_.length === 1) {
+                    setMediaType('photo');
+                } else if (mediaList_.length > 1) {
+                    setMediaType('carousel');
+                }
                 if (p.mediaByPlatform && Object.keys(p.mediaByPlatform).length > 0) {
                     const cleaned: Record<string, MediaItem[]> = {};
                     for (const [k, arr] of Object.entries(p.mediaByPlatform)) {
@@ -2224,8 +2255,7 @@ export default function ComposerPage() {
                     try {
                         const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
                         if (debug) sessionStorage.removeItem('publish_debug');
-                        const publishBody =
-                            Object.keys(tiktokPublishByAccountId).length > 0 ? { tiktokPublishByAccountId } : {};
+                        const publishBody = buildPublishRequestBody(mediaType, tiktokPublishByAccountId);
                         const publishPath = `/posts/${editPostId}/publish${debug ? '?debug=1' : ''}`;
                         if (includesTikTokTarget) {
                             tiktokPostPublishFollowUpPostIdRef.current = editPostId;
@@ -2318,8 +2348,7 @@ export default function ComposerPage() {
                 try {
                         const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
                         if (debug) sessionStorage.removeItem('publish_debug');
-                        const publishBodyCreate =
-                            Object.keys(tiktokPublishByAccountId).length > 0 ? { tiktokPublishByAccountId } : {};
+                        const publishBodyCreate = buildPublishRequestBody(mediaType, tiktokPublishByAccountId);
                         const publishPathCreate = `/posts/${postId}/publish${debug ? '?debug=1' : ''}`;
                         if (includesTikTokTarget) {
                             tiktokPostPublishFollowUpPostIdRef.current = postId;

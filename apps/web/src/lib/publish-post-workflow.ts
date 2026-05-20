@@ -19,12 +19,15 @@ import {
   postScalarsSelectWithoutMediaType,
   prismaPostReadWithMediaTypeFallback,
 } from '@/lib/prisma-post-media-type-fallback';
+import { resolveComposerMediaType } from '@/lib/composer-media-type';
 
 export type PublishPostRequestBody = {
   token?: string;
   contentByPlatform?: Record<string, string>;
   pinterestSandbox?: boolean;
   tiktokPublishByAccountId?: Record<string, unknown>;
+  /** Composer format (photo, story, reel, …). Used when Post.mediaType was not persisted. */
+  mediaType?: string;
 };
 
 export type PublishPostWorkflowResult = {
@@ -85,7 +88,11 @@ export async function runPublishPostWorkflow(input: {
 
   const contentByPlatform = (post as { contentByPlatform?: Record<string, string> | null }).contentByPlatform ?? null;
   const mediaByPlatform = (post as { mediaByPlatform?: Record<string, { fileUrl: string; type: string }[]> | null }).mediaByPlatform ?? null;
-  const postMediaType = (post as { mediaType?: string | null }).mediaType ?? null;
+  const postMediaType = resolveComposerMediaType({
+    requestBodyType: requestBody.mediaType,
+    postMediaType: (post as { mediaType?: string | null }).mediaType,
+    media: post.media,
+  });
   const storedTiktok = (post as { tiktokPublishByAccountId?: Record<string, unknown> | null }).tiktokPublishByAccountId;
   const bodyTiktok = requestBody.tiktokPublishByAccountId;
   const tiktokMerged: Record<string, unknown> = {

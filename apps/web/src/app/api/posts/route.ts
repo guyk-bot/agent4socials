@@ -11,6 +11,7 @@ import {
   postScalarsSelectWithoutMediaType,
   prismaPostReadWithMediaTypeFallback,
 } from '@/lib/prisma-post-media-type-fallback';
+import { mediaMetadataWithComposerType } from '@/lib/composer-media-type';
 
 export async function GET(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
@@ -186,7 +187,7 @@ export async function POST(request: NextRequest) {
           const obj: Record<string, unknown> = {};
           if (meta.thumbnailUrl) obj.thumbnailUrl = meta.thumbnailUrl;
           if (meta.useVideoDefaultForPublish) obj.useVideoDefaultForPublish = true;
-          return (Object.keys(obj).length ? obj : undefined) as Prisma.InputJsonValue | undefined;
+          return mediaMetadataWithComposerType(obj, bodyMediaType) as Prisma.InputJsonValue | undefined;
         })(),
       })),
     },
