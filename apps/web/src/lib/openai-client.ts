@@ -1,10 +1,10 @@
 /**
  * OpenAI Chat Completions client for server-side use.
- * Set OPENAI_API_KEY in env (and optionally OPENAI_CHAT_MODEL, default gpt-4o-mini).
+ * Set OPENAI_API_KEY in env (and optionally OPENAI_CHAT_MODEL, default gpt-4.1-nano).
  */
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
-const DEFAULT_MODEL = 'gpt-4o-mini';
+const DEFAULT_MODEL = 'gpt-4.1-nano';
 
 export interface OpenAIChatMessage {
   role: 'system' | 'user' | 'assistant';

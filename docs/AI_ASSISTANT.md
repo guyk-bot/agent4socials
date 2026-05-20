@@ -9,7 +9,7 @@ The app includes an **optional** AI assistant that helps users write post descri
    - **Local:** `apps/web/.env` → `OPENAI_API_KEY=sk-proj-...`
    - **Production (Vercel):** Project → Settings → Environment Variables → add `OPENAI_API_KEY` with the same value.
 
-   The backend uses the **OpenAI API** (default model `gpt-4o-mini`) for post descriptions, inbox reply suggestions, and reel captions/analysis. Do not commit the key; use env only. Optional: set `OPENAI_CHAT_MODEL` to use a different model.
+   The backend uses the **OpenAI API** (default model `gpt-4.1-nano`) for post descriptions, inbox reply suggestions, and reel captions/analysis. Do not commit the key; use env only. Optional: set `OPENAI_CHAT_MODEL` to use a different model.
 
 2. **Brand context**  
    Users set their brand context once under **Dashboard → AI Assistant**: target audience, tone of voice (with examples), product description, and any extra context. This is stored per user and used when generating descriptions.

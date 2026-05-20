@@ -91,7 +91,7 @@ export async function generateInboxRepliesBatch(args: {
   const batchModel =
     process.env.OPENAI_INBOX_BATCH_MODEL?.trim() ||
     process.env.OPENAI_CHAT_MODEL?.trim() ||
-    'gpt-4o-mini';
+    'gpt-4.1-nano';
 
   const lines = items.map((item, idx) => {
     const parts = [
