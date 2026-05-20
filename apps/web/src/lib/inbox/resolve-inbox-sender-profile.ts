@@ -17,7 +17,8 @@ const igBaseUrl = 'https://graph.instagram.com/v25.0';
 const fbBaseUrl = facebookGraphBaseUrl;
 
 /** Caps IGBusinessScopedID User Profile API calls per inbox conversations request. */
-const MAX_IG_SCOPED_PROFILE_CALLS_PER_REQUEST = 3;
+const DEFAULT_MAX_IG_SCOPED_PROFILE_CALLS_PER_REQUEST = 3;
+let maxIgScopedProfileCallsThisRequest = DEFAULT_MAX_IG_SCOPED_PROFILE_CALLS_PER_REQUEST;
 
 /** Meta user / IGSID node ids are numeric strings (10–20 digits). Avoid InvalidID on bad ids. */
 export function isLikelyMetaScopedUserId(id: string | undefined | null): boolean {
@@ -29,13 +30,20 @@ let igScopedProfileCallsThisRequest = 0;
 
 export function resetIgScopedProfileCallBudget(): void {
   igScopedProfileCallsThisRequest = 0;
+  maxIgScopedProfileCallsThisRequest = DEFAULT_MAX_IG_SCOPED_PROFILE_CALLS_PER_REQUEST;
+}
+
+/** Raise the per-request IGBusinessScopedID budget (e.g. one-shot inbox full enrich). */
+export function setIgScopedProfileCallBudgetForRequest(maxCalls: number): void {
+  igScopedProfileCallsThisRequest = 0;
+  maxIgScopedProfileCallsThisRequest = Math.max(1, Math.min(maxCalls, 12));
 }
 
 async function fetchIgUserProfileViaPageTokenBudgeted(
   senderId: string,
   pageToken: string
 ): Promise<InboxSenderProfile | null> {
-  if (igScopedProfileCallsThisRequest >= MAX_IG_SCOPED_PROFILE_CALLS_PER_REQUEST) {
+  if (igScopedProfileCallsThisRequest >= maxIgScopedProfileCallsThisRequest) {
     return null;
   }
   igScopedProfileCallsThisRequest += 1;

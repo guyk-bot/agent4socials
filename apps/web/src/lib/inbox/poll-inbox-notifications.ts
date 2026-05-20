@@ -23,6 +23,7 @@ import {
   setConversationLastSeenUpdated,
   unmarkConversationAsRead,
 } from '@/lib/inbox-read-state';
+import { mergeInboxSenderRows } from '@/lib/inbox/merge-inbox-lists';
 import {
   shouldAllowInboxListSync,
   shouldAllowMinimalProfileEnrichment,
@@ -59,12 +60,7 @@ export function mergeCachedConversationRow(
     updatedTime: pickNewerUpdatedTime(prev?.updatedTime, incoming.updatedTime),
     messageCount: incoming.messageCount ?? prev?.messageCount,
     platform: incoming.platform ?? prev?.platform,
-    senders: (incoming.senders ?? []).map((s, i) => ({
-      ...s,
-      pictureUrl: s.pictureUrl ?? prev?.senders?.[i]?.pictureUrl ?? null,
-      name: s.name ?? prev?.senders?.[i]?.name,
-      username: s.username ?? prev?.senders?.[i]?.username,
-    })),
+    senders: mergeInboxSenderRows(prev?.senders, incoming.senders),
   };
 }
 
@@ -252,10 +248,14 @@ export async function pollInboxNotifications(args: {
           { timeout: 90_000 }
         );
         if (res.data?.error) continue;
+        if (res.data?.metaThrottled) continue;
         const incoming = res.data?.comments ?? [];
-        if (incoming.length === 0 && existing.length > 0 && commentSinceStart) continue;
-        const merged = incoming.length > 0 ? mergeComments(existing, incoming, userId, acc.id, acc.platform) : existing;
-        if (incoming.length > 0 || existing.length === 0) {
+        if (incoming.length === 0 && existing.length > 0) continue;
+        const merged =
+          incoming.length > 0
+            ? mergeComments(existing, incoming, userId, acc.id, acc.platform)
+            : existing;
+        if (merged.length > 0) {
           onComments(acc.id, merged);
         }
       } catch {

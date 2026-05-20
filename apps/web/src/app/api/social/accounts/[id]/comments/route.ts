@@ -121,13 +121,22 @@ export async function GET(
       shouldSkipMetaProfileEnrichment() ||
       shouldBlockMetaNonEssentialCalls());
   if (metaThrottle) {
-    const payload = {
-      comments: [] as unknown[],
+    const stale = getCached<{ comments?: unknown[] }>(cacheKey);
+    if (stale && Array.isArray(stale.comments) && stale.comments.length > 0) {
+      const res = NextResponse.json({
+        ...stale,
+        metaThrottled: true,
+        stale: true,
+        hint: 'Showing saved comments while Meta usage is high. Live sync resumes automatically.',
+      });
+      res.headers.set('X-Comments-Cache', 'STALE');
+      return res;
+    }
+    return NextResponse.json({
+      comments: [],
       metaThrottled: true,
-      hint: 'Meta API usage is high; comment sync paused briefly. Open Inbox again in a few minutes.',
-    };
-    setCached(cacheKey, payload, 90_000);
-    return NextResponse.json(payload);
+      hint: 'Meta API usage is high; comment sync paused briefly. Your last loaded comments stay visible in Inbox.',
+    });
   }
   if (
     platform !== 'INSTAGRAM' &&

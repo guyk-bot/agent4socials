@@ -28,6 +28,7 @@ import {
   mergeInboxProfileCacheIntoConversations,
   resetIgScopedProfileCallBudget,
   resolveInstagramInboxSenderProfile,
+  setIgScopedProfileCallBudgetForRequest,
 } from '@/lib/inbox/resolve-inbox-sender-profile';
 import {
   getInboxConversationListFromDb,
@@ -90,6 +91,9 @@ export async function GET(
   /** Up to 2 live profile lookups during systematic sync when Meta usage is elevated. */
   const minimalEnrich =
     searchParams.get('minimalEnrich') === '1' || searchParams.get('minimalEnrich') === 'true';
+  /** One-shot inbox open: refresh names/avatars from Meta (capped; does not fan out comments). */
+  const fullEnrich =
+    searchParams.get('fullEnrich') === '1' || searchParams.get('fullEnrich') === 'true';
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
     select: {
@@ -819,12 +823,18 @@ export async function GET(
       )) as typeof list;
     }
 
-    const reduceFanOut = shouldReduceMetaProfileFanOut();
-    const allowProfileEnrich = shouldAllowMetaInboxProfileEnrichment();
-    const allowMinimalLive = badgePoll && minimalEnrich && shouldAllowMinimalProfileEnrichment();
-    const igEnrichMax = reduceFanOut ? 2 : 4;
-    if (isInstagram && list.length > 0 && allowMinimalLive) {
+    const reduceFanOut = fullEnrich ? false : shouldReduceMetaProfileFanOut();
+    const allowProfileEnrich =
+      fullEnrich || shouldAllowMetaInboxProfileEnrichment();
+    const allowMinimalLive =
+      !fullEnrich && badgePoll && minimalEnrich && shouldAllowMinimalProfileEnrichment();
+    const igEnrichMax = fullEnrich ? 12 : reduceFanOut ? 2 : 4;
+    if (fullEnrich) {
+      setIgScopedProfileCallBudgetForRequest(10);
+    } else {
       resetIgScopedProfileCallBudget();
+    }
+    if (isInstagram && list.length > 0 && allowMinimalLive) {
       list = (await enrichInstagramAvatarsFromParticipants({
         userId,
         list: list as InboxConversationListItem[],
@@ -835,8 +845,8 @@ export async function GET(
         maxConversations: 2,
       })) as typeof list;
     }
-    if (isInstagram && list.length > 0 && !badgePoll && allowProfileEnrich) {
-      resetIgScopedProfileCallBudget();
+    if (isInstagram && list.length > 0 && allowProfileEnrich && (!badgePoll || fullEnrich)) {
+      if (!fullEnrich) resetIgScopedProfileCallBudget();
       list = (await enrichInstagramAvatarsFromParticipants({
         userId,
         list: list as InboxConversationListItem[],
@@ -848,7 +858,11 @@ export async function GET(
       })) as typeof list;
     }
 
-    if (!badgePoll && list.length > 0 && allowProfileEnrich && !shouldBlockMetaNonEssentialCalls()) {
+    if (
+      list.length > 0 &&
+      allowProfileEnrich &&
+      (fullEnrich || (!badgePoll && !shouldBlockMetaNonEssentialCalls()))
+    ) {
       const latestMsgMax = reduceFanOut ? 1 : 3;
       if (isInstagram) {
         list = (await enrichInboxSendersFromLatestMessages({
@@ -904,7 +918,7 @@ export async function GET(
             if (cached) profiles.set(enrichId, cached);
           }
         } else if (isInstagram) {
-          const enrichCap = allowMinimalLive ? 2 : reduceFanOut ? 3 : 6;
+          const enrichCap = fullEnrich ? 12 : allowMinimalLive ? 2 : reduceFanOut ? 3 : 6;
           const enrichIds = Array.from(idsToEnrich).slice(0, enrichCap);
           const enrichIdSet = new Set(enrichIds);
           const convBySender = new Map<string, string>();
@@ -915,7 +929,7 @@ export async function GET(
               }
             }
           }
-          const maxLiveProfileLookups = allowMinimalLive ? 2 : reduceFanOut ? 1 : 2;
+          const maxLiveProfileLookups = fullEnrich ? 8 : allowMinimalLive ? 2 : reduceFanOut ? 1 : 2;
           // Check cache for all IDs first (parallel), then fire live lookups in parallel
           // for any still missing a display name.
           const cacheResults = await Promise.all(
@@ -956,7 +970,7 @@ export async function GET(
           );
         } else {
           // Facebook Page messaging: batch lookup, then per-user fallback for any still missing.
-          const enrichIds = Array.from(idsToEnrich).slice(0, allowMinimalLive ? 2 : 50);
+          const enrichIds = Array.from(idsToEnrich).slice(0, fullEnrich ? 25 : allowMinimalLive ? 2 : 50);
           for (const id of enrichIds) {
             const cached = await readInboxProfileCache('facebook', id);
             if (cached?.pictureUrl || cached?.name) {

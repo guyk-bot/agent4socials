@@ -69,6 +69,7 @@ import {
   pruneStalePendingUnread,
   reconcileInboxReadStateWithConversations,
 } from '@/lib/inbox/unread-count';
+import { mergeStableKeyedList } from '@/lib/inbox/merge-inbox-lists';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
@@ -795,6 +796,8 @@ function InboxPage() {
   const previousEngagementIdsRef = useRef<Set<string>>(new Set());
   const conversationsLoadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const conversationsLoadedRef = useRef(false);
+  const commentsEverLoadedRef = useRef(false);
+  const inboxFullEnrichStartedRef = useRef(false);
   // Stable ref so effects that call appData setters don't list appData as a dep
   // (which would cause infinite re-run loops whenever context state updates).
   const appDataRef = useRef(appData);
@@ -1865,11 +1868,53 @@ function InboxPage() {
       .catch(() => setNotifications({ comments: 0, messages: 0 }));
   }, [selectedPlatform, inboxMode, appData]);
 
+  // One-shot: refresh Instagram/Facebook sender names from Meta when Inbox opens.
+  useEffect(() => {
+    if (pathname !== '/dashboard/inbox' || !user?.id || inboxFullEnrichStartedRef.current) return;
+    const metaAccounts = effectiveAccounts.filter(
+      (a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK'
+    );
+    if (metaAccounts.length === 0) return;
+    inboxFullEnrichStartedRef.current = true;
+    void (async () => {
+      for (const acc of metaAccounts) {
+        try {
+          const [convRes, commentsRes] = await Promise.all([
+            api.get<{ conversations?: Conversation[] }>(
+              `/social/accounts/${acc.id}/conversations?fullEnrich=1&fresh=1`,
+              { timeout: 120_000 }
+            ),
+            api.get<{ comments?: PostComment[]; metaThrottled?: boolean }>(
+              `/social/accounts/${acc.id}/comments?refresh=1`,
+              { timeout: 120_000 }
+            ),
+          ]);
+          const list = convRes.data?.conversations ?? [];
+          if (list.length > 0) {
+            appDataRef.current?.setConversationsForAccount(acc.id, list);
+          }
+          const commentList = commentsRes.data?.comments ?? [];
+          if (commentList.length > 0 && !commentsRes.data?.metaThrottled) {
+            appDataRef.current?.setCommentsForAccount(acc.id, commentList);
+          }
+        } catch {
+          /* keep cached list */
+        }
+      }
+    })();
+  }, [pathname, user?.id, effectiveAccounts.map((a) => a.id).join(',')]);
+
   // Conversations: read AppData cache only. Background sync runs every 2 min in AppDataContext.
   useEffect(() => {
-    if (messageFetchPlatformIds.length === 0) {
-      setConversations([]);
-      setConversationsLoading(false);
+    const dmPlatforms = connectedPlatforms
+      .filter((p) => DM_THREAD_PLATFORM_IDS.has(p.id))
+      .map((p) => p.id);
+
+    if (dmPlatforms.length === 0) {
+      if (conversations.length === 0) {
+        setConversations([]);
+        setConversationsLoading(false);
+      }
       setConversationsError(null);
       setConversationsErrorsByPlatform({});
       setConversationsHintsByPlatform({});
@@ -1878,13 +1923,9 @@ function InboxPage() {
     }
 
     const merge: Array<Conversation & { platform: string; messageAccountId: string }> = [];
-    for (const platform of messageFetchPlatformIds) {
+    for (const platform of dmPlatforms) {
       const account = effectiveAccounts.find((a) => a.platform === platform);
       if (!account) continue;
-      if (!DM_THREAD_PLATFORM_IDS.has(platform)) {
-        appData?.setConversationsForAccount(account.id, []);
-        continue;
-      }
       const fromCacheList = (appData?.getConversations(account.id) ?? []) as Conversation[];
       for (const c of fromCacheList) {
         merge.push({ ...c, platform, messageAccountId: account.id });
@@ -1905,9 +1946,17 @@ function InboxPage() {
 
     const sorted = merge.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
     const withPictures = user?.id ? mergeSenderPicturesIntoConversations(sorted, user.id) : sorted;
-    setConversations(withPictures);
+    setConversations((prev) => {
+      const stable = mergeStableKeyedList(
+        prev as Array<Conversation & { platform?: string; messageAccountId?: string }>,
+        withPictures,
+        (c) => `${(c as Conversation & { platform?: string }).platform ?? ''}:${c.id}`,
+        (old, row) => ({ ...old, ...row })
+      );
+      return stable;
+    });
     conversationsLoadedRef.current = sorted.length > 0;
-    setConversationsLoading(sorted.length === 0);
+    setConversationsLoading(sorted.length === 0 && !conversationsLoadedRef.current);
     setConversationsErrorsByPlatform({});
     setConversationsHintsByPlatform({});
     setConversationsDebug(null);
@@ -1920,6 +1969,7 @@ function InboxPage() {
     messageFetchPlatformIds.join(','),
     effectiveAccounts.map((a) => a.id).join(','),
     user?.id,
+    connectedPlatforms.map((p) => p.id).join(','),
     appData?.conversationsByAccountId,
     appData?.inboxSystemSyncTick,
   ]);
@@ -1950,7 +2000,23 @@ function InboxPage() {
   }, [pathname]);
 
   const commentsSupportedPlatforms = selectedPlatforms.filter((p) => COMMENT_STRIP_PLATFORM_IDS.has(p));
-  const platformsToFetchComments = commentsSupportedPlatforms;
+  /** Load comment cache for every connected inbox platform; filter in the list UI only. */
+  const commentCachePlatforms = useMemo(
+    () => connectedPlatforms.filter((p) => COMMENT_STRIP_PLATFORM_IDS.has(p.id)).map((p) => p.id),
+    [connectedPlatforms.map((p) => p.id).join(',')]
+  );
+
+  const visibleComments = useMemo(() => {
+    if (selectedPlatforms.length === 0) return comments;
+    return comments.filter((c) => !c.platform || selectedPlatforms.includes(c.platform));
+  }, [comments, selectedPlatforms.join(',')]);
+
+  const visibleConversations = useMemo(() => {
+    if (selectedPlatforms.length === 0) return conversations;
+    return conversations.filter(
+      (c) => !(c as Conversation & { platform?: string }).platform || selectedPlatforms.includes((c as Conversation & { platform?: string }).platform!)
+    );
+  }, [conversations, selectedPlatforms.join(',')]);
 
   useEffect(() => {
     if (comments.length > 0) return;
@@ -1976,15 +2042,17 @@ function InboxPage() {
 
   // Comments: read AppData cache only (background sync every 2 min).
   useEffect(() => {
-    if (platformsToFetchComments.length === 0) {
-      setComments([]);
-      setCommentsLoading(false);
+    if (commentCachePlatforms.length === 0) {
+      if (comments.length === 0) {
+        setComments([]);
+        setCommentsLoading(false);
+      }
       setCommentsError(null);
       return;
     }
 
     const merge: PostComment[] = [];
-    for (const platform of platformsToFetchComments) {
+    for (const platform of commentCachePlatforms) {
       const account = effectiveAccounts.find((a) => a.platform === platform);
       if (!account) continue;
       const fromCacheList = appData?.getComments(account.id) ?? [];
@@ -1996,15 +2064,24 @@ function InboxPage() {
     }
 
     const sorted = merge.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    setComments(sorted);
-    setCommentsLoading(sorted.length === 0);
+    setComments((prev) => {
+      const stable = mergeStableKeyedList(prev, sorted, (c) => c.commentId, (old, row) => ({
+        ...old,
+        ...row,
+        authorPictureUrl: row.authorPictureUrl ?? old?.authorPictureUrl,
+        authorName: row.authorName?.trim() ? row.authorName : old?.authorName,
+      }));
+      return stable;
+    });
+    if (sorted.length > 0) commentsEverLoadedRef.current = true;
+    setCommentsLoading(sorted.length === 0 && !commentsEverLoadedRef.current);
     setCommentsError(
-      sorted.length === 0
+      sorted.length === 0 && !commentsEverLoadedRef.current
         ? 'Comments sync automatically every 2 minutes. They will appear after the next sync.'
         : null
     );
   }, [
-    platformsToFetchComments.join(','),
+    commentCachePlatforms.join(','),
     effectiveAccounts.map((a) => a.id).join(','),
     appData?.commentsByAccountId,
     appData?.inboxSystemSyncTick,
@@ -2328,7 +2405,7 @@ function InboxPage() {
       );
     }
     if (inboxMode === 'comments') {
-      if (commentsLoading) {
+      if (commentsLoading && visibleComments.length === 0) {
         return (
           <div className="p-6 flex flex-col items-center justify-center gap-3">
             <Loader2 size={32} className="text-orange-500 animate-spin" />
@@ -2336,7 +2413,7 @@ function InboxPage() {
           </div>
         );
       }
-      if (commentsError) {
+      if (commentsError && visibleComments.length === 0) {
         return (
           <div className="p-4 space-y-3">
             <div className="rounded-xl border-2 border-amber-200 bg-amber-50 px-4 py-4">
@@ -2379,7 +2456,7 @@ function InboxPage() {
           </div>
         );
       }
-      if (comments.length === 0) {
+      if (visibleComments.length === 0) {
         return (
           <div className="p-6 text-center">
             <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
@@ -2393,9 +2470,9 @@ function InboxPage() {
         <>
           <div className="divide-y divide-neutral-100">
             {(() => {
-              const topLevelOnly = comments.filter((c) => !c.parentCommentId);
+              const topLevelOnly = visibleComments.filter((c) => !c.parentCommentId);
               const hasRepliedByParent = new Set(
-                comments.filter((r) => r.isFromMe && r.parentCommentId).map((r) => r.parentCommentId)
+                visibleComments.filter((r) => r.isFromMe && r.parentCommentId).map((r) => r.parentCommentId)
               );
               const filtered = topLevelOnly
                 .filter((c) =>
@@ -2748,7 +2825,7 @@ function InboxPage() {
           );
         })}
         <MessagesConversationList
-          conversations={conversations}
+          conversations={visibleConversations}
           inboxFilter={inboxFilter}
           searchQuery={searchQuery}
           messageInboxPlatformIds={messageFetchPlatformIds}

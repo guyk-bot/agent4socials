@@ -336,15 +336,23 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           onConversations: (accountId, list) => {
             if (!cancelled) {
               const platform = accounts.find((a) => a.id === accountId)?.platform;
-              setConversationsByAccountId((prev) => ({
-                ...prev,
-                [accountId]: list.map((c) => ({ ...c, platform: c.platform ?? platform })),
-              }));
+              setConversationsByAccountId((prev) => {
+                const existing = prev[accountId] ?? [];
+                if (list.length === 0 && existing.length > 0) return prev;
+                return {
+                  ...prev,
+                  [accountId]: list.map((c) => ({ ...c, platform: c.platform ?? platform })),
+                };
+              });
             }
           },
           onComments: (accountId, list) => {
             if (!cancelled) {
-              setCommentsByAccountId((prev) => ({ ...prev, [accountId]: list }));
+              setCommentsByAccountId((prev) => {
+                const existing = prev[accountId] ?? [];
+                if (list.length === 0 && existing.length > 0) return prev;
+                return { ...prev, [accountId]: list };
+              });
             }
           },
         });
