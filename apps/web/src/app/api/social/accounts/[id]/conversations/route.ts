@@ -773,10 +773,19 @@ export async function GET(
       };
     });
 
+    if (isInstagram && list.length > 0) {
+      list = (await enrichInstagramAvatarsFromParticipants({
+        userId,
+        list: list as InboxConversationListItem[],
+        isInstagramBusinessLogin,
+        accessToken: isInstagramBusinessLogin ? igUserToken! : activeToken,
+        ourIds,
+        ourUsernames,
+        maxConversations: 50,
+      })) as typeof list;
+    }
+
     // Enrich senders with profile picture only when data is missing from the conversation list.
-    // - Skip any sender that already has a pictureUrl from the participants response.
-    // - Check the app_kv profile cache first (7-day TTL) before making a live API call.
-    // This reduces enrich calls from up to 20 per Inbox open to near-zero for returning users.
     const idsToEnrich = new Set<string>();
     for (const conv of list) {
       for (const s of conv.senders) {
@@ -984,14 +993,6 @@ export async function GET(
         : undefined;
 
     if (isInstagram && list.length > 0) {
-      list = (await enrichInstagramAvatarsFromParticipants({
-        userId,
-        list: list as InboxConversationListItem[],
-        isInstagramBusinessLogin,
-        accessToken: isInstagramBusinessLogin ? igUserToken! : activeToken,
-        ourIds,
-        ourUsernames,
-      })) as typeof list;
       list = (await mergeInboxProfileCacheIntoConversations(
         'instagram',
         list as InboxConversationListItem[]

@@ -50,6 +50,11 @@ import {
   addInboxInitializedAccountForConversations,
 } from '@/lib/inbox-read-state';
 import { computeInboxHeaderUnread } from '@/lib/inbox/unread-count';
+import {
+  getInboxSenderPicture,
+  mergeSenderPicturesIntoConversations,
+  setInboxSenderPicture,
+} from '@/lib/inbox/inbox-sender-pictures';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
@@ -202,7 +207,8 @@ function isConvCacheFresh(
 function patchConversationSenderPicture(
   convId: string,
   pictureUrl: string | null | undefined,
-  name?: string | null
+  name?: string | null,
+  username?: string | null
 ): (prev: Array<Conversation & { platform?: string }>) => Array<Conversation & { platform?: string }> {
   if (!pictureUrl && !name) return (prev) => prev;
   return (prev) =>
@@ -212,7 +218,13 @@ function patchConversationSenderPicture(
       if (senders.length === 0) {
         return {
           ...c,
-          senders: [{ pictureUrl: pictureUrl ?? null, name: name ?? undefined }],
+          senders: [
+            {
+              pictureUrl: pictureUrl ?? null,
+              name: name ?? undefined,
+              username: username ?? undefined,
+            },
+          ],
         };
       }
       return {
@@ -222,6 +234,7 @@ function patchConversationSenderPicture(
             ...senders[0],
             pictureUrl: pictureUrl ?? senders[0].pictureUrl,
             name: name ?? senders[0].name,
+            username: username ?? senders[0].username,
           },
           ...senders.slice(1),
         ],
@@ -418,6 +431,20 @@ function freshPostImageUrl(comment: Pick<PostComment, 'accountId' | 'platformPos
   return `/api/post-image?accountId=${encodeURIComponent(comment.accountId)}&postId=${encodeURIComponent(comment.platformPostId)}`;
 }
 
+function resolveConversationListAvatarUrl(
+  c: Conversation,
+  userId: string | undefined,
+  threadPictureByConvId: Record<string, string | null | undefined>
+): string | null | undefined {
+  const first = c.senders?.[0];
+  return (
+    first?.pictureUrl ??
+    threadPictureByConvId[c.id] ??
+    (userId ? getInboxSenderPicture(userId, c.id, first?.username) : null) ??
+    null
+  );
+}
+
 function MessagesConversationList({
   conversations,
   inboxFilter,
@@ -436,6 +463,7 @@ function MessagesConversationList({
   getConversationLastReadCounts,
   setConversationLastReadCount,
   user,
+  threadPictureByConvId,
   onWarmConversation,
 }: {
   conversations: Array<Conversation & { platform?: string }>;
@@ -455,6 +483,7 @@ function MessagesConversationList({
   getConversationLastReadCounts: (userId: string | undefined) => Record<string, number>;
   setConversationLastReadCount: (convId: string, count: number, userId: string | undefined) => void;
   user: { id: string } | null;
+  threadPictureByConvId: Record<string, string | null | undefined>;
   onWarmConversation?: (conv: Conversation & { platform?: string; messageAccountId?: string }) => void;
 }) {
   const filtered = conversations
@@ -479,7 +508,7 @@ function MessagesConversationList({
         const rawName = firstSender?.username ?? firstSender?.name;
         const convPlatform = (c as Conversation & { platform?: string }).platform ?? (messageInboxPlatformIds.length === 1 ? messageInboxPlatformIds[0] : undefined);
         const name = rawName && rawName.trim() ? rawName : (convPlatform === 'TWITTER' ? 'X (Twitter) user' : 'Unknown');
-        const pictureUrl = firstSender?.pictureUrl;
+        const pictureUrl = resolveConversationListAvatarUrl(c, user?.id, threadPictureByConvId);
         const initials = (name === 'X (Twitter) user' ? 'X' : name).slice(0, 2).toUpperCase();
         const platform = convPlatform ?? (c as Conversation & { platform?: string }).platform;
         return (
@@ -952,6 +981,64 @@ function InboxPage() {
     [conversations, selectedConversationId]
   );
 
+  const threadPictureByConvId = useMemo(() => {
+    const out: Record<string, string | null | undefined> = {};
+    for (const [convId, entry] of Object.entries(conversationMessagesCache)) {
+      if (entry?.recipientPictureUrl) out[convId] = entry.recipientPictureUrl;
+    }
+    return out;
+  }, [conversationMessagesCache]);
+
+  const applySenderPicture = useCallback(
+    (
+      convId: string,
+      pictureUrl: string | null | undefined,
+      name?: string | null,
+      username?: string | null,
+      messageAccountId?: string
+    ) => {
+      if (!pictureUrl && !name) return;
+      if (user?.id && pictureUrl) {
+        setInboxSenderPicture(user.id, convId, pictureUrl, { name, username });
+      }
+      setConversations((prev) =>
+        patchConversationSenderPicture(convId, pictureUrl, name, username)(prev)
+      );
+      if (messageAccountId && appDataRef.current) {
+        const list = appDataRef.current.getConversations(messageAccountId) ?? [];
+        appDataRef.current.setConversationsForAccount(
+          messageAccountId,
+          patchConversationSenderPicture(convId, pictureUrl, name, username)(list)
+        );
+      }
+    },
+    [user?.id]
+  );
+
+  useEffect(() => {
+    if (!user?.id) return;
+    setConversations((prev) => {
+      let next = prev;
+      let changed = false;
+      for (const [convId, entry] of Object.entries(conversationMessagesCache)) {
+        if (!entry?.recipientPictureUrl) continue;
+        const row = next.find((c) => c.id === convId);
+        if (row?.senders?.[0]?.pictureUrl === entry.recipientPictureUrl) continue;
+        setInboxSenderPicture(user.id, convId, entry.recipientPictureUrl, {
+          name: entry.recipientName,
+        });
+        next = patchConversationSenderPicture(
+          convId,
+          entry.recipientPictureUrl,
+          entry.recipientName,
+          row?.senders?.[0]?.username
+        )(next);
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [conversationMessagesCache, user?.id]);
+
   const dmThreadPlatform = useMemo(() => {
     const p = selectedConversation?.platform;
     if (p && DM_THREAD_PLATFORM_IDS.has(p)) return p;
@@ -1171,7 +1258,13 @@ function InboxPage() {
             return next;
           });
           if (recipientPictureUrl || recipientName) {
-            setConversations(patchConversationSenderPicture(convId, recipientPictureUrl, recipientName));
+            applySenderPicture(
+              convId,
+              recipientPictureUrl,
+              recipientName,
+              convForRecipient?.senders?.[0]?.username,
+              accountIdForFetch
+            );
           }
         }
       } catch (e: unknown) {
@@ -1275,7 +1368,14 @@ function InboxPage() {
           });
           setConversationLastReadCount(convId, freshMessages.length, user?.id);
           if (recipientPictureUrl || recipientName) {
-            setConversations(patchConversationSenderPicture(convId, recipientPictureUrl, recipientName));
+            const convRow = conversationsRef.current.find((c) => c.id === convId);
+            applySenderPicture(
+              convId,
+              recipientPictureUrl,
+              recipientName,
+              convRow?.senders?.[0]?.username,
+              accountId
+            );
           }
           if (latestTime) {
             setConversations((prev) =>
@@ -1482,7 +1582,8 @@ function InboxPage() {
     const platformsToFetch: Array<{ platform: string; account: { id: string; platform: string }; since?: string }> = [];
 
     const applyConversationMergeResult = (sorted: Array<Conversation & { platform: string; messageAccountId: string }>) => {
-      setConversations(sorted);
+      const withPictures = user?.id ? mergeSenderPicturesIntoConversations(sorted, user.id) : sorted;
+      setConversations(withPictures);
       if (sorted.length > 0) conversationsLoadedRef.current = true;
       setConversationsErrorsByPlatform({ ...errorsByPlatform });
       setConversationsHintsByPlatform({ ...hintsByPlatform });
@@ -1615,7 +1716,18 @@ function InboxPage() {
         const cachedForAccount = appData?.getConversations(account.id) ?? [];
         const mergedById = new Map<string, Conversation>();
         for (const item of cachedForAccount) mergedById.set(item.id, item);
-        for (const item of incoming) mergedById.set(item.id, item);
+        for (const item of incoming) {
+          const existing = mergedById.get(item.id);
+          mergedById.set(item.id, {
+            ...item,
+            senders: (item.senders ?? []).map((s, i) => ({
+              ...s,
+              pictureUrl: s.pictureUrl ?? existing?.senders?.[i]?.pictureUrl ?? null,
+              name: s.name ?? existing?.senders?.[i]?.name,
+              username: s.username ?? existing?.senders?.[i]?.username,
+            })),
+          });
+        }
         appData?.setConversationsForAccount(
           account.id,
           Array.from(mergedById.values()).sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''))
@@ -2755,6 +2867,7 @@ function InboxPage() {
           getConversationLastReadCounts={getConversationLastReadCounts}
           setConversationLastReadCount={setConversationLastReadCount}
           user={user}
+          threadPictureByConvId={threadPictureByConvId}
           onWarmConversation={(conv) => {
             void warmConversationMessages(conv);
           }}

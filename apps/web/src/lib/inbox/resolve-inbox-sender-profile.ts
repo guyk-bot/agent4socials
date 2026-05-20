@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import {
   readInboxProfileCache,
+  readInboxProfileCacheByUsername,
   writeInboxProfileCache,
   type InboxProfileCacheEntry,
 } from '@/lib/inbox/inbox-profile-cache';
@@ -90,7 +91,7 @@ function findParticipant(
 
 function cacheProfile(senderId: string, profile: InboxSenderProfile, altId?: string): void {
   if (profile.pictureUrl || profile.name || profile.username) {
-    void writeInboxProfileCache('instagram', senderId, profile);
+    if (senderId) void writeInboxProfileCache('instagram', senderId, profile);
     if (altId && altId !== senderId) void writeInboxProfileCache('instagram', altId, profile);
   }
 }
@@ -288,8 +289,11 @@ export async function mergeInboxProfileCacheIntoConversations(
   for (const conv of list) {
     const senders = await Promise.all(
       conv.senders.map(async (s) => {
-        if (s.pictureUrl || !s.id) return s;
-        const cached = await readInboxProfileCache(platform, s.id);
+        if (s.pictureUrl) return s;
+        let cached = s.id ? await readInboxProfileCache(platform, s.id) : null;
+        if (!cached?.pictureUrl && s.username) {
+          cached = await readInboxProfileCacheByUsername(platform, s.username);
+        }
         if (!cached?.pictureUrl && !cached?.name && !cached?.username) return s;
         return {
           ...s,
