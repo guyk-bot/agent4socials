@@ -34,7 +34,6 @@ export type InboxHeaderUnread = {
 
 function isConversationUnread(
   c: InboxUnreadConversation,
-  hasMessageCount: boolean,
   readConversations: Set<string>,
   lastRead: Record<string, number>,
   lastSeenUpdated: Record<string, string>,
@@ -45,22 +44,33 @@ function isConversationUnread(
     return true;
   }
 
-  if (hasMessageCount) {
-    const count = c.messageCount;
-    const read = lastRead[c.id];
-    if (read === undefined) {
-      const accId = c.messageAccountId;
-      if (accId && initializedConvAccounts.has(accId)) {
-        if (typeof count === 'number' && count > 0) return true;
-        if (!readConversations.has(c.id)) return true;
-      }
-    }
-    if (typeof count === 'number' && count > (read ?? 0)) return true;
-    if (!readConversations.has(c.id)) return true;
+  const hasCount = typeof c.messageCount === 'number';
+  const read = lastRead[c.id];
+  const markedRead = readConversations.has(c.id);
+
+  if (markedRead) {
+    if (hasCount) return c.messageCount! > (read ?? 0);
     return false;
   }
 
-  return !readConversations.has(c.id);
+  if (hasCount) {
+    if (read === undefined) {
+      const accId = c.messageAccountId;
+      if (accId && initializedConvAccounts.has(accId)) {
+        if (c.messageCount! > 0) return true;
+      }
+      return true;
+    }
+    if (c.messageCount! > read) return true;
+    return false;
+  }
+
+  const accId = c.messageAccountId;
+  if (accId && !initializedConvAccounts.has(accId)) {
+    return false;
+  }
+
+  return true;
 }
 
 function bumpPlatform(
@@ -90,13 +100,12 @@ export function computeInboxHeaderUnread(
   const pendingConvPlatforms = getPendingUnreadConversationPlatforms(userId);
   const pendingCommentPlatforms = getPendingUnreadCommentPlatforms(userId);
 
-  const hasMessageCount = conversations.some((c) => typeof c.messageCount === 'number');
   const unreadConvIds = new Set<string>();
   const convPlatformById = new Map<string, string | undefined>();
 
   for (const c of conversations) {
     convPlatformById.set(c.id, c.platform);
-    if (isConversationUnread(c, hasMessageCount, readConversations, lastRead, lastSeenUpdated, initializedConvAccounts)) {
+    if (isConversationUnread(c, readConversations, lastRead, lastSeenUpdated, initializedConvAccounts)) {
       unreadConvIds.add(c.id);
     }
   }
@@ -156,4 +165,38 @@ export function formatInboxBadgeTitle(unread: InboxHeaderUnread): string | undef
     });
   if (breakdown.length > 0) parts.push(breakdown.join(' · '));
   return parts.join(' — ');
+}
+
+/**
+ * Nav badge must not drop on partial poll/cache merges. Only accept a lower count
+ * after the user marks items read (readStateVersion bump).
+ */
+export function stabilizeInboxHeaderUnread(
+  computed: InboxHeaderUnread,
+  readStateVersion: number,
+  stableRef: { version: number; inbox: number; messages: number; comments: number }
+): InboxHeaderUnread {
+  if (readStateVersion !== stableRef.version) {
+    stableRef.version = readStateVersion;
+    stableRef.inbox = computed.inbox;
+    stableRef.messages = computed.messages;
+    stableRef.comments = computed.comments;
+    return computed;
+  }
+
+  const inbox = Math.max(stableRef.inbox, computed.inbox);
+  const messages = Math.max(stableRef.messages, computed.messages);
+  const comments = Math.max(stableRef.comments, computed.comments);
+
+  if (inbox === computed.inbox && messages === computed.messages && comments === computed.comments) {
+    stableRef.inbox = inbox;
+    stableRef.messages = messages;
+    stableRef.comments = comments;
+    return computed;
+  }
+
+  stableRef.inbox = inbox;
+  stableRef.messages = messages;
+  stableRef.comments = comments;
+  return { ...computed, inbox, messages, comments };
 }

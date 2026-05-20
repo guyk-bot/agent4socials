@@ -39,6 +39,7 @@ import {
   hasYoutubeShortsCreatorSignals,
 } from '@/lib/youtube-video-format';
 import { useTheme } from '@/context/ThemeContext';
+import { isStoryPost, storyPostInteractions } from '@/lib/analytics/story-post';
 
 export { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
 
@@ -101,10 +102,13 @@ type TrafficMetricKey =
   | 'postImpressions'
   | 'nonviral'
   | 'viral'
-  | 'uniqueReachProxy';
+  | 'uniqueReachProxy'
+  | 'storyViews'
+  | 'storyUniqueViewers';
 type ReelMetricKey = 'views' | 'watchTime' | 'avgWatch' | 'clicks' | 'likes' | 'comments' | 'shares' | 'reposts' | 'dislikes';
 type ReelPresetKey = 'performance' | 'engagement' | 'watch';
-type ContentHistoryFilter = 'all' | 'posts' | 'reels';
+type ContentHistoryFilter = 'all' | 'posts' | 'reels' | 'stories';
+type StoryChartMetricKey = 'views' | 'likes' | 'comments' | 'shares';
 
 const COLOR = {
   pageBg: 'var(--background)',
@@ -382,6 +386,15 @@ const TRAFFIC_METRIC_CONFIG: Record<TrafficMetricKey, { label: string; color: st
   nonviral: { label: 'Non-viral Impressions', color: COLOR.trafficNonviralCyan },
   viral: { label: 'Viral Impressions', color: COLOR.magenta },
   uniqueReachProxy: { label: 'Unique Reach', color: COLOR.amber },
+  storyViews: { label: 'Story Views', color: COLOR.violet },
+  storyUniqueViewers: { label: 'Story Unique Viewers', color: COLOR.coral },
+};
+
+const STORY_CHART_METRIC_CONFIG: Record<StoryChartMetricKey, { label: string; color: string }> = {
+  views: { label: 'Story Views', color: COLOR.violet },
+  likes: { label: 'Likes', color: COLOR.violet },
+  comments: { label: 'Comments', color: COLOR.coral },
+  shares: { label: 'Shares', color: COLOR.amber },
 };
 
 // Shared bar geometry across Traffic/Reels (overlapping bars).
@@ -773,7 +786,24 @@ function isFacebookPageNativeVideoPost(p: FacebookPost): boolean {
  * “Reel” in the analytics UI: TikTok / Short-form video surfaces. For Facebook, includes Page feed videos
  * (watch URLs + VIDEO mediaType), not only `/reel/` links. Photos and link-only posts stay in Posts.
  */
+function postContentType(p: FacebookPost): 'Story' | 'Reel' | 'Post' {
+  if (isStoryPost(p)) return 'Story';
+  if (isReelPost(p)) return 'Reel';
+  return 'Post';
+}
+
+function storyPostViewCount(p: FacebookPost): number {
+  const fi = p.facebookInsights ?? {};
+  const storyView =
+    typeof fi.story_media_view === 'number' && Number.isFinite(fi.story_media_view) ? fi.story_media_view : 0;
+  const mediaView =
+    typeof fi.post_media_view === 'number' && Number.isFinite(fi.post_media_view) ? fi.post_media_view : 0;
+  const imp = typeof p.impressions === 'number' && Number.isFinite(p.impressions) ? p.impressions : 0;
+  return Math.max(storyView, mediaView, imp);
+}
+
 function isReelPost(p: FacebookPost): boolean {
+  if (isStoryPost(p)) return false;
   if ((p.platform ?? '').toUpperCase() === 'TIKTOK') return true;
   /** YouTube: treat synced uploads as one “videos” surface (no Shorts vs long-form split in UI). */
   if ((p.platform ?? '').toUpperCase() === 'YOUTUBE') return true;
@@ -1243,13 +1273,22 @@ function buildInstagramSyntheticFacebookBundle(
   const videoViewsByDate = new Map<string, number>();
   const videoTimeMsByDate = new Map<string, number>();
 
+  const storyViewsByDate = new Map<string, number>();
   for (const p of postsInRange) {
     const d = localCalendarDateFromIso(p.publishedAt);
     if (!d) continue;
     const eb = p.engagementBreakdown;
     const eng =
-      eb?.totalEngagement ?? (p.likeCount ?? 0) + (p.commentsCount ?? 0) + (p.sharesCount ?? 0);
+      isStoryPost(p)
+        ? storyPostInteractions(p)
+        : eb?.totalEngagement ?? (p.likeCount ?? 0) + (p.commentsCount ?? 0) + (p.sharesCount ?? 0);
     if (eng > 0) engagementByDate.set(d, (engagementByDate.get(d) ?? 0) + eng);
+
+    if (isStoryPost(p)) {
+      const sv = storyPostViewCount(p);
+      if (sv > 0) storyViewsByDate.set(d, (storyViewsByDate.get(d) ?? 0) + sv);
+      continue;
+    }
 
     if (!isVideoishPost(p)) continue;
     const plays = bestPostPlayCount(p);
@@ -1266,6 +1305,7 @@ function buildInstagramSyntheticFacebookBundle(
   const engagementPostMap = seriesToMap(sortSeries(engagementByDate));
   const apiAccountsEngagedMap = seriesToMap(insights.facebookPageMetricSeries?.accounts_engaged ?? []);
   const engagement = mapToSortedSeries(mergeSeriesMapsMax(apiAccountsEngagedMap, engagementPostMap));
+  const storyMediaViews = sortSeries(storyViewsByDate);
   const videoViews = sortSeries(videoViewsByDate);
   const videoViewTime = sortSeries(videoTimeMsByDate);
 
@@ -1279,13 +1319,17 @@ function buildInstagramSyntheticFacebookBundle(
   }
 
   /** Account-level `impressions` can be empty or zero while per-media views/reach exist; use post-aggregated plays/impressions as fallback. */
-  const postAggregatedImpressions = aggregatePostsByDayValue(postsInRange, (p) => p.impressions ?? bestPostPlayCount(p));
+  const postAggregatedImpressions = aggregatePostsByDayValue(postsInRange, (p) =>
+    isStoryPost(p) ? storyPostViewCount(p) : p.impressions ?? bestPostPlayCount(p)
+  );
   const accountImpSum = sumMetricSeriesPoints(contentViews);
   const postAggSum = sumMetricSeriesPoints(postAggregatedImpressions);
   const postImpressions =
     accountImpSum > 0 ? contentViews : postAggSum > 0 ? postAggregatedImpressions : contentViews;
   /** Same series drives Overview growth chart + Traffic; must match headline when account impressions are empty. */
-  const seriesContentViews = postImpressions;
+  const seriesContentViews = mapToSortedSeries(
+    mergeSeriesMapsMax(seriesToMap(postImpressions), seriesToMap(storyMediaViews))
+  );
   const engagementTotal = sumMetricSeriesPoints(engagement);
   const sourceKeys: string[] = [];
   if (contentViews.length || postAggregatedImpressions.length) sourceKeys.push('impressions');
@@ -1308,7 +1352,7 @@ function buildInstagramSyntheticFacebookBundle(
       postImpressionsNonviral: [],
       postImpressionsViral: [],
       mediaViewersUnique: [],
-      storyMediaViews: [],
+      storyMediaViews,
       storyMediaViewersUnique: [],
     },
     totals: {
@@ -1324,7 +1368,7 @@ function buildInstagramSyntheticFacebookBundle(
       postImpressionsNonviral: 0,
       postImpressionsViral: 0,
       mediaViewersUnique: 0,
-      storyMediaViews: 0,
+      storyMediaViews: sumMetricSeriesPoints(storyMediaViews),
       storyMediaViewersUnique: 0,
     },
     sourceGraphMetricsIncluded: sourceKeys,
@@ -2120,7 +2164,7 @@ export function PostsPerformanceTable({
   rows: Array<{
     id: string;
     date: string;
-    type: 'Reel' | 'Post';
+    type: 'Reel' | 'Post' | 'Story';
     preview: string;
     permalink?: string | null;
     views: number;
@@ -2407,7 +2451,7 @@ type TopHighlightRow = {
   id: string;
   preview: string;
   permalink?: string | null;
-  type: 'Reel' | 'Post';
+  type: 'Reel' | 'Post' | 'Story';
   thumbnailUrl?: string | null;
   /** For carousel / album posts: show on hover with interactions. */
   mediaType?: string | null;
@@ -2444,7 +2488,7 @@ function TopContentHighlights({
   const isTwitterHighlight = (platform ?? '').toUpperCase() === 'TWITTER';
   const rankBadge = (idx: number) => `/rank-badges/${Math.min(3, idx + 1)}.svg`;
   const formatBadgeLabel = (r: TopHighlightRow): string =>
-    r.type === 'Reel' ? 'Reel' : isCarouselAlbumMedia(r.mediaType) ? 'Carousel' : 'Image';
+    r.type === 'Story' ? 'Story' : r.type === 'Reel' ? 'Reel' : isCarouselAlbumMedia(r.mediaType) ? 'Carousel' : 'Image';
   const col = (title: string, metricLabel: 'Views' | 'Clicks' | 'Reactions' | 'Interactions', rows: TopHighlightRow[], showClicks = true) => (
     <div className="space-y-3">
       <p className="text-base font-semibold tracking-tight" style={{ color: COLOR.text }}>{title}</p>
@@ -2702,6 +2746,12 @@ export function FacebookAnalyticsView({
   const [selectedPostsUploadTypes, setSelectedPostsUploadTypes] = useState<ContentTypeKey[]>(['reels', 'image', 'carousel']);
   const [activeSection, setActiveSection] = useState<SectionId>(FACEBOOK_ANALYTICS_SECTION_IDS.overview);
   const [historyFilter, setHistoryFilter] = useState<ContentHistoryFilter>('all');
+  const [selectedStoryChartMetrics, setSelectedStoryChartMetrics] = useState<StoryChartMetricKey[]>([
+    'views',
+    'likes',
+    'comments',
+    'shares',
+  ]);
   const [geoPieHover, setGeoPieHover] = useState<{
     x: number;
     y: number;
@@ -2717,6 +2767,9 @@ export function FacebookAnalyticsView({
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.traffic, label: 'Traffic' },
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.posts, label: plat === 'TWITTER' ? 'Tweets' : plat === 'PINTEREST' ? 'Pins' : 'Posts' },
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.reels, label: plat === 'PINTEREST' || plat === 'YOUTUBE' ? 'Videos' : 'Reels' },
+      ...(plat === 'FACEBOOK' || plat === 'INSTAGRAM'
+        ? [{ id: FACEBOOK_ANALYTICS_SECTION_IDS.stories, label: 'Stories' }]
+        : []),
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.history, label: 'History' },
     ];
     if (plat === 'TIKTOK' || plat === 'TWITTER') {
@@ -2989,6 +3042,7 @@ export function FacebookAnalyticsView({
   const contentTypeCounts = useMemo(() => {
     const counts: Record<ContentTypeKey, number> = { reels: 0, image: 0, carousel: 0 };
     for (const p of postsInRangeForPostsTabUi) {
+      if (isStoryPost(p)) continue;
       if (isReelPost(p)) {
         counts.reels += 1;
         continue;
@@ -3034,6 +3088,7 @@ export function FacebookAnalyticsView({
       const row = byDate.get(d);
       if (!row) continue;
       if (isYouTube) continue;
+      if (isStoryPost(p)) continue;
       if (isReelPost(p)) {
         row.reels += 1;
         continue;
@@ -3490,6 +3545,23 @@ export function FacebookAnalyticsView({
       followsRaw = seriesToMap(series?.follows ?? []);
     }
 
+    if (isInstagram || isFacebook) {
+      const storyViewsApi = seriesToMap(series?.storyMediaViews ?? []);
+      const storyViewsPosts = seriesToMap(
+        aggregatePostsByDayValue(postsInRange, (p) => (isStoryPost(p) ? storyPostViewCount(p) : 0))
+      );
+      const storyEngPosts = seriesToMap(
+        aggregatePostsByDayValue(postsInRange, (p) => (isStoryPost(p) ? storyPostInteractions(p) : 0))
+      );
+      const storyViewsMerged = mergeSeriesMapsMax(storyViewsApi, storyViewsPosts);
+      mediaRaw = mergeSeriesMapsMax(mediaRaw, storyViewsMerged);
+      engagementRaw = mergeSeriesMapsMax(engagementRaw, storyEngPosts);
+      videoViewsRaw = mergeSeriesMapsMax(videoViewsRaw, storyViewsMerged);
+      if (isFacebook) {
+        visitsRaw = mergeSeriesMapsMax(visitsRaw, storyViewsMerged);
+      }
+    }
+
     const media = dailyValuesOnAxis(dateAxis, mediaRaw);
     const visits = dailyValuesOnAxis(dateAxis, visitsRaw);
     const videoViewsSeries = dailyValuesOnAxis(dateAxis, videoViewsRaw);
@@ -3520,6 +3592,8 @@ export function FacebookAnalyticsView({
     series?.follows,
     series?.pageTabViews,
     series?.videoViews,
+    series?.storyMediaViews,
+    series?.storyMediaViewersUnique,
     insights?.followersTimeSeries,
     insights?.impressionsTimeSeries,
     insights?.twitterEngagementTimeSeries,
@@ -3629,16 +3703,36 @@ export function FacebookAnalyticsView({
     }
     if (isFacebook) {
       const fbPostContentMap = seriesToMap(
-        aggregatePostsByDayValue(postsInRange, (p) => bestFacebookContentViewCount(p))
+        aggregatePostsByDayValue(postsInRange, (p) =>
+          isStoryPost(p) ? storyPostViewCount(p) : bestFacebookContentViewCount(p)
+        )
       );
-      const contentSparkMap = mergeSeriesMapsMax(seriesToMap(series?.contentViews ?? []), fbPostContentMap);
-      const videoSparkMap = mergeSeriesMapsMax(seriesToMap(series?.videoViews ?? []), seriesToMap(videoPlaysDailySeries));
+      const storyViewsMerged = mergeSeriesMapsMax(
+        seriesToMap(series?.storyMediaViews ?? []),
+        seriesToMap(aggregatePostsByDayValue(postsInRange, (p) => (isStoryPost(p) ? storyPostViewCount(p) : 0)))
+      );
+      const storyEngMerged = mergeSeriesMapsMax(
+        seriesToMap(series?.engagement ?? []),
+        seriesToMap(aggregatePostsByDayValue(postsInRange, (p) => (isStoryPost(p) ? storyPostInteractions(p) : 0)))
+      );
+      const contentSparkMap = mergeSeriesMapsMax(
+        mergeSeriesMapsMax(seriesToMap(series?.contentViews ?? []), fbPostContentMap),
+        storyViewsMerged
+      );
+      const videoSparkMap = mergeSeriesMapsMax(
+        mergeSeriesMapsMax(seriesToMap(series?.videoViews ?? []), seriesToMap(videoPlaysDailySeries)),
+        storyViewsMerged
+      );
+      const pageVisitsSpark = mergeSeriesMapsMax(
+        seriesToMap(series?.pageTabViews ?? []),
+        storyViewsMerged
+      );
       return {
         follows: series?.follows ?? [],
-        engagement: series?.engagement ?? [],
+        engagement: mapToSortedSeries(storyEngMerged),
         videoViews: mapToSortedSeries(videoSparkMap),
         contentViews: mapToSortedSeries(contentSparkMap),
-        pageVisits: series?.pageTabViews ?? [],
+        pageVisits: mapToSortedSeries(pageVisitsSpark),
         subscriberNet: [],
       };
     }
@@ -3693,16 +3787,26 @@ export function FacebookAnalyticsView({
         ? ms.impressions
         : (insights?.impressionsTimeSeries ?? []);
     const igPostDailyMap = seriesToMap(
-      aggregatePostsByDayValue(postsInRange, (p) => p.impressions ?? bestPostPlayCount(p))
+      aggregatePostsByDayValue(postsInRange, (p) =>
+        isStoryPost(p) ? storyPostViewCount(p) : p.impressions ?? bestPostPlayCount(p)
+      )
+    );
+    const storyViewsMerged = mergeSeriesMapsMax(
+      seriesToMap(series?.storyMediaViews ?? []),
+      seriesToMap(aggregatePostsByDayValue(postsInRange, (p) => (isStoryPost(p) ? storyPostViewCount(p) : 0)))
+    );
+    const storyEngMerged = mergeSeriesMapsMax(
+      seriesToMap(ms?.accounts_engaged ?? []),
+      seriesToMap(aggregatePostsByDayValue(postsInRange, (p) => (isStoryPost(p) ? storyPostInteractions(p) : 0)))
     );
     const contentSparkMap = mergeSeriesMapsMax(
-      mergeSeriesMapsMax(seriesToMap(contentSparkBase), igPostDailyMap),
+      mergeSeriesMapsMax(mergeSeriesMapsMax(seriesToMap(contentSparkBase), igPostDailyMap), storyViewsMerged),
       seriesToMap(series?.contentViews ?? [])
     );
     const contentSpark = mapToSortedSeries(contentSparkMap);
     const videoSparkMap = mergeSeriesMapsMax(
-      seriesToMap(ms?.views ?? []),
-      seriesToMap(videoPlaysDailySeries)
+      mergeSeriesMapsMax(seriesToMap(ms?.views ?? []), seriesToMap(videoPlaysDailySeries)),
+      storyViewsMerged
     );
     const pageVisitsSparkMap = mergeSeriesMapsMax(
       seriesToMap(ms?.profile_views ?? []),
@@ -3710,7 +3814,7 @@ export function FacebookAnalyticsView({
     );
     return {
       follows: insights?.followersTimeSeries ?? series?.follows ?? [],
-      engagement: ms?.accounts_engaged ?? [],
+      engagement: mapToSortedSeries(storyEngMerged),
       videoViews: mapToSortedSeries(videoSparkMap),
       contentViews: contentSpark,
       pageVisits: mapToSortedSeries(pageVisitsSparkMap),
@@ -3783,6 +3887,11 @@ export function FacebookAnalyticsView({
     const hasPostDerivedSeries = Object.values(postImpressionsByPublishDate).some((v) => (v ?? 0) > 0);
     // Pinterest often has totals immediately while per-day series arrives later.
     // Keep chart bars visible instantly using a stable single-day fallback.
+    const storyViewsMap = mergeSeriesMapsMax(
+      seriesToMap(series?.storyMediaViews ?? []),
+      seriesToMap(aggregatePostsByDayValue(postsInRange, (p) => (isStoryPost(p) ? storyPostViewCount(p) : 0)))
+    );
+    const storyUniqueMap = seriesToMap(series?.storyMediaViewersUnique ?? []);
     if (isPinterest && !hasApiTrafficSeries && !hasPostDerivedSeries && postImpressions > 0) {
       const lastDate = dateAxis[dateAxis.length - 1] ?? toLocalCalendarDate(new Date());
       return dateAxis.map((date) => ({
@@ -3791,6 +3900,8 @@ export function FacebookAnalyticsView({
         nonviral: 0,
         viral: 0,
         uniqueReachProxy: 0,
+        storyViews: 0,
+        storyUniqueViewers: 0,
       }));
     }
     /** Only backfill non-viral from per-post impressions when Meta sent no viral/nonviral breakdown at all (same rule as KPI cards). */
@@ -3813,6 +3924,8 @@ export function FacebookAnalyticsView({
         nonviral,
         viral,
         uniqueReachProxy: uniqueReachByDate[date] ?? 0,
+        storyViews: storyViewsMap[date] ?? 0,
+        storyUniqueViewers: storyUniqueMap[date] ?? 0,
       };
     });
   }, [
@@ -3823,8 +3936,11 @@ export function FacebookAnalyticsView({
     series?.postImpressions,
     series?.postImpressionsNonviral,
     series?.postImpressionsViral,
+    series?.storyMediaViews,
+    series?.storyMediaViewersUnique,
     uniqueReachByDate,
     postImpressionsByPublishDate,
+    postsInRange,
     isPinterest,
     postImpressions,
   ]);
@@ -3838,8 +3954,10 @@ export function FacebookAnalyticsView({
           nonviral: acc.nonviral + (Number(row.nonviral) || 0),
           viral: acc.viral + (Number(row.viral) || 0),
           uniqueReachProxy: acc.uniqueReachProxy + (Number(row.uniqueReachProxy) || 0),
+          storyViews: acc.storyViews + (Number(row.storyViews) || 0),
+          storyUniqueViewers: acc.storyUniqueViewers + (Number(row.storyUniqueViewers) || 0),
         }),
-        { postImpressions: 0, nonviral: 0, viral: 0, uniqueReachProxy: 0 }
+        { postImpressions: 0, nonviral: 0, viral: 0, uniqueReachProxy: 0, storyViews: 0, storyUniqueViewers: 0 }
       ),
     [trafficTimelineData]
   );
@@ -4053,7 +4171,7 @@ export function FacebookAnalyticsView({
     return src.map((p) => {
       const fi = p.facebookInsights ?? {};
       const reactions = parseReactionTotal(fi.post_reactions_by_type_total);
-      const isReel = isReelPost(p);
+      const contentType = postContentType(p);
       const plat = String(p.platform ?? '').toUpperCase();
       const hasCore =
         plat === 'PINTEREST'
@@ -4063,16 +4181,18 @@ export function FacebookAnalyticsView({
             typeof p.impressions === 'number' ||
             bestPostInteractionCount(p) > 0
           : typeof fi.post_media_view === 'number' ||
+            typeof fi.story_media_view === 'number' ||
             typeof fi.post_total_media_view_unique === 'number' ||
-            typeof fi.post_impressions_unique === 'number';
+            typeof fi.post_impressions_unique === 'number' ||
+            (contentType === 'Story' && storyPostViewCount(p) > 0);
       const { watchTimeMs, avgWatchMs } = getWatchTimes(p);
       return {
         id: p.id,
         date: p.publishedAt,
-        type: isReel ? ('Reel' as const) : ('Post' as const),
+        type: contentType,
         preview: p.content ?? '',
         permalink: p.permalinkUrl,
-        views: bestPostPlayCount(p),
+        views: contentType === 'Story' ? storyPostViewCount(p) : bestPostPlayCount(p),
         uniqueReach:
           plat === 'PINTEREST'
             ? Math.max(
@@ -4759,7 +4879,7 @@ type PostsUploadDayTooltipAgg = {
       const fi = p.facebookInsights ?? {};
       const pinMeta = pinterestMetricsFromPostMetadata(p);
       const reactions = parseReactionTotal(fi.post_reactions_by_type_total);
-      const isReel = isReelPost(p);
+      const contentType = postContentType(p);
       const plat = String(p.platform ?? '').toUpperCase();
       const hasCore =
         plat === 'PINTEREST'
@@ -4769,19 +4889,24 @@ type PostsUploadDayTooltipAgg = {
             typeof p.impressions === 'number' ||
             bestPostInteractionCount(p) > 0
           : typeof fi.post_media_view === 'number' ||
+            typeof fi.story_media_view === 'number' ||
             typeof fi.post_total_media_view_unique === 'number' ||
-            typeof fi.post_impressions_unique === 'number';
+            typeof fi.post_impressions_unique === 'number' ||
+            (contentType === 'Story' && storyPostViewCount(p) > 0);
       const { watchTimeMs, avgWatchMs } = getWatchTimes(p);
       const withPid = p as FacebookPost & { platformPostId?: string | null };
       return {
         id: p.id,
         date: p.publishedAt,
-        type: isReel ? ('Reel' as const) : ('Post' as const),
+        type: contentType,
         preview: p.content ?? '',
         permalink: p.permalinkUrl,
-        views: (p.platform ?? '').toUpperCase() === 'YOUTUBE'
-          ? Math.max(bestPostPlayCount(p), p.impressions ?? 0)
-          : bestPostPlayCount(p),
+        views:
+          contentType === 'Story'
+            ? storyPostViewCount(p)
+            : (p.platform ?? '').toUpperCase() === 'YOUTUBE'
+              ? Math.max(bestPostPlayCount(p), p.impressions ?? 0)
+              : bestPostPlayCount(p),
         uniqueReach:
           plat === 'PINTEREST'
             ? Math.max(
@@ -4789,7 +4914,7 @@ type PostsUploadDayTooltipAgg = {
                 typeof p.impressions === 'number' && Number.isFinite(p.impressions) ? p.impressions : 0
               )
             : bestFacebookPostUniqueViewers(fi as Record<string, number>),
-        clicks: bestPostInteractionCount(p),
+        clicks: contentType === 'Story' ? storyPostInteractions(p) : bestPostInteractionCount(p),
         likes:
           plat === 'PINTEREST'
             ? Math.max(pinMeta.reactions, fi.post_reactions_like_total ?? 0, p.likeCount ?? 0)
@@ -4847,8 +4972,49 @@ type PostsUploadDayTooltipAgg = {
       }
       return rows.filter((r) => r.type === 'Reel');
     }
+    if (historyFilter === 'stories') {
+      return rows.filter((r) => r.type === 'Story');
+    }
     return rows;
   }, [allPostsRowsWithTwitterExtras, historyFilter, insights?.platform]);
+
+  const storyPostsInRange = useMemo(() => postsInRange.filter(isStoryPost), [postsInRange]);
+  const storyTotals = useMemo(() => {
+    const fromPosts = {
+      views: storyPostsInRange.reduce((s, p) => s + storyPostViewCount(p), 0),
+      likes: storyPostsInRange.reduce((s, p) => s + (p.likeCount ?? 0), 0),
+      comments: storyPostsInRange.reduce((s, p) => s + (p.commentsCount ?? 0), 0),
+      shares: storyPostsInRange.reduce((s, p) => s + bestShareCount(p), 0),
+      interactions: storyPostsInRange.reduce((s, p) => s + storyPostInteractions(p), 0),
+      count: storyPostsInRange.length,
+    };
+    return {
+      views: Math.max(bundle?.totals.storyMediaViews ?? 0, fromPosts.views),
+      uniqueViewers: bundle?.totals.storyMediaViewersUnique ?? 0,
+      likes: fromPosts.likes,
+      comments: fromPosts.comments,
+      shares: fromPosts.shares,
+      interactions: fromPosts.interactions,
+      count: fromPosts.count,
+    };
+  }, [storyPostsInRange, bundle?.totals.storyMediaViews, bundle?.totals.storyMediaViewersUnique]);
+  const storyChartData = useMemo(() => {
+    const apiStoryViews = seriesToMap(series?.storyMediaViews ?? []);
+    const mergedViews = mergeSeriesMapsMax(
+      apiStoryViews,
+      seriesToMap(aggregatePostsByDayValue(storyPostsInRange, (p) => storyPostViewCount(p)))
+    );
+    const likesMap = seriesToMap(aggregatePostsByDayValue(storyPostsInRange, (p) => p.likeCount ?? 0));
+    const commentsMap = seriesToMap(aggregatePostsByDayValue(storyPostsInRange, (p) => p.commentsCount ?? 0));
+    const sharesMap = seriesToMap(aggregatePostsByDayValue(storyPostsInRange, (p) => bestShareCount(p)));
+    return dateAxis.map((date) => ({
+      date,
+      views: mergedViews[date] ?? 0,
+      likes: likesMap[date] ?? 0,
+      comments: commentsMap[date] ?? 0,
+      shares: sharesMap[date] ?? 0,
+    }));
+  }, [storyPostsInRange, dateAxis, series?.storyMediaViews]);
 
   return (
     <div className="analytics-dark-scope p-0 md:p-0.5 space-y-3" style={{ background: COLOR.pageBg, maxWidth: 1400 }}>

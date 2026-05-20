@@ -48,6 +48,26 @@ function newestConversationUpdated(list: CachedConversation[]): string | undefin
     .sort((a, b) => b.localeCompare(a))[0];
 }
 
+/** Merge one row without wiping messageCount/platform (badgePoll omits counts). */
+export function mergeCachedConversationRow(
+  prev: CachedConversation | undefined,
+  incoming: CachedConversation
+): CachedConversation {
+  return {
+    ...prev,
+    ...incoming,
+    updatedTime: pickNewerUpdatedTime(prev?.updatedTime, incoming.updatedTime),
+    messageCount: incoming.messageCount ?? prev?.messageCount,
+    platform: incoming.platform ?? prev?.platform,
+    senders: (incoming.senders ?? []).map((s, i) => ({
+      ...s,
+      pictureUrl: s.pictureUrl ?? prev?.senders?.[i]?.pictureUrl ?? null,
+      name: s.name ?? prev?.senders?.[i]?.name,
+      username: s.username ?? prev?.senders?.[i]?.username,
+    })),
+  };
+}
+
 /** Merge lists without dropping threads or regressing updatedTime (avoids badge flicker). */
 export function mergeConversationLists(
   existing: CachedConversation[],
@@ -57,17 +77,7 @@ export function mergeConversationLists(
   for (const c of existing) byId.set(c.id, c);
   for (const c of incoming) {
     const prev = byId.get(c.id);
-    byId.set(c.id, {
-      ...prev,
-      ...c,
-      updatedTime: pickNewerUpdatedTime(prev?.updatedTime, c.updatedTime),
-      senders: (c.senders ?? []).map((s, i) => ({
-        ...s,
-        pictureUrl: s.pictureUrl ?? prev?.senders?.[i]?.pictureUrl ?? null,
-        name: s.name ?? prev?.senders?.[i]?.name,
-        username: s.username ?? prev?.senders?.[i]?.username,
-      })),
-    });
+    byId.set(c.id, mergeCachedConversationRow(prev, c));
   }
   return [...byId.values()].sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
 }
@@ -133,17 +143,7 @@ function mergeConversations(
 
   for (const c of incoming) {
     const prev = byId.get(c.id);
-    const row: CachedConversation = {
-      ...prev,
-      ...c,
-      updatedTime: pickNewerUpdatedTime(prev?.updatedTime, c.updatedTime),
-      senders: (c.senders ?? []).map((s, i) => ({
-        ...s,
-        pictureUrl: s.pictureUrl ?? prev?.senders?.[i]?.pictureUrl ?? null,
-        name: s.name ?? prev?.senders?.[i]?.name,
-        username: s.username ?? prev?.senders?.[i]?.username,
-      })),
-    };
+    const row = mergeCachedConversationRow(prev, c);
     markConversationActivity(c.id, prev, row, userId, accountId, platform);
     byId.set(c.id, row);
   }

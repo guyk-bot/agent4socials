@@ -6,6 +6,8 @@ export const FACEBOOK_ANALYTICS_SECTION_IDS = {
   traffic: 'traffic',
   posts: 'posts',
   reels: 'reels',
+  /** Instagram / Facebook Story analytics. */
+  stories: 'stories',
   /** YouTube Shorts analytics (split from long-form `reels`). */
   youtubeShorts: 'youtube-shorts',
   history: 'history',

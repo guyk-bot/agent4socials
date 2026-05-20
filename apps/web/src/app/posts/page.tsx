@@ -218,7 +218,6 @@ export default function PostsPage() {
             const el = document.getElementById(`post-row-${highlightId}`);
             if (el) {
                 el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                router.replace('/posts', { scroll: false });
             }
         };
         const t = requestAnimationFrame(() => requestAnimationFrame(scrollToHighlight));
@@ -380,7 +379,13 @@ export default function PostsPage() {
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {filteredPosts.map((post: any) => (
-                                <tr key={post.id} id={`post-row-${post.id}`} className="hover:bg-gray-50 transition-colors group">
+                                <tr
+                                    key={post.id}
+                                    id={`post-row-${post.id}`}
+                                    className={`transition-colors group outline-none focus:outline-none ${
+                                        highlightId === post.id ? 'bg-amber-50/70' : 'hover:bg-gray-50'
+                                    }`}
+                                >
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {(post.scheduledAt || post.postedAt || post.createdAt)
                                             ? new Date(post.scheduledAt || post.postedAt || post.createdAt).toLocaleString(undefined, {

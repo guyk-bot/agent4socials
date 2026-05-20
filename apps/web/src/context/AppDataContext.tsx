@@ -6,7 +6,7 @@ import { useAccountsCache } from '@/context/AccountsCacheContext';
 import api from '@/lib/api';
 import { getDefaultAnalyticsDateRange } from '@/lib/calendar-date';
 import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
-import { computeInboxHeaderUnread } from '@/lib/inbox/unread-count';
+import { computeInboxHeaderUnread, stabilizeInboxHeaderUnread } from '@/lib/inbox/unread-count';
 import { INBOX_READ_STATE_CHANGED_EVENT } from '@/lib/inbox-read-state';
 import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
 import {
@@ -213,6 +213,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [prefetchPhase2Done, setPrefetchPhase2Done] = useState(false);
   const [cacheRehydrated, setCacheRehydrated] = useState(false);
   const [inboxReadStateVersion, setInboxReadStateVersion] = useState(0);
+  const stableInboxCountsRef = useRef({ version: -1, inbox: 0, messages: 0, comments: 0 });
 
   useEffect(() => {
     const onReadChanged = () => setInboxReadStateVersion((v) => v + 1);
@@ -254,7 +255,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             platform: c.platform ?? accountPlatform.get(accountId),
           }))
       );
-    const unread = computeInboxHeaderUnread(allConversations, unreadComments, user.id);
+    const computed = computeInboxHeaderUnread(allConversations, unreadComments, user.id);
+    const unread = stabilizeInboxHeaderUnread(
+      computed,
+      inboxReadStateVersion,
+      stableInboxCountsRef.current
+    );
     setNotificationsState((prev) => {
       const byPlatformSame =
         JSON.stringify(prev.byPlatform ?? {}) === JSON.stringify(unread.byPlatform);
@@ -453,6 +459,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     setConversationsByAccountId({});
     setScheduledPostsState([]);
     setEngagementByAccountId({});
+    stableInboxCountsRef.current = { version: -1, inbox: 0, messages: 0, comments: 0 };
+    setNotificationsState(defaultNotifications);
     setPrefetchStatus('idle');
     setPrefetchHasLoadedOnce(false);
     setPrefetchPhase2Done(false);
