@@ -1173,30 +1173,17 @@ export default function ComposerPage() {
         } catch (_) { /* ignore */ }
     }, []);
 
-    const openAiModal = useCallback(async () => {
+    const openAiModal = useCallback(() => {
         setAiError(null);
-        try {
-            const res = await api.get('/ai/brand-context');
-            const ok = hasComposerBrandContext(res.data);
-            setHasBrandContext(ok);
-            if (!ok) {
-                setAlertMessage(
-                    'Set up your brand context in Dashboard → AI Assistant first (target audience, tone of voice, or product description). Then you can use Generate with AI.'
-                );
-                return;
-            }
-        } catch {
-            setHasBrandContext(false);
-            setAlertMessage(
-                'Could not load AI Assistant settings. Open Dashboard → AI Assistant, save your brand context, then try again.'
-            );
-            return;
-        }
         setAiTopic('');
         setAiPrompt('');
         setAiPlatform(platforms[0] || '');
         setAiModalOpen(true);
-    }, [platforms]);
+        if (hasBrandContext !== null) return;
+        api.get('/ai/brand-context')
+            .then((res) => setHasBrandContext(hasComposerBrandContext(res.data)))
+            .catch(() => setHasBrandContext(false));
+    }, [platforms, hasBrandContext]);
 
     const clampTwitterAiText = useCallback((text: string): string => {
         const raw = text.trim();
@@ -2583,15 +2570,14 @@ export default function ComposerPage() {
         }
     }, [composerReady]);
 
-    // Prefetch AI brand context so "Generate with AI" opens without waiting on /ai/brand-context.
+    // Prefetch AI brand context in parallel with composer load so the modal can open instantly.
     useEffect(() => {
-        if (!composerReady) return;
+        if (hasBrandContext !== null) return;
         let cancelled = false;
         api.get('/ai/brand-context')
             .then((res) => {
                 if (cancelled) return;
-                const data = res.data;
-                setHasBrandContext(hasComposerBrandContext(data));
+                setHasBrandContext(hasComposerBrandContext(res.data));
             })
             .catch(() => {
                 if (!cancelled) setHasBrandContext(false);
@@ -2599,7 +2585,7 @@ export default function ComposerPage() {
         return () => {
             cancelled = true;
         };
-    }, [composerReady]);
+    }, [hasBrandContext]);
 
     if (!composerReady) {
     return (
@@ -2730,12 +2716,18 @@ export default function ComposerPage() {
                                 <span className="text-sm text-neutral-700">Use different content per platform</span>
                             </label>
                         )}
+                        {hasBrandContext === null && (
+                            <p className="mt-4 flex items-center gap-2 text-sm text-neutral-500">
+                                <Loader2 size={16} className="animate-spin shrink-0" aria-hidden />
+                                Checking AI Assistant setup…
+                            </p>
+                        )}
                         {hasBrandContext === false && (
                             <p className="mt-2 text-sm text-amber-700 bg-amber-50 rounded-lg p-3">
                                 Set up your brand context first in <Link href="/dashboard/ai-assistant" className="underline font-medium">Dashboard → AI Assistant</Link> so the AI can match your voice and audience.
                             </p>
                         )}
-                        {hasBrandContext !== false && (
+                        {hasBrandContext === true && (
                             <>
                                 <label className="mt-4 block text-sm font-medium text-neutral-700">What&apos;s this post about?</label>
                                 <input
@@ -3306,7 +3298,7 @@ export default function ComposerPage() {
                         <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
                             <button
                                 type="button"
-                                onClick={() => void openAiModal()}
+                                onClick={openAiModal}
                                 disabled={hasBrandContext === false}
                                 className="inline-flex items-center gap-1.5 px-3 py-2 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-neutral-100"
                             >
