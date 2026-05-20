@@ -14,6 +14,8 @@ export interface OpenAIChatMessage {
 export interface OpenAIChatOptions {
   max_tokens?: number;
   response_format?: { type: 'json_object' } | { type: 'text' };
+  /** Override OPENAI_CHAT_MODEL for this request (e.g. faster inbox batch). */
+  model?: string;
 }
 
 export interface OpenAIChatResult {
@@ -32,7 +34,7 @@ export async function openAiChat(
   if (!apiKey) {
     throw new Error('OPENAI_API_KEY is not set');
   }
-  const model = process.env.OPENAI_CHAT_MODEL?.trim() || DEFAULT_MODEL;
+  const model = options.model?.trim() || process.env.OPENAI_CHAT_MODEL?.trim() || DEFAULT_MODEL;
   const body: Record<string, unknown> = {
     model,
     messages,

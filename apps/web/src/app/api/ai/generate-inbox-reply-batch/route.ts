@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { trackUsage } from '@/lib/usage-tracking';
-import { generateInboxReply, type InboxReplyBrandContext } from '@/lib/ai/generate-inbox-reply-core';
+import {
+  generateInboxRepliesBatch,
+  type InboxReplyBrandContext,
+} from '@/lib/ai/generate-inbox-reply-core';
 import { brandContextForInboxAi, isAiInboxBetaUser } from '@/lib/ai/inbox-ai-beta';
 import { hasCommentReplyExamples, hasInboxReplyExamples } from '@/lib/brand-context-utils';
 
@@ -86,30 +89,11 @@ export async function POST(request: NextRequest) {
   trackUsage(userId, 'ai_generation', items.length);
 
   try {
-    const results = await Promise.all(
-      items.map(async (item) => {
-        try {
-          const reply = await generateInboxReply({
-            type,
-            text: item.text,
-            context: item.context,
-            platform: item.platform,
-            brand,
-          });
-          return { id: item.id, reply, error: null as string | null };
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : 'Failed to generate reply';
-          return { id: item.id, reply: null as string | null, error: msg };
-        }
-      })
-    );
-
-    const replies: Record<string, string> = {};
-    const errors: Record<string, string> = {};
-    for (const r of results) {
-      if (r.reply) replies[r.id] = r.reply;
-      else if (r.error) errors[r.id] = r.error;
-    }
+    const { replies, errors } = await generateInboxRepliesBatch({
+      type,
+      items,
+      brand,
+    });
 
     return NextResponse.json({
       replies,
