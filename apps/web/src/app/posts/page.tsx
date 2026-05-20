@@ -367,26 +367,28 @@ export default function PostsPage() {
                         </div>
                     </div>
                 ) : filteredPosts.length > 0 ? (
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-neutral-800">
+                        <thead className="bg-gray-50 dark:bg-neutral-900/60">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Content</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Platforms</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-neutral-400 uppercase tracking-wider">Date</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-neutral-400 uppercase tracking-wider">Content</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-neutral-400 uppercase tracking-wider">Platforms</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-neutral-400 uppercase tracking-wider">Status</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-neutral-400 uppercase tracking-wider">Action</th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white dark:bg-transparent divide-y divide-gray-200 dark:divide-neutral-800">
                             {filteredPosts.map((post: any) => (
                                 <tr
                                     key={post.id}
                                     id={`post-row-${post.id}`}
                                     className={`transition-colors group outline-none focus:outline-none ${
-                                        highlightId === post.id ? 'bg-amber-50/70' : 'hover:bg-gray-50'
+                                        highlightId === post.id
+                                            ? 'bg-amber-50/70 dark:bg-amber-950/30'
+                                            : 'hover:bg-gray-50 dark:hover:bg-neutral-800/40'
                                     }`}
                                 >
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-neutral-400">
                                         {(post.scheduledAt || post.postedAt || post.createdAt)
                                             ? new Date(post.scheduledAt || post.postedAt || post.createdAt).toLocaleString(undefined, {
                                                 month: 'numeric',
@@ -405,7 +407,7 @@ export default function PostsPage() {
                                             {!post.media?.length && (
                                                 <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-400"><ImageIcon size={20} /></div>
                                             )}
-                                            <div className="text-sm font-medium text-gray-900 truncate max-w-xs">
+                                            <div className="text-sm font-medium text-gray-900 dark:text-neutral-100 truncate max-w-xs">
                                                 {isStoryPost(post) && (
                                                     <span className="mr-1.5 inline-flex items-center rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-orange-800">
                                                         Story
