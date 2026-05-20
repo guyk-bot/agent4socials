@@ -181,7 +181,7 @@ Layouts worth knowing: `composer/layout.tsx` uses `AuthenticatedShell`.
 | Comments | `apps/web/src/app/api/social/accounts/[id]/comments/route.ts`, `reply/`, `delete/` |
 | Engagement tab | `apps/web/src/app/api/social/accounts/[id]/engagement/route.ts` |
 | Read state | `apps/web/src/lib/inbox-read-state.ts` |
-| Inbox badge background poll (~90s) | `apps/web/src/lib/inbox/poll-inbox-notifications.ts`, `AppDataContext.tsx` |
+| Inbox systematic sync (every 2 min, UI reads cache only) | `apps/web/src/lib/inbox/inbox-sync-config.ts`, `poll-inbox-notifications.ts`, `AppDataContext.tsx` |
 | Accounts cache | `apps/web/src/context/AccountsCacheContext.tsx` |
 
 ### Composer & posts
