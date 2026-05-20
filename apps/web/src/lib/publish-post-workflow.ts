@@ -206,10 +206,19 @@ export async function runPublishPostWorkflow(input: {
         const direct = await ensureInstagramJpegOnR2(raw, fetch);
         return direct ?? publicMediaUrlForMeta(raw, { instagramImage: true });
       }
-      if (firstImageUrl) firstImageUrl = await urlForInstagram(firstImageUrl, isInstagram);
-      if (postMediaType === 'story' && firstImageUrl) {
-        const storyFitted = await ensureStoryJpegOnR2(firstImageUrl, fetch);
-        if (storyFitted) firstImageUrl = storyFitted;
+      const isStoryImage = postMediaType === 'story' && Boolean(allImages[0]?.fileUrl);
+      if (isStoryImage) {
+        const raw = allImages[0]!.fileUrl;
+        let storyUrl: string | null = null;
+        const directR2 = directR2IfOurs(raw);
+        if (directR2) storyUrl = await ensureStoryJpegOnR2(directR2, fetch);
+        if (!storyUrl) {
+          const jpegR2 = await ensureInstagramJpegOnR2(raw, fetch);
+          if (jpegR2) storyUrl = await ensureStoryJpegOnR2(jpegR2, fetch);
+        }
+        firstImageUrl = storyUrl ?? (await urlForInstagram(raw, isInstagram));
+      } else if (firstImageUrl) {
+        firstImageUrl = await urlForInstagram(firstImageUrl, isInstagram);
       }
       if (firstMediaUrl) firstMediaUrl = await urlForInstagram(firstMediaUrl, isInstagram && firstIsImage);
       if (videoThumbnailUrl) {

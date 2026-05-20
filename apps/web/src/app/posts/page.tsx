@@ -85,6 +85,21 @@ function isReelLikePost(post: any): boolean {
     return firstType === 'VIDEO' && (targets.includes('TIKTOK') || targets.includes('YOUTUBE') || targets.includes('INSTAGRAM'));
 }
 
+function isStoryPost(post: any): boolean {
+    return typeof post?.mediaType === 'string' && post.mediaType.toLowerCase() === 'story';
+}
+
+function postMatchesStatusFilter(post: any, filter: string): boolean {
+    if (filter === 'ALL') return true;
+    const targets: Array<{ status?: string }> = Array.isArray(post.targets) ? post.targets : [];
+    const hasPosted = targets.some((t) => t.status === 'POSTED');
+    const hasFailed = targets.some((t) => t.status === 'FAILED');
+    const partial = hasPosted && hasFailed;
+    if (filter === 'POSTED') return post.status === 'POSTED' || partial;
+    if (filter === 'FAILED') return post.status === 'FAILED' || partial;
+    return post.status === filter;
+}
+
 function PostMediaThumb({
     mediaItem,
     reelLike = false,
@@ -215,13 +230,14 @@ export default function PostsPage() {
         if (d && (d < dateRange.start || d > dateRange.end)) return false;
         if (!postMatchesSearch(p, searchQuery)) return false;
         if (!postMatchesPlatformFilter(p, selectedPlatforms)) return false;
-        if (filter === 'ALL') return true;
-        return p.status === filter;
+        if (!postMatchesStatusFilter(p, filter)) return false;
+        return true;
     });
 
     const [showDraftSavedBanner, setShowDraftSavedBanner] = useState(false);
     const draftSaved = searchParams.get('draft_saved') === '1';
     const published = searchParams.get('published') === '1';
+    const partialPublished = searchParams.get('partial') === '1';
     useEffect(() => {
         if (draftSaved) {
             setShowDraftSavedBanner(true);
@@ -230,6 +246,7 @@ export default function PostsPage() {
     }, [draftSaved, router]);
 
     const [showPublishedBanner, setShowPublishedBanner] = useState(false);
+    const [showPartialBanner, setShowPartialBanner] = useState(false);
     useEffect(() => {
         if (published) {
             setShowPublishedBanner(true);
@@ -237,6 +254,13 @@ export default function PostsPage() {
             router.replace(`/posts${keepHighlight}`, { scroll: false });
         }
     }, [published, router, highlightId]);
+    useEffect(() => {
+        if (partialPublished) {
+            setShowPartialBanner(true);
+            const keepHighlight = highlightId ? `?highlight=${encodeURIComponent(highlightId)}` : '';
+            router.replace(`/posts${keepHighlight}`, { scroll: false });
+        }
+    }, [partialPublished, router, highlightId]);
 
     return (
         <div className="analytics-dark-scope space-y-3" style={{ maxWidth: 1400 }}>
@@ -255,6 +279,12 @@ export default function PostsPage() {
                 <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 flex items-center justify-between">
                     <span>Post published. Find it in History below.</span>
                     <button type="button" onClick={() => setShowPublishedBanner(false)} className="text-green-600 hover:text-green-800 font-medium">Dismiss</button>
+                </div>
+            )}
+            {showPartialBanner && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex items-center justify-between">
+                    <span>Published on some platforms only. Check per-platform status below (PARTIAL). Retry failed platforms from Composer.</span>
+                    <button type="button" onClick={() => setShowPartialBanner(false)} className="text-amber-800 hover:text-amber-950 font-medium">Dismiss</button>
                 </div>
             )}
 
@@ -365,12 +395,17 @@ export default function PostsPage() {
                                     <td className="px-6 py-4">
                                         <div className="flex items-center space-x-3">
                                             {post.media?.[0] && (
-                                                <PostMediaThumb mediaItem={post.media[0]} reelLike={isReelLikePost(post)} />
+                                                <PostMediaThumb mediaItem={post.media[0]} reelLike={isReelLikePost(post) || isStoryPost(post)} />
                                             )}
                                             {!post.media?.length && (
                                                 <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-400"><ImageIcon size={20} /></div>
                                             )}
                                             <div className="text-sm font-medium text-gray-900 truncate max-w-xs">
+                                                {isStoryPost(post) && (
+                                                    <span className="mr-1.5 inline-flex items-center rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-orange-800">
+                                                        Story
+                                                    </span>
+                                                )}
                                                 {post.title || post.content}
                                             </div>
                                         </div>
@@ -384,7 +419,17 @@ export default function PostsPage() {
                                                 platforms.map((t: any) => (
                                                     <span
                                                         key={t.id || t.platform}
-                                                        title={typeof t === 'object' && t.socialAccount?.username ? `${t.platform} @${t.socialAccount.username} · ${t.status}` : t.platform || t}
+                                                        title={
+                                                            typeof t === 'object'
+                                                                ? [
+                                                                      t.socialAccount?.username ? `${t.platform} @${t.socialAccount.username}` : t.platform,
+                                                                      t.status,
+                                                                      t.error ? `Error: ${t.error}` : null,
+                                                                  ]
+                                                                      .filter(Boolean)
+                                                                      .join(' · ')
+                                                                : String(t.platform || t)
+                                                        }
                                                         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${(t.status || post.status) === 'POSTED' ? 'bg-green-100 text-green-800' : (t.status || post.status) === 'FAILED' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-700'}`}
                                                     >
                                                         {t.platform === 'INSTAGRAM' && <InstagramIcon size={14} />}

@@ -402,8 +402,45 @@ function buildPublishFailureAlert(prefix: 'created' | 'updated', results: Publis
         hint = `${hint ? `${hint} ` : ''}For Pinterest: request Standard access in Pinterest Developer Platform.`;
     }
 
+    if (failedJoined.includes('INSTAGRAM') && failedJoined.toLowerCase().includes('story')) {
+        hint = `${hint ? `${hint} ` : ''}For Instagram Stories: reconnect Instagram in Accounts, use Adjust fit (9:16), and ensure the image is under 8MB. Stories appear in the story ring, not the main feed grid.`;
+    }
+
     const title = prefix === 'updated' ? 'Post updated but some platforms failed.' : 'Post created but some platforms failed.';
     return `${title}\n\nActual platform error:\n${failedText}${hint ? `\n\nSuggested next step:\n${hint}` : ''}`;
+}
+
+function buildPublishPartialAlert(prefix: 'created' | 'updated', results: PublishResultItem[]): string {
+    const ok = results.filter((r) => r.ok).map((r) => r.platform);
+    const failed = results.filter((r) => !r.ok);
+    const failedLines = failed.map((r) => `${r.platform}: ${r.error || 'failed'}`);
+    const title =
+        prefix === 'updated'
+            ? `Posted to ${ok.join(', ')}. Other platforms failed.`
+            : `Posted to ${ok.join(', ')}. Other platforms failed.`;
+    return `${title}\n\n${failedLines.join('\n')}\n\nOpen History, filter by All Status, and retry from Composer. Instagram Stories show in the story ring, not the feed grid.`;
+}
+
+function handlePublishResultOutcome(
+    prefix: 'created' | 'updated',
+    results: PublishResultItem[] | undefined,
+    postId: string,
+    onAlert: (msg: string) => void,
+    goHistory: (query: string) => void
+): boolean {
+    if (!results?.length) return false;
+    const anyFailed = results.some((r) => !r.ok);
+    const anyOk = results.some((r) => r.ok);
+    if (anyFailed && anyOk) {
+        onAlert(buildPublishPartialAlert(prefix, results));
+        goHistory(`partial=1&highlight=${encodeURIComponent(postId)}`);
+        return true;
+    }
+    if (anyFailed) {
+        onAlert(buildPublishFailureAlert(prefix, results));
+        return true;
+    }
+    return false;
 }
 
 // Platforms that support comment-automation (replies to keyword comments)
@@ -439,7 +476,7 @@ const MEDIA_RECOMMENDATIONS: Record<MediaTypeChoice, { label: string; accept: st
         label: 'Story',
         accept: `image/*,${VIDEO_ACCEPT}`,
         multiple: false,
-        hint: 'Instagram and Facebook Stories: 1080×1920 (9:16). After upload, use Adjust fit for landscape images. Video: MP4, up to 15 sec (Instagram) or 60 sec (Facebook).',
+        hint: 'Instagram and Facebook Stories: 1080×1920 (9:16). Use Adjust fit for landscape images. Video: MP4, up to 15 sec (Instagram) or 60 sec (Facebook). Music, stickers, and native text must be added in the Instagram or Facebook app after publish (API limitation).',
         formatsHint: 'JPEG, PNG (image) or MP4, MOV (video)',
     },
 };
@@ -2295,8 +2332,13 @@ export default function ComposerPage() {
                                 .then((publishRes) => {
                                     const results = publishRes.data?.results;
                                     if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
-                                    if (results?.some((r) => !r.ok)) {
-                                        setAlertMessage(withTikTokProcessingNotice(buildPublishFailureAlert('updated', results)));
+                                    if (
+                                        handlePublishResultOutcome('updated', results, editPostId, (msg) =>
+                                            setAlertMessage(withTikTokProcessingNotice(msg)),
+                                            (q) => router.push(`/posts?${q}`)
+                                        )
+                                    ) {
+                                        return;
                                     }
                                 })
                                 .catch((err: unknown) => {
@@ -2316,8 +2358,12 @@ export default function ComposerPage() {
                         );
                         const results = publishRes.data?.results;
                         if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
-                        if (results?.some((r) => !r.ok)) {
-                            setAlertMessage(withTikTokProcessingNotice(buildPublishFailureAlert('updated', results)));
+                        if (
+                            handlePublishResultOutcome('updated', results, editPostId, (msg) =>
+                                setAlertMessage(withTikTokProcessingNotice(msg)),
+                                (q) => router.push(`/posts?${q}`)
+                            )
+                        ) {
                             return;
                         }
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -2388,8 +2434,13 @@ export default function ComposerPage() {
                                 .then((publishRes) => {
                                     const results = publishRes.data?.results;
                                     if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
-                                    if (results?.some((r) => !r.ok)) {
-                                        setAlertMessage(withTikTokProcessingNotice(buildPublishFailureAlert('created', results)));
+                                    if (
+                                        handlePublishResultOutcome('created', results, postId, (msg) =>
+                                            setAlertMessage(withTikTokProcessingNotice(msg)),
+                                            (q) => router.push(`/posts?${q}`)
+                                        )
+                                    ) {
+                                        return;
                                     }
                                 })
                                 .catch((err: unknown) => {
@@ -2409,8 +2460,12 @@ export default function ComposerPage() {
                         );
                     const results = publishRes.data?.results;
                         if (publishRes.data?.debugInfo) console.log('[Publish Debug]', publishRes.data.debugInfo);
-                    if (results?.some((r) => !r.ok)) {
-                            setAlertMessage(withTikTokProcessingNotice(buildPublishFailureAlert('created', results)));
+                    if (
+                            handlePublishResultOutcome('created', results, postId, (msg) =>
+                                setAlertMessage(withTikTokProcessingNotice(msg)),
+                                (q) => router.push(`/posts?${q}`)
+                            )
+                        ) {
                             return;
                         }
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -2877,6 +2932,12 @@ export default function ComposerPage() {
                                     ))}
                                 </div>
                                 <MediaRequirementsHint mediaType={mediaType} />
+                                {mediaType === 'story' && (
+                                    <p className="text-xs text-neutral-600 dark:text-neutral-400 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 px-3 py-2">
+                                        Stories publish to the story ring (Instagram) or Stories tray (Facebook), not the main feed grid.
+                                        Licensed music, stickers, and native text tools are not available via the API: add those in the Instagram or Facebook app after publish, or bake text into your image in Adjust fit.
+                                    </p>
+                                )}
                                 <input
                                     ref={fileInputRef}
                                     type="file"

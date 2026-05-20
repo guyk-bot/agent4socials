@@ -514,7 +514,7 @@ export async function publishTarget(
           );
           const creationId = (containerRes.data as { id?: string })?.id;
           if (!creationId) throw new Error(JSON.stringify(containerRes.data));
-          const wait = await waitForInstagramContainer(creationId, token, 30_000);
+          const wait = await waitForInstagramContainer(creationId, token, 60_000);
           if (!wait.ok) throw new Error(wait.error ?? 'Story image container not ready');
           const publishRes = await axiosInstance.post(
             `${facebookGraphBaseUrl}/${platformUserId}/media_publish`,
