@@ -2,7 +2,9 @@ import { PrismaClient } from '@prisma/client';
 
 // ─── Connection URL hardening ───────────────────────────────────────────────
 // pgbouncer=true  – disable prepared statements (required for transaction-mode poolers)
-// connection_limit=1 – one connection per serverless invocation (Vercel best practice)
+// connection_limit – how many connections Prisma keeps per Lambda instance.
+//   Default: 3 (allows some concurrency on warm Lambdas without over-saturating Supabase).
+//   Override with DATABASE_CONNECTION_LIMIT env var.
 // pool_timeout=15  – how long Prisma waits for a free slot in its internal pool.
 // connect_timeout=10 – don't wait too long for TCP handshake
 const rawUrl = process.env.DATABASE_URL;
@@ -11,7 +13,11 @@ if (rawUrl && /^postgres(ql)?:\/\//i.test(rawUrl)) {
   const addParam = (u: string, param: string) =>
     u.includes('?') ? `${u}&${param}` : `${u}?${param}`;
   if (!fixedUrl.includes('pgbouncer=true')) fixedUrl = addParam(fixedUrl, 'pgbouncer=true');
-  if (!fixedUrl.includes('connection_limit=')) fixedUrl = addParam(fixedUrl, 'connection_limit=1');
+  if (!fixedUrl.includes('connection_limit=')) {
+    const connLimitEnv = Number.parseInt(process.env.DATABASE_CONNECTION_LIMIT ?? '3', 10);
+    const connLimit = Number.isFinite(connLimitEnv) && connLimitEnv >= 1 ? connLimitEnv : 3;
+    fixedUrl = addParam(fixedUrl, `connection_limit=${connLimit}`);
+  }
   const poolTimeoutSec = Number.parseInt(process.env.DATABASE_POOL_TIMEOUT_SEC ?? '15', 10);
   const poolTimeout = Number.isFinite(poolTimeoutSec) && poolTimeoutSec > 0 ? poolTimeoutSec : 15;
   fixedUrl = fixedUrl.replace(/pool_timeout=\d+/, `pool_timeout=${poolTimeout}`);

@@ -100,7 +100,8 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
         process.env.LINKEDIN_INCLUDE_W_MEMBER_SOCIAL === 'true' ||
         process.env.LINKEDIN_REQUEST_ORG_SCOPES === 'true';
       const includeMemberSocialRead = process.env.LINKEDIN_INCLUDE_R_MEMBER_SOCIAL === 'true';
-      const baseScopes = includeWrite ? 'openid profile email w_member_social' : 'openid profile email';
+      // r_liteprofile enables /v2/me for numeric member ID lookup; include it whenever w_member_social is requested.
+      const baseScopes = includeWrite ? 'openid profile email r_liteprofile w_member_social' : 'openid profile email';
       const memberReadScope = includeMemberSocialRead ? ' r_member_social' : '';
       const defaultScopes = `${requestOrgScopes ? `${baseScopes} r_organization_social w_organization_social` : baseScopes}${memberReadScope}`
         .replace(/\s+/g, ' ')

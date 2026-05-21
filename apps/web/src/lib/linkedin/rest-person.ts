@@ -26,7 +26,10 @@ function normalizePersonOrOrgUrn(id: string): string | null {
   if (trimmed.startsWith('urn:li:person:') || trimmed.startsWith('urn:li:organization:')) {
     return trimmed;
   }
-  if (/^\d+$/.test(trimmed)) {
+  // Accept numeric IDs (legacy format) AND alphanumeric base62 IDs (OIDC sub / newer LinkedIn member IDs).
+  // LinkedIn's /v2/userinfo sub field IS the member ID per LinkedIn docs and can be used as urn:li:person:{sub}.
+  // Exclude synthetic fallback IDs like "li-XXXXXXXX" that we generate when no real ID is available.
+  if (/^\d+$/.test(trimmed) || (/^[A-Za-z0-9_-]{3,30}$/.test(trimmed) && !trimmed.startsWith('li-'))) {
     return `urn:li:person:${trimmed}`;
   }
   return null;
@@ -85,7 +88,7 @@ async function fetchLinkedInV2MePersonUrn(accessToken: string): Promise<{
 
 /**
  * Resolve the author URN required for posting and Community Management APIs.
- * Never maps OpenID `sub` to urn:li:person (LinkedIn rejects it).
+ * Priority: stored credentials → platformUserId (alphanumeric OIDC sub or explicit URN) → REST /me → v2/me.
  */
 export async function resolveLinkedInAuthorUrn(
   accessToken: string,
@@ -97,8 +100,11 @@ export async function resolveLinkedInAuthorUrn(
   }
 
   const platformUserId = options?.platformUserId?.trim() ?? '';
-  if (platformUserId.startsWith('urn:li:person:') || platformUserId.startsWith('urn:li:organization:')) {
-    return { personUrn: platformUserId, source: 'platformUserId', restMeStatus: 200 };
+  // Try platformUserId as a URN first. Covers explicit URNs and alphanumeric OIDC sub values.
+  // normalizePersonOrOrgUrn accepts both numeric and alphanumeric LinkedIn member IDs.
+  const platformUrn = normalizePersonOrOrgUrn(platformUserId);
+  if (platformUrn) {
+    return { personUrn: platformUrn, source: 'platformUserId', restMeStatus: 200 };
   }
 
   const rest = await fetchLinkedInRestPersonUrn(accessToken);

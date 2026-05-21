@@ -22,7 +22,12 @@ export function linkedInAuthorUrnForUgc(platformUserId: string, credentialsJson?
   const id = platformUserId.trim();
   if (id.startsWith('urn:li:organization:')) return id;
   if (id.startsWith('urn:li:person:')) return id;
-  // OpenID `sub` is not a valid person id for LinkedIn REST APIs.
+  // Map alphanumeric LinkedIn member IDs (including OIDC sub values) to a person URN.
+  // LinkedIn's /v2/userinfo sub IS the member ID per LinkedIn docs.
+  // Exclude synthetic fallback IDs like "li-XXXXXXXX".
+  if (id && /^[A-Za-z0-9_-]{3,30}$/.test(id) && !id.startsWith('li-')) {
+    return `urn:li:person:${id}`;
+  }
   return '';
 }
 
