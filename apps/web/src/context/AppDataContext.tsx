@@ -827,11 +827,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       setNotifications,
       invalidate,
       invalidateConversations,
+      inboxSystemSyncTick,
     }),
     [
       notifications,
       postsByAccountId,
       insightsByAccountId,
+      inboxSystemSyncTick,
       commentsByAccountId,
       conversationsByAccountId,
       scheduledPosts,
