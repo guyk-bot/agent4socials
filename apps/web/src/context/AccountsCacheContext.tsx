@@ -148,6 +148,23 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
   }, []);
 
   useEffect(() => { persist(STORAGE_KEY, allCachedAccounts); }, [allCachedAccounts, persist]);
+
+  // OAuth redirect: keep the new account in the active brand filter so dashboard analytics resolve it immediately.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('connecting') !== '1') return;
+      const accountId = params.get('accountId');
+      if (!accountId) return;
+      setAccountBrandMap((prev) => {
+        if (prev[accountId] === activeBrandId) return prev;
+        return { ...prev, [accountId]: activeBrandId };
+      });
+    } catch {
+      // ignore
+    }
+  }, [activeBrandId]);
   useEffect(() => { persist(BRANDS_KEY, brands); }, [brands, persist]);
   useEffect(() => { persist(ACCOUNT_BRAND_MAP_KEY, accountBrandMap); }, [accountBrandMap, persist]);
   useEffect(() => { persist(ACTIVE_BRAND_KEY, activeBrandId); }, [activeBrandId, persist]);

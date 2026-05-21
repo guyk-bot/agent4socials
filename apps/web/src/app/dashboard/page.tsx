@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
@@ -333,11 +333,36 @@ export default function DashboardPage() {
       syncError: string | null | undefined
     ) => void
   >(() => {});
-  const { selectedPlatformForConnect, clearSelection, setSelectedAccountId, setSelectedPlatformForConnect } = useSelectedAccount() ?? { selectedPlatformForConnect: null, clearSelection: () => {}, setSelectedAccountId: () => {}, setSelectedPlatformForConnect: () => {} };
+  const { selectedAccountId, selectedPlatformForConnect, clearSelection, setSelectedAccountId, setSelectedPlatformForConnect } = useSelectedAccount() ?? {
+    selectedAccountId: null,
+    selectedPlatformForConnect: null,
+    clearSelection: () => {},
+    setSelectedAccountId: () => {},
+    setSelectedPlatformForConnect: () => {},
+  };
   const selectedAccount = useResolvedSelectedAccount(cachedAccounts as SocialAccount[]);
-  selectedAccountRef.current = selectedAccount;
-  const [justConnected, setJustConnected] = useState(false);
+  const accounts = (cachedAccounts as SocialAccount[]) ?? [];
+  const accountIdFromUrl = searchParams.get('accountId');
   const connectingParam = searchParams.get('connecting');
+  /** Resolved account for analytics; stub from OAuth URL until accounts API returns. */
+  const analyticsAccount = useMemo((): SocialAccount | null => {
+    if (selectedAccount) return selectedAccount;
+    if (!selectedAccountId) return null;
+    const fromList = accounts.find((a) => a.id === selectedAccountId);
+    if (fromList) return fromList as SocialAccount;
+    const platformParam = searchParams.get('newPlatform');
+    if (connectingParam === '1' && platformParam) {
+      return {
+        id: selectedAccountId,
+        platform: platformParam.toUpperCase(),
+        username: searchParams.get('newUsername') ?? platformParam,
+        profilePicture: searchParams.get('newPic'),
+      };
+    }
+    return null;
+  }, [selectedAccount, selectedAccountId, accounts, connectingParam, searchParams]);
+  selectedAccountRef.current = analyticsAccount;
+  const [justConnected, setJustConnected] = useState(false);
 
   const [stats, setStats] = useState({ accounts: 0, scheduled: 0, posted: 0, failed: 0 });
   const [recentPosts, setRecentPosts] = useState<any[]>([]);
@@ -388,17 +413,17 @@ export default function DashboardPage() {
 
   // When the selected account changes, reset the syncing indicator.
   useEffect(() => {
-    if (!selectedAccount?.id) return;
+    if (!analyticsAccount?.id) return;
     setPostsSoftSyncing(false);
-  }, [selectedAccount?.id]);
+  }, [analyticsAccount?.id]);
 
   // Keep sync state alive across page navigation:
   // when the user comes back to analytics, resume from backend sync-status
   // instead of resetting to "Sync now".
   useEffect(() => {
-    if (!selectedAccount?.id) return;
+    if (!analyticsAccount?.id) return;
     let cancelled = false;
-    const accountId = selectedAccount.id;
+    const accountId = analyticsAccount.id;
     // Rehydrate pending manual sync flag after navigation/remount.
     try {
       if (typeof window !== 'undefined' && sessionStorage.getItem(MANUAL_SYNC_PENDING_KEY) === accountId) {
@@ -449,7 +474,7 @@ export default function DashboardPage() {
         syncStatusPollTimerRef.current = null;
       }
     };
-  }, [selectedAccount?.id]);
+  }, [analyticsAccount?.id]);
 
   // Platforms the /refresh endpoint supports (returns a fresh profilePicture URL).
   const REFRESH_SUPPORTED_PLATFORMS = new Set(['FACEBOOK', 'INSTAGRAM', 'TWITTER', 'TIKTOK']);
@@ -458,24 +483,24 @@ export default function DashboardPage() {
   // Triggers a background refresh to get a fresh URL, then updates the accounts cache
   // so the component re-renders with the new src and gets another chance to show the image.
   const handleAvatarError = useCallback(() => {
-    if (!selectedAccount?.id) return;
-    if (!REFRESH_SUPPORTED_PLATFORMS.has(selectedAccount.platform ?? '')) return;
-    if (avatarRefreshDoneForAccountRef.current[selectedAccount.id]) return;
-    avatarRefreshDoneForAccountRef.current[selectedAccount.id] = true;
+    if (!analyticsAccount?.id) return;
+    if (!REFRESH_SUPPORTED_PLATFORMS.has(analyticsAccount.platform ?? '')) return;
+    if (avatarRefreshDoneForAccountRef.current[analyticsAccount.id]) return;
+    avatarRefreshDoneForAccountRef.current[analyticsAccount.id] = true;
     void (async () => {
       try {
-        await api.patch(`/social/accounts/${selectedAccount.id}/refresh`);
+        await api.patch(`/social/accounts/${analyticsAccount.id}/refresh`);
         const refreshed = await api.get('/social/accounts');
         const refreshedData = Array.isArray(refreshed.data) ? refreshed.data : [];
         setCachedAccounts(refreshedData);
         // Allow a retry next time the avatar errors (in case the fresh URL also expires).
-        delete avatarRefreshDoneForAccountRef.current[selectedAccount.id];
+        delete avatarRefreshDoneForAccountRef.current[analyticsAccount.id];
       } catch {
         // Keep current fallback icon when refresh fails.
       }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAccount?.id, selectedAccount?.platform, setCachedAccounts]);
+  }, [analyticsAccount, setCachedAccounts]);
   const handleAnalyticsDateRangeChange = useCallback(
     (r: { start: string; end: string }) => {
       setDateRange(r);
@@ -540,7 +565,6 @@ export default function DashboardPage() {
   const [pageReviews, setPageReviews] = useState<Array<{ created_time: string | null; rating: number | null; recommendation_type: string | null; review_text: string | null; has_rating: boolean; has_review: boolean }>>([]);
   const [pageReviewsLoading, setPageReviewsLoading] = useState(false);
   const [pageReviewsError, setPageReviewsError] = useState<string | null>(null);
-  const accounts = (cachedAccounts as SocialAccount[]) ?? [];
   const hasAccounts = accounts.length > 0;
 
   const fetchAccounts = async (): Promise<SocialAccount[]> => {
@@ -555,7 +579,6 @@ export default function DashboardPage() {
     }
   };
 
-  const accountIdFromUrl = searchParams.get('accountId');
   const twitter1oaNext = searchParams.get('twitter_1oa_next');
   const connectParam = searchParams.get('connect');
   const ALLOWED_CONNECT = ['INSTAGRAM', 'FACEBOOK', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'LINKEDIN', 'PINTEREST'];
@@ -568,13 +591,13 @@ export default function DashboardPage() {
 
   /** Open analytics for a concrete account by default so /dashboard is never an empty "select in sidebar" dead end. */
   useEffect(() => {
-    if (!accountIdsKey || selectedAccount || selectedPlatformForConnect || connectFromUrl || accountIdFromUrl) return;
+    if (!accountIdsKey || selectedAccountId || selectedPlatformForConnect || connectFromUrl || accountIdFromUrl) return;
     const first = accounts[0];
     if (!first?.id) return;
     setSelectedAccountId(first.id);
   }, [
     accountIdsKey,
-    selectedAccount?.id,
+    analyticsAccount?.id,
     selectedPlatformForConnect,
     connectFromUrl,
     accountIdFromUrl,
@@ -592,27 +615,30 @@ export default function DashboardPage() {
     }
   }, [connectParam, router, setSelectedPlatformForConnect]);
 
-  // When accountId is in URL: select that account and clean URL. Only clear cache when just connected (connecting=1) so sidebar navigation reuses saved data like inbox.
+  // OAuth return: select the new account before paint so analytics skeleton shows immediately (not "All connected accounts").
+  useLayoutEffect(() => {
+    if (!accountIdFromUrl || twitter1oaNext === '1') return;
+    setSelectedAccountId(accountIdFromUrl);
+    if (connectingParam === '1') setJustConnected(true);
+  }, [accountIdFromUrl, connectingParam, twitter1oaNext, setSelectedAccountId]);
+
+  // When accountId is in URL: clean URL; after connect refresh cache and clear stale per-account data.
   useEffect(() => {
     if (!accountIdFromUrl || twitter1oaNext === '1') return;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     let cancelled = false;
-    const justConnected = connectingParam === '1';
+    const oauthJustConnected = connectingParam === '1';
 
-    // Normal sidebar account switches should be immediate and race-free.
-    if (!justConnected) {
-      setSelectedAccountId(accountIdFromUrl);
+    if (!oauthJustConnected) {
       router.replace('/dashboard', { scroll: false });
       return;
     }
 
-    // After OAuth connect we refresh account cache once, then clear stale per-account caches.
     fetchAccounts()
       .then((list) => {
         if (cancelled) return;
         const connected = list.find((a) => a.id === accountIdFromUrl);
         if (connected) markInboxAccountRecentlyConnected(connected.id, connected.platform);
-        setSelectedAccountId(accountIdFromUrl);
         delete postsCacheRef.current[accountIdFromUrl];
         Object.keys(insightsCacheRef.current).forEach((k) => {
           if (k.startsWith(accountIdFromUrl + '-')) delete insightsCacheRef.current[k];
@@ -620,7 +646,6 @@ export default function DashboardPage() {
         delete lastInsightsByAccountIdRef.current[accountIdFromUrl];
         appDataRef.current?.clearAccountData(accountIdFromUrl);
         router.replace('/dashboard', { scroll: false });
-        setJustConnected(true);
         timeoutId = setTimeout(() => setJustConnected(false), 5000);
       })
       .catch(() => {
@@ -631,7 +656,7 @@ export default function DashboardPage() {
       cancelled = true;
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [accountIdFromUrl, connectingParam, twitter1oaNext, router, setSelectedAccountId]);
+  }, [accountIdFromUrl, connectingParam, twitter1oaNext, router]);
 
   useEffect(() => {
     if (connectingParam !== '1' || accountIdFromUrl) return;
@@ -735,17 +760,17 @@ export default function DashboardPage() {
 
   // Auto-select the platform filter when switching accounts (or reset to 'all' for Summary)
   useEffect(() => {
-    setPostsPlatformFilter(selectedAccount ? selectedAccount.platform : 'all');
+    setPostsPlatformFilter(analyticsAccount ? analyticsAccount.platform : 'all');
     setPostsPage(1);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAccount?.id]);
+  }, [analyticsAccount?.id]);
 
   useEffect(() => {
     const appCtx = appDataRef.current;
     const postsPhase2Running = Boolean(appCtx?.prefetchHasLoadedOnce && !appCtx?.prefetchPhase2Done);
-    const skipInstagramAutoRefresh = selectedAccount?.platform === 'INSTAGRAM' && !justConnected;
-    if (selectedAccount?.id) {
-      const accountId = selectedAccount.id;
+    const skipInstagramAutoRefresh = analyticsAccount?.platform === 'INSTAGRAM' && !justConnected;
+    if (analyticsAccount?.id) {
+      const accountId = analyticsAccount.id;
       // Guard: skip this branch if we already ran it for the same
       // (account, syncAllTrigger) combination. Unrelated dep changes (like
       // `accounts.map(...)` getting a new reference after Phase 1, or a
@@ -767,9 +792,9 @@ export default function DashboardPage() {
         (ctxList?.length ?? 0) === 0 &&
         Array.isArray(importedPostsRef.current) &&
         importedPostsRef.current.length > 0 &&
-        selectedAccount?.platform
+        analyticsAccount?.platform
       ) {
-        const platform = selectedAccount.platform;
+        const platform = analyticsAccount.platform;
         const preserved = importedPostsRef.current.filter((p) => p.platform === platform);
         if (preserved.length > 0) {
           postsCacheRef.current[accountId] = preserved;
@@ -791,7 +816,7 @@ export default function DashboardPage() {
         // in the background; updates should come from explicit sync actions.
         if (hasAnyCachedPosts) return;
         if (skipInstagramAutoRefresh && hasAnyCachedPosts && !shouldBackgroundSyncPosts()) return;
-        const bgParams = postsSyncParamsForPlatform(selectedAccount?.platform, {
+        const bgParams = postsSyncParamsForPlatform(analyticsAccount?.platform, {
           explicitSync: syncAllTrigger > 0 || justConnected,
         });
         api.get(`/social/accounts/${accountId}/posts`, { params: bgParams })
@@ -804,7 +829,7 @@ export default function DashboardPage() {
             if (shouldApplyVisibleChartUpdate() && selectedAccountIdRef.current === accountId) setImportedPosts(list);
             afterTikTokPostsImportIfNeededRef.current(
               accountId,
-              selectedAccount?.platform,
+              analyticsAccount?.platform,
               bgParams,
               res.data?.syncError ?? null
             );
@@ -824,7 +849,7 @@ export default function DashboardPage() {
         const emptyPrefetch =
           ctxList.length === 0 &&
           !accountPostsHydratedRef.current[accountId] &&
-          (selectedAccount?.platform === 'TWITTER' || selectedAccount?.platform === 'PINTEREST');
+          (analyticsAccount?.platform === 'TWITTER' || analyticsAccount?.platform === 'PINTEREST');
         if (!emptyPrefetch) {
           const cached = postsCacheRef.current[accountId];
           if (ctxList.length === 0 && accountPostsHydratedRef.current[accountId] && (cached?.length ?? 0) > 0) {
@@ -844,7 +869,7 @@ export default function DashboardPage() {
         return;
       }
       setImportedPostsLoading(true);
-      const primaryPostsParams = postsSyncParamsForPlatform(selectedAccount?.platform, {
+      const primaryPostsParams = postsSyncParamsForPlatform(analyticsAccount?.platform, {
         explicitSync: syncAllTrigger > 0 || justConnected,
       });
       api.get(`/social/accounts/${accountId}/posts`, { params: primaryPostsParams })
@@ -858,7 +883,7 @@ export default function DashboardPage() {
           setPostsSyncError(res.data?.syncError ?? null);
           afterTikTokPostsImportIfNeededRef.current(
             accountId,
-            selectedAccount?.platform,
+            analyticsAccount?.platform,
             primaryPostsParams,
             res.data?.syncError ?? null
           );
@@ -938,7 +963,7 @@ export default function DashboardPage() {
   // Intentionally exclude `appData?.prefetchPhase2Done` to keep charts stable after initial render.
   // Background Phase 2 refreshes should silently update the cache without swapping the
   // currently-rendered posts — explicit sync/date/account changes are the only triggers.
-  }, [selectedAccount?.id, hasAccounts, syncAllTrigger, accounts.map((a) => a.id).join(','), analyticsTab]);
+  }, [analyticsAccount?.id, hasAccounts, syncAllTrigger, accounts.map((a) => a.id).join(','), analyticsTab]);
 
   const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number }>>({});
   /** Last successful insights payload per account (any date range). Used to avoid full-page skeleton when switching accounts before range cache hits. */
@@ -1006,7 +1031,7 @@ export default function DashboardPage() {
   // Single-account insights: when an account is selected. Load once; on date change refetch in place without clearing UI.
   // Use appDataRef so context updates (after setInsightsForAccount/setPostsForAccount) don't re-run this effect and cause a loading loop.
   useEffect(() => {
-    if (!selectedAccount?.id || !dateRange.start || !dateRange.end) return;
+    if (!analyticsAccount?.id || !dateRange.start || !dateRange.end) return;
     // Wait for cache rehydration to complete before checking for cached data
     if (!appData?.cacheRehydrated) return;
     // Lock the main insights effect once we've acted on a given
@@ -1014,12 +1039,12 @@ export default function DashboardPage() {
     // `insightsRunKeyRef` above for the reasoning. This prevents Phase 2 /
     // prefetchStatus flips from replaying the effect and swapping the
     // already-rendered chart data.
-    const runKey = `${selectedAccount.id}:${dateRange.start}:${dateRange.end}:${syncAllTrigger}:${justConnected ? 1 : 0}:${tiktokInsightsResyncSeal}`;
+    const runKey = `${analyticsAccount.id}:${dateRange.start}:${dateRange.end}:${syncAllTrigger}:${justConnected ? 1 : 0}:${tiktokInsightsResyncSeal}`;
     if (insightsRunKeyRef.current === runKey) return;
     insightsRunKeyRef.current = runKey;
     const prevAccountId = selectedAccountIdRef.current;
-    selectedAccountIdRef.current = selectedAccount.id;
-    const accountId = selectedAccount.id;
+    selectedAccountIdRef.current = analyticsAccount.id;
+    const accountId = analyticsAccount.id;
     const isSameAccount = prevAccountId === accountId;
     const cacheKey = `${accountId}-${dateRange.start}-${dateRange.end}`;
     // Detect a date-range change on the *same* account so we can suppress stale data in that case.
@@ -1060,7 +1085,7 @@ export default function DashboardPage() {
     // Pinterest traffic should appear instantly on open; allow a longer same-account fallback payload
     // (any recent range) while fresh insights load in the background.
     const pinterestQuickFallback =
-      selectedAccount?.platform === 'PINTEREST'
+      analyticsAccount?.platform === 'PINTEREST'
         ? (
             readInsightsFromLocalStorage(accountId, 6 * 60 * 60 * 1000) ??
             (userIdRef.current
@@ -1096,7 +1121,7 @@ export default function DashboardPage() {
       );
     }
     function patchYouTubeExtended(payload: Record<string, unknown>): Record<string, unknown> {
-      if (selectedAccount?.platform !== 'YOUTUBE') return payload;
+      if (analyticsAccount?.platform !== 'YOUTUBE') return payload;
       const hasDemographics = demographicsLooksPopulated(payload.demographics);
       const hasTraffic = Array.isArray(payload.trafficSources) && (payload.trafficSources as unknown[]).length > 0;
       if (hasDemographics && hasTraffic) return payload;
@@ -1132,7 +1157,7 @@ export default function DashboardPage() {
       const prevRaw = lastInsightsByAccountIdRef.current[accountId];
       const prev = prevRaw && typeof prevRaw === 'object' ? (prevRaw as Record<string, unknown>) : null;
 
-      if (selectedAccount?.platform === 'YOUTUBE') {
+      if (analyticsAccount?.platform === 'YOUTUBE') {
         let merged: Record<string, unknown> = { ...data };
         if (!demographicsLooksPopulated(merged.demographics) && prev && demographicsLooksPopulated(prev.demographics)) {
           merged.demographics = prev.demographics;
@@ -1159,7 +1184,7 @@ export default function DashboardPage() {
         return merged;
       }
 
-      if (selectedAccount?.platform === 'FACEBOOK') {
+      if (analyticsAccount?.platform === 'FACEBOOK') {
         // When the date range changed, never carry period-specific data (engagement, impressions,
         // traffic) from a different time window — it would appear stuck even though the API
         // already returned new data for the new range.  Same-range refreshes (manual sync,
@@ -1168,7 +1193,7 @@ export default function DashboardPage() {
         return mergeFacebookPageInsightsPreserve({ ...data }, prev);
       }
 
-      if (selectedAccount?.platform === 'PINTEREST' && prev) {
+      if (analyticsAccount?.platform === 'PINTEREST' && prev) {
         const next = { ...data };
         const nextBundle = (next.facebookAnalytics ?? null) as Record<string, unknown> | null;
         const prevBundle = (prev.facebookAnalytics ?? null) as Record<string, unknown> | null;
@@ -1247,7 +1272,7 @@ export default function DashboardPage() {
         return next;
       }
 
-      if (selectedAccount?.platform === 'TWITTER' && prev) {
+      if (analyticsAccount?.platform === 'TWITTER' && prev) {
         const next = { ...data };
         const incomingRecent = Array.isArray(next.recentTweets) ? (next.recentTweets as unknown[]) : [];
         const prevRecent = Array.isArray(prev.recentTweets) ? (prev.recentTweets as unknown[]) : [];
@@ -1276,13 +1301,13 @@ export default function DashboardPage() {
 
     const forceRangeRefreshForPlatform =
       isDateRangeChange &&
-      (selectedAccount?.platform === 'TWITTER' ||
-        selectedAccount?.platform === 'PINTEREST');
+      (analyticsAccount?.platform === 'TWITTER' ||
+        analyticsAccount?.platform === 'PINTEREST');
 
     // If we already have cached data for this range (or prefetched default range), show it immediately.
     if (exactCached) {
       let patchedExact = patchYouTubeExtended(exactCached as Record<string, unknown>);
-      if (selectedAccount?.platform === 'FACEBOOK') {
+      if (analyticsAccount?.platform === 'FACEBOOK') {
         patchedExact = mergeFacebookPageInsightsPreserve(
           patchedExact,
           lastInsightsByAccountIdRef.current[accountId] as Record<string, unknown> | undefined
@@ -1302,7 +1327,7 @@ export default function DashboardPage() {
           setImportedPostsLoading(false);
         } else {
           setImportedPostsLoading(true);
-          const insightsPostsParams = postsSyncParamsForPlatform(selectedAccount?.platform, {
+          const insightsPostsParams = postsSyncParamsForPlatform(analyticsAccount?.platform, {
             explicitSync: syncAllTrigger > 0 || justConnected,
           });
           api.get(`/social/accounts/${accountId}/posts`, { params: insightsPostsParams })
@@ -1314,7 +1339,7 @@ export default function DashboardPage() {
               setPostsSyncError(postsRes.data?.syncError ?? null);
               afterTikTokPostsImportIfNeededRef.current(
                 accountId,
-                selectedAccount?.platform,
+                analyticsAccount?.platform,
                 insightsPostsParams,
                 postsRes.data?.syncError ?? null
               );
@@ -1332,7 +1357,7 @@ export default function DashboardPage() {
     // Stale data from a different date range can plot time-series at the wrong positions for FB/IG;
     // those still clear until the new-range fetch returns.
     const preserveStaleWhileRefetch =
-      selectedAccount?.platform === 'PINTEREST' || selectedAccount?.platform === 'TWITTER';
+      analyticsAccount?.platform === 'PINTEREST' || analyticsAccount?.platform === 'TWITTER';
     if (staleCandidate && (!isDateRangeChange || preserveStaleWhileRefetch)) {
       const patchedStale = patchYouTubeExtended(staleCandidate);
       lastInsightsByAccountIdRef.current[accountId] = patchedStale;
@@ -1346,7 +1371,7 @@ export default function DashboardPage() {
       // Date range changed, account changed without stale data, or first load → clear and show skeleton.
       // For YouTube: if we have extended data cached (geo + traffic), show it immediately as a partial payload
       // so the country/traffic widgets don't flash empty while the full fetch runs.
-      const ytExtFallback = selectedAccount?.platform === 'YOUTUBE' ? readYouTubeExtendedCache(accountId) : null;
+      const ytExtFallback = analyticsAccount?.platform === 'YOUTUBE' ? readYouTubeExtendedCache(accountId) : null;
       if (ytExtFallback) {
         setInsights((prev) => {
           if (prev) return { ...prev, demographics: ytExtFallback.demographics as typeof prev.demographics, trafficSources: ytExtFallback.trafficSources as typeof prev.trafficSources };
@@ -1375,7 +1400,7 @@ export default function DashboardPage() {
     // - user just connected an account, or
     // - user changed date range/account and we have no usable cache to render.
     const isMetaInsightsAccount =
-      selectedAccount?.platform === 'INSTAGRAM' || selectedAccount?.platform === 'FACEBOOK';
+      analyticsAccount?.platform === 'INSTAGRAM' || analyticsAccount?.platform === 'FACEBOOK';
     const explicitAction = syncAllTrigger > 0 || justConnected;
 
     // Instagram/Facebook: never auto-fetch on mount or date-range change.
@@ -1393,14 +1418,14 @@ export default function DashboardPage() {
     // Fetch insights; optional fast posts only when not on per-account analytics (single owner for posts there).
     const insightsPromise = api.get(`/social/accounts/${accountId}/insights`, {
       params:
-        selectedAccount?.platform === 'FACEBOOK'
+        analyticsAccount?.platform === 'FACEBOOK'
           ? { since: dateRange.start, until: dateRange.end, refresh: 1, persist: 1 }
-          : selectedAccount?.platform === 'YOUTUBE'
+          : analyticsAccount?.platform === 'YOUTUBE'
             ? { since: dateRange.start, until: dateRange.end, extended: 1 }
-            : selectedAccount?.platform === 'TWITTER'
+            : analyticsAccount?.platform === 'TWITTER'
               // Pass refresh=1 only for explicit sync; date-range changes use the fast DB path.
               ? { since: dateRange.start, until: dateRange.end, ...(explicitAction ? { refresh: 1 } : {}) }
-              : selectedAccount?.platform === 'INSTAGRAM'
+              : analyticsAccount?.platform === 'INSTAGRAM'
                 // Instagram: only send refresh=1 on explicit sync to avoid burning the 200 calls/hour limit.
                 ? { since: dateRange.start, until: dateRange.end, ...(explicitAction ? { refresh: 1 } : {}) }
                 : { since: dateRange.start, until: dateRange.end },
@@ -1411,7 +1436,7 @@ export default function DashboardPage() {
       .then(async (res) => {
         let data = res.data ?? null;
         const isFacebookZeroState = Boolean(
-          selectedAccount?.platform === 'FACEBOOK' &&
+          analyticsAccount?.platform === 'FACEBOOK' &&
           data &&
           Number(data.followers ?? 0) === 0 &&
           Number(data.impressionsTotal ?? 0) === 0 &&
@@ -1434,7 +1459,7 @@ export default function DashboardPage() {
           merged = mergeIncomingInsights(data as Record<string, unknown>);
           // Only persist YouTube extended data when the merged payload has real geo/traffic —
           // guards against transient empty responses wiping a populated localStorage cache.
-          if (selectedAccount?.platform === 'YOUTUBE') {
+          if (analyticsAccount?.platform === 'YOUTUBE') {
             const hasGeo = demographicsLooksPopulated(merged.demographics);
             const hasTraffic = Array.isArray(merged.trafficSources) && (merged.trafficSources as unknown[]).length > 0;
             if (hasGeo || hasTraffic) {
@@ -1450,12 +1475,12 @@ export default function DashboardPage() {
         if (shouldApplyVisibleChartUpdate() && selectedAccountIdRef.current === accountId) {
           setInsights((prev) => {
             if (merged) return merged as NonNullable<typeof insights>;
-            if (prev && selectedAccount?.platform === 'TWITTER') return prev;
+            if (prev && analyticsAccount?.platform === 'TWITTER') return prev;
             return null;
           });
           if (merged && userIdRef.current) writeDashboardInsightsSession(userIdRef.current, accountId, merged, dateRange);
         }
-        if (selectedAccount?.platform === 'TIKTOK' && shouldApplyVisibleChartUpdate()) {
+        if (analyticsAccount?.platform === 'TIKTOK' && shouldApplyVisibleChartUpdate()) {
           try {
             const accRes = await api.get('/social/accounts');
             const accData = Array.isArray(accRes.data) ? accRes.data : [];
@@ -1481,7 +1506,7 @@ export default function DashboardPage() {
         setImportedPosts(postsCached);
       } else {
         // Fetch posts in background
-        const fastPostsParams = postsSyncParamsForPlatform(selectedAccount?.platform, {
+        const fastPostsParams = postsSyncParamsForPlatform(analyticsAccount?.platform, {
           explicitSync: syncAllTrigger > 0 || justConnected,
         });
         const fastPostsPromise = api.get(`/social/accounts/${accountId}/posts`, { params: fastPostsParams });
@@ -1493,7 +1518,7 @@ export default function DashboardPage() {
             if (shouldApplyVisibleChartUpdate() && selectedAccountIdRef.current === accountId) setImportedPosts(list);
             afterTikTokPostsImportIfNeededRef.current(
               accountId,
-              selectedAccount?.platform,
+              analyticsAccount?.platform,
               fastPostsParams,
               postsRes.data?.syncError ?? null
             );
@@ -1507,8 +1532,8 @@ export default function DashboardPage() {
   // the insights we already rendered. The user sees fresh data only after explicit sync.
   }, [
     analyticsTab,
-    selectedAccount?.id,
-    selectedAccount?.platform,
+    analyticsAccount?.id,
+    analyticsAccount?.platform,
     dateRange.start,
     dateRange.end,
     syncAllTrigger,
@@ -1520,14 +1545,14 @@ export default function DashboardPage() {
 
   // Facebook Page reviews (pages_read_user_content)
   useEffect(() => {
-    if (selectedAccount?.platform !== 'FACEBOOK' || !selectedAccount?.id) {
+    if (analyticsAccount?.platform !== 'FACEBOOK' || !analyticsAccount?.id) {
       setPageReviews([]);
       setPageReviewsError(null);
       return;
     }
     setPageReviewsLoading(true);
     setPageReviewsError(null);
-    api.get(`/social/accounts/${selectedAccount.id}/page-reviews`)
+    api.get(`/social/accounts/${analyticsAccount.id}/page-reviews`)
       .then((res) => {
         const list = res.data?.reviews ?? [];
         setPageReviews(Array.isArray(list) ? list : []);
@@ -1538,7 +1563,7 @@ export default function DashboardPage() {
         setPageReviewsError('Could not load Page reviews.');
       })
       .finally(() => setPageReviewsLoading(false));
-  }, [selectedAccount?.id, selectedAccount?.platform, analyticsTab]);
+  }, [analyticsAccount?.id, analyticsAccount?.platform, analyticsTab]);
 
   // Aggregated insights: prefer AppDataContext cache; only fetch missing accounts sequentially.
   useEffect(() => {
@@ -1617,11 +1642,11 @@ export default function DashboardPage() {
     // Conversations count card: skip for Instagram/Facebook to avoid burning Graph API quota.
     // Each call hits GET /conversations which fetches the list + up to 20 profile lookups.
     // The Inbox page loads conversations on-demand when the user actually opens it.
-    if ((selectedAccount?.platform !== 'FACEBOOK' && selectedAccount?.platform !== 'INSTAGRAM') || !selectedAccount?.id) {
+    if ((analyticsAccount?.platform !== 'FACEBOOK' && analyticsAccount?.platform !== 'INSTAGRAM') || !analyticsAccount?.id) {
       setLiveFbConversationsCount(null);
       setLiveFbConversationDates(null);
     }
-  }, [selectedAccount?.id, selectedAccount?.platform]);
+  }, [analyticsAccount?.id, analyticsAccount?.platform]);
 
   const handleConnect = async (platform: string, method?: string) => {
     const getMessage = (err: unknown): string | null => {
@@ -1705,11 +1730,11 @@ export default function DashboardPage() {
   }, [importedPosts]);
 
   const cachedInsightsForSelected =
-    selectedAccount?.id && appData ? appData.getInsights(selectedAccount.id) : undefined;
+    analyticsAccount?.id && appData ? appData.getInsights(analyticsAccount.id) : undefined;
   const sessionInsightsForSelected =
-    selectedAccount?.id && user?.id ? readDashboardInsightsSession(user.id, selectedAccount.id) : null;
+    analyticsAccount?.id && user?.id ? readDashboardInsightsSession(user.id, analyticsAccount.id) : null;
   const perAccountLsInsights =
-    selectedAccount?.id ? readInsightsFromLocalStorage(selectedAccount.id) : null;
+    analyticsAccount?.id ? readInsightsFromLocalStorage(analyticsAccount.id) : null;
   /** Prefer React state; fall back to AppData cache; per-account localStorage; then sessionStorage. */
   const displayInsights: typeof insights = useMemo(() => {
     const raw =
@@ -1843,31 +1868,31 @@ export default function DashboardPage() {
   const postsSectionDays = dateRange.start && dateRange.end ? Math.max(1, Math.ceil((new Date(dateRange.end).getTime() - new Date(dateRange.start).getTime()) / (24 * 60 * 60 * 1000))) : 0;
   const postsShowWatermark = postsSectionDays > 30;
 
-  const plat = selectedAccount ? aggregatedInsights?.byPlatform[selectedAccount.platform] : null;
-  const effectiveFollowers = selectedAccount
+  const plat = analyticsAccount ? aggregatedInsights?.byPlatform[analyticsAccount.platform] : null;
+  const effectiveFollowers = analyticsAccount
     ? Math.max(displayInsights?.followers ?? 0, plat?.followers ?? 0)
     : (aggregatedInsights?.totalFollowers ?? 0);
-  const effectiveImpressions = selectedAccount
+  const effectiveImpressions = analyticsAccount
     ? Math.max(displayInsights?.impressionsTotal ?? 0, plat?.impressions ?? 0)
     : (aggregatedInsights?.totalImpressions ?? 0);
-  const isTwitter = selectedAccount?.platform === 'TWITTER';
+  const isTwitter = analyticsAccount?.platform === 'TWITTER';
   const effectiveTweets = isTwitter ? (displayInsights?.tweetCount ?? 0) : 0;
   const recentTweets = isTwitter ? (displayInsights?.recentTweets ?? []) : [];
-  const effectiveTimeSeries = selectedAccount
+  const effectiveTimeSeries = analyticsAccount
     ? ((displayInsights?.impressionsTimeSeries?.length && displayInsights.impressionsTimeSeries.some((d) => d.value > 0)) ? displayInsights.impressionsTimeSeries : (plat?.timeSeries?.length ? plat.timeSeries : []))
     : (aggregatedInsights?.combinedTimeSeries ?? []);
-  const effectivePageVisits = selectedAccount
+  const effectivePageVisits = analyticsAccount
     ? (displayInsights?.pageViewsTotal ?? displayInsights?.profileViewsTotal ?? aggregatedInsights?.totalPageViews ?? aggregatedInsights?.totalProfileViews ?? 0)
     : (aggregatedInsights?.totalPageViews ?? aggregatedInsights?.totalProfileViews ?? 0);
-  const effectiveReach = selectedAccount
+  const effectiveReach = analyticsAccount
     ? (displayInsights?.reachTotal ?? aggregatedInsights?.totalReach ?? 0)
     : (aggregatedInsights?.totalReach ?? 0);
-  const effectiveProfileViews = selectedAccount
+  const effectiveProfileViews = analyticsAccount
     ? (displayInsights?.profileViewsTotal ?? aggregatedInsights?.totalProfileViews ?? 0)
     : (aggregatedInsights?.totalProfileViews ?? 0);
   // For selected accounts, keep analytics in explicit loading state while a new range is fetching.
   // This avoids rendering a brief mixed old/new graph during date-range switches.
-  const effectiveInsightsLoading = selectedAccount
+  const effectiveInsightsLoading = analyticsAccount
     ? insightsLoading
     : aggregatedLoading;
   const fallbackSeriesValue = effectiveImpressions || effectiveFollowers || 0;
@@ -1879,7 +1904,7 @@ export default function DashboardPage() {
   const displayTimeSeries =
     hasNonZeroSeries
       ? effectiveTimeSeries
-      : selectedAccount
+      : analyticsAccount
         ? [{ date: startDate, value: effectiveViewsOrTweets }, { date: endDate, value: effectiveViewsOrTweets }]
         : effectiveImpressions > 0
           ? [{ date: startDate, value: effectiveImpressions }, { date: endDate, value: effectiveImpressions }]
@@ -1889,18 +1914,18 @@ export default function DashboardPage() {
   const displayFollowersTimeSeries =
     followersTimeSeries?.length
       ? followersTimeSeries
-      : selectedAccount
+      : analyticsAccount
         ? [{ date: startDate, value: effectiveFollowers }, { date: endDate, value: effectiveFollowers }]
-        : !selectedAccount && aggregatedInsights
+        : !analyticsAccount && aggregatedInsights
           ? [{ date: startDate, value: effectiveFollowers }, { date: endDate, value: effectiveFollowers }]
           : [];
   const maxImpressions = displayTimeSeries.length ? Math.max(...displayTimeSeries.map((d) => d.value), 1) : 1;
-  const showViewsHint = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0) && (selectedAccount?.platform === 'INSTAGRAM' || !selectedAccount);
+  const showViewsHint = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0) && (analyticsAccount?.platform === 'INSTAGRAM' || !analyticsAccount);
   /** Full-page analytics skeleton: only when insights are loading AND no cached data.
    * Do NOT tie this to importedPostsLoading — post sync would hide the whole dashboard
    * even when insights + charts are already available (stale-while-revalidate). */
   const analyticsLoadingOnly = Boolean(
-    selectedAccount &&
+    analyticsAccount &&
     !displayInsights &&
     (insightsLoading || justConnected)
   );
@@ -2003,7 +2028,7 @@ export default function DashboardPage() {
       {/* Show sync banner only on first load (no data yet) or right after connect; date changes refetch in place without banner */}
       {showDataSyncBanner && (
         <DataSyncBanner
-          platform={selectedAccount?.platform}
+          platform={analyticsAccount?.platform}
           insightsLoading={insightsLoading}
           postsLoading={importedPostsLoading}
         />
@@ -2037,7 +2062,7 @@ export default function DashboardPage() {
         </div>
       )}
       {/* Instagram-only: analytics and posts not available; CTA to connect with Facebook */}
-      {!analyticsLoadingOnly && selectedAccount?.platform === 'INSTAGRAM' && (selectedAccount as { instagramLoginOnly?: boolean }).instagramLoginOnly && (
+      {!analyticsLoadingOnly && analyticsAccount?.platform === 'INSTAGRAM' && (analyticsAccount as { instagramLoginOnly?: boolean }).instagramLoginOnly && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-4 px-4 py-4 rounded-lg border upgrade-banner-warm">
           <p className="text-sm text-orange-900">
             <strong>Analytics and posts are not available</strong> when connected with Instagram only. Connect with Facebook to unlock full analytics, post history, and insights on both the Account and Posts tabs.
@@ -2053,7 +2078,7 @@ export default function DashboardPage() {
       )}
 
       {/* When no account selected: show "All connected" or connect CTA. Disconnect is on Accounts page. */}
-      {!analyticsLoadingOnly && !selectedAccount && (
+      {!analyticsLoadingOnly && !analyticsAccount && (
       <div className="mt-6 flex flex-col gap-3">
         {hasAccounts ? (
           <div className="flex gap-3 p-3 bg-white rounded-xl border border-neutral-200 w-fit">
@@ -2090,7 +2115,7 @@ export default function DashboardPage() {
       )}
 
       {/* Single-page analytics for any selected account (Overview, Demografic, Clicks/Traffic, Posts, Reels/Videos) */}
-      {!analyticsLoadingOnly && selectedAccount && (
+      {!analyticsLoadingOnly && analyticsAccount && (
         <div
           className="mt-1 max-w-full"
           style={{ maxWidth: 1400 }}
@@ -2099,7 +2124,7 @@ export default function DashboardPage() {
           <FacebookAnalyticsView
             insights={(() => {
               const base: import('@/components/analytics/facebook/types').FacebookInsights = {
-                platform: selectedAccount.platform,
+                platform: analyticsAccount.platform,
                 followers: effectiveFollowers,
                 impressionsTotal: effectiveImpressions,
                 impressionsTimeSeries: effectiveTimeSeries,
@@ -2137,43 +2162,43 @@ export default function DashboardPage() {
                   tweetCount: (displayInsights as { tweetCount?: number }).tweetCount,
                   twitterPagesFetched: (displayInsights as { twitterPagesFetched?: number }).twitterPagesFetched,
                   twitterTimelineTruncated: (displayInsights as { twitterTimelineTruncated?: boolean }).twitterTimelineTruncated,
-                  ...((selectedAccount.platform === 'FACEBOOK' || selectedAccount.platform === 'INSTAGRAM') && liveFbConversationsCount != null ? { facebookLiveConversationsCount: liveFbConversationsCount } : {}),
-                  ...((selectedAccount.platform === 'FACEBOOK' || selectedAccount.platform === 'INSTAGRAM') && liveFbConversationDates != null ? { facebookLiveConversationDates: liveFbConversationDates } : {}),
+                  ...((analyticsAccount.platform === 'FACEBOOK' || analyticsAccount.platform === 'INSTAGRAM') && liveFbConversationsCount != null ? { facebookLiveConversationsCount: liveFbConversationsCount } : {}),
+                  ...((analyticsAccount.platform === 'FACEBOOK' || analyticsAccount.platform === 'INSTAGRAM') && liveFbConversationDates != null ? { facebookLiveConversationDates: liveFbConversationDates } : {}),
                 }),
               };
               return base;
             })()}
-            posts={importedPosts.filter((p: { platform: string }) => p.platform === selectedAccount.platform) as import('@/components/analytics/facebook/types').FacebookPost[]}
+            posts={importedPosts.filter((p: { platform: string }) => p.platform === analyticsAccount.platform) as import('@/components/analytics/facebook/types').FacebookPost[]}
             dateRange={dateRange}
             insightsLoading={effectiveInsightsLoading}
             postsLoading={importedPostsLoading}
             postsSyncActive={importedPostsLoading || postsSoftSyncing}
             onUpgrade={openPricingPopup}
             onReconnectFacebook={
-              selectedAccount?.platform === 'FACEBOOK'
+              analyticsAccount?.platform === 'FACEBOOK'
                 ? () => router.push('/dashboard?connect=facebook')
-                : selectedAccount?.platform === 'PINTEREST'
+                : analyticsAccount?.platform === 'PINTEREST'
                   ? () => router.push('/dashboard?connect=pinterest')
                   : undefined
             }
             onDateRangeChange={handleAnalyticsDateRangeChange}
             followersLabel={
-              selectedAccount.platform === 'YOUTUBE'
+              analyticsAccount.platform === 'YOUTUBE'
                 ? 'Subscribers'
-                : selectedAccount.platform === 'LINKEDIN'
+                : analyticsAccount.platform === 'LINKEDIN'
                   ? 'Connections'
                   : 'Followers'
             }
-            accountAvatarUrl={selectedAccount.profilePicture ?? null}
-            accountUsername={selectedAccount.username ?? null}
+            accountAvatarUrl={analyticsAccount.profilePicture ?? null}
+            accountUsername={analyticsAccount.username ?? null}
             hasApiInsightsFetched={displayInsights != null}
-            socialAccountId={selectedAccount.platform === 'LINKEDIN' ? selectedAccount.id : null}
+            socialAccountId={analyticsAccount.platform === 'LINKEDIN' ? analyticsAccount.id : null}
             onAvatarError={handleAvatarError}
           />
         </div>
       )}
 
-      {!analyticsLoadingOnly && !selectedAccount && hasAccounts && (
+      {!analyticsLoadingOnly && !analyticsAccount && hasAccounts && (
         <p className="text-sm text-neutral-500 py-8">Select an account in the left sidebar to see its analytics.</p>
       )}
 
@@ -2420,8 +2445,8 @@ export default function DashboardPage() {
                       <tbody className="bg-white divide-y divide-neutral-200">
                         {currentPagePosts.map((post) => {
                           const postAny = post as { platformPostId?: string };
-                          const thumbnailSrc = post.platform === 'TWITTER' && postAny.platformPostId && selectedAccount?.id
-                            ? `/api/post-image?accountId=${encodeURIComponent(selectedAccount.id)}&postId=${encodeURIComponent(postAny.platformPostId)}`
+                          const thumbnailSrc = post.platform === 'TWITTER' && postAny.platformPostId && analyticsAccount?.id
+                            ? `/api/post-image?accountId=${encodeURIComponent(analyticsAccount.id)}&postId=${encodeURIComponent(postAny.platformPostId)}`
                             : post.thumbnailUrl;
                           return (
                           <tr key={post.id} className="hover:bg-neutral-50">
