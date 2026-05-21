@@ -324,7 +324,7 @@ const ComposerMediaPeekPlayer = React.forwardRef<
                     {enableAudioToggle ? (
                         <button
                             type="button"
-                            className="absolute right-2 top-2 z-40 rounded-md bg-black/55 p-1.5 text-white hover:bg-black/70"
+                            className="absolute left-2 top-2 z-40 rounded-md bg-black/55 p-1.5 text-white hover:bg-black/70"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 setAudioOn((on) => !on);
