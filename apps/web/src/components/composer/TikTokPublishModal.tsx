@@ -83,7 +83,9 @@ export function TikTokPublishModal({
   const [formById, setFormById] = useState<Record<string, FormState>>({});
   const [videoDurationSec, setVideoDurationSec] = useState<number | undefined>(undefined);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [avatarOverrideById, setAvatarOverrideById] = useState<Record<string, string>>({});
   const initializedAccountsKeyRef = useRef<string | null>(null);
+  const avatarRefreshStartedRef = useRef<Set<string>>(new Set());
 
   const activeAccount = accounts[activeIdx];
   const activeId = activeAccount?.id;
@@ -125,8 +127,19 @@ export function TikTokPublishModal({
         { timeout: 10_000 }
       );
       const c = res.data?.creator;
+      const accountPic = accounts.find((a) => a.id === accountId)?.profilePicture?.trim();
       if (c) {
-        setCreatorById((prev) => ({ ...prev, [accountId]: c }));
+        setCreatorById((prev) => ({
+          ...prev,
+          [accountId]: {
+            ...c,
+            creator_avatar_url:
+              c.creator_avatar_url?.trim() ||
+              accountPic ||
+              prev[accountId]?.creator_avatar_url ||
+              avatarOverrideById[accountId],
+          },
+        }));
         setCreatorErrorById((prev) => {
           const next = { ...prev };
           delete next[accountId];
@@ -142,7 +155,35 @@ export function TikTokPublishModal({
         setLoadingCreatorById((prev) => ({ ...prev, [accountId]: false }));
       }
     }
-  }, [applyFallbackCreator]);
+  }, [applyFallbackCreator, accounts, avatarOverrideById]);
+
+  useEffect(() => {
+    if (!open) {
+      avatarRefreshStartedRef.current.clear();
+      return;
+    }
+    for (const a of accounts) {
+      if (a.profilePicture?.trim()) continue;
+      if (avatarRefreshStartedRef.current.has(a.id)) continue;
+      avatarRefreshStartedRef.current.add(a.id);
+      void api
+        .post(`/social/accounts/${a.id}/refresh`, {}, { timeout: 12_000 })
+        .then((res) => {
+          const pic = (res.data as { profilePicture?: string | null } | undefined)?.profilePicture?.trim();
+          if (pic) {
+            setAvatarOverrideById((prev) => ({ ...prev, [a.id]: pic }));
+            setCreatorById((prev) => ({
+              ...prev,
+              [a.id]: {
+                ...(prev[a.id] ?? TIKTOK_CREATOR_INFO_FALLBACK),
+                creator_avatar_url: pic,
+              },
+            }));
+          }
+        })
+        .catch(() => undefined);
+    }
+  }, [open, accountIdsKey, accounts]);
 
   useEffect(() => {
     if (!open) {
@@ -175,18 +216,19 @@ export function TikTokPublishModal({
     setCreatorErrorById({});
     setLoadingCreatorById({});
     for (const a of accounts) {
+      const pic = a.profilePicture?.trim() || avatarOverrideById[a.id];
       setCreatorById((prev) => ({
         ...prev,
         [a.id]: {
           ...TIKTOK_CREATOR_INFO_FALLBACK,
           creator_username: a.username?.replace(/^@/, '') ?? undefined,
-          creator_avatar_url: a.profilePicture ?? undefined,
+          ...(pic ? { creator_avatar_url: pic } : {}),
         },
       }));
       applyFallbackCreator(a.id);
     }
     void Promise.all(accounts.map((a) => loadCreator(a.id, { silent: true })));
-  }, [open, accountIdsKey, accounts, defaultCaption, initialByAccountId, loadCreator, applyFallbackCreator, captionMax]);
+  }, [open, accountIdsKey, accounts, defaultCaption, initialByAccountId, loadCreator, applyFallbackCreator, captionMax, avatarOverrideById]);
 
   useEffect(() => {
     if (!open || !videoPreviewSrc || isPhotoPost) return;
@@ -288,7 +330,10 @@ export function TikTokPublishModal({
   const privacyOptions = ci?.privacy_level_options ?? TIKTOK_CREATOR_INFO_FALLBACK.privacy_level_options ?? [];
   const creatorAvatarSrc = avatarDisplayUrl(
     'TIKTOK',
-    activeAccount?.profilePicture || ci?.creator_avatar_url || undefined
+    activeAccount?.profilePicture?.trim() ||
+      avatarOverrideById[activeId ?? ''] ||
+      ci?.creator_avatar_url ||
+      undefined
   );
   const commentDisabledUi = Boolean(ci?.comment_disabled);
   const duetDisabledUi = Boolean(ci?.duet_disabled);

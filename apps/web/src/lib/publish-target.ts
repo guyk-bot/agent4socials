@@ -53,6 +53,8 @@ export type PublishTargetResult = {
   mediaSkipped?: boolean;
   /** True when TikTok accepted the video but sent it to the creator's inbox instead of publishing directly (unaudited app). */
   sentToInbox?: boolean;
+  /** True when the file uploaded but TikTok is still processing before it appears on the profile. */
+  tiktokProcessing?: boolean;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1816,6 +1818,7 @@ export async function publishTarget(
         const maxWait = 45_000;
         const pollInterval = 2_000;
         let platformPostId: string | undefined;
+        let lastPhotoStatus: string | undefined;
         for (let elapsed = 0; elapsed < maxWait; elapsed += pollInterval) {
           await new Promise((r) => setTimeout(r, pollInterval));
           const statusRes = await tiktokPostWithRetry(
@@ -1830,6 +1833,7 @@ export async function publishTarget(
             return { ok: false, error: `TikTok status: ${statusErr.message || statusErr.code}`.slice(0, 300) };
           }
           const status = statusBody.data?.status;
+          lastPhotoStatus = status;
           console.log('[TikTok] photo status poll', { publishId, status, fail_reason: statusBody.data?.fail_reason, error: statusErr });
           if (status === 'PUBLISH_COMPLETE') {
             platformPostId = statusBody.data?.publicly_available_post_id;
@@ -1848,9 +1852,16 @@ export async function publishTarget(
           }
         }
         if (!platformPostId) {
+          const stillProcessing =
+            lastPhotoStatus === 'PROCESSING_UPLOAD' ||
+            lastPhotoStatus === 'PROCESSING_DOWNLOAD' ||
+            lastPhotoStatus === 'PROCESSING';
+          if (stillProcessing) {
+            return { ok: true, platformPostId: publishId, tiktokProcessing: true };
+          }
           return {
             ok: false,
-            error: `TikTok photo is still processing (publish_id: ${publishId}). Check your TikTok profile or retry in a minute.`,
+            error: `TikTok photo did not finish (publish_id: ${publishId}). Check your profile or retry.`,
           };
         }
         return { ok: true, platformPostId };
@@ -1961,9 +1972,10 @@ export async function publishTarget(
       }
 
       // Poll until TikTok reports PUBLISH_COMPLETE (FILE_UPLOAD + processing can take several minutes).
-      const maxWait = 300_000;
+      const maxWait = 540_000;
       const pollInterval = 3_000;
       let platformPostId: string | undefined;
+      let lastStatus: string | undefined;
       let elapsed = 0;
       while (elapsed < maxWait) {
         await new Promise((r) => setTimeout(r, pollInterval));
@@ -1980,6 +1992,7 @@ export async function publishTarget(
           return { ok: false, error: `TikTok status: ${statusErr.message || statusErr.code}`.slice(0, 300) };
         }
         const status = statusBody.data?.status;
+        lastStatus = status;
         console.log('[TikTok] status poll', { publishId, status, fail_reason: statusBody.data?.fail_reason, error: statusErr });
         if (status === 'PUBLISH_COMPLETE') {
           platformPostId = statusBody.data?.publicly_available_post_id;
@@ -2005,9 +2018,20 @@ export async function publishTarget(
         // status === 'PROCESSING_UPLOAD' or 'PROCESSING_DOWNLOAD' — keep polling
       }
       if (!platformPostId) {
+        const stillProcessing =
+          lastStatus === 'PROCESSING_UPLOAD' ||
+          lastStatus === 'PROCESSING_DOWNLOAD' ||
+          lastStatus === 'PROCESSING';
+        if (stillProcessing) {
+          return {
+            ok: true,
+            platformPostId: publishId,
+            tiktokProcessing: true,
+          };
+        }
         return {
           ok: false,
-          error: `TikTok upload is still processing (publish_id: ${publishId}). Check your TikTok profile in a few minutes or retry.`,
+          error: `TikTok publish did not finish (publish_id: ${publishId}). Check History and your TikTok profile, or retry.`,
         };
       }
       return { ok: true, platformPostId };

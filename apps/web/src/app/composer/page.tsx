@@ -770,7 +770,9 @@ export default function ComposerPage() {
     const fileInputByPlatformRef = useRef<Record<string, HTMLInputElement | null>>({});
     const [scheduledAt, setScheduledAt] = useState('');
     const [scheduleDelivery, setScheduleDelivery] = useState<'auto' | 'email_links'>('auto');
-    const [accounts, setAccounts] = useState<{ id: string; platform: string; username?: string | null }[]>([]);
+    const [accounts, setAccounts] = useState<
+        { id: string; platform: string; username?: string | null; profilePicture?: string | null }[]
+    >([]);
     const [accountsFetched, setAccountsFetched] = useState(false);
     const [loading, setLoading] = useState(false);
     const [publishModal, setPublishModal] = useState<
@@ -1529,6 +1531,8 @@ export default function ComposerPage() {
                 id: String(a.id),
                 platform: String(a.platform),
                 username: (typeof a.username === 'string' ? a.username : null) as string | null,
+                profilePicture:
+                    typeof a.profilePicture === 'string' && a.profilePicture.trim() ? a.profilePicture : null,
             })),
         );
         setAccountsFetched(true);
@@ -1569,6 +1573,8 @@ export default function ComposerPage() {
             id: String(a.id),
             platform: String(a.platform),
             username: (typeof a.username === 'string' ? a.username : null) as string | null,
+            profilePicture:
+                typeof a.profilePicture === 'string' && a.profilePicture.trim() ? a.profilePicture : null,
         }));
     }, [accounts, cachedAccounts]);
 
@@ -2981,10 +2987,16 @@ export default function ComposerPage() {
                 }}
                 accounts={tiktokModalAccountIds.map((id) => {
                     const a = effectiveAccounts.find((x) => x.id === id);
+                    const cached = cachedAccounts.find((x) => String(x.id) === id);
+                    const pic =
+                        (typeof a?.profilePicture === 'string' && a.profilePicture.trim() ? a.profilePicture : null) ??
+                        (typeof cached?.profilePicture === 'string' && cached.profilePicture.trim()
+                            ? cached.profilePicture
+                            : null);
                     return {
                         id,
-                        username: a?.username,
-                        profilePicture: (a as { profilePicture?: string | null } | undefined)?.profilePicture ?? null,
+                        username: a?.username ?? (typeof cached?.username === 'string' ? cached.username : null),
+                        profilePicture: pic,
                     };
                 })}
                 defaultCaption={computeTikTokCaptionPreview()}

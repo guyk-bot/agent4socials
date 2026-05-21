@@ -651,17 +651,28 @@ export async function runPublishPostWorkflow(input: {
       const inboxNote = result.sentToInbox
         ? 'TikTok queued this in your app Inbox instead of publishing directly. Open the TikTok app to finish posting.'
         : undefined;
+      const processingNote =
+        'tiktokProcessing' in result && result.tiktokProcessing
+          ? 'TikTok is still processing your video. Check your TikTok profile in a few minutes.'
+          : undefined;
+      const targetNote = inboxNote ?? processingNote;
       await withPrismaPoolRetry('publish-target-posted', () =>
         prisma.postTarget.update({
           where: { id: target.id },
           data: {
             status: PostStatus.POSTED,
             ...(result.platformPostId ? { platformPostId: result.platformPostId } : {}),
-            ...(inboxNote ? { error: inboxNote } : {}),
+            ...(targetNote ? { error: targetNote } : {}),
           },
         })
       );
-      return { platform, ok: true, ...(result.mediaSkipped ? { mediaSkipped: true } : {}), ...(result.sentToInbox ? { sentToInbox: true } : {}) };
+      return {
+        platform,
+        ok: true,
+        ...(result.mediaSkipped ? { mediaSkipped: true } : {}),
+        ...(result.sentToInbox ? { sentToInbox: true } : {}),
+        ...('tiktokProcessing' in result && result.tiktokProcessing ? { tiktokProcessing: true } : {}),
+      };
     }
     if (platform === 'INSTAGRAM') {
       console.error('[Instagram publish failed]', { postId, error: result.error, mediaUrl: firstImageUrl || firstMediaUrl });
