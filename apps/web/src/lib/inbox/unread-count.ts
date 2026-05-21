@@ -17,7 +17,6 @@ import {
   removePendingUnreadCommentIds,
   removePendingUnreadConversationIds,
 } from '@/lib/inbox/inbox-badge-pending';
-import { notifyInboxReadStateChanged } from '@/lib/inbox-read-state';
 
 export type InboxUnreadConversation = {
   id: string;
@@ -245,7 +244,7 @@ export function reconcileInboxReadStateWithConversations(
 
   let changed = false;
   if (markRead.length) {
-    markConversationsAsRead(markRead, userId);
+    markConversationsAsRead(markRead, userId, { silent: true });
     changed = true;
   }
   for (const { id, updatedTime } of syncSeen) {
@@ -255,7 +254,7 @@ export function reconcileInboxReadStateWithConversations(
       changed = true;
     }
   }
-  if (changed) notifyInboxReadStateChanged();
+  // Background sync only — do not bump the nav badge (avoids flicker).
   return changed;
 }
 
@@ -387,29 +386,20 @@ export function formatInboxBadgeTitle(unread: InboxHeaderUnread): string | undef
 }
 
 /**
- * Nav badge: reset only when read state changes (user opened a thread / marked read).
- * While read state is unchanged, never let the count drop — partial cache merges
- * and poll timing used to make the badge flash on/off every few seconds.
+ * Nav badge floor: never show 0 while sticky pending IDs or a saved snapshot exist.
+ * Clears only when the user opens a thread (pending removed) or computed stays at 0
+ * with no pending left.
  */
-export function stabilizeInboxHeaderUnread(
-  computed: InboxHeaderUnread,
-  readStateVersion: number,
-  stableRef: { version: number; inbox: number; messages: number; comments: number }
+export function getStickyNavInboxBadge(
+  userId: string,
+  computed: InboxHeaderUnread
 ): InboxHeaderUnread {
-  if (readStateVersion !== stableRef.version) {
-    stableRef.version = readStateVersion;
-    stableRef.inbox = computed.inbox;
-    stableRef.messages = computed.messages;
-    stableRef.comments = computed.comments;
-    // User opened/read something — allow badge to clear; do not restore snapshot.
-    return computed;
-  }
-
-  const inbox = Math.max(stableRef.inbox, computed.inbox);
-  const messages = Math.max(stableRef.messages, computed.messages);
-  const comments = Math.max(stableRef.comments, computed.comments);
-  stableRef.inbox = inbox;
-  stableRef.messages = messages;
-  stableRef.comments = comments;
+  const snapshot = readInboxBadgeSnapshot(userId);
+  const pendingMsg = getPendingUnreadConversationIds(userId).size;
+  const pendingCmt = getPendingUnreadCommentIds(userId).size;
+  const pendingInbox = Math.min(pendingMsg + pendingCmt, 99);
+  const inbox = Math.max(computed.inbox, snapshot?.inbox ?? 0, pendingInbox);
+  const messages = Math.max(computed.messages, snapshot?.messages ?? 0, pendingMsg);
+  const comments = Math.max(computed.comments, snapshot?.comments ?? 0, pendingCmt);
   return { ...computed, inbox, messages, comments };
 }

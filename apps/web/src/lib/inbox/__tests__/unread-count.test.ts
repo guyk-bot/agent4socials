@@ -3,8 +3,8 @@
 import {
   computeInboxHeaderUnread,
   isConversationUnread,
+  getStickyNavInboxBadge,
   mergeInboxBadgeWithSnapshot,
-  stabilizeInboxHeaderUnread,
   writeInboxBadgeSnapshot,
 } from '../unread-count';
 
@@ -119,22 +119,21 @@ describe('mergeInboxBadgeWithSnapshot', () => {
   });
 });
 
-describe('stabilizeInboxHeaderUnread', () => {
-  it('does not decrease the badge until read state version changes', () => {
-    const stableRef = { version: 0, inbox: 1, messages: 1, comments: 0 };
-    const held = stabilizeInboxHeaderUnread(
-      { inbox: 0, messages: 0, comments: 0, byPlatform: {} },
-      0,
-      stableRef
-    );
-    expect(held.inbox).toBe(1);
-    expect(held.messages).toBe(1);
+describe('getStickyNavInboxBadge', () => {
+  beforeEach(() => localStorageMock.clear());
 
-    const cleared = stabilizeInboxHeaderUnread(
-      { inbox: 0, messages: 0, comments: 0, byPlatform: {} },
-      1,
-      stableRef
+  it('keeps badge visible while pending unread IDs exist', () => {
+    localStorage.setItem(
+      'agent4socials_badge_pending_conv_user-1',
+      JSON.stringify(['conv-a'])
     );
-    expect(cleared.inbox).toBe(0);
+    const sticky = getStickyNavInboxBadge('user-1', {
+      inbox: 0,
+      messages: 0,
+      comments: 0,
+      byPlatform: {},
+    });
+    expect(sticky.inbox).toBe(1);
+    expect(sticky.messages).toBe(1);
   });
 });

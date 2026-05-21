@@ -176,7 +176,7 @@ function mergeConversations(
   const merged = [...byId.values()].sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
 
   if (isFirstSync && merged.length > 0) {
-    markConversationsAsRead(merged.map((c) => c.id), userId);
+    markConversationsAsRead(merged.map((c) => c.id), userId, { silent: true });
     merged.forEach((c) => {
       if (typeof c.messageCount === 'number') {
         setConversationLastReadCount(c.id, c.messageCount, userId);
@@ -214,7 +214,7 @@ function mergeComments(
   const initialized = getInboxInitializedAccountIds(userId);
   if (!initialized.has(accountId) && merged.length > 0) {
     const topLevel = merged.filter((c) => !c.parentCommentId).map((c) => c.commentId);
-    markCommentsAsRead(topLevel, userId);
+    markCommentsAsRead(topLevel, userId, { silent: true });
     addInboxInitializedAccount(accountId, userId);
   }
 

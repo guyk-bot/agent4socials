@@ -13,7 +13,7 @@ import {
   mergeInboxBadgeWithSnapshot,
   clearInboxBadgeSnapshot,
   writeInboxBadgeSnapshot,
-  stabilizeInboxHeaderUnread,
+  getStickyNavInboxBadge,
 } from '@/lib/inbox/unread-count';
 import { INBOX_READ_STATE_CHANGED_EVENT } from '@/lib/inbox-read-state';
 import { INBOX_SYSTEM_SYNC_MS } from '@/lib/inbox/inbox-sync-config';
@@ -282,7 +282,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const [prefetchPhase2Done, setPrefetchPhase2Done] = useState(false);
   const [cacheRehydrated, setCacheRehydrated] = useState(false);
   const [inboxReadStateVersion, setInboxReadStateVersion] = useState(0);
-  const stableInboxCountsRef = useRef({ version: -1, inbox: 0, messages: 0, comments: 0 });
 
   useEffect(() => {
     const onReadChanged = () => setInboxReadStateVersion((v) => v + 1);
@@ -332,11 +331,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       computeInboxHeaderUnread(allConversations, unreadComments, user.id),
       user.id
     );
-    const unread = stabilizeInboxHeaderUnread(
-      computed,
-      inboxReadStateVersion,
-      stableInboxCountsRef.current
-    );
+    const unread = getStickyNavInboxBadge(user.id, computed);
     if (unread.inbox > 0) {
       writeInboxBadgeSnapshot(user.id, unread);
     } else {
@@ -576,7 +571,6 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     setConversationsByAccountId({});
     setScheduledPostsState([]);
     setEngagementByAccountId({});
-    stableInboxCountsRef.current = { version: -1, inbox: 0, messages: 0, comments: 0 };
     setNotificationsState(defaultNotifications);
     const badgeUserId = extractInboxBadgeUserIdFromStorage();
     if (badgeUserId) clearInboxBadgeSnapshot(badgeUserId);

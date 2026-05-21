@@ -1989,8 +1989,15 @@ function InboxPage() {
               if (list.length > 0) {
                 const initialized = getInboxInitializedAccountIdsForConversations(user.id);
                 if (!initialized.has(acc.id)) {
-                  markConversationsAsRead(list.map((c) => c.id), user.id);
+                  const pending = getPendingUnreadConversationIds(user.id);
+                  const baselineIds = list
+                    .map((c) => c.id)
+                    .filter((id) => !pending.has(id));
+                  if (baselineIds.length > 0) {
+                    markConversationsAsRead(baselineIds, user.id, { silent: true });
+                  }
                   list.forEach((c) => {
+                    if (pending.has(c.id)) return;
                     if (typeof c.messageCount === 'number') {
                       setConversationLastReadCount(c.id, c.messageCount, user.id);
                     }

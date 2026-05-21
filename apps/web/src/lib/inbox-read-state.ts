@@ -66,22 +66,30 @@ export function getReadEngagementIds(userId?: string | null): Set<string> {
   return loadSet(getKey(KEY_ENGAGEMENT, userId));
 }
 
-export function markCommentsAsRead(ids: Iterable<string>, userId?: string | null): void {
+export function markCommentsAsRead(
+  ids: Iterable<string>,
+  userId?: string | null,
+  opts?: { silent?: boolean }
+): void {
   const key = getKey(KEY_COMMENTS, userId);
   const set = loadSet(key);
   for (const id of ids) set.add(id);
   saveSet(key, set);
   if (userId) removePendingUnreadCommentIds(ids, userId);
-  notifyInboxReadStateChanged();
+  if (!opts?.silent) notifyInboxReadStateChanged();
 }
 
-export function markConversationsAsRead(ids: Iterable<string>, userId?: string | null): void {
+export function markConversationsAsRead(
+  ids: Iterable<string>,
+  userId?: string | null,
+  opts?: { silent?: boolean }
+): void {
   const key = getKey(KEY_CONVERSATIONS, userId);
   const set = loadSet(key);
   for (const id of ids) set.add(id);
   saveSet(key, set);
   if (userId) removePendingUnreadConversationIds(ids, userId);
-  notifyInboxReadStateChanged();
+  if (!opts?.silent) notifyInboxReadStateChanged();
 }
 
 /** Mark a thread unread again (e.g. new message arrived while user is elsewhere). */
