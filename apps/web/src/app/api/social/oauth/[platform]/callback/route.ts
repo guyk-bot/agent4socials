@@ -7,7 +7,7 @@ import { ensureBootstrapSnapshotForToday } from '@/lib/analytics/metric-snapshot
 import { ensurePinterestPlatformEnum } from '@/lib/ensure-pinterest-platform-enum';
 import { ensureSocialAccountOAuthSchema } from '@/lib/ensure-social-account-oauth-schema';
 import { syncTikTokImportedVideos } from '@/lib/tiktok/sync-imported-videos';
-import { fetchLinkedInRestPersonUrn } from '@/lib/linkedin/rest-person';
+import { resolveLinkedInAuthorUrn } from '@/lib/linkedin/rest-person';
 import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 import { scheduleInboxWarmForUser } from '@/lib/inbox/schedule-inbox-warm';
 
@@ -1035,21 +1035,30 @@ export async function GET(
       : undefined;
   let credentialsJsonToSet: object | undefined = igBusinessCreds ?? twitterCreds ?? pinterestStored ?? undefined;
   if (plat === 'LINKEDIN' && tokenData.accessToken && !isLinkedInPage) {
-    const { personUrn } = await fetchLinkedInRestPersonUrn(tokenData.accessToken);
-    if (personUrn) {
-      const prev = await prisma.socialAccount.findFirst({
-        where: {
-          userId,
-          platform: 'LINKEDIN',
-          platformUserId: tokenData.platformUserId,
-        },
-        select: { credentialsJson: true },
+    const resolved = await resolveLinkedInAuthorUrn(tokenData.accessToken, {
+      platformUserId: tokenData.platformUserId,
+    });
+    const prev = await prisma.socialAccount.findFirst({
+      where: {
+        userId,
+        platform: 'LINKEDIN',
+        platformUserId: tokenData.platformUserId,
+      },
+      select: { credentialsJson: true },
+    });
+    const prevObj =
+      prev?.credentialsJson && typeof prev.credentialsJson === 'object' && prev.credentialsJson !== null
+        ? { ...(prev.credentialsJson as Record<string, unknown>) }
+        : {};
+    const baseCreds = credentialsJsonToSet && typeof credentialsJsonToSet === 'object' ? credentialsJsonToSet : prevObj;
+    if (resolved.personUrn) {
+      credentialsJsonToSet = { ...baseCreds, linkedinRestPersonUrn: resolved.personUrn };
+      console.log('[LinkedIn OAuth] stored author URN', { source: resolved.source });
+    } else {
+      console.error('[LinkedIn OAuth] author URN not resolved at connect', {
+        restMeStatus: resolved.restMeStatus,
+        source: resolved.source,
       });
-      const prevObj =
-        prev?.credentialsJson && typeof prev.credentialsJson === 'object' && prev.credentialsJson !== null
-          ? { ...(prev.credentialsJson as Record<string, unknown>) }
-          : {};
-      credentialsJsonToSet = { ...prevObj, linkedinRestPersonUrn: personUrn };
     }
   }
   if (plat === 'TWITTER' && twitterCreds) {

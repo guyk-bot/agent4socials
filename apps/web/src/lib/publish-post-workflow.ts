@@ -16,7 +16,10 @@ import {
 } from '@/lib/tiktok/tiktok-publish-compliance';
 import { createMediaServeToken } from '@/lib/media-serve-token';
 import { resolveDirectPublishMediaUrl } from '@/lib/publish-media-fetch';
-import { fetchLinkedInRestPersonUrn } from '@/lib/linkedin/rest-person';
+import {
+  linkedInAuthorUrnMissingMessage,
+  resolveLinkedInAuthorUrn,
+} from '@/lib/linkedin/rest-person';
 import { ensureInstagramJpegOnR2 } from '@/lib/instagram-media-r2';
 import { ensureStoryJpegOnR2 } from '@/lib/story-media-r2';
 import { refreshTwitterToken } from '@/lib/twitter-refresh';
@@ -663,33 +666,35 @@ export async function runPublishPostWorkflow(input: {
       ...(platform === 'LINKEDIN'
         ? {
             linkedInAuthorUrn: await (async () => {
-              if (
-                typeof creds?.linkedinRestPersonUrn === 'string' &&
-                creds.linkedinRestPersonUrn.startsWith('urn:li:')
-              ) {
-                return creds.linkedinRestPersonUrn;
+              const resolved = await resolveLinkedInAuthorUrn(token, {
+                platformUserId,
+                credentialsJson: creds,
+              });
+              if (resolved.personUrn) {
+                if (resolved.source !== 'credentials') {
+                  const prev =
+                    creds && typeof creds === 'object'
+                      ? { ...(creds as Record<string, unknown>) }
+                      : {};
+                  void prisma.socialAccount
+                    .update({
+                      where: { id: socialAccount.id },
+                      data: {
+                        credentialsJson: {
+                          ...prev,
+                          linkedinRestPersonUrn: resolved.personUrn,
+                        } as Prisma.InputJsonValue,
+                      },
+                    })
+                    .catch(() => undefined);
+                }
+                return resolved.personUrn;
               }
-              const { personUrn, status } = await fetchLinkedInRestPersonUrn(token);
-              if (personUrn) {
-                const prev =
-                  creds && typeof creds === 'object'
-                    ? { ...(creds as Record<string, unknown>) }
-                    : {};
-                void prisma.socialAccount
-                  .update({
-                    where: { id: socialAccount.id },
-                    data: {
-                      credentialsJson: { ...prev, linkedinRestPersonUrn: personUrn } as Prisma.InputJsonValue,
-                    },
-                  })
-                  .catch(() => undefined);
-                return personUrn;
-              }
-              if (platformUserId.startsWith('urn:li:')) return platformUserId;
               console.error('[LinkedIn publish] could not resolve author URN', {
                 postId,
                 accountId: socialAccount.id,
-                restMeStatus: status,
+                restMeStatus: resolved.restMeStatus,
+                source: resolved.source,
                 platformUserId: platformUserId.slice(0, 80),
               });
               return undefined;
@@ -698,6 +703,20 @@ export async function runPublishPostWorkflow(input: {
         : {}),
     };
     if (platform === 'LINKEDIN') {
+      if (!publishOpts.linkedInAuthorUrn) {
+        const resolved = await resolveLinkedInAuthorUrn(token, {
+          platformUserId,
+          credentialsJson: creds,
+        });
+        const errMsg = linkedInAuthorUrnMissingMessage(resolved);
+        await withPrismaPoolRetry('publish-linkedin-missing-urn', () =>
+          prisma.postTarget.updateMany({
+            where: { id: target.id, status: { not: PostStatus.POSTED } },
+            data: { status: PostStatus.FAILED, error: errMsg },
+          })
+        );
+        return { platform, ok: false, error: errMsg.slice(0, 200) };
+      }
       console.log('[LinkedIn publish] start', {
         postId,
         accountId: socialAccount.id,

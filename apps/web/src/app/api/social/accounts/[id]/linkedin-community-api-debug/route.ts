@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 import { linkedInAuthorUrnForUgc } from '@/lib/linkedin/sync-ugc-posts';
 import { normalizeLinkedInPostUrn } from '@/lib/linkedin/sync-post-metrics';
-import { fetchLinkedInRestPersonUrn } from '@/lib/linkedin/rest-person';
+import { resolveLinkedInAuthorUrn } from '@/lib/linkedin/rest-person';
 import {
   buildLinkedInRestPostsByAuthorUrl,
   getLinkedInRestApiVersion,
@@ -114,7 +114,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const restPostsUrlPrimary = buildLinkedInRestPostsByAuthorUrl(authorUrnFromSettings, 10);
 
   let restPosts_byAuthor_altPersonUrn: Probe | null = null;
-  const { personUrn: restPersonUrn } = await fetchLinkedInRestPersonUrn(token);
+  const { personUrn: restPersonUrn, source: restPersonResolveSource } = await resolveLinkedInAuthorUrn(token, {
+    platformUserId,
+    credentialsJson: account.credentialsJson,
+  });
   const altAuthor = restPersonUrn && restPersonUrn !== authorUrnFromSettings ? restPersonUrn : null;
   if (altAuthor) {
     restPosts_byAuthor_altPersonUrn = await probeGet(buildLinkedInRestPostsByAuthorUrl(altAuthor, 10), liAll);
@@ -226,6 +229,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       isOrganizationAccount: isOrg,
       authorUrnUsedForRestPosts_primary: authorUrnFromSettings,
       rest_me_personUrn: restPersonUrn,
+      rest_me_personUrn_source: restPersonResolveSource,
       note:
         'database_importedPosts lists rows we store locally (works even when live GET /rest/posts returns 403). Live probes need Marketing/Community scopes: r_member_social (read posts & comments), w_member_social / w_organization_social (reply).',
     },

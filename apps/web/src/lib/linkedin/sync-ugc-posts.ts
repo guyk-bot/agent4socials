@@ -22,7 +22,8 @@ export function linkedInAuthorUrnForUgc(platformUserId: string, credentialsJson?
   const id = platformUserId.trim();
   if (id.startsWith('urn:li:organization:')) return id;
   if (id.startsWith('urn:li:person:')) return id;
-  return `urn:li:person:${id}`;
+  // OpenID `sub` is not a valid person id for LinkedIn REST APIs.
+  return '';
 }
 
 export type SyncLinkedInUgcPostsResult = {

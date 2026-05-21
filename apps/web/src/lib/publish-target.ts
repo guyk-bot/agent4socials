@@ -904,7 +904,7 @@ export async function publishTarget(
         return {
           ok: false,
           error:
-            'LinkedIn author URN missing. Reconnect LinkedIn from Accounts and ensure Vercel has LINKEDIN_INCLUDE_W_MEMBER_SOCIAL=true.',
+            'LinkedIn author URN missing. Disconnect and reconnect LinkedIn from Accounts after enabling Share on LinkedIn on your LinkedIn app and LINKEDIN_INCLUDE_W_MEMBER_SOCIAL=true in Vercel.',
         };
       }
       let postBody: {

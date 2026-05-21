@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import axios from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
+import { resolveLinkedInAuthorUrn } from '@/lib/linkedin/rest-person';
 
 export async function PATCH(
   request: NextRequest,
@@ -19,7 +20,7 @@ export async function PATCH(
   const { id } = await params;
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
-    select: { id: true, platform: true, accessToken: true, platformUserId: true },
+    select: { id: true, platform: true, accessToken: true, platformUserId: true, credentialsJson: true },
   });
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
@@ -232,6 +233,22 @@ export async function PATCH(
         if (userRes.data?.name) username = userRes.data.name;
         if (userRes.data?.picture) profilePicture = userRes.data.picture;
       } catch (_) {}
+      const resolved = await resolveLinkedInAuthorUrn(token, {
+        platformUserId: platformUserId ?? account.platformUserId,
+        credentialsJson: account.credentialsJson,
+      });
+      if (resolved.personUrn) {
+        const prev =
+          account.credentialsJson && typeof account.credentialsJson === 'object' && account.credentialsJson !== null
+            ? { ...(account.credentialsJson as Record<string, unknown>) }
+            : {};
+        await prisma.socialAccount.update({
+          where: { id: account.id },
+          data: {
+            credentialsJson: { ...prev, linkedinRestPersonUrn: resolved.personUrn },
+          },
+        });
+      }
     }
     const data: { username?: string; profilePicture?: string; platformUserId?: string } = {};
     if (username) data.username = username;
