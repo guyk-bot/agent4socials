@@ -269,12 +269,15 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             isFromMe: c.isFromMe,
           }))
       );
-    pruneStalePendingUnread(
-      user.id,
-      allConversations.map((c) => c.id),
-      unreadComments.map((c) => c.commentId)
-    );
+    // Only prune when data is actually loaded. An empty allConversations means
+    // "not fetched yet" — treating it as "no conversations" would wipe every
+    // pending badge ID on every render before the poll returns data.
     if (allConversations.length > 0) {
+      pruneStalePendingUnread(
+        user.id,
+        allConversations.map((c) => c.id),
+        unreadComments.map((c) => c.commentId)
+      );
       reconcileInboxReadStateWithConversations(allConversations, user.id);
     }
     const computed = computeInboxHeaderUnread(allConversations, unreadComments, user.id);
