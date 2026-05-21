@@ -101,20 +101,17 @@ export function reconcileInboxReadStateWithConversations(
   const initializedConvAccounts = getInboxInitializedAccountIdsForConversations(userId);
   const convById = new Map(conversations.map((c) => [c.id, c]));
 
-  const stalePending: string[] = [];
-  for (const id of getPendingUnreadConversationIds(userId)) {
-    const c = convById.get(id);
-    if (!c) continue;
-    if (
-      !isConversationUnread(c, readConversations, lastRead, lastSeenUpdated, initializedConvAccounts)
-    ) {
-      stalePending.push(id);
-    }
-  }
+  // Do not prune pending-unread IDs here — they are only cleared by
+  // pruneStalePendingUnread (conversation no longer in list) or by the
+  // inbox UI when the user opens the thread.
 
+  const pendingIds = getPendingUnreadConversationIds(userId);
   const syncSeen: Array<{ id: string; updatedTime: string }> = [];
   const markRead: string[] = [];
   for (const c of conversations) {
+    // Skip conversations that are explicitly pending-unread — they should
+    // stay unread until the user opens them.
+    if (pendingIds.has(c.id)) continue;
     const unread = isConversationUnread(
       c,
       readConversations,
@@ -129,10 +126,6 @@ export function reconcileInboxReadStateWithConversations(
   }
 
   let changed = false;
-  if (stalePending.length) {
-    removePendingUnreadConversationIds(stalePending, userId);
-    changed = true;
-  }
   if (markRead.length) {
     markConversationsAsRead(markRead, userId);
     changed = true;
@@ -209,17 +202,18 @@ export function computeInboxHeaderUnread(
   }
 
   const convById = new Map(conversations.map((c) => [c.id, c]));
-  const stalePending: string[] = [];
+  // A pending-unread ID means the poll or inbox UI explicitly decided this
+  // conversation has new activity the user has not seen. Always count it in the
+  // badge. Only pruneStalePendingUnread (which runs after a full list load) or
+  // the inbox UI (when the user actually opens the thread) should clear these.
+  // Do NOT strip them here just because isConversationUnread returns false —
+  // that can happen when localStorage lastRead still matches the API messageCount
+  // even though a genuinely new message arrived.
   for (const id of getPendingUnreadConversationIds(userId)) {
     const c = convById.get(id);
     if (!c) continue;
-    if (isConversationUnread(c, readConversations, lastRead, lastSeenUpdated, initializedConvAccounts)) {
-      unreadConvIds.add(id);
-    } else {
-      stalePending.push(id);
-    }
+    unreadConvIds.add(id);
   }
-  if (stalePending.length) removePendingUnreadConversationIds(stalePending, userId);
 
   const commentIds = new Set(
     comments.map((c) => c.commentId).filter((id): id is string => typeof id === 'string' && id.length > 0)

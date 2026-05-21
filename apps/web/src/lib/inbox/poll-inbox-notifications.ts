@@ -112,6 +112,22 @@ function markConversationActivity(
     if (isRecent && getInboxInitializedAccountIdsForConversations(userId).has(accountId)) {
       addPendingUnreadConversationIds([conversationId], userId, platform);
       unmarkConversationAsRead(conversationId, userId);
+      // Ensure isConversationUnread returns true so the badge isn't immediately
+      // cleared by computeInboxHeaderUnread. If lastRead >= messageCount the
+      // unread check short-circuits to false, so pull lastRead back by one.
+      const mc = next.messageCount;
+      if (typeof mc === 'number' && mc > 0) {
+        const existingRead = getConversationLastReadCounts(userId)[conversationId];
+        if (existingRead === undefined || existingRead >= mc) {
+          setConversationLastReadCount(conversationId, mc - 1, userId);
+        }
+      }
+      // If seenAt equals updatedTime the timestamp check also short-circuits.
+      // Keep seenAt one second before updatedTime so the conversation is unread.
+      if (next.updatedTime) {
+        const seenBefore = new Date(updatedMs - 1000).toISOString();
+        setConversationLastSeenUpdated(conversationId, seenBefore, userId);
+      }
     }
     return;
   }
