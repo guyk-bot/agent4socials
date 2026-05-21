@@ -103,7 +103,13 @@ function markConversationActivity(
   platform: string
 ): void {
   if (!prev) {
-    if (getInboxInitializedAccountIdsForConversations(userId).has(accountId)) {
+    // Only flag as unread when truly newly-arrived: updatedTime must be within 2× the poll
+    // interval. If the conversation is old (cache miss after a page refresh wiped sessionStorage),
+    // treating it as unread would produce a spurious badge on every refresh.
+    const RECENT_THRESHOLD_MS = 2 * 120_000; // 4 min — 2× the 2-min poll cadence
+    const updatedMs = next.updatedTime ? Date.parse(next.updatedTime) : 0;
+    const isRecent = updatedMs > 0 && Date.now() - updatedMs < RECENT_THRESHOLD_MS;
+    if (isRecent && getInboxInitializedAccountIdsForConversations(userId).has(accountId)) {
       addPendingUnreadConversationIds([conversationId], userId, platform);
       unmarkConversationAsRead(conversationId, userId);
     }

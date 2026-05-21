@@ -1929,11 +1929,7 @@ function InboxPage() {
       setConversations(stable);
       conversationsLoadedRef.current = stable.length > 0;
       setConversationsLoading(false);
-      setConversationsError(
-        stable.length === 0
-          ? 'Inbox syncs automatically every 2 minutes. Your conversations will appear after the next sync.'
-          : null
-      );
+      setConversationsError(null);
     },
     [user?.id]
   );
@@ -1977,6 +1973,8 @@ function InboxPage() {
             const perAcc = commentRows.filter((c) => c.accountId === acc.id);
             if (perAcc.length) appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
           }
+        } else {
+          setCommentsLoading(false);
         }
         if (convRows.length > 0) {
           applyConversationsToUiRef.current(convRows);
@@ -2044,6 +2042,8 @@ function InboxPage() {
               const perAcc = commentRows2.filter((c) => c.accountId === acc.id);
               if (perAcc.length) appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
             }
+          } else {
+            setCommentsLoading(false);
           }
           if (convRows2.length > 0) {
             applyConversationsToUiRef.current(convRows2);
@@ -2051,6 +2051,8 @@ function InboxPage() {
               const list = boot2.data?.conversationsByAccountId?.[acc.id];
               if (list?.length) appDataRef.current?.setConversationsForAccount(acc.id, list);
             }
+          } else {
+            setConversationsLoading(false);
           }
         }
       } finally {
@@ -2062,12 +2064,36 @@ function InboxPage() {
 
   useLayoutEffect(() => {
     if (pathname !== '/dashboard/inbox' || !user?.id) return;
-    const cachedComments = readInboxCommentsClientCache<PostComment>(user.id);
+
+    // 1. sessionStorage (survives navigation but not full page refresh)
+    let cachedComments = readInboxCommentsClientCache<PostComment>(user.id);
+    let cachedConvs = readInboxConversationsClientCache<Conversation & { platform: string; messageAccountId: string }>(user.id);
+
+    // 2. Fallback: AppDataContext cache (from localStorage — survives page refresh)
+    if (cachedComments.length === 0) {
+      const fromCtx: PostComment[] = [];
+      for (const acc of effectiveAccountsRef.current) {
+        const cs = (appDataRef.current?.getComments(acc.id) ?? []) as PostComment[];
+        fromCtx.push(...cs.map((c) => ({ ...c, accountId: c.accountId ?? acc.id, platform: c.platform ?? acc.platform })));
+      }
+      if (fromCtx.length > 0) cachedComments = fromCtx;
+    }
+    if (cachedConvs.length === 0) {
+      const fromCtx: Array<Conversation & { platform: string; messageAccountId: string }> = [];
+      for (const acc of effectiveAccountsRef.current) {
+        const cs = appDataRef.current?.getConversations(acc.id) ?? [];
+        for (const c of cs) {
+          fromCtx.push({ ...(c as Conversation), platform: c.platform ?? acc.platform, messageAccountId: acc.id });
+        }
+      }
+      if (fromCtx.length > 0) cachedConvs = fromCtx;
+    }
+
     if (cachedComments.length > 0) applyCommentsToUi(cachedComments);
-    const cachedConvs = readInboxConversationsClientCache<
-      Conversation & { platform: string; messageAccountId: string }
-    >(user.id);
+    else setCommentsLoading(true);
+
     if (cachedConvs.length > 0) applyConversationsToUi(cachedConvs);
+    else setConversationsLoading(true);
   }, [pathname, user?.id, applyCommentsToUi, applyConversationsToUi]);
 
   const refreshInboxFromServerRef = useRef(refreshInboxFromServer);
@@ -2464,7 +2490,6 @@ function InboxPage() {
               <p className="text-xs text-amber-700 mt-1">{commentsError}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <p className="text-xs text-amber-700">Comments refresh automatically every 2 minutes.</p>
               {effectiveAccounts.some((a) => a.platform === 'TWITTER') && (
                 <button
                   type="button"
@@ -2505,7 +2530,6 @@ function InboxPage() {
             <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
             <p className="text-sm text-neutral-500">No comments yet.</p>
             <p className="text-xs text-neutral-400 mt-1">Comments on your posts will appear here. Make sure to sync your posts first from the Dashboard.</p>
-            <p className="text-xs text-neutral-400 mt-3">Comments sync automatically every 2 minutes.</p>
           </div>
         );
       }
@@ -2684,7 +2708,7 @@ function InboxPage() {
             )}
             <div className="mt-3 flex flex-col gap-2">
               {isTimeout && (
-                <p className="text-xs text-amber-800">Messages sync automatically every 2 minutes. Wait for the next sync, then reopen Inbox.</p>
+                <p className="text-xs text-amber-800">Inbox will retry automatically. You can also reload the page.</p>
               )}
               {(isAuthError || !isTimeout) && (
                 <>
@@ -2787,14 +2811,6 @@ function InboxPage() {
               <p className="text-sm text-neutral-500">No conversations yet.</p>
               <p className="text-xs text-neutral-400 mt-1">Messages will appear here when you receive them.</p>
             </>
-          )}
-          {!dmNotInApp && (
-            <p className="text-xs text-neutral-400 mt-4">Messages sync automatically every 2 minutes.</p>
-          )}
-          {!dmNotInApp && messageFetchPlatformIds.includes('INSTAGRAM') && (
-            <p className="text-xs text-amber-700 mt-3 max-w-sm mx-auto bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              If you see Instagram DMs in Metricool but not here, Meta is only granting inbox access to apps with <strong>Advanced Access</strong>. Complete App Review for instagram_manage_messages to enable it in A4S.
-            </p>
           )}
         </div>
       );
