@@ -2033,8 +2033,8 @@ export async function publishTarget(
         return { ok: false, error: 'TikTok: could not obtain publish_id.' };
       }
 
-      // Poll until TikTok reports PUBLISH_COMPLETE (FILE_UPLOAD + processing can take several minutes).
-      const maxWait = 540_000;
+      // Poll until TikTok reports PUBLISH_COMPLETE. Keep under Vercel maxDuration (~300s) including upload time.
+      const maxWait = 180_000;
       const pollInterval = 3_000;
       let platformPostId: string | undefined;
       let lastStatus: string | undefined;

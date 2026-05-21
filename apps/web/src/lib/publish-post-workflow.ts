@@ -55,7 +55,7 @@ function promiseWithTimeout<T>(promise: Promise<T>, ms: number, label: string): 
 }
 
 function publishTargetTimeoutMs(platform: string): number {
-  if (platform === 'TIKTOK') return 600_000;
+  if (platform === 'TIKTOK') return 280_000;
   if (platform === 'YOUTUBE') return 180_000;
   if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') return 150_000;
   if (platform === 'LINKEDIN') return 600_000;
@@ -182,14 +182,19 @@ export async function refreshPostAggregateStatus(postId: string): Promise<void> 
   });
 }
 
-/** TikTok can finish after we marked FAILED ("still processing"). Poll once and fix status. */
+/** TikTok can finish after we marked FAILED ("still processing") or POSTING when Vercel killed the publish worker. */
 export async function reconcileMisreportedPublishTargets(postId: string): Promise<number> {
   const tiktokBase = 'https://open.tiktokapis.com';
   let fixed = 0;
   const rows = await prisma.postTarget.findMany({
-    where: { postId, platform: 'TIKTOK', status: PostStatus.FAILED },
+    where: {
+      postId,
+      platform: 'TIKTOK',
+      status: { in: [PostStatus.FAILED, PostStatus.POSTING] },
+    },
     select: {
       id: true,
+      status: true,
       error: true,
       platformPostId: true,
       socialAccount: { select: { accessToken: true } },
@@ -197,7 +202,9 @@ export async function reconcileMisreportedPublishTargets(postId: string): Promis
   });
   for (const row of rows) {
     const err = row.error ?? '';
-    if (!/still processing/i.test(err)) continue;
+    const isStillProcessingFailed = row.status === PostStatus.FAILED && /still processing/i.test(err);
+    const isStuckPosting = row.status === PostStatus.POSTING;
+    if (!isStillProcessingFailed && !isStuckPosting) continue;
     let publishId = row.platformPostId?.trim();
     if (!publishId) {
       const m = err.match(/publish_id:\s*([^\s).]+)/i);
@@ -243,6 +250,24 @@ export async function reconcileMisreportedPublishTargets(postId: string): Promis
     await refreshPostAggregateStatus(postId);
   }
   return fixed;
+}
+
+/** Fail targets left POSTING after a killed/timed-out background publish. */
+export async function failStuckPostingTargets(
+  postId: string,
+  message = 'Publish timed out or was interrupted. Open in Composer and try Post now again.'
+): Promise<number> {
+  const stuck = await prisma.postTarget.findMany({
+    where: { postId, status: PostStatus.POSTING },
+    select: { id: true },
+  });
+  if (stuck.length === 0) return 0;
+  await prisma.postTarget.updateMany({
+    where: { postId, status: PostStatus.POSTING },
+    data: { status: PostStatus.FAILED, error: message.slice(0, 500) },
+  });
+  await refreshPostAggregateStatus(postId);
+  return stuck.length;
 }
 
 export async function finalizePostPublishState(postId: string): Promise<void> {

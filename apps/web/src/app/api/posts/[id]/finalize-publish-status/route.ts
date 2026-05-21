@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { isPrismaPoolError, prisma, withPrismaPoolRetry } from '@/lib/db';
-import { finalizePostPublishState, reconcileMisreportedPublishTargets } from '@/lib/publish-post-workflow';
+import {
+  failStuckPostingTargets,
+  finalizePostPublishState,
+  reconcileMisreportedPublishTargets,
+} from '@/lib/publish-post-workflow';
 import {
   postScalarsSelectWithMediaType,
   postScalarsSelectWithoutMediaType,
@@ -28,7 +32,7 @@ export async function POST(
     const owned = await withPrismaPoolRetry('finalize-publish-owns', () =>
       prisma.post.findFirst({
         where: { id, userId },
-        select: { id: true, status: true },
+        select: { id: true, status: true, updatedAt: true },
       })
     );
     if (!owned) {
@@ -36,6 +40,16 @@ export async function POST(
     }
     const reconciled = await reconcileMisreportedPublishTargets(id);
     await finalizePostPublishState(id);
+    const stuckMs = 5 * 60 * 1000;
+    const postingAgeMs =
+      owned.status === 'POSTING' ? Date.now() - owned.updatedAt.getTime() : 0;
+    const failedStuck =
+      postingAgeMs > stuckMs
+        ? await failStuckPostingTargets(
+            id,
+            'Publish did not finish in time. If your video is on TikTok, refresh History. Otherwise open in Composer and try Post now again.'
+          )
+        : 0;
     const post = await withPrismaPoolRetry('finalize-publish-read', () =>
       prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
         prisma.post.findFirst({
@@ -49,7 +63,7 @@ export async function POST(
         })
       )
     );
-    return NextResponse.json({ ok: true, post, reconciled });
+    return NextResponse.json({ ok: true, post, reconciled, failedStuck });
   } catch (e) {
     if (isPrismaPoolError(e)) {
       return NextResponse.json(

@@ -49,6 +49,13 @@ import {
     type PostHistoryRow,
 } from '@/lib/posts-history-merge';
 
+function postMediaProxyUrl(fileUrl: string): string {
+    if (fileUrl.startsWith('http') && (fileUrl.includes('r2.dev') || fileUrl.includes('cloudflarestorage.com'))) {
+        return `/api/media/proxy?url=${encodeURIComponent(fileUrl)}`;
+    }
+    return fileUrl;
+}
+
 function postMediaThumbUrl(mediaItem: { fileUrl: string; type: string; metadata?: { thumbnailUrl?: string } | null } | undefined): string | null {
     if (!mediaItem?.fileUrl) return null;
     // For VIDEO/Reels: prefer thumbnail from metadata; don't use video URL as img src (fails to render)
@@ -56,10 +63,7 @@ function postMediaThumbUrl(mediaItem: { fileUrl: string; type: string; metadata?
         ? (mediaItem.metadata && typeof mediaItem.metadata === 'object' && (mediaItem.metadata.thumbnailUrl as string | undefined)) || null
         : mediaItem.fileUrl;
     if (typeof url !== 'string' || !url) return null;
-    if (url.startsWith('http') && (url.includes('r2.dev') || url.includes('cloudflarestorage.com'))) {
-        return `/api/media/proxy?url=${encodeURIComponent(url)}`;
-    }
-    return url;
+    return postMediaProxyUrl(url);
 }
 
 function postCalendarDate(post: { scheduledAt?: string | null; postedAt?: string | null; createdAt?: string | null }): string {
@@ -133,9 +137,23 @@ function PostMediaThumb({
 }) {
     const [imgError, setImgError] = useState(false);
     const thumbUrl = postMediaThumbUrl(mediaItem);
-    const showIcon = !thumbUrl || imgError;
+    const videoPreviewUrl =
+        mediaItem.type === 'VIDEO' && !thumbUrl && mediaItem.fileUrl
+            ? postMediaProxyUrl(mediaItem.fileUrl)
+            : null;
+    const showIcon = (!thumbUrl && !videoPreviewUrl) || imgError;
     return (
         <div className={`${reelLike ? 'w-10 h-16' : 'w-12 h-12'} rounded-lg bg-gray-100 overflow-hidden flex-shrink-0`}>
+            {videoPreviewUrl && !thumbUrl && (
+                <video
+                    src={videoPreviewUrl}
+                    className="w-full h-full object-cover"
+                    muted
+                    playsInline
+                    preload="metadata"
+                    aria-hidden
+                />
+            )}
             {thumbUrl && !imgError && (
                 <img src={thumbUrl} alt="" className="w-full h-full object-cover" onError={() => setImgError(true)} />
             )}
@@ -349,7 +367,12 @@ export default function PostsPage() {
         const tick = async () => {
             const results = await Promise.all(
                 publishingPostIds.map((id) =>
-                    api.get<PostHistoryRow>(`/posts/${id}`, { timeout: 30_000 }).then((r) => r.data).catch(() => null)
+                    api
+                        .post<{ post?: PostHistoryRow }>(`/posts/${id}/finalize-publish-status`, {}, { timeout: 45_000 })
+                        .then((r) => r.data?.post ?? null)
+                        .catch(() =>
+                            api.get<PostHistoryRow>(`/posts/${id}`, { timeout: 30_000 }).then((r) => r.data).catch(() => null)
+                        )
                 )
             );
             if (cancelled) return;
