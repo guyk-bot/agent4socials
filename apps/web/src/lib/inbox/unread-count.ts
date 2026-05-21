@@ -202,22 +202,16 @@ export function computeInboxHeaderUnread(
   }
 
   const convById = new Map(conversations.map((c) => [c.id, c]));
-  // A pending-unread ID means the poll or inbox UI explicitly decided this
-  // conversation has new activity the user has not seen. Always count it in the
-  // badge. Only pruneStalePendingUnread (which runs after a full list load) or
-  // the inbox UI (when the user actually opens the thread) should clear these.
-  // Do NOT strip them here just because isConversationUnread returns false —
-  // that can happen when localStorage lastRead still matches the API messageCount
-  // even though a genuinely new message arrived.
+  // Sticky pending IDs: always count toward the badge even when the thread is not
+  // in the in-memory list yet (partial cache, poll in flight, or account not loaded).
+  // Cleared only when the user opens the thread in Inbox or prune after a full load.
   for (const id of getPendingUnreadConversationIds(userId)) {
-    const c = convById.get(id);
-    if (!c) continue;
     unreadConvIds.add(id);
+    if (!convPlatformById.has(id)) {
+      convPlatformById.set(id, pendingConvPlatforms[id]);
+    }
   }
 
-  const commentIds = new Set(
-    comments.map((c) => c.commentId).filter((id): id is string => typeof id === 'string' && id.length > 0)
-  );
   const unreadCommentIds = new Set<string>();
   const commentPlatformById = new Map<string, string | undefined>();
   for (const c of comments) {
@@ -226,7 +220,10 @@ export function computeInboxHeaderUnread(
     if (!readComments.has(c.commentId)) unreadCommentIds.add(c.commentId);
   }
   for (const id of getPendingUnreadCommentIds(userId)) {
-    if (commentIds.has(id)) unreadCommentIds.add(id);
+    unreadCommentIds.add(id);
+    if (!commentPlatformById.has(id)) {
+      commentPlatformById.set(id, pendingCommentPlatforms[id]);
+    }
   }
 
   const byPlatform: Record<string, { comments: number; messages: number }> = {};
@@ -272,8 +269,9 @@ export function formatInboxBadgeTitle(unread: InboxHeaderUnread): string | undef
 }
 
 /**
- * Nav badge: reset on read-state changes; otherwise only hold counts up during
- * partial poll merges (never keep a false high count when computed drops).
+ * Nav badge: reset only when read state changes (user opened a thread / marked read).
+ * While read state is unchanged, never let the count drop — partial cache merges
+ * and poll timing used to make the badge flash on/off every few seconds.
  */
 export function stabilizeInboxHeaderUnread(
   computed: InboxHeaderUnread,
@@ -282,13 +280,6 @@ export function stabilizeInboxHeaderUnread(
 ): InboxHeaderUnread {
   if (readStateVersion !== stableRef.version) {
     stableRef.version = readStateVersion;
-    stableRef.inbox = computed.inbox;
-    stableRef.messages = computed.messages;
-    stableRef.comments = computed.comments;
-    return computed;
-  }
-
-  if (computed.inbox <= stableRef.inbox) {
     stableRef.inbox = computed.inbox;
     stableRef.messages = computed.messages;
     stableRef.comments = computed.comments;

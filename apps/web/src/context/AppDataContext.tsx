@@ -273,11 +273,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     // "not fetched yet" — treating it as "no conversations" would wipe every
     // pending badge ID on every render before the poll returns data.
     if (allConversations.length > 0) {
-      pruneStalePendingUnread(
-        user.id,
-        allConversations.map((c) => c.id),
-        unreadComments.map((c) => c.commentId)
-      );
+      // Do not prune pending conversation IDs here — partial in-memory lists made
+      // valid pending IDs look "stale" and wiped the badge every poll cycle.
+      pruneStalePendingUnread(user.id, [], unreadComments.map((c) => c.commentId));
       reconcileInboxReadStateWithConversations(allConversations, user.id);
     }
     const computed = computeInboxHeaderUnread(allConversations, unreadComments, user.id);

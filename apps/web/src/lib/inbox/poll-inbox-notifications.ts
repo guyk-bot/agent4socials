@@ -159,17 +159,23 @@ function mergeConversations(
   const byId = new Map<string, CachedConversation>();
   for (const c of existing) byId.set(c.id, c);
 
+  const initialized = getInboxInitializedAccountIdsForConversations(userId);
+  const isFirstSync = !initialized.has(accountId);
+
   for (const c of incoming) {
     const prev = byId.get(c.id);
     const row = mergeCachedConversationRow(prev, c);
-    markConversationActivity(c.id, prev, row, userId, accountId, platform);
+    // First load for this account: mark existing threads read only — do not flag
+    // activity (would add pending then markConversationsAsRead below wipes it).
+    if (!isFirstSync) {
+      markConversationActivity(c.id, prev, row, userId, accountId, platform);
+    }
     byId.set(c.id, row);
   }
 
   const merged = [...byId.values()].sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
 
-  const initialized = getInboxInitializedAccountIdsForConversations(userId);
-  if (!initialized.has(accountId) && merged.length > 0) {
+  if (isFirstSync && merged.length > 0) {
     markConversationsAsRead(merged.map((c) => c.id), userId);
     merged.forEach((c) => {
       if (typeof c.messageCount === 'number') {
