@@ -8,6 +8,8 @@ import {
   setConversationLastSeenUpdated,
 } from '@/lib/inbox-read-state';
 import {
+  addPendingUnreadCommentIds,
+  addPendingUnreadConversationIds,
   getPendingUnreadCommentIds,
   getPendingUnreadCommentPlatforms,
   getPendingUnreadConversationIds,
@@ -38,6 +40,122 @@ export type InboxHeaderUnread = {
   comments: number;
   byPlatform: Record<string, { comments: number; messages: number }>;
 };
+
+const BADGE_SNAPSHOT_PREFIX = 'agent4socials_badge_snapshot_v1_';
+
+/** Resolve user id from localStorage inbox keys so the badge can hydrate before auth finishes. */
+export function extractInboxBadgeUserIdFromStorage(): string | null {
+  if (typeof window === 'undefined') return null;
+  const prefixes = [
+    'agent4socials_badge_pending_conv_',
+    'agent4socials_badge_pending_comment_',
+    BADGE_SNAPSHOT_PREFIX,
+    'agent4socials_read_conversations_',
+  ];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      for (const p of prefixes) {
+        if (key.startsWith(p)) {
+          const id = key.slice(p.length);
+          if (id.length > 0) return id;
+        }
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+export function readInboxBadgeSnapshot(userId: string): InboxHeaderUnread | null {
+  if (typeof window === 'undefined' || !userId) return null;
+  try {
+    const raw = localStorage.getItem(`${BADGE_SNAPSHOT_PREFIX}${userId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as InboxHeaderUnread;
+    if (typeof parsed.inbox !== 'number') return null;
+    return {
+      inbox: parsed.inbox,
+      messages: typeof parsed.messages === 'number' ? parsed.messages : 0,
+      comments: typeof parsed.comments === 'number' ? parsed.comments : 0,
+      byPlatform:
+        parsed.byPlatform && typeof parsed.byPlatform === 'object' ? parsed.byPlatform : {},
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function writeInboxBadgeSnapshot(userId: string, unread: InboxHeaderUnread): void {
+  if (typeof window === 'undefined' || !userId || unread.inbox <= 0) return;
+  try {
+    localStorage.setItem(`${BADGE_SNAPSHOT_PREFIX}${userId}`, JSON.stringify(unread));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearInboxBadgeSnapshot(userId: string): void {
+  if (typeof window === 'undefined' || !userId) return;
+  try {
+    localStorage.removeItem(`${BADGE_SNAPSHOT_PREFIX}${userId}`);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Persist sticky pending IDs for anything that should show in the badge (survives refresh). */
+export function ensurePendingIdsForUnreadCounts(
+  conversations: InboxUnreadConversation[],
+  comments: InboxUnreadComment[],
+  userId: string
+): void {
+  const readConversations = getReadConversationIds(userId);
+  const lastRead = getConversationLastReadCounts(userId);
+  const lastSeenUpdated = getConversationLastSeenUpdated(userId);
+  const initializedConvAccounts = getInboxInitializedAccountIdsForConversations(userId);
+  const pendingConv = getPendingUnreadConversationIds(userId);
+
+  for (const c of conversations) {
+    if (
+      !pendingConv.has(c.id) &&
+      isConversationUnread(
+        c,
+        readConversations,
+        lastRead,
+        lastSeenUpdated,
+        initializedConvAccounts
+      )
+    ) {
+      addPendingUnreadConversationIds([c.id], userId, c.platform);
+    }
+  }
+
+  const readComments = getReadCommentIds(userId);
+  const pendingComments = getPendingUnreadCommentIds(userId);
+  for (const c of comments) {
+    if (!c.commentId || c.isFromMe) continue;
+    if (!readComments.has(c.commentId) && !pendingComments.has(c.commentId)) {
+      addPendingUnreadCommentIds([c.commentId], userId, c.platform);
+    }
+  }
+}
+
+/** Keep the last non-zero badge across refresh until the user clears it by reading. */
+export function mergeInboxBadgeWithSnapshot(
+  computed: InboxHeaderUnread,
+  userId: string
+): InboxHeaderUnread {
+  const snapshot = readInboxBadgeSnapshot(userId);
+  if (!snapshot || snapshot.inbox <= 0) return computed;
+  const inbox = Math.max(computed.inbox, snapshot.inbox);
+  const messages = Math.max(computed.messages, snapshot.messages);
+  const comments = Math.max(computed.comments, snapshot.comments);
+  const byPlatform = { ...snapshot.byPlatform, ...computed.byPlatform };
+  return { inbox, messages, comments, byPlatform };
+}
 
 /** Whether a DM thread should count as unread (nav badge + inbox row highlight). */
 export function isConversationUnread(
@@ -283,6 +401,7 @@ export function stabilizeInboxHeaderUnread(
     stableRef.inbox = computed.inbox;
     stableRef.messages = computed.messages;
     stableRef.comments = computed.comments;
+    // User opened/read something — allow badge to clear; do not restore snapshot.
     return computed;
   }
 

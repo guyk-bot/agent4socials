@@ -8,8 +8,11 @@ import { getDefaultAnalyticsDateRange } from '@/lib/calendar-date';
 import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
 import {
   computeInboxHeaderUnread,
-  reconcileInboxReadStateWithConversations,
-  pruneStalePendingUnread,
+  ensurePendingIdsForUnreadCounts,
+  extractInboxBadgeUserIdFromStorage,
+  mergeInboxBadgeWithSnapshot,
+  clearInboxBadgeSnapshot,
+  writeInboxBadgeSnapshot,
   stabilizeInboxHeaderUnread,
 } from '@/lib/inbox/unread-count';
 import { INBOX_READ_STATE_CHANGED_EVENT } from '@/lib/inbox-read-state';
@@ -129,6 +132,57 @@ type AppDataContextType = {
 
 const defaultNotifications: NotificationsCache = { inbox: 0, comments: 0, messages: 0 };
 
+function buildInitialNotificationsFromClientStorage(): NotificationsCache {
+  if (typeof window === 'undefined') return defaultNotifications;
+  const userId = extractInboxBadgeUserIdFromStorage();
+  if (!userId) return defaultNotifications;
+
+  const conversationsByAccountId = getInitialConversationsFromStorage();
+  const commentsByAccountId = getInitialCommentsFromStorage();
+  const allConversations: Array<{
+    id: string;
+    messageCount?: number;
+    messageAccountId?: string;
+    updatedTime?: string | null;
+    platform?: string;
+  }> = [];
+  for (const [accountId, list] of Object.entries(conversationsByAccountId)) {
+    for (const c of list) {
+      allConversations.push({
+        id: c.id,
+        messageCount: c.messageCount,
+        messageAccountId: accountId,
+        updatedTime: c.updatedTime,
+        platform: c.platform,
+      });
+    }
+  }
+  const accountPlatform = new Map<string, string>();
+  for (const [accountId, list] of Object.entries(commentsByAccountId)) {
+    const first = list[0];
+    if (first?.platform) accountPlatform.set(accountId, first.platform);
+  }
+  const unreadComments = Object.entries(commentsByAccountId).flatMap(([accountId, list]) =>
+    list
+      .filter((c) => !c.parentCommentId)
+      .map((c) => ({
+        commentId: c.commentId,
+        platform: c.platform ?? accountPlatform.get(accountId),
+        isFromMe: c.isFromMe,
+      }))
+  );
+
+  ensurePendingIdsForUnreadCounts(allConversations, unreadComments, userId);
+  const computed = computeInboxHeaderUnread(allConversations, unreadComments, userId);
+  const merged = mergeInboxBadgeWithSnapshot(computed, userId);
+  return {
+    inbox: merged.inbox,
+    messages: merged.messages,
+    comments: merged.comments,
+    byPlatform: merged.byPlatform,
+  };
+}
+
 const CACHE_KEY = 'appData_cache_v2';
 const CACHE_MAX_BYTES = 4_000_000; // 4MB – localStorage supports 5-10MB; the old 450KB limit silently dropped all writes for users with many accounts
 
@@ -214,7 +268,9 @@ export function getDefaultDateRange() {
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { setCachedAccounts } = useAccountsCache() ?? { setCachedAccounts: () => {} };
-  const [notifications, setNotificationsState] = useState<NotificationsCache>(defaultNotifications);
+  const [notifications, setNotificationsState] = useState<NotificationsCache>(
+    buildInitialNotificationsFromClientStorage
+  );
   const [postsByAccountId, setPostsByAccountId] = useState<Record<string, CachedPost[]>>(getInitialPostsFromStorage);
   const [insightsByAccountId, setInsightsByAccountId] = useState<Record<string, CachedInsights>>(getInitialInsightsFromStorage);
   const [commentsByAccountId, setCommentsByAccountId] = useState<Record<string, CachedComment[]>>(getInitialCommentsFromStorage);
@@ -269,21 +325,23 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             isFromMe: c.isFromMe,
           }))
       );
-    // Only prune when data is actually loaded. An empty allConversations means
-    // "not fetched yet" — treating it as "no conversations" would wipe every
-    // pending badge ID on every render before the poll returns data.
-    if (allConversations.length > 0) {
-      // Do not prune pending conversation IDs here — partial in-memory lists made
-      // valid pending IDs look "stale" and wiped the badge every poll cycle.
-      pruneStalePendingUnread(user.id, [], unreadComments.map((c) => c.commentId));
-      reconcileInboxReadStateWithConversations(allConversations, user.id);
-    }
-    const computed = computeInboxHeaderUnread(allConversations, unreadComments, user.id);
+    // Do not reconcile or prune here — that cleared unread on refresh before the user
+    // opened Inbox. Prune/reconcile run only on the Inbox page with a full list.
+    ensurePendingIdsForUnreadCounts(allConversations, unreadComments, user.id);
+    const computed = mergeInboxBadgeWithSnapshot(
+      computeInboxHeaderUnread(allConversations, unreadComments, user.id),
+      user.id
+    );
     const unread = stabilizeInboxHeaderUnread(
       computed,
       inboxReadStateVersion,
       stableInboxCountsRef.current
     );
+    if (unread.inbox > 0) {
+      writeInboxBadgeSnapshot(user.id, unread);
+    } else {
+      clearInboxBadgeSnapshot(user.id);
+    }
     setNotificationsState((prev) => {
       const byPlatformSame =
         JSON.stringify(prev.byPlatform ?? {}) === JSON.stringify(unread.byPlatform);
@@ -520,6 +578,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     setEngagementByAccountId({});
     stableInboxCountsRef.current = { version: -1, inbox: 0, messages: 0, comments: 0 };
     setNotificationsState(defaultNotifications);
+    const badgeUserId = extractInboxBadgeUserIdFromStorage();
+    if (badgeUserId) clearInboxBadgeSnapshot(badgeUserId);
     setPrefetchStatus('idle');
     setPrefetchHasLoadedOnce(false);
     setPrefetchPhase2Done(false);

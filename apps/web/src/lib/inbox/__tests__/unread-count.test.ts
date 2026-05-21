@@ -3,7 +3,9 @@
 import {
   computeInboxHeaderUnread,
   isConversationUnread,
+  mergeInboxBadgeWithSnapshot,
   stabilizeInboxHeaderUnread,
+  writeInboxBadgeSnapshot,
 } from '../unread-count';
 
 const localStorageMock = (() => {
@@ -95,6 +97,25 @@ describe('computeInboxHeaderUnread', () => {
     const unread = computeInboxHeaderUnread([], [], 'user-1');
     expect(unread.messages).toBe(1);
     expect(unread.inbox).toBe(1);
+  });
+});
+
+describe('mergeInboxBadgeWithSnapshot', () => {
+  beforeEach(() => localStorageMock.clear());
+
+  it('restores badge count from snapshot when computed is zero on refresh', () => {
+    writeInboxBadgeSnapshot('user-1', {
+      inbox: 2,
+      messages: 1,
+      comments: 1,
+      byPlatform: { INSTAGRAM: { messages: 1, comments: 0 } },
+    });
+    const merged = mergeInboxBadgeWithSnapshot(
+      { inbox: 0, messages: 0, comments: 0, byPlatform: {} },
+      'user-1'
+    );
+    expect(merged.inbox).toBe(2);
+    expect(merged.messages).toBe(1);
   });
 });
 
