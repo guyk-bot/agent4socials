@@ -2101,6 +2101,19 @@ export async function publishTarget(
       return { ok: true, platformPostId };
     }
 
+    if (platform === 'THREADS') {
+      const { publishToThreads } = await import('@/lib/threads/publish');
+      const mediaIsVideo = firstMediaUrl ? /\.(mp4|mov|webm|m4v)(\?|$)/i.test(firstMediaUrl) : false;
+      const result = await publishToThreads({
+        accessToken: token,
+        text: caption,
+        imageUrl: firstImageUrl || (firstMediaUrl && !mediaIsVideo ? firstMediaUrl : null),
+        videoUrl: firstMediaUrl && mediaIsVideo ? firstMediaUrl : null,
+      });
+      if (result.ok) return result;
+      return { ok: false, error: result.error };
+    }
+
     return { ok: false, error: `Publish not implemented for ${platform}` };
   } catch (err: unknown) {
     const ax = err as { response?: { data?: unknown; status?: number }; message?: string };

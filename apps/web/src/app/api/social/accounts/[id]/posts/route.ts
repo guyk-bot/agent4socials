@@ -2646,6 +2646,16 @@ async function syncImportedPosts(
     return syncError;
   }
 
+  if (platform === 'THREADS') {
+    const { syncThreadsPosts } = await import('@/lib/threads/sync-imported-posts');
+    const { syncError } = await syncThreadsPosts({
+      id: socialAccountId,
+      platformUserId,
+      accessToken,
+    });
+    return syncError;
+  }
+
   if (platform === 'TIKTOK') {
     return syncTikTokImportedVideos({ socialAccountId, accessToken });
   }

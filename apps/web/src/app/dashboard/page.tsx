@@ -43,7 +43,7 @@ import {
   HelpCircle,
   ArrowUpDown,
 } from 'lucide-react';
-import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
 import { FacebookAnalyticsView, AnalyticsGrid, AnalyticsGridItem, AnalyticsWatermarkedChart } from '@/components/analytics';
 import type { FacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
@@ -90,6 +90,7 @@ function DataSyncBanner({
     TWITTER: <XTwitterIcon size={29} className="text-neutral-800" />,
     LINKEDIN: <LinkedinIcon size={29} />,
     PINTEREST: <PinterestIcon size={29} />,
+    THREADS: <ThreadsIcon size={29} />,
   };
   /** Same violet → fuchsia → rose gradient on every platform (matches Upgrade / Get Pro CTA). */
   const grad = 'from-[#ffb000] via-[#ff7a00] to-[#ff4d00]';
@@ -227,6 +228,7 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
   TWITTER: <XTwitterIcon size={22} className="text-neutral-800" />,
   LINKEDIN: <LinkedinIcon size={22} />,
   PINTEREST: <PinterestIcon size={22} />,
+  THREADS: <ThreadsIcon size={22} />,
 };
 
 const FREE_HIGHLIGHTS = [
@@ -269,7 +271,8 @@ function postImportSyncOnFirstLoad(platform: string | undefined): boolean {
     platform === 'YOUTUBE' ||
     platform === 'LINKEDIN' ||
     platform === 'TWITTER' ||
-    platform === 'PINTEREST'
+    platform === 'PINTEREST' ||
+    platform === 'THREADS'
   );
 }
 
@@ -581,7 +584,7 @@ export default function DashboardPage() {
 
   const twitter1oaNext = searchParams.get('twitter_1oa_next');
   const connectParam = searchParams.get('connect');
-  const ALLOWED_CONNECT = ['INSTAGRAM', 'FACEBOOK', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'LINKEDIN', 'PINTEREST'];
+  const ALLOWED_CONNECT = ['INSTAGRAM', 'FACEBOOK', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'LINKEDIN', 'PINTEREST', 'THREADS'];
   const connectFromUrl = connectParam && ALLOWED_CONNECT.includes(connectParam.toUpperCase())
     ? connectParam.toUpperCase()
     : null;
@@ -849,7 +852,7 @@ export default function DashboardPage() {
         const emptyPrefetch =
           ctxList.length === 0 &&
           !accountPostsHydratedRef.current[accountId] &&
-          (analyticsAccount?.platform === 'TWITTER' || analyticsAccount?.platform === 'PINTEREST');
+          (analyticsAccount?.platform === 'TWITTER' || analyticsAccount?.platform === 'PINTEREST' || analyticsAccount?.platform === 'THREADS');
         if (!emptyPrefetch) {
           const cached = postsCacheRef.current[accountId];
           if (ctxList.length === 0 && accountPostsHydratedRef.current[accountId] && (cached?.length ?? 0) > 0) {
@@ -1085,7 +1088,8 @@ export default function DashboardPage() {
     // Pinterest traffic should appear instantly on open; allow a longer same-account fallback payload
     // (any recent range) while fresh insights load in the background.
     const pinterestQuickFallback =
-      analyticsAccount?.platform === 'PINTEREST'
+      analyticsAccount?.platform === 'PINTEREST' ||
+      analyticsAccount?.platform === 'THREADS'
         ? (
             readInsightsFromLocalStorage(accountId, 6 * 60 * 60 * 1000) ??
             (userIdRef.current
@@ -1193,7 +1197,7 @@ export default function DashboardPage() {
         return mergeFacebookPageInsightsPreserve({ ...data }, prev);
       }
 
-      if (analyticsAccount?.platform === 'PINTEREST' && prev) {
+      if ((analyticsAccount?.platform === 'PINTEREST' || analyticsAccount?.platform === 'THREADS') && prev) {
         const next = { ...data };
         const nextBundle = (next.facebookAnalytics ?? null) as Record<string, unknown> | null;
         const prevBundle = (prev.facebookAnalytics ?? null) as Record<string, unknown> | null;
@@ -1302,7 +1306,8 @@ export default function DashboardPage() {
     const forceRangeRefreshForPlatform =
       isDateRangeChange &&
       (analyticsAccount?.platform === 'TWITTER' ||
-        analyticsAccount?.platform === 'PINTEREST');
+        analyticsAccount?.platform === 'PINTEREST' ||
+      analyticsAccount?.platform === 'THREADS');
 
     // If we already have cached data for this range (or prefetched default range), show it immediately.
     if (exactCached) {
@@ -1357,7 +1362,8 @@ export default function DashboardPage() {
     // Stale data from a different date range can plot time-series at the wrong positions for FB/IG;
     // those still clear until the new-range fetch returns.
     const preserveStaleWhileRefetch =
-      analyticsAccount?.platform === 'PINTEREST' || analyticsAccount?.platform === 'TWITTER';
+      analyticsAccount?.platform === 'PINTEREST' ||
+      analyticsAccount?.platform === 'THREADS' || analyticsAccount?.platform === 'TWITTER';
     if (staleCandidate && (!isDateRangeChange || preserveStaleWhileRefetch)) {
       const patchedStale = patchYouTubeExtended(staleCandidate);
       lastInsightsByAccountIdRef.current[accountId] = patchedStale;
@@ -2383,6 +2389,7 @@ export default function DashboardPage() {
                       platform === 'TWITTER' ? (isActive ? 'bg-neutral-200 border-neutral-400 text-neutral-800' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100') :
                       platform === 'LINKEDIN' ? (isActive ? 'bg-blue-100 border-blue-400 text-blue-900' : 'border-neutral-200 text-neutral-600 hover:bg-blue-50') :
                       platform === 'PINTEREST' ? (isActive ? 'bg-rose-100 border-rose-400 text-rose-900' : 'border-neutral-200 text-neutral-600 hover:bg-rose-50') :
+                      platform === 'THREADS' ? (isActive ? 'bg-neutral-900 border-neutral-900 text-white' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100') :
                       (isActive ? 'bg-[var(--primary)]/15 border-[var(--primary)]/40 text-[var(--primary)]' : 'border-neutral-200 text-neutral-600 hover:bg-[var(--primary)]/5');
                     return (
                       <button

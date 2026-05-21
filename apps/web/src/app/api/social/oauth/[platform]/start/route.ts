@@ -9,7 +9,7 @@ import { META_GRAPH_FACEBOOK_API_VERSION } from '@/lib/meta-graph-insights';
 /** OAuth start must never be statically cached. */
 export const dynamic = 'force-dynamic';
 
-const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'PINTEREST'] as const;
+const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'PINTEREST', 'THREADS'] as const;
 
 function getOAuthUrl(platform: Platform, userId: string, method?: string): string {
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
@@ -114,6 +114,18 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
       const clientId = encodeURIComponent(process.env.LINKEDIN_CLIENT_ID || '');
       // enable_extended_login helps LinkedIn show Google/Apple/passkey login on supported browsers (LinkedIn docs).
       return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${redirect}&state=${encodeURIComponent(state)}&scope=${encodeURIComponent(linkedInScopes)}&enable_extended_login=true`;
+    }
+    case 'THREADS': {
+      const threadsRedirect = (process.env.THREADS_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
+      const clientId = encodeURIComponent(
+        process.env.THREADS_APP_ID?.trim() || process.env.META_APP_ID?.trim() || ''
+      );
+      const scopes = encodeURIComponent(
+        typeof process.env.THREADS_OAUTH_SCOPES === 'string' && process.env.THREADS_OAUTH_SCOPES.trim()
+          ? process.env.THREADS_OAUTH_SCOPES.trim()
+          : 'threads_basic,threads_content_publish,threads_manage_insights,threads_read_replies,threads_manage_replies,threads_manage_mentions'
+      );
+      return `https://threads.net/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(threadsRedirect)}&scope=${scopes}&response_type=code&state=${encodeURIComponent(state)}`;
     }
     case 'PINTEREST': {
       const pinRedirect = (process.env.PINTEREST_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
@@ -233,6 +245,18 @@ export async function GET(
           {
             message:
               'X (Twitter) Connect requires TWITTER_CLIENT_ID (OAuth 2.0, recommended for DMs) or TWITTER_API_KEY + TWITTER_API_SECRET (OAuth 1.0a) in Vercel.',
+          },
+          { status: 503 }
+        );
+      }
+    } else if (plat === 'THREADS') {
+      const hasMetaId = Boolean(process.env.META_APP_ID?.trim() || process.env.THREADS_APP_ID?.trim());
+      const hasMetaSecret = Boolean(process.env.META_APP_SECRET?.trim() || process.env.THREADS_APP_SECRET?.trim());
+      if (!hasMetaId || !hasMetaSecret) {
+        return NextResponse.json(
+          {
+            message:
+              'Threads requires META_APP_ID and META_APP_SECRET (same Meta app with Access the Threads API) in Vercel.',
           },
           { status: 503 }
         );

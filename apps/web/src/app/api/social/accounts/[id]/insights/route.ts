@@ -3196,6 +3196,48 @@ export async function GET(
       return NextResponse.json(out);
     }
 
+    if (account.platform === 'THREADS') {
+      const { getValidThreadsToken } = await import('@/lib/threads/threads-token');
+      const { buildThreadsInsightsBundle } = await import('@/lib/threads/analytics-bundle');
+      const token = await getValidThreadsToken({
+        id: account.id,
+        accessToken: account.accessToken,
+        expiresAt: account.expiresAt,
+      });
+      try {
+        const bundle = await buildThreadsInsightsBundle(token, sinceParam, untilParam);
+        if (bundle.profile?.username || bundle.profile?.name) {
+          out.extra = {
+            ...(out.extra ?? {}),
+            threadsUsername: bundle.profile.username,
+          };
+          (out as Record<string, unknown>).facebookPageProfile = {
+            username: bundle.profile.username ?? account.username,
+            name: bundle.profile.name ?? bundle.profile.username ?? account.username,
+            profile_picture_url: bundle.profile.picture,
+          };
+        }
+        out.impressionsTotal = bundle.viewsTotal;
+        const outRec = out as Record<string, unknown>;
+        outRec.interactionsTotal =
+          bundle.likesTotal + bundle.repliesTotal + bundle.repostsTotal;
+        outRec.likesTotal = bundle.likesTotal;
+        outRec.commentsTotal = bundle.repliesTotal;
+        outRec.sharesTotal = bundle.repostsTotal;
+        if (bundle.impressionsTimeSeries.length > 0) {
+          out.impressionsTimeSeries = bundle.impressionsTimeSeries;
+        }
+        out.insightsHint =
+          bundle.viewsTotal === 0
+            ? 'Threads insights may take time to populate for new accounts.'
+            : undefined;
+      } catch (e) {
+        console.warn('[Insights] Threads:', (e as Error)?.message ?? e);
+        out.insightsHint = 'Could not load Threads insights. Reconnect from Accounts.';
+      }
+      return NextResponse.json(out);
+    }
+
   } catch (e) {
     console.error('[Insights] error:', e);
     return NextResponse.json(emptyOut('UNKNOWN'), { status: 200 });

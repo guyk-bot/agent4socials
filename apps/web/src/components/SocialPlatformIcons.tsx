@@ -11,6 +11,7 @@ const SOCIAL_ICON_SRC: Record<string, string> = {
   youtube: '/social-icons/youtube.svg',
   linkedin: '/social-icons/linkedin.svg',
   pinterest: '/social-icons/pinterest.svg',
+  threads: '/social-icons/threads.svg',
   x: '/social-icons/x.svg',
 };
 
@@ -94,6 +95,10 @@ export function PinterestIcon(props: IconProps) {
   return <SocialIconImg name="pinterest" {...props} />;
 }
 
+export function ThreadsIcon(props: IconProps) {
+  return <SocialIconImg name="threads" {...props} />;
+}
+
 export function XTwitterIcon(props: IconProps) {
   return <SocialIconImg name="x" {...props} />;
 }
@@ -106,6 +111,7 @@ export const PLATFORM_ICON_MAP = {
   TWITTER: XTwitterIcon,
   LINKEDIN: LinkedinIcon,
   PINTEREST: PinterestIcon,
+  THREADS: ThreadsIcon,
 } as const;
 
 /** Render platform icon by id; use className for X (e.g. text-neutral-800 on light bg) */

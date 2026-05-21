@@ -5,6 +5,12 @@ import axios from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { ensureBootstrapSnapshotForToday } from '@/lib/analytics/metric-snapshots';
 import { ensurePinterestPlatformEnum } from '@/lib/ensure-pinterest-platform-enum';
+import { ensureThreadsPlatformEnum } from '@/lib/ensure-threads-platform-enum';
+import {
+  exchangeThreadsCodeForShortLivedToken,
+  exchangeThreadsLongLivedToken,
+  fetchThreadsProfile,
+} from '@/lib/threads/threads-api';
 import { ensureSocialAccountOAuthSchema } from '@/lib/ensure-social-account-oauth-schema';
 import { syncTikTokImportedVideos } from '@/lib/tiktok/sync-imported-videos';
 import { resolveLinkedInAuthorUrn } from '@/lib/linkedin/rest-person';
@@ -13,7 +19,7 @@ import { scheduleInboxWarmForUser } from '@/lib/inbox/schedule-inbox-warm';
 
 export const maxDuration = 60;
 
-const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'PINTEREST'] as const;
+const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'PINTEREST', 'THREADS'] as const;
 
 /**
  * Build URL params for the post-OAuth redirect so the client can pre-populate
@@ -474,6 +480,38 @@ async function exchangeCode(
         profilePicture,
       };
     }
+    case 'THREADS': {
+      const redirectUri = (process.env.THREADS_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
+      const short = await exchangeThreadsCodeForShortLivedToken(code, redirectUri);
+      if (!short?.accessToken) {
+        throw new Error('Threads token exchange failed. Check META_APP_ID, META_APP_SECRET, and Threads redirect URI in Meta app settings.');
+      }
+      const long = await exchangeThreadsLongLivedToken(short.accessToken);
+      const accessToken = long?.accessToken ?? short.accessToken;
+      const expiresAt = new Date(
+        Date.now() + (long?.expiresInSec ?? 60 * 24 * 60 * 60) * 1000
+      );
+      let platformUserId = short.userId?.trim() || 'threads-' + accessToken.slice(-8);
+      let username = 'Threads';
+      let profilePicture: string | null = null;
+      try {
+        const profile = await fetchThreadsProfile(accessToken);
+        if (profile?.id) platformUserId = profile.id;
+        if (profile?.username) username = profile.username;
+        if (profile?.name && !profile.username) username = profile.name;
+        if (profile?.threads_profile_picture_url) profilePicture = profile.threads_profile_picture_url;
+      } catch (e) {
+        console.warn('[Social OAuth] Threads profile:', (e as Error)?.message ?? e);
+      }
+      return {
+        accessToken,
+        refreshToken: null,
+        expiresAt,
+        platformUserId,
+        username,
+        profilePicture,
+      };
+    }
     case 'PINTEREST': {
       const clientId = process.env.PINTEREST_APP_ID || process.env.PINTEREST_CLIENT_ID;
       const clientSecret = process.env.PINTEREST_APP_SECRET || process.env.PINTEREST_CLIENT_SECRET;
@@ -612,6 +650,8 @@ export async function GET(
     callbackUrl = process.env.PINTEREST_REDIRECT_URI.replace(/\/+$/, '');
   } else if (plat === 'LINKEDIN' && process.env.LINKEDIN_REDIRECT_URI?.trim()) {
     callbackUrl = process.env.LINKEDIN_REDIRECT_URI.replace(/\/+$/, '');
+  } else if (plat === 'THREADS' && process.env.THREADS_REDIRECT_URI?.trim()) {
+    callbackUrl = process.env.THREADS_REDIRECT_URI.replace(/\/+$/, '');
   }
 
   let tokenData: TokenResult;
@@ -1079,6 +1119,9 @@ export async function GET(
   try {
     if (plat === 'PINTEREST') {
       await ensurePinterestPlatformEnum();
+    }
+    if (plat === 'THREADS') {
+      await ensureThreadsPlatformEnum();
     }
     // Upsert so reconnecting the same account updates in place; preserve history (firstConnectedAt never cleared).
     await prisma.socialAccount.upsert({

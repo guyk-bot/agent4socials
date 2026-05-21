@@ -109,6 +109,7 @@ export const PLATFORM_LABEL: Record<string, string> = {
   YOUTUBE: 'YouTube',
   TIKTOK: 'TikTok',
   PINTEREST: 'Pinterest',
+  THREADS: 'Threads',
 };
 
 export const PLATFORM_COLOR: Record<string, string> = {
@@ -119,6 +120,7 @@ export const PLATFORM_COLOR: Record<string, string> = {
   YouTube: '#ff0000',
   TikTok: '#69c9d0',
   Pinterest: '#e60023',
+  Threads: '#000000',
 };
 
 export const CHART_PLATFORMS = [
@@ -129,4 +131,5 @@ export const CHART_PLATFORMS = [
   'YouTube',
   'TikTok',
   'Pinterest',
+  'Threads',
 ] as const;

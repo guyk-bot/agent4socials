@@ -31,7 +31,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppData } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { useTheme } from '@/context/ThemeContext';
-import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 import { TikTokPublishModal } from '@/components/composer/TikTokPublishModal';
 import { ComposerScheduleDateTime } from '@/components/composer/ComposerScheduleDateTime';
@@ -72,7 +72,7 @@ const PUBLISH_UI_PREP_MS = 2000;
 const EMPTY_CACHED_ACCOUNTS: { id: string; platform: string; username?: string | null; profilePicture?: string | null }[] = [];
 
 type MediaItem = { fileUrl: string; type: 'IMAGE' | 'VIDEO'; thumbnailUrl?: string };
-type PlatformKey = 'INSTAGRAM' | 'FACEBOOK' | 'TIKTOK' | 'YOUTUBE' | 'TWITTER' | 'LINKEDIN' | 'PINTEREST';
+type PlatformKey = 'INSTAGRAM' | 'FACEBOOK' | 'TIKTOK' | 'YOUTUBE' | 'TWITTER' | 'LINKEDIN' | 'PINTEREST' | 'THREADS';
 
 function PlatformGlyph({ platform, size = 14 }: { platform: PlatformKey; size?: number }) {
     switch (platform) {
@@ -83,6 +83,7 @@ function PlatformGlyph({ platform, size = 14 }: { platform: PlatformKey; size?: 
         case 'TWITTER': return <XTwitterIcon size={size} className="text-neutral-800" />;
         case 'LINKEDIN': return <LinkedinIcon size={size} />;
         case 'PINTEREST': return <PinterestIcon size={size} />;
+        case 'THREADS': return <ThreadsIcon size={size} />;
         default: return <Video size={size} className="text-neutral-500" />;
     }
 }
@@ -400,6 +401,7 @@ const PLATFORM_LABELS: Record<string, string> = {
     TWITTER: 'Twitter/X',
     LINKEDIN: 'LinkedIn',
     PINTEREST: 'Pinterest',
+    THREADS: 'Threads',
 };
 
 type PublishResultItem = { platform: string; ok: boolean; error?: string; mediaSkipped?: boolean };
@@ -540,6 +542,7 @@ const COMPOSER_PLATFORM_ORDER = [
     'FACEBOOK',
     'LINKEDIN',
     'PINTEREST',
+    'THREADS',
     'TWITTER',
 ] as const;
 
@@ -565,7 +568,7 @@ function platformsAllowedForMediaType(mediaType: MediaTypeChoice): readonly stri
             return ['YOUTUBE'];
         case 'photo':
         case 'carousel':
-            return ['INSTAGRAM', 'TIKTOK', 'FACEBOOK', 'LINKEDIN', 'PINTEREST', 'TWITTER'];
+            return ['INSTAGRAM', 'TIKTOK', 'FACEBOOK', 'LINKEDIN', 'PINTEREST', 'THREADS', 'TWITTER'];
         case 'reel':
             return COMPOSER_PLATFORM_ORDER;
         default:
@@ -636,6 +639,7 @@ const MEDIA_SPECS: Record<string, { platform: PlatformKey; name: string; specs: 
         { platform: 'FACEBOOK', name: 'Facebook Reels', specs: [{ label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Recommended' }] },
         { platform: 'LINKEDIN', name: 'LinkedIn', specs: [{ label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Supported' }] },
         { platform: 'PINTEREST', name: 'Pinterest', specs: [{ label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Recommended' }] },
+        { platform: 'THREADS', name: 'Threads', specs: [{ label: 'Text', value: 'Up to 500 characters' }, { label: 'Image / video', value: 'Public HTTPS URL', tag: 'Optional' }] },
         { platform: 'TWITTER', name: 'Twitter/X', specs: [{ label: 'Square', value: '1080×1080 (1:1)', tag: 'Best' }, { label: 'Vertical', value: '1080×1920 (9:16)', tag: 'Under 60s' }] },
     ],
     carousel: [
@@ -3188,8 +3192,9 @@ export default function ComposerPage() {
                                     TWITTER: <XTwitterIcon size={26} className="text-neutral-800" />,
                                     LINKEDIN: <LinkedinIcon size={26} />,
                                     PINTEREST: <PinterestIcon size={26} />,
+                                    THREADS: <ThreadsIcon size={26} />,
                                 };
-                                const labels: Record<string, string> = { INSTAGRAM: 'Instagram', TIKTOK: 'TikTok', YOUTUBE: 'YouTube', FACEBOOK: 'Facebook', TWITTER: 'Twitter/X', LINKEDIN: 'LinkedIn', PINTEREST: 'Pinterest' };
+                                const labels: Record<string, string> = { INSTAGRAM: 'Instagram', TIKTOK: 'TikTok', YOUTUBE: 'YouTube', FACEBOOK: 'Facebook', TWITTER: 'Twitter/X', LINKEDIN: 'LinkedIn', PINTEREST: 'Pinterest', THREADS: 'Threads' };
                                 return (
                             <PlatformToggle
                                         key={p}
@@ -4274,6 +4279,7 @@ function PostPreview({
             case 'TWITTER': return <XTwitterIcon size={compact ? 16 : 22} className="text-neutral-800" />;
             case 'LINKEDIN': return <LinkedinIcon size={compact ? 16 : 22} />;
             case 'PINTEREST': return <PinterestIcon size={compact ? 16 : 22} />;
+            case 'THREADS': return <ThreadsIcon size={compact ? 16 : 22} />;
             default: return <Video size={compact ? 16 : 22} className="text-neutral-500" />;
         }
     };

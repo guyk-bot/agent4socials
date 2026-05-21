@@ -24,6 +24,7 @@ import { ensureInstagramJpegOnR2 } from '@/lib/instagram-media-r2';
 import { ensureStoryJpegOnR2 } from '@/lib/story-media-r2';
 import { refreshTwitterToken } from '@/lib/twitter-refresh';
 import { getValidPinterestToken } from '@/lib/pinterest-token';
+import { getValidThreadsToken } from '@/lib/threads/threads-token';
 import {
   postScalarsSelectWithMediaType,
   postScalarsSelectWithoutMediaType,
@@ -59,6 +60,7 @@ function publishTargetTimeoutMs(platform: string): number {
   if (platform === 'YOUTUBE') return 180_000;
   if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') return 150_000;
   if (platform === 'LINKEDIN') return 600_000;
+  if (platform === 'THREADS') return 180_000;
   return 120_000;
 }
 
@@ -456,6 +458,13 @@ export async function runPublishPostWorkflow(input: {
         expiresAt: socialAccount.expiresAt,
       });
     }
+    if (platform === 'THREADS') {
+      token = await getValidThreadsToken({
+        id: socialAccount.id,
+        accessToken: socialAccount.accessToken,
+        expiresAt: socialAccount.expiresAt,
+      });
+    }
     const platformUserId = socialAccount.platformUserId;
     const caption = (contentByPlatform?.[platform] ?? post.content ?? '').trim();
     const platformMedia = mediaByPlatform?.[platform];
@@ -471,7 +480,7 @@ export async function runPublishPostWorkflow(input: {
     // using `targetMedia[0]` sent single images through the IG Reels pipeline (transcoding: invalid duration).
     let firstMediaUrl =
       platform === 'INSTAGRAM' || platform === 'FACEBOOK' ? firstVideo?.fileUrl : targetMedia[0]?.fileUrl;
-    if ((platform === 'TIKTOK' || platform === 'LINKEDIN' || platform === 'YOUTUBE') && firstVideo?.fileUrl) {
+    if ((platform === 'TIKTOK' || platform === 'LINKEDIN' || platform === 'YOUTUBE' || platform === 'THREADS') && firstVideo?.fileUrl) {
       firstMediaUrl = firstVideo.fileUrl;
     }
     let videoThumbnailUrl =

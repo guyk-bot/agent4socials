@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Check, Star, Loader2, BookOpen, Send, Calendar, BarChart2, MessageCircle, TrendingUp } from 'lucide-react';
-import { InstagramIcon, FacebookIcon, YoutubeIcon, LinkedinIcon, TikTokIcon, XTwitterIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, YoutubeIcon, LinkedinIcon, TikTokIcon, XTwitterIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
 
 const BULLET_ICONS = [Send, Calendar, BarChart2, MessageCircle, TrendingUp];
 
@@ -143,6 +143,25 @@ const PLATFORM_INFO: Record<string, {
     ],
     helpAnchor: 'pinterest',
     buttonLabel: 'Pinterest',
+  },
+  THREADS: {
+    name: 'Threads',
+    description:
+      'Connect your Threads profile to publish posts, schedule content, and view insights from Agent4Socials.',
+    headerIcon: <ThreadsIcon size={40} />,
+    buttonGradient: 'from-neutral-800 to-black',
+    buttonHover: 'hover:from-neutral-900 hover:to-black',
+    accentBorder: 'border-neutral-300',
+    accentHover: 'hover:border-neutral-500 hover:bg-neutral-100/80',
+    functionalities: [
+      'Publish text, image, and video posts to Threads',
+      'Schedule posts in advance',
+      'View views, likes, replies, and reposts insights',
+      'Sync recent threads into your dashboard',
+      'Uses the official Threads API',
+    ],
+    helpAnchor: 'threads',
+    buttonLabel: 'Threads',
   },
 };
 

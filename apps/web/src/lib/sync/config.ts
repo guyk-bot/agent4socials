@@ -101,6 +101,12 @@ export const STALE_THRESHOLDS: Record<string, Partial<Record<SyncScope, number>>
     post_metrics:     6 * HOUR,
     full:             12 * HOUR,
   },
+  THREADS: {
+    account_overview: 12 * HOUR,
+    posts:            60 * MINUTE,
+    post_metrics:     6 * HOUR,
+    full:             12 * HOUR,
+  },
   default: {
     account_overview: 12 * HOUR,
     posts:            60 * MINUTE,
@@ -134,6 +140,7 @@ export const PLATFORM_SCOPES: Record<string, SyncScope[]> = {
   TWITTER:   ['account_overview', 'posts', 'post_metrics', 'comments', 'messages'],
   LINKEDIN:  ['account_overview', 'posts', 'post_metrics'],
   PINTEREST: ['account_overview', 'posts', 'post_metrics'],
+  THREADS:   ['account_overview', 'posts', 'post_metrics'],
 };
 
 export function getStaleThresholdMs(platform: string, scope: SyncScope): number {

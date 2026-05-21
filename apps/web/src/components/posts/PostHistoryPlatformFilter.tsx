@@ -10,9 +10,10 @@ import {
   XTwitterIcon,
   LinkedinIcon,
   PinterestIcon,
+  ThreadsIcon,
 } from '@/components/SocialPlatformIcons';
 
-const PLATFORM_ORDER = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'LINKEDIN', 'PINTEREST', 'TWITTER'] as const;
+const PLATFORM_ORDER = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'LINKEDIN', 'PINTEREST', 'THREADS', 'TWITTER'] as const;
 
 const PLATFORM_META: Record<
   (typeof PLATFORM_ORDER)[number],
@@ -24,6 +25,7 @@ const PLATFORM_META: Record<
   FACEBOOK: { label: 'Facebook', icon: <FacebookIcon size={26} /> },
   LINKEDIN: { label: 'LinkedIn', icon: <LinkedinIcon size={26} /> },
   PINTEREST: { label: 'Pinterest', icon: <PinterestIcon size={26} /> },
+  THREADS: { label: 'Threads', icon: <ThreadsIcon size={26} /> },
   TWITTER: { label: 'Twitter/X', icon: <XTwitterIcon size={26} className="text-neutral-800 dark:text-neutral-200" /> },
 };
 

@@ -8,7 +8,7 @@ import { useAppData } from '@/context/AppDataContext';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
-import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { avatarDisplayUrl } from '@/lib/avatar-display-url';
 
@@ -21,6 +21,7 @@ const CONNECT_PLATFORM_CARDS: { id: string; name: string; slug: string; border: 
   { id: 'TWITTER', name: 'Twitter/X', slug: 'twitter', border: 'border-neutral-300', bg: 'bg-neutral-100/80' },
   { id: 'LINKEDIN', name: 'LinkedIn', slug: 'linkedin', border: 'border-blue-200', bg: 'bg-blue-50/50' },
   { id: 'PINTEREST', name: 'Pinterest', slug: 'pinterest', border: 'border-rose-200', bg: 'bg-rose-50/50' },
+  { id: 'THREADS', name: 'Threads', slug: 'threads', border: 'border-neutral-300', bg: 'bg-neutral-100/80' },
 ];
 
 const CONNECT_GRID_ICON: Record<string, React.ReactNode> = {
@@ -31,6 +32,7 @@ const CONNECT_GRID_ICON: Record<string, React.ReactNode> = {
   TWITTER: <XTwitterIcon size={26} className="text-neutral-800" />,
   LINKEDIN: <LinkedinIcon size={26} />,
   PINTEREST: <PinterestIcon size={26} />,
+  THREADS: <ThreadsIcon size={26} />,
 };
 
 const CONNECT_LABEL_ICON: Record<string, React.ReactNode> = {
@@ -41,6 +43,7 @@ const CONNECT_LABEL_ICON: Record<string, React.ReactNode> = {
   TWITTER: <XTwitterIcon size={14} className="text-neutral-800" />,
   LINKEDIN: <LinkedinIcon size={14} />,
   PINTEREST: <PinterestIcon size={14} />,
+  THREADS: <ThreadsIcon size={14} />,
 };
 
 /**

@@ -5,6 +5,7 @@ import { youtubeAdapter } from './youtube';
 import { genericAdapter } from './generic';
 import { linkedinAdapter } from './linkedin';
 import { twitterAdapter } from './twitter';
+import { threadsAdapter } from './threads';
 
 type AccountRow = {
   id: string;
@@ -36,6 +37,7 @@ const ADAPTERS: Record<string, Adapter> = {
   TWITTER:   twitterAdapter,
   LINKEDIN:  linkedinAdapter,
   PINTEREST: genericAdapter,
+  THREADS:   threadsAdapter,
 };
 
 export function getAdapterForPlatform(platform: string): Adapter | null {

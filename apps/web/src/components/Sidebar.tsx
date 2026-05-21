@@ -84,6 +84,9 @@ function externalProfileUrlForAccount(platform: string, username?: string | null
     case 'PINTEREST':
       if (normalized) return `https://www.pinterest.com/${encodedUsername}/`;
       return 'https://www.pinterest.com/';
+    case 'THREADS':
+      if (normalized) return `https://www.threads.net/@${encodedUsername}`;
+      return 'https://www.threads.net/';
     default:
       return null;
   }
