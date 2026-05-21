@@ -11,6 +11,7 @@ import {
   buildTikTokPhotoPostInfoFromPayload,
   buildTikTokPostInfoFromPayload,
   parseTikTokCreatorInfoResponse,
+  TIKTOK_CREATOR_INFO_FALLBACK,
   type TikTokDirectPostPayload,
 } from '@/lib/tiktok/tiktok-publish-compliance';
 
@@ -172,12 +173,53 @@ async function fetchImageBuffer(
   return { buffer, contentType };
 }
 
+function absolutizeAppMediaUrl(url: string): string {
+  if (!url?.startsWith('http') && url.startsWith('/api/media/')) {
+    const appBase = (process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')).replace(
+      /\/$/,
+      ''
+    );
+    if (appBase) return `${appBase}${url}`;
+  }
+  return url;
+}
+
+/** Poll LinkedIn until uploaded video is AVAILABLE (required before create post). */
+async function waitForLinkedInVideoAvailable(
+  axiosInstance: PublishDeps['axios'],
+  videoUrn: string,
+  token: string,
+  maxWaitMs = 120_000
+): Promise<void> {
+  const encodedUrn = encodeURIComponent(videoUrn);
+  const intervalMs = 3000;
+  let elapsed = 0;
+  while (elapsed < maxWaitMs) {
+    const res = await axiosInstance.get(`https://api.linkedin.com/rest/videos/${encodedUrn}`, {
+      headers: linkedInRestCommunityHeaders(token),
+      validateStatus: () => true,
+    });
+    if (res.status >= 200 && res.status < 300) {
+      const body = res.data as { status?: string; value?: { status?: string } };
+      const status = body?.status ?? body?.value?.status;
+      if (status === 'AVAILABLE') return;
+      if (status === 'FAILED' || status === 'PROCESSING_FAILED') {
+        throw new Error(`LinkedIn video processing failed (${status ?? 'unknown'})`);
+      }
+    }
+    await new Promise((r) => setTimeout(r, intervalMs));
+    elapsed += intervalMs;
+  }
+  throw new Error('LinkedIn video is still processing after upload. Wait a minute and retry from Composer.');
+}
+
 /** Fetch any media (image or video) as buffer; used for video uploads to LinkedIn, TikTok FILE_UPLOAD, and Twitter. */
 async function fetchMediaBuffer(
   url: string,
   fetchFn: typeof globalThis.fetch
 ): Promise<{ buffer: Buffer; contentType: string }> {
-  const res = await fetchFn(url, {
+  const fetchUrl = absolutizeAppMediaUrl(url);
+  const res = await fetchFn(fetchUrl, {
     redirect: 'follow',
     signal: AbortSignal.timeout(300_000),
     headers: { Accept: 'video/*,application/octet-stream,*/*' },
@@ -1049,6 +1091,7 @@ export async function publishTarget(
             const detail = typeof errBody?.message === 'string' ? errBody.message : JSON.stringify(finalizeRes.data ?? {});
             throw new Error(`LinkedIn video finalizeUpload failed (${finalizeRes.status}): ${detail}`);
           }
+          await waitForLinkedInVideoAvailable(axiosInstance, videoUrn, token);
           postBody.content = { media: { id: videoUrn, title: (caption || 'Video').slice(0, 200) } };
         } catch (restVideoErr) {
           // Fallback for apps where /rest/videos is partner-gated: legacy UGC /assets upload.
@@ -1683,14 +1726,19 @@ export async function publishTarget(
         };
       }
 
-      const creatorRes = await axiosInstance.post(
-        `${tiktokBase}/v2/post/publish/creator_info/query/`,
-        {},
-        { headers, timeout: 12_000, validateStatus: () => true }
-      );
-      const parsedCi = parseTikTokCreatorInfoResponse(creatorRes.data);
-      if (!parsedCi.ok) {
-        return { ok: false, error: parsedCi.error.slice(0, 300) };
+      let parsedCi: ReturnType<typeof parseTikTokCreatorInfoResponse>;
+      if (options.tiktokDirectPost?.privacyLevel) {
+        parsedCi = { ok: true, data: TIKTOK_CREATOR_INFO_FALLBACK };
+      } else {
+        const creatorRes = await axiosInstance.post(
+          `${tiktokBase}/v2/post/publish/creator_info/query/`,
+          {},
+          { headers, timeout: 12_000, validateStatus: () => true }
+        );
+        parsedCi = parseTikTokCreatorInfoResponse(creatorRes.data);
+        if (!parsedCi.ok) {
+          return { ok: false, error: parsedCi.error.slice(0, 300) };
+        }
       }
       const creatorPrivacyOptions = parsedCi.data.privacy_level_options ?? [];
 

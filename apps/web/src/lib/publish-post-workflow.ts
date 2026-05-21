@@ -251,11 +251,16 @@ export async function runPublishPostWorkflow(input: {
   function directR2IfOurs(url: string): string | null {
     if (!url?.startsWith('http')) return null;
     const base = process.env.S3_PUBLIC_URL?.trim();
-    if (!base) return null;
+    if (base) {
+      try {
+        const baseOrigin = new URL(base.replace(/\/$/, '')).origin;
+        const urlOrigin = new URL(url).origin;
+        if (urlOrigin === baseOrigin) return url;
+      } catch (_) {}
+    }
     try {
-      const baseOrigin = new URL(base.replace(/\/$/, '')).origin;
-      const urlOrigin = new URL(url).origin;
-      if (urlOrigin === baseOrigin) return url;
+      const host = new URL(url).hostname;
+      if (/\.r2\.dev$/i.test(host) || /cloudflarestorage\.com$/i.test(host)) return url;
     } catch (_) {}
     return null;
   }

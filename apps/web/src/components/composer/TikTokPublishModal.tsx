@@ -10,6 +10,7 @@ import {
   TIKTOK_PRIVACY_LABELS,
 } from '@/lib/tiktok/tiktok-publish-compliance';
 import { X, Loader2 } from 'lucide-react';
+import { avatarDisplayUrl } from '@/lib/avatar-display-url';
 
 export type TikTokModalAccount = { id: string; username?: string | null; profilePicture?: string | null };
 
@@ -125,16 +126,13 @@ export function TikTokPublishModal({
       const res = await Promise.race([
         api.get<{ creator?: TikTokCreatorInfoData; message?: string; blockingCode?: string }>(`/social/accounts/${accountId}/tiktok-creator-info`),
         new Promise<never>((_, reject) => {
-          window.setTimeout(() => reject(new Error('Timed out while loading TikTok account options.')), 15000);
+          window.setTimeout(() => reject(new Error('Timed out while loading TikTok account options.')), 6000);
         }),
       ]);
       const c = res.data?.creator;
       if (!c) {
         if (res.data?.blockingCode) {
-          setCreatorErrorById((prev) => ({
-            ...prev,
-            [accountId]: 'TikTok says this account cannot post right now. Please try again later.',
-          }));
+          applyFallbackCreator(accountId);
           return;
         }
         applyFallbackCreator(accountId);
@@ -193,8 +191,11 @@ export function TikTokPublishModal({
     setCreatorById({});
     setCreatorErrorById({});
     setLoadingCreatorById({});
+    for (const a of accounts) {
+      applyFallbackCreator(a.id);
+    }
     void Promise.all(accounts.map((a) => loadCreator(a.id)));
-  }, [open, accountIdsKey, accounts, defaultCaption, initialByAccountId, loadCreator, captionMax]);
+  }, [open, accountIdsKey, accounts, defaultCaption, initialByAccountId, loadCreator, applyFallbackCreator, captionMax]);
 
   useEffect(() => {
     if (!open || !videoPreviewSrc || isPhotoPost) return;
@@ -233,13 +234,9 @@ export function TikTokPublishModal({
     const out: Record<string, TikTokDirectPostPayload> = {};
     for (const a of accounts) {
       const f = formById[a.id];
-      const ci = creatorById[a.id];
+      const ci = creatorById[a.id] ?? TIKTOK_CREATOR_INFO_FALLBACK;
       if (!f) {
-        setSubmitError('Form not ready. Wait for TikTok options to load.');
-        return;
-      }
-      if (creatorErrorById[a.id] || !ci) {
-        setSubmitError(creatorErrorById[a.id] || 'TikTok account options failed to load. Close, check the connection, and try again.');
+        setSubmitError('Form not ready. Close and open Post to TikTok again.');
         return;
       }
       if (!f.privacyLevel) {
@@ -298,9 +295,11 @@ export function TikTokPublishModal({
   const ci = activeId ? creatorById[activeId] : null;
   const f = activeId ? formById[activeId] : null;
   const activeLoadingCreator = Boolean(activeId && loadingCreatorById[activeId]);
-  const anyLoadingCreator = accounts.some((a) => loadingCreatorById[a.id]);
-  const privacyOptions = ci?.privacy_level_options ?? [];
-  const creatorAvatarUrl = ci?.creator_avatar_url || activeAccount?.profilePicture || undefined;
+  const privacyOptions = ci?.privacy_level_options ?? TIKTOK_CREATOR_INFO_FALLBACK.privacy_level_options ?? [];
+  const creatorAvatarSrc = avatarDisplayUrl(
+    'TIKTOK',
+    ci?.creator_avatar_url || activeAccount?.profilePicture || undefined
+  );
   const commentDisabledUi = Boolean(ci?.comment_disabled);
   const duetDisabledUi = Boolean(ci?.duet_disabled);
   const stitchDisabledUi = Boolean(ci?.stitch_disabled);
@@ -414,16 +413,16 @@ export function TikTokPublishModal({
               </div>
 
               <div className="space-y-4">
-                {activeLoadingCreator && !ci ? (
+                {activeLoadingCreator ? (
                   <div className="flex items-center gap-2 text-xs text-neutral-500">
                     <Loader2 className="animate-spin" size={14} />
-                    <span>Loading TikTok options...</span>
+                    <span>Refreshing TikTok options...</span>
                   </div>
                 ) : null}
                 <div className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0">
-                    {creatorAvatarUrl ? (
-                      <img src={creatorAvatarUrl} alt="" className="h-6 w-6 rounded-full object-cover border border-neutral-200" />
+                    {creatorAvatarSrc ? (
+                      <img src={creatorAvatarSrc} alt="" className="h-6 w-6 rounded-full object-cover border border-neutral-200" />
                     ) : (
                       <div className="h-6 w-6 rounded-full bg-neutral-300" />
                     )}
@@ -461,7 +460,7 @@ export function TikTokPublishModal({
                       updateForm(activeId, { privacyLevel: nextPrivacy });
                     }}
                     className="mt-1 w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
-                    disabled={!ci}
+                    disabled={privacyOptions.length === 0}
                   >
                     <option value="">Choose visibility</option>
                     {privacyOptions.map((opt) => (
@@ -482,7 +481,7 @@ export function TikTokPublishModal({
                       <input
                         type="checkbox"
                         checked={f.allowComment}
-                        disabled={!ci || commentDisabledUi}
+                        disabled={privacyOptions.length === 0 || commentDisabledUi}
                         onChange={(e) => updateForm(activeId, { allowComment: e.target.checked })}
                         className="rounded border-neutral-300 accent-orange-600"
                       />
@@ -494,7 +493,7 @@ export function TikTokPublishModal({
                           <input
                             type="checkbox"
                             checked={f.allowDuet}
-                            disabled={!ci || duetDisabledUi}
+                            disabled={privacyOptions.length === 0 || duetDisabledUi}
                             onChange={(e) => updateForm(activeId, { allowDuet: e.target.checked })}
                             className="rounded border-neutral-300 accent-orange-600"
                           />
@@ -504,7 +503,7 @@ export function TikTokPublishModal({
                           <input
                             type="checkbox"
                             checked={f.allowStitch}
-                            disabled={!ci || stitchDisabledUi}
+                            disabled={privacyOptions.length === 0 || stitchDisabledUi}
                             onChange={(e) => updateForm(activeId, { allowStitch: e.target.checked })}
                             className="rounded border-neutral-300 accent-orange-600"
                           />
@@ -628,8 +627,7 @@ export function TikTokPublishModal({
               type="button"
               onClick={handleConfirm}
               disabled={
-                anyLoadingCreator ||
-                Boolean(activeId && creatorErrorById[activeId] && !creatorById[activeId]) ||
+                !f?.privacyLevel ||
                 Boolean(activeId && disclosureNeedsSelection)
               }
               className="px-6 py-2.5 text-sm font-semibold rounded-full text-white shadow-md transition-all active:scale-[0.98] gradient-cta-pro disabled:opacity-50 disabled:shadow-none"
