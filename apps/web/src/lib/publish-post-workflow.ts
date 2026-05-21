@@ -202,7 +202,14 @@ export async function reconcileMisreportedPublishTargets(postId: string): Promis
   });
   for (const row of rows) {
     const err = row.error ?? '';
-    const isStillProcessingFailed = row.status === PostStatus.FAILED && /still processing/i.test(err);
+    // Match any FAILED target that timed out or didn't finish (publish_id stored means TikTok accepted the upload)
+    const isStillProcessingFailed =
+      row.status === PostStatus.FAILED &&
+      (/still processing/i.test(err) ||
+        /did not finish/i.test(err) ||
+        /timed out/i.test(err) ||
+        /publish_id:/i.test(err) ||
+        !!row.platformPostId?.trim());
     const isStuckPosting = row.status === PostStatus.POSTING;
     if (!isStillProcessingFailed && !isStuckPosting) continue;
     let publishId = row.platformPostId?.trim();
@@ -843,7 +850,12 @@ export async function runPublishPostWorkflow(input: {
     await withPrismaPoolRetry('publish-target-failed', () =>
       prisma.postTarget.updateMany({
         where: { id: target.id, status: { not: PostStatus.POSTED } },
-        data: { status: PostStatus.FAILED, error: result.error?.slice(0, 500) },
+        data: {
+          status: PostStatus.FAILED,
+          error: result.error?.slice(0, 500),
+          // Save publish_id on TikTok timeout so reconciler can query TikTok status later.
+          ...(result.platformPostId ? { platformPostId: result.platformPostId } : {}),
+        },
       })
     );
     if (isDebug && debugInfo?.fullErrors && result.error) {

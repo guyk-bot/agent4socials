@@ -361,6 +361,35 @@ export default function PostsPage() {
         [posts]
     );
 
+    // One-shot reconciliation for recently-failed TikTok posts that timed out but may have
+    // actually published. Runs once when the post list loads. Quietly updates any that TikTok
+    // reports as PUBLISH_COMPLETE.
+    const reconciledOnceRef = React.useRef(false);
+    useEffect(() => {
+        if (reconciledOnceRef.current || posts.length === 0) return;
+        const TWO_HOURS = 2 * 60 * 60 * 1000;
+        const now = Date.now();
+        const staleFailedTikTok = posts.filter((p) => {
+            if (typeof p?.id !== 'string' || p.id.startsWith('pending-')) return false;
+            const targets = (p as { targets?: Array<{ platform?: string; status?: string; error?: string; updatedAt?: string }> }).targets ?? [];
+            return targets.some(
+                (t) =>
+                    t.platform === 'TIKTOK' &&
+                    t.status === 'FAILED' &&
+                    (t.error?.includes('publish_id:') || t.error?.includes('did not finish') || t.error?.includes('timed out')) &&
+                    (!t.updatedAt || now - new Date(t.updatedAt).getTime() < TWO_HOURS)
+            );
+        });
+        if (staleFailedTikTok.length === 0) return;
+        reconciledOnceRef.current = true;
+        for (const p of staleFailedTikTok) {
+            api
+                .post<{ post?: PostHistoryRow }>(`/posts/${p.id}/finalize-publish-status`, {}, { timeout: 20_000 })
+                .then((r) => { if (r.data?.post) applyHistoryPost(r.data.post); })
+                .catch(() => {/* ignore */});
+        }
+    }, [posts.length > 0 ? 'loaded' : 'empty', applyHistoryPost]);
+
     useEffect(() => {
         if (pathname !== '/posts' || publishingPostIds.length === 0) return;
         let cancelled = false;

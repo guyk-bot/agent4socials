@@ -1923,6 +1923,7 @@ export async function publishTarget(
           }
           return {
             ok: false,
+            platformPostId: publishId,
             error: `TikTok photo did not finish (publish_id: ${publishId}). Check your profile or retry.`,
           };
         }
@@ -2093,6 +2094,7 @@ export async function publishTarget(
         }
         return {
           ok: false,
+          platformPostId: publishId,
           error: `TikTok publish did not finish (publish_id: ${publishId}). Check History and your TikTok profile, or retry.`,
         };
       }
