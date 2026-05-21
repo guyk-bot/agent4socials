@@ -2090,10 +2090,7 @@ function InboxPage() {
     }
 
     if (cachedComments.length > 0) applyCommentsToUi(cachedComments);
-    else setCommentsLoading(true);
-
     if (cachedConvs.length > 0) applyConversationsToUi(cachedConvs);
-    else setConversationsLoading(true);
   }, [pathname, user?.id, applyCommentsToUi, applyConversationsToUi]);
 
   const refreshInboxFromServerRef = useRef(refreshInboxFromServer);
