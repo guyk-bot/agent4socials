@@ -209,3 +209,25 @@ export function isTikTokDirectPostPayload(v: unknown): v is TikTokDirectPostPayl
     typeof o.title === 'string'
   );
 }
+
+/** After disconnect/reconnect, TikTok settings may still be keyed by the old SocialAccount id. */
+export function remapTikTokPublishPayloadForTargets(
+  merged: Record<string, unknown>,
+  tiktokAccountIds: string[]
+): Record<string, unknown> {
+  const allowed = new Set(tiktokAccountIds);
+  const validOnTarget = Object.entries(merged).filter(
+    ([id, v]) => allowed.has(id) && isTikTokDirectPostPayload(v)
+  );
+  const orphaned = Object.entries(merged).filter(
+    ([id, v]) => !allowed.has(id) && isTikTokDirectPostPayload(v)
+  );
+  const next = { ...merged };
+  for (const [oldId] of orphaned) {
+    delete next[oldId];
+  }
+  if (tiktokAccountIds.length === 1 && validOnTarget.length === 0 && orphaned.length === 1) {
+    next[tiktokAccountIds[0]] = orphaned[0][1];
+  }
+  return next;
+}

@@ -20,9 +20,36 @@ function readAccountsFromStorage(): CachedAccount[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY) || sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? parsed : [];
+    const stored: unknown = raw ? JSON.parse(raw) : [];
+    const result: CachedAccount[] = Array.isArray(stored) ? stored : [];
+
+    // When the OAuth callback redirects with ?connecting=1, it also embeds the
+    // new account's platform/username/picture so the sidebar can render it
+    // immediately on first paint — no API round-trip needed.
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const accountId = params.get('accountId');
+      const connecting = params.get('connecting');
+      const newPlatform = params.get('newPlatform');
+      if (connecting === '1' && accountId && newPlatform) {
+        const newUsername = params.get('newUsername') ?? newPlatform;
+        const newPic = params.get('newPic') ?? null;
+        const idx = result.findIndex((a) => a.id === accountId);
+        if (idx === -1) {
+          // New account not in localStorage yet — inject it so the sidebar shows it right away
+          return [...result, { id: accountId, platform: newPlatform, username: newUsername, profilePicture: newPic }];
+        } else {
+          // Reconnecting — refresh cached metadata from redirect params
+          const updated = [...result];
+          updated[idx] = { ...updated[idx], username: newUsername, profilePicture: newPic };
+          return updated;
+        }
+      }
+    } catch {
+      // ignore URL parse errors
+    }
+
+    return result;
   } catch {
     return [];
   }

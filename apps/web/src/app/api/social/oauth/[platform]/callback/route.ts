@@ -15,6 +15,20 @@ export const maxDuration = 60;
 
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'PINTEREST'] as const;
 
+/**
+ * Build URL params for the post-OAuth redirect so the client can pre-populate
+ * the sidebar immediately without waiting for the accounts API fetch.
+ */
+function buildConnectParams(platform: string, username: string | null | undefined, profilePicture: string | null): string {
+  let params = `&newPlatform=${encodeURIComponent(platform)}`;
+  if (username) params += `&newUsername=${encodeURIComponent(username)}`;
+  // Only include picture if URL is reasonably short (avoids hitting URL length limits)
+  if (profilePicture && profilePicture.length < 600) {
+    params += `&newPic=${encodeURIComponent(profilePicture)}`;
+  }
+  return params;
+}
+
 const OAUTH_HEAD = '<meta charset="utf-8"><meta name="robots" content="noindex, nofollow">';
 
 function oauthErrorHtml(baseUrl: string, message: string, status: number): NextResponse {
@@ -753,8 +767,11 @@ export async function GET(
           try { await ensureBootstrapSnapshotForToday(igAccount); } catch (_) {}
         }
         scheduleInboxWarmForUser(userId);
+        const fbUsername = firstPage.name ?? 'Facebook Page';
+        const fbPic = firstPage.picture ?? null;
+        const fbConnectParams = buildConnectParams('FACEBOOK', fbUsername, fbPic);
         const dashboardUrl = fbAccount?.id
-          ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(fbAccount.id)}&connecting=1`
+          ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(fbAccount.id)}&connecting=1${fbConnectParams}`
           : `${baseUrl}/dashboard`;
         return NextResponse.redirect(dashboardUrl);
       } catch (e) {
@@ -867,8 +884,11 @@ export async function GET(
         }) : null;
         if (igAccountForBootstrap) { try { await ensureBootstrapSnapshotForToday(igAccountForBootstrap); } catch (_) {} }
       scheduleInboxWarmForUser(userId);
+      const fbFallbackUsername = firstPage.name ?? 'Facebook Page';
+      const fbFallbackPic = firstPage.picture ?? null;
+      const fbFallbackParams = buildConnectParams('FACEBOOK', fbFallbackUsername, fbFallbackPic);
       const dashboardUrl = fbAccount?.id
-        ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(fbAccount.id)}&connecting=1`
+        ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(fbAccount.id)}&connecting=1${fbFallbackParams}`
         : `${baseUrl}/dashboard`;
       return NextResponse.redirect(dashboardUrl);
       } catch (fallbackErr) {
@@ -982,8 +1002,9 @@ export async function GET(
       });
       if (igAccount) { try { await ensureBootstrapSnapshotForToday(igAccount); } catch (_) {} }
       scheduleInboxWarmForUser(userId);
+      const igConnectParams = buildConnectParams('INSTAGRAM', first.username ?? 'Instagram', first.profilePicture ?? null);
       const dashboardUrl = igAccount?.id
-        ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(igAccount.id)}&connecting=1`
+        ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(igAccount.id)}&connecting=1${igConnectParams}`
         : `${baseUrl}/dashboard`;
       return NextResponse.redirect(dashboardUrl);
     } catch (autoConnectErr) {
@@ -1232,8 +1253,9 @@ export async function GET(
   if (plat === 'INSTAGRAM' || plat === 'FACEBOOK') {
     scheduleInboxWarmForUser(userId);
   }
+  const genericConnectParams = buildConnectParams(plat, tokenData.username, tokenData.profilePicture ?? null);
   const successRedirectUrl = mainAccount?.id
-    ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(mainAccount.id)}&connecting=1${extraQuery}`
+    ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(mainAccount.id)}&connecting=1${extraQuery}${genericConnectParams}`
     : `${baseUrl}/dashboard`;
   return NextResponse.redirect(successRedirectUrl);
 }

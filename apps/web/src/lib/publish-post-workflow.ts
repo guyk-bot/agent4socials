@@ -11,6 +11,7 @@ import { publishTarget } from '@/lib/publish-target';
 import {
   buildDefaultTikTokDirectPostPayload,
   isTikTokDirectPostPayload,
+  remapTikTokPublishPayloadForTargets,
   type TikTokDirectPostPayload,
 } from '@/lib/tiktok/tiktok-publish-compliance';
 import { createMediaServeToken } from '@/lib/media-serve-token';
@@ -74,18 +75,21 @@ export async function preparePostForBackgroundPublish(
         content: true,
         title: true,
         tiktokPublishByAccountId: true,
-        targets: { select: { id: true, socialAccountId: true, platform: true } },
+        targets: { select: { id: true, socialAccountId: true, platform: true, status: true } },
       },
     });
     if (!post) {
       return { ok: false, message: 'Post not found', status: 404 };
     }
-    if (
-      post.status !== PostStatus.DRAFT &&
-      post.status !== PostStatus.SCHEDULED &&
-      post.status !== PostStatus.POSTING
-    ) {
-      return { ok: false, message: 'Post already published', status: 400 };
+    const hasFailedTargets = post.targets.some((t) => t.status === PostStatus.FAILED);
+    const canRetryPublish =
+      post.status === PostStatus.DRAFT ||
+      post.status === PostStatus.SCHEDULED ||
+      post.status === PostStatus.POSTING ||
+      post.status === PostStatus.FAILED ||
+      (post.status === PostStatus.POSTED && hasFailedTargets);
+    if (!canRetryPublish) {
+      return { ok: false, message: 'This post cannot be republished. Open it from History or create a new post.', status: 400 };
     }
 
     const stored =
