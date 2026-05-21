@@ -2006,22 +2006,42 @@ function InboxPage() {
           const metaAccounts = accs.filter(
             (a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK'
           );
+          let mergedConvRows = [...convRows];
           for (const acc of metaAccounts) {
             try {
-              await Promise.all([
-                api.get(`/social/accounts/${acc.id}/conversations?fullEnrich=1&fresh=1`, { timeout: 120_000 }),
+              const [convRes] = await Promise.all([
+                api.get<{ conversations?: Conversation[] }>(
+                  `/social/accounts/${acc.id}/conversations?fullEnrich=1&fresh=1`,
+                  { timeout: 120_000 }
+                ),
                 api.get(`/social/accounts/${acc.id}/comments?refresh=1`, { timeout: 120_000 }),
               ]);
+              const enriched = convRes.data?.conversations ?? [];
+              if (enriched.length > 0) {
+                appDataRef.current?.setConversationsForAccount(acc.id, enriched);
+                const byId = new Map(mergedConvRows.map((c) => [c.id, c]));
+                for (const c of enriched) {
+                  byId.set(c.id, {
+                    ...c,
+                    platform: acc.platform,
+                    messageAccountId: acc.id,
+                  });
+                }
+                mergedConvRows = [...byId.values()];
+              }
             } catch {
               /* keep bootstrap data */
             }
           }
+          if (mergedConvRows.length > 0) {
+            applyConversationsToUiRef.current(mergedConvRows);
+          } else {
+            setConversationsLoading(false);
+          }
           const boot2 = await api.get<{
             commentsByAccountId?: Record<string, PostComment[]>;
-            conversationsByAccountId?: Record<string, Conversation[]>;
           }>('/inbox/bootstrap', { timeout: 60_000 });
           const commentRows2: PostComment[] = [];
-          const convRows2: Array<Conversation & { platform: string; messageAccountId: string }> = [];
           for (const acc of accs) {
             const cs = boot2.data?.commentsByAccountId?.[acc.id] ?? [];
             commentRows2.push(
@@ -2031,10 +2051,6 @@ function InboxPage() {
                 platform: c.platform ?? acc.platform,
               }))
             );
-            const cv = boot2.data?.conversationsByAccountId?.[acc.id] ?? [];
-            for (const c of cv) {
-              convRows2.push({ ...c, platform: acc.platform, messageAccountId: acc.id });
-            }
           }
           if (commentRows2.length > 0) {
             applyCommentsToUiRef.current(commentRows2);
@@ -2044,15 +2060,6 @@ function InboxPage() {
             }
           } else {
             setCommentsLoading(false);
-          }
-          if (convRows2.length > 0) {
-            applyConversationsToUiRef.current(convRows2);
-            for (const acc of accs) {
-              const list = boot2.data?.conversationsByAccountId?.[acc.id];
-              if (list?.length) appDataRef.current?.setConversationsForAccount(acc.id, list);
-            }
-          } else {
-            setConversationsLoading(false);
           }
         }
       } finally {

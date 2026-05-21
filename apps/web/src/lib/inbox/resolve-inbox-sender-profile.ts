@@ -147,13 +147,16 @@ export async function resolveInstagramInboxSenderProfile(args: {
   isInstagramBusinessLogin: boolean;
   conversationId?: string;
   username?: string;
+  /** Inbox open: always resolve names/avatars (ignore Meta usage throttle). */
+  forceEnrich?: boolean;
 }): Promise<InboxSenderProfile | null> {
   const { userId, senderId, accessToken, isInstagramBusinessLogin, conversationId, username } = args;
+  const forceEnrich = args.forceEnrich === true;
   if (!senderId || !accessToken) return null;
 
   const cached = await readInboxProfileCache('instagram', senderId);
   if (cached && (cached.pictureUrl || cached.name || cached.username)) return cached;
-  if (!shouldAllowMetaInboxProfileEnrichment()) return cached ?? null;
+  if (!forceEnrich && !shouldAllowMetaInboxProfileEnrichment()) return cached ?? null;
   if (!isLikelyMetaScopedUserId(senderId)) return cached ?? null;
 
   const pageToken = await resolveFacebookPageTokenForUser(userId);
@@ -231,6 +234,7 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
   ourIds?: Set<string>;
   ourUsernames?: Set<string>;
   maxConversations?: number;
+  forceEnrich?: boolean;
 }): Promise<InboxConversationListItem[]> {
   const {
     userId,
@@ -240,9 +244,10 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
     ourIds = new Set<string>(),
     ourUsernames = new Set<string>(),
     maxConversations = 4,
+    forceEnrich = false,
   } = args;
 
-  if (!shouldAllowMetaInboxProfileEnrichment()) return list;
+  if (!forceEnrich && !shouldAllowMetaInboxProfileEnrichment()) return list;
 
   const pageToken = await resolveFacebookPageTokenForUser(userId);
   const token = pageToken ?? accessToken;
@@ -407,6 +412,7 @@ export async function enrichInboxSendersFromLatestMessages(args: {
   isInstagramBusinessLogin: boolean;
   pageToken?: string | null;
   maxConversations?: number;
+  forceEnrich?: boolean;
 }): Promise<InboxConversationListItem[]> {
   const {
     platform,
@@ -416,8 +422,9 @@ export async function enrichInboxSendersFromLatestMessages(args: {
     isInstagramBusinessLogin,
     pageToken,
     maxConversations = 3,
+    forceEnrich = false,
   } = args;
-  if (!shouldAllowMetaInboxProfileEnrichment()) return list;
+  if (!forceEnrich && !shouldAllowMetaInboxProfileEnrichment()) return list;
   const token = pageToken ?? accessToken;
   if (!token) return list;
 

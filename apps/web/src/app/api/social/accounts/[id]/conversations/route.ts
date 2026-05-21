@@ -824,14 +824,22 @@ export async function GET(
       )) as typeof list;
     }
 
+    const senderNeedsProfile = (s: { name?: string; username?: string; pictureUrl?: string | null }) =>
+      !s.pictureUrl || (!(s.name?.trim()) && !(s.username?.trim()));
+    const convsNeedingProfile = list.filter((c) => c.senders.some(senderNeedsProfile));
+
     const reduceFanOut = fullEnrich ? false : shouldReduceMetaProfileFanOut();
     const allowProfileEnrich =
       fullEnrich || shouldAllowMetaInboxProfileEnrichment();
     const allowMinimalLive =
       !fullEnrich && badgePoll && minimalEnrich && shouldAllowMinimalProfileEnrichment();
-    const igEnrichMax = fullEnrich ? 12 : reduceFanOut ? 2 : 4;
+    const igEnrichMax = fullEnrich
+      ? Math.min(convsNeedingProfile.length, 50)
+      : reduceFanOut
+        ? 2
+        : 4;
     if (fullEnrich) {
-      setIgScopedProfileCallBudgetForRequest(10);
+      setIgScopedProfileCallBudgetForRequest(25);
     } else {
       resetIgScopedProfileCallBudget();
     }
@@ -856,6 +864,7 @@ export async function GET(
         ourIds,
         ourUsernames,
         maxConversations: igEnrichMax,
+        forceEnrich: fullEnrich,
       })) as typeof list;
     }
 
@@ -864,7 +873,11 @@ export async function GET(
       allowProfileEnrich &&
       (fullEnrich || (!badgePoll && !shouldBlockMetaNonEssentialCalls()))
     ) {
-      const latestMsgMax = reduceFanOut ? 1 : 3;
+      const latestMsgMax = fullEnrich
+        ? Math.min(convsNeedingProfile.length, 40)
+        : reduceFanOut
+          ? 1
+          : 3;
       if (isInstagram) {
         list = (await enrichInboxSendersFromLatestMessages({
           platform: 'instagram',
@@ -873,6 +886,7 @@ export async function GET(
           accessToken: isInstagramBusinessLogin ? igUserToken! : activeToken,
           isInstagramBusinessLogin,
           maxConversations: latestMsgMax,
+          forceEnrich: fullEnrich,
         })) as typeof list;
       } else {
         list = (await enrichInboxSendersFromLatestMessages({
@@ -882,6 +896,7 @@ export async function GET(
           accessToken: token,
           isInstagramBusinessLogin: false,
           maxConversations: latestMsgMax,
+          forceEnrich: fullEnrich,
         })) as typeof list;
       }
     }
@@ -904,8 +919,8 @@ export async function GET(
       }
     }
     const skipProfileEnrich =
-      shouldSkipMetaProfileEnrichment() ||
-      (!allowProfileEnrich && !allowMinimalLive);
+      !fullEnrich &&
+      (shouldSkipMetaProfileEnrichment() || (!allowProfileEnrich && !allowMinimalLive));
     if (idsToEnrich.size > 0) {
       try {
         const profiles = new Map<
@@ -919,7 +934,13 @@ export async function GET(
             if (cached) profiles.set(enrichId, cached);
           }
         } else if (isInstagram) {
-          const enrichCap = fullEnrich ? 12 : allowMinimalLive ? 2 : reduceFanOut ? 3 : 6;
+          const enrichCap = fullEnrich
+            ? Math.min(idsToEnrich.size, 50)
+            : allowMinimalLive
+              ? 2
+              : reduceFanOut
+                ? 3
+                : 6;
           const enrichIds = Array.from(idsToEnrich).slice(0, enrichCap);
           const enrichIdSet = new Set(enrichIds);
           const convBySender = new Map<string, string>();
@@ -930,7 +951,6 @@ export async function GET(
               }
             }
           }
-          const maxLiveProfileLookups = fullEnrich ? 8 : allowMinimalLive ? 2 : reduceFanOut ? 1 : 2;
           // Check cache for all IDs first (parallel), then fire live lookups in parallel
           // for any still missing a display name.
           const cacheResults = await Promise.all(
@@ -947,6 +967,13 @@ export async function GET(
               needsLive.push(id);
             }
           }
+          const maxLiveProfileLookups = fullEnrich
+            ? Math.min(needsLive.length, 25)
+            : allowMinimalLive
+              ? 2
+              : reduceFanOut
+                ? 1
+                : 2;
           const liveToFetch = needsLive.slice(0, maxLiveProfileLookups);
           await Promise.all(
             liveToFetch.map(async (enrichId) => {
@@ -962,6 +989,7 @@ export async function GET(
                   isInstagramBusinessLogin,
                   conversationId: convBySender.get(enrichId),
                   username: senderRow?.username,
+                  forceEnrich: fullEnrich,
                 });
                 if (profile) profiles.set(enrichId, profile);
               } catch {
@@ -1143,7 +1171,11 @@ export async function GET(
     }
 
     if (list.length > 0) {
-      void setInboxConversationListInDb(account.id, list as InboxConversationListItem[]);
+      if (fullEnrich) {
+        await setInboxConversationListInDb(account.id, list as InboxConversationListItem[]);
+      } else {
+        void setInboxConversationListInDb(account.id, list as InboxConversationListItem[]);
+      }
     }
 
     return NextResponse.json({
