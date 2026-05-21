@@ -253,6 +253,25 @@ export default function PostsPage() {
                 applyHistoryList(list);
                 appDataRef.current?.setScheduledPosts?.(list as never);
                 setLoadError(null);
+                const needsTikTokSync = list.filter((p) => {
+                    const targets = Array.isArray(p.targets) ? p.targets : [];
+                    return targets.some((t) => {
+                        const row = t as { platform?: string; status?: string; error?: string | null };
+                        return (
+                            String(row.platform ?? '').toUpperCase() === 'TIKTOK' &&
+                            row.status === 'FAILED' &&
+                            /still processing/i.test(String(row.error ?? ''))
+                        );
+                    });
+                });
+                for (const p of needsTikTokSync.slice(0, 10)) {
+                    void api
+                        .post<{ post?: PostHistoryRow }>(`/posts/${p.id}/finalize-publish-status`, {}, { timeout: 25_000 })
+                        .then((syncRes) => {
+                            if (syncRes.data?.post?.id) applyHistoryPost(syncRes.data.post);
+                        })
+                        .catch(() => undefined);
+                }
             } catch (err) {
                 if (cancelled) return;
                 console.error('Failed to fetch posts', err);
@@ -292,6 +311,12 @@ export default function PostsPage() {
     useEffect(() => {
         if (pathname !== '/posts' || !highlightId) return;
         let cancelled = false;
+        void api
+            .post<{ post?: PostHistoryRow }>(`/posts/${highlightId}/finalize-publish-status`, {}, { timeout: 25_000 })
+            .then((syncRes) => {
+                if (!cancelled && syncRes.data?.post?.id) applyHistoryPost(syncRes.data.post);
+            })
+            .catch(() => undefined);
         api.get<PostHistoryRow>(`/posts/${highlightId}`, { timeout: 20_000 })
             .then((r) => {
                 if (!cancelled && r.data && typeof r.data === 'object' && r.data.id) {

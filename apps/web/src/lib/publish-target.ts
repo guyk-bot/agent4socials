@@ -874,12 +874,12 @@ export async function publishTarget(
           ? options.linkedInAuthorUrn
           : platformUserId.startsWith('urn:li:')
             ? platformUserId
-            : `urn:li:person:${platformUserId}`;
+            : '';
       if (!author.startsWith('urn:li:')) {
         return {
           ok: false,
           error:
-            'LinkedIn author could not be resolved. Disconnect and reconnect LinkedIn from Accounts (Share on LinkedIn / w_member_social required for posting).',
+            'LinkedIn author URN missing. Reconnect LinkedIn from Accounts and ensure Vercel has LINKEDIN_INCLUDE_W_MEMBER_SOCIAL=true.',
         };
       }
       let postBody: {
@@ -1026,8 +1026,17 @@ export async function publishTarget(
         }
       } else if (firstMediaUrl) {
         // Video upload: initialize -> PUT parts -> finalize -> create post with video URN
-        const { buffer } = await fetchMediaBuffer(firstMediaUrl, fetchFn);
+        let buffer: Buffer;
+        try {
+          const fetched = await fetchMediaBuffer(firstMediaUrl, fetchFn);
+          buffer = fetched.buffer;
+        } catch (fetchErr) {
+          const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+          console.error('[LinkedIn publish] media fetch failed', { mediaUrl: firstMediaUrl.slice(0, 120), msg });
+          return { ok: false, error: `LinkedIn: could not load video (${msg}).`.slice(0, 300) };
+        }
         const fileSizeBytes = buffer.length;
+        console.log('[LinkedIn publish] video upload', { author, fileSizeBytes, apiVersion: linkedInRestCommunityHeaders(token)['LinkedIn-Version'] });
         try {
           const initRes = await axiosInstance.post(
             'https://api.linkedin.com/rest/videos?action=initializeUpload',
@@ -1120,8 +1129,14 @@ export async function publishTarget(
                   'X-Restli-Protocol-Version': '2.0.0',
                   'Content-Type': 'application/json',
                 },
+                validateStatus: () => true,
               }
             );
+            if (registerRes.status < 200 || registerRes.status >= 300) {
+              throw new Error(
+                `LinkedIn legacy registerUpload failed (${registerRes.status}): ${JSON.stringify(registerRes.data ?? {}).slice(0, 200)}`
+              );
+            }
             const regVal = (registerRes.data as {
               value?: {
                 asset?: string;

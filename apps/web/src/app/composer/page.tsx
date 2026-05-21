@@ -1088,7 +1088,6 @@ export default function ComposerPage() {
     // Load post for editing when ?edit=id is present
     const [editLoaded, setEditLoaded] = useState(false);
     const [editPostAlreadyPosted, setEditPostAlreadyPosted] = useState(false);
-    const [editRetryHint, setEditRetryHint] = useState<string | null>(null);
     useEffect(() => {
         if (!editPostId || editLoaded) return;
         let cancelled = false;
@@ -1136,15 +1135,6 @@ export default function ComposerPage() {
                     ),
                 ];
                 setPlatforms(plats);
-                if (p.status === 'FAILED' && plats.length > 1) {
-                    setEditRetryHint(
-                        'Only failed platforms are selected. Uncheck any platform you do not want to publish to (for example TikTok if it already posted).'
-                    );
-                } else if (p.status === 'FAILED') {
-                    setEditRetryHint('Retrying failed platforms only. Add or remove platforms before you publish.');
-                } else {
-                    setEditRetryHint(null);
-                }
                 void api.post(`/posts/${editPostId}/finalize-publish-status`, {}, { timeout: 20_000 }).catch(() => undefined);
                 const cp = p.contentByPlatform && typeof p.contentByPlatform === 'object' ? p.contentByPlatform : {};
                 const hasPerPlatform = Object.keys(cp).some((k) => (cp[k] ?? '').trim());
@@ -3207,11 +3197,6 @@ export default function ComposerPage() {
                                 );
                             })}
                         </div>
-                        {editRetryHint ? (
-                            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
-                                {editRetryHint}
-                            </p>
-                        ) : null}
                         {selectablePlatforms.length === 0 && (
                             <p className="pt-3 text-sm text-amber-700 dark:text-amber-400">
                                 {mediaType === 'story'

@@ -669,12 +669,42 @@ export async function runPublishPostWorkflow(input: {
               ) {
                 return creds.linkedinRestPersonUrn;
               }
-              const { personUrn } = await fetchLinkedInRestPersonUrn(token);
-              return personUrn ?? undefined;
+              const { personUrn, status } = await fetchLinkedInRestPersonUrn(token);
+              if (personUrn) {
+                const prev =
+                  creds && typeof creds === 'object'
+                    ? { ...(creds as Record<string, unknown>) }
+                    : {};
+                void prisma.socialAccount
+                  .update({
+                    where: { id: socialAccount.id },
+                    data: {
+                      credentialsJson: { ...prev, linkedinRestPersonUrn: personUrn } as Prisma.InputJsonValue,
+                    },
+                  })
+                  .catch(() => undefined);
+                return personUrn;
+              }
+              if (platformUserId.startsWith('urn:li:')) return platformUserId;
+              console.error('[LinkedIn publish] could not resolve author URN', {
+                postId,
+                accountId: socialAccount.id,
+                restMeStatus: status,
+                platformUserId: platformUserId.slice(0, 80),
+              });
+              return undefined;
             })(),
           }
         : {}),
     };
+    if (platform === 'LINKEDIN') {
+      console.log('[LinkedIn publish] start', {
+        postId,
+        accountId: socialAccount.id,
+        authorUrn: publishOpts.linkedInAuthorUrn,
+        videoUrl: firstMediaUrl?.slice(0, 120),
+      });
+    }
     const publishDeps = { fetch, axios };
     const targetTimeoutLabel = `${platform} publish timed out after ${publishTargetTimeoutMs(platform) / 1000}s`;
     let result = await promiseWithTimeout(
@@ -759,6 +789,9 @@ export async function runPublishPostWorkflow(input: {
     }
     if (platform === 'TIKTOK') {
       console.error('[TikTok publish failed]', { postId, error: result.error });
+    }
+    if (platform === 'LINKEDIN' && !result.ok) {
+      console.error('[LinkedIn publish failed]', { postId, accountId: socialAccount.id, error: result.error });
     }
     // Do not overwrite POSTED: overlapping publishes (double submit / retry) can succeed on
     // the platform first, then a slower duplicate attempt returns an error and would wrongly
