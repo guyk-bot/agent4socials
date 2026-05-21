@@ -14,6 +14,7 @@ import {
   TIKTOK_CREATOR_INFO_FALLBACK,
   type TikTokDirectPostPayload,
 } from '@/lib/tiktok/tiktok-publish-compliance';
+import { resolveDirectPublishMediaUrl } from '@/lib/publish-media-fetch';
 
 const graphVideoFacebook = `https://graph-video.facebook.com/${META_GRAPH_FACEBOOK_API_VERSION}`;
 
@@ -142,16 +143,26 @@ async function putTikTokResumableChunks(
     const off = i * chunkSize;
     const end = i < totalChunkCount - 1 ? off + chunkSize : videoSize;
     const chunk = buffer.subarray(off, end);
-    const putRes = await fetchFn(uploadUrl, {
-      method: 'PUT',
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      body: chunk as any,
-      headers: { 'Content-Type': mimeType, 'Content-Range': `bytes ${off}-${end - 1}/${videoSize}` },
-      signal: AbortSignal.timeout(120_000),
-    });
-    if (putRes.status !== 200 && putRes.status !== 201 && putRes.status !== 206) {
+    const byteLen = chunk.length;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const putRes = await fetchFn(uploadUrl, {
+        method: 'PUT',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        body: chunk as any,
+        headers: {
+          'Content-Type': mimeType,
+          'Content-Length': String(byteLen),
+          'Content-Range': `bytes ${off}-${end - 1}/${videoSize}`,
+        },
+        signal: AbortSignal.timeout(180_000),
+      });
+      if (putRes.status === 200 || putRes.status === 201 || putRes.status === 206) break;
+      if (putRes.status >= 500 && attempt < 2) {
+        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+        continue;
+      }
       const errText = await putRes.text().catch(() => `status ${putRes.status}`);
-      throw new Error(`TikTok upload: ${putRes.status} ${errText}`.slice(0, 300));
+      throw new Error(`TikTok upload chunk ${i + 1}/${totalChunkCount}: ${putRes.status} ${errText}`.slice(0, 350));
     }
   }
 }
@@ -218,7 +229,7 @@ async function fetchMediaBuffer(
   url: string,
   fetchFn: typeof globalThis.fetch
 ): Promise<{ buffer: Buffer; contentType: string }> {
-  const fetchUrl = absolutizeAppMediaUrl(url);
+  const fetchUrl = resolveDirectPublishMediaUrl(absolutizeAppMediaUrl(url));
   const res = await fetchFn(fetchUrl, {
     redirect: 'follow',
     signal: AbortSignal.timeout(300_000),
@@ -873,6 +884,13 @@ export async function publishTarget(
           : platformUserId.startsWith('urn:li:')
             ? platformUserId
             : `urn:li:person:${platformUserId}`;
+      if (!author.startsWith('urn:li:')) {
+        return {
+          ok: false,
+          error:
+            'LinkedIn author could not be resolved. Disconnect and reconnect LinkedIn from Accounts (Share on LinkedIn / w_member_social required for posting).',
+        };
+      }
       let postBody: {
         author: string;
         commentary: string;
@@ -1056,14 +1074,14 @@ export async function publishTarget(
             const putRes = await axiosInstance.put(part.uploadUrl, chunk, {
               headers: {
                 'Content-Type': 'application/octet-stream',
-                Authorization: `Bearer ${token}`,
+                'Content-Length': chunk.length,
               },
               maxBodyLength: Infinity,
               maxContentLength: Infinity,
               validateStatus: () => true,
             });
             const etag = (putRes.headers as Record<string, string>)?.['etag'] ?? (putRes.headers as Record<string, string>)?.['ETag'];
-            const partId = typeof etag === 'string' ? etag.replace(/^"|"$/g, '') : undefined;
+            const partId = typeof etag === 'string' ? etag.replace(/^"|"$/g, '').trim() : undefined;
             if (putRes.status < 200 || putRes.status >= 300) {
               throw new Error(`LinkedIn video part upload failed: ${putRes.status}`);
             }
@@ -1128,8 +1146,8 @@ export async function publishTarget(
             }
             const upRes = await axiosInstance.put(uploadUrl, buffer, {
               headers: {
-                Authorization: `Bearer ${token}`,
                 'Content-Type': 'application/octet-stream',
+                'Content-Length': buffer.length,
               },
               maxBodyLength: Infinity,
               maxContentLength: Infinity,
@@ -1905,10 +1923,14 @@ export async function publishTarget(
         let fileInitBody = fileInitRes.data ?? {};
         let fileInitErr = fileInitBody.error;
 
-        if (fileInitErr?.code === 'unaudited_client_can_only_post_to_private_accounts' && tikTokPostInfoSelfOnly) {
-          console.log('[TikTok] FILE_UPLOAD: retrying with SELF_ONLY');
+        if (fileInitErr?.code === 'unaudited_client_can_only_post_to_private_accounts') {
+          console.log('[TikTok] FILE_UPLOAD: retrying with SELF_ONLY (unaudited app)');
+          const selfOnlyInfo = tikTokPostInfoSelfOnly ?? {
+            ...postInfo,
+            privacy_level: 'SELF_ONLY',
+          };
           fileInitRes = await initDirectVideo(
-            tikTokPostInfoSelfOnly,
+            selfOnlyInfo,
             {
               source: 'FILE_UPLOAD',
               video_size: videoSize,

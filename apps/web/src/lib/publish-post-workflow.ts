@@ -14,6 +14,8 @@ import {
   type TikTokDirectPostPayload,
 } from '@/lib/tiktok/tiktok-publish-compliance';
 import { createMediaServeToken } from '@/lib/media-serve-token';
+import { resolveDirectPublishMediaUrl } from '@/lib/publish-media-fetch';
+import { fetchLinkedInRestPersonUrn } from '@/lib/linkedin/rest-person';
 import { ensureInstagramJpegOnR2 } from '@/lib/instagram-media-r2';
 import { ensureStoryJpegOnR2 } from '@/lib/story-media-r2';
 import { refreshTwitterToken } from '@/lib/twitter-refresh';
@@ -330,11 +332,9 @@ export async function runPublishPostWorkflow(input: {
     let videoThumbnailUrl =
       targetMedia[0] && targetMedia[0].type === 'VIDEO' ? (targetMedia[0] as { thumbnailUrl?: string }).thumbnailUrl : undefined;
     let imageUrls: string[] | undefined;
-    if (platform === 'TIKTOK' || platform === 'LINKEDIN') {
-      if (firstMediaUrl) {
-        const directR2 = directR2IfOurs(firstMediaUrl);
-        if (directR2) firstMediaUrl = directR2;
-      }
+    if (platform === 'TIKTOK' || platform === 'LINKEDIN' || platform === 'YOUTUBE') {
+      if (firstMediaUrl) firstMediaUrl = resolveDirectPublishMediaUrl(firstMediaUrl);
+      if (firstImageUrl) firstImageUrl = resolveDirectPublishMediaUrl(firstImageUrl);
     }
     if (platform === 'PINTEREST' && firstImageUrl) {
       firstImageUrl = publicMediaUrlForMeta(firstImageUrl);
@@ -550,10 +550,19 @@ export async function runPublishPostWorkflow(input: {
         ? { tiktokPostMediaKind: (isTiktokPhoto ? 'photo' : 'video') as 'photo' | 'video' }
         : {}),
       ...(isStory ? { isStory: true } : {}),
-      ...(platform === 'LINKEDIN' &&
-      typeof creds?.linkedinRestPersonUrn === 'string' &&
-      creds.linkedinRestPersonUrn.startsWith('urn:li:')
-        ? { linkedInAuthorUrn: creds.linkedinRestPersonUrn }
+      ...(platform === 'LINKEDIN'
+        ? {
+            linkedInAuthorUrn: await (async () => {
+              if (
+                typeof creds?.linkedinRestPersonUrn === 'string' &&
+                creds.linkedinRestPersonUrn.startsWith('urn:li:')
+              ) {
+                return creds.linkedinRestPersonUrn;
+              }
+              const { personUrn } = await fetchLinkedInRestPersonUrn(token);
+              return personUrn ?? undefined;
+            })(),
+          }
         : {}),
     };
     const publishDeps = { fetch, axios };

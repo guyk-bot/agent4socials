@@ -111,12 +111,7 @@ export function buildTikTokPostInfoFromPayload(
   }
 
   const maxDur = ci.max_video_post_duration_sec;
-  if (typeof maxDur === 'number' && maxDur > 0) {
-    if (!(typeof p.videoDurationSec === 'number' && p.videoDurationSec > 0)) {
-      return {
-        error: `Video duration is required to publish to TikTok for this account (${maxDur}s max). Wait for video metadata to load and try again.`,
-      };
-    }
+  if (typeof maxDur === 'number' && maxDur > 0 && typeof p.videoDurationSec === 'number' && p.videoDurationSec > 0) {
     if (p.videoDurationSec > maxDur + 0.5) {
       return { error: TIKTOK_MAX_VIDEO_DURATION_EXCEEDED_MESSAGE };
     }
