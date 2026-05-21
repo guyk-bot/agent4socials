@@ -346,7 +346,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium">{acc.username || PLATFORM_LABELS[platform]}</div>
                     </div>
-                    <div className={`w-8 h-8 flex items-center justify-center shrink-0 rounded-full overflow-hidden ${acc.profilePicture && !brokenAvatarIds[acc.id] ? '' : 'bg-neutral-200'}`}>
+                    <div className={`w-8 h-8 flex items-center justify-center shrink-0 rounded-full overflow-hidden ${acc.profilePicture && !brokenAvatarIds[acc.id] ? '' : 'bg-neutral-200 dark:bg-neutral-700'}`}>
                       {(() => {
                         const avatarSrc = avatarDisplayUrl(platform, acc.profilePicture);
                         return avatarSrc && !brokenAvatarIds[acc.id] ? (

@@ -2010,38 +2010,30 @@ export default function DashboardPage() {
       )}
       {analyticsLoadingOnly && (
         <div className="mt-4 max-w-full space-y-4" style={{ maxWidth: 1400 }}>
-          <div className="rounded-2xl border border-neutral-200 bg-white p-4 animate-pulse">
-            <div className="h-5 w-44 rounded-md bg-neutral-200/80 mb-3" />
-            <div className="h-3 w-64 rounded-md bg-neutral-200/70 mb-4" />
+          <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4 animate-pulse">
+            <div className="h-5 w-44 rounded-md bg-neutral-200/80 dark:bg-neutral-700/80 mb-3" />
+            <div className="h-3 w-64 rounded-md bg-neutral-200/70 dark:bg-neutral-700/70 mb-4" />
             <div className="grid grid-cols-3 gap-2 mb-4 max-w-[220px]">
-              <div className="h-7 rounded-lg bg-neutral-200/80" />
-              <div className="h-7 rounded-lg bg-neutral-200/70" />
-              <div className="h-7 rounded-lg bg-neutral-200/70" />
+              <div className="h-7 rounded-lg bg-neutral-200/80 dark:bg-neutral-700/80" />
+              <div className="h-7 rounded-lg bg-neutral-200/70 dark:bg-neutral-700/70" />
+              <div className="h-7 rounded-lg bg-neutral-200/70 dark:bg-neutral-700/70" />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={`fb-load-kpi-${i}`} className="h-20 rounded-xl bg-neutral-100/95 border border-neutral-200/70" />
+                <div key={`fb-load-kpi-${i}`} className="h-20 rounded-xl bg-neutral-100/95 dark:bg-neutral-700/60 border border-neutral-200/70 dark:border-neutral-600/50" />
               ))}
             </div>
-            <div className="mt-4 h-64 rounded-xl bg-neutral-100/95 border border-neutral-200/70" />
+            <div className="mt-4 h-64 rounded-xl bg-neutral-100/95 dark:bg-neutral-700/60 border border-neutral-200/70 dark:border-neutral-600/50" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {Array.from({ length: 2 }).map((_, i) => (
               <div
                 key={`fb-load-lower-${i}`}
-                className="h-44 rounded-2xl animate-pulse border border-neutral-200"
-                style={{
-                  background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94))',
-                }}
+                className="h-44 rounded-2xl animate-pulse border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800"
               />
             ))}
           </div>
-          <div
-            className="h-64 rounded-2xl animate-pulse border border-neutral-200"
-            style={{
-              background: 'linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,250,252,0.94))',
-            }}
-          />
+          <div className="h-64 rounded-2xl animate-pulse border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800" />
         </div>
       )}
       {/* Instagram-only: analytics and posts not available; CTA to connect with Facebook */}
