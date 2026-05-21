@@ -66,6 +66,9 @@ import { mergeCaptionWithCta } from '@/lib/composer/cta-caption';
 
 const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
 
+/** Minimum spinner time before publish/schedule confirmation modals. */
+const PUBLISH_UI_PREP_MS = 2000;
+
 const EMPTY_CACHED_ACCOUNTS: { id: string; platform: string; username?: string | null; profilePicture?: string | null }[] = [];
 
 type MediaItem = { fileUrl: string; type: 'IMAGE' | 'VIDEO'; thumbnailUrl?: string };
@@ -2349,21 +2352,22 @@ export default function ComposerPage() {
         skipTiktokGateRef.current = false;
 
         const isPostNowCommit = !saveAsDraft && !scheduledAt?.trim();
-        if (isPostNowCommit) {
-            const earlyPostId = editPostId && !editPostAlreadyPosted ? editPostId : '';
-            setPublishModal({
-                open: true,
-                kind: 'queued',
-                postId: earlyPostId,
-                message: 'Publishing in the background.',
-            });
-        }
+        const isScheduledCommit = !saveAsDraft && Boolean(scheduledAt?.trim());
+        const wantsPublishUiPrep = isPostNowCommit || isScheduledCommit;
+        const publishPrepStartedAt = wantsPublishUiPrep ? Date.now() : 0;
+        const ensurePublishUiPrep = async () => {
+            if (!publishPrepStartedAt) return;
+            const remaining = PUBLISH_UI_PREP_MS - (Date.now() - publishPrepStartedAt);
+            if (remaining > 0) {
+                await new Promise<void>((resolve) => setTimeout(resolve, remaining));
+            }
+        };
 
             // Append hashtags after content (per platform when "different hashtags per platform" is on)
             const hashtagSuffix = (tags: string[]) => (tags.length ? ' ' + tags.join(' ') : '');
             let contentFinal = content.trim() + hashtagSuffix(selectedHashtags);
 
-        if (!isPostNowCommit) {
+        if (wantsPublishUiPrep) {
             setLoading(true);
         }
         if (typeof window !== 'undefined') sessionStorage.removeItem('composer_alert');
@@ -2554,6 +2558,7 @@ export default function ComposerPage() {
 
             const updateExisting = editPostId && !editPostAlreadyPosted;
             if (isPostNowCommit) {
+                await ensurePublishUiPrep();
                 const platformLabelsEarly = platforms.map((p) => PLATFORM_LABELS[p] ?? p).join(', ');
                 setPublishModal({
                     open: true,
@@ -2638,6 +2643,7 @@ export default function ComposerPage() {
                     return;
                 }
                 if (scheduledAt) {
+                    await ensurePublishUiPrep();
                     await api.patch(`/posts/${editPostId}`, payload, { timeout: 180_000 });
                     clearComposerDraft();
                     const schedParams = new URLSearchParams({ scheduled: '1', delivery: scheduleDelivery === 'email_links' ? 'email' : 'auto', platforms: platforms.join(','), at: new Date(scheduledAt).toISOString() });
@@ -2645,7 +2651,6 @@ export default function ComposerPage() {
                     setLoading(false);
                     return;
                 }
-                setLoading(false);
                 const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
                 if (debug) sessionStorage.removeItem('publish_debug');
                 const publishBody = buildPublishRequestBody(mediaType, tiktokPublishByAccountId);
@@ -2687,6 +2692,7 @@ export default function ComposerPage() {
                 }
             const isScheduled = Boolean(scheduledAt?.trim());
             if (isScheduled && postId) {
+                await ensurePublishUiPrep();
                 setLoading(false);
                 let whenLabel = scheduledAt!.trim();
                 try {

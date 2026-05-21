@@ -197,12 +197,37 @@ function absolutizeAppMediaUrl(url: string): string {
   return url;
 }
 
+function linkedInVideoPartEtagFromPutResponse(putRes: {
+  status: number;
+  headers?: unknown;
+}): string {
+  const h = putRes.headers;
+  let raw: string | undefined;
+  if (h && typeof h === 'object') {
+    const rec = h as Record<string, unknown>;
+    if (typeof rec.get === 'function') {
+      const got =
+        (rec.get as (key: string) => unknown)('etag') ??
+        (rec.get as (key: string) => unknown)('ETag');
+      raw = typeof got === 'string' ? got : undefined;
+    } else {
+      const plain = h as Record<string, string | string[] | undefined>;
+      const v = plain.etag ?? plain.ETag ?? plain['Etag'];
+      raw = Array.isArray(v) ? v[0] : v;
+    }
+  }
+  if (typeof raw === 'string' && raw.trim()) {
+    return raw.replace(/^W\//, '').replace(/^"+|"+$/g, '').trim();
+  }
+  throw new Error(`LinkedIn video part upload missing ETag (HTTP ${putRes.status})`);
+}
+
 /** Poll LinkedIn until uploaded video is AVAILABLE (required before create post). */
 async function waitForLinkedInVideoAvailable(
   axiosInstance: PublishDeps['axios'],
   videoUrn: string,
   token: string,
-  maxWaitMs = 120_000
+  maxWaitMs = 300_000
 ): Promise<void> {
   const encodedUrn = encodeURIComponent(videoUrn);
   const intervalMs = 3000;
@@ -1080,12 +1105,14 @@ export async function publishTarget(
               maxContentLength: Infinity,
               validateStatus: () => true,
             });
-            const etag = (putRes.headers as Record<string, string>)?.['etag'] ?? (putRes.headers as Record<string, string>)?.['ETag'];
-            const partId = typeof etag === 'string' ? etag.replace(/^"|"$/g, '').trim() : undefined;
             if (putRes.status < 200 || putRes.status >= 300) {
-              throw new Error(`LinkedIn video part upload failed: ${putRes.status}`);
+              const bodySnippet =
+                typeof putRes.data === 'string'
+                  ? putRes.data.slice(0, 120)
+                  : JSON.stringify(putRes.data ?? {}).slice(0, 120);
+              throw new Error(`LinkedIn video part upload failed (${putRes.status}): ${bodySnippet}`);
             }
-            uploadedPartIds.push(partId ?? String(uploadedPartIds.length));
+            uploadedPartIds.push(linkedInVideoPartEtagFromPutResponse(putRes));
           }
           const finalizeRes = await axiosInstance.post(
             'https://api.linkedin.com/rest/videos?action=finalizeUpload',
@@ -1109,7 +1136,14 @@ export async function publishTarget(
             const detail = typeof errBody?.message === 'string' ? errBody.message : JSON.stringify(finalizeRes.data ?? {});
             throw new Error(`LinkedIn video finalizeUpload failed (${finalizeRes.status}): ${detail}`);
           }
-          await waitForLinkedInVideoAvailable(axiosInstance, videoUrn, token);
+          try {
+            await waitForLinkedInVideoAvailable(axiosInstance, videoUrn, token);
+          } catch (waitErr) {
+            const waitMsg = waitErr instanceof Error ? waitErr.message : String(waitErr);
+            throw new Error(
+              `LinkedIn video uploaded but not ready to publish yet (${waitMsg}). Wait 2 minutes and retry from History.`
+            );
+          }
           postBody.content = { media: { id: videoUrn, title: (caption || 'Video').slice(0, 200) } };
         } catch (restVideoErr) {
           // Fallback for apps where /rest/videos is partner-gated: legacy UGC /assets upload.
@@ -1188,16 +1222,29 @@ export async function publishTarget(
                   'X-Restli-Protocol-Version': '2.0.0',
                   'Content-Type': 'application/json',
                 },
+                validateStatus: () => true,
               }
             );
+            if (ugcRes.status < 200 || ugcRes.status >= 300) {
+              throw new Error(
+                `LinkedIn legacy video post failed (${ugcRes.status}): ${JSON.stringify(ugcRes.data ?? {}).slice(0, 200)}`
+              );
+            }
             const ugcHeaders = (ugcRes.headers ?? {}) as Record<string, string>;
             const ugcPostUrn = ugcHeaders['x-restli-id'] ?? (ugcRes.data as { id?: string })?.id;
             return { ok: true, platformPostId: typeof ugcPostUrn === 'string' ? ugcPostUrn : undefined };
           } catch (legacyErr) {
             const restMsg = restVideoErr instanceof Error ? restVideoErr.message : String(restVideoErr);
             const legacyMsg = legacyErr instanceof Error ? legacyErr.message : String(legacyErr);
+            const userMsg = restMsg.includes('missing ETag')
+              ? restMsg
+              : restMsg.includes('not ready to publish')
+                ? restMsg
+                : `LinkedIn video failed: ${restMsg.slice(0, 220)}`;
             throw new Error(
-              `LinkedIn video upload failed on both APIs. REST Videos: ${restMsg}. Legacy UGC fallback: ${legacyMsg}.`
+              legacyMsg.includes('legacy') || legacyMsg.includes('Legacy')
+                ? userMsg
+                : `${userMsg} (legacy: ${legacyMsg.slice(0, 120)})`
             );
           }
         }
