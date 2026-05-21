@@ -49,8 +49,10 @@ function promiseWithTimeout<T>(promise: Promise<T>, ms: number, label: string): 
 }
 
 function publishTargetTimeoutMs(platform: string): number {
-  if (platform === 'YOUTUBE' || platform === 'TIKTOK') return 180_000;
+  if (platform === 'TIKTOK') return 600_000;
+  if (platform === 'YOUTUBE') return 180_000;
   if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') return 150_000;
+  if (platform === 'LINKEDIN') return 300_000;
   return 120_000;
 }
 
@@ -317,16 +319,17 @@ export async function runPublishPostWorkflow(input: {
     // using `targetMedia[0]` sent single images through the IG Reels pipeline (transcoding: invalid duration).
     let firstMediaUrl =
       platform === 'INSTAGRAM' || platform === 'FACEBOOK' ? firstVideo?.fileUrl : targetMedia[0]?.fileUrl;
+    if ((platform === 'TIKTOK' || platform === 'LINKEDIN' || platform === 'YOUTUBE') && firstVideo?.fileUrl) {
+      firstMediaUrl = firstVideo.fileUrl;
+    }
     let videoThumbnailUrl =
       targetMedia[0] && targetMedia[0].type === 'VIDEO' ? (targetMedia[0] as { thumbnailUrl?: string }).thumbnailUrl : undefined;
     let imageUrls: string[] | undefined;
-    if (platform === 'TIKTOK' && firstMediaUrl) {
-      const directR2 = directR2IfOurs(firstMediaUrl);
-      firstMediaUrl = directR2 ?? publicMediaUrlForMeta(firstMediaUrl);
-    }
-    if (platform === 'LINKEDIN' && firstMediaUrl) {
-      const directR2 = directR2IfOurs(firstMediaUrl);
-      if (directR2) firstMediaUrl = directR2;
+    if (platform === 'TIKTOK' || platform === 'LINKEDIN') {
+      if (firstMediaUrl) {
+        const directR2 = directR2IfOurs(firstMediaUrl);
+        if (directR2) firstMediaUrl = directR2;
+      }
     }
     if (platform === 'PINTEREST' && firstImageUrl) {
       firstImageUrl = publicMediaUrlForMeta(firstImageUrl);

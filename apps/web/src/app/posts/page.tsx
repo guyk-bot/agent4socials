@@ -608,7 +608,13 @@ export default function PostsPage() {
                                                         : 'bg-neutral-100 text-neutral-700';
                                             const failedErrors = (Array.isArray(post.targets) ? post.targets : [])
                                                 .filter((t: { status?: string; error?: string }) => t.status === 'FAILED' && typeof t.error === 'string' && t.error.trim())
-                                                .map((t: { platform?: string; error?: string }) => `${t.platform ?? 'Platform'}: ${t.error!.trim()}`);
+                                                .map((t: { platform?: string; error?: string }) => {
+                                                    const platform = (t.platform ?? 'Platform').toUpperCase();
+                                                    const err = t.error!.trim();
+                                                    const prefix = `${platform}:`;
+                                                    const msg = err.toUpperCase().startsWith(prefix) ? err.slice(prefix.length).trim() : err;
+                                                    return `${platform}: ${msg}`;
+                                                });
                                             return (
                                                 <div className="space-y-1">
                                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls}`}>{label}</span>

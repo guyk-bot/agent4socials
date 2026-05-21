@@ -172,13 +172,19 @@ async function fetchImageBuffer(
   return { buffer, contentType };
 }
 
-/** Fetch any media (image or video) as buffer; used for video uploads to LinkedIn and Twitter. */
+/** Fetch any media (image or video) as buffer; used for video uploads to LinkedIn, TikTok FILE_UPLOAD, and Twitter. */
 async function fetchMediaBuffer(
   url: string,
   fetchFn: typeof globalThis.fetch
 ): Promise<{ buffer: Buffer; contentType: string }> {
-  const res = await fetchFn(url);
-  if (!res.ok) throw new Error(`Failed to fetch media: ${res.status}`);
+  const res = await fetchFn(url, {
+    redirect: 'follow',
+    signal: AbortSignal.timeout(300_000),
+    headers: { Accept: 'video/*,application/octet-stream,*/*' },
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch media (${res.status}). If this is a large reel, try again or use a shorter clip.`);
+  }
   const buffer = Buffer.from(await res.arrayBuffer());
   const contentType = res.headers.get('content-type') || 'video/mp4';
   return { buffer, contentType };
@@ -1016,12 +1022,12 @@ export async function publishTarget(
             });
             const etag = (putRes.headers as Record<string, string>)?.['etag'] ?? (putRes.headers as Record<string, string>)?.['ETag'];
             const partId = typeof etag === 'string' ? etag.replace(/^"|"$/g, '') : undefined;
-            if (partId) uploadedPartIds.push(partId);
-            if (putRes.status !== 200) {
+            if (putRes.status < 200 || putRes.status >= 300) {
               throw new Error(`LinkedIn video part upload failed: ${putRes.status}`);
             }
+            uploadedPartIds.push(partId ?? String(uploadedPartIds.length));
           }
-          await axiosInstance.post(
+          const finalizeRes = await axiosInstance.post(
             'https://api.linkedin.com/rest/videos?action=finalizeUpload',
             {
               finalizeUploadRequest: {
@@ -1035,8 +1041,14 @@ export async function publishTarget(
                 'Content-Type': 'application/json',
                 ...linkedInRestCommunityHeaders(token),
               },
+              validateStatus: () => true,
             }
           );
+          if (finalizeRes.status < 200 || finalizeRes.status >= 300) {
+            const errBody = finalizeRes.data as { message?: string } | undefined;
+            const detail = typeof errBody?.message === 'string' ? errBody.message : JSON.stringify(finalizeRes.data ?? {});
+            throw new Error(`LinkedIn video finalizeUpload failed (${finalizeRes.status}): ${detail}`);
+          }
           postBody.content = { media: { id: videoUrn, title: (caption || 'Video').slice(0, 200) } };
         } catch (restVideoErr) {
           // Fallback for apps where /rest/videos is partner-gated: legacy UGC /assets upload.
@@ -1131,8 +1143,14 @@ export async function publishTarget(
             'Content-Type': 'application/json',
             ...linkedInRestCommunityHeaders(token),
           },
+          validateStatus: () => true,
         }
       );
+      if (postRes.status < 200 || postRes.status >= 300) {
+        const errBody = postRes.data as { message?: string; code?: string } | undefined;
+        const detail = typeof errBody?.message === 'string' ? errBody.message : JSON.stringify(postRes.data ?? {});
+        throw new Error(`LinkedIn create post failed (${postRes.status}): ${detail}`.slice(0, 450));
+      }
       const headers = (postRes.headers ?? {}) as Record<string, string>;
       const postUrn = headers['x-restli-id'] ?? (postRes.data as { id?: string })?.id;
       return { ok: true, platformPostId: typeof postUrn === 'string' ? postUrn : undefined };
@@ -1816,9 +1834,8 @@ export async function publishTarget(
           label
         ) as { data?: { data?: { publish_id?: string; upload_url?: string }; error?: { code?: string; message?: string } } };
 
-      // Direct post only (/v2/post/publish/video/init/) — requires video.publish + Content Posting audit.
+      // Direct post: always FILE_UPLOAD for video (PULL_FROM_URL fails for R2 and /api/media/serve URLs).
       let publishId: string | undefined;
-      let usedPullFromUrl = false;
 
       const runTikTokFileUpload = async (postInfo: Record<string, unknown>): Promise<string> => {
         const { buffer, contentType: videoContentType } = await fetchMediaBuffer(videoUrl, fetchFn);
@@ -1871,76 +1888,22 @@ export async function publishTarget(
         return nextPublishId;
       };
 
-      const skipPull = tiktokVideoUrlNeedsFileUpload(videoUrl);
-      if (skipPull) {
-        console.log('[TikTok] Using FILE_UPLOAD (app-hosted media URL cannot be pulled by TikTok)', {
-          videoUrl: videoUrl?.slice(0, 120),
-        });
-      } else {
-        console.log('[TikTok] Starting PULL_FROM_URL init', { videoUrl: videoUrl?.slice(0, 120) });
-        usedPullFromUrl = true;
-        let pullInitRes = await initDirectVideo(
-          tikTokPostInfo,
-          { source: 'PULL_FROM_URL', video_url: videoUrl },
-          'direct PULL_FROM_URL init'
-        );
-        let pullBody = pullInitRes.data ?? {};
-        let pullErr = pullBody.error;
-
-        if (pullErr?.code === 'unaudited_client_can_only_post_to_private_accounts' && tikTokPostInfoSelfOnly) {
-          console.log('[TikTok] PULL_FROM_URL: retrying with SELF_ONLY');
-          pullInitRes = await initDirectVideo(
-            tikTokPostInfoSelfOnly,
-            { source: 'PULL_FROM_URL', video_url: videoUrl },
-            'direct PULL_FROM_URL SELF_ONLY init'
-          );
-          pullBody = pullInitRes.data ?? {};
-          pullErr = pullBody.error;
-        }
-
-        console.log('[TikTok] PULL_FROM_URL init response', { error: pullErr, publishId: pullBody.data?.publish_id });
-
-        const urlOwnershipError = pullErr && (
-          pullErr.code === 'url_ownership_unverified' ||
-          (pullErr.message ?? '').toLowerCase().includes('ownership')
-        );
-
-        if (!pullErr || pullErr.code === 'ok') {
-          publishId = pullBody.data?.publish_id;
-        } else if (pullErr.code === 'scope_not_authorized' || pullErr.code === 'access_token_invalid') {
-          return { ok: false, error: tiktokReconnectPublishError };
-        } else if (pullErr.code === 'spam_risk_too_many_pending_share') {
-          return {
-            ok: false,
-            error:
-              `TikTok sandbox${tiktokIdentity ? ` (${tiktokIdentity})` : ''}: too many pending posts. Open TikTok mobile app on the SAME connected account, check Inbox and Drafts, then accept or delete all pending items and retry.`,
-          };
-        } else if (pullErr.code === 'unaudited_client_can_only_post_to_private_accounts') {
-          return {
-            ok: false,
-            error:
-              'TikTok: public posting is not available for this app or account. Choose Only me in Post to TikTok, or complete TikTok Content Posting audit.',
-          };
-        } else if (!urlOwnershipError) {
-          return { ok: false, error: `TikTok: ${pullErr.message || pullErr.code || 'Init failed'}`.slice(0, 300) };
-        }
-      }
-
-      if (!publishId) {
-        try {
-          publishId = await runTikTokFileUpload(tikTokPostInfo);
-          usedPullFromUrl = false;
-        } catch (e) {
-          return { ok: false, error: (e as Error).message.slice(0, 300) };
-        }
+      console.log('[TikTok] Using FILE_UPLOAD for video (direct byte upload)', {
+        videoUrl: videoUrl?.slice(0, 120),
+        bytesHint: 'fetched server-side',
+      });
+      try {
+        publishId = await runTikTokFileUpload(tikTokPostInfo);
+      } catch (e) {
+        return { ok: false, error: (e as Error).message.slice(0, 300) };
       }
 
       if (!publishId) {
         return { ok: false, error: 'TikTok: could not obtain publish_id.' };
       }
 
-      // Poll until TikTok reports PUBLISH_COMPLETE (direct post can take a few minutes).
-      const maxWait = 120_000;
+      // Poll until TikTok reports PUBLISH_COMPLETE (FILE_UPLOAD + processing can take several minutes).
+      const maxWait = 300_000;
       const pollInterval = 3_000;
       let platformPostId: string | undefined;
       let elapsed = 0;
@@ -1973,31 +1936,13 @@ export async function publishTarget(
         }
         if (status === 'FAILED') {
           const reason = statusBody.data?.fail_reason ?? 'Publish failed';
-          if (reason === 'video_pull_failed' && usedPullFromUrl) {
-            console.log('[TikTok] PULL_FROM_URL video_pull_failed, retrying with FILE_UPLOAD');
-            try {
-              publishId = await runTikTokFileUpload(tikTokPostInfo);
-              usedPullFromUrl = false;
-              elapsed = pollInterval;
-              continue;
-            } catch (e) {
-              return {
-                ok: false,
-                error:
-                  `TikTok could not download the video from our server (video_pull_failed). We retried a direct upload but that failed too: ${(e as Error).message}`.slice(
-                    0,
-                    300
-                  ),
-              };
-            }
-          }
           const reasonHint =
             reason === 'frame_rate_check_failed'
               ? ' Re-export as H.264 MP4 at a standard fps (e.g. 30 or 60).'
               : reason === 'video_pull_failed'
-                ? ' TikTok could not download the video URL. We now upload the file directly; try Post now again.'
+                ? ' Re-open the post in Composer and Post now again (we upload the file directly now).'
                 : '';
-          return { ok: false, error: `TikTok: ${reason}${reasonHint}`.slice(0, 300) };
+          return { ok: false, error: `${reason}${reasonHint}`.slice(0, 300) };
         }
         // status === 'PROCESSING_UPLOAD' or 'PROCESSING_DOWNLOAD' — keep polling
       }
