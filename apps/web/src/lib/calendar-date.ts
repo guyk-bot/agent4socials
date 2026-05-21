@@ -50,7 +50,8 @@ export function readStoredAnalyticsDateRange(userId: string): { start: string; e
     const end = typeof p.end === 'string' ? p.end : '';
     if (!isYmd(start) || !isYmd(end) || start > end) return null;
     const today = toLocalCalendarDate(new Date());
-    const endClamped = end > today ? today : end;
+    // Stale stored end dates (e.g. yesterday) hid new History rows; always include through today.
+    const endClamped = end > today ? today : end < today ? today : end;
     return { start, end: endClamped };
   } catch {
     return null;

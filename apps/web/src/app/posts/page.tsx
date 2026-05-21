@@ -25,6 +25,7 @@ import {
     getDefaultAnalyticsDateRange,
     localCalendarDateFromIso,
     readStoredAnalyticsDateRange,
+    toLocalCalendarDate,
     writeStoredAnalyticsDateRange,
 } from '@/lib/calendar-date';
 import { InstagramIcon, YoutubeIcon, TikTokIcon, FacebookIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
@@ -179,8 +180,16 @@ export default function PostsPage() {
 
     useEffect(() => {
         if (!user?.id) return;
+        const today = toLocalCalendarDate(new Date());
         const stored = readStoredAnalyticsDateRange(user.id);
-        if (stored) setDateRange(stored);
+        if (stored) {
+            setDateRange({
+                start: stored.start,
+                end: stored.end < today ? today : stored.end,
+            });
+        } else {
+            setDateRange(getDefaultAnalyticsDateRange());
+        }
     }, [user?.id]);
 
     const onDateRangeChange = useCallback(
@@ -359,6 +368,41 @@ export default function PostsPage() {
         return () => cancelAnimationFrame(t);
     }, [highlightId, loading, posts.length, router]);
 
+    const hiddenByDateCount = useMemo(() => {
+        return posts.filter((p: any) => {
+            if (p?.status === 'POSTING' || p?._optimistic) return false;
+            const d = postCalendarDate(p);
+            return Boolean(d && (d < dateRange.start || d > dateRange.end));
+        }).length;
+    }, [posts, dateRange.start, dateRange.end]);
+
+    useEffect(() => {
+        if (pathname !== '/posts' || posts.length === 0) return;
+        const today = toLocalCalendarDate(new Date());
+        let newest = today;
+        for (const p of posts) {
+            const d = postCalendarDate(p as { scheduledAt?: string | null; postedAt?: string | null; createdAt?: string | null });
+            if (d && d > newest) newest = d;
+        }
+        if (newest > dateRange.end) {
+            setDateRange((r) => ({ ...r, end: newest }));
+        }
+    }, [pathname, posts, dateRange.end]);
+
+    useEffect(() => {
+        if (!highlightId || posts.length === 0) return;
+        const highlighted = posts.find((p) => p?.id === highlightId);
+        if (!highlighted) return;
+        const d = postCalendarDate(highlighted as { scheduledAt?: string | null; postedAt?: string | null; createdAt?: string | null });
+        if (!d) return;
+        if (d < dateRange.start || d > dateRange.end) {
+            setDateRange((r) => ({
+                start: d < r.start ? d : r.start,
+                end: d > r.end ? d : r.end,
+            }));
+        }
+    }, [highlightId, posts, dateRange.start, dateRange.end]);
+
     const filteredPosts = posts.filter((p: any) => {
         if (p?.status === 'POSTING' || p?._optimistic) return true;
         const d = postCalendarDate(p);
@@ -461,6 +505,29 @@ export default function PostsPage() {
                     />
                 </div>
             </section>
+
+            {hiddenByDateCount > 0 ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex flex-wrap items-center justify-between gap-2">
+                    <span>
+                        {hiddenByDateCount} post{hiddenByDateCount === 1 ? '' : 's'} from outside your date range {dateRange.start} to {dateRange.end}.
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const today = toLocalCalendarDate(new Date());
+                            let newest = today;
+                            for (const p of posts) {
+                                const d = postCalendarDate(p as { scheduledAt?: string | null; postedAt?: string | null; createdAt?: string | null });
+                                if (d && d > newest) newest = d;
+                            }
+                            onDateRangeChange({ start: dateRange.start, end: newest });
+                        }}
+                        className="shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+                    >
+                        Show all recent posts
+                    </button>
+                </div>
+            ) : null}
 
             <div className="flex items-center justify-between pt-2">
                 <div>
