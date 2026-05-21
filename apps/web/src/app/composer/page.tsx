@@ -37,7 +37,11 @@ import { TikTokPublishModal } from '@/components/composer/TikTokPublishModal';
 import { ComposerScheduleDateTime } from '@/components/composer/ComposerScheduleDateTime';
 import { StoryImageCropModal, type StoryCropResult } from '@/components/composer/StoryImageCropModal';
 import { PlatformIconToggle } from '@/components/PlatformIconToggle';
-import { isTikTokDirectPostPayload, type TikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
+import {
+    isTikTokDirectPostPayload,
+    remapTikTokPublishPayloadForTargets,
+    type TikTokDirectPostPayload,
+} from '@/lib/tiktok/tiktok-publish-compliance';
 import {
     buildOptimisticPostingRow,
     pushPostsHistoryClientUpdate,
@@ -1211,8 +1215,13 @@ export default function ComposerPage() {
                 }
                 const tt = p.tiktokPublishByAccountId;
                 if (tt && typeof tt === 'object' && !Array.isArray(tt)) {
+                    const tiktokIds = (p.targets ?? [])
+                        .filter((t) => String(t.socialAccount?.platform ?? t.platform ?? '').toUpperCase() === 'TIKTOK')
+                        .map((t) => t.socialAccount?.id)
+                        .filter((id): id is string => Boolean(id));
+                    const remapped = remapTikTokPublishPayloadForTargets(tt as Record<string, unknown>, tiktokIds);
                     const cleaned: Record<string, TikTokDirectPostPayload> = {};
-                    for (const [k, v] of Object.entries(tt as Record<string, unknown>)) {
+                    for (const [k, v] of Object.entries(remapped)) {
                         if (isTikTokDirectPostPayload(v)) cleaned[k] = v;
                     }
                     if (Object.keys(cleaned).length) setTiktokPublishByAccountId(cleaned);

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { isPrismaPoolError, prisma, withPrismaPoolRetry } from '@/lib/db';
 import { PostStatus, Platform, Prisma } from '@prisma/client';
-import { isTikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
+import { isTikTokDirectPostPayload, remapTikTokPublishPayloadForTargets } from '@/lib/tiktok/tiktok-publish-compliance';
 import { friendlyMessageIfPrismaSchemaDrift } from '@/lib/prisma-db-hints';
 import {
   isMissingPostMediaTypeColumn,
@@ -200,7 +200,12 @@ export async function PATCH(
           existing.tiktokPublishByAccountId && typeof existing.tiktokPublishByAccountId === 'object' && !Array.isArray(existing.tiktokPublishByAccountId)
             ? { ...(existing.tiktokPublishByAccountId as Record<string, unknown>) }
             : {};
-        const merged = { ...prev, ...bodyTiktok };
+        const merged = remapTikTokPublishPayloadForTargets(
+          { ...prev, ...bodyTiktok },
+          (validTargets.length > 0 ? validTargets : existing.targets)
+            .filter((t) => t.platform === 'TIKTOK')
+            .map((t) => t.socialAccountId)
+        );
         const allowedIds = new Set(
           (validTargets.length > 0 ? validTargets : existing.targets).map((t) => t.socialAccountId)
         );

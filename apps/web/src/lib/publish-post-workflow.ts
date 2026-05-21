@@ -110,6 +110,11 @@ export async function preparePostForBackgroundPublish(
       }
     }
 
+    const tiktokAccountIds = post.targets.filter((t) => t.platform === 'TIKTOK').map((t) => t.socialAccountId);
+    const remapped = remapTikTokPublishPayloadForTargets(merged, tiktokAccountIds);
+    Object.keys(merged).forEach((k) => delete merged[k]);
+    Object.assign(merged, remapped);
+
     const captionSeed = String(post.title || post.content || '').trim();
     for (const target of post.targets) {
       if (target.platform !== 'TIKTOK') continue;
@@ -129,10 +134,17 @@ export async function preparePostForBackgroundPublish(
       data: updateData,
       select: { id: true },
     });
-    await prisma.postTarget.updateMany({
-      where: { postId },
-      data: { status: PostStatus.POSTING, error: null },
-    });
+    if (post.status === PostStatus.POSTED && hasFailedTargets) {
+      await prisma.postTarget.updateMany({
+        where: { postId, status: PostStatus.FAILED },
+        data: { status: PostStatus.POSTING, error: null },
+      });
+    } else {
+      await prisma.postTarget.updateMany({
+        where: { postId },
+        data: { status: PostStatus.POSTING, error: null },
+      });
+    }
 
     return { ok: true };
   });
@@ -219,8 +231,15 @@ export async function runPublishPostWorkflow(input: {
   if (!post) {
     return { status: 404, body: { message: 'Post not found' } };
   }
-  if (post.status !== PostStatus.DRAFT && post.status !== PostStatus.SCHEDULED && post.status !== PostStatus.POSTING) {
-    return { status: 400, body: { message: 'Post already published' } };
+  const hasFailedTargets = post.targets.some((t) => t.status === PostStatus.FAILED);
+  const canRetryPublish =
+    post.status === PostStatus.DRAFT ||
+    post.status === PostStatus.SCHEDULED ||
+    post.status === PostStatus.POSTING ||
+    post.status === PostStatus.FAILED ||
+    (post.status === PostStatus.POSTED && hasFailedTargets);
+  if (!canRetryPublish) {
+    return { status: 400, body: { message: 'This post cannot be republished.' } };
   }
 
   await withPrismaPoolRetry('publish-mark-posting', () =>
@@ -240,10 +259,14 @@ export async function runPublishPostWorkflow(input: {
   });
   const storedTiktok = (post as { tiktokPublishByAccountId?: Record<string, unknown> | null }).tiktokPublishByAccountId;
   const bodyTiktok = requestBody.tiktokPublishByAccountId;
-  const tiktokMerged: Record<string, unknown> = {
-    ...(storedTiktok && typeof storedTiktok === 'object' && !Array.isArray(storedTiktok) ? storedTiktok : {}),
-    ...(bodyTiktok && typeof bodyTiktok === 'object' && !Array.isArray(bodyTiktok) ? bodyTiktok : {}),
-  };
+  const tiktokAccountIds = post.targets.filter((t) => t.platform === 'TIKTOK').map((t) => t.socialAccountId);
+  const tiktokMerged: Record<string, unknown> = remapTikTokPublishPayloadForTargets(
+    {
+      ...(storedTiktok && typeof storedTiktok === 'object' && !Array.isArray(storedTiktok) ? storedTiktok : {}),
+      ...(bodyTiktok && typeof bodyTiktok === 'object' && !Array.isArray(bodyTiktok) ? bodyTiktok : {}),
+    },
+    tiktokAccountIds
+  );
   const defaultMedia = post.media.map((m) => {
     const meta = (m as { metadata?: { thumbnailUrl?: string; useVideoDefaultForPublish?: boolean } }).metadata;
     const useVideoDefault = meta?.useVideoDefaultForPublish;
@@ -305,6 +328,9 @@ export async function runPublishPostWorkflow(input: {
   const results: PublishOutcome[] = await Promise.all(
     post.targets.map(async (target): Promise<PublishOutcome> => {
     try {
+    if (target.status === PostStatus.POSTED) {
+      return { platform: target.platform, ok: true };
+    }
     const { platform, socialAccount } = target;
     let token = socialAccount.accessToken;
     if (platform === 'PINTEREST') {
