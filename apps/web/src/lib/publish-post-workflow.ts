@@ -150,6 +150,98 @@ export async function preparePostForBackgroundPublish(
   });
 }
 
+function aggregatePostStatusFromTargets(targets: { status: PostStatus }[]): PostStatus {
+  const totalTargets = targets.length;
+  const postedCount = targets.filter((t) => t.status === PostStatus.POSTED).length;
+  const allTargetsPosted = totalTargets > 0 && postedCount === totalTargets;
+  if (totalTargets === 0) return PostStatus.FAILED;
+  if (allTargetsPosted) return PostStatus.POSTED;
+  if (postedCount > 0) return PostStatus.POSTED;
+  return PostStatus.FAILED;
+}
+
+/** Recompute post.status from per-platform targets (after reconcile or stuck POSTING). */
+export async function refreshPostAggregateStatus(postId: string): Promise<void> {
+  await withPrismaPoolRetry('refreshPostAggregateStatus', async () => {
+    const targetsNow = await prisma.postTarget.findMany({
+      where: { postId },
+      select: { status: true },
+    });
+    const postedCount = targetsNow.filter((t) => t.status === PostStatus.POSTED).length;
+    await prisma.post.update({
+      where: { id: postId },
+      data: {
+        status: aggregatePostStatusFromTargets(targetsNow),
+        ...(postedCount > 0 ? { postedAt: new Date() } : {}),
+      },
+      select: { id: true },
+    });
+  });
+}
+
+/** TikTok can finish after we marked FAILED ("still processing"). Poll once and fix status. */
+export async function reconcileMisreportedPublishTargets(postId: string): Promise<number> {
+  const tiktokBase = 'https://open.tiktokapis.com';
+  let fixed = 0;
+  const rows = await prisma.postTarget.findMany({
+    where: { postId, platform: 'TIKTOK', status: PostStatus.FAILED },
+    select: {
+      id: true,
+      error: true,
+      platformPostId: true,
+      socialAccount: { select: { accessToken: true } },
+    },
+  });
+  for (const row of rows) {
+    const err = row.error ?? '';
+    if (!/still processing/i.test(err)) continue;
+    let publishId = row.platformPostId?.trim();
+    if (!publishId) {
+      const m = err.match(/publish_id:\s*([^\s).]+)/i);
+      publishId = m?.[1]?.trim();
+    }
+    const token = row.socialAccount?.accessToken;
+    if (!publishId || !token) continue;
+    try {
+      const statusRes = await axios.post(
+        `${tiktokBase}/v2/post/publish/status/fetch/`,
+        { publish_id: publishId },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json; charset=UTF-8',
+          },
+          timeout: 12_000,
+          validateStatus: () => true,
+        }
+      );
+      const body = statusRes.data as {
+        data?: { status?: string; publicly_available_post_id?: string };
+        error?: { code?: string };
+      };
+      if (body?.error?.code && body.error.code !== 'ok') continue;
+      const status = body?.data?.status;
+      if (status === 'PUBLISH_COMPLETE') {
+        await prisma.postTarget.update({
+          where: { id: row.id },
+          data: {
+            status: PostStatus.POSTED,
+            platformPostId: body.data?.publicly_available_post_id ?? publishId,
+            error: 'Published on TikTok (status synced after processing).',
+          },
+        });
+        fixed += 1;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  if (fixed > 0) {
+    await refreshPostAggregateStatus(postId);
+  }
+  return fixed;
+}
+
 export async function finalizePostPublishState(postId: string): Promise<void> {
   await withPrismaPoolRetry('finalizePostPublishState', async () => {
     const post = await prisma.post.findUnique({
@@ -165,23 +257,11 @@ export async function finalizePostPublishState(postId: string): Promise<void> {
     if (targetsNow.some((t) => t.status === PostStatus.POSTING)) {
       return;
     }
-    const totalTargets = targetsNow.length;
-    const postedCount = targetsNow.filter((t) => t.status === PostStatus.POSTED).length;
-    const allTargetsPosted = totalTargets > 0 && postedCount === totalTargets;
-    const nextPostStatus =
-      totalTargets === 0
-        ? PostStatus.FAILED
-        : allTargetsPosted
-          ? PostStatus.POSTED
-          : postedCount > 0
-            ? PostStatus.POSTED
-            : PostStatus.FAILED;
-
     await prisma.post.update({
       where: { id: postId },
       data: {
-        status: nextPostStatus,
-        ...(postedCount > 0 ? { postedAt: new Date() } : {}),
+        status: aggregatePostStatusFromTargets(targetsNow),
+        ...(targetsNow.some((t) => t.status === PostStatus.POSTED) ? { postedAt: new Date() } : {}),
       },
       select: { id: true },
     });

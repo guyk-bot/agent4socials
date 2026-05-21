@@ -145,6 +145,7 @@ export async function PATCH(
   }
   const status: PostStatus = scheduledAt ? PostStatus.SCHEDULED : PostStatus.DRAFT;
   try {
+    const hasTikTokTarget = validTargets.some((t) => t.platform === 'TIKTOK');
     if (validTargets.length > 0) {
       await prisma.postTarget.deleteMany({ where: { postId: id } });
       await prisma.postTarget.createMany({
@@ -224,6 +225,8 @@ export async function PATCH(
       } else {
         return NextResponse.json({ message: 'tiktokPublishByAccountId must be an object or null.' }, { status: 400 });
       }
+    } else if (validTargets.length > 0 && !hasTikTokTarget) {
+      updateData.tiktokPublishByAccountId = Prisma.JsonNull;
     }
     const updateArgs = {
       where: { id },

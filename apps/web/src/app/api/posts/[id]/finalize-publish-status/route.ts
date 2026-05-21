@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { isPrismaPoolError, prisma, withPrismaPoolRetry } from '@/lib/db';
-import { finalizePostPublishState } from '@/lib/publish-post-workflow';
+import { finalizePostPublishState, reconcileMisreportedPublishTargets } from '@/lib/publish-post-workflow';
 import {
   postScalarsSelectWithMediaType,
   postScalarsSelectWithoutMediaType,
@@ -34,6 +34,7 @@ export async function POST(
     if (!owned) {
       return NextResponse.json({ message: 'Post not found' }, { status: 404 });
     }
+    const reconciled = await reconcileMisreportedPublishTargets(id);
     await finalizePostPublishState(id);
     const post = await withPrismaPoolRetry('finalize-publish-read', () =>
       prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
@@ -48,7 +49,7 @@ export async function POST(
         })
       )
     );
-    return NextResponse.json({ ok: true, post });
+    return NextResponse.json({ ok: true, post, reconciled });
   } catch (e) {
     if (isPrismaPoolError(e)) {
       return NextResponse.json(

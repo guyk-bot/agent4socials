@@ -712,12 +712,19 @@ export default function PostsPage() {
                                                 <div className="space-y-1">
                                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls}`}>{label}</span>
                                                     {failedErrors.length > 0 ? (
-                                                        <p
-                                                            className="max-w-[14rem] truncate text-xs text-red-600 dark:text-red-400"
+                                                        <div
+                                                            className="max-w-[16rem] space-y-0.5 text-xs text-red-600 dark:text-red-400"
                                                             title={failedErrors.join('\n')}
                                                         >
-                                                            {failedErrors[0]}
-                                                        </p>
+                                                            {failedErrors.slice(0, 2).map((line: string) => (
+                                                                <p key={line} className="truncate">
+                                                                    {line}
+                                                                </p>
+                                                            ))}
+                                                            {failedErrors.length > 2 ? (
+                                                                <p className="text-[10px] text-red-500">+{failedErrors.length - 2} more</p>
+                                                            ) : null}
+                                                        </div>
                                                     ) : null}
                                                 </div>
                                             );
