@@ -210,7 +210,7 @@ export function ConnectedAccountsPanel() {
           pendingDisconnectRef.current = null;
         }}
         title="Disconnect account?"
-        message={accountToDisconnect ? `Disconnect @${accountToDisconnect.username || accountToDisconnect.platform}? All synced posts and insights for this account will be removed. You can reconnect anytime from Account or when you add a platform from the dashboard.` : ''}
+        message={accountToDisconnect ? `Disconnect @${accountToDisconnect.username || accountToDisconnect.platform}? Synced data will be removed. You can reconnect anytime.` : ''}
         confirmLabel="Disconnect"
         confirmLoadingLabel="Disconnecting..."
         confirmLoading={Boolean(disconnectingId)}

@@ -463,7 +463,7 @@ export default function PostsPage() {
             )}
             {showPartialBanner && (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex items-center justify-between">
-                    <span>Published on some platforms only. Check per-platform status below (PARTIAL). Retry failed platforms from Composer.</span>
+                    <span>Published on some platforms only. Retry failed ones from Composer.</span>
                     <button type="button" onClick={() => setShowPartialBanner(false)} className="text-amber-800 hover:text-amber-950 font-medium">Dismiss</button>
                 </div>
             )}

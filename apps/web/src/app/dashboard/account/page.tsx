@@ -410,7 +410,7 @@ export default function AccountPage() {
           <h3 className="text-lg font-semibold text-neutral-900">Cancel subscription?</h3>
         </div>
         <p className="text-sm text-neutral-600 mb-4">
-          You will lose access at the end of your current period. Help us improve: why are you canceling?
+          Access ends after this billing period. Why are you canceling?
         </p>
         <fieldset className="space-y-2.5 mb-3">
           <legend className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2 block">Select a reason</legend>
@@ -932,7 +932,7 @@ export default function AccountPage() {
         </button>
         <h3 className="text-lg font-semibold text-neutral-900">Delete brand</h3>
         <p className="mt-1 text-sm text-neutral-500">
-          You are deleting <strong>{deletingBrandName}</strong>. This action cannot be undone.
+          Delete <strong>{deletingBrandName}</strong>? This cannot be undone.
         </p>
         <p className="mt-3 text-sm text-neutral-500">Type <strong>delete</strong> to confirm.</p>
         <input

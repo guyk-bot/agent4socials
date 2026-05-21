@@ -1663,16 +1663,14 @@ export default function DashboardPage() {
         (err instanceof DOMException && err.name === 'AbortError') ||
         (typeof err === 'object' && err !== null && 'name' in err && (err as { name?: string }).name === 'AbortError');
       if (aborted) {
-        setAlertMessage(
-          'Connect request timed out (60s). The server may be busy or the database slow to respond. Wait a moment and try again, or refresh the page.'
-        );
+        setAlertMessage('Connect timed out. Wait a moment and try again.');
       } else {
         const msg = getMessage(err);
         if (msg) {
           if (msg.includes('META_APP_ID') || msg.includes('META_APP_SECRET')) {
-            setAlertMessage('Instagram/Facebook: set META_APP_ID and META_APP_SECRET in Vercel → Environment Variables.');
+            setAlertMessage('Set META_APP_ID and META_APP_SECRET in Vercel.');
           } else if (msg === 'Unauthorized') {
-            setAlertMessage('Account not synced. Sign out, sign back in, then try Connect again.');
+            setAlertMessage('Sign out and back in, then try Connect again.');
           } else {
             setAlertMessage(msg);
           }

@@ -405,50 +405,50 @@ function buildPublishFailureAlert(prefix: 'created' | 'updated', results: Publis
     let hint = '';
 
     if (failedJoined.includes('TWITTER')) {
-        if (failedJoined.includes('Credits Depleted') || failedJoined.includes('credits')) hint = 'Your X (Twitter) account has no API credits. Add credits in your X billing or upgrade your plan.';
-        else if (failedJoined.includes('Application-Only') || failedJoined.includes('Unsupported Authentication')) hint = 'Reconnect X from Dashboard -> Accounts so the app can request media.write scope, or use Enable image upload for OAuth 1.0a. If you set TWITTER_OAUTH_SCOPES in Vercel, add media.write.';
-        else if (failedJoined.includes('403') || failedJoined.includes('media')) hint = 'Enable image upload from the Dashboard, then reconnect X.';
-        else if (failedJoined.includes('401') || failedJoined.includes('Unauthorized')) hint = 'Your Twitter session may have expired. Reconnect X from Accounts and try again.';
-        else if (failedJoined.includes('socket hang up') || failedJoined.includes('ECONNRESET')) hint = 'Connection to X dropped. Check if the post already went through, then retry from History if needed.';
-        else if (failedJoined.includes('timeout')) hint = 'X took too long. Retry from History, or try a smaller image/video.';
+        if (failedJoined.includes('Credits Depleted') || failedJoined.includes('credits')) hint = 'X: no API credits. Add credits in X billing.';
+        else if (failedJoined.includes('Application-Only') || failedJoined.includes('Unsupported Authentication')) hint = 'X: reconnect from Accounts with media.write scope.';
+        else if (failedJoined.includes('403') || failedJoined.includes('media')) hint = 'X: enable image upload, then reconnect.';
+        else if (failedJoined.includes('401') || failedJoined.includes('Unauthorized')) hint = 'X: session expired. Reconnect from Accounts.';
+        else if (failedJoined.includes('socket hang up') || failedJoined.includes('ECONNRESET')) hint = 'X: connection dropped. Check History before retrying.';
+        else if (failedJoined.includes('timeout')) hint = 'X: timed out. Retry with smaller media.';
     }
     if (failedJoined.includes('INSTAGRAM') && (failedJoined.includes('2207082') || failedJoined.includes('2207076') || failedJoined.includes('Media upload'))) {
-        hint = `${hint ? `${hint} ` : ''}For Instagram: reconnect from Dashboard -> Accounts, try a different file (under 8MB for images), and make sure the media URL is publicly reachable over HTTPS.`;
+        hint = `${hint ? `${hint} ` : ''}Instagram: reconnect, use a smaller image (under 8MB), and a public HTTPS URL.`;
     }
     if (failedJoined.includes('INSTAGRAM') && (failedJoined.includes('Request processing failed') || failedJoined.includes('ProcessingFailedError'))) {
-        hint = `${hint ? `${hint} ` : ''}For Instagram: media URL must be publicly reachable by Meta. For Reels use 9:16, 15 to 90 sec, MP4.`;
+        hint = `${hint ? `${hint} ` : ''}Instagram: use a public HTTPS URL. Reels: 9:16 MP4, 15 to 90 sec.`;
     }
     if (failedJoined.includes('TIKTOK')) {
-        if (failedJoined.includes('unaudited_client_can_only_post_to_private_accounts')) hint = `${hint ? `${hint} ` : ''}For TikTok: your app has not passed TikTok Content Posting audit, so public posting is blocked.`;
-        else if (failedJoined.includes('scope_not_authorized')) hint = `${hint ? `${hint} ` : ''}For TikTok: reconnect account to grant video.publish permission.`;
-        else if ((failedJoined.includes('spam_risk') || failedJoined.includes('too many pending')) && !failedJoined.includes('TikTok sandbox')) hint = `${hint ? `${hint} ` : ''}For TikTok sandbox: clear pending items in TikTok app Inbox/Drafts, then retry.`;
+        if (failedJoined.includes('unaudited_client_can_only_post_to_private_accounts')) hint = `${hint ? `${hint} ` : ''}TikTok: public posting blocked until app audit passes.`;
+        else if (failedJoined.includes('scope_not_authorized')) hint = `${hint ? `${hint} ` : ''}TikTok: reconnect to grant video.publish.`;
+        else if ((failedJoined.includes('spam_risk') || failedJoined.includes('too many pending')) && !failedJoined.includes('TikTok sandbox')) hint = `${hint ? `${hint} ` : ''}TikTok: clear pending drafts, then retry.`;
         else if (failedJoined.includes('No TikTok payload was saved for this account')) {
-            hint = `${hint ? `${hint} ` : ''}For TikTok: open Post to TikTok again in composer and click Continue so settings are saved for the current connected account id.`;
+            hint = `${hint ? `${hint} ` : ''}TikTok: open Post to TikTok in composer and tap Continue.`;
         }
         else if (failedJoined.includes('frame_rate_check_failed')) {
-            hint = `${hint ? `${hint} ` : ''}For TikTok: this file failed TikTok frame rate checks. Re-export the video as H.264 MP4 with a standard frame rate (for example 30 fps or 60 fps), avoid variable or very low fps, then upload again.`;
+            hint = `${hint ? `${hint} ` : ''}TikTok: re-export as H.264 MP4 at 30 or 60 fps.`;
         }
         else if (failedJoined.toLowerCase().includes('chunk count')) {
-            hint = `${hint ? `${hint} ` : ''}For TikTok: chunked upload parameters did not match TikTok. Deploy the latest app build and try again.`;
+            hint = `${hint ? `${hint} ` : ''}TikTok: upload error. Deploy latest build and retry.`;
         }
         else if (
             failedJoined.includes('Post to TikTok') &&
             !failedJoined.includes('No TikTok payload was saved') &&
             !failedJoined.includes('Missing or invalid fields')
         ) {
-            hint = `${hint ? `${hint} ` : ''}Open composer and complete Post to TikTok settings (visibility and disclosure), then save and retry.`;
-        } else hint = `${hint ? `${hint} ` : ''}For TikTok: verify app permissions and video format requirements, then retry.`;
+            hint = `${hint ? `${hint} ` : ''}TikTok: complete Post to TikTok settings, then retry.`;
+        } else hint = `${hint ? `${hint} ` : ''}TikTok: check permissions and video format, then retry.`;
     }
     if (failedJoined.includes('PINTEREST') && (failedJoined.includes('"code":29') || failedJoined.includes('Trial access'))) {
-        hint = `${hint ? `${hint} ` : ''}For Pinterest: request Standard access in Pinterest Developer Platform.`;
+        hint = `${hint ? `${hint} ` : ''}Pinterest: request Standard access in the developer portal.`;
     }
 
     if (failedJoined.includes('INSTAGRAM') && failedJoined.toLowerCase().includes('story')) {
-        hint = `${hint ? `${hint} ` : ''}For Instagram Stories: reconnect Instagram in Accounts, use Adjust fit (9:16), and ensure the image is under 8MB. Stories appear in the story ring, not the main feed grid.`;
+        hint = `${hint ? `${hint} ` : ''}Instagram Story: reconnect, use 9:16 fit, image under 8MB.`;
     }
 
-    const title = prefix === 'updated' ? 'Post updated but some platforms failed.' : 'Post created but some platforms failed.';
-    return `${title}\n\nActual platform error:\n${failedText}${hint ? `\n\nSuggested next step:\n${hint}` : ''}`;
+    const title = prefix === 'updated' ? 'Updated, but some platforms failed.' : 'Created, but some platforms failed.';
+    return `${title}\n\n${failedText}${hint ? `\n\n${hint}` : ''}`;
 }
 
 function buildPublishPartialAlert(prefix: 'created' | 'updated', results: PublishResultItem[]): string {
@@ -459,7 +459,7 @@ function buildPublishPartialAlert(prefix: 'created' | 'updated', results: Publis
         prefix === 'updated'
             ? `Posted to ${ok.join(', ')}. Other platforms failed.`
             : `Posted to ${ok.join(', ')}. Other platforms failed.`;
-    return `${title}\n\n${failedLines.join('\n')}\n\nOpen History, filter by All Status, and retry from Composer. Instagram Stories show in the story ring, not the feed grid.`;
+    return `${title}\n\n${failedLines.join('\n')}\n\nRetry from History.`;
 }
 
 function handlePublishResultOutcome(
@@ -1113,9 +1113,9 @@ export default function ComposerPage() {
                     if (failedTargets.length > 0) {
                         const errLines = failedTargets.map((t) => `${t.platform ?? 'Platform'}: ${t.error}`).join('\n');
                         const hint = failedTargets.some((t) => t.platform === 'TIKTOK' && typeof t.error === 'string' && (t.error.includes('scope_not_authorized') || t.error.includes('not implemented') || t.error.includes('Publish not implemented')))
-                            ? '\n\nFor TikTok: reconnect your TikTok account from the Dashboard (Accounts page) so the new video.publish permission is granted, then try Post now again.'
+                            ? '\n\nTikTok: reconnect from Accounts to grant video.publish, then try again.'
                             : '';
-                        setAlertMessage(`This post failed to publish. Errors from last attempt:\n\n${errLines}${hint}`);
+                        setAlertMessage(`Last publish failed:\n\n${errLines}${hint}`);
                     }
                 }
                 setEditPostAlreadyPosted(p.status === 'POSTED');
@@ -1395,7 +1395,7 @@ export default function ComposerPage() {
 
     const openDmAiModal = useCallback(() => {
         if (hasBrandContext === false) {
-            setAlertMessage('Set up your brand context in Dashboard → AI Assistant before using Generate with AI.');
+            setAlertMessage('Set up AI Assistant brand context first.');
             return;
         }
         setDmAiError(null);
@@ -2143,29 +2143,29 @@ export default function ComposerPage() {
                 tiktokPostPublishFollowUpPostIdRef.current = postId;
                 const detail =
                     mediaSkipped.length > 0
-                        ? `Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).`
+                        ? `${mediaSkipped.join(', ')} posted as text only.`
                         : undefined;
                 setTiktokPostPublishFollowUp({ open: true, detail });
             } else if (anyPosted) {
-                let successMsg = 'Your post has been successfully published.';
+                let successMsg = 'Published.';
                 const failedPlatforms = targets.filter((t) => t.status === 'FAILED').map((t) => t.platform);
                 if (failedPlatforms.length > 0) {
-                    successMsg = `Published on some platforms. Failed on: ${failedPlatforms.filter(Boolean).join(', ')}. Open History for details.`;
+                    successMsg = `Published on some platforms. Failed: ${failedPlatforms.filter(Boolean).join(', ')}.`;
                 }
                 if (mediaSkipped.length > 0) {
-                    successMsg += ` Note: ${mediaSkipped.join(', ')} posted as text only (image upload was not allowed).`;
+                    successMsg += ` ${mediaSkipped.join(', ')} posted as text only.`;
                 }
                 setPublishModal({
                     open: true,
                     kind: 'success',
                     postId,
-                    message: `${successMsg}\n\nOpen History to review status on each platform.`,
+                    message: successMsg,
                 });
             } else {
                 setPublishModal({
                     open: true,
                     kind: 'failed',
-                    message: 'Publishing finished but no platform succeeded. Open History to see errors and retry failed platforms from Composer.',
+                    message: 'Nothing published. Check History and retry.',
                 });
             }
         },
@@ -2233,8 +2233,7 @@ export default function ComposerPage() {
                             setPublishModal({
                                 open: true,
                                 kind: 'failed',
-                                message:
-                                    'Publishing is still running. Open History in a few minutes to check per-platform status, or retry from Composer.',
+                                message: 'Still publishing. Check History in a few minutes.',
                             });
                             return;
                         }
@@ -2281,10 +2280,10 @@ export default function ComposerPage() {
                     const msg =
                         res?.data?.message ??
                         (status === 401
-                            ? 'Session expired. Sign in again, then open the post from History and try Post now.'
+                            ? 'Session expired. Sign in and try Post now from History.'
                             : isTimeout
-                              ? 'Publishing may still be running. Open History in a few minutes to confirm status.'
-                              : 'Publish failed. Open the post from History and try Post now again.');
+                              ? 'May still be publishing. Check History shortly.'
+                              : 'Publish failed. Retry from History.');
                     setPublishModal({ open: true, kind: 'failed', message: msg });
                 }
             })();
@@ -2294,7 +2293,7 @@ export default function ComposerPage() {
 
     const runComposerCommit = async (saveAsDraft: boolean) => {
         saveAsDraftRef.current = saveAsDraft;
-        const tiktokProcessingNotice = 'API Clients must clearly notify users that after they finish publishing their content, it may take a few minutes for the content to process and be visible on their profile.';
+        const tiktokProcessingNotice = 'TikTok may take a few minutes to show your video on your profile.';
         if (platforms.length === 0) {
             setAlertMessage('Select at least one platform');
             return;
@@ -2313,7 +2312,7 @@ export default function ComposerPage() {
             })
             .filter(Boolean) as { platform: string; socialAccountId: string }[];
         if (targets.length === 0) {
-            setAlertMessage('Connect at least one account for the selected platforms (Accounts page).');
+            setAlertMessage('Connect an account for each selected platform (Accounts).');
             return;
         }
 
@@ -2338,7 +2337,7 @@ export default function ComposerPage() {
                 open: true,
                 kind: 'queued',
                 postId: earlyPostId,
-                message: 'Sending your request. Publishing runs in the background.',
+                message: 'Publishing in the background.',
             });
         }
 
@@ -2373,7 +2372,7 @@ export default function ComposerPage() {
                 const twitterText = (contentByPlatformFinal?.['TWITTER'] ?? contentFinal).trim();
                 if (twitterText.length > TWITTER_CHAR_LIMIT) {
                     setLoading(false);
-                    setAlertMessage(`X (Twitter) limit is ${TWITTER_CHAR_LIMIT} characters (including spaces). Your post for Twitter is ${twitterText.length} characters. Shorten the text or remove Twitter from this post.`);
+                    setAlertMessage(`X limit is ${TWITTER_CHAR_LIMIT} characters. Yours is ${twitterText.length}. Shorten or remove X.`);
                     return;
                 }
             }
@@ -2384,9 +2383,7 @@ export default function ComposerPage() {
                 const hasPinVideo = pinMedia.some((m) => m.type === 'VIDEO');
                 if (!hasPinImage && !hasPinVideo) {
                     setLoading(false);
-                    setAlertMessage(
-                        'Pinterest needs at least one image or video for this post. Add media or remove Pinterest from the selected platforms.'
-                    );
+                    setAlertMessage('Pinterest needs an image or video. Add media or remove Pinterest.');
                     return;
                 }
             }
@@ -2404,9 +2401,7 @@ export default function ComposerPage() {
                         const sameMainVideo = main?.type === 'VIDEO' && pinFirst.fileUrl === main.fileUrl;
                         if (!sameMainVideo) {
                             setLoading(false);
-                            setAlertMessage(
-                                'Pinterest needs a cover image for video Pins. Upload a thumbnail for your Pinterest video, or use the same video in the main composer so a frame can be captured.'
-                            );
+                            setAlertMessage('Pinterest video needs a cover image. Upload a thumbnail or use the same video in the main composer.');
                             return;
                         }
                         setThumbnailPicking(true);
@@ -2415,9 +2410,7 @@ export default function ComposerPage() {
                         setThumbnailPicking(false);
                         if (!captured) {
                             setLoading(false);
-                            setAlertMessage(
-                                'Pinterest needs a video cover. Move the frame slider until the preview shows the frame you want (the thumbnail saves automatically), or upload a thumbnail image.'
-                            );
+                            setAlertMessage('Pick a video frame or upload a thumbnail for Pinterest.');
                             return;
                         }
                         pinterestAutoCoverUrl = captured;
@@ -2437,7 +2430,7 @@ export default function ComposerPage() {
                 const youtubeHasImage = youtubeMedia.some((m) => m.type === 'IMAGE');
                 if (youtubeHasImage || mediaType === 'photo' || mediaType === 'carousel') {
                     setLoading(false);
-                    setAlertMessage('Uploading images to YouTube is not supported yet. Please use a video for YouTube.');
+                    setAlertMessage('YouTube needs a video, not images.');
                     return;
                 }
             }
@@ -2482,7 +2475,7 @@ export default function ComposerPage() {
                 try {
                     if (!isTenMinuteLocalScheduleString(scheduledAt.trim())) {
                         setLoading(false);
-                        setAlertMessage('Scheduled time must use 10-minute steps (:00, :10, … :50) to match publishing checks.');
+                        setAlertMessage('Use 10-minute steps for scheduled time (:00, :10, … :50).');
                         return;
                     }
                     const localDate = new Date(scheduledAt.trim());
@@ -2520,7 +2513,7 @@ export default function ComposerPage() {
                 const instagramPrivateReply = hasInstagram && commentAutomationInstagramPrivateReply;
                 if (keywords.length > 0 && hasReply) {
                     if (hasInstagram && !instagramPublicReply && !instagramPrivateReply) {
-                        setAlertMessage('Comment automation: enable at least one reply option (public or DM) for Instagram.');
+                        setAlertMessage('Instagram automation: enable a public reply or DM.');
                         setLoading(false);
                         return;
                     }
@@ -2549,8 +2542,8 @@ export default function ComposerPage() {
                     kind: 'queued',
                     postId: updateExisting && editPostId ? editPostId : '',
                     message: updateExisting
-                        ? `Your request has been sent. We are updating and publishing to ${platformLabelsEarly} now.\n\nYou will get a confirmation when publishing finishes. Open History to watch status on each platform.`
-                        : `Your request has been sent. We are publishing to ${platformLabelsEarly} now.\n\nYour post will appear in History as Publishing right away. You will get a confirmation when publishing finishes.`,
+                        ? `Updating and publishing to ${platformLabelsEarly}. Check History for status.`
+                        : `Publishing to ${platformLabelsEarly}. Check History for status.`,
                 });
                 if (updateExisting && editPostId) {
                     upsertPostInHistoryClient({
@@ -2660,7 +2653,7 @@ export default function ComposerPage() {
                             res?.data?.message ??
                             (status === 401
                                 ? 'Session expired. Sign in again, then open the post from History and try Post now.'
-                                : 'Could not update the post before publishing. Open History and try again.');
+                                : 'Could not update before publishing. Try again from History.');
                         setPublishModal({ open: true, kind: 'failed', message: withTikTokProcessingNotice(msg) });
                     }
                 })();
@@ -2686,7 +2679,7 @@ export default function ComposerPage() {
                 setPublishModal({
                     open: true,
                     kind: 'scheduled',
-                    message: `Your post is scheduled for ${whenLabel}. We will publish it automatically at that time.\n\nOpen Calendar or History to review or change the schedule.`,
+                    message: `Scheduled for ${whenLabel}. See Calendar or History to edit.`,
                 });
                 const schedParams = new URLSearchParams({
                     scheduled: '1',
@@ -2731,7 +2724,7 @@ export default function ComposerPage() {
                               open: true,
                               kind: 'queued',
                               postId,
-                              message: `Your request has been sent. We are publishing now.\n\nOpen History to watch status on each platform.`,
+                              message: 'Publishing now. Check History for status.',
                           }
                 );
                 const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
@@ -2748,7 +2741,7 @@ export default function ComposerPage() {
                 return;
             }
             if (!postId) {
-                setAlertMessage(withTikTokProcessingNotice('Post was created but we could not publish it. Open it from History and try Post now.'));
+                setAlertMessage(withTikTokProcessingNotice('Post saved but not published. Try Post now from History.'));
                 router.push('/posts');
                 void api
                     .get('/posts')
@@ -2780,7 +2773,7 @@ export default function ComposerPage() {
                 if (err instanceof Error) msg = err.message;
                 if (typeof window !== 'undefined') console.error('[Composer] Create post error (no response):', err);
             }
-            if (msg === 'Failed to create post') msg += ' Open the browser console (F12 → Console) for details.';
+            if (msg === 'Failed to create post') msg += ' Check the browser console for details.';
             setAlertMessage(withTikTokProcessingNotice(msg));
         } finally {
             saveAsDraftRef.current = false;
@@ -2947,7 +2940,7 @@ export default function ComposerPage() {
                 confirmLabel="History"
                 cancelLabel="Exit"
                 message={[
-                    'It may take a few minutes for your content to process and be visible on your TikTok profile. You can check status in the History section.',
+                    'TikTok may take a few minutes to show your video. Check History for status.',
                     tiktokPostPublishFollowUp.detail,
                 ]
                     .filter((s): s is string => Boolean(s && s.trim()))
