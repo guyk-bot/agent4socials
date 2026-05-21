@@ -216,6 +216,9 @@ export async function pollInboxNotifications(args: {
   const metaBlocked = shouldBlockMetaNonEssentialCalls();
 
   for (const acc of accounts) {
+    if (acc.platform === 'TIKTOK' || acc.platform === 'YOUTUBE' || acc.platform === 'PINTEREST' || acc.platform === 'LINKEDIN') {
+      continue;
+    }
     if (MESSAGE_PLATFORMS.has(acc.platform)) {
       try {
         const existing = getConversations(acc.id) ?? [];

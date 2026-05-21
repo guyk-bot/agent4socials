@@ -3,6 +3,9 @@ import axios from 'axios';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { isPrismaPoolError, prisma, withPrismaPoolRetry } from '@/lib/db';
 import { parseTikTokCreatorInfoResponse } from '@/lib/tiktok/tiktok-publish-compliance';
+import { buildTikTokCreatorInfoForClient } from '@/lib/tiktok/tiktok-creator-info-response';
+
+export const maxDuration = 30;
 
 type TikTokOAuthRefreshResponse = {
   access_token?: string;
@@ -31,7 +34,7 @@ async function refreshTikTokAccessToken(account: {
     }).toString(),
     {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      timeout: 12_000,
+      timeout: 8_000,
       validateStatus: () => true,
     }
   );
@@ -52,8 +55,20 @@ async function refreshTikTokAccessToken(account: {
   return data.access_token;
 }
 
+function fallbackResponse(account: { username: string | null; profilePicture: string | null }, reason?: string) {
+  return NextResponse.json({
+    creator: buildTikTokCreatorInfoForClient({
+      username: account.username,
+      profilePicture: account.profilePicture,
+    }),
+    fromFallback: true,
+    ...(reason ? { message: reason } : {}),
+  });
+}
+
 /**
  * GET latest TikTok creator_info for the Post to TikTok UX (privacy options, interaction flags, max duration).
+ * Always returns usable defaults quickly when TikTok or our DB is slow (no blocking spinner in the modal).
  */
 export async function GET(
   request: NextRequest,
@@ -67,22 +82,33 @@ export async function GET(
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   const { id } = await params;
-  let account: { id: string; accessToken: string | null; refreshToken: string | null; expiresAt: Date | null } | null;
+  let account: {
+    id: string;
+    accessToken: string | null;
+    refreshToken: string | null;
+    expiresAt: Date | null;
+    username: string | null;
+    profilePicture: string | null;
+  } | null;
   try {
     account = await withPrismaPoolRetry('tiktok-creator-info-account', () =>
       prisma.socialAccount.findFirst({
         where: { id, userId, platform: 'TIKTOK' },
-        select: { id: true, accessToken: true, refreshToken: true, expiresAt: true },
+        select: {
+          id: true,
+          accessToken: true,
+          refreshToken: true,
+          expiresAt: true,
+          username: true,
+          profilePicture: true,
+        },
       })
     );
   } catch (e) {
     if (isPrismaPoolError(e)) {
-      return NextResponse.json(
-        {
-          message:
-            'Our database is busy right now. Wait a few seconds and tap Retry, or use default TikTok settings to continue.',
-        },
-        { status: 503 }
+      return fallbackResponse(
+        { username: null, profilePicture: null },
+        'Database is busy. Using default TikTok settings so you can continue.'
       );
     }
     throw e;
@@ -90,6 +116,9 @@ export async function GET(
   if (!account?.accessToken) {
     return NextResponse.json({ message: 'TikTok account not found' }, { status: 404 });
   }
+
+  const accountLite = { username: account.username, profilePicture: account.profilePicture };
+
   try {
     let accessToken = account.accessToken;
     const tokenExpired = account.expiresAt ? account.expiresAt.getTime() <= Date.now() + 60_000 : false;
@@ -106,24 +135,20 @@ export async function GET(
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json; charset=UTF-8',
         },
-        timeout: 20_000,
+        timeout: 8_000,
         validateStatus: () => true,
       }
     );
     if (res.status < 200 || res.status >= 300) {
       const errBody = res.data as { error?: { message?: string; code?: string } } | undefined;
       const msg = errBody?.error?.message ?? `TikTok API HTTP ${res.status}`;
-      const scopeHint = /scope|permission|authorized|token/i.test(msg)
-        ? ' Reconnect TikTok in Accounts and approve video publish permissions.'
-        : '';
-      return NextResponse.json(
-        { message: `${msg}${scopeHint}`.slice(0, 400) },
-        { status: res.status === 401 ? 401 : 502 }
-      );
+      return fallbackResponse(accountLite, msg.slice(0, 200));
     }
     const parsed = parseTikTokCreatorInfoResponse(res.data);
     if (!parsed.ok) {
-      const tokenError = /access token is invalid|not found in the request|invalid_access_token|access_token_invalid/i.test(parsed.error);
+      const tokenError = /access token is invalid|not found in the request|invalid_access_token|access_token_invalid/i.test(
+        parsed.error
+      );
       if (tokenError) {
         const refreshed = await refreshTikTokAccessToken(account);
         if (refreshed) {
@@ -135,26 +160,33 @@ export async function GET(
                 Authorization: `Bearer ${refreshed}`,
                 'Content-Type': 'application/json; charset=UTF-8',
               },
-              timeout: 12_000,
+              timeout: 8_000,
               validateStatus: () => true,
             }
           );
           const retryParsed = parseTikTokCreatorInfoResponse(retryRes.data);
           if (retryParsed.ok) {
-            return NextResponse.json({ creator: retryParsed.data });
+            return NextResponse.json({
+              creator: buildTikTokCreatorInfoForClient({
+                creator: retryParsed.data,
+                username: account.username,
+                profilePicture: account.profilePicture,
+              }),
+            });
           }
         }
       }
+      return fallbackResponse(accountLite, parsed.error.slice(0, 200));
     }
-    if (!parsed.ok) {
-      return NextResponse.json(
-        { message: parsed.error, blockingCode: parsed.blockingCode },
-        { status: parsed.blockingCode ? 429 : 502 }
-      );
-    }
-    return NextResponse.json({ creator: parsed.data });
+    return NextResponse.json({
+      creator: buildTikTokCreatorInfoForClient({
+        creator: parsed.data,
+        username: account.username,
+        profilePicture: account.profilePicture,
+      }),
+    });
   } catch (e) {
     const msg = (e as Error)?.message ?? 'TikTok request failed';
-    return NextResponse.json({ message: msg.slice(0, 300) }, { status: 502 });
+    return fallbackResponse(accountLite, msg.slice(0, 200));
   }
 }

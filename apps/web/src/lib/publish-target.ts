@@ -14,7 +14,7 @@ import {
   TIKTOK_CREATOR_INFO_FALLBACK,
   type TikTokDirectPostPayload,
 } from '@/lib/tiktok/tiktok-publish-compliance';
-import { resolveDirectPublishMediaUrl } from '@/lib/publish-media-fetch';
+import { fetchPublishMediaBuffer, resolveDirectPublishMediaUrl } from '@/lib/publish-media-fetch';
 
 const graphVideoFacebook = `https://graph-video.facebook.com/${META_GRAPH_FACEBOOK_API_VERSION}`;
 
@@ -229,18 +229,7 @@ async function fetchMediaBuffer(
   url: string,
   fetchFn: typeof globalThis.fetch
 ): Promise<{ buffer: Buffer; contentType: string }> {
-  const fetchUrl = resolveDirectPublishMediaUrl(absolutizeAppMediaUrl(url));
-  const res = await fetchFn(fetchUrl, {
-    redirect: 'follow',
-    signal: AbortSignal.timeout(300_000),
-    headers: { Accept: 'video/*,application/octet-stream,*/*' },
-  });
-  if (!res.ok) {
-    throw new Error(`Failed to fetch media (${res.status}). If this is a large reel, try again or use a shorter clip.`);
-  }
-  const buffer = Buffer.from(await res.arrayBuffer());
-  const contentType = res.headers.get('content-type') || 'video/mp4';
-  return { buffer, contentType };
+  return fetchPublishMediaBuffer(absolutizeAppMediaUrl(url), fetchFn);
 }
 
 /**
@@ -1958,9 +1947,8 @@ export async function publishTarget(
         return nextPublishId;
       };
 
-      console.log('[TikTok] Using FILE_UPLOAD for video (direct byte upload)', {
-        videoUrl: videoUrl?.slice(0, 120),
-        bytesHint: 'fetched server-side',
+      console.log('[TikTok] FILE_UPLOAD publish start', {
+        videoUrl: resolveDirectPublishMediaUrl(videoUrl)?.slice(0, 120),
       });
       try {
         publishId = await runTikTokFileUpload(tikTokPostInfo);

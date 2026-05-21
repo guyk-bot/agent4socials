@@ -115,48 +115,32 @@ export function TikTokPublishModal({
     });
   }, [defaultCaption, captionMax]);
 
-  const loadCreator = useCallback(async (accountId: string) => {
-    setLoadingCreatorById((prev) => ({ ...prev, [accountId]: true }));
-    setCreatorErrorById((prev) => {
-      const next = { ...prev };
-      delete next[accountId];
-      return next;
-    });
+  const loadCreator = useCallback(async (accountId: string, opts?: { silent?: boolean }) => {
+    if (!opts?.silent) {
+      setLoadingCreatorById((prev) => ({ ...prev, [accountId]: true }));
+    }
     try {
-      const res = await Promise.race([
-        api.get<{ creator?: TikTokCreatorInfoData; message?: string; blockingCode?: string }>(`/social/accounts/${accountId}/tiktok-creator-info`),
-        new Promise<never>((_, reject) => {
-          window.setTimeout(() => reject(new Error('Timed out while loading TikTok account options.')), 6000);
-        }),
-      ]);
+      const res = await api.get<{ creator?: TikTokCreatorInfoData; message?: string }>(
+        `/social/accounts/${accountId}/tiktok-creator-info`,
+        { timeout: 10_000 }
+      );
       const c = res.data?.creator;
-      if (!c) {
-        if (res.data?.blockingCode) {
-          applyFallbackCreator(accountId);
-          return;
-        }
+      if (c) {
+        setCreatorById((prev) => ({ ...prev, [accountId]: c }));
+        setCreatorErrorById((prev) => {
+          const next = { ...prev };
+          delete next[accountId];
+          return next;
+        });
+      } else {
         applyFallbackCreator(accountId);
-        return;
       }
-      setCreatorById((prev) => ({ ...prev, [accountId]: c }));
-    } catch (e: unknown) {
-      const status = e && typeof e === 'object' && 'response' in e
-        ? (e as { response?: { status?: number } }).response?.status
-        : undefined;
-      const responseMessage = e && typeof e === 'object' && 'response' in e
-        ? (e as { response?: { data?: { message?: string } } }).response?.data?.message
-        : undefined;
-      let msg = status === 429
-        ? 'TikTok says this account cannot post right now. Please try again later.'
-        : status === 503
-          ? String(responseMessage ?? 'Our server is busy loading TikTok options. Wait a few seconds, retry, or use default settings below.')
-          : String(responseMessage ?? 'Could not load TikTok creator info.');
-      if (/reconnect|scope|permission|token|unauthorized/i.test(msg)) {
-        msg += ' Open Accounts, disconnect TikTok, and connect again with video publish permissions.';
-      }
+    } catch {
       applyFallbackCreator(accountId);
     } finally {
-      setLoadingCreatorById((prev) => ({ ...prev, [accountId]: false }));
+      if (!opts?.silent) {
+        setLoadingCreatorById((prev) => ({ ...prev, [accountId]: false }));
+      }
     }
   }, [applyFallbackCreator]);
 
@@ -188,13 +172,20 @@ export function TikTokPublishModal({
         : defaultForm(seed);
     }
     setFormById(initial);
-    setCreatorById({});
     setCreatorErrorById({});
     setLoadingCreatorById({});
     for (const a of accounts) {
+      setCreatorById((prev) => ({
+        ...prev,
+        [a.id]: {
+          ...TIKTOK_CREATOR_INFO_FALLBACK,
+          creator_username: a.username?.replace(/^@/, '') ?? undefined,
+          creator_avatar_url: a.profilePicture ?? undefined,
+        },
+      }));
       applyFallbackCreator(a.id);
     }
-    void Promise.all(accounts.map((a) => loadCreator(a.id)));
+    void Promise.all(accounts.map((a) => loadCreator(a.id, { silent: true })));
   }, [open, accountIdsKey, accounts, defaultCaption, initialByAccountId, loadCreator, applyFallbackCreator, captionMax]);
 
   useEffect(() => {
@@ -294,11 +285,10 @@ export function TikTokPublishModal({
 
   const ci = activeId ? creatorById[activeId] : null;
   const f = activeId ? formById[activeId] : null;
-  const activeLoadingCreator = Boolean(activeId && loadingCreatorById[activeId]);
   const privacyOptions = ci?.privacy_level_options ?? TIKTOK_CREATOR_INFO_FALLBACK.privacy_level_options ?? [];
   const creatorAvatarSrc = avatarDisplayUrl(
     'TIKTOK',
-    ci?.creator_avatar_url || activeAccount?.profilePicture || undefined
+    activeAccount?.profilePicture || ci?.creator_avatar_url || undefined
   );
   const commentDisabledUi = Boolean(ci?.comment_disabled);
   const duetDisabledUi = Boolean(ci?.duet_disabled);
@@ -364,7 +354,7 @@ export function TikTokPublishModal({
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => void loadCreator(activeId)}
+                    onClick={() => void loadCreator(activeId, { silent: false })}
                     className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-orange-300 bg-white text-orange-700 text-xs font-medium hover:bg-orange-50"
                   >
                     Retry loading TikTok options
@@ -413,12 +403,6 @@ export function TikTokPublishModal({
               </div>
 
               <div className="space-y-4">
-                {activeLoadingCreator ? (
-                  <div className="flex items-center gap-2 text-xs text-neutral-500">
-                    <Loader2 className="animate-spin" size={14} />
-                    <span>Refreshing TikTok options...</span>
-                  </div>
-                ) : null}
                 <div className="w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0">
                     {creatorAvatarSrc ? (
