@@ -819,8 +819,6 @@ function InboxPage() {
   const messagesFetchAbortRef = useRef<AbortController | null>(null);
   const conversationsRef = useRef(conversations);
   conversationsRef.current = conversations;
-  const effectiveAccountsRef = useRef(effectiveAccounts);
-  effectiveAccountsRef.current = effectiveAccounts;
   const conversationRecipientIdRef = useRef(conversationRecipientId);
   conversationRecipientIdRef.current = conversationRecipientId;
   const dmSendInFlightRef = useRef(false);
@@ -960,6 +958,8 @@ function InboxPage() {
   }, [platformFromUrl]);
 
   const effectiveAccounts = (cachedAccounts as Account[]).length > 0 ? (cachedAccounts as Account[]) : accounts;
+  const effectiveAccountsRef = useRef(effectiveAccounts);
+  effectiveAccountsRef.current = effectiveAccounts;
   const connectedPlatformIds = effectiveAccounts.map((a) => a.platform).filter(Boolean);
 
   /** Keep selection in sync when accounts connect/disconnect (e.g. remove Pinterest from selection after disconnect). */
