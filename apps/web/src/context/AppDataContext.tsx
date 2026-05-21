@@ -659,7 +659,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
             // Badge counts come from computeInboxHeaderUnread (localStorage), not this API.
           }).catch(() => {}),
           api.get<CachedScheduledPost[]>('/posts').then((r) => {
-            if (!cancelled && Array.isArray(r.data)) setScheduledPostsState(r.data);
+            if (!cancelled && Array.isArray(r.data)) setScheduledPosts(r.data);
           }).catch(() => {}),
           api.get('/ai/brand-context', { timeout: 30_000 }).then((r) => {
             if (cancelled || !user?.id) return;
@@ -796,7 +796,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     })();
 
     return () => { cancelled = true; };
-  }, [user?.id, setCachedAccounts]);
+  }, [user?.id, setCachedAccounts, setScheduledPosts]);
 
   const value: AppDataContextType = useMemo(
     () => ({

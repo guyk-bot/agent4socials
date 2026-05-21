@@ -7,6 +7,24 @@ function postIdKey(post: PostHistoryRow): string | null {
   return typeof id === 'string' && id.length > 0 ? id : null;
 }
 
+/** Newest-first sort key (scheduled, posted, then created). */
+export function postHistorySortTime(post: PostHistoryRow): number {
+  const iso = (post.scheduledAt ?? post.postedAt ?? post.createdAt) as string | undefined;
+  if (!iso) return 0;
+  const t = Date.parse(iso);
+  return Number.isNaN(t) ? 0 : t;
+}
+
+export function sortPostsHistoryByNewest(list: PostHistoryRow[]): PostHistoryRow[] {
+  return [...list].sort((a, b) => {
+    const diff = postHistorySortTime(b) - postHistorySortTime(a);
+    if (diff !== 0) return diff;
+    const idA = postIdKey(a) ?? '';
+    const idB = postIdKey(b) ?? '';
+    return idB.localeCompare(idA);
+  });
+}
+
 const STATUS_RANK: Record<string, number> = {
   DRAFT: 0,
   SCHEDULED: 0,
@@ -113,7 +131,7 @@ export function mergePostsHistoryLists(previous: PostHistoryRow[], incoming: Pos
     }
   }
 
-  return ordered;
+  return sortPostsHistoryByNewest(ordered);
 }
 
 /** Apply a single post update from GET /posts/:id without reshuffling the whole list. */
@@ -124,7 +142,7 @@ export function upsertPostInHistoryList(list: PostHistoryRow[], post: PostHistor
   if (idx < 0) return mergePostsHistoryLists(list, [post]);
   const next = [...list];
   next[idx] = mergePostHistoryRecord(next[idx], post);
-  return next;
+  return sortPostsHistoryByNewest(next);
 }
 
 /** Skip React re-render when visible id/status/errors are unchanged. */

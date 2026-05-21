@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState, useRef } from 'react';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import Link from 'next/link';
@@ -153,6 +153,7 @@ export default function PostsPage() {
     const router = useRouter();
     const { user } = useAuth();
     const appData = useAppData();
+    const scheduledPostsFromApp = appData?.scheduledPosts ?? [];
     const appDataRef = useRef(appData);
     appDataRef.current = appData;
     const [posts, setPosts] = useState<PostHistoryRow[]>([]);
@@ -211,27 +212,37 @@ export default function PostsPage() {
         writeScheduledPostsClientCache(merged);
     }, []);
 
+    // Paint cached rows before first paint so History is never empty while the network warms up.
+    useLayoutEffect(() => {
+        if (pathname !== '/posts') return;
+        const fromLocal = readScheduledPostsClientCache() as PostHistoryRow[];
+        if (fromLocal.length > 0) {
+            applyHistoryList(fromLocal);
+            setLoading(false);
+        }
+    }, [pathname, applyHistoryList]);
+
+    // React as soon as dashboard prefetch (or Composer) updates shared post list.
+    useEffect(() => {
+        if (pathname !== '/posts') return;
+        if (!Array.isArray(scheduledPostsFromApp) || scheduledPostsFromApp.length === 0) return;
+        applyHistoryList(scheduledPostsFromApp as PostHistoryRow[]);
+        setLoading(false);
+    }, [pathname, scheduledPostsFromApp, applyHistoryList]);
+
     useEffect(() => {
         if (pathname !== '/posts') return;
         let cancelled = false;
-        const fromApp = appDataRef.current?.getScheduledPosts?.();
-        const fromLocal = readScheduledPostsClientCache();
-        const appList = Array.isArray(fromApp) ? (fromApp as PostHistoryRow[]) : [];
-        const immediateCached = appList.length > 0 ? appList : (fromLocal as PostHistoryRow[]);
-        const hasCachedList = immediateCached.length > 0;
-
-        if (hasCachedList) {
-            applyHistoryList(immediateCached);
-            setLoading(false);
-        }
+        const hadRows = postsRef.current.length > 0;
+        if (!hadRows) setLoading(true);
 
         (async () => {
-            if (!hasCachedList) setLoading(true);
             try {
-                const res = await api.get('/posts', { timeout: 45_000 });
+                const res = await api.get('/posts', { timeout: 30_000, params: { _: Date.now() } });
                 if (cancelled) return;
                 const list = Array.isArray(res.data) ? (res.data as PostHistoryRow[]) : [];
                 applyHistoryList(list);
+                appDataRef.current?.setScheduledPosts?.(list as never);
                 setLoadError(null);
             } catch (err) {
                 if (cancelled) return;
@@ -245,7 +256,7 @@ export default function PostsPage() {
                         ? res.data.message.trim()
                         : null;
                 const poolBusy = res?.status === 503;
-                if (hasCachedList || immediateCached.length > 0) {
+                if (postsRef.current.length > 0) {
                     setLoadError(
                         poolBusy
                             ? serverMsg ?? 'Database is busy. Showing cached history; refresh again in a few seconds.'
@@ -267,6 +278,22 @@ export default function PostsPage() {
             cancelled = true;
         };
     }, [pathname, draftSavedParam, refreshParam, applyHistoryList]);
+
+    const highlightId = searchParams.get('highlight');
+    useEffect(() => {
+        if (pathname !== '/posts' || !highlightId) return;
+        let cancelled = false;
+        api.get<PostHistoryRow>(`/posts/${highlightId}`, { timeout: 20_000 })
+            .then((r) => {
+                if (!cancelled && r.data && typeof r.data === 'object' && r.data.id) {
+                    applyHistoryPost(r.data);
+                }
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, [pathname, highlightId, applyHistoryPost]);
 
     const publishingPostIds = useMemo(
         () =>
@@ -320,7 +347,6 @@ export default function PostsPage() {
         return () => window.removeEventListener('agent4socials:posts-history-refresh', onRefresh);
     }, [pathname, applyHistoryList, applyHistoryPost]);
 
-    const highlightId = searchParams.get('highlight');
     useEffect(() => {
         if (!highlightId || loading || posts.length === 0) return;
         const scrollToHighlight = () => {
