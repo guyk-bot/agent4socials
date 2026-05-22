@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
 import { PricingBillingToggle, PricingCard } from '@/components/landing/pricing';
+import { PRICING_YEARLY_DISCOUNT_PERCENT, PRO_PLAN_PRICING, STANDARD_PLAN_PRICING } from '@/lib/pricing/constants';
+
 const FREE_HIGHLIGHTS = [
   '1 brand',
   '25 scheduled posts / month',
@@ -33,7 +35,7 @@ const FREE_HIGHLIGHTS = [
   'Limited AI Assistant use',
 ];
 
-const STARTER_HIGHLIGHTS = [
+const STANDARD_HIGHLIGHTS = [
   '1 brand included',
   'Unlimited scheduling',
   'Reply to messages and comments',
@@ -507,7 +509,7 @@ export default function Home() {
               <ul className="space-y-3">
                 {[
                   'All plans include scheduling, basic analytics, unified inbox, and AI assistant.',
-                  'Keyword comment automation and higher limits on Starter and Pro.',
+                  'Keyword comment automation and higher limits on Standard and Pro.',
                   'Pro adds white label, team members, smart links, and priority support.',
                 ].map((item, i) => (
                   <li key={i} className="flex items-start gap-3 text-sm text-[#5d5768]">
@@ -535,8 +537,8 @@ export default function Home() {
             </div>
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
               <PricingCard plan="free" price="$0" description="Best for trying the platform" highlights={FREE_HIGHLIGHTS} ctaText="Start Free" onCta={openSignup} billingInterval={billingInterval} />
-              <PricingCard plan="starter" description="Best for creators and freelancers" highlights={STARTER_HIGHLIGHTS} priceMonthly={15} priceYearly={144} yearlyCrossedPrice={180} additionalBrandsMonthly={5} additionalBrandsYearly={48} ctaText="Get Starter" onCta={openSignup} billingInterval={billingInterval} />
-              <PricingCard plan="pro" description="Best for professionals and agencies" badge="Most Popular" bestValueLabel="Best value for growing brands" highlights={PRO_HIGHLIGHTS} priceMonthly={24} priceYearly={230} yearlyCrossedPrice={288} additionalBrandsMonthly={3} additionalBrandsYearly={29} additionalAddonUnitLabel="team member" ctaText="Get Pro" onCta={openSignup} highlighted billingInterval={billingInterval} />
+              <PricingCard plan="starter" description="Best for creators and freelancers" highlights={STANDARD_HIGHLIGHTS} priceMonthly={STANDARD_PLAN_PRICING.monthly} priceYearly={STANDARD_PLAN_PRICING.yearly} yearlyCrossedPrice={STANDARD_PLAN_PRICING.yearlyCrossed} savePerYear={STANDARD_PLAN_PRICING.savePerYear} additionalBrandsMonthly={STANDARD_PLAN_PRICING.additionalBrandsMonthly} additionalBrandsYearly={STANDARD_PLAN_PRICING.additionalBrandsYearly} ctaText={STANDARD_PLAN_PRICING.ctaText} onCta={openSignup} billingInterval={billingInterval} />
+              <PricingCard plan="pro" description="Best for professionals and agencies" badge="Most Popular" bestValueLabel="Best value for growing brands" highlights={PRO_HIGHLIGHTS} priceMonthly={PRO_PLAN_PRICING.monthly} priceYearly={PRO_PLAN_PRICING.yearly} yearlyCrossedPrice={PRO_PLAN_PRICING.yearlyCrossed} savePerYear={PRO_PLAN_PRICING.savePerYear} additionalBrandsMonthly={PRO_PLAN_PRICING.additionalBrandsMonthly} additionalBrandsYearly={PRO_PLAN_PRICING.additionalBrandsYearly} additionalAddonUnitLabel="team member" ctaText={PRO_PLAN_PRICING.ctaText} onCta={openSignup} highlighted billingInterval={billingInterval} />
             </div>
             <p className="mt-10 text-center">
               <Link href="/pricing" className="text-[#ffb000] font-medium hover:text-[#ff4d00] transition-colors">
@@ -561,8 +563,8 @@ export default function Home() {
                 { q: 'What analytics do I get?', a: 'We pull views, likes, comments, followers, and subscribers (where available) from your connected accounts into one dashboard so you can see performance across platforms.' },
                 { q: 'How do I delete my data?', a: 'You can delete your account and data from Account or Settings in the app, or send a data deletion request to support@agent4socials.com. We process requests within 30 days.' },
                 { q: 'Can I cancel anytime?', a: 'Yes. You can cancel your subscription at any time. You\'ll keep access until the end of your billing period.' },
-                { q: 'How do I get started?', a: 'Try the Free plan (no credit card required), or sign up for Starter or Pro to unlock more features. Connect your accounts and start scheduling from one dashboard.' },
-                { q: 'Which plan is right for me?', a: 'Free is for trying the platform: 1 brand, 25 posts/month, 30 days analytics. Starter ($15/mo) is for creators: unlimited scheduling, inbox, X and LinkedIn, 6 months analytics, unlimited AI. Pro ($24/mo) is for professionals: advanced analytics, bulk replies, keyword triggers, smart links, white label, team members, and priority support. Yearly billing saves 20%.' },
+                { q: 'How do I get started?', a: 'Try the Free plan (no credit card required), or sign up for Standard or Pro to unlock more features. Connect your accounts and start scheduling from one dashboard.' },
+                { q: 'Which plan is right for me?', a: `Free is for trying the platform: 1 brand, 25 posts/month, 30 days analytics. Standard ($${STANDARD_PLAN_PRICING.monthly}/mo) is for creators: unlimited scheduling, inbox, X and LinkedIn, 6 months analytics, unlimited AI. Pro ($${PRO_PLAN_PRICING.monthly}/mo) is for professionals: advanced analytics, bulk replies, keyword triggers, smart links, white label, team members, and priority support. Yearly billing saves ${PRICING_YEARLY_DISCOUNT_PERCENT}%.` },
               ].map((item, i) => (
                 <FaqItem key={i} question={item.q} answer={item.a} />
               ))}

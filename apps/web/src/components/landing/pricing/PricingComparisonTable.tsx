@@ -135,7 +135,7 @@ export default function PricingComparisonTable({ dark }: { dark?: boolean }) {
               <tr className="border-b border-[#f3e3d2] bg-[#fff8ef]">
                 <th className="py-4 pl-6 pr-4 text-sm font-semibold text-[#1a161f]">Feature</th>
                 <th className="py-4 px-4 text-sm font-semibold text-[#1a161f] text-center">Free</th>
-                <th className="py-4 px-4 text-sm font-semibold text-[#1a161f] text-center">Starter</th>
+                <th className="py-4 px-4 text-sm font-semibold text-[#1a161f] text-center">Standard</th>
                 <th className="py-4 px-4 text-sm font-semibold text-[#1a161f] text-center">Pro</th>
               </tr>
             </thead>

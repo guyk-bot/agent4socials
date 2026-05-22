@@ -72,7 +72,7 @@ export default function PricingCard({
         </div>
       )}
       <h2 className="text-xl font-bold text-[#1a161f]">
-        {plan === 'free' ? 'Free' : plan === 'starter' ? 'Starter' : 'Pro'}
+        {plan === 'free' ? 'Free' : plan === 'starter' ? 'Standard' : 'Pro'}
       </h2>
       {bestValueLabel && (
         <p className="mt-1 text-sm font-medium text-[#c2410c]">{bestValueLabel}</p>
@@ -89,12 +89,28 @@ export default function PricingCard({
             <span className="text-[#756a88]">/ month</span>
           </p>
         ) : (
-          <p className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold tracking-tight text-[#1a161f] sm:text-4xl">
-              ${Math.round((priceYearly ?? 0) / 12)}
-            </span>
-            <span className="text-[#756a88]">/ month</span>
-          </p>
+          <>
+            <p className="flex items-baseline gap-1">
+              <span className="text-3xl font-bold tracking-tight text-[#1a161f] sm:text-4xl">
+                ${Math.round((priceYearly ?? 0) / 12)}
+              </span>
+              <span className="text-[#756a88]">/ month</span>
+            </p>
+            <p className="mt-1 text-sm text-[#756a88]">
+              Billed{' '}
+              <span className="font-semibold text-[#1a161f]">${priceYearly}</span>
+              / year
+              {yearlyCrossedPrice != null && yearlyCrossedPrice > (priceYearly ?? 0) ? (
+                <>
+                  {' '}
+                  <span className="line-through text-[#a89bb8]">${yearlyCrossedPrice}</span>
+                </>
+              ) : null}
+              {savePerYear != null && savePerYear > 0 ? (
+                <span className="text-[#c2410c]"> · Save ${savePerYear}/year</span>
+              ) : null}
+            </p>
+          </>
         )}
       </div>
       <ul className="mt-6 flex-1 space-y-3">

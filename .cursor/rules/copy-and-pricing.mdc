@@ -5,5 +5,9 @@ alwaysApply: true
 
 # Copy and pricing
 
-- **Yearly price**: Always use **$19.99/year** (not $20). Monthly equivalent: ~$1.67/mo.
+Source of truth: `apps/web/src/lib/pricing/constants.ts`.
+
+- **Standard**: $29/month, $278/year (20% off vs $348/year).
+- **Pro**: $47/month, $451/year (20% off vs $564/year).
+- **Plan name**: Use **Standard** (not Starter) in user-facing copy.
 - **No em dashes or en dashes**: Do not use "—" (U+2014) or "–" (U+2013). Use commas, colons, or " to " for ranges instead.

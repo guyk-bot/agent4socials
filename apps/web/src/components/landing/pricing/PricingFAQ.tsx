@@ -14,7 +14,7 @@ const FAQ_ITEMS: { question: string; answer: string }[] = [
   },
   {
     question: 'Can I add more brands later?',
-    answer: 'Yes. Starter and Pro plans allow you to add more brands anytime.',
+    answer: 'Yes. Standard and Pro plans allow you to add more brands anytime.',
   },
   {
     question: 'Can I cancel anytime?',
@@ -26,11 +26,11 @@ const FAQ_ITEMS: { question: string; answer: string }[] = [
   },
   {
     question: 'What is included in the AI Assistant?',
-    answer: 'The AI Assistant helps with content-related tasks inside the platform. Free includes limited use, while Starter and Pro include unlimited use.',
+    answer: 'The AI Assistant helps with content-related tasks inside the platform. Free includes limited use, while Standard and Pro include unlimited use.',
   },
   {
-    question: 'What is the difference between Starter and Pro?',
-    answer: 'Starter is designed for creators and freelancers who need more connections, unlimited scheduling, and exports. Pro adds advanced analytics, bulk replies, white label, team members, and client dashboard features.',
+    question: 'What is the difference between Standard and Pro?',
+    answer: 'Standard is designed for creators and freelancers who need more connections, unlimited scheduling, and exports. Pro adds advanced analytics, bulk replies, white label, team members, and client dashboard features.',
   },
   {
     question: 'Is X (Twitter) included on the Free plan?',

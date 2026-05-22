@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     default: "Agent4Socials | Schedule Posts & Analytics for Instagram, YouTube, TikTok, Facebook, Twitter & LinkedIn",
     template: "%s | Agent4Socials",
   },
-  description: "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. Try for free. From $15/mo.",
+  description: "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. Try for free. From $29/mo.",
   keywords: ["social media scheduler", "schedule Instagram posts", "schedule TikTok", "social media analytics", "post scheduler", "Instagram analytics", "TikTok scheduler", "Facebook scheduler", "LinkedIn scheduler"],
   authors: [{ name: "Agent4Socials" }],
   creator: "Agent4Socials",

@@ -19,6 +19,7 @@ import { getDefaultAnalyticsDateRange } from '@/lib/calendar-date';
 import { AnalyticsDateRangePicker } from '@/components/analytics/AnalyticsDateRangePicker';
 import { AnalyticsUpgradeCard } from '@/components/analytics/AnalyticsUpgradeCard';
 import { generateSimpleReport, generateAdvancedReport } from '@/lib/reports/generate-report';
+import { formatPlanMonthlyPrice, formatPlanYearlyPrice } from '@/lib/pricing/constants';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -190,7 +191,7 @@ export default function ReportsPage() {
       {/* ── Upgrade card ── */}
       <AnalyticsUpgradeCard
         title="Advanced Report available on Pro"
-        description="Upgrade to Pro ($19.99/year) to unlock the multi-page Advanced Report with platform breakdown tables, audience growth charts, content type analysis, and AI-powered recommendations."
+        description={`Upgrade to Pro (${formatPlanYearlyPrice('pro')}, or ${formatPlanMonthlyPrice('pro')}) to unlock the multi-page Advanced Report with platform breakdown tables, audience growth charts, content type analysis, and AI-powered recommendations.`}
         ctaLabel="Upgrade to Pro"
         onCta={() => window.open('/dashboard/account', '_self')}
       />
@@ -351,7 +352,7 @@ export default function ReportsPage() {
             </button>
             <p className="text-center text-xs text-neutral-400">
               <Lock size={10} className="inline mr-1" />
-              Available on Pro plan · $19.99/year
+              Available on Pro plan · {formatPlanYearlyPrice('pro')}
             </p>
           </div>
         </div>

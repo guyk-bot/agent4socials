@@ -49,6 +49,7 @@ import { FacebookAnalyticsView, AnalyticsGrid, AnalyticsGridItem, AnalyticsWater
 import type { FacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
 import type { FacebookInsights } from '@/components/analytics/facebook/types';
 import { PricingBillingToggle, PricingCard } from '@/components/landing/pricing';
+import { PRO_PLAN_PRICING, STANDARD_PLAN_PRICING } from '@/lib/pricing/constants';
 import type { Demographics, GrowthDataPoint, TrafficSourceItem } from '@/types/analytics';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip as RechartTooltip,
@@ -240,7 +241,7 @@ const FREE_HIGHLIGHTS = [
   'Limited AI Assistant use',
 ];
 
-const STARTER_HIGHLIGHTS = [
+const STANDARD_HIGHLIGHTS = [
   '1 brand included',
   'Unlimited scheduling',
   'Reply to messages and comments',
@@ -1986,14 +1987,14 @@ export default function DashboardPage() {
                     <PricingCard
                       plan="starter"
                       description="Best for creators and freelancers"
-                      highlights={STARTER_HIGHLIGHTS}
-                      priceMonthly={15}
-                      priceYearly={144}
-                      yearlyCrossedPrice={180}
-                      savePerYear={36}
-                      additionalBrandsMonthly={5}
-                      additionalBrandsYearly={48}
-                      ctaText="Get Starter"
+                      highlights={STANDARD_HIGHLIGHTS}
+                      priceMonthly={STANDARD_PLAN_PRICING.monthly}
+                      priceYearly={STANDARD_PLAN_PRICING.yearly}
+                      yearlyCrossedPrice={STANDARD_PLAN_PRICING.yearlyCrossed}
+                      savePerYear={STANDARD_PLAN_PRICING.savePerYear}
+                      additionalBrandsMonthly={STANDARD_PLAN_PRICING.additionalBrandsMonthly}
+                      additionalBrandsYearly={STANDARD_PLAN_PRICING.additionalBrandsYearly}
+                      ctaText={STANDARD_PLAN_PRICING.ctaText}
                       onCta={openSignup}
                       billingInterval={pricingInterval}
                     />
@@ -2003,14 +2004,14 @@ export default function DashboardPage() {
                       badge="Most Popular"
                       bestValueLabel="⭐ Best value for growing brands"
                       highlights={PRO_HIGHLIGHTS}
-                      priceMonthly={24}
-                      priceYearly={230}
-                      yearlyCrossedPrice={288}
-                      savePerYear={58}
-                      additionalBrandsMonthly={3}
-                      additionalBrandsYearly={29}
+                      priceMonthly={PRO_PLAN_PRICING.monthly}
+                      priceYearly={PRO_PLAN_PRICING.yearly}
+                      yearlyCrossedPrice={PRO_PLAN_PRICING.yearlyCrossed}
+                      savePerYear={PRO_PLAN_PRICING.savePerYear}
+                      additionalBrandsMonthly={PRO_PLAN_PRICING.additionalBrandsMonthly}
+                      additionalBrandsYearly={PRO_PLAN_PRICING.additionalBrandsYearly}
                       additionalAddonUnitLabel="team member"
-                      ctaText="Get Pro"
+                      ctaText={PRO_PLAN_PRICING.ctaText}
                       onCta={openSignup}
                       highlighted
                       billingInterval={pricingInterval}
