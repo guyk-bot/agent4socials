@@ -11,7 +11,7 @@ const SOCIAL_ICON_SRC: Record<string, string> = {
   youtube: '/social-icons/youtube.svg',
   linkedin: '/social-icons/linkedin.svg',
   pinterest: '/social-icons/pinterest.svg',
-  threads: '/social-icons/threads.svg',
+  threads: '/social-icons/threads.png',
   x: '/social-icons/x.svg',
 };
 
