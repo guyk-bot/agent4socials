@@ -5,6 +5,7 @@ import {
   getReadCommentIds,
   getReadConversationIds,
   markConversationsAsRead,
+  notifyInboxReadStateChanged,
   setConversationLastSeenUpdated,
 } from '@/lib/inbox-read-state';
 import {
