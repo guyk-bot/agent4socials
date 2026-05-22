@@ -22,7 +22,7 @@ import {
   MessageSquare,
   Sparkles,
 } from 'lucide-react';
-import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
 import { PricingBillingToggle, PricingCard } from '@/components/landing/pricing';
 import { PRICING_YEARLY_DISCOUNT_PERCENT, PRO_PLAN_PRICING, STANDARD_PLAN_PRICING } from '@/lib/pricing/constants';
 
@@ -62,6 +62,7 @@ const HERO_PLATFORMS = [
   { Icon: InstagramIcon, label: 'Instagram' },
   { Icon: YoutubeIcon, label: 'YouTube' },
   { Icon: TikTokIcon, label: 'TikTok' },
+  { Icon: ThreadsIcon, label: 'Threads' },
   { Icon: XTwitterIcon, label: 'Twitter/X' },
   { Icon: LinkedinIcon, label: 'LinkedIn' },
   { Icon: PinterestIcon, label: 'Pinterest' },
@@ -73,6 +74,7 @@ const PLATFORM_COLORS: Record<string, string> = {
   Instagram: '#e1306c',
   YouTube: '#ff0000',
   TikTok: '#010101',
+  Threads: '#000000',
   'Twitter/X': '#000000',
   LinkedIn: '#0a66c2',
   Pinterest: '#e60023',
@@ -84,6 +86,7 @@ const RANDOM_ICON_SLOTS = [
   { x: 9,  y: 37 }, // Instagram
   { x: 10, y: 63 }, // YouTube
   { x: 22, y: 75 }, // TikTok
+  { x: 52, y: 78 }, // Threads (between TikTok and LinkedIn)
   { x: 97, y: 12 }, // X/Twitter
   { x: 91, y: 42 }, // LinkedIn
   { x: 76, y: 69 }, // Pinterest
@@ -93,16 +96,17 @@ const RANDOM_ICON_SLOTS = [
 const MOBILE_ICON_SLOTS = [
   { x: 7,  y: 5  }, // Facebook
   { x: 7,  y: 20 }, // Instagram
-  { x: 12, y: 35 }, // YouTube   – moved further up/right
-  { x: 8,  y: 52 }, // TikTok    – moved further up
+  { x: 12, y: 35 }, // YouTube
+  { x: 8,  y: 52 }, // TikTok
+  { x: 48, y: 58 }, // Threads
   { x: 94, y: 4  }, // X/Twitter
   { x: 91, y: 20 }, // LinkedIn
-  { x: 87, y: 45 }, // Pinterest – moved further up
+  { x: 87, y: 45 }, // Pinterest
 ] as const;
 
-const STATIC_ICON_ROTATIONS = [-14, 9, -18, 6, 12, -9, 16] as const;
+const STATIC_ICON_ROTATIONS = [-14, 9, -18, 6, -11, 12, -9, 16] as const;
 // Randomised notification counts (mixed realistic spread).
-const LOGO_NOTIFICATIONS = [7, 23, 41, 15, 38, 12, 29] as const;
+const LOGO_NOTIFICATIONS = [7, 23, 41, 15, 19, 38, 12, 29] as const;
 // Keep the roadmap/funnel neutral segment fixed across themes.
 const FUNNEL_NEUTRAL = '#9ca3af';
 
@@ -123,8 +127,9 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   const desktopLeftRoadSegments = [
     { id: 'dl-0', d: 'M 1 15 C 12 20, -3 28, 9 37', from: '#1877f2', to: '#fd1d8e', x1: 1, y1: 15, x2: 9, y2: 37 },
     { id: 'dl-1', d: 'M 9 37 C 20 44, -2 52, 10 63', from: '#fd1d8e', to: '#ff0000', x1: 9, y1: 37, x2: 10, y2: 63 },
-    { id: 'dl-2', d: 'M 10 63 C 18 68, 20 72, 22 75', from: '#ff0000', to: FUNNEL_NEUTRAL, x1: 10, y1: 63, x2: 22, y2: 75 },
-    { id: 'dl-3', d: 'M 22 75 C 24 82, 36 94, 50 103', from: FUNNEL_NEUTRAL, to: FUNNEL_NEUTRAL, x1: 22, y1: 75, x2: 50, y2: 103 },
+    { id: 'dl-2', d: 'M 10 63 C 18 68, 20 72, 22 75', from: '#ff0000', to: '#010101', x1: 10, y1: 63, x2: 22, y2: 75 },
+    { id: 'dl-3', d: 'M 22 75 C 34 76, 44 77, 52 78', from: '#010101', to: '#000000', x1: 22, y1: 75, x2: 52, y2: 78 },
+    { id: 'dl-4', d: 'M 52 78 C 54 88, 52 96, 50 103', from: '#000000', to: FUNNEL_NEUTRAL, x1: 52, y1: 78, x2: 50, y2: 103 },
   ] as const;
   const desktopRightRoadSegments = [
     { id: 'dr-0', d: 'M 97 12 C 84 18, 102 32, 91 42', from: FUNNEL_NEUTRAL, to: '#0a66c2', x1: 97, y1: 12, x2: 91, y2: 42 },
@@ -135,8 +140,9 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
   const mobileLeftRoadSegments = [
     { id: 'ml-0', d: 'M 7 5 C 12 10, 3 16, 7 20', from: '#1877f2', to: '#fd1d8e', x1: 7, y1: 5, x2: 7, y2: 20 },
     { id: 'ml-1', d: 'M 7 20 C 15 26, 5 32, 12 35', from: '#fd1d8e', to: '#ff0000', x1: 7, y1: 20, x2: 12, y2: 35 },
-    { id: 'ml-2', d: 'M 12 35 C 16 40, 10 48, 8 52', from: '#ff0000', to: FUNNEL_NEUTRAL, x1: 12, y1: 35, x2: 8, y2: 52 },
-    { id: 'ml-3', d: 'M 8 52 C 10 58, 28 78, 46 88 C 48 94, 49 99, 49 103', from: FUNNEL_NEUTRAL, to: FUNNEL_NEUTRAL, x1: 8, y1: 52, x2: 49, y2: 103 },
+    { id: 'ml-2', d: 'M 12 35 C 14 40, 11 46, 8 52', from: '#ff0000', to: '#010101', x1: 12, y1: 35, x2: 8, y2: 52 },
+    { id: 'ml-3', d: 'M 8 52 C 22 54, 38 56, 48 58', from: '#010101', to: '#000000', x1: 8, y1: 52, x2: 48, y2: 58 },
+    { id: 'ml-4', d: 'M 48 58 C 48 72, 49 90, 49 103', from: '#000000', to: FUNNEL_NEUTRAL, x1: 48, y1: 58, x2: 49, y2: 103 },
   ] as const;
   const mobileRightRoadSegments = [
     { id: 'mr-0', d: 'M 94 4 C 85 10, 98 17, 91 20', from: FUNNEL_NEUTRAL, to: '#0a66c2', x1: 94, y1: 4, x2: 91, y2: 20 },
@@ -341,7 +347,7 @@ export default function Home() {
             </h1>
 
             <p className="mx-auto mt-5 max-w-[860px] text-[15px] font-medium sm:text-[19px] text-[#5d5768] leading-relaxed">
-              Schedule posts, automate replies, track analytics, and create content with AI, all across seven platforms in one dashboard.
+              Schedule posts, automate replies, track analytics, and create content with AI, all across 8 platforms in one dashboard.
             </p>
 
             <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3.5 sm:gap-4">
@@ -376,7 +382,7 @@ export default function Home() {
             <div className="hidden sm:block absolute -left-2 top-10 z-10">
               <div className="rounded-[16px] border border-[#ffe2c2] bg-white px-4 py-3 shadow-sm">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-[#ffb000] mb-0.5">Platforms</p>
-                <p className="text-lg font-bold text-[#1a161f]">7 connected</p>
+                <p className="text-lg font-bold text-[#1a161f]">8 connected</p>
               </div>
             </div>
             <div className="hidden sm:block absolute -right-2 top-10 z-10">
@@ -412,11 +418,11 @@ export default function Home() {
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6">
             <div className="text-center mb-14">
               <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-[#1a161f]">Everything you need to grow</h2>
-              <p className="mt-4 text-[#5d5768] max-w-xl mx-auto text-base">Scheduling, analytics, unified inbox, automation, and AI. All in one place, all seven platforms.</p>
+              <p className="mt-4 text-[#5d5768] max-w-xl mx-auto text-base">Scheduling, analytics, unified inbox, automation, and AI. All in one place, all 8 platforms.</p>
             </div>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {[
-                { icon: Calendar, label: 'Post Scheduler', desc: 'Plan content for all 7 platforms from one visual calendar. Draft once, publish everywhere.' },
+                { icon: Calendar, label: 'Post Scheduler', desc: 'Plan content for all 8 platforms from one visual calendar. Draft once, publish everywhere.' },
                 { icon: BarChart3, label: 'Cross-platform Analytics', desc: 'Views, likes, comments, followers across all your accounts in one unified dashboard.' },
                 { icon: MessageCircle, label: 'Unified Inbox', desc: 'DMs and comments from Instagram, Facebook, and X in one feed. Zero app-switching.' },
                 { icon: MessageSquare, label: 'Comment Automation', desc: 'Auto-reply on keywords, send welcome DMs, configure per-platform response text.' },
@@ -557,7 +563,7 @@ export default function Home() {
             </div>
             <div className="space-y-3">
               {[
-                { q: 'Which platforms can I connect?', a: 'You can connect Instagram, YouTube, TikTok, Facebook, Twitter (X), LinkedIn, and Pinterest. We use each platform\'s official OAuth so you authorize access securely. Inbox and comment automation are available for Instagram, Facebook and X; scheduling and analytics support all seven platforms.' },
+                { q: 'Which platforms can I connect?', a: 'You can connect Instagram, YouTube, TikTok, Facebook, Threads, Twitter (X), LinkedIn, and Pinterest. We use each platform\'s official OAuth so you authorize access securely. Inbox and comment automation are available for Instagram, Facebook and X; scheduling and analytics support all 8 platforms.' },
                 { q: 'How does scheduling work?', a: 'You create a post in the Composer, add your media and text, pick the date and time, and choose which connected accounts to publish to. We send the post at the scheduled time. You can also set keyword comment automation and per-platform reply text per post.' },
                 { q: 'What is comment automation?', a: 'When someone comments on your post with a keyword you set (e.g. "demo"), we can automatically reply with a message you define, or send a DM on Instagram if you prefer. You can set different reply text per platform.' },
                 { q: 'What analytics do I get?', a: 'We pull views, likes, comments, followers, and subscribers (where available) from your connected accounts into one dashboard so you can see performance across platforms.' },
