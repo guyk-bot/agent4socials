@@ -23,7 +23,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | Facebook / IG / TikTok analytics UI (TikTok hides Traffic; engagement is likes, comments, shares) | `apps/web/src/components/analytics/facebook/FacebookAnalyticsView.tsx`, `types.ts` |
 | YouTube analytics: expandable raw JSON (synced videos + insights) | `apps/web/src/components/analytics/AnalyticsLocalJsonPanel.tsx` (used from `FacebookAnalyticsView.tsx`) |
 | LinkedIn: UGC post import (sync engine + manual sync), author URN for person vs org Page | `apps/web/src/lib/linkedin/sync-ugc-posts.ts`, `apps/web/src/lib/sync/adapters/linkedin.ts` |
-| Threads: OAuth, publish, insights, post sync | `apps/web/src/lib/threads/`, `apps/web/src/lib/sync/adapters/threads.ts`, `docs/THREADS_SETUP.md` |
+| Threads: OAuth, publish, insights, post sync | `apps/web/src/lib/threads/`, `apps/web/src/lib/sync/adapters/threads.ts`, `docs/THREADS_SETUP.md`, `docs/APP_REVIEW_TEST_THREADS_INSTAGRAM_TWITTER.md` |
 | Dashboard home, posts table, sync button, insights loading/cache | `apps/web/src/app/dashboard/page.tsx`, `apps/web/src/context/AppDataContext.tsx`, `apps/web/src/lib/dashboard-insights-session-cache.ts` |
 | Account, brands, team invites (localStorage) | `apps/web/src/app/dashboard/account/page.tsx`, `apps/web/src/components/account/BrandTeamMembersSection.tsx`, `apps/web/src/components/account/ConnectedAccountsPanel.tsx` |
 | OAuth connect, accounts CRUD | `apps/web/src/app/api/social/oauth/`, `apps/web/src/app/api/social/accounts/`, `ConnectView.tsx` |
