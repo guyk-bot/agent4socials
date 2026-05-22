@@ -62,8 +62,8 @@ const HERO_PLATFORMS = [
   { Icon: InstagramIcon, label: 'Instagram' },
   { Icon: YoutubeIcon, label: 'YouTube' },
   { Icon: TikTokIcon, label: 'TikTok' },
-  { Icon: ThreadsIcon, label: 'Threads' },
   { Icon: XTwitterIcon, label: 'Twitter/X' },
+  { Icon: ThreadsIcon, label: 'Threads' },
   { Icon: LinkedinIcon, label: 'LinkedIn' },
   { Icon: PinterestIcon, label: 'Pinterest' },
 ] as const;
@@ -86,8 +86,8 @@ const RANDOM_ICON_SLOTS = [
   { x: 9,  y: 37 }, // Instagram
   { x: 10, y: 63 }, // YouTube
   { x: 22, y: 75 }, // TikTok
-  { x: 52, y: 78 }, // Threads (between TikTok and LinkedIn)
   { x: 97, y: 12 }, // X/Twitter
+  { x: 94, y: 27 }, // Threads (between X and LinkedIn)
   { x: 91, y: 42 }, // LinkedIn
   { x: 76, y: 69 }, // Pinterest
 ] as const;
@@ -98,15 +98,15 @@ const MOBILE_ICON_SLOTS = [
   { x: 7,  y: 20 }, // Instagram
   { x: 12, y: 35 }, // YouTube
   { x: 8,  y: 52 }, // TikTok
-  { x: 48, y: 58 }, // Threads
   { x: 94, y: 4  }, // X/Twitter
+  { x: 92, y: 12 }, // Threads
   { x: 91, y: 20 }, // LinkedIn
   { x: 87, y: 45 }, // Pinterest
 ] as const;
 
-const STATIC_ICON_ROTATIONS = [-14, 9, -18, 6, -11, 12, -9, 16] as const;
+const STATIC_ICON_ROTATIONS = [-14, 9, -18, 6, 12, -11, -9, 16] as const;
 // Randomised notification counts (mixed realistic spread).
-const LOGO_NOTIFICATIONS = [7, 23, 41, 15, 19, 38, 12, 29] as const;
+const LOGO_NOTIFICATIONS = [7, 23, 41, 15, 38, 19, 12, 29] as const;
 // Keep the roadmap/funnel neutral segment fixed across themes.
 const FUNNEL_NEUTRAL = '#9ca3af';
 
@@ -128,26 +128,26 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
     { id: 'dl-0', d: 'M 1 15 C 12 20, -3 28, 9 37', from: '#1877f2', to: '#fd1d8e', x1: 1, y1: 15, x2: 9, y2: 37 },
     { id: 'dl-1', d: 'M 9 37 C 20 44, -2 52, 10 63', from: '#fd1d8e', to: '#ff0000', x1: 9, y1: 37, x2: 10, y2: 63 },
     { id: 'dl-2', d: 'M 10 63 C 18 68, 20 72, 22 75', from: '#ff0000', to: '#010101', x1: 10, y1: 63, x2: 22, y2: 75 },
-    { id: 'dl-3', d: 'M 22 75 C 34 76, 44 77, 52 78', from: '#010101', to: '#000000', x1: 22, y1: 75, x2: 52, y2: 78 },
-    { id: 'dl-4', d: 'M 52 78 C 54 88, 52 96, 50 103', from: '#000000', to: FUNNEL_NEUTRAL, x1: 52, y1: 78, x2: 50, y2: 103 },
+    { id: 'dl-3', d: 'M 22 75 C 24 82, 36 94, 50 103', from: '#010101', to: FUNNEL_NEUTRAL, x1: 22, y1: 75, x2: 50, y2: 103 },
   ] as const;
   const desktopRightRoadSegments = [
-    { id: 'dr-0', d: 'M 97 12 C 84 18, 102 32, 91 42', from: FUNNEL_NEUTRAL, to: '#0a66c2', x1: 97, y1: 12, x2: 91, y2: 42 },
-    { id: 'dr-1', d: 'M 91 42 C 80 52, 100 60, 76 69', from: '#0a66c2', to: '#e60023', x1: 91, y1: 42, x2: 76, y2: 69 },
-    { id: 'dr-2', d: 'M 76 69 C 66 78, 68 90, 70 103', from: '#e60023', to: '#e60023', x1: 76, y1: 69, x2: 70, y2: 103 },
+    { id: 'dr-0', d: 'M 97 12 C 96 18, 95 23, 94 27', from: FUNNEL_NEUTRAL, to: '#000000', x1: 97, y1: 12, x2: 94, y2: 27 },
+    { id: 'dr-1', d: 'M 94 27 C 93 34, 92 38, 91 42', from: '#000000', to: '#0a66c2', x1: 94, y1: 27, x2: 91, y2: 42 },
+    { id: 'dr-2', d: 'M 91 42 C 80 52, 100 60, 76 69', from: '#0a66c2', to: '#e60023', x1: 91, y1: 42, x2: 76, y2: 69 },
+    { id: 'dr-3', d: 'M 76 69 C 66 78, 68 90, 70 103', from: '#e60023', to: '#e60023', x1: 76, y1: 69, x2: 70, y2: 103 },
   ] as const;
 
   const mobileLeftRoadSegments = [
     { id: 'ml-0', d: 'M 7 5 C 12 10, 3 16, 7 20', from: '#1877f2', to: '#fd1d8e', x1: 7, y1: 5, x2: 7, y2: 20 },
     { id: 'ml-1', d: 'M 7 20 C 15 26, 5 32, 12 35', from: '#fd1d8e', to: '#ff0000', x1: 7, y1: 20, x2: 12, y2: 35 },
-    { id: 'ml-2', d: 'M 12 35 C 14 40, 11 46, 8 52', from: '#ff0000', to: '#010101', x1: 12, y1: 35, x2: 8, y2: 52 },
-    { id: 'ml-3', d: 'M 8 52 C 22 54, 38 56, 48 58', from: '#010101', to: '#000000', x1: 8, y1: 52, x2: 48, y2: 58 },
-    { id: 'ml-4', d: 'M 48 58 C 48 72, 49 90, 49 103', from: '#000000', to: FUNNEL_NEUTRAL, x1: 48, y1: 58, x2: 49, y2: 103 },
+    { id: 'ml-2', d: 'M 12 35 C 16 40, 10 48, 8 52', from: '#ff0000', to: '#010101', x1: 12, y1: 35, x2: 8, y2: 52 },
+    { id: 'ml-3', d: 'M 8 52 C 10 58, 28 78, 46 88 C 48 94, 49 99, 49 103', from: '#010101', to: FUNNEL_NEUTRAL, x1: 8, y1: 52, x2: 49, y2: 103 },
   ] as const;
   const mobileRightRoadSegments = [
-    { id: 'mr-0', d: 'M 94 4 C 85 10, 98 17, 91 20', from: FUNNEL_NEUTRAL, to: '#0a66c2', x1: 94, y1: 4, x2: 91, y2: 20 },
-    { id: 'mr-1', d: 'M 91 20 C 96 27, 98 38, 87 45', from: '#0a66c2', to: '#e60023', x1: 91, y1: 20, x2: 87, y2: 45 },
-    { id: 'mr-2', d: 'M 87 45 C 79 54, 60 79, 52 88 C 51 94, 50 99, 50 103', from: '#e60023', to: '#e60023', x1: 87, y1: 45, x2: 50, y2: 103 },
+    { id: 'mr-0', d: 'M 94 4 C 93 7, 93 9, 92 12', from: FUNNEL_NEUTRAL, to: '#000000', x1: 94, y1: 4, x2: 92, y2: 12 },
+    { id: 'mr-1', d: 'M 92 12 C 91 16, 91 18, 91 20', from: '#000000', to: '#0a66c2', x1: 92, y1: 12, x2: 91, y2: 20 },
+    { id: 'mr-2', d: 'M 91 20 C 96 27, 98 38, 87 45', from: '#0a66c2', to: '#e60023', x1: 91, y1: 20, x2: 87, y2: 45 },
+    { id: 'mr-3', d: 'M 87 45 C 79 54, 60 79, 52 88 C 51 94, 50 99, 50 103', from: '#e60023', to: '#e60023', x1: 87, y1: 45, x2: 50, y2: 103 },
   ] as const;
 
   const activeLeftSegments = isMobile ? mobileLeftRoadSegments : desktopLeftRoadSegments;
