@@ -48,59 +48,6 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
 
 const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'THREADS', 'LINKEDIN', 'PINTEREST'];
 
-/** Public profile URL for the platform icon (opens in a new tab). */
-function externalProfileUrlForAccount(platform: string, username?: string | null, platformUserId?: string | null): string | null {
-  const raw = (username || '').trim();
-  const normalized = raw.replace(/^@/, '');
-  const encodedUsername = encodeURIComponent(normalized);
-  const encodedPlatformUserId = encodeURIComponent((platformUserId || '').trim());
-  if (raw.startsWith('http://') || raw.startsWith('https://')) {
-    if (platform === 'THREADS' && /facebook\.com/i.test(raw)) {
-      const fromFb = normalized.replace(/^https?:\/\/(www\.)?facebook\.com\/?/i, '').split('/')[0]?.replace(/^@/, '') ?? '';
-      if (fromFb) return `https://www.threads.net/@${encodeURIComponent(fromFb)}`;
-    } else if (platform !== 'THREADS') {
-      return raw;
-    }
-  }
-  switch (platform) {
-    case 'FACEBOOK':
-      if (normalized) return `https://www.facebook.com/${encodedUsername}`;
-      if (encodedPlatformUserId) return `https://www.facebook.com/${encodedPlatformUserId}`;
-      return 'https://www.facebook.com/';
-    case 'INSTAGRAM':
-      if (normalized) return `https://www.instagram.com/${encodedUsername}/`;
-      return 'https://www.instagram.com/';
-    case 'TIKTOK':
-      if (normalized) return `https://www.tiktok.com/@${encodedUsername}`;
-      return 'https://www.tiktok.com/';
-    case 'YOUTUBE':
-      if ((platformUserId || '').startsWith('UC')) return `https://www.youtube.com/channel/${encodedPlatformUserId}`;
-      if (normalized.startsWith('UC')) return `https://www.youtube.com/channel/${encodedUsername}`;
-      if (raw.startsWith('@')) return `https://www.youtube.com/${encodeURIComponent(raw)}`;
-      if (normalized) return `https://www.youtube.com/@${encodedUsername}`;
-      return 'https://www.youtube.com/';
-    case 'TWITTER':
-      if (normalized) return `https://x.com/${encodedUsername}`;
-      if (encodedPlatformUserId) return `https://x.com/i/user/${encodedPlatformUserId}`;
-      return 'https://x.com/';
-    case 'LINKEDIN':
-      if (normalized.includes('/')) {
-        const withoutLeadingSlash = normalized.replace(/^\/+/, '');
-        return `https://www.linkedin.com/${withoutLeadingSlash}`;
-      }
-      if (normalized) return `https://www.linkedin.com/in/${encodedUsername}/`;
-      return 'https://www.linkedin.com/';
-    case 'PINTEREST':
-      if (normalized) return `https://www.pinterest.com/${encodedUsername}/`;
-      return 'https://www.pinterest.com/';
-    case 'THREADS':
-      if (normalized) return `https://www.threads.net/@${encodedUsername}`;
-      return 'https://www.threads.net/';
-    default:
-      return null;
-  }
-}
-
 /** Platforms that show a gem / upgrade styling on the connect row (empty = same as other networks). */
 const UPGRADE_TO_CONNECT_PLATFORMS: string[] = [];
 
@@ -314,11 +261,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 // From Inbox or any page: go to this account's analytics via client-side nav (keeps cache, no reload).
                 const dashboardUrl = `/dashboard?accountId=${encodeURIComponent(acc.id)}`;
                 const platformLabel = PLATFORM_LABELS[platform] ?? platform;
-                const externalUrl = externalProfileUrlForAccount(
-                  platform,
-                  acc.username as string | undefined,
-                  (acc as { platformUserId?: string }).platformUserId
-                );
                 const goToAccountDashboard = () => {
                   setSelectedAccount(acc);
                   router.push(dashboardUrl);
@@ -339,23 +281,11 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                     title={`View ${platformLabel} analytics`}
                     aria-label={`View ${acc.username || platformLabel} analytics`}
                   >
-                    <div className="w-10 h-10 flex items-center justify-center shrink-0">
-                      {externalUrl ? (
-                        <a
-                          href={externalUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          onKeyDown={(e) => e.stopPropagation()}
-                          className="flex items-center justify-center w-full h-full rounded-lg hover:bg-orange-100/80"
-                          title={`Open ${platformLabel} profile in a new tab`}
-                          aria-label={`Open ${platformLabel} profile in a new tab`}
-                        >
-                          {PLATFORM_ICON[platform]}
-                        </a>
-                      ) : (
-                        PLATFORM_ICON[platform]
-                      )}
+                    <div
+                      className="w-10 h-10 flex items-center justify-center shrink-0 rounded-lg"
+                      aria-hidden
+                    >
+                      {PLATFORM_ICON[platform]}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium">{acc.username || PLATFORM_LABELS[platform]}</div>

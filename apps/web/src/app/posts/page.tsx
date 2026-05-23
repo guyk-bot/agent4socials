@@ -28,7 +28,7 @@ import {
     toLocalCalendarDate,
     writeStoredAnalyticsDateRange,
 } from '@/lib/calendar-date';
-import { InstagramIcon, YoutubeIcon, TikTokIcon, FacebookIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, YoutubeIcon, TikTokIcon, FacebookIcon, XTwitterIcon, LinkedinIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
 import {
     readScheduledPostsClientCache,
     writeScheduledPostsClientCache,
@@ -96,6 +96,28 @@ function postMatchesSearch(post: any, query: string): boolean {
     const q = query.trim().toLowerCase();
     if (!q) return true;
     return postSearchHaystack(post).includes(q);
+}
+
+function threadsInstagramStoryStatus(post: PostHistoryRow): {
+    label: string;
+    className: string;
+} | null {
+    if (!(post as { threadsShareToInstagram?: boolean }).threadsShareToInstagram) return null;
+    const targets = Array.isArray(post.targets) ? post.targets : [];
+    const threadsTarget = targets.find(
+        (t) => t && typeof t === 'object' && String((t as { platform?: string }).platform).toUpperCase() === 'THREADS'
+    ) as { status?: string } | undefined;
+    const threadsStatus = (threadsTarget?.status ?? post.status ?? '').toString().toUpperCase();
+    if (threadsStatus === 'POSTED') {
+        return { label: 'IG Story: shared', className: 'bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-950/50 dark:text-fuchsia-200' };
+    }
+    if (threadsStatus === 'POSTING' || post.status === 'POSTING') {
+        return { label: 'IG Story: pending', className: 'bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-950/40 dark:text-fuchsia-300' };
+    }
+    if (threadsStatus === 'FAILED') {
+        return { label: 'IG Story: not sent', className: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400' };
+    }
+    return { label: 'IG Story', className: 'bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-950/40 dark:text-fuchsia-300' };
 }
 
 const POST_FORMAT_BADGE_CLASS: Record<PostHistoryFormatKey, string> = {
@@ -745,6 +767,7 @@ export default function PostsPage() {
                                                         {t.platform === 'TWITTER' && <XTwitterIcon size={14} />}
                                                         {t.platform === 'LINKEDIN' && <LinkedinIcon size={14} />}
                                                         {t.platform === 'PINTEREST' && <PinterestIcon size={14} />}
+                                                        {t.platform === 'THREADS' && <ThreadsIcon size={14} />}
                                                         <span>{t.platform}</span>
                                                     </span>
                                                 ))
@@ -785,9 +808,19 @@ export default function PostsPage() {
                                                     const msg = err.toUpperCase().startsWith(prefix) ? err.slice(prefix.length).trim() : err;
                                                     return `${platform}: ${msg}`;
                                                 });
+                                            const igStory = threadsInstagramStoryStatus(post);
                                             return (
                                                 <div className="space-y-1">
                                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls}`}>{label}</span>
+                                                    {igStory ? (
+                                                        <span
+                                                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${igStory.className}`}
+                                                            title="Also share to Instagram Story was enabled for this Threads post"
+                                                        >
+                                                            <InstagramIcon size={12} />
+                                                            {igStory.label}
+                                                        </span>
+                                                    ) : null}
                                                     {failedErrors.length > 0 ? (
                                                         <div
                                                             className="max-w-[16rem] space-y-0.5 text-xs text-red-600 dark:text-red-400"

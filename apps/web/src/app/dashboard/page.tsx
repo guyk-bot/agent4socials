@@ -2256,6 +2256,7 @@ export default function DashboardPage() {
             }
             accountAvatarUrl={analyticsAccount.profilePicture ?? null}
             accountUsername={analyticsAccount.username ?? null}
+            accountPlatform={analyticsAccount.platform}
             hasApiInsightsFetched={displayInsights != null}
             socialAccountId={analyticsAccount.platform === 'LINKEDIN' ? analyticsAccount.id : null}
             onAvatarError={handleAvatarError}

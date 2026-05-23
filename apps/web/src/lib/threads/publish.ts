@@ -39,7 +39,10 @@ export async function publishToThreads(options: {
   /** Cross-post to linked Instagram account as a Story (requires threads_share_to_instagram). */
   shareToInstagramStory?: boolean;
 }): Promise<ThreadsPublishResult> {
-  const text = options.text.trim().slice(0, 500) || ' ';
+  const text = options.text.trim().slice(0, 500);
+  if (!text) {
+    return { ok: false, error: 'Threads requires caption text. Add a caption in the composer.' };
+  }
   const token = options.accessToken;
 
   let form: Record<string, string>;

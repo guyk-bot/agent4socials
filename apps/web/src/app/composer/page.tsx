@@ -2462,6 +2462,11 @@ export default function ComposerPage() {
 
             if (platforms.includes('THREADS')) {
                 const threadsText = (contentByPlatformFinal?.['THREADS'] ?? contentFinal).trim();
+                if (!threadsText) {
+                    setLoading(false);
+                    setAlertMessage('Threads requires a caption. Add text in the Content section before publishing.');
+                    return;
+                }
                 if (threadsText.length > THREADS_CHAR_LIMIT) {
                     setLoading(false);
                     setAlertMessage(`Threads limit is ${THREADS_CHAR_LIMIT} characters. Yours is ${threadsText.length}. Shorten or remove Threads.`);

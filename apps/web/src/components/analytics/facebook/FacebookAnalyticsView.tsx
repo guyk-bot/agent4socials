@@ -72,6 +72,8 @@ export interface FacebookAnalyticsViewProps {
   accountAvatarUrl?: string | null;
   /** @handle from connected account (Instagram, etc.) when Graph page profile is not present. */
   accountUsername?: string | null;
+  /** Connected account platform (used for profile links when insights payload is stale). */
+  accountPlatform?: string | null;
   /** LinkedIn: used to load raw Community Management API debug JSON on the analytics page. */
   socialAccountId?: string | null;
   /** Called when the header avatar image fails to load so the parent can refresh the URL. */
@@ -2688,6 +2690,7 @@ export function FacebookAnalyticsView({
   followersLabel,
   accountAvatarUrl,
   accountUsername,
+  accountPlatform = null,
   socialAccountId = null,
   onAvatarError,
 }: FacebookAnalyticsViewProps) {
@@ -2728,7 +2731,7 @@ export function FacebookAnalyticsView({
       }
       return;
     }
-    if (['TIKTOK', 'YOUTUBE', 'LINKEDIN', 'PINTEREST', 'TWITTER'].includes(String(insights.platform).toUpperCase())) {
+    if (['TIKTOK', 'YOUTUBE', 'LINKEDIN', 'PINTEREST', 'TWITTER', 'THREADS'].includes(String(insights.platform).toUpperCase())) {
       // Render the overview as soon as we have any insights payload (cached or live) so
       // X/Pinterest (which hit live platform APIs per request) don't block paint waiting
       // for non-zero numbers to materialize.
@@ -2976,7 +2979,7 @@ export function FacebookAnalyticsView({
   const showHeaderAvatar = Boolean(headerAvatarUrl) && !headerAvatarFailed;
 
   const profileUrl = useMemo(() => {
-    const plat = insights?.platform?.toUpperCase();
+    const plat = (accountPlatform ?? insights?.platform)?.toUpperCase();
     const username = profile?.username?.trim().replace(/^@/, '') || accountUsername?.trim().replace(/^@/, '');
     if (plat === 'TIKTOK' && username) {
       return `https://www.tiktok.com/@${username}`;
@@ -3006,7 +3009,7 @@ export function FacebookAnalyticsView({
     const website = profile?.website?.trim();
     if (website) return website;
     return null;
-  }, [accountUsername, insights?.platform, profile?.username, profile?.website]);
+  }, [accountPlatform, accountUsername, insights?.platform, profile?.username, profile?.website]);
   const postsInRange = useMemo(
     () => posts.filter((p) => inRange(p.publishedAt, dateRange.start, dateRange.end)),
     [posts, dateRange.end, dateRange.start]

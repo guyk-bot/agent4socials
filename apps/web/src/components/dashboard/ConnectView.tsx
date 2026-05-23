@@ -292,10 +292,6 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
 
   // ── THREADS (Meta redirect URI must match exactly) ────────────────────────
   if (platform === 'THREADS') {
-    const threadsCallback =
-      typeof process.env.NEXT_PUBLIC_APP_URL === 'string' && process.env.NEXT_PUBLIC_APP_URL.trim()
-        ? `${process.env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, '')}/api/social/oauth/threads/callback`
-        : 'https://agent4socials.com/api/social/oauth/threads/callback';
     return (
       <div className="connect-view-scope min-h-[calc(100vh-6rem)] flex items-start justify-center pt-16 sm:pt-20">
         <div className="max-w-lg mx-auto px-4 w-full">
@@ -315,22 +311,6 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
                 {connectError}
               </div>
             )}
-
-            <p className="mt-4 text-xs text-neutral-500 leading-relaxed">
-              In Meta → Threads → Settings, fill <span className="font-medium text-neutral-700">all three</span> callback
-              fields (the form will not save with only Redirect). Use Add URL for redirect, then Save:
-            </p>
-            <ul className="mt-1.5 space-y-1 rounded-lg bg-neutral-100 px-3 py-2 text-xs font-mono text-neutral-800 break-all">
-              <li>Redirect: {threadsCallback}</li>
-              <li>
-                Uninstall:{' '}
-                {threadsCallback.replace('/callback', '/deauthorize')}
-              </li>
-              <li>
-                Delete:{' '}
-                {threadsCallback.replace('/callback', '/data-deletion')}
-              </li>
-            </ul>
 
             <button
               type="button"
