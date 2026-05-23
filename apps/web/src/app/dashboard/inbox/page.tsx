@@ -65,7 +65,7 @@ import {
   getPendingUnreadConversationIds,
   removePendingUnreadConversationIds,
 } from '@/lib/inbox/inbox-badge-pending';
-import { normalizeThreadsInboxCommentRow } from '@/lib/threads/inbox-comments';
+import { normalizeThreadsInboxCommentRow } from '@/lib/threads/normalize-threads-inbox-comment';
 import {
   isConversationUnread,
   reconcileInboxReadStateWithConversations,

@@ -5,7 +5,7 @@ import {
   mergeConversationLists,
   mergeConversations,
 } from '@/lib/inbox/poll-inbox-notifications';
-import { normalizeThreadsInboxCommentRow } from '@/lib/threads/inbox-comments';
+import { normalizeThreadsInboxCommentRow } from '@/lib/threads/normalize-threads-inbox-comment';
 
 type ConversationRow = CachedConversation & { platform?: string; messageAccountId?: string };
 type CommentRow = CachedComment & { platform?: string; accountId?: string };
