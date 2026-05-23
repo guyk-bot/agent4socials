@@ -48,6 +48,7 @@ import {
   markCommentsAsRead,
   markConversationsAsRead,
   markEngagementAsRead,
+  unmarkCommentsAsRead,
   INBOX_READ_STATE_CHANGED_EVENT,
   getInboxInitializedAccountIds,
   addInboxInitializedAccount,
@@ -60,6 +61,7 @@ import {
   setInboxSenderPicture,
 } from '@/lib/inbox/inbox-sender-pictures';
 import {
+  addPendingUnreadCommentIds,
   getPendingUnreadCommentIds,
   getPendingUnreadCommentPlatforms,
   getPendingUnreadConversationIds,
@@ -2406,19 +2408,44 @@ function InboxPage() {
     if (next) setSelectedPlatform(next);
   }, [inboxMode, selectedPlatform, commentsSupportedPlatforms.join(',')]);
 
-  // Track unread comment ids. When we first load comments for an account, mark them all as read so we only highlight new notifications after connection.
+  // Track unread comment ids; flag newly appeared top-level comments (incl. first Threads sync).
   useEffect(() => {
     const topLevel = comments.filter((c) => !c.parentCommentId);
     const topLevelIds = new Set(topLevel.map((c) => c.commentId));
+    const prev = previousTopLevelCommentIdsRef.current;
+    let readSet = getReadCommentIds(user?.id);
+    const pending = getPendingUnreadCommentIds(user?.id ?? '');
+
+    if (user?.id) {
+      const brandNew = topLevel.filter((c) => !c.isFromMe && !prev.has(c.commentId));
+      if (brandNew.length > 0) {
+        const wronglyRead: string[] = [];
+        for (const c of brandNew) {
+          if (readSet.has(c.commentId)) wronglyRead.push(c.commentId);
+          addPendingUnreadCommentIds([c.commentId], user.id, c.platform ?? 'UNKNOWN');
+        }
+        if (wronglyRead.length > 0) {
+          unmarkCommentsAsRead(wronglyRead, user.id, { silent: true });
+          readSet = getReadCommentIds(user.id);
+        }
+      }
+    }
+
     const initializedAccounts = getInboxInitializedAccountIds(user?.id);
     const accountIds = [...new Set(comments.map((c) => c.accountId).filter(Boolean))];
     for (const accountId of accountIds) {
       if (initializedAccounts.has(accountId)) continue;
       addInboxInitializedAccount(accountId, user?.id);
     }
-    const readSet = getReadCommentIds(user?.id);
+
     const unreadIds = topLevel
-      .filter((c) => !c.isFromMe && !readSet.has(c.commentId))
+      .filter((c) => {
+        if (c.isFromMe) return false;
+        if (pending.has(c.commentId)) return true;
+        if (!readSet.has(c.commentId)) return true;
+        if (!prev.has(c.commentId)) return true;
+        return false;
+      })
       .map((c) => c.commentId);
     setUnreadCommentIds(new Set(unreadIds));
     previousTopLevelCommentIdsRef.current = topLevelIds;

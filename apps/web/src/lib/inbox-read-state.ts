@@ -79,6 +79,23 @@ export function markCommentsAsRead(
   if (!opts?.silent) notifyInboxReadStateChanged();
 }
 
+/** Undo mark-as-read so a newly synced comment can show in the badge again. */
+export function unmarkCommentsAsRead(
+  ids: Iterable<string>,
+  userId?: string | null,
+  opts?: { silent?: boolean }
+): void {
+  const key = getKey(KEY_COMMENTS, userId);
+  const set = loadSet(key);
+  let changed = false;
+  for (const id of ids) {
+    if (set.delete(id)) changed = true;
+  }
+  if (!changed) return;
+  saveSet(key, set);
+  if (!opts?.silent) notifyInboxReadStateChanged();
+}
+
 export function markConversationsAsRead(
   ids: Iterable<string>,
   userId?: string | null,

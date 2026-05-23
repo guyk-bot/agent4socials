@@ -214,8 +214,17 @@ export function mergeComments(
 
   const initialized = getInboxInitializedAccountIds(userId);
   if (!initialized.has(accountId) && merged.length > 0) {
-    const topLevel = merged.filter((c) => !c.parentCommentId).map((c) => c.commentId);
-    markCommentsAsRead(topLevel, userId, { silent: true });
+    if (platform === 'THREADS') {
+      // First Threads fetch is often the first time replies exist; do not silence them as "old".
+      for (const c of incoming) {
+        if (!c.parentCommentId && !c.isFromMe && !readComments.has(c.commentId)) {
+          addPendingUnreadCommentIds([c.commentId], userId, platform);
+        }
+      }
+    } else {
+      const topLevel = merged.filter((c) => !c.parentCommentId).map((c) => c.commentId);
+      markCommentsAsRead(topLevel, userId, { silent: true });
+    }
     addInboxInitializedAccount(accountId, userId);
   }
 
