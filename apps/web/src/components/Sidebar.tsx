@@ -54,7 +54,14 @@ function externalProfileUrlForAccount(platform: string, username?: string | null
   const normalized = raw.replace(/^@/, '');
   const encodedUsername = encodeURIComponent(normalized);
   const encodedPlatformUserId = encodeURIComponent((platformUserId || '').trim());
-  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    if (platform === 'THREADS' && /facebook\.com/i.test(raw)) {
+      const fromFb = normalized.replace(/^https?:\/\/(www\.)?facebook\.com\/?/i, '').split('/')[0]?.replace(/^@/, '') ?? '';
+      if (fromFb) return `https://www.threads.net/@${encodeURIComponent(fromFb)}`;
+    } else if (platform !== 'THREADS') {
+      return raw;
+    }
+  }
   switch (platform) {
     case 'FACEBOOK':
       if (normalized) return `https://www.facebook.com/${encodedUsername}`;

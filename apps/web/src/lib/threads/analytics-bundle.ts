@@ -16,6 +16,7 @@ export async function buildThreadsInsightsBundle(
   likesTotal: number;
   repliesTotal: number;
   repostsTotal: number;
+  quotesTotal: number;
   impressionsTimeSeries: Array<{ date: string; value: number }>;
   profile?: { username?: string; name?: string; picture?: string };
 }> {
@@ -24,6 +25,7 @@ export async function buildThreadsInsightsBundle(
   let likesTotal = 0;
   let repliesTotal = 0;
   let repostsTotal = 0;
+  let quotesTotal = 0;
   const impressionsTimeSeries: Array<{ date: string; value: number }> = [];
 
   const params: Record<string, string> = {
@@ -48,6 +50,7 @@ export async function buildThreadsInsightsBundle(
       if (name === 'likes') likesTotal += n;
       if (name === 'replies') repliesTotal += n;
       if (name === 'reposts') repostsTotal += n;
+      if (name === 'quotes') quotesTotal += n;
     }
     const viewsMetric = data.data.find((m) => (m.name ?? '').toLowerCase() === 'views');
     if (viewsMetric?.values?.length) {
@@ -67,6 +70,7 @@ export async function buildThreadsInsightsBundle(
     likesTotal,
     repliesTotal,
     repostsTotal,
+    quotesTotal,
     impressionsTimeSeries,
     profile: profile
       ? {

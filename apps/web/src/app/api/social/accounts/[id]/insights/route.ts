@@ -3220,10 +3220,20 @@ export async function GET(
         out.impressionsTotal = bundle.viewsTotal;
         const outRec = out as Record<string, unknown>;
         outRec.interactionsTotal =
-          bundle.likesTotal + bundle.repliesTotal + bundle.repostsTotal;
+          bundle.likesTotal + bundle.repliesTotal + bundle.repostsTotal + bundle.quotesTotal;
         outRec.likesTotal = bundle.likesTotal;
         outRec.commentsTotal = bundle.repliesTotal;
-        outRec.sharesTotal = bundle.repostsTotal;
+        outRec.sharesTotal = bundle.repostsTotal + bundle.quotesTotal;
+        out.extra = {
+          ...(typeof out.extra === 'object' && out.extra !== null ? (out.extra as Record<string, unknown>) : {}),
+          threadsTotals: {
+            views: bundle.viewsTotal,
+            likes: bundle.likesTotal,
+            replies: bundle.repliesTotal,
+            reposts: bundle.repostsTotal,
+            quotes: bundle.quotesTotal,
+          },
+        };
         if (bundle.impressionsTimeSeries.length > 0) {
           out.impressionsTimeSeries = bundle.impressionsTimeSeries;
         }

@@ -20,7 +20,7 @@ import {
   YAxis,
 } from 'recharts';
 import { ArrowRight, ChevronRight, ExternalLink, MessageSquare, RefreshCw, Sparkles, Star } from 'lucide-react';
-import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
 import { AnalyticsDateRangePicker } from '../AnalyticsDateRangePicker';
 import { LinkedInCommunityApiJsonPanel } from '../LinkedInCommunityApiJsonPanel';
 import { AnalyticsLocalJsonPanel } from '../AnalyticsLocalJsonPanel';
@@ -303,6 +303,16 @@ const TWITTER_PERFORMANCE_LABELS: Record<StoryMetricKey, string> = {
   contentViews: 'Posts published (daily)',
   pageVisits: 'Profile visits',
   subscriberNet: 'Subscriber net',
+};
+
+/** Threads API (threads_manage_insights): views, likes, replies, reposts, quotes. */
+const THREADS_PERFORMANCE_LABELS: Record<StoryMetricKey, string> = {
+  followers: 'Followers',
+  engagements: 'Engagements',
+  videoViews: 'Views',
+  contentViews: 'Posts',
+  pageVisits: 'Profile visits',
+  subscriberNet: 'Net',
 };
 
 function storyMetricSetsEqual(a: StoryMetricKey[], b: readonly StoryMetricKey[]): boolean {
@@ -2146,6 +2156,9 @@ export function resolvedPostPermalink(row: {
     // wasn't persisted for this imported row.
     return `https://www.pinterest.com/pin/${encodeURIComponent(pid)}/`;
   }
+  if (plat === 'THREADS' && pid) {
+    return `https://www.threads.net/post/${encodeURIComponent(pid)}`;
+  }
   if (plat === 'LINKEDIN' && pid) {
     return `https://www.linkedin.com/feed/update/${encodeURIComponent(pid)}`;
   }
@@ -2772,8 +2785,11 @@ export function FacebookAnalyticsView({
         : []),
       { id: FACEBOOK_ANALYTICS_SECTION_IDS.history, label: 'History' },
     ];
-    if (plat === 'TIKTOK' || plat === 'TWITTER') {
-      return all.filter((s) => s.id !== FACEBOOK_ANALYTICS_SECTION_IDS.traffic);
+    if (plat === 'TIKTOK' || plat === 'TWITTER' || plat === 'THREADS') {
+      return all.filter(
+        (s) =>
+          s.id !== FACEBOOK_ANALYTICS_SECTION_IDS.traffic && s.id !== FACEBOOK_ANALYTICS_SECTION_IDS.reels
+      );
     }
     if (plat === 'LINKEDIN') {
       return all.filter(
@@ -2905,6 +2921,12 @@ export function FacebookAnalyticsView({
   const isPinterest = insights?.platform?.toUpperCase() === 'PINTEREST';
   const isLinkedIn = insights?.platform?.toUpperCase() === 'LINKEDIN';
   const isTwitter = insights?.platform?.toUpperCase() === 'TWITTER';
+  const isThreads = insights?.platform?.toUpperCase() === 'THREADS';
+
+  useEffect(() => {
+    if (!isThreads) return;
+    setSelectedStoryMetrics(['videoViews', 'engagements', 'contentViews']);
+  }, [isThreads]);
 
   useEffect(() => {
     if (!isFacebook && !isInstagram) return;
@@ -2974,8 +2996,13 @@ export function FacebookAnalyticsView({
     if (plat === 'PINTEREST' && username) {
       return `https://www.pinterest.com/${username}/`;
     }
+    if (plat === 'THREADS' && username) {
+      return `https://www.threads.net/@${username}`;
+    }
     if (username && plat === 'FACEBOOK') return `https://www.facebook.com/${username}`;
-    if (profile?.username?.trim()) return `https://www.facebook.com/${profile.username.trim()}`;
+    if (profile?.username?.trim() && plat !== 'THREADS') {
+      return `https://www.facebook.com/${profile.username.trim()}`;
+    }
     const website = profile?.website?.trim();
     if (website) return website;
     return null;
@@ -3150,6 +3177,32 @@ export function FacebookAnalyticsView({
     if (fromRangeTweets > 0) return fromRangeTweets;
     return insights?.impressionsTotal ?? 0;
   }, [insights?.impressionsTimeSeries, insights?.impressionsTotal, twitterRecentTweetsInRange]);
+  const threadsTotals = useMemo(() => {
+    const extra = insights?.extra as { threadsTotals?: { views?: number; likes?: number; replies?: number; reposts?: number; quotes?: number } } | undefined;
+    return extra?.threadsTotals;
+  }, [insights?.extra]);
+  const threadsViewsInRange = useMemo(() => {
+    const fromSeries = sumMetricSeriesPoints(insights?.impressionsTimeSeries ?? []);
+    if (fromSeries > 0) return fromSeries;
+    if (threadsTotals?.views != null && threadsTotals.views > 0) return threadsTotals.views;
+    return insights?.impressionsTotal ?? 0;
+  }, [insights?.impressionsTimeSeries, insights?.impressionsTotal, threadsTotals?.views]);
+  const threadsEngagementsTotal = useMemo(() => {
+    if (threadsTotals) {
+      return (
+        (threadsTotals.likes ?? 0) +
+        (threadsTotals.replies ?? 0) +
+        (threadsTotals.reposts ?? 0) +
+        (threadsTotals.quotes ?? 0)
+      );
+    }
+    const fromPosts = postsInRange.reduce(
+      (s, p) => s + (p.likeCount ?? 0) + (p.commentsCount ?? 0) + bestShareCount(p) + (p.repostsCount ?? 0),
+      0
+    );
+    if (fromPosts > 0) return fromPosts;
+    return (insights as FacebookInsights & { interactionsTotal?: number })?.interactionsTotal ?? 0;
+  }, [threadsTotals, postsInRange, insights]);
   const youTubeViewsInRange = useMemo(
     () =>
       (insights?.impressionsTimeSeries ?? []).reduce((s, p) => s + (typeof p.value === 'number' && Number.isFinite(p.value) ? p.value : 0), 0),
@@ -3456,6 +3509,35 @@ export function FacebookAnalyticsView({
         subscriberNet: 0,
       }));
     }
+    if (isThreads) {
+      const apiViews = seriesToMap(insights?.impressionsTimeSeries ?? []);
+      const postViews = seriesToMap(aggregatePostsByDayValue(postsInRange, (p) => p.impressions ?? 0));
+      const viewsMap = mergeSeriesMapsMax(apiViews, postViews);
+      const postEng = seriesToMap(
+        aggregatePostsByDayValue(
+          postsInRange,
+          (p) => (p.likeCount ?? 0) + (p.commentsCount ?? 0) + bestShareCount(p) + (p.repostsCount ?? 0)
+        )
+      );
+      const postsByDate: Record<string, number> = {};
+      for (const p of postsInRange) {
+        const d = localCalendarDateFromIso(p.publishedAt);
+        if (!d) continue;
+        postsByDate[d] = (postsByDate[d] ?? 0) + 1;
+      }
+      const videoViewsSeries = dailyValuesOnAxis(dateAxis, viewsMap);
+      const engagement = dailyValuesOnAxis(dateAxis, postEng);
+      const contentViewsSeries = dailyValuesOnAxis(dateAxis, postsByDate);
+      return dateAxis.map((date) => ({
+        date,
+        followers: 0,
+        engagements: engagement[date] ?? 0,
+        videoViews: videoViewsSeries[date] ?? 0,
+        contentViews: contentViewsSeries[date] ?? 0,
+        pageVisits: 0,
+        subscriberNet: 0,
+      }));
+    }
     if (isLinkedIn) {
       const postsByDate: Record<string, number> = {};
       const engagementByDate: Record<string, number> = {};
@@ -3580,6 +3662,7 @@ export function FacebookAnalyticsView({
     isTikTok,
     isYouTube,
     isTwitter,
+    isThreads,
     isLinkedIn,
     isInstagram,
     isFacebook,
@@ -4553,8 +4636,8 @@ type PostsUploadDayTooltipAgg = {
     return postsRows.reduce((s, r) => s + (r.views ?? 0), 0) / Math.max(1, postsRows.length);
   })();
   /** Copy for Posts section: what “interactions / reactions” refer to (range + per-post vs summed). */
-  const postsExplainerPublishedPlural = isTwitter ? 'tweets' : isPinterest ? 'pins' : isYouTube ? 'videos' : 'posts';
-  const postsExplainerItemSingular = isTwitter ? 'tweet' : isPinterest ? 'pin' : isYouTube ? 'video' : 'post';
+  const postsExplainerPublishedPlural = isTwitter ? 'tweets' : isPinterest ? 'pins' : isYouTube ? 'videos' : isThreads ? 'threads' : 'posts';
+  const postsExplainerItemSingular = isTwitter ? 'tweet' : isPinterest ? 'pin' : isYouTube ? 'video' : isThreads ? 'thread' : 'post';
   const postsExplainerDateRangeLabel = `${formatShortDate(dateRange.start)}–${formatShortDate(dateRange.end)}`;
   const totalReelWatchTimeMs = useMemo(() => {
     if (isYouTube || isPinterest) return reelChartSourceRows.reduce((s, r) => s + r.watchTimeMs, 0);
@@ -5075,6 +5158,8 @@ type PostsUploadDayTooltipAgg = {
                             ? 'Open LinkedIn profile'
                             : insights?.platform === 'TWITTER'
                               ? 'Open X profile'
+                              : insights?.platform === 'THREADS'
+                                ? 'Open Threads profile'
                         : 'Open Facebook profile'
                 }
                 className="shrink-0"
@@ -5109,6 +5194,7 @@ type PostsUploadDayTooltipAgg = {
                   : insights?.platform === 'TWITTER' ? <XTwitterIcon size={44} className="text-neutral-800" />
                   : insights?.platform === 'LINKEDIN' ? <LinkedinIcon size={44} />
                   : insights?.platform === 'PINTEREST' ? <PinterestIcon size={44} />
+                  : insights?.platform === 'THREADS' ? <ThreadsIcon size={44} />
                   : <FacebookIcon size={44} />}
               </div>
             )}
@@ -5132,6 +5218,8 @@ type PostsUploadDayTooltipAgg = {
                             ? 'YouTube'
                             : insights?.platform === 'LINKEDIN'
                               ? 'LinkedIn'
+                              : insights?.platform === 'THREADS'
+                                ? 'Threads'
                             : 'Facebook Page')}
                 </h1>
                 {isLinkedIn && linkedInExtras?.profile?.headline ? (
@@ -5277,7 +5365,7 @@ type PostsUploadDayTooltipAgg = {
               })}
             </div>
           ) : null}
-          {!(isTikTok || isTwitter || isYouTube || isLinkedIn) ? (
+          {!(isTikTok || isTwitter || isYouTube || isLinkedIn || isThreads) ? (
             <div className="mb-5 flex gap-2">
               {(['growth', 'engagement', 'views'] as const).map((mode) => (
                 <button
@@ -5378,6 +5466,45 @@ type PostsUploadDayTooltipAgg = {
                   source="Original posts with created_at in the selected range (replies & pure retweets excluded)"
                   color={TIKTOK_PERFORMANCE_LINE_COLORS.contentViews}
                   value={formatNumber(insights?.recentTweets?.length ?? postsInRange.length)}
+                  series={growthSparklineSeries.contentViews}
+                  active={isCardSelected('contentViews')}
+                  onClick={() => toggleStoryMetric('contentViews')}
+                />
+              </div>
+            </>
+          ) : isThreads ? (
+            <>
+              <div
+                className="rounded-xl border px-3 py-2 text-xs leading-relaxed mb-3"
+                style={{ borderColor: COLOR.border, background: COLOR.sectionAlt, color: COLOR.textSecondary }}
+              >
+                Metrics come from Threads Insights (views, likes, replies, reposts, quotes) for your selected date range.
+                Text posts and media posts are both included.
+              </div>
+              <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <SparklineMetricCard
+                  label="Views"
+                  source="Threads API · me/threads_insights · views"
+                  color={COLOR.amber}
+                  value={formatNumber(threadsViewsInRange)}
+                  series={growthSparklineSeries.videoViews}
+                  active={isCardSelected('videoViews')}
+                  onClick={() => toggleStoryMetric('videoViews')}
+                />
+                <SparklineMetricCard
+                  label="Engagements"
+                  source="Threads API · likes + replies + reposts + quotes in range"
+                  color={COLOR.coral}
+                  value={formatNumber(threadsEngagementsTotal)}
+                  series={growthSparklineSeries.engagement}
+                  active={isCardSelected('engagements')}
+                  onClick={() => toggleStoryMetric('engagements')}
+                />
+                <SparklineMetricCard
+                  label="Posts"
+                  source="Synced Threads posts published in the selected date range"
+                  color={TIKTOK_PERFORMANCE_LINE_COLORS.contentViews}
+                  value={formatNumber(postsInRange.length)}
                   series={growthSparklineSeries.contentViews}
                   active={isCardSelected('contentViews')}
                   onClick={() => toggleStoryMetric('contentViews')}
@@ -5607,7 +5734,7 @@ type PostsUploadDayTooltipAgg = {
                     className="mr-1 inline-block h-2 w-2 rounded-full"
                     style={{
                       background:
-                        isTikTok || isTwitter || isYouTube || isLinkedIn
+                        isTikTok || isTwitter || isYouTube || isLinkedIn || isThreads
                           ? TIKTOK_PERFORMANCE_LINE_COLORS[metric]
                           : STORY_METRIC_CONFIG[metric].color,
                     }}
@@ -5616,6 +5743,8 @@ type PostsUploadDayTooltipAgg = {
                     ? TIKTOK_PERFORMANCE_LABELS[metric]
                     : isTwitter
                       ? TWITTER_PERFORMANCE_LABELS[metric]
+                      : isThreads
+                        ? THREADS_PERFORMANCE_LABELS[metric]
                       : isYouTube
                         ? YOUTUBE_PERFORMANCE_LABELS[metric]
                         : isLinkedIn
@@ -5667,6 +5796,8 @@ type PostsUploadDayTooltipAgg = {
                         ? TIKTOK_PERFORMANCE_LABELS[key]
                         : isTwitter && key && key in TWITTER_PERFORMANCE_LABELS
                           ? TWITTER_PERFORMANCE_LABELS[key]
+                          : isThreads && key && key in THREADS_PERFORMANCE_LABELS
+                            ? THREADS_PERFORMANCE_LABELS[key]
                           : isYouTube && key && key in YOUTUBE_PERFORMANCE_LABELS
                             ? YOUTUBE_PERFORMANCE_LABELS[key]
                             : isLinkedIn && key && key in LINKEDIN_PERFORMANCE_LABELS
@@ -5689,7 +5820,7 @@ type PostsUploadDayTooltipAgg = {
                     type="monotone"
                     dataKey={metric}
                     stroke={
-                      isTikTok || isTwitter || isYouTube || isLinkedIn
+                      isTikTok || isTwitter || isYouTube || isLinkedIn || isThreads
                         ? TIKTOK_PERFORMANCE_LINE_COLORS[metric]
                         : STORY_METRIC_CONFIG[metric].color
                     }
@@ -5713,7 +5844,9 @@ type PostsUploadDayTooltipAgg = {
             <MetricCard
               label="Likes"
               source={
-                isTikTok
+                isThreads
+                  ? 'Threads API · likes (account insights total for range)'
+                  : isTikTok
                   ? 'video/list · like_count (synced posts)'
                   : isTwitter
                     ? 'Synced X posts · likeCount (timeline metrics also in Performance table)'
@@ -5728,9 +5861,11 @@ type PostsUploadDayTooltipAgg = {
               tiktokApiHighlight={isTikTok}
             />
             <MetricCard
-              label="Comments"
+              label={isThreads ? 'Replies' : 'Comments'}
               source={
-                isTikTok
+                isThreads
+                  ? 'Threads API · replies (account insights total for range)'
+                  : isTikTok
                   ? 'video/list · comment_count (synced posts)'
                   : isTwitter
                     ? 'Synced X posts · commentsCount'
@@ -5745,9 +5880,11 @@ type PostsUploadDayTooltipAgg = {
               tiktokApiHighlight={isTikTok}
             />
             <MetricCard
-              label="Shares"
+              label={isThreads ? 'Reposts & quotes' : 'Shares'}
               source={
-                isTikTok
+                isThreads
+                  ? 'Threads API · reposts + quotes (account insights total for range)'
+                  : isTikTok
                   ? 'video/list · share_count (synced posts)'
                   : isTwitter
                     ? 'Synced X posts · sharesCount (native reposts where mapped)'
@@ -5939,7 +6076,7 @@ type PostsUploadDayTooltipAgg = {
 
       </section>
 
-      {!isTikTok && !isLinkedIn && !isTwitter ? (
+      {!isTikTok && !isLinkedIn && !isTwitter && !isThreads ? (
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.traffic} className="scroll-mt-28 space-y-6">
         {overviewSkeleton ? (
           <AnalyticsTrafficSkeleton />
@@ -6289,14 +6426,14 @@ type PostsUploadDayTooltipAgg = {
         ) : (
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-4" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div>
-            <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>{isTwitter ? 'Tweets' : isPinterest ? 'Pins' : 'Posts'}</h2>
+            <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>{isTwitter ? 'Tweets' : isPinterest ? 'Pins' : isThreads ? 'Threads posts' : 'Posts'}</h2>
           </div>
           {!isYouTube ? (
           <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
             <div className="mb-4 flex flex-col gap-3">
             <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <h4 className="text-base font-semibold" style={{ color: COLOR.text }}>Uploaded posts</h4>
+                <h4 className="text-base font-semibold" style={{ color: COLOR.text }}>{isThreads ? 'Posts in range' : 'Uploaded posts'}</h4>
               </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {(
@@ -6367,6 +6504,7 @@ type PostsUploadDayTooltipAgg = {
                 ))}
               </div>
             </div>
+            {!isThreads ? (
             <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3">
               {postsUploadChartPresets
                 .filter((preset) => preset.key !== 'all')
@@ -6404,7 +6542,9 @@ type PostsUploadDayTooltipAgg = {
                   );
                 })}
             </div>
+            ) : null}
             </div>
+            {!isThreads ? (
             <InsightChartCard title="Uploaded posts" hideHeader flat>
               {postsUploadByDay.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-sm" style={{ color: COLOR.textMuted }}>
@@ -6574,17 +6714,18 @@ type PostsUploadDayTooltipAgg = {
                 </ResponsiveContainer>
               )}
             </InsightChartCard>
+            ) : null}
           </div>
           ) : null}
           <TopContentHighlights
             platform={insights?.platform}
             clicksLeaderTitle={
-              isInstagram || isFacebook || isTikTok || isTwitter || isYouTube || isLinkedIn ? 'Interactions leaders' : 'Clicks leaders'
+              isInstagram || isFacebook || isTikTok || isTwitter || isYouTube || isLinkedIn || isThreads ? 'Interactions leaders' : 'Clicks leaders'
             }
             clicksMetricLabel={
-              isInstagram || isFacebook || isTikTok || isTwitter || isYouTube || isLinkedIn ? 'Interactions' : 'Clicks'
+              isInstagram || isFacebook || isTikTok || isTwitter || isYouTube || isLinkedIn || isThreads ? 'Interactions' : 'Clicks'
             }
-            hideClicksColumn={!(isInstagram || isFacebook || isTikTok || isTwitter || isYouTube || isLinkedIn)}
+            hideClicksColumn={!(isInstagram || isFacebook || isTikTok || isTwitter || isYouTube || isLinkedIn || isThreads)}
             byViews={topByViews.map((p) => ({
               id: p.id,
               preview: p.preview,
@@ -6707,7 +6848,7 @@ type PostsUploadDayTooltipAgg = {
             setSelectedReelMetrics={setSelectedYtVideoReelMetrics}
           />
         ) : null
-      ) : !isLinkedIn ? (
+      ) : !isLinkedIn && !isThreads ? (
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.reels} className="scroll-mt-28 space-y-6">
         {overviewSkeleton ? (
           <AnalyticsReelsSkeleton />
