@@ -41,7 +41,7 @@ export function linkedInOAuthHealthFromCredentials(credentialsJson: unknown): Li
       linkedinPublishReady: true,
       linkedinSyncReady: false,
       linkedinReconnectHint:
-        'Reconnect once more to load posts and analytics (r_member_social). Publishing should already work.',
+        'Posting is enabled. To sync posts and analytics, add r_member_social in the LinkedIn Developer Portal (Marketing API product), set LINKEDIN_INCLUDE_R_MEMBER_SOCIAL=true in Vercel, redeploy, then Reconnect.',
     };
   }
   return { linkedinPublishReady: true, linkedinSyncReady: true };
