@@ -11,6 +11,7 @@ import {
   exchangeThreadsLongLivedToken,
   fetchThreadsProfile,
   resolveThreadsRedirectUri,
+  threadsRedirectUriFromRequestUrl,
 } from '@/lib/threads/threads-api';
 import { ensureSocialAccountOAuthSchema } from '@/lib/ensure-social-account-oauth-schema';
 import { syncTikTokImportedVideos } from '@/lib/tiktok/sync-imported-videos';
@@ -482,10 +483,12 @@ async function exchangeCode(
       };
     }
     case 'THREADS': {
-      const redirectUri = resolveThreadsRedirectUri();
+      const redirectUri = (callbackUrl || resolveThreadsRedirectUri()).replace(/\/+$/, '');
       const short = await exchangeThreadsCodeForShortLivedToken(code, redirectUri);
       if (!short?.accessToken) {
-        throw new Error('Threads token exchange failed. Check META_APP_ID, META_APP_SECRET, and Threads redirect URI in Meta app settings.');
+        throw new Error(
+          `Threads token exchange failed. Redirect URI used: ${redirectUri}. Check THREADS_APP_ID and THREADS_APP_SECRET in Vercel.`
+        );
       }
       const long = await exchangeThreadsLongLivedToken(short.accessToken);
       const accessToken = long?.accessToken ?? short.accessToken;
@@ -658,7 +661,7 @@ export async function GET(
   } else if (plat === 'LINKEDIN' && process.env.LINKEDIN_REDIRECT_URI?.trim()) {
     callbackUrl = process.env.LINKEDIN_REDIRECT_URI.replace(/\/+$/, '');
   } else if (plat === 'THREADS') {
-    callbackUrl = resolveThreadsRedirectUri();
+    callbackUrl = threadsRedirectUriFromRequestUrl(request.url);
   }
 
   let tokenData: TokenResult;
@@ -671,7 +674,10 @@ export async function GET(
   } catch (e) {
     const err = e as Error;
     console.error('[Social OAuth] exchange error:', err?.message ?? e, err);
-    const message = err?.message?.includes('Instagram') ? err.message : 'Failed to connect account';
+    const message =
+      err?.message?.includes('Instagram') || err?.message?.includes('Threads')
+        ? err.message
+        : 'Failed to connect account';
     return oauthErrorHtml(baseUrl, message, 500);
   }
 

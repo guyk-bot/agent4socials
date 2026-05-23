@@ -17,6 +17,12 @@ export function resolveAppBaseUrl(): string {
  * Threads OAuth redirect URI. Uses THREADS_REDIRECT_URI only when its host matches
  * NEXT_PUBLIC_APP_URL so Meta whitelist and authorize redirect stay aligned.
  */
+/** Redirect URI Meta used on callback (must match authorize + token exchange). */
+export function threadsRedirectUriFromRequestUrl(requestUrl: string): string {
+  const u = new URL(requestUrl);
+  return `${u.origin}${u.pathname}`.replace(/\/+$/, '');
+}
+
 export function resolveThreadsRedirectUri(): string {
   const baseUrl = resolveAppBaseUrl();
   const defaultUri = `${baseUrl}/api/social/oauth/threads/callback`;
@@ -146,8 +152,17 @@ export async function exchangeThreadsCodeForShortLivedToken(
     }
   );
   if (r.status !== 200 || !r.data?.access_token) {
-    console.error('[Threads OAuth] short-lived token:', r.status, r.data);
-    return null;
+    const errObj = r.data?.error;
+    const metaMsg =
+      errObj && typeof errObj === 'object' && 'message' in errObj
+        ? String((errObj as { message?: string }).message)
+        : null;
+    console.error('[Threads OAuth] short-lived token:', r.status, r.data, { redirectUri });
+    throw new Error(
+      metaMsg
+        ? `Threads token exchange failed: ${metaMsg}`
+        : `Threads token exchange failed (HTTP ${r.status}). Confirm THREADS_APP_ID and THREADS_APP_SECRET in Vercel match Meta → Threads → Settings, and redirect URI is exactly ${redirectUri}`
+    );
   }
   return { accessToken: r.data.access_token, userId: r.data.user_id };
 }
