@@ -21,7 +21,7 @@ import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useTheme } from '@/context/ThemeContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
-import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
+import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
 import { avatarDisplayUrl } from '@/lib/avatar-display-url';
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -32,6 +32,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   TWITTER: 'Twitter/X',
   LINKEDIN: 'LinkedIn',
   PINTEREST: 'Pinterest',
+  THREADS: 'Threads',
 };
 
 const PLATFORM_ICON: Record<string, React.ReactNode> = {
@@ -42,9 +43,10 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
   TWITTER: <XTwitterIcon size={26} className="text-neutral-800" />,
   LINKEDIN: <LinkedinIcon size={26} />,
   PINTEREST: <PinterestIcon size={26} />,
+  THREADS: <ThreadsIcon size={26} />,
 };
 
-const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'LINKEDIN', 'PINTEREST', 'TWITTER'];
+const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'THREADS', 'LINKEDIN', 'PINTEREST'];
 
 /** Public profile URL for the platform icon (opens in a new tab). */
 function externalProfileUrlForAccount(platform: string, username?: string | null, platformUserId?: string | null): string | null {
@@ -129,7 +131,8 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
       platform !== 'TWITTER' &&
       platform !== 'YOUTUBE' &&
       platform !== 'PINTEREST' &&
-      platform !== 'LINKEDIN'
+      platform !== 'LINKEDIN' &&
+      platform !== 'THREADS'
     ) return;
     refreshingAvatarIds.current.add(accountId);
     try {
@@ -173,7 +176,8 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
               a?.platform === 'TWITTER' ||
               a?.platform === 'YOUTUBE' ||
               a?.platform === 'PINTEREST' ||
-              a?.platform === 'LINKEDIN'
+              a?.platform === 'LINKEDIN' ||
+              a?.platform === 'THREADS'
             )
             .map((a) => a.id)
             .filter((id): id is string => typeof id === 'string' && id.length > 0);

@@ -55,6 +55,20 @@ if (window.opener) { try { window.close(); } catch (e) {} }
   return new NextResponse(html, { status, headers: { 'Content-Type': 'text/html' } });
 }
 
+function parseConnectParamsForPostMessage(connectParams: string): {
+  platform: string | null;
+  username: string | null;
+  profilePicture: string | null;
+} {
+  const raw = connectParams.startsWith('&') ? connectParams.slice(1) : connectParams;
+  const q = new URLSearchParams(raw);
+  return {
+    platform: q.get('newPlatform'),
+    username: q.get('newUsername'),
+    profilePicture: q.get('newPic'),
+  };
+}
+
 function oauthSuccessHtml(
   baseUrl: string,
   accountId: string,
@@ -65,6 +79,10 @@ function oauthSuccessHtml(
   const safeUrl = JSON.stringify(dashboardUrl);
   const safeAccountId = JSON.stringify(accountId);
   const msgType = JSON.stringify(OAUTH_COMPLETE_MESSAGE);
+  const conn = parseConnectParamsForPostMessage(connectParams);
+  const safePlatform = JSON.stringify(conn.platform);
+  const safeUsername = JSON.stringify(conn.username);
+  const safeProfilePicture = JSON.stringify(conn.profilePicture);
   const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Connected</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;">
 <h2 style="color:#15803d;">Account connected</h2>
 <p>You can close this tab and return to Agent4Socials.</p>
@@ -72,9 +90,18 @@ function oauthSuccessHtml(
 (function () {
   var dashboardUrl = ${safeUrl};
   var accountId = ${safeAccountId};
+  var platform = ${safePlatform};
+  var username = ${safeUsername};
+  var profilePicture = ${safeProfilePicture};
   if (window.opener) {
     try {
-      window.opener.postMessage({ type: ${msgType}, accountId: accountId }, window.location.origin);
+      window.opener.postMessage({
+        type: ${msgType},
+        accountId: accountId,
+        platform: platform,
+        username: username,
+        profilePicture: profilePicture
+      }, window.location.origin);
     } catch (e) {}
     setTimeout(function () { try { window.close(); } catch (e2) {} }, 400);
     return;

@@ -3,6 +3,24 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 type CachedAccount = { id: string; platform: string; username?: string; profilePicture?: string | null; [key: string]: unknown };
+
+/** Insert or refresh a just-connected account so the sidebar can render before /social/accounts returns. */
+export function upsertOptimisticConnectedAccount(
+  accounts: CachedAccount[],
+  payload: { id: string; platform: string; username?: string; profilePicture?: string | null }
+): CachedAccount[] {
+  const row: CachedAccount = {
+    id: payload.id,
+    platform: payload.platform,
+    username: payload.username ?? payload.platform,
+    profilePicture: payload.profilePicture ?? null,
+  };
+  const idx = accounts.findIndex((a) => a.id === payload.id);
+  if (idx === -1) return [...accounts, row];
+  const updated = [...accounts];
+  updated[idx] = { ...updated[idx], ...row };
+  return updated;
+}
 export type BrandWorkspace = {
   id: string;
   name: string;

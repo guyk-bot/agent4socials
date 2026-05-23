@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useAuthModal } from '@/context/AuthModalContext';
-import { useAccountsCache } from '@/context/AccountsCacheContext';
+import { useAccountsCache, upsertOptimisticConnectedAccount } from '@/context/AccountsCacheContext';
 import { useAppData, getDefaultDateRange } from '@/context/AppDataContext';
 import { useSelectedAccount, useResolvedSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
@@ -644,7 +644,13 @@ export default function DashboardPage() {
     }
 
     if (typeof window !== 'undefined' && window.opener) {
-      notifyOAuthOpenerAndClose(accountIdFromUrl);
+      const params = new URLSearchParams(window.location.search);
+      notifyOAuthOpenerAndClose({
+        accountId: accountIdFromUrl,
+        platform: params.get('newPlatform') ?? undefined,
+        username: params.get('newUsername') ?? undefined,
+        profilePicture: params.get('newPic'),
+      });
       return;
     }
 
@@ -673,19 +679,34 @@ export default function DashboardPage() {
   }, [accountIdFromUrl, connectingParam, twitter1oaNext, router]);
 
   useEffect(() => {
-    return listenForOAuthComplete((accountId) => {
+    return listenForOAuthComplete((payload) => {
       setSelectedPlatformForConnect(null);
+      const { accountId, platform, username, profilePicture } = payload;
+      if (accountId && platform) {
+        setSelectedAccountId(accountId);
+        setCachedAccounts((prev) =>
+          upsertOptimisticConnectedAccount(prev, {
+            id: accountId,
+            platform,
+            username,
+            profilePicture,
+          })
+        );
+        setJustConnected(true);
+      }
       void fetchAccounts().then((list) => {
         if (accountId) {
           setSelectedAccountId(accountId);
           const connected = list.find((a) => a.id === accountId);
           if (connected) markInboxAccountRecentlyConnected(connected.id, connected.platform);
         }
-        setJustConnected(true);
-        window.setTimeout(() => setJustConnected(false), 5000);
+        if (accountId) {
+          setJustConnected(true);
+          window.setTimeout(() => setJustConnected(false), 5000);
+        }
       });
     });
-  }, [fetchAccounts, setSelectedAccountId]);
+  }, [fetchAccounts, setSelectedAccountId, setCachedAccounts]);
 
   useEffect(() => {
     if (connectingParam !== '1' || accountIdFromUrl) return;
