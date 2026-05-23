@@ -5442,8 +5442,6 @@ type PostsUploadDayTooltipAgg = {
           </>
         ) : (
         <>
-        {!isLinkedIn ? (
-        <>
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Performance</h3>
@@ -5633,7 +5631,7 @@ type PostsUploadDayTooltipAgg = {
                   ) : null}
                 </div>
               ) : null}
-              {linkedInExtras?.permissionHint ? (
+              {process.env.NODE_ENV !== 'production' && linkedInExtras?.permissionHint ? (
                 <div
                   className="rounded-xl border px-3 py-2 text-xs leading-relaxed"
                   style={{ borderColor: COLOR.border, background: COLOR.sectionAlt, color: COLOR.textSecondary }}
@@ -5641,7 +5639,9 @@ type PostsUploadDayTooltipAgg = {
                   {linkedInExtras.permissionHint}
                 </div>
               ) : null}
-              {linkedInExtras?.storedPosts && linkedInExtras.storedPosts.length > 0 ? (
+              {process.env.NODE_ENV !== 'production' &&
+              linkedInExtras?.storedPosts &&
+              linkedInExtras.storedPosts.length > 0 ? (
                 <div className="overflow-x-auto rounded-xl border" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
                   <div className="border-b px-3 py-2 text-xs font-medium" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
                     Stored post metrics (from our database — last sync)
@@ -6206,9 +6206,6 @@ type PostsUploadDayTooltipAgg = {
           </InsightChartCard>
           ) : null}
         </div>
-        ) : null}
-
-        </>
         ) : null}
 
         {process.env.NEXT_PUBLIC_LINKEDIN_CM_DEBUG_PANEL === 'true' && isLinkedIn && socialAccountId ? (

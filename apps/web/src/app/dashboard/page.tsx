@@ -294,6 +294,7 @@ function postsSyncParamsForPlatform(
   if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
     return opts?.explicitSync ? { sync: 1, force: 1 } : {};
   }
+  if (opts?.explicitSync) return { sync: 1, force: 1 };
   return { sync: 1 };
 }
 
@@ -643,6 +644,9 @@ export default function DashboardPage() {
       router.replace('/dashboard', { scroll: false });
       return;
     }
+
+    singleAccountPostsRunKeyRef.current = '';
+    insightsRunKeyRef.current = '';
 
     if (typeof window !== 'undefined' && window.opener) {
       const params = new URLSearchParams(window.location.search);

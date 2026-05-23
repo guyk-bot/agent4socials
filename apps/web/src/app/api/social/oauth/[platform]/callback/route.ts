@@ -15,6 +15,7 @@ import {
 } from '@/lib/threads/threads-api';
 import { ensureSocialAccountOAuthSchema } from '@/lib/ensure-social-account-oauth-schema';
 import { syncTikTokImportedVideos } from '@/lib/tiktok/sync-imported-videos';
+import { bootstrapLinkedInAfterConnect } from '@/lib/linkedin/bootstrap-after-connect';
 import { resolveLinkedInAuthorUrn } from '@/lib/linkedin/rest-person';
 import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 import { scheduleInboxWarmForUser } from '@/lib/inbox/schedule-inbox-warm';
@@ -1372,6 +1373,31 @@ export async function GET(
     where: { userId, platform: plat, platformUserId: tokenData.platformUserId },
     select: { id: true, userId: true, platform: true, platformUserId: true, accessToken: true, credentialsJson: true },
   });
+  if (mainAccount?.accessToken && plat === 'LINKEDIN') {
+    try {
+      await bootstrapLinkedInAfterConnect({
+        id: mainAccount.id,
+        platformUserId: mainAccount.platformUserId,
+        accessToken: mainAccount.accessToken,
+        credentialsJson: mainAccount.credentialsJson,
+      });
+    } catch (e) {
+      console.warn('[OAuth] LinkedIn bootstrap:', (e as Error)?.message ?? e);
+    }
+  }
+  if (mainAccount?.accessToken && plat === 'THREADS') {
+    try {
+      const { syncThreadsPosts } = await import('@/lib/threads/sync-imported-posts');
+      await syncThreadsPosts({
+        id: mainAccount.id,
+        platformUserId: mainAccount.platformUserId,
+        accessToken: mainAccount.accessToken,
+        expiresAt: null,
+      });
+    } catch (e) {
+      console.warn('[OAuth] Threads post sync:', (e as Error)?.message ?? e);
+    }
+  }
   if (mainAccount?.accessToken && plat === 'TIKTOK') {
     try {
       await syncTikTokImportedVideos({
