@@ -61,9 +61,11 @@ import {
 } from '@/lib/inbox/inbox-sender-pictures';
 import {
   getPendingUnreadCommentIds,
+  getPendingUnreadCommentPlatforms,
   getPendingUnreadConversationIds,
   removePendingUnreadConversationIds,
 } from '@/lib/inbox/inbox-badge-pending';
+import { normalizeThreadsInboxCommentRow } from '@/lib/threads/inbox-comments';
 import {
   isConversationUnread,
   reconcileInboxReadStateWithConversations,
@@ -1951,13 +1953,17 @@ function InboxPage() {
 
   const applyCommentsToUi = useCallback(
     (incoming: PostComment[]) => {
-      const seed =
+      const seedRaw =
         commentsStableRef.current.length > 0
           ? commentsStableRef.current
           : user?.id
             ? readInboxCommentsClientCache<PostComment>(user.id)
             : [];
-      const stable = mergeInboxCommentsWithUnreadDetection(user?.id, seed, incoming);
+      const seed = seedRaw.map((c) => normalizeThreadsInboxCommentRow(c));
+      const incomingNorm = incoming.map((c) => normalizeThreadsInboxCommentRow(c));
+      const stable = mergeInboxCommentsWithUnreadDetection(user?.id, seed, incomingNorm).map((c) =>
+        normalizeThreadsInboxCommentRow(c)
+      );
       commentsStableRef.current = stable;
       if (user?.id) writeInboxCommentsClientCache(user.id, stable);
       setComments(stable);
@@ -2290,8 +2296,65 @@ function InboxPage() {
     [connectedPlatforms.map((p) => p.id).join(',')]
   );
 
-  /** Comments tab shows every cached comment (platform icons filter messages, not comments). */
-  const displayComments = comments;
+  /** Comments tab list (Threads rows normalized so replies appear as top-level). */
+  const commentPlatformFilter = useMemo(() => {
+    if (inboxMode !== 'comments' || selectedPlatforms.length === 0) return null;
+    const set = new Set(selectedPlatforms);
+    if (
+      connectedPlatformIds.includes('THREADS') &&
+      ((unreadCommentsByPlatform['THREADS'] ?? 0) > 0 ||
+        comments.some((c) => c.platform === 'THREADS' && !c.parentCommentId))
+    ) {
+      set.add('THREADS');
+    }
+    return set;
+  }, [
+    inboxMode,
+    selectedPlatforms.join(','),
+    connectedPlatformIds.join(','),
+    unreadCommentsByPlatform,
+    comments,
+  ]);
+
+  const displayComments = useMemo(
+    () => {
+      const normalized = comments.map((c) => normalizeThreadsInboxCommentRow(c));
+      if (!commentPlatformFilter) return normalized;
+      return normalized.filter(
+        (c) => !c.platform || commentPlatformFilter.has(c.platform)
+      );
+    },
+    [comments, commentPlatformFilter]
+  );
+
+  const threadsInboxUnreadCount = unreadCommentsByPlatform['THREADS'] ?? 0;
+  const threadsInboxSteeredRef = useRef(false);
+
+  /** Threads only appears under Comments (no DMs). Steer users when badge counts Threads activity. */
+  useEffect(() => {
+    if (pathname !== '/dashboard/inbox' || threadsInboxSteeredRef.current) return;
+    if (!connectedPlatformIds.includes('THREADS')) return;
+    const pendingPlatforms = getPendingUnreadCommentPlatforms(user?.id ?? '');
+    const pendingThreads = [...getPendingUnreadCommentIds(user?.id ?? '')].some(
+      (id) => pendingPlatforms[id] === 'THREADS'
+    );
+    const apiThreadsBadge = (byPlatform['THREADS']?.comments ?? 0) > 0;
+    const shouldSteer =
+      threadsInboxUnreadCount > 0 ||
+      pendingThreads ||
+      (apiThreadsBadge && comments.every((c) => c.platform !== 'THREADS'));
+    if (!shouldSteer) return;
+    threadsInboxSteeredRef.current = true;
+    setInboxMode('comments');
+    setSelectedPlatforms((prev) => (prev.includes('THREADS') ? prev : [...prev, 'THREADS']));
+  }, [
+    pathname,
+    connectedPlatformIds.join(','),
+    threadsInboxUnreadCount,
+    user?.id,
+    byPlatform,
+    comments,
+  ]);
 
   const visibleConversations = useMemo(() => {
     if (selectedPlatforms.length === 0) return conversations;
@@ -2517,7 +2580,7 @@ function InboxPage() {
       }
       if (engagement.length === 0) {
         return (
-          <div className="p-6 text-center">
+          <motion.div className="p-6 text-center">
             <BarChart3 size={40} className="mx-auto text-neutral-300 mb-3" />
             <p className="text-sm font-medium text-neutral-900">No engagement data yet</p>
             <p className="text-sm text-neutral-500 mt-1">Publish posts to Instagram or Facebook, then sync to see likes and comments.</p>
@@ -2620,7 +2683,7 @@ function InboxPage() {
     if (inboxMode === 'comments' && commentsSupportedPlatforms.length === 0) {
               return (
             <div className="p-6 text-center">
-              <p className="text-sm text-neutral-500">Comments are available for Instagram, Facebook, X, YouTube, and LinkedIn. Select one or more platforms above.</p>
+              <p className="text-sm text-neutral-500">Comments are available for Instagram, Facebook, X, YouTube, LinkedIn, and Threads. Select one or more platforms above.</p>
             </div>
               );
             }
@@ -2684,11 +2747,18 @@ function InboxPage() {
         );
       }
       if (displayComments.length === 0) {
+        const threadsSelected = selectedPlatforms.includes('THREADS');
         return (
           <div className="p-6 text-center">
             <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
-            <p className="text-sm text-neutral-500">No comments yet.</p>
-            <p className="text-xs text-neutral-400 mt-1">Comments on your posts will appear here. Make sure to sync your posts first from the Dashboard.</p>
+            <p className="text-sm text-neutral-500">
+              {threadsSelected ? 'No Threads replies or @mentions yet.' : 'No comments yet.'}
+            </p>
+            <p className="text-xs text-neutral-400 mt-1">
+              {threadsSelected
+                ? 'Replies on your threads and mentions of your handle appear here. Private Threads messages stay in the Threads app.'
+                : 'Comments on your posts will appear here. Make sure to sync your posts first from the Dashboard.'}
+            </p>
           </div>
         );
       }
@@ -3186,6 +3256,27 @@ function InboxPage() {
           </button>
         </div>
 
+
+        {inboxMode === 'messages' &&
+        connectedPlatformIds.includes('THREADS') &&
+        threadsInboxUnreadCount > 0 ? (
+          <div className="mx-2 mt-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-900 dark:border-orange-900/50 dark:bg-orange-950/40 dark:text-orange-100">
+            <p className="font-medium">Threads activity is in Comments</p>
+            <p className="mt-0.5 text-orange-800/90 dark:text-orange-200/90">
+              Threads does not support private DMs here. Replies on your threads and @mentions appear under the Comments tab.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setInboxMode('comments');
+                setSelectedPlatforms((prev) => (prev.includes('THREADS') ? prev : [...prev, 'THREADS']));
+              }}
+              className="mt-2 font-semibold text-orange-700 underline hover:text-orange-900 dark:text-orange-300"
+            >
+              View {threadsInboxUnreadCount} Threads notification{threadsInboxUnreadCount === 1 ? '' : 's'}
+            </button>
+          </div>
+        ) : null}
 
         {inboxMode === 'messages' && (
           <div className="flex flex-col border-b border-neutral-200 dark:border-neutral-800">

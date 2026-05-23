@@ -5,6 +5,7 @@ import {
   mergeConversationLists,
   mergeConversations,
 } from '@/lib/inbox/poll-inbox-notifications';
+import { normalizeThreadsInboxCommentRow } from '@/lib/threads/inbox-comments';
 
 type ConversationRow = CachedConversation & { platform?: string; messageAccountId?: string };
 type CommentRow = CachedComment & { platform?: string; accountId?: string };
@@ -106,7 +107,9 @@ export function mergeInboxCommentsWithUnreadDetection(
     }
 
     for (const c of merged) {
-      out.push({ ...c, platform, accountId: accId });
+      const row =
+        platform === 'THREADS' ? normalizeThreadsInboxCommentRow({ ...c, platform, accountId: accId }) : { ...c, platform, accountId: accId };
+      out.push(row);
     }
   }
 
