@@ -52,7 +52,6 @@ import {
   getInboxInitializedAccountIds,
   addInboxInitializedAccount,
   getInboxInitializedAccountIdsForConversations,
-  addInboxInitializedAccountForConversations,
 } from '@/lib/inbox-read-state';
 import {
   getInboxSenderPicture,
@@ -70,7 +69,10 @@ import {
   reconcileInboxReadStateWithConversations,
   syncInboxNavBadgeWithLoadedLists,
 } from '@/lib/inbox/unread-count';
-import { mergeInboxSenderRows, mergeStableKeyedList } from '@/lib/inbox/merge-inbox-lists';
+import {
+  mergeInboxCommentsWithUnreadDetection,
+  mergeInboxConversationsWithUnreadDetection,
+} from '@/lib/inbox/merge-inbox-unread';
 import {
   readInboxCommentsClientCache,
   writeInboxCommentsClientCache,
@@ -1087,7 +1089,7 @@ function InboxPage() {
   }, []);
 
   useEffect(() => {
-    if (!user?.id || conversationsLoading || commentsLoading) return;
+    if (!user?.id || conversationsLoading || commentsLoading || inboxRefreshInFlightRef.current) return;
     const convIdSet = new Set(conversations.map((c) => c.id));
     for (const acc of effectiveAccountsRef.current) {
       for (const c of appDataRef.current?.getConversations(acc.id) ?? []) {
@@ -1202,15 +1204,38 @@ function InboxPage() {
 
   /** Per-conversation unread message counts (for row badges). */
   const unreadCountByConversationId = useMemo(() => {
-    const lastRead = getConversationLastReadCounts(user?.id);
     const map: Record<string, number> = {};
+    if (!user?.id) {
+      for (const c of conversations) {
+        if (unreadConversationIds.has(c.id) || pendingUnreadConversationIds.has(c.id)) {
+          map[c.id] = 1;
+        }
+      }
+      return map;
+    }
+    const readSet = getReadConversationIds(user.id);
+    const lastRead = getConversationLastReadCounts(user.id);
+    const lastSeen = getConversationLastSeenUpdated(user.id);
+    const initialized = getInboxInitializedAccountIdsForConversations(user.id);
     for (const c of conversations) {
+      const row = {
+        id: c.id,
+        messageCount: c.messageCount,
+        messageAccountId: (c as Conversation & { messageAccountId?: string }).messageAccountId,
+        updatedTime: c.updatedTime,
+        platform: c.platform,
+      };
+      if (!isConversationUnread(row, readSet, lastRead, lastSeen, initialized)) continue;
       if (typeof c.messageCount === 'number') {
         const n = Math.max(0, c.messageCount - (lastRead[c.id] ?? 0));
-        if (n > 0) map[c.id] = n;
-      } else if (unreadConversationIds.has(c.id) || pendingUnreadConversationIds.has(c.id)) {
+        map[c.id] = n > 0 ? n : 1;
+      } else {
         map[c.id] = 1;
       }
+    }
+    for (const id of pendingUnreadConversationIds) {
+      if (map[id] !== undefined) continue;
+      if (conversations.some((c) => c.id === id)) map[id] = 1;
     }
     return map;
   }, [
@@ -1229,13 +1254,8 @@ function InboxPage() {
       const n = unreadCountByConversationId[c.id] ?? 0;
       if (n > 0) result[c.platform] = (result[c.platform] ?? 0) + n;
     }
-    for (const [platform, row] of Object.entries(byPlatform)) {
-      if ((row?.messages ?? 0) > 0 && !result[platform]) {
-        result[platform] = row.messages;
-      }
-    }
     return result;
-  }, [conversations, unreadCountByConversationId, byPlatform]);
+  }, [conversations, unreadCountByConversationId]);
 
   /** Top unread threads for the summary strip (name, platform, count). */
   const unreadThreadSummary = useMemo(() => {
@@ -1937,12 +1957,7 @@ function InboxPage() {
           : user?.id
             ? readInboxCommentsClientCache<PostComment>(user.id)
             : [];
-      const stable = mergeStableKeyedList(seed, incoming, (c) => c.commentId, (old, row) => ({
-        ...old,
-        ...row,
-        authorPictureUrl: row.authorPictureUrl ?? old?.authorPictureUrl ?? null,
-        authorName: row.authorName?.trim() ? row.authorName : old?.authorName ?? row.authorName,
-      }));
+      const stable = mergeInboxCommentsWithUnreadDetection(user?.id, seed, incoming);
       commentsStableRef.current = stable;
       if (user?.id) writeInboxCommentsClientCache(user.id, stable);
       setComments(stable);
@@ -1963,21 +1978,12 @@ function InboxPage() {
               )
             : [];
       const sorted = incoming.sort((a, b) => (b.updatedTime ?? '').localeCompare(a.updatedTime ?? ''));
-      const withPictures = user?.id ? mergeSenderPicturesIntoConversations(sorted, user.id) : sorted;
-      const stable = mergeStableKeyedList(
-        seed,
-        withPictures as Array<Conversation & { platform?: string; messageAccountId?: string }>,
-        (c) => `${c.platform ?? ''}:${c.id}`,
-        (old, row) => ({
-          ...old,
-          ...row,
-          senders: mergeInboxSenderRows(old?.senders, row.senders),
-        })
-      );
-      conversationsStableRef.current = stable;
-      if (user?.id) writeInboxConversationsClientCache(user.id, stable);
-      setConversations(stable);
-      conversationsLoadedRef.current = stable.length > 0;
+      const merged = mergeInboxConversationsWithUnreadDetection(user?.id, seed, sorted);
+      const withPictures = user?.id ? mergeSenderPicturesIntoConversations(merged, user.id) : merged;
+      conversationsStableRef.current = withPictures;
+      if (user?.id) writeInboxConversationsClientCache(user.id, withPictures);
+      setConversations(withPictures);
+      conversationsLoadedRef.current = withPictures.length > 0;
       setConversationsLoading(false);
       setConversationsError(null);
     },
@@ -2020,7 +2026,7 @@ function InboxPage() {
         if (commentRows.length > 0) {
           applyCommentsToUiRef.current(commentRows);
           for (const acc of accs) {
-            const perAcc = commentRows.filter((c) => c.accountId === acc.id);
+            const perAcc = commentsStableRef.current.filter((c) => c.accountId === acc.id);
             if (perAcc.length) appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
           }
         } else {
@@ -2029,33 +2035,8 @@ function InboxPage() {
         if (convRows.length > 0) {
           applyConversationsToUiRef.current(convRows);
           for (const acc of accs) {
-            const list = boot.data?.conversationsByAccountId?.[acc.id];
-            if (list?.length) appDataRef.current?.setConversationsForAccount(acc.id, list);
-          }
-          if (user.id) {
-            for (const acc of accs) {
-              if (!DM_THREAD_PLATFORM_IDS.has(acc.platform)) continue;
-              const list = boot.data?.conversationsByAccountId?.[acc.id] ?? [];
-              if (list.length > 0) {
-                const initialized = getInboxInitializedAccountIdsForConversations(user.id);
-                if (!initialized.has(acc.id)) {
-                  const pending = getPendingUnreadConversationIds(user.id);
-                  const baselineIds = list
-                    .map((c) => c.id)
-                    .filter((id) => !pending.has(id));
-                  if (baselineIds.length > 0) {
-                    markConversationsAsRead(baselineIds, user.id, { silent: true });
-                  }
-                  list.forEach((c) => {
-                    if (pending.has(c.id)) return;
-                    if (typeof c.messageCount === 'number') {
-                      setConversationLastReadCount(c.id, c.messageCount, user.id);
-                    }
-                  });
-                  addInboxInitializedAccountForConversations(acc.id, user.id);
-                }
-              }
-            }
+            const perAcc = conversationsStableRef.current.filter((c) => c.messageAccountId === acc.id);
+            if (perAcc.length) appDataRef.current?.setConversationsForAccount(acc.id, perAcc);
           }
         }
 
@@ -2072,7 +2053,6 @@ function InboxPage() {
               );
               const enriched = convRes.data?.conversations ?? [];
               if (enriched.length > 0) {
-                appDataRef.current?.setConversationsForAccount(acc.id, enriched);
                 const byId = new Map(mergedConvRows.map((c) => [c.id, c]));
                 for (const c of enriched) {
                   byId.set(c.id, {
@@ -2094,6 +2074,10 @@ function InboxPage() {
           }
           if (mergedConvRows.length > 0) {
             applyConversationsToUiRef.current(mergedConvRows);
+            for (const acc of metaAccounts) {
+              const perAcc = conversationsStableRef.current.filter((c) => c.messageAccountId === acc.id);
+              if (perAcc.length) appDataRef.current?.setConversationsForAccount(acc.id, perAcc);
+            }
           } else {
             setConversationsLoading(false);
           }
@@ -2114,7 +2098,7 @@ function InboxPage() {
           if (commentRows2.length > 0) {
             applyCommentsToUiRef.current(commentRows2);
             for (const acc of accs) {
-              const perAcc = commentRows2.filter((c) => c.accountId === acc.id);
+              const perAcc = commentsStableRef.current.filter((c) => c.accountId === acc.id);
               if (perAcc.length) appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
             }
           } else {
@@ -2123,6 +2107,30 @@ function InboxPage() {
         }
       } finally {
         inboxRefreshInFlightRef.current = false;
+        const uid = user?.id;
+        if (uid) {
+          const convPayload = conversationsStableRef.current.map((c) => ({
+            id: c.id,
+            messageCount: c.messageCount,
+            messageAccountId: c.messageAccountId,
+            updatedTime: c.updatedTime,
+            platform: c.platform,
+          }));
+          const commentPayload = commentsStableRef.current
+            .filter((c) => !c.parentCommentId)
+            .map((c) => ({
+              commentId: c.commentId,
+              platform: c.platform,
+              isFromMe: c.isFromMe,
+              parentCommentId: c.parentCommentId,
+            }));
+          if (convPayload.length > 0 || commentPayload.length > 0) {
+            if (convPayload.length > 0) {
+              reconcileInboxReadStateWithConversations(convPayload, uid);
+            }
+            syncInboxNavBadgeWithLoadedLists(uid, convPayload, commentPayload);
+          }
+        }
       }
     },
     [user?.id]
@@ -2358,69 +2366,83 @@ function InboxPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allEngagementAccounts.map((a) => a.id).join(','), effectiveAccounts.length]);
 
-  // Track unread conversation ids and total unread messages: use messageCount + lastRead when available.
-  // When we first see a conversation (no stored lastRead), treat it as read so we only highlight new notifications after connection.
+  // Track unread conversation ids and total unread messages using shared unread rules.
   useEffect(() => {
+    if (!user?.id) return;
     const ids = new Set(conversations.map((c) => c.id));
-    const readSet = getReadConversationIds(user?.id);
-    let lastRead = getConversationLastReadCounts(user?.id);
+    const readSet = getReadConversationIds(user.id);
+    let lastRead = getConversationLastReadCounts(user.id);
+    const lastSeen = getConversationLastSeenUpdated(user.id);
+    const initializedConvAccounts = getInboxInitializedAccountIdsForConversations(user.id);
     const hasAnyMessageCount = conversations.some((c) => typeof c.messageCount === 'number');
 
     if (hasAnyMessageCount) {
       let didInit = false;
-      const initializedConvAccounts = getInboxInitializedAccountIdsForConversations(user?.id);
       for (const c of conversations) {
         if (lastRead[c.id] !== undefined) continue;
         const accId = (c as Conversation & { messageAccountId?: string }).messageAccountId;
         if (accId && initializedConvAccounts.has(accId)) continue;
-        setConversationLastReadCount(c.id, c.messageCount ?? 0, user?.id);
+        setConversationLastReadCount(c.id, c.messageCount ?? 0, user.id);
         didInit = true;
       }
-      if (didInit) lastRead = getConversationLastReadCounts(user?.id);
-
-      let total = 0;
-      const unreadIds = new Set<string>();
-      for (const c of conversations) {
-        const count = c.messageCount ?? 0;
-        const read = lastRead[c.id] ?? 0;
-        const unread = Math.max(0, count - read);
-        if (unread > 0) {
-          unreadIds.add(c.id);
-          total += unread;
-        }
-      }
-
-      // Clear stale pending IDs for conversations that are in the loaded list and
-      // confirmed read by message counts. This drops the nav badge when the inbox
-      // loads and verifies there is nothing actually new.
-      const pendingReadable: string[] = [];
-      let pendingInList = 0;
-      for (const id of pendingUnreadConversationIds) {
-        if (!ids.has(id)) continue;
-        if (unreadIds.has(id)) {
-          pendingInList += 1;
-        } else {
-          pendingReadable.push(id);
-        }
-      }
-      if (pendingReadable.length > 0 && user?.id) {
-        removePendingUnreadConversationIds(pendingReadable, user.id);
-        markConversationsAsRead(pendingReadable, user.id);
-      }
-      setUnreadConversationIds(unreadIds);
-      setTotalUnreadMessages(Math.max(total, pendingInList));
-    } else {
-      const unreadIds = new Set([...ids].filter((id) => !readSet.has(id)));
-      let pendingInList = 0;
-      for (const id of pendingUnreadConversationIds) {
-        if (ids.has(id)) {
-          unreadIds.add(id);
-          pendingInList += 1;
-        }
-      }
-      setUnreadConversationIds(unreadIds);
-      setTotalUnreadMessages(Math.max(unreadIds.size, pendingInList));
+      if (didInit) lastRead = getConversationLastReadCounts(user.id);
     }
+
+    const unreadIds = new Set<string>();
+    let total = 0;
+    for (const c of conversations) {
+      const row = {
+        id: c.id,
+        messageCount: c.messageCount,
+        messageAccountId: (c as Conversation & { messageAccountId?: string }).messageAccountId,
+        updatedTime: c.updatedTime,
+        platform: c.platform,
+      };
+      if (!isConversationUnread(row, readSet, lastRead, lastSeen, initializedConvAccounts)) continue;
+      unreadIds.add(c.id);
+      if (typeof c.messageCount === 'number') {
+        const n = Math.max(0, c.messageCount - (lastRead[c.id] ?? 0));
+        total += n > 0 ? n : 1;
+      } else {
+        total += 1;
+      }
+    }
+
+    for (const id of pendingUnreadConversationIds) {
+      if (ids.has(id)) {
+        unreadIds.add(id);
+      }
+    }
+
+    const pendingReadable: string[] = [];
+    let pendingInList = 0;
+    for (const id of pendingUnreadConversationIds) {
+      if (!ids.has(id)) continue;
+      const c = conversations.find((x) => x.id === id);
+      const row = c
+        ? {
+            id: c.id,
+            messageCount: c.messageCount,
+            messageAccountId: (c as Conversation & { messageAccountId?: string }).messageAccountId,
+            updatedTime: c.updatedTime,
+            platform: c.platform,
+          }
+        : null;
+      const unread =
+        row != null &&
+        isConversationUnread(row, readSet, lastRead, lastSeen, initializedConvAccounts);
+      if (unread) {
+        pendingInList += 1;
+      } else {
+        pendingReadable.push(id);
+      }
+    }
+    if (pendingReadable.length > 0) {
+      removePendingUnreadConversationIds(pendingReadable, user.id);
+      markConversationsAsRead(pendingReadable, user.id);
+    }
+    setUnreadConversationIds(unreadIds);
+    setTotalUnreadMessages(Math.max(total, pendingInList));
     previousConversationIdsRef.current = ids;
   }, [conversations, user?.id, pendingUnreadConversationIds, inboxReadStateVersion]);
 

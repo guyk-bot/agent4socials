@@ -149,7 +149,7 @@ function markConversationActivity(
   }
 }
 
-function mergeConversations(
+export function mergeConversations(
   existing: CachedConversation[],
   incoming: CachedConversation[],
   userId: string,
@@ -189,7 +189,7 @@ function mergeConversations(
   return merged;
 }
 
-function mergeComments(
+export function mergeComments(
   existing: CachedComment[],
   incoming: CachedComment[],
   userId: string,
