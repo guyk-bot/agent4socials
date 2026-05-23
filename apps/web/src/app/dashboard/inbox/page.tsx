@@ -2580,7 +2580,7 @@ function InboxPage() {
       }
       if (engagement.length === 0) {
         return (
-          <motion.div className="p-6 text-center">
+          <div className="p-6 text-center">
             <BarChart3 size={40} className="mx-auto text-neutral-300 mb-3" />
             <p className="text-sm font-medium text-neutral-900">No engagement data yet</p>
             <p className="text-sm text-neutral-500 mt-1">Publish posts to Instagram or Facebook, then sync to see likes and comments.</p>
