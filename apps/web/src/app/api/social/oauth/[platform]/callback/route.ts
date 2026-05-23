@@ -18,6 +18,8 @@ import { syncTikTokImportedVideos } from '@/lib/tiktok/sync-imported-videos';
 import { resolveLinkedInAuthorUrn } from '@/lib/linkedin/rest-person';
 import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 import { scheduleInboxWarmForUser } from '@/lib/inbox/schedule-inbox-warm';
+import { resolvePrismaUserIdFromOAuthState } from '@/lib/get-prisma-user';
+import { isPrismaPoolError } from '@/lib/db';
 
 export const maxDuration = 60;
 
@@ -643,7 +645,35 @@ export async function GET(
 
   const isInstagramLogin = stateRaw.includes(':instagram');
   const isLinkedInPage = stateRaw.includes(':linkedin_page');
-  const userId = isInstagramLogin ? stateRaw.replace(/:instagram$/, '') : isLinkedInPage ? stateRaw.replace(/:linkedin_page$/, '') : stateRaw;
+  let userId: string;
+  try {
+    if (stateRaw.startsWith('sb:')) {
+      const resolved = await resolvePrismaUserIdFromOAuthState(stateRaw);
+      if (!resolved) {
+        return oauthErrorHtml(
+          baseUrl,
+          'Could not find your Agent4Socials account. Sign out and sign in again, then connect Threads.',
+          400
+        );
+      }
+      userId = resolved;
+    } else {
+      userId = isInstagramLogin
+        ? stateRaw.replace(/:instagram$/, '')
+        : isLinkedInPage
+          ? stateRaw.replace(/:linkedin_page$/, '')
+          : stateRaw;
+    }
+  } catch (e) {
+    if (isPrismaPoolError(e)) {
+      return oauthErrorHtml(
+        baseUrl,
+        'Database is busy. Wait 30 seconds and click Connect Threads again (do not refresh this page).',
+        503
+      );
+    }
+    throw e;
+  }
   const defaultCallbackUrl = `${baseUrl}/api/social/oauth/${platform}/callback`;
   let callbackUrl = defaultCallbackUrl;
   if (plat === 'INSTAGRAM' && isInstagramLogin && process.env.INSTAGRAM_REDIRECT_URI) {

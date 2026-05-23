@@ -1733,6 +1733,8 @@ export default function DashboardPage() {
             );
           } else if (msg === 'Unauthorized') {
             setAlertMessage('Sign out and back in, then try Connect again.');
+          } else if (msg.includes('Database is busy')) {
+            setAlertMessage(msg);
           } else {
             setAlertMessage(msg);
           }

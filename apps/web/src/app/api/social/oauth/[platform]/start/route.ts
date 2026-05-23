@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
-import { prisma, databaseUrlLooksDirect } from '@/lib/db';
+import {
+  getPrismaUserIdFromRequest,
+  getSupabaseUserIdFromAuthHeader,
+  OAUTH_STATE_SUPABASE_PREFIX,
+} from '@/lib/get-prisma-user';
+import { databaseUrlLooksDirect, isPrismaPoolError, prisma } from '@/lib/db';
 import { getTwitterOAuth1 } from '@/lib/twitter-oauth1';
 import axios from 'axios';
 import { Platform } from '@prisma/client';
@@ -162,16 +166,28 @@ export async function GET(
         { status: 503 }
       );
     }
-    const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
-    if (!userId) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    }
     const { platform } = await params;
     const plat = platform?.toUpperCase() as Platform;
     if (!plat || !PLATFORMS.includes(plat)) {
       return NextResponse.json({ error: 'Invalid platform' }, { status: 400 });
     }
     const method = request.nextUrl.searchParams.get('method') ?? undefined;
+
+    const authHeader = request.headers.get('authorization');
+    let oauthStateKey: string;
+    if (plat === 'THREADS') {
+      const supabaseUserId = await getSupabaseUserIdFromAuthHeader(authHeader);
+      if (!supabaseUserId) {
+        return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+      }
+      oauthStateKey = `${OAUTH_STATE_SUPABASE_PREFIX}${supabaseUserId}`;
+    } else {
+      const userId = await getPrismaUserIdFromRequest(authHeader);
+      if (!userId) {
+        return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+      }
+      oauthStateKey = userId;
+    }
 
     if (plat === 'INSTAGRAM' && method === 'instagram') {
       const igId = process.env.INSTAGRAM_APP_ID?.trim() || process.env.META_APP_ID?.trim();
@@ -272,7 +288,7 @@ export async function GET(
         );
       }
     }
-    const url = getOAuthUrl(plat, userId, method);
+    const url = getOAuthUrl(plat, oauthStateKey, method);
     if (plat === 'THREADS') {
       const parsed = new URL(url);
       const clientId = parsed.searchParams.get('client_id')?.trim();
@@ -294,6 +310,15 @@ export async function GET(
     const err = e as Error;
     const msg = (err?.message ?? String(e)).toLowerCase();
     console.error('[Social OAuth] start error:', err?.message ?? e);
+    if (isPrismaPoolError(e)) {
+      return NextResponse.json(
+        {
+          message:
+            'Database is busy right now. Close extra dashboard tabs, wait 30 seconds, then try Connect again.',
+        },
+        { status: 503 }
+      );
+    }
     // Schema / missing table (e.g. User table dropped by 002_single_users_table)
     if (msg.includes('does not exist') || msg.includes('relation') || msg.includes('p2021')) {
       return NextResponse.json(
