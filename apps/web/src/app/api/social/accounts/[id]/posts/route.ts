@@ -20,6 +20,7 @@ import { META_GRAPH_FACEBOOK_API_VERSION } from '@/lib/meta-graph-insights';
 import { getValidPinterestToken } from '@/lib/pinterest-token';
 import { syncTikTokImportedVideos } from '@/lib/tiktok/sync-imported-videos';
 import { syncLinkedInUgcPosts } from '@/lib/linkedin/sync-ugc-posts';
+import { normalizeLinkedInStoredMediaType } from '@/lib/linkedin/post-media-type';
 import {
   buildYoutubePrimaryPermalink,
   classifyYoutubeVideoFormat,
@@ -1766,7 +1767,10 @@ export async function GET(
             : sharesCountOut,
         savesCount: savesCountOut,
         publishedAt: p.publishedAt instanceof Date ? p.publishedAt.toISOString() : String(p.publishedAt),
-        mediaType: p.mediaType,
+        mediaType:
+          p.platform === 'LINKEDIN'
+            ? normalizeLinkedInStoredMediaType(p.mediaType, p.thumbnailUrl)
+            : p.mediaType,
         platform: p.platform,
         ...(p.platform === 'YOUTUBE' && Object.keys(youtubeMetaOut).length > 0
           ? { platformMetadata: youtubeMetaOut }
@@ -1774,7 +1778,10 @@ export async function GET(
             ? { platformMetadata: backfill ? { ...(p.platformMetadata as Record<string, unknown>), ...backfill } : p.platformMetadata }
             : {}),
         ...(facebookInsights && Object.keys(facebookInsights).length > 0 ? { facebookInsights } : {}),
-        ...(p.platform === 'FACEBOOK' || p.platform === 'PINTEREST' || p.platform === 'INSTAGRAM'
+        ...(p.platform === 'FACEBOOK' ||
+        p.platform === 'PINTEREST' ||
+        p.platform === 'INSTAGRAM' ||
+        p.platform === 'LINKEDIN'
           ? {
               engagementBreakdown: {
                 reactions: likeCountOut,

@@ -123,17 +123,33 @@ export interface FacebookInsights {
   linkedIn?: {
     network?: { connections?: number; companiesFollowed?: number };
     profile?: { headline?: string; vanityName?: string; picture?: string; email?: string };
-    posts?: { totalSynced?: number; inRangeCount?: number };
+    posts?: {
+      totalSynced?: number;
+      inRangeCount?: number;
+      byMediaType?: Record<string, number>;
+    };
+    engagementInRange?: {
+      likes?: number;
+      comments?: number;
+      shares?: number;
+      clicks?: number;
+      uniqueImpressions?: number;
+      membersReached?: number;
+    };
     activityByDay?: Array<{ date: string; value: number }>;
     /** Rows from ImportedPost (no live LinkedIn call) — shows likes/comments/impressions we last synced. */
     storedPosts?: Array<{
       platformPostId: string;
       publishedAt: string;
+      mediaType?: string | null;
       impressions: number | null;
+      uniqueImpressions?: number | null;
+      membersReached?: number | null;
       interactions: number | null;
       likeCount: number | null;
       commentsCount: number | null;
       sharesCount: number | null;
+      clicks?: number | null;
       contentPreview?: string | null;
       permalinkUrl?: string | null;
     }>;

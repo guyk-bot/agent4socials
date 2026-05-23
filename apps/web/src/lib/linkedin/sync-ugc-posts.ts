@@ -8,6 +8,7 @@ import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 import { refreshLinkedInImportedPostMetrics } from '@/lib/linkedin/sync-post-metrics';
 import { buildLinkedInRestPostsByAuthorUrl, linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
+import { normalizeLinkedInStoredMediaType, resolveLinkedInImportedMediaType } from '@/lib/linkedin/post-media-type';
 
 /** Resolve author URN for GET /rest/posts?q=author&author=… */
 export function linkedInAuthorUrnForUgc(platformUserId: string, credentialsJson?: unknown): string {
@@ -81,13 +82,12 @@ export function parseLinkedInRestPostElement(p: unknown): {
   let thumbnailUrl: string | null = null;
   const sc = row.specificContent as Record<string, unknown> | undefined;
   const ugc = sc?.['com.linkedin.ugc.ShareContent'] as Record<string, unknown> | undefined;
-  const media = ugc?.media as Array<{ thumbnails?: Array<{ url?: string }> }> | undefined;
-  const u = media?.[0]?.thumbnails?.[0]?.url;
+  const legacyMedia = ugc?.media as Array<{ thumbnails?: Array<{ url?: string }> }> | undefined;
+  const u = legacyMedia?.[0]?.thumbnails?.[0]?.url;
   if (typeof u === 'string' && u.trim()) thumbnailUrl = u.trim();
 
-  const shareContent = ugc;
-  const mediaType =
-    typeof shareContent?.shareMediaCategory === 'string' ? shareContent.shareMediaCategory : null;
+  const resolved = resolveLinkedInImportedMediaType(row);
+  const mediaType = normalizeLinkedInStoredMediaType(resolved, thumbnailUrl);
 
   const lifecycleState = typeof row.lifecycleState === 'string' ? row.lifecycleState : null;
   return { id, content, thumbnailUrl, publishedAt, mediaType, lifecycleState };

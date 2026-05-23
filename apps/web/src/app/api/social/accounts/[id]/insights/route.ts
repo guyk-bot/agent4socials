@@ -30,6 +30,7 @@ import {
   fetchLinkedInMemberFollowersCountMe,
   fetchLinkedInOrganizationalEntityFollowerStatistics,
 } from '@/lib/linkedin/community-analytics';
+import { normalizeLinkedInStoredMediaType } from '@/lib/linkedin/post-media-type';
 import type { DemographicBreakdownItem, Demographics } from '@/types/analytics';
 
 export const maxDuration = 60;
@@ -1976,19 +1977,30 @@ export async function GET(
       let storedPostsPreview: Array<{
         platformPostId: string;
         publishedAt: string;
+        mediaType: string | null;
         impressions: number | null;
+        uniqueImpressions: number | null;
+        membersReached: number | null;
         interactions: number | null;
         likeCount: number | null;
         commentsCount: number | null;
         sharesCount: number | null;
+        clicks: number | null;
         contentPreview: string | null;
         permalinkUrl: string | null;
       }> = [];
+      const postsByMediaType: Record<string, number> = {};
+      let rangeUniqueImpressions = 0;
+      let rangeMembersReached = 0;
+      let rangeClicks = 0;
+      let rangeLikes = 0;
+      let rangeComments = 0;
+      let rangeShares = 0;
       try {
         const rows = await prisma.importedPost.findMany({
           where: { socialAccountId: account.id, platform: Platform.LINKEDIN },
           orderBy: { publishedAt: 'desc' },
-          take: 15,
+          take: 25,
           select: {
             platformPostId: true,
             publishedAt: true,
@@ -1999,19 +2011,58 @@ export async function GET(
             sharesCount: true,
             content: true,
             permalinkUrl: true,
+            mediaType: true,
+            thumbnailUrl: true,
+            platformMetadata: true,
           },
         });
-        storedPostsPreview = rows.map((r) => ({
-          platformPostId: r.platformPostId,
-          publishedAt: r.publishedAt.toISOString(),
-          impressions: r.impressions,
-          interactions: r.interactions,
-          likeCount: r.likeCount,
-          commentsCount: r.commentsCount,
-          sharesCount: r.sharesCount,
-          contentPreview: r.content ? r.content.slice(0, 120) : null,
-          permalinkUrl: r.permalinkUrl,
-        }));
+        for (const r of rows) {
+          const meta =
+            r.platformMetadata && typeof r.platformMetadata === 'object' && !Array.isArray(r.platformMetadata)
+              ? (r.platformMetadata as Record<string, unknown>)
+              : {};
+          const li =
+            meta.linkedInAnalytics && typeof meta.linkedInAnalytics === 'object'
+              ? (meta.linkedInAnalytics as Record<string, unknown>)
+              : {};
+          const mediaType = normalizeLinkedInStoredMediaType(r.mediaType, r.thumbnailUrl);
+          postsByMediaType[mediaType] = (postsByMediaType[mediaType] ?? 0) + 1;
+          const uniqueImpressions =
+            typeof li.uniqueImpressions === 'number' && Number.isFinite(li.uniqueImpressions)
+              ? Math.max(0, Math.round(li.uniqueImpressions))
+              : null;
+          const membersReached =
+            typeof li.membersReached === 'number' && Number.isFinite(li.membersReached)
+              ? Math.max(0, Math.round(li.membersReached))
+              : null;
+          const clicks =
+            typeof li.clicks === 'number' && Number.isFinite(li.clicks) ? Math.max(0, Math.round(li.clicks)) : null;
+          const inRange =
+            r.publishedAt >= sinceStart && r.publishedAt <= untilEnd;
+          if (inRange) {
+            rangeUniqueImpressions += uniqueImpressions ?? 0;
+            rangeMembersReached += membersReached ?? 0;
+            rangeClicks += clicks ?? 0;
+            rangeLikes += r.likeCount ?? 0;
+            rangeComments += r.commentsCount ?? 0;
+            rangeShares += r.sharesCount ?? 0;
+          }
+          storedPostsPreview.push({
+            platformPostId: r.platformPostId,
+            publishedAt: r.publishedAt.toISOString(),
+            mediaType,
+            impressions: r.impressions,
+            uniqueImpressions,
+            membersReached,
+            interactions: r.interactions,
+            likeCount: r.likeCount,
+            commentsCount: r.commentsCount,
+            sharesCount: r.sharesCount,
+            clicks,
+            contentPreview: r.content ? r.content.slice(0, 120) : null,
+            permalinkUrl: r.permalinkUrl,
+          });
+        }
       } catch {
         /* ignore */
       }
@@ -2058,9 +2109,18 @@ export async function GET(
         posts: {
           totalSynced,
           inRangeCount: importedInRange.length,
+          byMediaType: postsByMediaType,
+        },
+        engagementInRange: {
+          likes: rangeLikes,
+          comments: rangeComments,
+          shares: rangeShares,
+          clicks: rangeClicks,
+          uniqueImpressions: rangeUniqueImpressions,
+          membersReached: rangeMembersReached,
         },
         activityByDay,
-        storedPosts: storedPostsPreview.length > 0 ? storedPostsPreview : undefined,
+        storedPosts: storedPostsPreview.length > 0 ? storedPostsPreview.slice(0, 15) : undefined,
         communityManagement: {
           linkedInRestApiVersion: getLinkedInRestApiVersion(),
           organizationFollowerStatistics:

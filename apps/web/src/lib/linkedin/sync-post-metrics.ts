@@ -5,7 +5,7 @@
  */
 
 import axios from 'axios';
-import { Platform } from '@prisma/client';
+import { Platform, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 
@@ -23,7 +23,14 @@ function memberCreatorEntityParam(postUrn: string): string {
   return `(ugc:${encodeURIComponent(urn)})`;
 }
 
-type MetricType = 'IMPRESSION' | 'REACTION' | 'COMMENT' | 'RESHARE';
+type MetricType =
+  | 'IMPRESSION'
+  | 'UNIQUE_IMPRESSIONS'
+  | 'MEMBERS_REACHED'
+  | 'REACTION'
+  | 'COMMENT'
+  | 'RESHARE'
+  | 'CLICK';
 
 async function fetchMemberMetric(
   accessToken: string,
@@ -46,23 +53,57 @@ async function fetchMemberMetric(
   }
 }
 
+export type LinkedInPostLifetimeMetrics = {
+  impressions: number;
+  uniqueImpressions: number;
+  membersReached: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  clicks: number;
+};
+
 export async function fetchMemberUgcPostLifetimeMetrics(
   accessToken: string,
   platformPostId: string
-): Promise<{ impressions: number; likes: number; comments: number; shares: number }> {
-  const [impressions, likes, comments, shares] = await Promise.all([
+): Promise<LinkedInPostLifetimeMetrics> {
+  const [impressions, uniqueImpressions, membersReached, likes, comments, shares, clicks] = await Promise.all([
     fetchMemberMetric(accessToken, platformPostId, 'IMPRESSION'),
+    fetchMemberMetric(accessToken, platformPostId, 'UNIQUE_IMPRESSIONS'),
+    fetchMemberMetric(accessToken, platformPostId, 'MEMBERS_REACHED'),
     fetchMemberMetric(accessToken, platformPostId, 'REACTION'),
     fetchMemberMetric(accessToken, platformPostId, 'COMMENT'),
     fetchMemberMetric(accessToken, platformPostId, 'RESHARE'),
+    fetchMemberMetric(accessToken, platformPostId, 'CLICK'),
   ]);
-  return { impressions, likes, comments, shares };
+  return { impressions, uniqueImpressions, membersReached, likes, comments, shares, clicks };
+}
+
+async function fetchLinkedInSocialMetadata(
+  accessToken: string,
+  platformPostId: string
+): Promise<Record<string, unknown> | null> {
+  const urn = encodeURIComponent(normalizeLinkedInPostUrn(platformPostId));
+  const url = `https://api.linkedin.com/rest/socialMetadata/${urn}`;
+  try {
+    const r = await axios.get<Record<string, unknown>>(url, {
+      headers: linkedInRestCommunityHeaders(accessToken),
+      timeout: 12_000,
+      validateStatus: () => true,
+    });
+    if (r.status < 200 || r.status >= 300) return null;
+    return r.data && typeof r.data === 'object' ? r.data : null;
+  } catch {
+    return null;
+  }
 }
 
 type OrgStatRow = {
   ugcPost?: string;
   totalShareStatistics?: {
     impressionCount?: number;
+    uniqueImpressionsCount?: number;
+    clickCount?: number;
     likeCount?: number;
     commentCount?: number;
     shareCount?: number;
@@ -73,8 +114,8 @@ export async function fetchOrganizationUgcPostStatsBatch(
   accessToken: string,
   organizationUrn: string,
   platformPostIds: string[]
-): Promise<Map<string, { impressions: number; likes: number; comments: number; shares: number }>> {
-  const out = new Map<string, { impressions: number; likes: number; comments: number; shares: number }>();
+): Promise<Map<string, LinkedInPostLifetimeMetrics>> {
+  const out = new Map<string, LinkedInPostLifetimeMetrics>();
   if (!organizationUrn.startsWith('urn:li:organization:') || platformPostIds.length === 0) return out;
 
   const orgEnc = encodeURIComponent(organizationUrn);
@@ -95,9 +136,13 @@ export async function fetchOrganizationUgcPostStatsBatch(
       const s = el.totalShareStatistics ?? {};
       out.set(postUrn, {
         impressions: typeof s.impressionCount === 'number' ? Math.max(0, Math.round(s.impressionCount)) : 0,
+        uniqueImpressions:
+          typeof s.uniqueImpressionsCount === 'number' ? Math.max(0, Math.round(s.uniqueImpressionsCount)) : 0,
+        membersReached: 0,
         likes: typeof s.likeCount === 'number' ? Math.max(0, Math.round(s.likeCount)) : 0,
         comments: typeof s.commentCount === 'number' ? Math.max(0, Math.round(s.commentCount)) : 0,
         shares: typeof s.shareCount === 'number' ? Math.max(0, Math.round(s.shareCount)) : 0,
+        clicks: typeof s.clickCount === 'number' ? Math.max(0, Math.round(s.clickCount)) : 0,
       });
     }
   } catch {
@@ -124,12 +169,51 @@ export async function refreshLinkedInImportedPostMetrics(account: {
     where: { socialAccountId: account.id, platform: Platform.LINKEDIN },
     orderBy: { publishedAt: 'desc' },
     take: 40,
-    select: { id: true, platformPostId: true },
+    select: { id: true, platformPostId: true, platformMetadata: true },
   });
   if (rows.length === 0) return { updated: 0 };
 
   const isOrg = isLinkedInOrganizationAccount(account.platformUserId);
   let updated = 0;
+
+  const persistMetrics = async (
+    row: { id: string; platformPostId: string; platformMetadata: unknown },
+    s: LinkedInPostLifetimeMetrics,
+    socialMetadata: Record<string, unknown> | null
+  ) => {
+    const interactions = s.likes + s.comments + s.shares;
+    const existingMeta =
+      row.platformMetadata && typeof row.platformMetadata === 'object' && !Array.isArray(row.platformMetadata)
+        ? (row.platformMetadata as Record<string, unknown>)
+        : {};
+    await prisma.importedPost.update({
+      where: { id: row.id },
+      data: {
+        impressions: s.impressions,
+        likeCount: s.likes,
+        commentsCount: s.comments,
+        sharesCount: s.shares,
+        repostsCount: s.shares,
+        interactions,
+        syncedAt: new Date(),
+        platformMetadata: {
+          ...existingMeta,
+          linkedInAnalytics: {
+            impressions: s.impressions,
+            uniqueImpressions: s.uniqueImpressions,
+            membersReached: s.membersReached,
+            reactions: s.likes,
+            comments: s.comments,
+            reshares: s.shares,
+            clicks: s.clicks,
+            syncedAt: new Date().toISOString(),
+          },
+          ...(socialMetadata ? { linkedInSocialMetadata: socialMetadata } : {}),
+        } as Prisma.InputJsonValue,
+      },
+    });
+    updated += 1;
+  };
 
   if (isOrg) {
     const chunkSize = 10;
@@ -144,43 +228,21 @@ export async function refreshLinkedInImportedPostMetrics(account: {
         const key = normalizeLinkedInPostUrn(row.platformPostId);
         const s = statsMap.get(key);
         if (!s) continue;
-        const interactions = s.likes + s.comments + s.shares;
-        await prisma.importedPost.update({
-          where: { id: row.id },
-          data: {
-            impressions: s.impressions,
-            likeCount: s.likes,
-            commentsCount: s.comments,
-            sharesCount: s.shares,
-            repostsCount: s.shares,
-            interactions,
-            syncedAt: new Date(),
-          },
-        });
-        updated += 1;
+        const socialMetadata = await fetchLinkedInSocialMetadata(account.accessToken, row.platformPostId);
+        await persistMetrics(row, s, socialMetadata);
       }
     }
   } else {
-    const concurrency = 3;
+    const concurrency = 2;
     for (let i = 0; i < rows.length; i += concurrency) {
       const slice = rows.slice(i, i + concurrency);
       await Promise.all(
         slice.map(async (row) => {
-          const s = await fetchMemberUgcPostLifetimeMetrics(account.accessToken, row.platformPostId);
-          const interactions = s.likes + s.comments + s.shares;
-          await prisma.importedPost.update({
-            where: { id: row.id },
-            data: {
-              impressions: s.impressions,
-              likeCount: s.likes,
-              commentsCount: s.comments,
-              sharesCount: s.shares,
-              repostsCount: s.shares,
-              interactions,
-              syncedAt: new Date(),
-            },
-          });
-          updated += 1;
+          const [s, socialMetadata] = await Promise.all([
+            fetchMemberUgcPostLifetimeMetrics(account.accessToken, row.platformPostId),
+            fetchLinkedInSocialMetadata(account.accessToken, row.platformPostId),
+          ]);
+          await persistMetrics(row, s, socialMetadata);
         })
       );
     }

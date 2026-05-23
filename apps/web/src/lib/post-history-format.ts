@@ -135,7 +135,11 @@ export function isAnalyticsTextOnlyPost(post: {
 
   if (plat === 'THREADS') return !mt || mt === 'TEXT';
 
-  if (plat === 'LINKEDIN') return !thumb;
+  if (plat === 'LINKEDIN') {
+    if (mt === 'TEXT' || mt === 'NONE') return true;
+    if (!thumb && (mt === 'IMAGE' || !mt || mt === 'POST' || mt === 'STATUS')) return true;
+    return false;
+  }
 
   if (plat === 'FACEBOOK') return !thumb && (!mt || mt === 'POST' || mt === 'STATUS' || mt === 'TEXT');
 
