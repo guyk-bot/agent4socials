@@ -69,6 +69,7 @@ import {
 } from '@/lib/inbox/inbox-badge-pending';
 import { normalizeThreadsInboxCommentRow } from '@/lib/threads/normalize-threads-inbox-comment';
 import {
+  deriveUnreadTopLevelCommentIds,
   isConversationUnread,
   reconcileInboxReadStateWithConversations,
   syncInboxNavBadgeWithLoadedLists,
@@ -835,6 +836,29 @@ function InboxPage() {
   const [totalUnreadMessages, setTotalUnreadMessages] = useState(0); // sum of unread message counts when messageCount is available
   const [unreadEngagementIds, setUnreadEngagementIds] = useState<Set<string>>(new Set());
   const previousTopLevelCommentIdsRef = useRef<Set<string>>(new Set());
+  const inboxCommentsHydratedRef = useRef(false);
+
+  const sessionSeenCommentsKey = (uid: string) => `agent4socials_inbox_seen_comment_ids_${uid}`;
+  const loadSessionSeenCommentIds = (uid: string): Set<string> => {
+    if (typeof sessionStorage === 'undefined') return new Set();
+    try {
+      const raw = sessionStorage.getItem(sessionSeenCommentsKey(uid));
+      if (!raw) return new Set();
+      const arr = JSON.parse(raw) as unknown;
+      if (!Array.isArray(arr)) return new Set();
+      return new Set(arr.filter((x): x is string => typeof x === 'string'));
+    } catch {
+      return new Set();
+    }
+  };
+  const saveSessionSeenCommentIds = (uid: string, ids: Iterable<string>) => {
+    if (typeof sessionStorage === 'undefined') return;
+    try {
+      sessionStorage.setItem(sessionSeenCommentsKey(uid), JSON.stringify([...ids].slice(-2000)));
+    } catch {
+      /* ignore */
+    }
+  };
   const previousConversationIdsRef = useRef<Set<string>>(new Set());
   const previousEngagementIdsRef = useRef<Set<string>>(new Set());
   const conversationsLoadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2028,6 +2052,31 @@ function InboxPage() {
       mentionsFound?: number;
       skippedOwn?: number;
     } | null = null;
+
+    for (const acc of threadsAccounts) {
+      try {
+        const cached = await api.get<{ comments?: PostComment[] }>(
+          `/social/accounts/${acc.id}/comments?cacheOnly=1`,
+          { timeout: 30_000 }
+        );
+        const cachedRows = cached.data?.comments ?? [];
+        if (cachedRows.length > 0) {
+          threadsCommentRows.push(
+            ...cachedRows.map((c) => ({
+              ...c,
+              accountId: c.accountId ?? acc.id,
+              platform: c.platform ?? acc.platform,
+            }))
+          );
+        }
+      } catch {
+        /* optional cache */
+      }
+    }
+    if (threadsCommentRows.length > 0) {
+      applyCommentsToUiRef.current(threadsCommentRows);
+    }
+
     for (const acc of threadsAccounts) {
       try {
         const r = await api.get<{
@@ -2040,34 +2089,57 @@ function InboxPage() {
             mentionsFound?: number;
             skippedOwn?: number;
           };
-        }>(`/social/accounts/${acc.id}/comments?refresh=1`, { timeout: 120_000 });
-        if (r.data?.error) threadsSyncError = r.data.error;
+        }>(`/social/accounts/${acc.id}/comments?refresh=1`, { timeout: 90_000 });
         if (r.data?.hint) threadsSyncHint = r.data.hint;
         if (r.data?.threadsMeta) threadsSyncMeta = r.data.threadsMeta;
         const cs = r.data?.comments ?? [];
-        threadsCommentRows.push(
-          ...cs.map((c) => ({
-            ...c,
-            accountId: c.accountId ?? acc.id,
-            platform: c.platform ?? acc.platform,
-          }))
-        );
-      } catch {
-        threadsSyncError = 'Could not refresh Threads comments. Check your connection and try again.';
+        if (r.data?.error && cs.length === 0) {
+          threadsSyncError = r.data.error;
+        } else if (r.data?.error) {
+          threadsSyncHint = r.data.error;
+        }
+        if (cs.length > 0) {
+          threadsCommentRows.push(
+            ...cs.map((c) => ({
+              ...c,
+              accountId: c.accountId ?? acc.id,
+              platform: c.platform ?? acc.platform,
+            }))
+          );
+        }
+      } catch (err: unknown) {
+        const msg =
+          (err as { response?: { data?: { error?: string; message?: string } } })?.response?.data
+            ?.error ??
+          (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+        if (threadsCommentRows.length === 0) {
+          threadsSyncError =
+            msg ?? 'Could not refresh Threads comments. Check your connection and try again.';
+        } else {
+          threadsSyncHint =
+            msg ?? 'Live refresh failed. Showing saved Threads comments from cache.';
+        }
       }
     }
-    applyCommentsToUiRef.current(threadsCommentRows);
-    for (const acc of threadsAccounts) {
-      const perAcc = commentsStableRef.current.filter((c) => c.accountId === acc.id);
-      appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
+
+    if (threadsCommentRows.length > 0) {
+      const byId = new Map<string, PostComment>();
+      for (const c of threadsCommentRows) {
+        if (c.commentId) byId.set(c.commentId, c);
+      }
+      applyCommentsToUiRef.current([...byId.values()]);
+      for (const acc of threadsAccounts) {
+        const perAcc = commentsStableRef.current.filter((c) => c.accountId === acc.id);
+        appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
+      }
     }
+
     setThreadsCommentsSync({
       loading: false,
       error: threadsSyncError,
       hint: threadsSyncHint,
       meta: threadsSyncMeta,
     });
-    if (threadsSyncError) setCommentsError(threadsSyncError);
   }, []);
 
   const refreshThreadsCommentsRef = useRef(refreshThreadsComments);
@@ -2248,7 +2320,28 @@ function InboxPage() {
       if (fromCtx.length > 0) cachedConvs = fromCtx;
     }
 
-    if (cachedComments.length > 0) applyCommentsToUi(cachedComments);
+    if (cachedComments.length > 0) {
+      applyCommentsToUi(cachedComments);
+      const topLevel = cachedComments.filter((c) => !c.parentCommentId);
+      const repairKey = `threads_unread_repair_v2_${user.id}`;
+      if (typeof sessionStorage !== 'undefined' && !sessionStorage.getItem(repairKey)) {
+        const recentMs = 7 * 24 * 60 * 60 * 1000;
+        for (const c of topLevel) {
+          if (c.platform !== 'THREADS' || c.isFromMe) continue;
+          const t = Date.parse(c.createdAt ?? '');
+          if (Number.isFinite(t) && Date.now() - t < recentMs) {
+            unmarkCommentsAsRead([c.commentId], user.id, { silent: true });
+            addPendingUnreadCommentIds([c.commentId], user.id, 'THREADS');
+          }
+        }
+        sessionStorage.setItem(repairKey, '1');
+      }
+      const seen = loadSessionSeenCommentIds(user.id);
+      previousTopLevelCommentIdsRef.current =
+        seen.size > 0 ? seen : new Set(topLevel.map((c) => c.commentId));
+      setUnreadCommentIds(deriveUnreadTopLevelCommentIds(user.id, topLevel));
+      inboxCommentsHydratedRef.current = true;
+    }
     if (cachedConvs.length > 0) applyConversationsToUi(cachedConvs);
   }, [pathname, user?.id, applyCommentsToUi, applyConversationsToUi]);
 
@@ -2408,47 +2501,33 @@ function InboxPage() {
     if (next) setSelectedPlatform(next);
   }, [inboxMode, selectedPlatform, commentsSupportedPlatforms.join(',')]);
 
-  // Track unread comment ids; flag newly appeared top-level comments (incl. first Threads sync).
+  // Unread badges: persist via localStorage (read + pending). Only flag arrivals after hydration.
   useEffect(() => {
+    if (!user?.id) return;
     const topLevel = comments.filter((c) => !c.parentCommentId);
     const topLevelIds = new Set(topLevel.map((c) => c.commentId));
     const prev = previousTopLevelCommentIdsRef.current;
-    let readSet = getReadCommentIds(user?.id);
-    const pending = getPendingUnreadCommentIds(user?.id ?? '');
 
-    if (user?.id) {
-      const brandNew = topLevel.filter((c) => !c.isFromMe && !prev.has(c.commentId));
-      if (brandNew.length > 0) {
-        const wronglyRead: string[] = [];
-        for (const c of brandNew) {
-          if (readSet.has(c.commentId)) wronglyRead.push(c.commentId);
-          addPendingUnreadCommentIds([c.commentId], user.id, c.platform ?? 'UNKNOWN');
-        }
-        if (wronglyRead.length > 0) {
-          unmarkCommentsAsRead(wronglyRead, user.id, { silent: true });
-          readSet = getReadCommentIds(user.id);
-        }
+    if (inboxCommentsHydratedRef.current && prev.size > 0) {
+      for (const c of topLevel) {
+        if (c.isFromMe || prev.has(c.commentId)) continue;
+        addPendingUnreadCommentIds([c.commentId], user.id, c.platform ?? 'UNKNOWN');
       }
     }
 
-    const initializedAccounts = getInboxInitializedAccountIds(user?.id);
-    const accountIds = [...new Set(comments.map((c) => c.accountId).filter(Boolean))];
-    for (const accountId of accountIds) {
-      if (initializedAccounts.has(accountId)) continue;
-      addInboxInitializedAccount(accountId, user?.id);
+    const initializedAccounts = getInboxInitializedAccountIds(user.id);
+    for (const accountId of [...new Set(comments.map((c) => c.accountId).filter(Boolean))]) {
+      if (!initializedAccounts.has(accountId)) {
+        addInboxInitializedAccount(accountId, user.id);
+      }
     }
 
-    const unreadIds = topLevel
-      .filter((c) => {
-        if (c.isFromMe) return false;
-        if (pending.has(c.commentId)) return true;
-        if (!readSet.has(c.commentId)) return true;
-        if (!prev.has(c.commentId)) return true;
-        return false;
-      })
-      .map((c) => c.commentId);
-    setUnreadCommentIds(new Set(unreadIds));
+    setUnreadCommentIds(deriveUnreadTopLevelCommentIds(user.id, topLevel));
     previousTopLevelCommentIdsRef.current = topLevelIds;
+    saveSessionSeenCommentIds(user.id, topLevelIds);
+    if (!inboxCommentsHydratedRef.current && topLevel.length > 0) {
+      inboxCommentsHydratedRef.current = true;
+    }
   }, [comments, user?.id, inboxReadStateVersion]);
 
   // NOTE: Auto-refresh for comments was removed. Comments are now refreshed only via the

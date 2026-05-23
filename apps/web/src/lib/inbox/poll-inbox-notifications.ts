@@ -21,6 +21,7 @@ import {
   markConversationsAsRead,
   setConversationLastReadCount,
   setConversationLastSeenUpdated,
+  unmarkCommentsAsRead,
   unmarkConversationAsRead,
 } from '@/lib/inbox-read-state';
 import { mergeInboxSenderRows } from '@/lib/inbox/merge-inbox-lists';
@@ -204,8 +205,14 @@ export function mergeComments(
     const isNew = !byId.has(c.commentId);
     if (c.isFromMe && !c.parentCommentId) {
       removePendingUnreadCommentIds([c.commentId], userId);
-    } else if (isNew && !c.parentCommentId && !readComments.has(c.commentId)) {
-      addPendingUnreadCommentIds([c.commentId], userId, platform);
+    } else if (isNew && !c.parentCommentId && !c.isFromMe) {
+      if (platform === 'THREADS' && readComments.has(c.commentId)) {
+        unmarkCommentsAsRead([c.commentId], userId, { silent: true });
+        readComments.delete(c.commentId);
+      }
+      if (!readComments.has(c.commentId)) {
+        addPendingUnreadCommentIds([c.commentId], userId, platform);
+      }
     }
     byId.set(c.commentId, c);
   }

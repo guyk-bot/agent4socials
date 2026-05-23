@@ -35,6 +35,23 @@ export type InboxUnreadComment = {
   parentCommentId?: string | null;
 };
 
+/** Unread top-level comments from persisted read state + sticky pending (survives refresh). */
+export function deriveUnreadTopLevelCommentIds(
+  userId: string,
+  topLevel: InboxUnreadComment[]
+): Set<string> {
+  const readSet = getReadCommentIds(userId);
+  const pending = getPendingUnreadCommentIds(userId);
+  const unread = new Set<string>();
+  for (const c of topLevel) {
+    if (!c.commentId || c.isFromMe) continue;
+    if (pending.has(c.commentId) || !readSet.has(c.commentId)) {
+      unread.add(c.commentId);
+    }
+  }
+  return unread;
+}
+
 export type InboxHeaderUnread = {
   inbox: number;
   messages: number;
