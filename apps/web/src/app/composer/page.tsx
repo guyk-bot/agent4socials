@@ -21,6 +21,7 @@ import {
     Loader2,
     Download,
     HelpCircle,
+    MessageSquare,
     Play,
     Pause,
     Volume2,
@@ -502,11 +503,21 @@ const TWITTER_POST_LIMIT = 280;
 const HASHTAG_POOL_KEY = 'agent4socials_hashtag_pool';
 const MAX_HASHTAGS_PER_POST = 5;
 
-type MediaTypeChoice = 'photo' | 'video' | 'reel' | 'carousel' | 'story';
+type MediaTypeChoice = 'text' | 'photo' | 'video' | 'reel' | 'carousel' | 'story';
+
+/** Text-only composer format (no image or video upload). */
+const TEXT_ONLY_COMPOSER_PLATFORMS = ['TWITTER', 'FACEBOOK', 'LINKEDIN', 'THREADS'] as const;
+const THREADS_CHAR_LIMIT = 500;
 
 const VIDEO_ACCEPT = 'video/mp4,video/quicktime,video/x-ms-asf,video/x-msvideo,video/x-matroska,video/mpeg,video/webm,.mp4,.mov,.asf,.avi,.mkv,.mpeg,.mpg,.m4v,.webm';
 
 const MEDIA_RECOMMENDATIONS: Record<MediaTypeChoice, { label: string; accept: string; multiple: boolean; hint: string; formatsHint?: string }> = {
+    text: {
+        label: 'Text',
+        accept: '',
+        multiple: false,
+        hint: 'Caption only for X (Twitter), Facebook, LinkedIn, and Threads. No image or video is attached.',
+    },
     photo: { label: 'Photo', accept: 'image/*', multiple: false, hint: 'Recommended: 1080×1080 (square) or 1080×1350 (portrait). Works on all platforms.' },
     video: {
         label: 'Video',
@@ -575,6 +586,8 @@ function buildPublishRequestBody(
 
 function platformsAllowedForMediaType(mediaType: MediaTypeChoice): readonly string[] {
     switch (mediaType) {
+        case 'text':
+            return TEXT_ONLY_COMPOSER_PLATFORMS;
         case 'story':
             return ['INSTAGRAM', 'FACEBOOK'];
         case 'video':
@@ -633,6 +646,12 @@ function stripTrailingHashtags(text: string): string {
 }
 
 const MEDIA_SPECS: Record<string, { platform: PlatformKey; name: string; specs: { label: string; value: string; tag?: string }[] }[]> = {
+    text: [
+        { platform: 'TWITTER', name: 'X (Twitter)', specs: [{ label: 'Max length', value: '280 characters', tag: 'Required' }] },
+        { platform: 'FACEBOOK', name: 'Facebook', specs: [{ label: 'Format', value: 'Page text post (no link preview image from this flow)' }] },
+        { platform: 'LINKEDIN', name: 'LinkedIn', specs: [{ label: 'Format', value: 'Text-only post (commentary)' }] },
+        { platform: 'THREADS', name: 'Threads', specs: [{ label: 'Max length', value: '500 characters', tag: 'Required' }] },
+    ],
     photo: [
         { platform: 'INSTAGRAM', name: 'Instagram', specs: [{ label: 'Square', value: '1080×1080 (1:1)', tag: 'Safe for all' }, { label: 'Portrait', value: '1080×1350 (4:5)', tag: 'Best reach' }, { label: 'Landscape', value: '1080×566 (1.91:1)' }] },
         { platform: 'FACEBOOK', name: 'Facebook', specs: [{ label: 'Portrait', value: '1080×1350 (4:5)', tag: 'Best reach' }, { label: 'Square', value: '1080×1080 (1:1)' }, { label: 'Landscape', value: '1200×630 (1.91:1)' }] },
@@ -693,7 +712,9 @@ function MediaRequirementsHint({ mediaType }: { mediaType: keyof typeof MEDIA_SP
 
     return (
         <div className="relative flex items-center gap-1.5">
-            <span className="text-xs text-neutral-500">Ensure your media meets platform requirements.</span>
+            <span className="text-xs text-neutral-500">
+                {mediaType === 'text' ? 'Character limits by platform.' : 'Ensure your media meets platform requirements.'}
+            </span>
             <button
                 ref={btnRef}
                 type="button"
@@ -1056,7 +1077,16 @@ export default function ComposerPage() {
                 if (typeof d.content === 'string') setContent(d.content);
                 if (d.contentByPlatform && typeof d.contentByPlatform === 'object') setContentByPlatform(d.contentByPlatform);
                 if (typeof d.differentContentPerPlatform === 'boolean') setDifferentContentPerPlatform(d.differentContentPerPlatform);
-                if (d.mediaType === 'photo' || d.mediaType === 'video' || d.mediaType === 'reel' || d.mediaType === 'carousel' || d.mediaType === 'story') setMediaType(d.mediaType);
+                if (
+                    d.mediaType === 'text' ||
+                    d.mediaType === 'photo' ||
+                    d.mediaType === 'video' ||
+                    d.mediaType === 'reel' ||
+                    d.mediaType === 'carousel' ||
+                    d.mediaType === 'story'
+                ) {
+                    setMediaType(d.mediaType);
+                }
                 if (Array.isArray(d.mediaList)) {
                     const valid = d.mediaList.filter((m) => m && isPersistableMediaUrl(m.fileUrl));
                     if (valid.length) setMediaList(valid);
@@ -1181,6 +1211,7 @@ export default function ComposerPage() {
                     media: p.media,
                 });
                 if (
+                    resolvedMediaType === 'text' ||
                     resolvedMediaType === 'photo' ||
                     resolvedMediaType === 'video' ||
                     resolvedMediaType === 'reel' ||
@@ -1188,6 +1219,11 @@ export default function ComposerPage() {
                     resolvedMediaType === 'story'
                 ) {
                     setMediaType(resolvedMediaType);
+                } else if (
+                    mediaList_.length === 0 &&
+                    (p.targets ?? []).every((t) => TEXT_ONLY_COMPOSER_PLATFORMS.includes(String(t.platform).toUpperCase() as (typeof TEXT_ONLY_COMPOSER_PLATFORMS)[number]))
+                ) {
+                    setMediaType('text');
                 } else if (mediaList_.length === 1 && mediaList_[0].type === 'VIDEO') {
                     setMediaType('reel');
                 } else if (mediaList_.length === 1) {
@@ -2424,6 +2460,31 @@ export default function ComposerPage() {
                 }
             }
 
+            if (platforms.includes('THREADS')) {
+                const threadsText = (contentByPlatformFinal?.['THREADS'] ?? contentFinal).trim();
+                if (threadsText.length > THREADS_CHAR_LIMIT) {
+                    setLoading(false);
+                    setAlertMessage(`Threads limit is ${THREADS_CHAR_LIMIT} characters. Yours is ${threadsText.length}. Shorten or remove Threads.`);
+                    return;
+                }
+            }
+
+            if (mediaType === 'text') {
+                const hasTextBody = contentByPlatformFinal
+                    ? platforms.some((p) => (contentByPlatformFinal![p] ?? '').trim().length > 0)
+                    : contentFinal.trim().length > 0;
+                if (!hasTextBody) {
+                    setLoading(false);
+                    setAlertMessage('Write your post text.');
+                    return;
+                }
+                if (hasMedia) {
+                    setLoading(false);
+                    setAlertMessage('Text posts cannot include media. Remove uploads or switch to Photo, Reel, or another format.');
+                    return;
+                }
+            }
+
             if (platforms.includes('PINTEREST')) {
                 const pinMedia = differentMediaPerPlatform ? (mediaByPlatform['PINTEREST'] ?? []) : mediaList;
                 const hasPinImage = pinMedia.some((m) => m.type === 'IMAGE');
@@ -2498,16 +2559,19 @@ export default function ComposerPage() {
             } = {
                 content: contentFinal,
                 mediaType,
-                media: mediaList.map((m, i) => {
-                    if (i === 0 && m.type === 'VIDEO') {
-                        return {
-                            ...m,
-                            thumbnailUrl: pinterestAutoCoverUrl ?? (m as MediaItem).thumbnailUrl,
-                            useVideoDefaultForPublish: thumbnailChoice === 'none',
-                        };
-                    }
-                    return m;
-                }),
+                media:
+                    mediaType === 'text'
+                        ? []
+                        : mediaList.map((m, i) => {
+                              if (i === 0 && m.type === 'VIDEO') {
+                                  return {
+                                      ...m,
+                                      thumbnailUrl: pinterestAutoCoverUrl ?? (m as MediaItem).thumbnailUrl,
+                                      useVideoDefaultForPublish: thumbnailChoice === 'none',
+                                  };
+                              }
+                              return m;
+                          }),
                 targets,
                 scheduledAt: scheduledAt || undefined,
                 scheduleDelivery: scheduledAt ? scheduleDelivery : undefined,
@@ -2581,7 +2645,7 @@ export default function ComposerPage() {
             if (platforms.includes('TIKTOK') && Object.keys(tiktokPublishByAccountId).length > 0) {
                 payload.tiktokPublishByAccountId = tiktokPublishByAccountId;
             }
-            if (platforms.includes('THREADS')) {
+            if (platforms.includes('THREADS') && mediaType !== 'text' && hasMedia) {
                 payload.threadsShareToInstagram = threadsShareToInstagram;
             }
 
@@ -3235,17 +3299,21 @@ export default function ComposerPage() {
                         </div>
                         {selectablePlatforms.length === 0 && (
                             <p className="pt-3 text-sm text-amber-700 dark:text-amber-400">
-                                {mediaType === 'story'
+                                {mediaType === 'text'
                                     ? accountsLoadError
-                                        ? 'Could not load connected accounts. Refresh the page, then select Instagram or Facebook in Select Platforms above (sidebar accounts are for navigation only).'
-                                        : 'Connect Instagram or Facebook in Accounts, then select them in Select Platforms above (not the sidebar).'
-                                    : mediaType === 'video'
+                                        ? 'Could not load connected accounts. Refresh the page, then select X, Facebook, LinkedIn, or Threads above.'
+                                        : 'Connect X, Facebook, LinkedIn, or Threads in Accounts, then select them in Select Platforms above.'
+                                    : mediaType === 'story'
                                       ? accountsLoadError
-                                        ? 'Could not load connected accounts. Refresh the page, then select YouTube above.'
-                                        : 'Connect YouTube in Accounts, then select it in Select Platforms above.'
-                                      : accountsLoadError
-                                        ? 'Could not load connected accounts. Refresh the page, then select a platform above.'
-                                        : 'Connect a platform in Accounts that supports this post type, then select it above.'}
+                                          ? 'Could not load connected accounts. Refresh the page, then select Instagram or Facebook in Select Platforms above (sidebar accounts are for navigation only).'
+                                          : 'Connect Instagram or Facebook in Accounts, then select them in Select Platforms above (not the sidebar).'
+                                      : mediaType === 'video'
+                                        ? accountsLoadError
+                                          ? 'Could not load connected accounts. Refresh the page, then select YouTube above.'
+                                          : 'Connect YouTube in Accounts, then select it in Select Platforms above.'
+                                        : accountsLoadError
+                                          ? 'Could not load connected accounts. Refresh the page, then select a platform above.'
+                                          : 'Connect a platform in Accounts that supports this post type, then select it above.'}
                             </p>
                         )}
                         {selectablePlatforms.length > 0 && platforms.length === 0 && mediaType === 'story' && (
@@ -3264,6 +3332,7 @@ export default function ComposerPage() {
                         </button>
                         {sectionOpen.media && (
                         <div className="pt-4 space-y-5">
+                        {mediaType !== 'text' && (
                         <label className="flex items-center gap-2 cursor-pointer">
                             <input
                                 type="checkbox"
@@ -3273,30 +3342,38 @@ export default function ComposerPage() {
                             />
                             <span className="text-sm text-neutral-700">Use different media per platform</span>
                         </label>
+                        )}
                         {!differentMediaPerPlatform ? (
                             <>
-                                <p className="text-sm font-medium text-neutral-700">Choose what to upload</p>
+                                <p className="text-sm font-medium text-neutral-700">Choose post format</p>
                                 <div className={`flex flex-wrap gap-2 p-1 rounded-xl w-fit ${isDark ? 'bg-neutral-800/90' : 'bg-neutral-100/80'}`}>
-                                    {(['photo', 'reel', 'video', 'carousel', 'story'] as const).map((type) => (
+                                    {(['text', 'photo', 'reel', 'video', 'carousel', 'story'] as const).map((type) => (
                                         <button
                                             key={type}
                                             type="button"
                                             onClick={() => {
                                                 if (type !== mediaType) {
                                                     setMediaType(type);
-                                                    const keepSingleMedia =
-                                                        mediaList.length === 1 &&
-                                                        (type === 'story' ||
-                                                            type === 'photo' ||
-                                                            type === 'reel' ||
-                                                            (type === 'video' && mediaList[0]?.type === 'VIDEO'));
-                                                    if (!keepSingleMedia) {
+                                                    if (type === 'text') {
                                                         setMediaList([]);
-                                                        setMediaByPlatform((prev) => {
-                                                            const next = { ...prev };
-                                                            for (const p of Object.keys(next)) next[p] = [];
-                                                            return next;
-                                                        });
+                                                        setMediaByPlatform({});
+                                                        setDifferentMediaPerPlatform(false);
+                                                        setThreadsShareToInstagram(false);
+                                                    } else {
+                                                        const keepSingleMedia =
+                                                            mediaList.length === 1 &&
+                                                            (type === 'story' ||
+                                                                type === 'photo' ||
+                                                                type === 'reel' ||
+                                                                (type === 'video' && mediaList[0]?.type === 'VIDEO'));
+                                                        if (!keepSingleMedia) {
+                                                            setMediaList([]);
+                                                            setMediaByPlatform((prev) => {
+                                                                const next = { ...prev };
+                                                                for (const p of Object.keys(next)) next[p] = [];
+                                                                return next;
+                                                            });
+                                                        }
                                                     }
                                                     const allowed = new Set(platformsAllowedForMediaType(type));
                                                     setPlatforms((prev) =>
@@ -3316,12 +3393,19 @@ export default function ComposerPage() {
                                     ))}
                                 </div>
                                 <MediaRequirementsHint mediaType={mediaType} />
+                                {mediaType === 'text' ? (
+                                    <p className="text-xs text-neutral-600 dark:text-neutral-400 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 px-3 py-2">
+                                        {MEDIA_RECOMMENDATIONS.text.hint}
+                                    </p>
+                                ) : null}
                                 {mediaType === 'story' && (
                                     <p className="text-xs text-neutral-600 dark:text-neutral-400 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 px-3 py-2">
                                         Stories publish to the story ring (Instagram) or Stories tray (Facebook), not the main feed grid.
                                         Licensed music, stickers, and native text tools are not available via the API: add those in the Instagram or Facebook app after publish, or bake text into your image in Adjust fit.
                                     </p>
                                 )}
+                                {mediaType !== 'text' ? (
+                                <>
                                 <input
                                     ref={fileInputRef}
                                     type="file"
@@ -3624,6 +3708,8 @@ export default function ComposerPage() {
                                 {mediaType === 'carousel' && mediaList.length > 1 && (
                                     <p className="text-xs text-neutral-500">Drag images to reorder. Click an image to move it to position 1.</p>
                                 )}
+                                </>
+                                ) : null}
                             </>
                         ) : (
                             <div className="space-y-4">
@@ -3734,6 +3820,15 @@ export default function ComposerPage() {
                                     );
                                 })()}
                                 {platforms.includes('THREADS') && (
+                                    <p className={`mt-1 text-xs ${(() => {
+                                        const withTags = content.trim() + (selectedHashtags.length ? ' ' + selectedHashtags.join(' ') : '');
+                                        return withTags.length > THREADS_CHAR_LIMIT ? 'text-amber-600 font-medium' : 'text-neutral-500';
+                                    })()}`}>
+                                        Threads limit: {THREADS_CHAR_LIMIT} characters (including spaces). Current (with hashtags):{' '}
+                                        {content.trim().length + (selectedHashtags.length ? ' ' + selectedHashtags.join(' ') : '').length}
+                                    </p>
+                                )}
+                                {platforms.includes('THREADS') && mediaType !== 'text' && mediaList.length > 0 && (
                                     <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-xl border border-neutral-200 bg-neutral-50/80 px-3 py-2.5">
                                         <input
                                             type="checkbox"
@@ -4148,6 +4243,11 @@ export default function ComposerPage() {
                             </div>
                                         <p className="mt-3 text-xs font-medium text-neutral-500">Select platforms above to see per-platform preview</p>
                                     </>
+                                ) : mediaType === 'text' ? (
+                                    <>
+                                        <MessageSquare size={28} strokeWidth={1.5} className="text-neutral-300" />
+                                        <p className="mt-2 text-xs font-medium">Text post: select platforms above</p>
+                                    </>
                                 ) : (
                                     <>
                                         <ImageIcon size={28} strokeWidth={1.5} className="text-neutral-300" />
@@ -4215,6 +4315,11 @@ export default function ComposerPage() {
                                             )}
             </div>
                                         <p className="mt-3 text-xs font-medium text-neutral-500">Select platforms above to see per-platform preview</p>
+                                    </>
+                                ) : mediaType === 'text' ? (
+                                    <>
+                                        <MessageSquare size={28} strokeWidth={1.5} className="text-neutral-300" />
+                                        <p className="mt-2 text-xs font-medium">Text post: select platforms above</p>
                                     </>
                                 ) : (
                                     <>
@@ -4325,12 +4430,14 @@ function PostPreview({
         }
     };
     const reelPreview = mediaType === 'reel' || mediaType === 'story';
-    const aspectBase =
-        mediaType === 'video'
-            ? 'aspect-video'
-            : mediaType === 'reel' || mediaType === 'story' || (media.length === 1 && media[0]?.type === 'VIDEO')
-              ? 'aspect-[9/16]'
-              : 'aspect-square';
+    const textOnlyPreview = mediaType === 'text' && media.length === 0;
+    const aspectBase = textOnlyPreview
+        ? 'min-h-[4.5rem]'
+        : mediaType === 'video'
+          ? 'aspect-video'
+          : mediaType === 'reel' || mediaType === 'story' || (media.length === 1 && media[0]?.type === 'VIDEO')
+            ? 'aspect-[9/16]'
+            : 'aspect-square';
     const mediaShellClass =
         `${reelPreview ? 'bg-black' : 'bg-neutral-50'} flex items-center justify-center relative overflow-hidden ` + aspectBase;
     const videoVisualClass = 'w-full h-full object-contain';
@@ -4447,6 +4554,11 @@ function PostPreview({
                         <Loader2 size={compact ? 18 : 28} className="animate-spin text-neutral-400" />
                         <span className={`text-neutral-400 font-medium ${compact ? 'text-[9px]' : 'text-xs'}`}>Uploading…</span>
             </div>
+                ) : textOnlyPreview ? (
+                    <div className={`flex flex-col items-center justify-center gap-1 px-3 text-center ${compact ? 'py-2' : 'py-4'}`}>
+                        <MessageSquare size={compact ? 16 : 22} className="text-neutral-300" strokeWidth={1.5} />
+                        <span className={`text-neutral-400 font-medium ${compact ? 'text-[9px]' : 'text-xs'}`}>Text-only post</span>
+                    </div>
                 ) : (
                     <ImageIcon size={compact ? 20 : 36} className="text-neutral-200" strokeWidth={1.5} />
                 )}
