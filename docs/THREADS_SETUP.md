@@ -70,7 +70,7 @@ Threads **direct messages** are not available on the official Threads Graph API 
 
 - **Replies** on your synced threads (`GET {thread-id}/replies`, scope `threads_read_replies`)
 - **@mentions** (`GET me/mentions`, scope `threads_manage_mentions`)
-- **Reply from the app** (`POST {media-id}/replies`, scope `threads_manage_replies`)
+- **Reply from the app** (`POST me/threads` with `reply_to_id`, then `POST me/threads_publish`, scope `threads_manage_replies`)
 
 Sync posts first (open **Dashboard** with Threads selected, or wait for background sync) so the inbox has thread IDs to load replies from.
 

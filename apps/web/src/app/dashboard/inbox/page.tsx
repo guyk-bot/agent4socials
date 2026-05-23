@@ -3865,6 +3865,7 @@ function InboxPage() {
                             api.post(`/social/accounts/${account.id}/comments/reply`, {
                               commentId: c.commentId,
                               message: msg,
+                              ...(c.platform === 'THREADS' ? { platformPostId: c.platformPostId } : {}),
                               ...(c.platform === 'LINKEDIN' && c.linkedInObjectUrn
                                 ? { linkedInObjectUrn: c.linkedInObjectUrn }
                                 : {}),
@@ -4322,6 +4323,9 @@ function InboxPage() {
                       await api.post(`/social/accounts/${account.id}/comments/reply`, {
                         commentId: selectedComment.commentId,
                         message: sentMessage,
+                        ...(selectedComment.platform === 'THREADS'
+                          ? { platformPostId: selectedComment.platformPostId }
+                          : {}),
                         ...(selectedComment.platform === 'LINKEDIN' && selectedComment.linkedInObjectUrn
                           ? { linkedInObjectUrn: selectedComment.linkedInObjectUrn }
                           : {}),

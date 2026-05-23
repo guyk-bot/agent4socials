@@ -25,8 +25,13 @@ export async function POST(
   }
 
   const { id } = await params;
-  const body = await request.json() as { commentId?: string; message?: string; linkedInObjectUrn?: string };
-  const { commentId, message, linkedInObjectUrn } = body;
+  const body = await request.json() as {
+    commentId?: string;
+    message?: string;
+    linkedInObjectUrn?: string;
+    platformPostId?: string;
+  };
+  const { commentId, message, linkedInObjectUrn, platformPostId } = body;
 
   if (!commentId || !message?.trim()) {
     return NextResponse.json({ message: 'commentId and message are required' }, { status: 400 });
@@ -115,15 +120,24 @@ export async function POST(
     }
 
     if (platform === 'THREADS') {
-      const { postThreadsReply } = await import('@/lib/threads/inbox-comments');
-      const parentId = commentId.startsWith('mention-') ? commentId.replace(/^mention-/, '') : commentId;
+      const { postThreadsReply, threadsReplyToMediaId } = await import('@/lib/threads/inbox-comments');
+      const replyToId = threadsReplyToMediaId({
+        commentId: commentId.trim(),
+        platformPostId: typeof platformPostId === 'string' ? platformPostId : undefined,
+      });
+      if (!replyToId) {
+        return NextResponse.json(
+          { message: 'Threads reply: missing post id. Refresh Comments and try again.' },
+          { status: 400 }
+        );
+      }
       const result = await postThreadsReply(
         {
           id: account.id,
           accessToken: account.accessToken ?? '',
           expiresAt: account.expiresAt,
         },
-        parentId,
+        replyToId,
         message.trim()
       );
       if (!result.ok) {

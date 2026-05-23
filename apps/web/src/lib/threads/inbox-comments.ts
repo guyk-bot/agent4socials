@@ -267,19 +267,62 @@ export { normalizeThreadsInboxCommentRow } from '@/lib/threads/normalize-threads
 
 export async function postThreadsReply(
   account: { id: string; accessToken: string; expiresAt?: Date | null },
-  parentMediaId: string,
+  replyToMediaId: string,
   message: string
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const token = await getValidThreadsToken(account);
   const { threadsPostForm } = await import('@/lib/threads/threads-api');
-  const { status, data } = await threadsPostForm<{ id?: string; error?: { message?: string } }>(
-    `${parentMediaId.replace(/^\//, '')}/replies`,
-    token,
-    { text: message.trim() }
-  );
-  if (status >= 200 && status < 300) {
-    return { ok: true };
+
+  const text = message.trim().slice(0, 500);
+  if (!text) {
+    return { ok: false, message: 'Reply text is required.' };
   }
-  const msg = data?.error?.message ?? `Threads reply failed (HTTP ${status})`;
-  return { ok: false, message: msg };
+
+  const replyToId = replyToMediaId.replace(/^\//, '').trim();
+  if (!replyToId) {
+    return { ok: false, message: 'Missing Threads post id to reply to.' };
+  }
+
+  // Official flow: POST me/threads with reply_to_id, then threads_publish.
+  // POST {id}/replies is not supported and returns "Unsupported post request".
+  const create = await threadsPostForm<{ id?: string; error?: { message?: string } }>(
+    'me/threads',
+    token,
+    {
+      media_type: 'TEXT',
+      text,
+      reply_to_id: replyToId,
+    }
+  );
+  if (create.status !== 200 || !create.data?.id) {
+    const msg =
+      create.data?.error?.message ?? `Threads could not create reply (HTTP ${create.status})`;
+    return { ok: false, message: msg.slice(0, 300) };
+  }
+
+  const pub = await threadsPostForm<{ id?: string; error?: { message?: string } }>(
+    'me/threads_publish',
+    token,
+    { creation_id: create.data.id }
+  );
+  if (pub.status !== 200 || !pub.data?.id) {
+    const msg =
+      pub.data?.error?.message ?? `Threads could not publish reply (HTTP ${pub.status})`;
+    return { ok: false, message: msg.slice(0, 300) };
+  }
+
+  return { ok: true };
+}
+
+/** Resolve the Threads media id passed as reply_to_id when posting a reply. */
+export function threadsReplyToMediaId(args: {
+  commentId: string;
+  platformPostId?: string | null;
+}): string {
+  const commentId = args.commentId.trim();
+  if (commentId.startsWith('mention-')) {
+    return commentId.replace(/^mention-/, '');
+  }
+  if (commentId) return commentId;
+  return (args.platformPostId ?? '').trim();
 }

@@ -111,7 +111,7 @@ Use case: **Access the Threads API**. Default scopes in the app (see `docs/THREA
 | `threads_content_publish` | **Composer** → short text (and optional image) → **Threads** → **Post now**. Wait for success. |
 | `threads_manage_insights` | **Dashboard** → select **Threads** → open analytics / run sync (calls `me/threads_insights`). |
 | `threads_read_replies` | See **B3** (Graph API Explorer) if no reply UI yet. |
-| `threads_manage_replies` | Post a test thread, reply from another account, then use Explorer to POST a reply (B3). |
+| `threads_manage_replies` | Inbox → Comments → reply to a Threads comment (`POST me/threads` + `reply_to_id`, then `threads_publish`). |
 | `threads_manage_mentions` | Mention your Threads handle from another account, then use Explorer (B3). |
 
 ### B3. Graph API Explorer (Threads host)
@@ -131,7 +131,7 @@ Use when the app UI does not yet call an endpoint, especially **`threads_share_t
 | `threads_content_publish` | Already satisfied if you published from Composer (`POST me/threads` + `POST me/threads_publish`). |
 | `threads_manage_insights` | `GET me/threads_insights?metric=views,likes,replies,reposts,quotes` |
 | `threads_read_replies` | `GET {thread-id}/replies` |
-| `threads_manage_replies` | `POST {thread-id}/replies` with `text=Test reply` |
+| `threads_manage_replies` | `POST me/threads` with `reply_to_id={thread-or-reply-id}` and `text=...`, then `POST me/threads_publish` |
 | `threads_manage_mentions` | `GET me/mentions` (or the mentions endpoint from [Threads API docs](https://developers.facebook.com/docs/threads)) |
 | `threads_share_to_instagram` | See **B4** below (publish with `crossreshare_to_ig=true`). |
 
