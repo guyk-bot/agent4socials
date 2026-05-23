@@ -2,11 +2,13 @@
 
 import {
   computeInboxHeaderUnread,
+  isCommentUnread,
   isConversationUnread,
   getStickyNavInboxBadge,
   mergeInboxBadgeWithSnapshot,
   writeInboxBadgeSnapshot,
 } from '../unread-count';
+import { addInboxInitializedAccount } from '@/lib/inbox-read-state';
 
 const localStorageMock = (() => {
   let store: Record<string, string> = {};
@@ -110,11 +112,46 @@ describe('computeInboxHeaderUnread', () => {
     );
     const unread = computeInboxHeaderUnread(
       [],
-      [{ commentId: 'cmt-a', platform: 'INSTAGRAM' }],
+      [{ commentId: 'cmt-a', platform: 'INSTAGRAM', accountId: 'acc-1' }],
       'user-1'
     );
     expect(unread.comments).toBe(0);
     expect(unread.inbox).toBe(0);
+  });
+
+  it('does not count cached comments before the account inbox is initialized', () => {
+    localStorage.setItem('agent4socials_inbox_initialized_accounts_user-1', JSON.stringify([]));
+    const unread = computeInboxHeaderUnread(
+      [],
+      [
+        { commentId: 'cmt-a', platform: 'INSTAGRAM', accountId: 'acc-1' },
+        { commentId: 'cmt-b', platform: 'INSTAGRAM', accountId: 'acc-1' },
+      ],
+      'user-1'
+    );
+    expect(unread.comments).toBe(0);
+  });
+
+  it('counts unread comments after account initialization', () => {
+    addInboxInitializedAccount('acc-1', 'user-1');
+    const unread = computeInboxHeaderUnread(
+      [],
+      [{ commentId: 'cmt-a', platform: 'INSTAGRAM', accountId: 'acc-1' }],
+      'user-1'
+    );
+    expect(unread.comments).toBe(1);
+  });
+});
+
+describe('isCommentUnread', () => {
+  it('returns false for uninitialized accounts (avoids badge flicker on load)', () => {
+    expect(
+      isCommentUnread(
+        { commentId: 'cmt-a', accountId: 'acc-1', platform: 'INSTAGRAM' },
+        new Set(),
+        new Set()
+      )
+    ).toBe(false);
   });
 });
 

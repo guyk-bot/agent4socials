@@ -2283,6 +2283,7 @@ function InboxPage() {
             .map((c) => ({
               commentId: c.commentId,
               platform: c.platform,
+              accountId: c.accountId,
               isFromMe: c.isFromMe,
               parentCommentId: c.parentCommentId,
             }));
@@ -2334,19 +2335,6 @@ function InboxPage() {
     if (cachedComments.length > 0) {
       applyCommentsToUi(cachedComments);
       const topLevel = cachedComments.filter((c) => !c.parentCommentId);
-      const repairKey = `threads_unread_repair_v2_${user.id}`;
-      if (typeof sessionStorage !== 'undefined' && !sessionStorage.getItem(repairKey)) {
-        const recentMs = 7 * 24 * 60 * 60 * 1000;
-        for (const c of topLevel) {
-          if (c.platform !== 'THREADS' || c.isFromMe) continue;
-          const t = Date.parse(c.createdAt ?? '');
-          if (Number.isFinite(t) && Date.now() - t < recentMs) {
-            unmarkCommentsAsRead([c.commentId], user.id, { silent: true });
-            addPendingUnreadCommentIds([c.commentId], user.id, 'THREADS');
-          }
-        }
-        sessionStorage.setItem(repairKey, '1');
-      }
       const seen = loadSessionSeenCommentIds(user.id);
       previousTopLevelCommentIdsRef.current =
         seen.size > 0 ? seen : new Set(topLevel.map((c) => c.commentId));
@@ -2531,6 +2519,13 @@ function InboxPage() {
     const initializedAccounts = getInboxInitializedAccountIds(user.id);
     for (const accountId of [...new Set(comments.map((c) => c.accountId).filter(Boolean))]) {
       if (!initializedAccounts.has(accountId)) {
+        const platform = comments.find((c) => c.accountId === accountId)?.platform;
+        if (platform && platform !== 'THREADS') {
+          const ids = topLevel
+            .filter((c) => c.accountId === accountId && !c.isFromMe)
+            .map((c) => c.commentId);
+          if (ids.length) markCommentsAsRead(ids, user.id, { silent: true });
+        }
         addInboxInitializedAccount(accountId, user.id);
       }
     }

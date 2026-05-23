@@ -206,11 +206,14 @@ export function mergeComments(
   const byId = new Map<string, CachedComment>();
   for (const c of existing) byId.set(c.commentId, c);
   const readComments = getReadCommentIds(userId);
+  const initialized = getInboxInitializedAccountIds(userId);
+  const isFirstSync = !initialized.has(accountId);
+
   for (const c of incoming) {
     const isNew = !byId.has(c.commentId);
     if (c.isFromMe && !c.parentCommentId) {
       removePendingUnreadCommentIds([c.commentId], userId);
-    } else if (isNew && !c.parentCommentId && !c.isFromMe) {
+    } else if (isNew && !c.parentCommentId && !c.isFromMe && !isFirstSync) {
       if (platform === 'THREADS' && readComments.has(c.commentId)) {
         unmarkCommentsAsRead([c.commentId], userId, { silent: true });
         readComments.delete(c.commentId);
@@ -224,8 +227,7 @@ export function mergeComments(
 
   const merged = [...byId.values()].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
 
-  const initialized = getInboxInitializedAccountIds(userId);
-  if (!initialized.has(accountId) && merged.length > 0) {
+  if (isFirstSync && merged.length > 0) {
     if (platform === 'THREADS') {
       // First Threads fetch is often the first time replies exist; do not silence them as "old".
       for (const c of incoming) {

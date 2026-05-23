@@ -169,6 +169,7 @@ function buildInitialNotificationsFromClientStorage(): NotificationsCache {
       .map((c) => ({
         commentId: c.commentId,
         platform: c.platform ?? accountPlatform.get(accountId),
+        accountId,
         isFromMe: c.isFromMe,
       }))
   );
@@ -326,6 +327,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           .map((c) => ({
             commentId: c.commentId,
             platform: c.platform ?? accountPlatform.get(accountId),
+            accountId,
             isFromMe: c.isFromMe,
           }))
       );

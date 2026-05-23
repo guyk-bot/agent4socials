@@ -170,10 +170,10 @@ export function ensurePendingIdsForUnreadCounts(
     }
   }
 
-  const readComments = getReadCommentIds(userId);
-  const initializedCommentAccounts = getInboxInitializedAccountIds(userId);
+  // Comment pending IDs are set only when mergeComments detects a new arrival (not on bulk load).
+}
 
-  for (const c of conversations) {
+/** Keep the last non-zero badge across refresh until the user clears it by reading. */
 export function mergeInboxBadgeWithSnapshot(
   computed: InboxHeaderUnread,
   userId: string
@@ -386,6 +386,7 @@ export function computeInboxHeaderUnread(
   const lastSeenUpdated = getConversationLastSeenUpdated(userId);
   const initializedConvAccounts = getInboxInitializedAccountIdsForConversations(userId);
   const readComments = getReadCommentIds(userId);
+  const initializedCommentAccounts = getInboxInitializedAccountIds(userId);
   const pendingConvPlatforms = getPendingUnreadConversationPlatforms(userId);
   const pendingCommentPlatforms = getPendingUnreadCommentPlatforms(userId);
 
@@ -422,7 +423,9 @@ export function computeInboxHeaderUnread(
   for (const c of comments) {
     if (!c.commentId || c.isFromMe) continue;
     commentPlatformById.set(c.commentId, c.platform);
-    if (!readComments.has(c.commentId)) unreadCommentIds.add(c.commentId);
+    if (isCommentUnread(c, readComments, initializedCommentAccounts)) {
+      unreadCommentIds.add(c.commentId);
+    }
   }
   for (const id of getPendingUnreadCommentIds(userId)) {
     if (readComments.has(id)) continue;
