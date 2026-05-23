@@ -285,6 +285,8 @@ export async function GET(
           { status: 503 }
         );
       }
+      const redirectUri = decodeURIComponent(parsed.searchParams.get('redirect_uri') || '');
+      return NextResponse.json({ url, redirectUri });
     }
     return NextResponse.json({ url });
   } catch (e) {

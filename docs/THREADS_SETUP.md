@@ -29,7 +29,13 @@ If Connect opens Threads with **"No app ID was sent"**, the server built an auth
 
 ### "URL Blocked" / redirect URI not whitelisted (error 1349168)
 
-Meta only allows the **exact** callback URL your app sends. Agent4Socials uses:
+Meta only allows the **exact** callback URL your app sends.
+
+**See what production uses:** open  
+`https://agent4socials.com/api/social/oauth/threads/setup-info`  
+and copy `redirectUri` into Meta (character for character).
+
+Default:
 
 `https://agent4socials.com/api/social/oauth/threads/callback`
 
@@ -37,15 +43,14 @@ Meta only allows the **exact** callback URL your app sends. Agent4Socials uses:
 
 **Fix in Meta Developer Portal:**
 
-1. Open your app → **Use cases** → **Access the Threads API** → **Customize** (or **Threads** in the left menu → **Settings**).
-2. Under **Client OAuth Settings**:
-   - Turn on **Client OAuth Login** and **Web OAuth Login** if they are off.
-   - In **Valid OAuth redirect URIs**, paste the URL above **character for character**.
-   - Click the dropdown under the input and choose **Add URL**, then **Save**.
-3. If you use a custom domain or `THREADS_REDIRECT_URI` in Vercel, whitelist **that** URL instead (it must match exactly, including `www` vs non-`www` and `.com` vs `.co`).
-4. Set `NEXT_PUBLIC_APP_URL` in Vercel to the same origin (e.g. `https://agent4socials.com`) and redeploy.
+1. Open your app → **Use cases** → **Access the Threads API** → **Settings**.
+2. Fill **all three** callbacks (Redirect, Uninstall, Delete) and **Save**.
+3. Confirm **Threads App ID** on that page matches **`THREADS_APP_ID`** in Vercel (last 4 digits should match `appIdSuffix` from setup-info). If Vercel only has `META_APP_ID` (Facebook App ID), OAuth may use the wrong app and ignore your Threads callback list.
+4. **App settings → Basic → App domains:** `agent4socials.com`
+5. If it still fails, also add the same `redirectUri` under **Facebook Login → Settings → Valid OAuth Redirect URIs** (some apps require both).
+6. Set `NEXT_PUBLIC_APP_URL=https://agent4socials.com` in Vercel Production and redeploy. Optional pin: `THREADS_REDIRECT_URI=https://agent4socials.com/api/social/oauth/threads/callback`
 
-Do **not** add this URI only under Facebook Login; it must be under the **Threads** product OAuth settings.
+Wait a few minutes after saving in Meta before retrying Connect.
 
 Default OAuth scopes: `threads_basic`, `threads_content_publish`, `threads_manage_insights`, `threads_read_replies`, `threads_manage_replies`, `threads_manage_mentions`, `threads_share_to_instagram`.
 
