@@ -19,6 +19,7 @@ export function postScalarsSelectWithoutMediaType(): Pick<
   | 'mediaByPlatform'
   | 'commentAutomation'
   | 'tiktokPublishByAccountId'
+  | 'threadsShareToInstagram'
   | 'status'
   | 'scheduledAt'
   | 'scheduleDelivery'
@@ -39,6 +40,7 @@ export function postScalarsSelectWithoutMediaType(): Pick<
     mediaByPlatform: true,
     commentAutomation: true,
     tiktokPublishByAccountId: true,
+    threadsShareToInstagram: true,
     status: true,
     scheduledAt: true,
     scheduleDelivery: true,

@@ -19,7 +19,13 @@ Threads uses the same Meta app as Facebook/Instagram (`META_APP_ID` / `META_APP_
 | `THREADS_REDIRECT_URI` | Optional | Defaults to `{APP_URL}/api/social/oauth/threads/callback` |
 | `THREADS_OAUTH_SCOPES` | Optional | Override default scopes |
 
-Default OAuth scopes: `threads_basic`, `threads_content_publish`, `threads_manage_insights`, `threads_read_replies`, `threads_manage_replies`, `threads_manage_mentions`.
+Default OAuth scopes: `threads_basic`, `threads_content_publish`, `threads_manage_insights`, `threads_read_replies`, `threads_manage_replies`, `threads_manage_mentions`, `threads_share_to_instagram`.
+
+## Share to Instagram Story
+
+In the Composer, when **Threads** is selected, users can enable **Also share to Instagram Story**. Publishing sends `crossreshare_to_ig=true` on `threads_publish` (linked Instagram account required).
+
+After adding `threads_share_to_instagram`, reconnect Threads from Account so the token includes the new scope.
 
 ## Connect in the app
 

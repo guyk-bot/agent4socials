@@ -28,6 +28,7 @@ export function defaultThreadsOAuthScopes(): string {
     'threads_read_replies',
     'threads_manage_replies',
     'threads_manage_mentions',
+    'threads_share_to_instagram',
   ].join(',');
 }
 

@@ -7,11 +7,19 @@ export type ThreadsPublishResult =
   | { ok: true; platformPostId: string }
   | { ok: false; error: string };
 
-async function publishCreationId(creationId: string, accessToken: string): Promise<ThreadsPublishResult> {
+async function publishCreationId(
+  creationId: string,
+  accessToken: string,
+  options?: { shareToInstagramStory?: boolean }
+): Promise<ThreadsPublishResult> {
+  const form: Record<string, string> = { creation_id: creationId };
+  if (options?.shareToInstagramStory) {
+    form.crossreshare_to_ig = 'true';
+  }
   const pub = await threadsPostForm<{ id?: string; error?: { message?: string } }>(
     'me/threads_publish',
     accessToken,
-    { creation_id: creationId }
+    form
   );
   if (pub.status !== 200 || !pub.data?.id) {
     const msg =
@@ -27,6 +35,8 @@ export async function publishToThreads(options: {
   text: string;
   imageUrl?: string | null;
   videoUrl?: string | null;
+  /** Cross-post to linked Instagram account as a Story (requires threads_share_to_instagram). */
+  shareToInstagramStory?: boolean;
 }): Promise<ThreadsPublishResult> {
   const text = options.text.trim().slice(0, 500) || ' ';
   const token = options.accessToken;
@@ -63,7 +73,20 @@ export async function publishToThreads(options: {
     return { ok: false, error: msg.slice(0, 300) };
   }
 
-  return publishCreationId(create.data.id, token);
+  const containerId = create.data.id;
+  if (options.videoUrl?.trim()) {
+    const ready = await waitForThreadsContainerReady(containerId, token);
+    if (!ready) {
+      return {
+        ok: false,
+        error: 'Threads video is still processing. Try again in a minute.',
+      };
+    }
+  }
+
+  return publishCreationId(containerId, token, {
+    shareToInstagramStory: options.shareToInstagramStory === true,
+  });
 }
 
 /** Poll video container until ready (best-effort). */

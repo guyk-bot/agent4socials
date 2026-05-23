@@ -37,6 +37,7 @@ export type PublishPostRequestBody = {
   contentByPlatform?: Record<string, string>;
   pinterestSandbox?: boolean;
   tiktokPublishByAccountId?: Record<string, unknown>;
+  threadsShareToInstagram?: boolean;
   /** Composer format (photo, story, reel, …). Used when Post.mediaType was not persisted. */
   mediaType?: string;
 };
@@ -132,6 +133,11 @@ export async function preparePostForBackgroundPublish(
     };
     if (Object.keys(merged).length > 0) {
       updateData.tiktokPublishByAccountId = merged as Prisma.InputJsonValue;
+    }
+    if (requestBody.threadsShareToInstagram === true) {
+      updateData.threadsShareToInstagram = true;
+    } else if (requestBody.threadsShareToInstagram === false) {
+      updateData.threadsShareToInstagram = false;
     }
 
     await prisma.post.update({
@@ -384,6 +390,9 @@ export async function runPublishPostWorkflow(input: {
     },
     tiktokAccountIds
   );
+  const threadsShareToInstagram =
+    requestBody.threadsShareToInstagram === true ||
+    (post as { threadsShareToInstagram?: boolean }).threadsShareToInstagram === true;
   const defaultMedia = post.media.map((m) => {
     const meta = (m as { metadata?: { thumbnailUrl?: string; useVideoDefaultForPublish?: boolean } }).metadata;
     const useVideoDefault = meta?.useVideoDefaultForPublish;
@@ -704,6 +713,7 @@ export async function runPublishPostWorkflow(input: {
         ? { tiktokPostMediaKind: (isTiktokPhoto ? 'photo' : 'video') as 'photo' | 'video' }
         : {}),
       ...(isStory ? { isStory: true } : {}),
+      ...(platform === 'THREADS' && threadsShareToInstagram ? { threadsShareToInstagram: true } : {}),
       ...(platform === 'LINKEDIN'
         ? {
             linkedInAuthorUrn: await (async () => {

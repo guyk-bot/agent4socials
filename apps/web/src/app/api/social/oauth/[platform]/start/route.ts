@@ -123,7 +123,7 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
       const scopes = encodeURIComponent(
         typeof process.env.THREADS_OAUTH_SCOPES === 'string' && process.env.THREADS_OAUTH_SCOPES.trim()
           ? process.env.THREADS_OAUTH_SCOPES.trim()
-          : 'threads_basic,threads_content_publish,threads_manage_insights,threads_read_replies,threads_manage_replies,threads_manage_mentions'
+          : 'threads_basic,threads_content_publish,threads_manage_insights,threads_read_replies,threads_manage_replies,threads_manage_mentions,threads_share_to_instagram'
       );
       return `https://threads.net/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(threadsRedirect)}&scope=${scopes}&response_type=code&state=${encodeURIComponent(state)}`;
     }

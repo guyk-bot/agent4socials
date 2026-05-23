@@ -94,6 +94,7 @@ export async function PATCH(
     scheduleDelivery?: 'auto' | 'email_links' | null;
     commentAutomation?: { keywords: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; replyOnComment?: boolean; usePrivateReply?: boolean } | null;
     tiktokPublishByAccountId?: Record<string, unknown> | null;
+    threadsShareToInstagram?: boolean;
     mediaType?: string | null;
   };
   try {
@@ -112,6 +113,7 @@ export async function PATCH(
     scheduleDelivery,
     commentAutomation,
     tiktokPublishByAccountId: bodyTiktok,
+    threadsShareToInstagram: bodyThreadsShareToInstagram,
     mediaType: bodyMediaType,
   } = body;
   const validTargets = (targets || []).filter(
@@ -184,6 +186,9 @@ export async function PATCH(
       status,
       ...(validTargets.length > 0 ? { targetPlatforms: validTargets.map((t) => t.platform) } : {}),
       ...(bodyMediaType !== undefined ? { mediaType: bodyMediaType ? String(bodyMediaType).slice(0, 50) : null } : {}),
+      ...(bodyThreadsShareToInstagram !== undefined
+        ? { threadsShareToInstagram: bodyThreadsShareToInstagram === true }
+        : {}),
     };
     if (commentAutomation !== undefined) {
       const ca = commentAutomation as { keywords?: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; usePrivateReply?: boolean } | null;

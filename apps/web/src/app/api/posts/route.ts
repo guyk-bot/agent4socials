@@ -80,6 +80,7 @@ export async function POST(request: NextRequest) {
     scheduleDelivery?: 'auto' | 'email_links' | null;
     commentAutomation?: { keywords: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; replyOnComment?: boolean; usePrivateReply?: boolean } | null;
     tiktokPublishByAccountId?: Record<string, unknown> | null;
+    threadsShareToInstagram?: boolean;
     mediaType?: string | null;
   };
   try {
@@ -98,6 +99,7 @@ export async function POST(request: NextRequest) {
     scheduleDelivery,
     commentAutomation,
     tiktokPublishByAccountId: bodyTiktok,
+    threadsShareToInstagram: bodyThreadsShareToInstagram,
     mediaType: bodyMediaType,
   } = body;
   const validTargets = (targets || []).filter(
@@ -189,6 +191,7 @@ export async function POST(request: NextRequest) {
     scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
     scheduleDelivery: scheduledAt && (scheduleDelivery === 'auto' || scheduleDelivery === 'email_links') ? scheduleDelivery : null,
     ...(tiktokJson ? { tiktokPublishByAccountId: tiktokJson } : {}),
+    ...(bodyThreadsShareToInstagram === true ? { threadsShareToInstagram: true } : {}),
     ...(bodyMediaType ? { mediaType: String(bodyMediaType).slice(0, 50) } : {}),
     media: {
       create: media.map((m) => ({

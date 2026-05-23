@@ -330,6 +330,8 @@ model Post {
   commentAutomation     Json?      // { keywords: string[], replyTemplate: string, replyTemplateByPlatform?: Record<platform, string>, usePrivateReply?: boolean }
   /// TikTok Direct Post: { [socialAccountId]: TikTokDirectPostPayload } for scheduled/cron publish
   tiktokPublishByAccountId Json?
+  /// When true, Threads publish also cross-shares to linked Instagram as a Story.
+  threadsShareToInstagram Boolean @default(false)
   /// Composer media-type choice: 'photo' | 'video' | 'reel' | 'carousel' | 'story'
   mediaType             String?
   status                PostStatus @default(DRAFT)

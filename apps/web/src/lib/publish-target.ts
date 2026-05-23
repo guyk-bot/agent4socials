@@ -43,6 +43,8 @@ export type PublishTargetOptions = {
   isStory?: boolean;
   /** LinkedIn REST author URN (urn:li:person:… or urn:li:organization:…). */
   linkedInAuthorUrn?: string;
+  /** Threads: also share to linked Instagram account as a Story. */
+  threadsShareToInstagram?: boolean;
 };
 
 export type PublishTargetResult = {
@@ -526,6 +528,7 @@ export async function publishTarget(
     pinterestBoardId,
     pinterestSandbox,
     isStory,
+    threadsShareToInstagram,
   } = options;
   const { fetch: fetchFn, axios: axiosInstance } = deps;
   const pinterestApiBase = pinterestSandbox ? 'https://api-sandbox.pinterest.com/v5' : 'https://api.pinterest.com/v5';
@@ -2109,6 +2112,7 @@ export async function publishTarget(
         text: caption,
         imageUrl: firstImageUrl || (firstMediaUrl && !mediaIsVideo ? firstMediaUrl : null),
         videoUrl: firstMediaUrl && mediaIsVideo ? firstMediaUrl : null,
+        shareToInstagramStory: threadsShareToInstagram === true,
       });
       if (result.ok) return result;
       return { ok: false, error: result.error };
