@@ -13,6 +13,7 @@ import {
   stripMissingPostColumnsFromWriteData,
 } from '@/lib/prisma-post-media-type-fallback';
 import { mediaMetadataWithComposerType } from '@/lib/composer-media-type';
+import { finalizeStalePostingPostsForUser } from '@/lib/finalize-stale-posting';
 
 export async function GET(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
@@ -23,6 +24,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   try {
+    try {
+      await finalizeStalePostingPostsForUser(userId, 20);
+    } catch (staleErr) {
+      console.warn('[GET /api/posts] finalize stale posting:', (staleErr as Error)?.message ?? staleErr);
+    }
     const posts = await withPrismaPoolRetry('GET /api/posts', () =>
       prismaPostReadWithMediaTypeFallback((opts) =>
         prisma.post.findMany({

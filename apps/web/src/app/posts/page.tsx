@@ -173,6 +173,40 @@ function PostFormatBadge({ format }: { format: PostHistoryFormat }) {
     );
 }
 
+/** Status badge + errors should follow per-platform targets, not only aggregate post.status. */
+function postHistoryRowDisplay(post: {
+  status?: string;
+  targets?: Array<{ status?: string; error?: string }>;
+}): { label: string; isPosting: boolean; isFailed: boolean; isPartial: boolean } {
+  const targets = Array.isArray(post.targets) ? post.targets : [];
+  const hasPosted = targets.some((t) => t.status === 'POSTED');
+  const hasFailed = targets.some((t) => t.status === 'FAILED');
+  const hasPosting = targets.some((t) => t.status === 'POSTING') || post.status === 'POSTING';
+  const partial = hasPosted && hasFailed;
+    if (partial) {
+        return { label: 'PARTIAL', isPosting: false, isFailed: false, isPartial: true };
+    }
+    if (hasPosting && !hasPosted && !hasFailed) {
+        return { label: 'PUBLISHING', isPosting: true, isFailed: false, isPartial: false };
+    }
+    if (hasFailed && !hasPosted) {
+        return { label: 'FAILED', isPosting: false, isFailed: true, isPartial: false };
+    }
+    if (hasPosted && !hasFailed) {
+        return { label: 'POSTED', isPosting: false, isFailed: false, isPartial: false };
+    }
+    const s = (post.status ?? 'DRAFT').toString().toUpperCase();
+    if (s === 'POSTING') {
+        return { label: 'PUBLISHING', isPosting: true, isFailed: false, isPartial: false };
+    }
+    return {
+        label: s === 'SCHEDULED' ? 'SCHEDULED' : s === 'DRAFT' ? 'DRAFT' : s,
+        isPosting: s === 'POSTING',
+        isFailed: s === 'FAILED',
+        isPartial: false,
+    };
+}
+
 function postMatchesStatusFilter(post: any, filter: string): boolean {
     if (filter === 'ALL') return true;
     const targets: Array<{ status?: string }> = Array.isArray(post.targets) ? post.targets : [];
@@ -467,7 +501,7 @@ export default function PostsPage() {
             }
         };
         void tick();
-        const id = window.setInterval(() => void tick(), 8_000);
+        const id = window.setInterval(() => void tick(), 5_000);
         return () => {
             cancelled = true;
             window.clearInterval(id);
@@ -821,31 +855,25 @@ export default function PostsPage() {
                                     </td>
                                     <td className="px-6 py-4">
                                         {(() => {
-                                            const targets: Array<{ status?: string }> = Array.isArray(post.targets) ? post.targets : [];
-                                            const hasPosted = targets.some((t) => t.status === 'POSTED');
-                                            const hasFailed = targets.some((t) => t.status === 'FAILED');
-                                            const partial = hasPosted && hasFailed;
-                                            const label = partial
-                                                ? 'PARTIAL'
-                                                : post.status === 'POSTING'
-                                                  ? 'PUBLISHING'
-                                                  : post.status;
-                                            const cls = partial
+                                            const display = postHistoryRowDisplay(post);
+                                            const label = display.label;
+                                            const cls = display.isPartial
                                                 ? 'bg-amber-100 text-amber-800'
-                                                : post.status === 'POSTING'
+                                                : display.isPosting
                                                   ? 'bg-blue-100 text-blue-800'
-                                                  : post.status === 'POSTED'
+                                                  : label === 'POSTED'
                                                     ? 'bg-green-100 text-green-800'
-                                                    : post.status === 'FAILED'
+                                                    : display.isFailed
                                                       ? 'bg-red-100 text-red-800'
-                                                      : post.status === 'SCHEDULED'
+                                                      : label === 'SCHEDULED'
                                                         ? 'bg-neutral-200 text-neutral-700'
                                                         : 'bg-neutral-100 text-neutral-700';
                                             const failedErrors = (Array.isArray(post.targets) ? post.targets : [])
                                                 .filter((t: { status?: string; error?: string }) => {
                                                     const st = (t.status ?? '').toString().toUpperCase();
                                                     return (
-                                                        (st === 'FAILED' || (st === 'POSTING' && post.status === 'POSTING')) &&
+                                                        (st === 'FAILED' ||
+                                                            (st === 'POSTING' && display.isPosting && typeof t.error === 'string' && t.error.trim())) &&
                                                         typeof t.error === 'string' &&
                                                         t.error.trim()
                                                     );

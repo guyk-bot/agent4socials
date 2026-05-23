@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { isPrismaPoolError, prisma, withPrismaPoolRetry } from '@/lib/db';
 import { PostStatus } from '@prisma/client';
+import { STUCK_POSTING_TARGET_MS } from '@/lib/finalize-stale-posting';
 import {
   failStuckPostingTargets,
   finalizePostPublishState,
@@ -40,7 +41,6 @@ export async function POST(
     }
     const reconciled = await reconcileMisreportedPublishTargets(id);
     await finalizePostPublishState(id);
-    const stuckMs = 2 * 60 * 1000;
     const postingTargets = await prisma.postTarget.findMany({
       where: { postId: id, status: PostStatus.POSTING },
       select: { updatedAt: true, platform: true },
@@ -49,15 +49,14 @@ export async function POST(
       postingTargets.length > 0
         ? Math.min(...postingTargets.map((t) => t.updatedAt.getTime()))
         : owned.updatedAt.getTime();
-    const postingAgeMs =
-      owned.status === 'POSTING' ? Date.now() - oldestPostingMs : 0;
+    const postingAgeMs = postingTargets.length > 0 ? Date.now() - oldestPostingMs : 0;
     const hasLinkedInStuck = postingTargets.some((t) => t.platform === 'LINKEDIN');
     const failedStuck =
-      postingAgeMs > stuckMs
+      postingTargets.length > 0 && postingAgeMs > STUCK_POSTING_TARGET_MS
         ? await failStuckPostingTargets(
             id,
             hasLinkedInStuck
-              ? 'LinkedIn publish did not finish in time (video uploads can take several minutes on LinkedIn’s side). Nothing was confirmed posted. Open in Composer and try Post now again, or try a shorter video.'
+              ? 'LinkedIn publish did not finish in time. Nothing was confirmed posted. Open in Composer and try Post now again. For video, try a shorter clip or wait and retry.'
               : 'Publish did not finish in time. If your video is on TikTok, refresh History. Otherwise open in Composer and try Post now again.'
           )
         : 0;
