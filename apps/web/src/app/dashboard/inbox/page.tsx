@@ -19,6 +19,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import api from '@/lib/api';
+import { openOAuthConnectUrl } from '@/lib/oauth-connect';
 import {
   readApiErrorMessage,
   AI_REPLY_FAILED_MESSAGE,
@@ -2508,7 +2509,7 @@ function InboxPage() {
                     try {
                       const res = await api.get('/social/oauth/TWITTER/start');
                       const url = res?.data?.url;
-                      if (url) window.location.href = url;
+                      if (url) openOAuthConnectUrl(url);
                     } catch { /* ignore */ }
                   }}
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-800 text-white text-sm font-medium hover:opacity-90"
@@ -2523,7 +2524,7 @@ function InboxPage() {
                     try {
                       const res = await api.get('/social/oauth/INSTAGRAM/start');
                       const url = res?.data?.url;
-                      if (url) window.location.href = url;
+                      if (url) openOAuthConnectUrl(url);
                     } catch { /* ignore */ }
                   }}
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-medium hover:opacity-90"
@@ -2730,7 +2731,7 @@ function InboxPage() {
                         try {
                           const res = await api.get('/social/oauth/INSTAGRAM/start');
                           const url = res?.data?.url;
-                          if (url && typeof url === 'string') window.location.href = url;
+                          if (url && typeof url === 'string') openOAuthConnectUrl(url);
                         } catch (_) {}
                       }}
                       className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-medium hover:opacity-90"
@@ -2745,7 +2746,7 @@ function InboxPage() {
                         try {
                           const res = await api.get('/social/oauth/facebook/start');
                           const url = res?.data?.url;
-                          if (url && typeof url === 'string') window.location.href = url;
+                          if (url && typeof url === 'string') openOAuthConnectUrl(url);
                         } catch (_) {}
                       }}
                       className="px-4 py-2 rounded-lg bg-orange-600 text-white text-sm font-medium hover:bg-orange-700"
@@ -2765,7 +2766,7 @@ function InboxPage() {
                         try {
                           const res = await api.get('/social/oauth/INSTAGRAM/start');
                           const url = res?.data?.url;
-                          if (url && typeof url === 'string') window.location.href = url;
+                          if (url && typeof url === 'string') openOAuthConnectUrl(url);
                         } catch (_) {}
                       }}
                       className="px-3 py-1.5 rounded-lg border border-orange-300 bg-white text-orange-700 text-sm font-medium hover:bg-orange-50"
@@ -2780,7 +2781,7 @@ function InboxPage() {
                         try {
                           const res = await api.get('/social/oauth/facebook/start');
                           const url = res?.data?.url;
-                          if (url && typeof url === 'string') window.location.href = url;
+                          if (url && typeof url === 'string') openOAuthConnectUrl(url);
                         } catch (_) {}
                       }}
                       className="px-3 py-1.5 rounded-lg border border-orange-300 bg-white text-orange-700 text-sm font-medium hover:bg-orange-50"
@@ -2867,7 +2868,7 @@ function InboxPage() {
                       try {
                         const res = await api.get('/social/oauth/INSTAGRAM/start');
                         const url = res?.data?.url;
-                        if (url && typeof url === 'string') window.location.href = url;
+                        if (url && typeof url === 'string') openOAuthConnectUrl(url);
                       } catch (_) {}
                     }}
                     className="text-xs px-2 py-1 rounded bg-gradient-to-r from-orange-500 to-pink-500 text-white font-medium hover:opacity-90"
@@ -2882,7 +2883,7 @@ function InboxPage() {
                       try {
                         const res = await api.get('/social/oauth/facebook/start');
                         const url = res?.data?.url;
-                        if (url && typeof url === 'string') window.location.href = url;
+                        if (url && typeof url === 'string') openOAuthConnectUrl(url);
                       } catch (_) {}
                     }}
                     className="text-xs px-2 py-1 rounded bg-orange-600 text-white font-medium hover:bg-orange-700"

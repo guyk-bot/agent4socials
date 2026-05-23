@@ -23,6 +23,11 @@ import {
 import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
 import { markInboxAccountRecentlyConnected } from '@/lib/inbox/inbox-recent-connect';
 import {
+  listenForOAuthComplete,
+  notifyOAuthOpenerAndClose,
+  openOAuthConnectUrl,
+} from '@/lib/oauth-connect';
+import {
   localCalendarDateFromIso,
   toLocalCalendarDate,
   readStoredAnalyticsDateRange,
@@ -638,6 +643,11 @@ export default function DashboardPage() {
       return;
     }
 
+    if (typeof window !== 'undefined' && window.opener) {
+      notifyOAuthOpenerAndClose(accountIdFromUrl);
+      return;
+    }
+
     fetchAccounts()
       .then((list) => {
         if (cancelled) return;
@@ -661,6 +671,20 @@ export default function DashboardPage() {
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, [accountIdFromUrl, connectingParam, twitter1oaNext, router]);
+
+  useEffect(() => {
+    return listenForOAuthComplete((accountId) => {
+      void fetchAccounts().then((list) => {
+        if (accountId) {
+          setSelectedAccountId(accountId);
+          const connected = list.find((a) => a.id === accountId);
+          if (connected) markInboxAccountRecentlyConnected(connected.id, connected.platform);
+        }
+        setJustConnected(true);
+        window.setTimeout(() => setJustConnected(false), 5000);
+      });
+    });
+  }, [fetchAccounts, setSelectedAccountId]);
 
   useEffect(() => {
     if (connectingParam !== '1' || accountIdFromUrl) return;
@@ -693,7 +717,8 @@ export default function DashboardPage() {
           router.replace('/dashboard', { scroll: false });
           return;
         }
-        window.location.href = url;
+        openOAuthConnectUrl(url);
+        router.replace('/dashboard', { scroll: false });
       } catch {
         if (!cancelled) router.replace('/dashboard', { scroll: false });
       }
@@ -1664,7 +1689,6 @@ export default function DashboardPage() {
     setAlertMessage(null);
     setConnectingPlatform(platform);
     setConnectingMethod(method);
-    let redirecting = false;
     try {
       const supabase = getSupabaseBrowser();
       const { data: sessionData } = await supabase.auth.getSession();
@@ -1685,8 +1709,7 @@ export default function DashboardPage() {
       }
       const url = data?.url;
       if (url && typeof url === 'string') {
-        redirecting = true;
-        window.location.href = url;
+        openOAuthConnectUrl(url);
         return;
       }
       setAlertMessage('Invalid response from server. Check server logs.');
@@ -1718,10 +1741,8 @@ export default function DashboardPage() {
         }
       }
     } finally {
-      if (!redirecting) {
-        setConnectingPlatform(null);
-        setConnectingMethod(undefined);
-      }
+      setConnectingPlatform(null);
+      setConnectingMethod(undefined);
     }
   };
 

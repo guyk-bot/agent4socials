@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
@@ -11,6 +11,7 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { avatarDisplayUrl } from '@/lib/avatar-display-url';
+import { listenForOAuthComplete, openOAuthConnectUrl } from '@/lib/oauth-connect';
 
 /** Same connect targets and styling as Summary dashboard empty state (compact grid on Account page). */
 const CONNECT_PLATFORM_CARDS: { id: string; name: string; slug: string; border: string; bg: string }[] = [
@@ -63,6 +64,18 @@ export function ConnectedAccountsPanel() {
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   const accounts = (cachedAccounts as SocialAccount[]) ?? [];
+
+  useEffect(() => {
+    return listenForOAuthComplete(async () => {
+      try {
+        const res = await api.get(`/social/accounts?_=${Date.now()}`);
+        const data = Array.isArray(res.data) ? res.data : [];
+        setCachedAccounts(data);
+      } catch {
+        /* ignore */
+      }
+    });
+  }, [setCachedAccounts]);
 
   const handleDisconnectClick = (acc: SocialAccount) => {
     pendingDisconnectRef.current = acc;
@@ -166,7 +179,7 @@ export function ConnectedAccountsPanel() {
                         try {
                           const res = await api.get(`/social/oauth/${acc.platform.toLowerCase()}/start`);
                           const url = res?.data?.url;
-                          if (url && typeof url === 'string') window.location.href = url;
+                          if (url && typeof url === 'string') openOAuthConnectUrl(url);
                         } catch (_) {}
                         setReconnectingId(null);
                       }}
