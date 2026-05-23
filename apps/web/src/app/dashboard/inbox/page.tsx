@@ -2985,13 +2985,7 @@ function InboxPage() {
                       <p className="text-xs text-neutral-400 mb-1">{new Date(c.createdAt).toLocaleString()}</p>
                       <div className="flex items-start gap-3">
                         <div className="relative shrink-0 w-9 h-9">
-                          <div className="w-9 h-9 rounded-full bg-neutral-200 flex items-center justify-center overflow-hidden">
-                            {c.authorPictureUrl ? (
-                              <img src={c.authorPictureUrl} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <span className="text-xs font-semibold text-neutral-600">{(c.authorName || '?').slice(0, 2).toUpperCase()}</span>
-                            )}
-                          </div>
+                          <InboxAvatar pictureUrl={c.authorPictureUrl} label={c.authorName} className="w-9 h-9" />
                           {isUnread && <InboxNewDot />}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -3800,13 +3794,7 @@ function InboxPage() {
                       return (
                         <div key={c.commentId} className="rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4 shadow-sm space-y-3">
                           <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-full bg-neutral-200 shrink-0 overflow-hidden flex items-center justify-center">
-                              {c.authorPictureUrl ? (
-                                <img src={c.authorPictureUrl} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="text-sm font-semibold text-neutral-600">{(c.authorName || '?').slice(0, 2).toUpperCase()}</span>
-                              )}
-                            </div>
+                            <InboxAvatar pictureUrl={c.authorPictureUrl} label={c.authorName} className="w-10 h-10 shrink-0" />
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-medium text-neutral-900 dark:text-neutral-100">{c.authorName}</span>
@@ -4078,15 +4066,11 @@ function InboxPage() {
                 <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
                   <div className="p-4 border-b border-neutral-100 flex items-center gap-3">
                     <div className="relative shrink-0 w-10 h-10">
-                      <div className="w-10 h-10 rounded-full bg-neutral-200 overflow-hidden">
-                        {selectedComment.authorPictureUrl ? (
-                          <img src={selectedComment.authorPictureUrl} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="w-full h-full flex items-center justify-center text-sm font-semibold text-neutral-600">
-                            {(selectedComment.authorName || '?').slice(0, 2).toUpperCase()}
-                          </span>
-                        )}
-                      </div>
+                      <InboxAvatar
+                        pictureUrl={selectedComment.authorPictureUrl}
+                        label={selectedComment.authorName}
+                        className="w-10 h-10"
+                      />
                       {isCommentNewNotification(selectedComment.commentId) && <InboxNewDot />}
                     </div>
                     <div className="min-w-0 flex-1">

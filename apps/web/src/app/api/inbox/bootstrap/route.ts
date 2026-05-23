@@ -6,7 +6,10 @@ import {
   getInboxConversationListFromDb,
 } from '@/lib/inbox/inbox-db-cache';
 import { enrichConversationListFromMessageCache } from '@/lib/inbox/enrich-conversations-from-messages';
-import { mergeInboxProfileCacheIntoConversations } from '@/lib/inbox/resolve-inbox-sender-profile';
+import {
+  mergeInboxProfileCacheIntoComments,
+  mergeInboxProfileCacheIntoConversations,
+} from '@/lib/inbox/resolve-inbox-sender-profile';
 import { normalizeThreadsInboxCommentRow } from '@/lib/threads/inbox-comments';
 
 /**
@@ -40,8 +43,12 @@ export async function GET(request: NextRequest) {
       acc.platform === 'PINTEREST' ||
       acc.platform === 'THREADS'
     ) {
-      const storedComments = await getInboxCommentsFromDb(acc.id);
+      let storedComments = await getInboxCommentsFromDb(acc.id);
       if (storedComments?.length) {
+        if (acc.platform === 'INSTAGRAM' || acc.platform === 'FACEBOOK') {
+          const profilePlatform = acc.platform === 'INSTAGRAM' ? 'instagram' : 'facebook';
+          storedComments = await mergeInboxProfileCacheIntoComments(profilePlatform, storedComments);
+        }
         commentsByAccountId[acc.id] = storedComments.map((c) => {
           const base = {
             ...c,

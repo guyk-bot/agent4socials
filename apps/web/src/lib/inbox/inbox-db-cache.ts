@@ -196,6 +196,8 @@ export type InboxCommentRow = {
   accountId: string;
   platform: string;
   authorName: string;
+  /** Meta scoped user id when known (used to resolve profile photos). */
+  authorPlatformUserId?: string | null;
   authorPictureUrl?: string | null;
   text: string;
   createdAt: string;
@@ -247,6 +249,7 @@ function mergeCommentRows(existing: InboxCommentRow[], incoming: InboxCommentRow
       ...prev,
       ...row,
       authorPictureUrl: row.authorPictureUrl ?? prev?.authorPictureUrl ?? null,
+      authorPlatformUserId: row.authorPlatformUserId ?? prev?.authorPlatformUserId ?? null,
       authorName: row.authorName?.trim() ? row.authorName : prev?.authorName ?? row.authorName,
     });
   }

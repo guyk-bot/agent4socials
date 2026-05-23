@@ -7,7 +7,7 @@ import {
   writeInboxProfileCache,
   type InboxProfileCacheEntry,
 } from '@/lib/inbox/inbox-profile-cache';
-import type { InboxConversationListItem } from '@/lib/inbox/inbox-db-cache';
+import type { InboxCommentRow, InboxConversationListItem } from '@/lib/inbox/inbox-db-cache';
 import {
   noteMetaUsageFromHeaders,
   shouldAllowMetaInboxProfileEnrichment,
@@ -670,6 +670,108 @@ export async function enrichFacebookAvatarsFromParticipants(args: {
     }
   }
 
+  return out;
+}
+
+function commentAuthorUsername(authorName: string | undefined): string | null {
+  const u = authorName?.replace(/^@/, '').trim();
+  return u && u.length > 0 ? u : null;
+}
+
+/** Apply cached profile photos to inbox comment rows (no live Meta calls). */
+export async function mergeInboxProfileCacheIntoComments(
+  platform: 'instagram' | 'facebook',
+  list: InboxCommentRow[]
+): Promise<InboxCommentRow[]> {
+  const out: InboxCommentRow[] = [];
+  for (const c of list) {
+    if (c.isFromMe || c.authorPictureUrl) {
+      out.push(c);
+      continue;
+    }
+    let cached = c.authorPlatformUserId
+      ? await readInboxProfileCache(platform, c.authorPlatformUserId)
+      : null;
+    const username = commentAuthorUsername(c.authorName);
+    if (!cached?.pictureUrl && username) {
+      cached = await readInboxProfileCacheByUsername(platform, username);
+    }
+    if (!cached?.pictureUrl) {
+      out.push(c);
+      continue;
+    }
+    out.push({
+      ...c,
+      authorPictureUrl: cached.pictureUrl,
+      authorName:
+        c.authorName === 'Unknown' && cached.username
+          ? cached.username.startsWith('@')
+            ? cached.username
+            : `@${cached.username}`
+          : c.authorName,
+    });
+  }
+  return out;
+}
+
+/**
+ * Resolve missing comment author avatars via Meta profile APIs (budgeted per request).
+ */
+export async function enrichInboxCommentAuthorProfilesLive(args: {
+  comments: InboxCommentRow[];
+  userId: string;
+  platform: 'INSTAGRAM' | 'FACEBOOK';
+  accessToken: string;
+  isInstagramBusinessLogin: boolean;
+  forceEnrich: boolean;
+  maxLiveFetches: number;
+}): Promise<InboxCommentRow[]> {
+  const platformKey = args.platform === 'INSTAGRAM' ? 'instagram' : 'facebook';
+  const merged = await mergeInboxProfileCacheIntoComments(platformKey, args.comments);
+  if (args.maxLiveFetches <= 0) return merged;
+
+  const out = merged.map((c) => ({ ...c }));
+  const seenIds = new Set<string>();
+  let fetches = 0;
+
+  for (let i = 0; i < out.length; i++) {
+    const c = out[i]!;
+    if (c.isFromMe || c.authorPictureUrl) continue;
+    const authorId = c.authorPlatformUserId;
+    if (!authorId || seenIds.has(authorId) || !isLikelyMetaScopedUserId(authorId)) continue;
+    if (fetches >= args.maxLiveFetches) break;
+    seenIds.add(authorId);
+    fetches += 1;
+
+    const username = commentAuthorUsername(c.authorName) ?? undefined;
+    const profile =
+      args.platform === 'INSTAGRAM'
+        ? await resolveInstagramInboxSenderProfile({
+            userId: args.userId,
+            senderId: authorId,
+            accessToken: args.accessToken,
+            isInstagramBusinessLogin: args.isInstagramBusinessLogin,
+            username,
+            forceEnrich: args.forceEnrich,
+          })
+        : await resolveFacebookInboxSenderProfile({
+            senderId: authorId,
+            accessToken: args.accessToken,
+            forceEnrich: args.forceEnrich,
+          });
+    if (!profile?.pictureUrl) continue;
+
+    const usernameLower = username?.toLowerCase();
+    for (let j = 0; j < out.length; j++) {
+      const row = out[j]!;
+      if (row.isFromMe || row.authorPictureUrl) continue;
+      const rowId = row.authorPlatformUserId;
+      const rowUser = commentAuthorUsername(row.authorName)?.toLowerCase();
+      if (rowId === authorId || (usernameLower && rowUser === usernameLower)) {
+        out[j] = { ...row, authorPictureUrl: profile.pictureUrl };
+      }
+    }
+  }
   return out;
 }
 

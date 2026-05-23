@@ -15,7 +15,12 @@ import {
   shouldSkipMetaProfileEnrichment,
 } from '@/lib/meta-usage-guard';
 import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
-import { readInboxProfileCache, writeInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
+import {
+  readInboxProfileCache,
+  readInboxProfileCacheByUsername,
+  writeInboxProfileCache,
+} from '@/lib/inbox/inbox-profile-cache';
+import { enrichInboxCommentAuthorProfilesLive } from '@/lib/inbox/resolve-inbox-sender-profile';
 import {
   getInboxCommentsFromDb,
   mergeInboxCommentsInDb,
@@ -131,6 +136,11 @@ export async function GET(
   }
 
   const platform = account.platform;
+  const credJsonForThrottle = (account.credentialsJson && typeof account.credentialsJson === 'object'
+    ? account.credentialsJson
+    : {}) as { loginMethod?: string };
+  const isInstagramBusinessLoginEarly =
+    platform === 'INSTAGRAM' && credJsonForThrottle.loginMethod === 'instagram_business';
   const metaThrottle =
     !forceLive &&
     (platform === 'INSTAGRAM' || platform === 'FACEBOOK') &&
@@ -140,8 +150,20 @@ export async function GET(
   if (metaThrottle) {
     const stored = await getInboxCommentsFromDb(id);
     if (stored && stored.length > 0) {
+      const storedWithAvatars =
+        platform === 'INSTAGRAM' || platform === 'FACEBOOK'
+          ? await enrichInboxCommentAuthorProfilesLive({
+              comments: stored,
+              userId,
+              platform,
+              accessToken: account.accessToken,
+              isInstagramBusinessLogin: isInstagramBusinessLoginEarly,
+              forceEnrich: refreshRequested,
+              maxLiveFetches: refreshRequested ? 8 : 0,
+            })
+          : stored;
       const res = NextResponse.json({
-        comments: stored,
+        comments: storedWithAvatars,
         metaThrottled: true,
         stale: true,
         fromCache: true,
@@ -516,6 +538,7 @@ export async function GET(
     postUrl?: string | null;
     text: string;
     authorName: string;
+    authorPlatformUserId?: string | null;
     authorPictureUrl?: string | null;
     createdAt: string;
     platform: string;
@@ -683,11 +706,16 @@ export async function GET(
                 if (cached?.username) authorName = cached.username.startsWith('@') ? cached.username : `@${cached.username}`;
                 else if (cached?.name) authorName = cached.name;
                 authorPictureUrl = cached?.pictureUrl ?? null;
+                if (!authorPictureUrl && c.from?.username) {
+                  const byUsername = await readInboxProfileCacheByUsername('instagram', c.from.username);
+                  authorPictureUrl = byUsername?.pictureUrl ?? null;
+                }
               }
               comments.push({
                 commentId: c.id, postTargetId, platformPostId, accountId, postPreview, postImageUrl,
                 postPublishedAt: postPublishedAtResolved ?? null, postUrl,
                 text: c.text ?? '', authorName, authorPictureUrl,
+                authorPlatformUserId: isFromMe ? null : fromId ?? null,
                 createdAt: c.timestamp ?? new Date().toISOString(), platform,
                 isFromMe,
               });
@@ -711,11 +739,25 @@ export async function GET(
                   for (const r of replies) {
                     const rFromId = (r.from as { id?: string })?.id;
                     const rIsFromMe = rFromId === account.platformUserId;
+                    let rAuthorName = rIsFromMe ? 'You' : (r.from?.username ?? 'Unknown');
+                    let rAuthorPictureUrl: string | null = null;
+                    if (!rIsFromMe && rFromId) {
+                      const rCached = await readInboxProfileCache('instagram', rFromId);
+                      if (rCached?.username) {
+                        rAuthorName = rCached.username.startsWith('@') ? rCached.username : `@${rCached.username}`;
+                      }
+                      rAuthorPictureUrl = rCached?.pictureUrl ?? null;
+                      if (!rAuthorPictureUrl && r.from?.username) {
+                        const byUsername = await readInboxProfileCacheByUsername('instagram', r.from.username);
+                        rAuthorPictureUrl = byUsername?.pictureUrl ?? null;
+                      }
+                    }
                     comments.push({
                       commentId: r.id, postTargetId, platformPostId, accountId, postPreview, postImageUrl,
                       postPublishedAt: postPublishedAtResolved ?? null, postUrl,
-                      text: r.text ?? '', authorName: rIsFromMe ? 'You' : (r.from?.username ?? 'Unknown'),
-                      authorPictureUrl: null, createdAt: r.timestamp ?? new Date().toISOString(), platform,
+                      text: r.text ?? '', authorName: rAuthorName, authorPictureUrl: rAuthorPictureUrl,
+                      authorPlatformUserId: rIsFromMe ? null : rFromId ?? null,
+                      createdAt: r.timestamp ?? new Date().toISOString(), platform,
                       isFromMe: rIsFromMe, parentCommentId: commentId,
                     });
                   }
@@ -780,6 +822,7 @@ export async function GET(
                 commentId: c.id, postTargetId, platformPostId, accountId, postPreview, postImageUrl,
                 postPublishedAt: postPublishedAtResolved ?? null, postUrl,
                 text, authorName: isFromMe ? 'You' : authorName, authorPictureUrl: authorPictureUrl || null,
+                authorPlatformUserId: isFromMe ? null : fromId ?? null,
                 createdAt: c.created_time ?? new Date().toISOString(), platform,
                 isFromMe,
               });
@@ -829,6 +872,7 @@ export async function GET(
                       commentId: r.id, postTargetId, platformPostId, accountId, postPreview, postImageUrl,
                       postPublishedAt: postPublishedAtResolved ?? null, postUrl,
                       text: rText, authorName: rIsFromMe ? 'You' : rAuthorName, authorPictureUrl: rAuthorPictureUrl || null,
+                      authorPlatformUserId: rIsFromMe ? null : rFromId ?? null,
                       createdAt: rCreated, platform,
                       isFromMe: rIsFromMe, parentCommentId: commentId,
                     });
@@ -996,6 +1040,19 @@ export async function GET(
         // skip on API error
       }
     }
+  }
+
+  if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
+    const enriched = await enrichInboxCommentAuthorProfilesLive({
+      comments: comments as InboxCommentRow[],
+      userId,
+      platform,
+      accessToken: isInstagramBusinessLogin && igUserToken ? igUserToken : token,
+      isInstagramBusinessLogin,
+      forceEnrich: refreshRequested,
+      maxLiveFetches: metaThrottle ? 0 : refreshRequested ? 12 : 6,
+    });
+    comments.splice(0, comments.length, ...(enriched as typeof comments));
   }
 
   comments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
