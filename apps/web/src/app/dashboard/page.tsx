@@ -2129,7 +2129,7 @@ export default function DashboardPage() {
       )}
       {/* Instagram-only: analytics and posts not available; CTA to connect with Facebook */}
       {!analyticsLoadingOnly && analyticsAccount?.platform === 'INSTAGRAM' && (analyticsAccount as { instagramLoginOnly?: boolean }).instagramLoginOnly && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-4 px-4 py-4 rounded-lg border upgrade-banner-warm">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-4 px-4 py-4 rounded-lg upgrade-banner-warm">
           <p className="text-sm text-orange-900">
             <strong>Analytics and posts are not available</strong> when connected with Instagram only. Connect with Facebook to unlock full analytics, post history, and insights on both the Account and Posts tabs.
           </p>
@@ -2298,7 +2298,7 @@ export default function DashboardPage() {
             )}
             <div className={importedPostsLoading ? 'hidden' : undefined}>
             {postsShowWatermark && (
-              <div className="rounded-xl border upgrade-banner-warm px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+              <div className="rounded-xl upgrade-banner-warm px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
                 <button
                   type="button"
                   onClick={openPricingPopup}

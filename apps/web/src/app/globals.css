@@ -95,16 +95,16 @@
   filter: brightness(0.98);
 }
 
-/* Shared upgrade banner: white to very light grey fill, neutral edge (CTA stays orange in markup). */
+/* Shared upgrade banner: white to very light grey fill, orange edge (CTA stays orange in markup). */
 .upgrade-banner-warm {
-  border-color: rgba(148, 163, 184, 0.35);
+  border: 1px solid var(--button);
   background: linear-gradient(135deg, #ffffff 0%, #f8fafc 42%, #f1f5f9 100%);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 0 0 1px rgba(148, 163, 184, 0.1);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 [data-theme='dark'] .upgrade-banner-warm {
-  border-color: var(--border);
+  border: 1px solid var(--button);
   background: linear-gradient(135deg, #171717 0%, #131313 42%, #101010 100%) !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   color: var(--foreground);
 }
 [data-theme='dark'] .ring-slate-200\/70 {

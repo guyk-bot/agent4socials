@@ -161,7 +161,7 @@ export function PlatformOverviewTab({
   return (
     <div className="space-y-6 max-w-full" style={{ maxWidth: 1400 }}>
       {showWatermark && (
-        <div className="rounded-xl border upgrade-banner-warm px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="rounded-xl upgrade-banner-warm px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
           <button
             type="button"
             onClick={onUpgrade}
