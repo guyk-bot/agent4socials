@@ -98,6 +98,24 @@ describe('computeInboxHeaderUnread', () => {
     expect(unread.messages).toBe(1);
     expect(unread.inbox).toBe(1);
   });
+
+  it('ignores pending comment IDs already marked read', () => {
+    localStorage.setItem(
+      'agent4socials_badge_pending_comment_user-1',
+      JSON.stringify(['cmt-a'])
+    );
+    localStorage.setItem(
+      'agent4socials_read_comments_user-1',
+      JSON.stringify(['cmt-a'])
+    );
+    const unread = computeInboxHeaderUnread(
+      [],
+      [{ commentId: 'cmt-a', platform: 'INSTAGRAM' }],
+      'user-1'
+    );
+    expect(unread.comments).toBe(0);
+    expect(unread.inbox).toBe(0);
+  });
 });
 
 describe('mergeInboxBadgeWithSnapshot', () => {

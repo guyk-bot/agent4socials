@@ -32,6 +32,7 @@ export type InboxUnreadComment = {
   platform?: string;
   /** Outbound comments you wrote should not inflate the badge. */
   isFromMe?: boolean;
+  parentCommentId?: string | null;
 };
 
 export type InboxHeaderUnread = {
@@ -155,6 +156,57 @@ export function mergeInboxBadgeWithSnapshot(
   const comments = Math.max(computed.comments, snapshot.comments);
   const byPlatform = { ...snapshot.byPlatform, ...computed.byPlatform };
   return { inbox, messages, comments, byPlatform };
+}
+
+/** Drop stale pending IDs and realign nav badge with loaded inbox lists. */
+export function syncInboxNavBadgeWithLoadedLists(
+  userId: string,
+  conversations: InboxUnreadConversation[],
+  comments: InboxUnreadComment[]
+): InboxHeaderUnread {
+  if (typeof window === 'undefined' || !userId) {
+    return { inbox: 0, messages: 0, comments: 0, byPlatform: {} };
+  }
+
+  const readComments = getReadCommentIds(userId);
+  const stalePendingComments = [...getPendingUnreadCommentIds(userId)].filter((id) =>
+    readComments.has(id)
+  );
+  if (stalePendingComments.length) removePendingUnreadCommentIds(stalePendingComments, userId);
+
+  const readConversations = getReadConversationIds(userId);
+  const lastRead = getConversationLastReadCounts(userId);
+  const lastSeenUpdated = getConversationLastSeenUpdated(userId);
+  const initializedConvAccounts = getInboxInitializedAccountIdsForConversations(userId);
+  const convById = new Map(conversations.map((c) => [c.id, c]));
+  const stalePendingConv = [...getPendingUnreadConversationIds(userId)].filter((id) => {
+    if (readConversations.has(id)) return true;
+    const row = convById.get(id);
+    if (!row) return false;
+    return !isConversationUnread(
+      row,
+      readConversations,
+      lastRead,
+      lastSeenUpdated,
+      initializedConvAccounts
+    );
+  });
+  if (stalePendingConv.length) removePendingUnreadConversationIds(stalePendingConv, userId);
+
+  pruneStalePendingUnread(
+    userId,
+    conversations.map((c) => c.id),
+    comments.filter((c) => !c.parentCommentId).map((c) => c.commentId)
+  );
+
+  const computed = computeInboxHeaderUnread(conversations, comments, userId);
+  if (computed.inbox > 0) {
+    writeInboxBadgeSnapshot(userId, computed);
+  } else {
+    clearInboxBadgeSnapshot(userId);
+  }
+  notifyInboxReadStateChanged();
+  return computed;
 }
 
 /** Whether a DM thread should count as unread (nav badge + inbox row highlight). */
@@ -320,10 +372,16 @@ export function computeInboxHeaderUnread(
   }
 
   const convById = new Map(conversations.map((c) => [c.id, c]));
-  // Sticky pending IDs: always count toward the badge even when the thread is not
-  // in the in-memory list yet (partial cache, poll in flight, or account not loaded).
-  // Cleared only when the user opens the thread in Inbox or prune after a full load.
+  // Sticky pending IDs: count toward badge only when not already marked read in localStorage.
   for (const id of getPendingUnreadConversationIds(userId)) {
+    if (readConversations.has(id)) continue;
+    const row = convById.get(id);
+    if (
+      row &&
+      !isConversationUnread(row, readConversations, lastRead, lastSeenUpdated, initializedConvAccounts)
+    ) {
+      continue;
+    }
     unreadConvIds.add(id);
     if (!convPlatformById.has(id)) {
       convPlatformById.set(id, pendingConvPlatforms[id]);
@@ -338,6 +396,7 @@ export function computeInboxHeaderUnread(
     if (!readComments.has(c.commentId)) unreadCommentIds.add(c.commentId);
   }
   for (const id of getPendingUnreadCommentIds(userId)) {
+    if (readComments.has(id)) continue;
     unreadCommentIds.add(id);
     if (!commentPlatformById.has(id)) {
       commentPlatformById.set(id, pendingCommentPlatforms[id]);
@@ -387,20 +446,18 @@ export function formatInboxBadgeTitle(unread: InboxHeaderUnread): string | undef
 }
 
 /**
- * Nav badge floor: never show 0 while sticky pending IDs or a saved snapshot exist.
- * Clears only when the user opens a thread (pending removed) or computed stays at 0
- * with no pending left.
+ * Nav badge floor: keep sticky pending IDs visible until the user opens the thread.
+ * Snapshot is applied only before inbox lists hydrate (see AppDataContext), not here.
  */
 export function getStickyNavInboxBadge(
   userId: string,
   computed: InboxHeaderUnread
 ): InboxHeaderUnread {
-  const snapshot = readInboxBadgeSnapshot(userId);
   const pendingMsg = getPendingUnreadConversationIds(userId).size;
   const pendingCmt = getPendingUnreadCommentIds(userId).size;
   const pendingInbox = Math.min(pendingMsg + pendingCmt, 99);
-  const inbox = Math.max(computed.inbox, snapshot?.inbox ?? 0, pendingInbox);
-  const messages = Math.max(computed.messages, snapshot?.messages ?? 0, pendingMsg);
-  const comments = Math.max(computed.comments, snapshot?.comments ?? 0, pendingCmt);
+  const inbox = Math.max(computed.inbox, pendingInbox);
+  const messages = Math.max(computed.messages, pendingMsg);
+  const comments = Math.max(computed.comments, pendingCmt);
   return { ...computed, inbox, messages, comments };
 }

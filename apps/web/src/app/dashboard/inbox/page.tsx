@@ -67,8 +67,8 @@ import {
 } from '@/lib/inbox/inbox-badge-pending';
 import {
   isConversationUnread,
-  pruneStalePendingUnread,
   reconcileInboxReadStateWithConversations,
+  syncInboxNavBadgeWithLoadedLists,
 } from '@/lib/inbox/unread-count';
 import { mergeInboxSenderRows, mergeStableKeyedList } from '@/lib/inbox/merge-inbox-lists';
 import {
@@ -1103,7 +1103,6 @@ function InboxPage() {
       }
     }
     if (convIdSet.size === 0 && commentIdSet.size === 0) return;
-    pruneStalePendingUnread(user.id, convIdSet, commentIdSet);
     if (!conversationsLoading && conversations.length > 0) {
       reconcileInboxReadStateWithConversations(
         conversations.map((c) => ({
@@ -1116,6 +1115,24 @@ function InboxPage() {
         user.id
       );
     }
+    syncInboxNavBadgeWithLoadedLists(
+      user.id,
+      conversations.map((c) => ({
+        id: c.id,
+        messageCount: c.messageCount,
+        messageAccountId: (c as Conversation & { messageAccountId?: string }).messageAccountId,
+        updatedTime: c.updatedTime,
+        platform: c.platform,
+      })),
+      comments
+        .filter((c) => !c.parentCommentId)
+        .map((c) => ({
+          commentId: c.commentId,
+          platform: c.platform,
+          isFromMe: c.isFromMe,
+          parentCommentId: c.parentCommentId,
+        }))
+    );
   }, [
     user?.id,
     conversations,
@@ -1238,9 +1255,8 @@ function InboxPage() {
   }, [conversations, unreadCountByConversationId]);
 
   const isCommentNewNotification = useCallback(
-    (commentId: string) =>
-      unreadCommentIds.has(commentId) || pendingUnreadCommentIds.has(commentId),
-    [unreadCommentIds, pendingUnreadCommentIds]
+    (commentId: string) => unreadCommentIds.has(commentId),
+    [unreadCommentIds]
   );
 
   const commentsTabUnreadCount = useMemo(() => {
@@ -2265,13 +2281,8 @@ function InboxPage() {
       addInboxInitializedAccount(accountId, user?.id);
     }
     const readSet = getReadCommentIds(user?.id);
-    const pendingComments = getPendingUnreadCommentIds(user?.id ?? '');
     const unreadIds = topLevel
-      .filter(
-        (c) =>
-          !c.isFromMe &&
-          (!readSet.has(c.commentId) || pendingComments.has(c.commentId))
-      )
+      .filter((c) => !c.isFromMe && !readSet.has(c.commentId))
       .map((c) => c.commentId);
     setUnreadCommentIds(new Set(unreadIds));
     previousTopLevelCommentIdsRef.current = topLevelIds;
@@ -3030,10 +3041,12 @@ function InboxPage() {
               // For comments: use unread count; fall back to API byPlatform.comments.
               const msgUnread =
                 unreadMessagesByPlatform[p.id] ??
-                (conversations.length === 0 ? (byPlatform[p.id]?.messages ?? 0) : 0);
+                (conversationsLoading && conversations.length === 0
+                  ? (byPlatform[p.id]?.messages ?? 0)
+                  : 0);
               const cmtUnread =
                 unreadCommentsByPlatform[p.id] ??
-                (comments.length === 0 ? (byPlatform[p.id]?.comments ?? 0) : 0);
+                (commentsLoading && comments.length === 0 ? (byPlatform[p.id]?.comments ?? 0) : 0);
               const displayCount = msgUnread + cmtUnread;
               const msgLabel =
                 msgUnread > 0 ? `${msgUnread} message${msgUnread === 1 ? '' : 's'}` : '';

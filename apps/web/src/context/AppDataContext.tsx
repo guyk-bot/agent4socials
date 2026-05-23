@@ -173,14 +173,18 @@ function buildInitialNotificationsFromClientStorage(): NotificationsCache {
       }))
   );
 
+  const hasInboxLists = allConversations.length > 0 || unreadComments.length > 0;
   ensurePendingIdsForUnreadCounts(allConversations, unreadComments, userId);
-  const computed = computeInboxHeaderUnread(allConversations, unreadComments, userId);
-  const merged = mergeInboxBadgeWithSnapshot(computed, userId);
+  let computed = computeInboxHeaderUnread(allConversations, unreadComments, userId);
+  if (!hasInboxLists) {
+    computed = mergeInboxBadgeWithSnapshot(computed, userId);
+  }
+  const unread = getStickyNavInboxBadge(userId, computed);
   return {
-    inbox: merged.inbox,
-    messages: merged.messages,
-    comments: merged.comments,
-    byPlatform: merged.byPlatform,
+    inbox: unread.inbox,
+    messages: unread.messages,
+    comments: unread.comments,
+    byPlatform: unread.byPlatform,
   };
 }
 
@@ -328,10 +332,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     // Do not reconcile or prune here — that cleared unread on refresh before the user
     // opened Inbox. Prune/reconcile run only on the Inbox page with a full list.
     ensurePendingIdsForUnreadCounts(allConversations, unreadComments, user.id);
-    const computed = mergeInboxBadgeWithSnapshot(
-      computeInboxHeaderUnread(allConversations, unreadComments, user.id),
-      user.id
-    );
+    const hasInboxLists = allConversations.length > 0 || unreadComments.length > 0;
+    let computed = computeInboxHeaderUnread(allConversations, unreadComments, user.id);
+    if (!hasInboxLists) {
+      computed = mergeInboxBadgeWithSnapshot(computed, user.id);
+    }
     const unread = getStickyNavInboxBadge(user.id, computed);
     if (unread.inbox > 0) {
       writeInboxBadgeSnapshot(user.id, unread);
