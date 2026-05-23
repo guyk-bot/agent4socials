@@ -425,6 +425,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   LINKEDIN: 'LinkedIn',
   PINTEREST: 'Pinterest',
   TIKTOK: 'TikTok',
+  THREADS: 'Threads',
   UNKNOWN: 'Inbox',
 };
 

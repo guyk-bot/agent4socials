@@ -34,7 +34,8 @@ import {
 export const INBOX_NOTIFICATION_POLL_MS = INBOX_SYSTEM_SYNC_MS;
 
 const MESSAGE_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
-const COMMENT_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
+/** Lightweight comment APIs (not Meta fan-out). Polled for nav badge + AppData cache. */
+const BACKGROUND_COMMENT_PLATFORMS = new Set(['THREADS']);
 
 const COMMENTS_SINCE_KEY = (userId: string) => `agent4socials_badge_poll_comments_since_${userId}`;
 
@@ -265,7 +266,22 @@ export async function pollInboxNotifications(args: {
       await new Promise((r) => setTimeout(r, 800));
     }
 
-    // Comments are loaded by Inbox UI + DB cache only (avoids empty Meta throttle wiping the list).
+    if (BACKGROUND_COMMENT_PLATFORMS.has(acc.platform)) {
+      try {
+        const existing = getComments(acc.id) ?? [];
+        const res = await api.get<{ comments?: CachedComment[]; error?: string }>(
+          `/social/accounts/${acc.id}/comments?refresh=1`,
+          { timeout: 90_000 }
+        );
+        if (res.data?.error) continue;
+        const incoming = res.data?.comments ?? [];
+        if (incoming.length === 0 && existing.length === 0) continue;
+        onComments(acc.id, mergeComments(existing, incoming, userId, acc.id, acc.platform));
+      } catch {
+        /* skip account */
+      }
+      await new Promise((r) => setTimeout(r, 800));
+    }
   }
 
   if (typeof sessionStorage !== 'undefined') {

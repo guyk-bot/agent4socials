@@ -2040,6 +2040,34 @@ function InboxPage() {
           }
         }
 
+        const threadsAccounts = accs.filter((a) => a.platform === 'THREADS');
+        const threadsCommentRows: PostComment[] = [];
+        for (const acc of threadsAccounts) {
+          try {
+            const r = await api.get<{ comments?: PostComment[] }>(
+              `/social/accounts/${acc.id}/comments?refresh=1`,
+              { timeout: 120_000 }
+            );
+            const cs = r.data?.comments ?? [];
+            threadsCommentRows.push(
+              ...cs.map((c) => ({
+                ...c,
+                accountId: c.accountId ?? acc.id,
+                platform: c.platform ?? acc.platform,
+              }))
+            );
+          } catch {
+            /* live Threads sync optional */
+          }
+        }
+        if (threadsCommentRows.length > 0) {
+          applyCommentsToUiRef.current(threadsCommentRows);
+          for (const acc of threadsAccounts) {
+            const perAcc = commentsStableRef.current.filter((c) => c.accountId === acc.id);
+            if (perAcc.length) appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
+          }
+        }
+
         if (opts?.liveMeta) {
           const metaAccounts = accs.filter(
             (a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK'

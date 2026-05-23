@@ -290,6 +290,7 @@ function postsSyncParamsForPlatform(
 ): { sync?: 1; force?: 1 } {
   if (!postImportSyncOnFirstLoad(platform)) return {};
   if (platform === 'TIKTOK') return { sync: 1, force: 1 };
+  if (platform === 'THREADS') return { sync: 1, force: 1 };
   // Instagram/Facebook: never auto sync=1 on dashboard load (cron + manual Sync only).
   if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
     return opts?.explicitSync ? { sync: 1, force: 1 } : {};
@@ -868,9 +869,8 @@ export default function DashboardPage() {
       };
       const refreshPostsInBackground = () => {
         // Keep dashboard charts stable after initial render.
-        // If we already have cached posts for this account, do not auto-refresh
-        // in the background; updates should come from explicit sync actions.
-        if (hasAnyCachedPosts) return;
+        // Threads always re-syncs so post-level likes/replies/reposts stay current.
+        if (hasAnyCachedPosts && analyticsAccount?.platform !== 'THREADS') return;
         if (skipInstagramAutoRefresh && hasAnyCachedPosts && !shouldBackgroundSyncPosts()) return;
         const bgParams = postsSyncParamsForPlatform(analyticsAccount?.platform, {
           explicitSync: syncAllTrigger > 0 || justConnected,
@@ -1406,7 +1406,7 @@ export default function DashboardPage() {
             .finally(() => setImportedPostsLoading(false));
         }
       }
-      if (!forceRangeRefreshForPlatform) return;
+      if (!forceRangeRefreshForPlatform && analyticsAccount?.platform !== 'THREADS') return;
     }
 
     // No exact range match: show last successful payload when switching accounts, or when the
@@ -1467,7 +1467,10 @@ export default function DashboardPage() {
     // Only fetch when the user explicitly clicks Sync.
     const shouldFetchInsights = isMetaInsightsAccount
       ? explicitAction
-      : explicitAction || isDateRangeChange || (!exactCached && !staleCandidate);
+      : explicitAction ||
+        isDateRangeChange ||
+        (!exactCached && !staleCandidate) ||
+        analyticsAccount?.platform === 'THREADS';
 
     if (!shouldFetchInsights) {
       setInsightsLoading(false);

@@ -90,6 +90,27 @@ export async function syncThreadsPosts(account: {
   }
   const rows = data?.data ?? [];
   let processed = 0;
+
+  const metricsByPostId = new Map<
+    string,
+    { views: number; likes: number; replies: number; reposts: number; quotes: number } | null
+  >();
+  const batchSize = 5;
+  for (let i = 0; i < rows.length; i += batchSize) {
+    const chunk = rows.slice(i, i + batchSize);
+    const results = await Promise.all(
+      chunk.map(async (row) => {
+        const id = typeof row.id === 'string' ? row.id.trim() : '';
+        if (!id) return { id: '', metrics: null as null };
+        const metrics = await fetchThreadsPostInsights(id, token);
+        return { id, metrics };
+      })
+    );
+    for (const { id, metrics } of results) {
+      if (id) metricsByPostId.set(id, metrics);
+    }
+  }
+
   for (const row of rows) {
     const id = typeof row.id === 'string' ? row.id.trim() : '';
     if (!id) continue;
@@ -101,7 +122,7 @@ export async function syncThreadsPosts(account: {
         ? null
         : (typeof row.thumbnail_url === 'string' ? row.thumbnail_url : null) ||
           (typeof row.media_url === 'string' && mediaType === 'IMAGE' ? row.media_url : null);
-    const metrics = await fetchThreadsPostInsights(id, token);
+    const metrics = metricsByPostId.get(id) ?? null;
     const interactions = metrics
       ? metrics.likes + metrics.replies + metrics.reposts + metrics.quotes
       : undefined;

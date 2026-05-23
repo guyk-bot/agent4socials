@@ -86,6 +86,8 @@ export interface FacebookInsights {
   twitterTotals?: TwitterTotals;
   /** X: likes + replies + retweets + quotes + bookmarks per calendar day (timeline, in range). */
   twitterEngagementTimeSeries?: Array<{ date: string; value: number }>;
+  /** Threads account-level engagement (likes + replies + reposts + quotes) by day. */
+  threadsEngagementTimeSeries?: Array<{ date: string; value: number }>;
   /** X: recent tweets in range (text + metrics + optional thumb) for analytics tables / tooltips. */
   recentTweets?: TwitterRecentTweetRow[];
   /** X: total posts on account (from user public_metrics.tweet_count). */

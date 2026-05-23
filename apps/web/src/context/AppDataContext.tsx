@@ -737,7 +737,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         // Each request = 1 serverless function = 1 DB connection.
         // The global API limiter (api.ts) caps concurrent requests to 4,
         // but Phase 2 should be gentle since dashboard effects also fire.
-        const COMMENT_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
+        const COMMENT_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER', 'THREADS']);
         const CONVO_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK']);
         const ENGAGEMENT_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'YOUTUBE']);
         // X/Twitter first so opening the Twitter tab after login hits warm cache sooner; posts + insights

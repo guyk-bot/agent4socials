@@ -66,15 +66,17 @@ export async function fetchThreadsInboxComments(
       const isFromMe =
         r.is_reply_owned_by_me === true ||
         (myUsername.length > 0 && author.toLowerCase() === myUsername);
+      // Inbox UI only lists top-level rows (parentCommentId null). Nested app replies use parentCommentId = comment id.
+      if (isFromMe) continue;
       comments.push({
         commentId: id,
         accountId: account.id,
         platform: 'THREADS',
-        authorName: isFromMe ? 'You' : author || 'Threads user',
+        authorName: author || 'Threads user',
         text: typeof r.text === 'string' ? r.text : '',
         createdAt: r.timestamp ? new Date(r.timestamp).toISOString() : new Date().toISOString(),
-        isFromMe,
-        parentCommentId: src.platformPostId,
+        isFromMe: false,
+        parentCommentId: null,
         postTargetId: src.postTargetId,
         platformPostId: src.platformPostId,
         postPreview: src.postPreview,
@@ -133,6 +135,21 @@ export async function fetchThreadsInboxComments(
   }
 
   return { comments, error };
+}
+
+/** Legacy inbox cache stored post id as parentCommentId; normalize so rows appear in Comments tab. */
+export function normalizeThreadsInboxCommentRow<T extends { platform?: string; parentCommentId?: string | null; platformPostId?: string }>(
+  row: T
+): T {
+  if (
+    row.platform === 'THREADS' &&
+    row.parentCommentId &&
+    row.platformPostId &&
+    row.parentCommentId === row.platformPostId
+  ) {
+    return { ...row, parentCommentId: null };
+  }
+  return row;
 }
 
 export async function postThreadsReply(

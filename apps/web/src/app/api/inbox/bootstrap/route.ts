@@ -7,6 +7,7 @@ import {
 } from '@/lib/inbox/inbox-db-cache';
 import { enrichConversationListFromMessageCache } from '@/lib/inbox/enrich-conversations-from-messages';
 import { mergeInboxProfileCacheIntoConversations } from '@/lib/inbox/resolve-inbox-sender-profile';
+import { normalizeThreadsInboxCommentRow } from '@/lib/threads/inbox-comments';
 
 /**
  * GET /api/inbox/bootstrap
@@ -41,11 +42,14 @@ export async function GET(request: NextRequest) {
     ) {
       const storedComments = await getInboxCommentsFromDb(acc.id);
       if (storedComments?.length) {
-        commentsByAccountId[acc.id] = storedComments.map((c) => ({
-          ...c,
-          accountId: c.accountId ?? acc.id,
-          platform: c.platform ?? acc.platform,
-        }));
+        commentsByAccountId[acc.id] = storedComments.map((c) => {
+          const base = {
+            ...c,
+            accountId: c.accountId ?? acc.id,
+            platform: c.platform ?? acc.platform,
+          };
+          return acc.platform === 'THREADS' ? normalizeThreadsInboxCommentRow(base) : base;
+        });
       }
     }
 

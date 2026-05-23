@@ -3293,12 +3293,16 @@ export async function GET(
             reposts: bundle.repostsTotal,
             quotes: bundle.quotesTotal,
           },
+          threadsMetricSeries: bundle.metricSeries,
         };
         if (bundle.impressionsTimeSeries.length > 0) {
           out.impressionsTimeSeries = bundle.impressionsTimeSeries;
         }
+        if (bundle.engagementTimeSeries.length > 0) {
+          (out as Record<string, unknown>).threadsEngagementTimeSeries = bundle.engagementTimeSeries;
+        }
         out.insightsHint =
-          bundle.viewsTotal === 0
+          bundle.viewsTotal === 0 && bundle.likesTotal === 0 && bundle.repliesTotal === 0
             ? 'Threads insights may take time to populate for new accounts.'
             : undefined;
       } catch (e) {

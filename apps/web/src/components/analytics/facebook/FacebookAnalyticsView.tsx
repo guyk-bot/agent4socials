@@ -3605,12 +3605,14 @@ export function FacebookAnalyticsView({
       const apiViews = seriesToMap(insights?.impressionsTimeSeries ?? []);
       const postViews = seriesToMap(aggregatePostsByDayValue(postsInRange, (p) => p.impressions ?? 0));
       const viewsMap = mergeSeriesMapsMax(apiViews, postViews);
+      const apiEng = seriesToMap(insights?.threadsEngagementTimeSeries ?? []);
       const postEng = seriesToMap(
         aggregatePostsByDayValue(
           postsInRange,
           (p) => (p.likeCount ?? 0) + (p.commentsCount ?? 0) + bestShareCount(p) + (p.repostsCount ?? 0)
         )
       );
+      const engMap = mergeSeriesMapsMax(apiEng, postEng);
       const postsByDate: Record<string, number> = {};
       for (const p of postsInRange) {
         const d = localCalendarDateFromIso(p.publishedAt);
@@ -3618,7 +3620,7 @@ export function FacebookAnalyticsView({
         postsByDate[d] = (postsByDate[d] ?? 0) + 1;
       }
       const videoViewsSeries = dailyValuesOnAxis(dateAxis, viewsMap);
-      const engagement = dailyValuesOnAxis(dateAxis, postEng);
+      const engagement = dailyValuesOnAxis(dateAxis, engMap);
       const contentViewsSeries = dailyValuesOnAxis(dateAxis, postsByDate);
       return dateAxis.map((date) => ({
         date,
@@ -3772,6 +3774,7 @@ export function FacebookAnalyticsView({
     insights?.followersTimeSeries,
     insights?.impressionsTimeSeries,
     insights?.twitterEngagementTimeSeries,
+    insights?.threadsEngagementTimeSeries,
     insights?.growthTimeSeries,
     videoPlaysDailySeries,
     totalFollowers,
@@ -4808,19 +4811,32 @@ type PostsUploadDayTooltipAgg = {
   const likesTotal = useMemo(() => {
     const src = isTikTok ? tiktokEffectivePosts : isTwitter ? postsInRangeForPostsTabUi : postsInRange;
     const fromPosts = src.reduce((sum, post) => sum + bestCount(post.facebookInsights?.post_reactions_like_total, post.likeCount ?? post.engagementBreakdown?.reactions), 0);
+    if (isThreads) {
+      const fromInsights = Number((insights as FacebookInsights & { likesTotal?: number })?.likesTotal ?? 0);
+      return Math.max(fromPosts, threadsTotals?.likes ?? 0, fromInsights);
+    }
     return fromPosts;
-  }, [isTikTok, tiktokEffectivePosts, isTwitter, postsInRangeForPostsTabUi, postsInRange]);
+  }, [isTikTok, tiktokEffectivePosts, isTwitter, postsInRangeForPostsTabUi, postsInRange, isThreads, threadsTotals, insights]);
   const commentsTotal = useMemo(() => {
     const src = isTikTok ? tiktokEffectivePosts : isTwitter ? postsInRangeForPostsTabUi : postsInRange;
     const fromPosts = src.reduce((sum, post) => sum + (post.facebookInsights?.post_comments ?? post.commentsCount ?? post.engagementBreakdown?.comments ?? 0), 0);
+    if (isThreads) {
+      const fromInsights = Number((insights as FacebookInsights & { commentsTotal?: number })?.commentsTotal ?? 0);
+      return Math.max(fromPosts, threadsTotals?.replies ?? 0, fromInsights);
+    }
     return fromPosts;
-  }, [isTikTok, tiktokEffectivePosts, isTwitter, postsInRangeForPostsTabUi, postsInRange]);
+  }, [isTikTok, tiktokEffectivePosts, isTwitter, postsInRangeForPostsTabUi, postsInRange, isThreads, threadsTotals, insights]);
   const sharesTotal = useMemo(() => {
     const src = isTikTok ? tiktokEffectivePosts : isTwitter ? postsInRangeForPostsTabUi : postsInRange;
     const fromPosts = src.reduce((sum, post) => sum + bestShareCount(post), 0);
     if (isYouTube) return Math.max(fromPosts, youtubeSharesTotal);
+    if (isThreads) {
+      const fromInsights = Number((insights as FacebookInsights & { sharesTotal?: number })?.sharesTotal ?? 0);
+      const fromTotals = (threadsTotals?.reposts ?? 0) + (threadsTotals?.quotes ?? 0);
+      return Math.max(fromPosts, fromTotals, fromInsights);
+    }
     return fromPosts;
-  }, [isTikTok, tiktokEffectivePosts, isTwitter, postsInRangeForPostsTabUi, postsInRange, isYouTube, youtubeSharesTotal]);
+  }, [isTikTok, tiktokEffectivePosts, isTwitter, postsInRangeForPostsTabUi, postsInRange, isYouTube, youtubeSharesTotal, isThreads, threadsTotals, insights]);
   const repostsTotal = useMemo(() => {
     const src = isTwitter ? postsInRangeForPostsTabUi : postsInRange;
     const fromPosts = src.reduce((sum, post) => sum + bestRepostCount(post), 0);
@@ -4875,6 +4891,42 @@ type PostsUploadDayTooltipAgg = {
         repostsByDate[d] = Math.max(repostsByDate[d] ?? 0, rtReposts[d] ?? 0);
       }
     }
+    if (isThreads) {
+      const extra = insights?.extra as {
+        threadsMetricSeries?: {
+          likes?: Array<{ date: string; value: number }>;
+          replies?: Array<{ date: string; value: number }>;
+          reposts?: Array<{ date: string; value: number }>;
+          quotes?: Array<{ date: string; value: number }>;
+        };
+      } | undefined;
+      const ms = extra?.threadsMetricSeries;
+      if (ms) {
+        for (const pt of ms.likes ?? []) {
+          likesByDate[pt.date] = Math.max(likesByDate[pt.date] ?? 0, pt.value);
+        }
+        for (const pt of ms.replies ?? []) {
+          commentsByDate[pt.date] = Math.max(commentsByDate[pt.date] ?? 0, pt.value);
+        }
+        for (const pt of ms.reposts ?? []) {
+          sharesByDate[pt.date] = Math.max(sharesByDate[pt.date] ?? 0, pt.value);
+        }
+        for (const pt of ms.quotes ?? []) {
+          sharesByDate[pt.date] = (sharesByDate[pt.date] ?? 0) + pt.value;
+        }
+      }
+      const lastDay = dateAxis.length > 0 ? dateAxis[dateAxis.length - 1]! : '';
+      const allEngZero =
+        Object.values(likesByDate).every((v) => v === 0) &&
+        Object.values(commentsByDate).every((v) => v === 0) &&
+        Object.values(sharesByDate).every((v) => v === 0);
+      if (lastDay && allEngZero && threadsTotals) {
+        if (threadsTotals.likes) likesByDate[lastDay] = threadsTotals.likes;
+        if (threadsTotals.replies) commentsByDate[lastDay] = threadsTotals.replies;
+        const shareSum = (threadsTotals.reposts ?? 0) + (threadsTotals.quotes ?? 0);
+        if (shareSum) sharesByDate[lastDay] = shareSum;
+      }
+    }
     return dateAxis.map((date) => ({
       date,
       likes: likesByDate[date] ?? 0,
@@ -4883,7 +4935,7 @@ type PostsUploadDayTooltipAgg = {
       reposts: repostsByDate[date] ?? 0,
       dislikes: isYouTube ? (youtubeDislikesByDate[date] ?? 0) : 0,
     }));
-  }, [dateAxis, postsInRange, isTwitter, twitterRecentTweets, isYouTube, youtubeDislikesByDate, youtubeSharesByDate]);
+  }, [dateAxis, postsInRange, isTwitter, twitterRecentTweets, isYouTube, youtubeDislikesByDate, youtubeSharesByDate, isThreads, threadsTotals, insights?.extra]);
   const engagementTicks = useMemo(
     () =>
       buildKeyDateTicks(

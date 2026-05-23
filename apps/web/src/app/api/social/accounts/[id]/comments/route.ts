@@ -370,6 +370,50 @@ export async function GET(
     } catch { /* if live fetch fails, proceed with dbSources only */ }
   }
 
+  // Threads: list recent threads so replies load even before dashboard post sync.
+  if (platform === 'THREADS') {
+    try {
+      const { threadsGet } = await import('@/lib/threads/threads-api');
+      const { getValidThreadsToken } = await import('@/lib/threads/threads-token');
+      const token = await getValidThreadsToken({
+        id: account.id,
+        accessToken: account.accessToken ?? '',
+        expiresAt: account.expiresAt,
+      });
+      const { status, data } = await threadsGet<{
+        data?: Array<{
+          id?: string;
+          text?: string;
+          timestamp?: string;
+          permalink?: string;
+          thumbnail_url?: string;
+          media_url?: string;
+        }>;
+      }>('me/threads', token, {
+        fields: 'id,text,timestamp,permalink,thumbnail_url,media_url',
+        limit: 50,
+      });
+      if (status === 200) {
+        liveSources = (data?.data ?? [])
+          .map((m, i) => {
+            const pid = typeof m.id === 'string' ? m.id.trim() : '';
+            if (!pid) return null;
+            return {
+              platformPostId: pid,
+              postPreview: (m.text ?? '').trim() || `Thread ${i + 1}`,
+              postTargetId: `live-${pid}`,
+              postPublishedAt: m.timestamp ?? undefined,
+              postImageUrl: m.thumbnail_url ?? m.media_url ?? null,
+              postUrl: m.permalink ?? null,
+            };
+          })
+          .filter((x): x is NonNullable<typeof x> => x != null);
+      }
+    } catch {
+      /* dbSources only */
+    }
+  }
+
   // Merge: use DB sources first, then add live media that aren't already in DB (so comments on
   // old/synced posts and on recent platform-only posts both show up). Cap total to keep the
   // Graph API fan-out bounded (see MAX_SOURCES comment at top of file).
@@ -408,7 +452,10 @@ export async function GET(
       })),
       maxSources
     );
-    let responseComments = threadComments as InboxCommentRow[];
+    const { normalizeThreadsInboxCommentRow } = await import('@/lib/threads/inbox-comments');
+    let responseComments = (threadComments as InboxCommentRow[]).map((c) =>
+      normalizeThreadsInboxCommentRow(c)
+    );
     if (!threadsErr && responseComments.length > 0) {
       responseComments = await mergeInboxCommentsInDb(id, responseComments);
     } else if (!threadsErr) {
