@@ -48,8 +48,8 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
 
 const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'THREADS', 'LINKEDIN', 'PINTEREST'];
 
-/** Tighter vertical padding on platform rows only (icons stay full size). */
-const PLATFORM_ROW_PY = 'py-1';
+/** Vertical padding on platform rows (icons stay full size). */
+const PLATFORM_ROW_PY = 'py-1.5';
 
 /** Platforms that show a gem / upgrade styling on the connect row (empty = same as other networks). */
 const UPGRADE_TO_CONNECT_PLATFORMS: string[] = [];
@@ -210,7 +210,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         </Link>
       </div>
 
-      <div className="shrink-0 px-2 space-y-0">
+      <div className="shrink-0 px-2 space-y-1">
         {PLATFORM_ORDER.map((platform) => {
           const accounts = accountsByPlatform[platform] ?? [];
           const isPlatformSelected = selectedPlatformForConnect === platform;
@@ -253,7 +253,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           }
 
           return (
-            <div key={platform} className="space-y-0">
+            <div key={platform} className="space-y-1">
               {accounts.map((acc) => {
                 const isSelected = selectedAccountId === acc.id;
                 const accountRowClass = `w-full flex items-center gap-3 px-3 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors min-w-0 border border-transparent ${
@@ -317,7 +317,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         })}
       </div>
 
-      <div className="p-3 space-y-0 border-t border-neutral-200 shrink-0">
+      <div className="mt-6 pt-2 p-3 space-y-0.5 border-t border-neutral-200 shrink-0">
         <Link
           href="/posts"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isPostsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
