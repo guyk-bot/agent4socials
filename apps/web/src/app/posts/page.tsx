@@ -106,8 +106,15 @@ function threadsInstagramStoryStatus(post: PostHistoryRow): {
     const targets = Array.isArray(post.targets) ? post.targets : [];
     const threadsTarget = targets.find(
         (t) => t && typeof t === 'object' && String((t as { platform?: string }).platform).toUpperCase() === 'THREADS'
-    ) as { status?: string } | undefined;
+    ) as { status?: string; error?: string } | undefined;
     const threadsStatus = (threadsTarget?.status ?? post.status ?? '').toString().toUpperCase();
+    const err = String(threadsTarget?.error ?? '');
+    if (/story:\s*shared/i.test(err)) {
+        return { label: 'IG Story: shared', className: 'bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-950/50 dark:text-fuchsia-200' };
+    }
+    if (/story failed/i.test(err)) {
+        return { label: 'IG Story: failed', className: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400' };
+    }
     if (threadsStatus === 'POSTED') {
         return { label: 'IG Story: shared', className: 'bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-950/50 dark:text-fuchsia-200' };
     }
@@ -118,6 +125,35 @@ function threadsInstagramStoryStatus(post: PostHistoryRow): {
         return { label: 'IG Story: not sent', className: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400' };
     }
     return { label: 'IG Story', className: 'bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-950/40 dark:text-fuchsia-300' };
+}
+
+function metaFeedStoryShareStatus(post: PostHistoryRow): {
+    label: string;
+    className: string;
+} | null {
+    if (!(post as { alsoPostToStory?: boolean }).alsoPostToStory) return null;
+    const targets = Array.isArray(post.targets) ? post.targets : [];
+    const metaTargets = targets.filter((t) => {
+        if (!t || typeof t !== 'object') return false;
+        const p = String((t as { platform?: string }).platform ?? '').toUpperCase();
+        return p === 'INSTAGRAM' || p === 'FACEBOOK';
+    }) as { status?: string; error?: string }[];
+    if (metaTargets.length === 0) return null;
+    const notes = metaTargets.map((t) => String(t.error ?? ''));
+    if (notes.some((n) => /story:\s*shared/i.test(n))) {
+        return { label: 'Story: shared', className: 'bg-orange-100 text-orange-800 dark:bg-orange-950/50 dark:text-orange-200' };
+    }
+    if (notes.some((n) => /story failed/i.test(n))) {
+        return { label: 'Story: failed', className: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400' };
+    }
+    const allPosted = metaTargets.every((t) => (t.status ?? '').toString().toUpperCase() === 'POSTED');
+    if (allPosted) {
+        return { label: 'Story: shared', className: 'bg-orange-100 text-orange-800 dark:bg-orange-950/50 dark:text-orange-200' };
+    }
+    if (metaTargets.some((t) => (t.status ?? '').toString().toUpperCase() === 'POSTING') || post.status === 'POSTING') {
+        return { label: 'Story: pending', className: 'bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300' };
+    }
+    return { label: 'Story', className: 'bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300' };
 }
 
 const POST_FORMAT_BADGE_CLASS: Record<PostHistoryFormatKey, string> = {
@@ -809,6 +845,7 @@ export default function PostsPage() {
                                                     return `${platform}: ${msg}`;
                                                 });
                                             const igStory = threadsInstagramStoryStatus(post);
+                                            const metaStory = metaFeedStoryShareStatus(post);
                                             return (
                                                 <div className="space-y-1">
                                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls}`}>{label}</span>
@@ -819,6 +856,14 @@ export default function PostsPage() {
                                                         >
                                                             <InstagramIcon size={12} />
                                                             {igStory.label}
+                                                        </span>
+                                                    ) : null}
+                                                    {metaStory ? (
+                                                        <span
+                                                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${metaStory.className}`}
+                                                            title="Also post to Story was enabled for Instagram or Facebook feed posts"
+                                                        >
+                                                            {metaStory.label}
                                                         </span>
                                                     ) : null}
                                                     {failedErrors.length > 0 ? (

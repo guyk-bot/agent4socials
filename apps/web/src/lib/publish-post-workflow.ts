@@ -37,6 +37,7 @@ export type PublishPostRequestBody = {
   pinterestSandbox?: boolean;
   tiktokPublishByAccountId?: Record<string, unknown>;
   threadsShareToInstagram?: boolean;
+  alsoPostToStory?: boolean;
   /** Composer format (photo, story, reel, …). Used when Post.mediaType was not persisted. */
   mediaType?: string;
 };
@@ -137,6 +138,11 @@ export async function preparePostForBackgroundPublish(
       updateData.threadsShareToInstagram = true;
     } else if (requestBody.threadsShareToInstagram === false) {
       updateData.threadsShareToInstagram = false;
+    }
+    if (requestBody.alsoPostToStory === true) {
+      updateData.alsoPostToStory = true;
+    } else if (requestBody.alsoPostToStory === false) {
+      updateData.alsoPostToStory = false;
     }
 
     await prisma.post.update({
@@ -392,6 +398,9 @@ export async function runPublishPostWorkflow(input: {
   const threadsShareToInstagram =
     requestBody.threadsShareToInstagram === true ||
     (post as { threadsShareToInstagram?: boolean }).threadsShareToInstagram === true;
+  const alsoPostToStory =
+    requestBody.alsoPostToStory === true ||
+    (post as { alsoPostToStory?: boolean }).alsoPostToStory === true;
   const defaultMedia = post.media.map((m) => {
     const meta = (m as { metadata?: { thumbnailUrl?: string; useVideoDefaultForPublish?: boolean } }).metadata;
     const useVideoDefault = meta?.useVideoDefaultForPublish;
@@ -712,7 +721,12 @@ export async function runPublishPostWorkflow(input: {
         ? { tiktokPostMediaKind: (isTiktokPhoto ? 'photo' : 'video') as 'photo' | 'video' }
         : {}),
       ...(isStory ? { isStory: true } : {}),
-      ...(platform === 'THREADS' && threadsShareToInstagram ? { threadsShareToInstagram: true } : {}),
+        ...(platform === 'THREADS' && threadsShareToInstagram ? { threadsShareToInstagram: true } : {}),
+        ...((platform === 'INSTAGRAM' || platform === 'FACEBOOK') &&
+        alsoPostToStory &&
+        !isStory
+          ? { alsoPostToStory: true }
+          : {}),
       ...(platform === 'LINKEDIN'
         ? {
             linkedInAuthorUrn: await (async () => {
@@ -834,7 +848,8 @@ export async function runPublishPostWorkflow(input: {
         'tiktokProcessing' in result && result.tiktokProcessing
           ? 'TikTok is still processing your video. Check your TikTok profile in a few minutes.'
           : undefined;
-      const targetNote = inboxNote ?? processingNote;
+      const storyNote = result.storyShareNote ? result.storyShareNote : undefined;
+      const targetNote = inboxNote ?? processingNote ?? storyNote;
       await withPrismaPoolRetry('publish-target-posted', () =>
         prisma.postTarget.update({
           where: { id: target.id },

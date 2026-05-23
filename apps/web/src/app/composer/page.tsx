@@ -117,6 +117,7 @@ type ComposerDraft = {
     commentAutomationTagCommenter?: boolean;
     tiktokPublishByAccountId?: Record<string, TikTokDirectPostPayload>;
     threadsShareToInstagram?: boolean;
+    alsoPostToStory?: boolean;
 };
 
 function isPersistableMediaUrl(url: string): boolean {
@@ -562,16 +563,19 @@ const COMPOSER_PLATFORM_ORDER = [
 function buildPublishRequestBody(
     mediaType: MediaTypeChoice,
     tiktokPublishByAccountId: Record<string, TikTokDirectPostPayload>,
-    threadsShareToInstagram: boolean
+    threadsShareToInstagram: boolean,
+    alsoPostToStory: boolean
 ): {
     mediaType: string;
     tiktokPublishByAccountId?: Record<string, TikTokDirectPostPayload>;
     threadsShareToInstagram?: boolean;
+    alsoPostToStory?: boolean;
 } {
     const body: {
         mediaType: string;
         tiktokPublishByAccountId?: Record<string, TikTokDirectPostPayload>;
         threadsShareToInstagram?: boolean;
+        alsoPostToStory?: boolean;
     } = {
         mediaType,
     };
@@ -580,6 +584,9 @@ function buildPublishRequestBody(
     }
     if (threadsShareToInstagram) {
         body.threadsShareToInstagram = true;
+    }
+    if (alsoPostToStory) {
+        body.alsoPostToStory = true;
     }
     return body;
 }
@@ -840,6 +847,7 @@ export default function ComposerPage() {
     const optimisticPostIdRef = useRef<string | null>(null);
     const [tiktokPublishByAccountId, setTiktokPublishByAccountId] = useState<Record<string, TikTokDirectPostPayload>>({});
     const [threadsShareToInstagram, setThreadsShareToInstagram] = useState(false);
+    const [alsoPostToStory, setAlsoPostToStory] = useState(false);
     const [tiktokPublishModalOpen, setTiktokPublishModalOpen] = useState(false);
     const [tiktokModalAccountIds, setTiktokModalAccountIds] = useState<string[]>([]);
     /** After successful Post now that included TikTok, show processing reminder (post id for History link). */
@@ -1132,6 +1140,7 @@ export default function ComposerPage() {
                     if (Object.keys(cleaned).length) setTiktokPublishByAccountId(cleaned);
                 }
                 if (typeof d.threadsShareToInstagram === 'boolean') setThreadsShareToInstagram(d.threadsShareToInstagram);
+                if (typeof d.alsoPostToStory === 'boolean') setAlsoPostToStory(d.alsoPostToStory);
             }
         } catch (_) { /* ignore */ }
         setDraftRestored(true);
@@ -1165,6 +1174,7 @@ export default function ComposerPage() {
                     commentAutomation?: { keywords?: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; instagramPublicReply?: boolean; instagramPrivateReply?: boolean; instagramDmTemplate?: string } | null;
                     tiktokPublishByAccountId?: unknown;
                     threadsShareToInstagram?: boolean;
+                    alsoPostToStory?: boolean;
                 };
                 // Show stored publish errors from previous attempt so user knows why it failed
                 if (p.status === 'FAILED' && Array.isArray(p.targets)) {
@@ -1292,6 +1302,9 @@ export default function ComposerPage() {
                 }
                 if (typeof p.threadsShareToInstagram === 'boolean') {
                     setThreadsShareToInstagram(p.threadsShareToInstagram);
+                }
+                if (typeof p.alsoPostToStory === 'boolean') {
+                    setAlsoPostToStory(p.alsoPostToStory);
                 }
                 setEditLoaded(true);
             })
@@ -1551,6 +1564,7 @@ export default function ComposerPage() {
                     commentAutomationTagCommenter,
                     ...(Object.keys(tiktokPublishByAccountId).length > 0 ? { tiktokPublishByAccountId } : {}),
                     threadsShareToInstagram,
+                    alsoPostToStory,
                 };
                 localStorage.setItem(COMPOSER_DRAFT_KEY, JSON.stringify(draft));
             } catch (_) { /* ignore */ }
@@ -1585,6 +1599,7 @@ export default function ComposerPage() {
         commentAutomationTagCommenter,
         tiktokPublishByAccountId,
         threadsShareToInstagram,
+        alsoPostToStory,
         mediaSignature,
         debounceMs,
     ]);
@@ -1714,6 +1729,34 @@ export default function ComposerPage() {
             setThreadsShareToInstagram(false);
         }
     }, [threadsInstagramStoryEligible, threadsShareToInstagram]);
+
+    const metaAlsoStoryEligible = useMemo(() => {
+        const hasMeta = platforms.includes('INSTAGRAM') || platforms.includes('FACEBOOK');
+        if (!hasMeta) return false;
+        if (mediaType === 'story' || mediaType === 'text') return false;
+        return mediaList.length > 0;
+    }, [platforms, mediaType, mediaList.length]);
+
+    const metaAlsoStoryHint = useMemo(() => {
+        const hasMeta = platforms.includes('INSTAGRAM') || platforms.includes('FACEBOOK');
+        if (!hasMeta) return null;
+        if (mediaType === 'story') {
+            return 'Story format posts directly to Stories. Use Photo, Reel, or Video to post to feed and Story.';
+        }
+        if (mediaType === 'text') {
+            return 'Switch to Photo, Reel, or Video and add media to also post to Story.';
+        }
+        if (mediaList.length === 0) {
+            return 'Add photo or video to enable Story sharing.';
+        }
+        return null;
+    }, [platforms, mediaType, mediaList.length]);
+
+    useEffect(() => {
+        if (!metaAlsoStoryEligible && alsoPostToStory) {
+            setAlsoPostToStory(false);
+        }
+    }, [metaAlsoStoryEligible, alsoPostToStory]);
 
     const addToHashtagPool = () => {
         const tag = normalizeHashtag(newHashtagInput);
@@ -2586,6 +2629,7 @@ export default function ComposerPage() {
                 commentAutomation?: { keywords: string[]; replyTemplate: string; replyOnComment?: boolean; usePrivateReply?: boolean; tagCommenter?: boolean } | null;
                 tiktokPublishByAccountId?: Record<string, TikTokDirectPostPayload>;
                 threadsShareToInstagram?: boolean;
+                alsoPostToStory?: boolean;
                 mediaType?: string;
             } = {
                 content: contentFinal,
@@ -2678,6 +2722,14 @@ export default function ComposerPage() {
             }
             if (platforms.includes('THREADS') && mediaType !== 'text' && hasMedia) {
                 payload.threadsShareToInstagram = threadsShareToInstagram;
+            }
+            if (
+                (platforms.includes('INSTAGRAM') || platforms.includes('FACEBOOK')) &&
+                mediaType !== 'story' &&
+                mediaType !== 'text' &&
+                hasMedia
+            ) {
+                payload.alsoPostToStory = alsoPostToStory;
             }
 
             const updateExisting = editPostId && !editPostAlreadyPosted;
@@ -2777,7 +2829,12 @@ export default function ComposerPage() {
                 }
                 const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
                 if (debug) sessionStorage.removeItem('publish_debug');
-                const publishBody = buildPublishRequestBody(mediaType, tiktokPublishByAccountId, threadsShareToInstagram);
+                const publishBody = buildPublishRequestBody(
+                    mediaType,
+                    tiktokPublishByAccountId,
+                    threadsShareToInstagram,
+                    alsoPostToStory
+                );
                 const publishPath = `/posts/${editPostId}/publish${debug ? '?debug=1' : ''}`;
                 if (includesTikTokTarget && !tiktokAccountIdsNeedingUi.every((id) => isTikTokDirectPostPayload(tiktokPublishByAccountId[id]))) {
                     setPublishModal({ open: false });
@@ -2877,7 +2934,12 @@ export default function ComposerPage() {
                 );
                 const debug = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('publish_debug') === '1';
                 if (debug) sessionStorage.removeItem('publish_debug');
-                const publishBodyCreate = buildPublishRequestBody(mediaType, tiktokPublishByAccountId, threadsShareToInstagram);
+                const publishBodyCreate = buildPublishRequestBody(
+                    mediaType,
+                    tiktokPublishByAccountId,
+                    threadsShareToInstagram,
+                    alsoPostToStory
+                );
                 const publishPathCreate = `/posts/${postId}/publish${debug ? '?debug=1' : ''}`;
                 if (includesTikTokTarget && !tiktokAccountIdsNeedingUi.every((id) => isTikTokDirectPostPayload(tiktokPublishByAccountId[id]))) {
                     setPublishModal({ open: false });
@@ -3858,6 +3920,33 @@ export default function ComposerPage() {
                                         Threads limit: {THREADS_CHAR_LIMIT} characters (including spaces). Current (with hashtags):{' '}
                                         {content.trim().length + (selectedHashtags.length ? ' ' + selectedHashtags.join(' ') : '').length}
                                     </p>
+                                )}
+                                {(platforms.includes('INSTAGRAM') || platforms.includes('FACEBOOK')) && (
+                                    <label
+                                        className={`mt-3 flex items-start gap-2 rounded-xl border border-neutral-200 bg-neutral-50/80 px-3 py-2.5 ${
+                                            metaAlsoStoryEligible ? 'cursor-pointer' : 'cursor-not-allowed opacity-90'
+                                        }`}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={alsoPostToStory}
+                                            disabled={!metaAlsoStoryEligible}
+                                            onChange={(e) => setAlsoPostToStory(e.target.checked)}
+                                            className="mt-0.5 rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)] disabled:opacity-50"
+                                        />
+                                        <span className="text-sm text-neutral-700">
+                                            <span className="font-medium text-neutral-900">Also post to Story</span>
+                                            <span className="mt-0.5 block text-xs text-neutral-500">
+                                                Publishes your feed post first, then shares the same media to Instagram and/or
+                                                Facebook Story. Carousels use the first image on Story.
+                                            </span>
+                                            {metaAlsoStoryHint ? (
+                                                <span className="mt-1.5 block text-xs font-medium text-amber-700">
+                                                    {metaAlsoStoryHint}
+                                                </span>
+                                            ) : null}
+                                        </span>
+                                    </label>
                                 )}
                                 {platforms.includes('THREADS') && (
                                     <label

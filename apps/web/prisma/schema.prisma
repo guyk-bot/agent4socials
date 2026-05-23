@@ -332,6 +332,8 @@ model Post {
   tiktokPublishByAccountId Json?
   /// When true, Threads publish also cross-shares to linked Instagram as a Story.
   threadsShareToInstagram Boolean @default(false)
+  /// When true, Instagram and/or Facebook feed publish also posts the same media as a Story.
+  alsoPostToStory       Boolean @default(false)
   /// Composer media-type choice: 'photo' | 'video' | 'reel' | 'carousel' | 'story'
   mediaType             String?
   status                PostStatus @default(DRAFT)

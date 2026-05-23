@@ -45,12 +45,16 @@ export type PublishTargetOptions = {
   linkedInAuthorUrn?: string;
   /** Threads: also share to linked Instagram account as a Story. */
   threadsShareToInstagram?: boolean;
+  /** Instagram/Facebook feed publish: also post the same media as a Story. */
+  alsoPostToStory?: boolean;
 };
 
 export type PublishTargetResult = {
   ok: boolean;
   platformPostId?: string;
   error?: string;
+  /** Feed posted; note about companion Story publish (success or failure). */
+  storyShareNote?: string;
   /** True when the post was published but media (e.g. image) was skipped (e.g. Twitter 403 on upload). */
   mediaSkipped?: boolean;
   /** True when TikTok accepted the video but sent it to the creator's inbox instead of publishing directly (unaudited app). */
@@ -529,9 +533,35 @@ export async function publishTarget(
     pinterestSandbox,
     isStory,
     threadsShareToInstagram,
+    alsoPostToStory,
   } = options;
   const { fetch: fetchFn, axios: axiosInstance } = deps;
   const pinterestApiBase = pinterestSandbox ? 'https://api-sandbox.pinterest.com/v5' : 'https://api.pinterest.com/v5';
+
+  async function completeFeedWithOptionalStory(
+    platform: 'INSTAGRAM' | 'FACEBOOK',
+    feed: PublishTargetResult
+  ): Promise<PublishTargetResult> {
+    if (!feed.ok || isStory || !alsoPostToStory) return feed;
+    if (!firstImageUrl && !firstMediaUrl) {
+      return { ...feed, storyShareNote: 'Story skipped: add an image or video.' };
+    }
+    try {
+      const storyRes = await publishTarget(
+        {
+          ...options,
+          isStory: true,
+          caption: platform === 'INSTAGRAM' ? '' : caption,
+        },
+        deps
+      );
+      if (storyRes.ok) return { ...feed, storyShareNote: 'Story: shared' };
+      const err = (storyRes.error ?? 'Story publish failed').slice(0, 200);
+      return { ...feed, storyShareNote: `Story failed: ${err}` };
+    } catch (e) {
+      return { ...feed, storyShareNote: `Story failed: ${((e as Error).message ?? 'error').slice(0, 200)}` };
+    }
+  }
 
   /** Poll Instagram container until status_code is FINISHED or ERROR. Required before media_publish. */
   async function waitForInstagramContainer(containerId: string, token: string, maxWaitMs = 90_000): Promise<{ ok: boolean; error?: string }> {
@@ -669,7 +699,7 @@ export async function publishTarget(
           { params: { creation_id: creationId, access_token: token } }
         );
         const mediaId = (publishRes.data as { id?: string })?.id;
-        return { ok: true, platformPostId: mediaId };
+        return completeFeedWithOptionalStory('INSTAGRAM', { ok: true, platformPostId: mediaId });
       }
       if (!firstImageUrl && (!imageUrls || imageUrls.length === 0)) {
         return { ok: false, error: 'Instagram requires at least one image or video' };
@@ -711,7 +741,7 @@ export async function publishTarget(
           { params: { creation_id: creationId, access_token: token } }
         );
         const mediaId = (publishRes.data as { id?: string })?.id;
-        return { ok: true, platformPostId: mediaId };
+        return completeFeedWithOptionalStory('INSTAGRAM', { ok: true, platformPostId: mediaId });
       }
       const containerRes = await axiosInstance.post(
         `${facebookGraphBaseUrl}/${platformUserId}/media`,
@@ -734,7 +764,7 @@ export async function publishTarget(
         { params: { creation_id: creationId, access_token: token } }
       );
       const mediaId = (publishRes.data as { id?: string })?.id;
-      return { ok: true, platformPostId: mediaId };
+      return completeFeedWithOptionalStory('INSTAGRAM', { ok: true, platformPostId: mediaId });
     }
 
     if (platform === 'FACEBOOK') {
@@ -832,7 +862,7 @@ export async function publishTarget(
           { params: photoParams }
         );
         const postId = (photoRes.data as { id?: string; post_id?: string })?.post_id ?? (photoRes.data as { id?: string })?.id;
-        return { ok: true, platformPostId: postId };
+        return completeFeedWithOptionalStory('FACEBOOK', { ok: true, platformPostId: postId });
       }
       if (firstMediaUrl) {
         // Native video upload: try file_url first (Facebook fetches). Fallback to multipart if 389 (unable to fetch).
@@ -880,7 +910,7 @@ export async function publishTarget(
             throw fileUrlErr;
           }
         }
-        return { ok: true, platformPostId: videoId };
+        return completeFeedWithOptionalStory('FACEBOOK', { ok: true, platformPostId: videoId });
       }
       // Text-only post
       const feedParams: Record<string, string> = {
@@ -1266,6 +1296,43 @@ export async function publishTarget(
       if (postRes.status < 200 || postRes.status >= 300) {
         const errBody = postRes.data as { message?: string; code?: string } | undefined;
         const detail = typeof errBody?.message === 'string' ? errBody.message : JSON.stringify(postRes.data ?? {});
+        if (postRes.status === 403 && !firstImageUrl && !firstMediaUrl) {
+          try {
+            const ugcRes = await axiosInstance.post(
+              'https://api.linkedin.com/v2/ugcPosts',
+              {
+                author,
+                lifecycleState: 'PUBLISHED',
+                specificContent: {
+                  'com.linkedin.ugc.ShareContent': {
+                    shareCommentary: { text: caption || ' ' },
+                    shareMediaCategory: 'NONE',
+                  },
+                },
+                visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
+              },
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'X-Restli-Protocol-Version': '2.0.0',
+                  'Content-Type': 'application/json',
+                },
+                validateStatus: () => true,
+              }
+            );
+            if (ugcRes.status >= 200 && ugcRes.status < 300) {
+              const ugcHeaders = (ugcRes.headers ?? {}) as Record<string, string>;
+              const ugcPostUrn = ugcHeaders['x-restli-id'] ?? (ugcRes.data as { id?: string })?.id;
+              return { ok: true, platformPostId: typeof ugcPostUrn === 'string' ? ugcPostUrn : undefined };
+            }
+          } catch {
+            // fall through to error below
+          }
+          throw new Error(
+            'LinkedIn denied the post (403). Enable Share on LinkedIn on your LinkedIn app, set LINKEDIN_INCLUDE_W_MEMBER_SOCIAL=true in Vercel, redeploy, then disconnect and reconnect LinkedIn in Accounts.'
+              .slice(0, 450)
+          );
+        }
         throw new Error(`LinkedIn create post failed (${postRes.status}): ${detail}`.slice(0, 450));
       }
       const headers = (postRes.headers ?? {}) as Record<string, string>;
