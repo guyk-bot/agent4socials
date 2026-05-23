@@ -1,18 +1,12 @@
 import type { Platform } from '@prisma/client';
-import axios from 'axios';
-import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import type { FirstWelcomeMessageRow } from '@/lib/dm-first-welcome';
 import {
   loadFacebookGraphConversationMessages,
   loadInstagramConversationMessages,
   type ConversationUiMessage,
 } from '@/lib/inbox/load-meta-conversation-messages';
-import { readInboxProfileCache, writeInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
-import { shouldAllowMetaInboxProfileEnrichment } from '@/lib/meta-usage-guard';
-import { isLikelyMetaScopedUserId, resolveInstagramInboxSenderProfile } from '@/lib/inbox/resolve-inbox-sender-profile';
+import { resolveFacebookInboxSenderProfile, resolveInstagramInboxSenderProfile } from '@/lib/inbox/resolve-inbox-sender-profile';
 import { loadTwitterConversationForFirstWelcome } from '@/lib/inbox/twitter-conversation-for-first-welcome';
-
-const fbBaseUrl = facebookGraphBaseUrl;
 
 export type { ConversationUiMessage };
 
@@ -88,27 +82,17 @@ async function loadMetaConversationForFirstWelcome(
             break;
           }
         }
-        const cached = await readInboxProfileCache('instagram', recipientId);
-        if (cached && (cached.name || cached.username || cached.pictureUrl)) {
-          recipientName = cached.name ?? cached.username ?? recipientUsername;
-          recipientPictureUrl = cached.pictureUrl ?? null;
-        } else if (shouldAllowMetaInboxProfileEnrichment() && isLikelyMetaScopedUserId(recipientId)) {
-          const profile = await resolveInstagramInboxSenderProfile({
-            userId,
-            senderId: recipientId,
-            accessToken: activeToken,
-            isInstagramBusinessLogin,
-            conversationId,
-            username: recipientUsername ?? undefined,
-          });
-          recipientName = profile?.name ?? profile?.username ?? recipientUsername;
-          recipientPictureUrl = profile?.pictureUrl ?? null;
-          if (profile && (profile.name || profile.username || profile.pictureUrl)) {
-            void writeInboxProfileCache('instagram', recipientId, profile);
-          }
-        } else {
-          recipientName = recipientUsername;
-        }
+        const profile = await resolveInstagramInboxSenderProfile({
+          userId,
+          senderId: recipientId,
+          accessToken: activeToken,
+          isInstagramBusinessLogin,
+          conversationId,
+          username: recipientUsername ?? undefined,
+          forceEnrich: true,
+        });
+        recipientName = profile?.name ?? profile?.username ?? recipientUsername;
+        recipientPictureUrl = profile?.pictureUrl ?? null;
       }
 
       const firstWelcomeRows: FirstWelcomeMessageRow[] = messages.map((m) => ({
@@ -156,35 +140,20 @@ async function loadMetaConversationForFirstWelcome(
     let recipientName: string | null = null;
     let recipientPictureUrl: string | null = null;
     if (recipientId && account.platform === 'FACEBOOK') {
-      const cached = await readInboxProfileCache('facebook', recipientId);
-      if (cached && (cached.name || cached.pictureUrl)) {
-        recipientName = cached.name ?? null;
-        recipientPictureUrl = cached.pictureUrl ?? null;
-      } else if (shouldAllowMetaInboxProfileEnrichment() && isLikelyMetaScopedUserId(recipientId)) {
-        try {
-          const pr = await axios.get<{
-            name?: string;
-            first_name?: string;
-            last_name?: string;
-            profile_pic?: string;
-            picture?: { data?: { url?: string } };
-          }>(`${fbBaseUrl}/${recipientId}`, {
-            params: { fields: 'name,first_name,last_name,profile_pic,picture.type(large)', access_token: activeToken },
-            timeout: 12_000,
-          });
-          const v = pr.data;
-          recipientName = v.name || [v.first_name, v.last_name].filter(Boolean).join(' ').trim() || null;
-          recipientPictureUrl = v.profile_pic ?? v.picture?.data?.url ?? null;
-          if (recipientName || recipientPictureUrl) {
-            void writeInboxProfileCache('facebook', recipientId, {
-              name: recipientName ?? undefined,
-              pictureUrl: recipientPictureUrl,
-            });
-          }
-        } catch {
-          // ignore
+      for (const m of messages) {
+        if (m.fromId === recipientId && m.fromName?.trim()) {
+          recipientName = m.fromName.trim();
+          break;
         }
       }
+      const profile = await resolveFacebookInboxSenderProfile({
+        senderId: recipientId,
+        accessToken: activeToken,
+        conversationId,
+        forceEnrich: true,
+      });
+      recipientName = profile?.name ?? recipientName;
+      recipientPictureUrl = profile?.pictureUrl ?? null;
     }
 
     const firstWelcomeRows: FirstWelcomeMessageRow[] = messages.map((m) => ({

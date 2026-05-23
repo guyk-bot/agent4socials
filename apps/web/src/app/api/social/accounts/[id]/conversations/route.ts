@@ -22,6 +22,7 @@ import {
 import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
 import { readInboxProfileCache, writeInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
 import {
+  enrichFacebookAvatarsFromParticipants,
   enrichInboxSendersFromLatestMessages,
   enrichInstagramAvatarsFromParticipants,
   isLikelyMetaScopedUserId,
@@ -842,6 +843,23 @@ export async function GET(
       setIgScopedProfileCallBudgetForRequest(25);
     } else {
       resetIgScopedProfileCallBudget();
+    }
+    if (!isInstagram && list.length > 0 && allowMinimalLive) {
+      list = (await enrichFacebookAvatarsFromParticipants({
+        list: list as InboxConversationListItem[],
+        accessToken: token,
+        ourIds,
+        maxConversations: 2,
+      })) as typeof list;
+    }
+    if (!isInstagram && list.length > 0 && allowProfileEnrich && (!badgePoll || fullEnrich)) {
+      list = (await enrichFacebookAvatarsFromParticipants({
+        list: list as InboxConversationListItem[],
+        accessToken: token,
+        ourIds,
+        maxConversations: fullEnrich ? Math.min(convsNeedingProfile.length, 50) : igEnrichMax,
+        forceEnrich: fullEnrich,
+      })) as typeof list;
     }
     if (isInstagram && list.length > 0 && allowMinimalLive) {
       list = (await enrichInstagramAvatarsFromParticipants({

@@ -130,11 +130,47 @@ function findParticipant(
   return participants.find((p) => p.username?.toLowerCase() === u);
 }
 
-function cacheProfile(senderId: string, profile: InboxSenderProfile, altId?: string): void {
+function cacheProfile(
+  platform: 'instagram' | 'facebook',
+  senderId: string,
+  profile: InboxSenderProfile,
+  altId?: string
+): void {
   if (profile.pictureUrl || profile.name || profile.username) {
-    if (senderId) void writeInboxProfileCache('instagram', senderId, profile);
-    if (altId && altId !== senderId) void writeInboxProfileCache('instagram', altId, profile);
+    if (senderId) void writeInboxProfileCache(platform, senderId, profile);
+    if (altId && altId !== senderId) void writeInboxProfileCache(platform, altId, profile);
   }
+}
+
+function cacheInstagramProfile(senderId: string, profile: InboxSenderProfile, altId?: string): void {
+  cacheProfile('instagram', senderId, profile, altId);
+}
+
+function cacheFacebookProfile(senderId: string, profile: InboxSenderProfile, altId?: string): void {
+  cacheProfile('facebook', senderId, profile, altId);
+}
+
+async function fetchFacebookUserProfileNode(
+  senderId: string,
+  accessToken: string
+): Promise<InboxSenderProfile | null> {
+  if (!isLikelyMetaScopedUserId(senderId)) return null;
+  const profileRes = await axios.get<{
+    name?: string;
+    first_name?: string;
+    last_name?: string;
+    profile_pic?: string;
+    picture?: { data?: { url?: string } };
+  }>(`${fbBaseUrl}/${senderId}`, {
+    params: { fields: 'name,first_name,last_name,profile_pic,picture.type(large)', access_token: accessToken },
+    timeout: 12_000,
+  });
+  noteMetaUsageFromHeaders(profileRes.headers);
+  const v = profileRes.data;
+  const name = v.name || [v.first_name, v.last_name].filter(Boolean).join(' ').trim() || undefined;
+  const pictureUrl = v.profile_pic ?? v.picture?.data?.url ?? null;
+  if (!pictureUrl && !name) return null;
+  return { name, pictureUrl };
 }
 
 /**
@@ -155,8 +191,10 @@ export async function resolveInstagramInboxSenderProfile(args: {
   if (!senderId || !accessToken) return null;
 
   const cached = await readInboxProfileCache('instagram', senderId);
-  if (cached && (cached.pictureUrl || cached.name || cached.username)) return cached;
-  if (!forceEnrich && !shouldAllowMetaInboxProfileEnrichment()) return cached ?? null;
+  if (cached?.pictureUrl) return cached;
+  if (!forceEnrich && !shouldAllowMetaInboxProfileEnrichment()) {
+    return cached && (cached.name || cached.username) ? cached : null;
+  }
   if (!isLikelyMetaScopedUserId(senderId)) return cached ?? null;
 
   const pageToken = await resolveFacebookPageTokenForUser(userId);
@@ -184,7 +222,7 @@ export async function resolveInstagramInboxSenderProfile(args: {
           username: match.username,
           pictureUrl: pictureFromRow(match),
         };
-        cacheProfile(senderId, profile, match.id);
+        cacheInstagramProfile(senderId, profile, match.id);
         if (profile.pictureUrl) return profile;
       }
     } catch {
@@ -196,11 +234,11 @@ export async function resolveInstagramInboxSenderProfile(args: {
     try {
       const profile = await fetchIgUserProfileViaPageToken(senderId, pageToken);
       if (profile?.pictureUrl) {
-        cacheProfile(senderId, profile);
+        cacheInstagramProfile(senderId, profile);
         return profile;
       }
       if (profile && (profile.name || profile.username)) {
-        cacheProfile(senderId, profile);
+        cacheInstagramProfile(senderId, profile);
       }
     } catch {
       /* try other strategies */
@@ -211,12 +249,73 @@ export async function resolveInstagramInboxSenderProfile(args: {
     try {
       const profile = await fetchIgUserProfileViaInstagramHost(senderId, accessToken);
       if (profile) {
-        cacheProfile(senderId, profile);
+        cacheInstagramProfile(senderId, profile);
         if (profile.pictureUrl || profile.name || profile.username) return profile;
       }
     } catch {
       /* fall through */
     }
+  }
+
+  return cached ?? null;
+}
+
+/**
+ * Resolve Facebook Messenger participant name and profile photo (conversation list + open thread).
+ */
+export async function resolveFacebookInboxSenderProfile(args: {
+  senderId: string;
+  accessToken: string;
+  conversationId?: string;
+  /** Inbox open: always resolve avatars (ignore Meta usage throttle). */
+  forceEnrich?: boolean;
+}): Promise<InboxSenderProfile | null> {
+  const { senderId, accessToken, conversationId } = args;
+  const forceEnrich = args.forceEnrich === true;
+  if (!senderId || !accessToken) return null;
+
+  const cached = await readInboxProfileCache('facebook', senderId);
+  if (cached?.pictureUrl) return cached;
+  if (!forceEnrich && !shouldAllowMetaInboxProfileEnrichment()) {
+    return cached && (cached.name || cached.username) ? cached : null;
+  }
+  if (!isLikelyMetaScopedUserId(senderId)) return cached ?? null;
+
+  if (conversationId) {
+    try {
+      const convRes = await axios.get<{ participants?: { data?: ParticipantRow[] } }>(
+        `${fbBaseUrl}/${conversationId}`,
+        {
+          params: {
+            fields: 'participants{id,name,username,profile_pic,profile_picture_url,picture}',
+            access_token: accessToken,
+          },
+          timeout: 10_000,
+        }
+      );
+      const match = findParticipant(convRes.data?.participants?.data ?? [], senderId);
+      if (match) {
+        const profile: InboxSenderProfile = {
+          name: match.name,
+          username: match.username,
+          pictureUrl: pictureFromRow(match),
+        };
+        cacheFacebookProfile(senderId, profile, match.id);
+        if (profile.pictureUrl) return profile;
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+
+  try {
+    const profile = await fetchFacebookUserProfileNode(senderId, accessToken);
+    if (profile) {
+      cacheFacebookProfile(senderId, profile);
+      if (profile.pictureUrl || profile.name) return profile;
+    }
+  } catch {
+    /* fall through */
   }
 
   return cached ?? null;
@@ -321,7 +420,7 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
             username: s.username || p.username,
             pictureUrl,
           };
-          if (s.id) cacheProfile(s.id, profile, p.id);
+          if (s.id) cacheInstagramProfile(s.id, profile, p.id);
           return { ...s, ...profile };
         }),
       };
@@ -346,10 +445,108 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
             username: out[idx].senders[si].username || profile.username,
             pictureUrl: out[idx].senders[si].pictureUrl ?? profile.pictureUrl ?? null,
           };
-          cacheProfile(s.id, profile);
+          cacheInstagramProfile(s.id, profile);
         } catch {
           /* try next sender */
         }
+      }
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Fetch each Facebook Messenger thread's participants edge for avatars.
+ */
+export async function enrichFacebookAvatarsFromParticipants(args: {
+  list: InboxConversationListItem[];
+  accessToken: string;
+  ourIds?: Set<string>;
+  maxConversations?: number;
+  forceEnrich?: boolean;
+}): Promise<InboxConversationListItem[]> {
+  const { list, accessToken, ourIds = new Set<string>(), maxConversations = 4, forceEnrich = false } = args;
+  if (!accessToken) return list;
+  if (!forceEnrich && !shouldAllowMetaInboxProfileEnrichment()) return list;
+
+  const out = list.map((c) => ({ ...c, senders: [...c.senders] }));
+  const senderNeedsProfile = (s: InboxConversationListItem['senders'][number]) => !s.pictureUrl;
+
+  const toFetch = out.filter((c) => c.senders.some(senderNeedsProfile)).slice(0, maxConversations);
+
+  for (const conv of toFetch) {
+    const idx = out.findIndex((c) => c.id === conv.id);
+    if (idx < 0) continue;
+
+    const cacheResolved = await Promise.all(
+      out[idx].senders.map(async (s) => {
+        if (s.pictureUrl) return s;
+        const cached = s.id ? await readInboxProfileCache('facebook', s.id) : null;
+        if (!cached?.pictureUrl) return s;
+        return {
+          ...s,
+          pictureUrl: cached.pictureUrl ?? null,
+          name: s.name || cached.name,
+          username: s.username || cached.username,
+        };
+      })
+    );
+    if (cacheResolved.every((s) => !!s.pictureUrl)) {
+      out[idx] = { ...out[idx], senders: cacheResolved };
+      continue;
+    }
+    out[idx] = { ...out[idx], senders: cacheResolved };
+
+    try {
+      const convRes = await axios.get<{ participants?: { data?: ParticipantRow[] } }>(
+        `${fbBaseUrl}/${conv.id}`,
+        {
+          params: {
+            fields: 'participants{id,name,username,profile_pic,profile_picture_url,picture}',
+            access_token: accessToken,
+          },
+          timeout: 10_000,
+        }
+      );
+      const participants = convRes.data?.participants?.data ?? [];
+      const others = participants.filter((p) => p.id && !ourIds.has(p.id));
+
+      out[idx] = {
+        ...out[idx],
+        senders: out[idx].senders.map((s) => {
+          let p = s.id ? findParticipant(participants, s.id, s.username) : undefined;
+          if (!p && others.length === 1) p = others[0];
+          if (!p) return s;
+          const pictureUrl = s.pictureUrl ?? pictureFromRow(p);
+          const profile: InboxSenderProfile = {
+            name: s.name || p.name,
+            username: s.username || p.username,
+            pictureUrl,
+          };
+          if (s.id) cacheFacebookProfile(s.id, profile, p.id);
+          return { ...s, ...profile };
+        }),
+      };
+    } catch {
+      /* next conversation */
+    }
+
+    for (const s of out[idx].senders) {
+      if (s.pictureUrl || !s.id || !isLikelyMetaScopedUserId(s.id)) continue;
+      try {
+        const profile = await fetchFacebookUserProfileNode(s.id, accessToken);
+        if (!profile?.pictureUrl) continue;
+        const si = out[idx].senders.findIndex((x) => x.id === s.id);
+        if (si < 0) continue;
+        out[idx].senders[si] = {
+          ...out[idx].senders[si],
+          name: out[idx].senders[si].name || profile.name,
+          pictureUrl: out[idx].senders[si].pictureUrl ?? profile.pictureUrl ?? null,
+        };
+        cacheFacebookProfile(s.id, profile);
+      } catch {
+        /* try next sender */
       }
     }
   }

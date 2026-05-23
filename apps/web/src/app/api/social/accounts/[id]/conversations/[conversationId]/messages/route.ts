@@ -14,6 +14,10 @@ import { isMetaNonCriticalThrottled } from '@/lib/meta-usage-guard';
 import { deleteInboxMessagesFromDb, getInboxMessagesFromDb, setInboxMessagesInDb } from '@/lib/inbox/inbox-db-cache';
 import { readInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
 import {
+  resolveFacebookInboxSenderProfile,
+  resolveInstagramInboxSenderProfile,
+} from '@/lib/inbox/resolve-inbox-sender-profile';
+import {
   isXApiThrottled,
   noteXApiRateLimit,
   X_APP_BACKOFF_INBOX_MESSAGE,
@@ -142,7 +146,7 @@ export async function GET(
     const cached = await getInboxMessagesFromDb(account.id, conversationId, convUpdatedTime, allowStale);
     if (!cached?.length) return null;
     const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
-      ? account.credentialsJson : {}) as { linkedPageId?: string };
+      ? account.credentialsJson : {}) as { linkedPageId?: string; loginMethod?: string };
     const ourIds = new Set<string>(
       [account.platformUserId, credJson.linkedPageId].filter((x): x is string => !!x)
     );
@@ -164,11 +168,38 @@ export async function GET(
     let recipientName: string | null = null;
     let recipientPictureUrl: string | null = null;
     if (recipientId && account.platform !== 'TWITTER') {
+      for (const m of cached) {
+        if (m.fromId === recipientId && m.fromName?.trim()) {
+          recipientName = m.fromName.trim();
+          break;
+        }
+      }
       const profilePlatform = account.platform === 'INSTAGRAM' ? 'instagram' : 'facebook';
-      const profile = await readInboxProfileCache(profilePlatform, recipientId);
-      if (profile) {
-        recipientName = profile.name ?? profile.username ?? null;
-        recipientPictureUrl = profile.pictureUrl ?? null;
+      const cachedProfile = await readInboxProfileCache(profilePlatform, recipientId);
+      recipientName = cachedProfile?.name ?? cachedProfile?.username ?? recipientName;
+      recipientPictureUrl = cachedProfile?.pictureUrl ?? null;
+      if (!recipientPictureUrl) {
+        const isInstagramBusinessLogin =
+          account.platform === 'INSTAGRAM' && credJson.loginMethod === 'instagram_business';
+        const profile =
+          account.platform === 'FACEBOOK'
+            ? await resolveFacebookInboxSenderProfile({
+                senderId: recipientId,
+                accessToken: account.accessToken,
+                conversationId,
+                forceEnrich: true,
+              })
+            : await resolveInstagramInboxSenderProfile({
+                userId,
+                senderId: recipientId,
+                accessToken: account.accessToken,
+                isInstagramBusinessLogin,
+                conversationId,
+                username: recipientName?.startsWith('@') ? recipientName.slice(1) : recipientName ?? undefined,
+                forceEnrich: true,
+              });
+        recipientName = profile?.name ?? profile?.username ?? recipientName;
+        recipientPictureUrl = profile?.pictureUrl ?? recipientPictureUrl;
       }
     }
     return NextResponse.json({

@@ -4062,14 +4062,13 @@ function InboxPage() {
                         const recipientNameFromCache = cached?.recipientName;
                         const recipientPic =
                           cached?.recipientPictureUrl || selectedConv?.senders?.[0]?.pictureUrl || null;
-                        const senderNames = selectedConv?.senders?.map((s) => s.username ?? s.name).filter(Boolean).join(', ') || null;
                         const displayName =
-                          senderNames || recipientNameFromCache || null;
-                        const chatWithLabel = displayName
-                          ? `Chat with ${displayName}`
-                          : dmThreadPlatform === 'TWITTER'
-                            ? 'Chat with X (Twitter) user'
-                            : 'Conversation';
+                          selectedConv?.senders?.map((s) => s.name ?? s.username).filter(Boolean).join(', ') ||
+                          recipientNameFromCache ||
+                          conversationMessages.find((m) => !m.isFromPage && m.fromName?.trim())?.fromName?.trim() ||
+                          null;
+                        const threadTitle =
+                          displayName || (dmThreadPlatform === 'TWITTER' ? 'X user' : 'Unknown');
                         const stripPlat = dmThreadPlatform ?? selectedPlatform;
                         return (
                           <div className="flex items-center gap-3">
@@ -4078,7 +4077,7 @@ function InboxPage() {
                               label={displayName || (dmThreadPlatform === 'TWITTER' ? 'X' : '?')}
                             />
                             <div className="min-w-0 flex-1">
-                              <p className="text-sm font-medium text-neutral-800">{chatWithLabel}</p>
+                              <p className="text-sm font-medium text-neutral-800">{threadTitle}</p>
                               <div className="mt-1.5 flex items-center gap-2 flex-wrap">
                                 <PlatformSourcePill platformId={stripPlat} size="md" />
                                 <span className="text-xs text-neutral-500">Direct message</span>

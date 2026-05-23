@@ -22,8 +22,9 @@ export async function GET(request: NextRequest) {
     return new NextResponse('Invalid URL', { status: 400 });
   }
 
+  const isFacebookCdn = /fbcdn\.net|fbsbx\.com|facebook\.com/i.test(decoded);
   const isTikTokCdn = /tiktokcdn|tiktokv\.com|byteimg\.com|muscdn\.com/i.test(decoded);
-  const isInstagramCdn = /cdninstagram\.com|instagram\.com|fbcdn\.net/i.test(decoded);
+  const isInstagramCdn = /cdninstagram\.com|instagram\.com/i.test(decoded);
 
   try {
     const response = await fetch(decoded, {
@@ -33,6 +34,7 @@ export async function GET(request: NextRequest) {
         Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
         ...(isTikTokCdn ? { Referer: 'https://www.tiktok.com/' } : {}),
         ...(isInstagramCdn ? { Referer: 'https://www.instagram.com/' } : {}),
+        ...(isFacebookCdn ? { Referer: 'https://www.facebook.com/' } : {}),
       },
       cache: 'no-store',
       redirect: 'follow',
