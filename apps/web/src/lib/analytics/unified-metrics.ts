@@ -281,6 +281,7 @@ function emptyChartPoint(ymd: string): UnifiedChartPoint {
     YouTube: 0,
     TikTok: 0,
     Pinterest: 0,
+    Threads: 0,
   };
 }
 
@@ -595,7 +596,7 @@ function classifyPostBucket(
   if (!mt) {
     // X text-only tweets (and some LinkedIn / Pinterest rows) have no mediaType
     // but must still roll into the posts chart so those platforms aren't 0.
-    if (plat === 'TWITTER' || plat === 'LINKEDIN' || plat === 'PINTEREST') return 'image';
+    if (plat === 'TWITTER' || plat === 'THREADS' || plat === 'LINKEDIN' || plat === 'PINTEREST') return 'image';
     return null;
   }
   if (mt === 'REEL' || mt === 'VIDEO' || mt === 'SHORT') return 'reels';

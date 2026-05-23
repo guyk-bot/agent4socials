@@ -57,6 +57,7 @@ import {
   XTwitterIcon,
   LinkedinIcon,
   PinterestIcon,
+  ThreadsIcon,
 } from '@/components/SocialPlatformIcons';
 import type {
   UnifiedChartData,
@@ -390,7 +391,9 @@ function classifyConsolePostType(
   // X text-only tweets (and some LinkedIn / Pinterest rows) sync with no mediaType; they must
   // still roll into the Console posts chart / pie. Treat as a generic non-video post bucket.
   if (!mt) {
-    if (plat === 'TWITTER' || plat === 'X' || plat === 'LINKEDIN' || plat === 'PINTEREST') return 'image';
+    if (plat === 'TWITTER' || plat === 'X' || plat === 'THREADS' || plat === 'LINKEDIN' || plat === 'PINTEREST') {
+      return 'image';
+    }
     return null;
   }
   if (mt === 'REEL' || mt === 'VIDEO' || mt === 'SHORT') return 'reels';
@@ -502,16 +505,35 @@ function PlatformIcon({ platform, size = 16 }: { platform: string; size?: number
     case 'YouTube': return <YoutubeIcon size={size} />;
     case 'TikTok': return <TikTokIcon size={size} />;
     case 'Pinterest': return <PinterestIcon size={size} />;
+    case 'Threads': return <ThreadsIcon size={size} />;
     default: return <FileText size={size} style={{ color: COLOR.textMuted }} />;
   }
 }
 
-const CONSOLE_ACCOUNT_PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'LINKEDIN', 'PINTEREST', 'TWITTER'] as const;
+const CONSOLE_ACCOUNT_PLATFORM_ORDER = [
+  'FACEBOOK',
+  'INSTAGRAM',
+  'TIKTOK',
+  'YOUTUBE',
+  'TWITTER',
+  'THREADS',
+  'LINKEDIN',
+  'PINTEREST',
+] as const;
 
 /** Stable fallback so `useMemo` / `useEffect` deps are not a new `[]` every render (avoids update loops). */
 const EMPTY_SOCIAL_ACCOUNTS: SocialAccount[] = [];
 const CHART_PLATFORMS_FALLBACK: string[] = [...CHART_PLATFORMS];
-const CONSOLE_PERF_PLATFORM_ORDER = ['Instagram', 'Meta', 'YouTube', 'TikTok', 'X', 'LinkedIn', 'Pinterest'] as const;
+const CONSOLE_PERF_PLATFORM_ORDER = [
+  'Instagram',
+  'Meta',
+  'YouTube',
+  'TikTok',
+  'X',
+  'Threads',
+  'LinkedIn',
+  'Pinterest',
+] as const;
 
 const EMPTY_KPI: UnifiedKpiSummary = {
   totalAudience: 0,
@@ -561,6 +583,7 @@ function AccountBadgeIcon({ platform, size = 20 }: { platform: string; size?: nu
     case 'TWITTER': return <XTwitterIcon size={size} className="text-neutral-800" />;
     case 'LINKEDIN': return <LinkedinIcon size={size} />;
     case 'PINTEREST': return <PinterestIcon size={size} />;
+    case 'THREADS': return <ThreadsIcon size={size} />;
     default: return <span className="text-[8px] font-bold text-neutral-400">{p.slice(0, 1) || '?'}</span>;
   }
 }

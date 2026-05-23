@@ -25,6 +25,7 @@ export interface UnifiedChartPoint {
   YouTube: number;
   TikTok: number;
   Pinterest: number;
+  Threads: number;
   [key: string]: string | number;
 }
 
