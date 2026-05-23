@@ -835,12 +835,12 @@ export async function GET(
     const allowMinimalLive =
       !fullEnrich && badgePoll && minimalEnrich && shouldAllowMinimalProfileEnrichment();
     const igEnrichMax = fullEnrich
-      ? Math.min(convsNeedingProfile.length, 50)
+      ? list.length
       : reduceFanOut
         ? 2
         : 4;
     if (fullEnrich) {
-      setIgScopedProfileCallBudgetForRequest(25);
+      setIgScopedProfileCallBudgetForRequest(Math.min(Math.max(convsNeedingProfile.length, 25), 50));
     } else {
       resetIgScopedProfileCallBudget();
     }
@@ -892,7 +892,7 @@ export async function GET(
       (fullEnrich || (!badgePoll && !shouldBlockMetaNonEssentialCalls()))
     ) {
       const latestMsgMax = fullEnrich
-        ? Math.min(convsNeedingProfile.length, 40)
+        ? list.length
         : reduceFanOut
           ? 1
           : 3;

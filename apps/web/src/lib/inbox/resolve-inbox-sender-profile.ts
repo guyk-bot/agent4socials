@@ -353,12 +353,14 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
   if (!token) return list;
 
   const out = list.map((c) => ({ ...c, senders: [...c.senders] }));
-  const senderNeedsProfile = (s: InboxConversationListItem['senders'][number]) =>
-    !s.pictureUrl || (!(s.name?.trim()) && !(s.username?.trim()));
+  const senderNeedsPicture = (s: InboxConversationListItem['senders'][number]) => !s.pictureUrl;
+  const senderNeedsIdentity = (s: InboxConversationListItem['senders'][number]) =>
+    !(s.name?.trim() || s.username?.trim());
+  const convNeedsEnrich = (c: InboxConversationListItem) =>
+    c.senders.length === 0 ||
+    c.senders.some((s) => senderNeedsPicture(s) || senderNeedsIdentity(s));
 
-  const toFetch = out
-    .filter((c) => c.senders.some(senderNeedsProfile))
-    .slice(0, maxConversations);
+  const toFetch = out.filter(convNeedsEnrich).slice(0, maxConversations);
 
   for (const conv of toFetch) {
     const idx = out.findIndex((c) => c.id === conv.id);
@@ -377,10 +379,8 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
         return { ...s, pictureUrl: s.pictureUrl ?? best.pictureUrl ?? null, name: s.name || best.name, username: s.username || best.username };
       })
     );
-    const allResolved = cacheResolved.every(
-      (s) => !!s.pictureUrl || !!(s.name?.trim() || s.username?.trim())
-    );
-    if (allResolved) {
+    const allPicturesResolved = cacheResolved.every((s) => !!s.pictureUrl);
+    if (allPicturesResolved) {
       out[idx] = { ...out[idx], senders: cacheResolved };
       continue;
     }
@@ -410,29 +410,48 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
 
       out[idx] = {
         ...out[idx],
-        senders: out[idx].senders.map((s) => {
-          let p = s.id ? findParticipant(participants, s.id, s.username) : undefined;
-          if (!p && others.length === 1) p = others[0];
-          if (!p) return s;
-          const pictureUrl = s.pictureUrl ?? pictureFromRow(p);
-          const profile: InboxSenderProfile = {
-            name: s.name || p.name,
-            username: s.username || p.username,
-            pictureUrl,
-          };
-          if (s.id) cacheInstagramProfile(s.id, profile, p.id);
-          return { ...s, ...profile };
-        }),
+        senders:
+          out[idx].senders.length > 0
+            ? out[idx].senders.map((s) => {
+                let p = s.id ? findParticipant(participants, s.id, s.username) : undefined;
+                if (!p && others.length === 1) p = others[0];
+                if (!p) return s;
+                const pictureUrl = s.pictureUrl ?? pictureFromRow(p);
+                const profile: InboxSenderProfile = {
+                  name: s.name || p.name,
+                  username: s.username || p.username,
+                  pictureUrl,
+                };
+                if (s.id) cacheInstagramProfile(s.id, profile, p.id);
+                return { ...s, ...profile };
+              })
+            : others.length > 0
+              ? others.slice(0, 1).map((p) => {
+                  const pictureUrl = pictureFromRow(p);
+                  const profile: InboxSenderProfile = {
+                    name: p.name,
+                    username: p.username,
+                    pictureUrl,
+                  };
+                  if (p.id) cacheInstagramProfile(p.id, profile);
+                  return {
+                    id: p.id,
+                    name: p.name,
+                    username: p.username,
+                    pictureUrl,
+                  };
+                })
+              : out[idx].senders,
       };
     } catch {
       /* next conversation */
     }
 
-    // User Profile API (page token): only when display name is still missing (bills IGBusinessScopedID).
+    // User Profile API (page token): fill missing avatars (bills IGBusinessScopedID).
     if (pageToken) {
       for (const s of out[idx].senders) {
         if (!s.id || !isLikelyMetaScopedUserId(s.id)) continue;
-        if (s.name?.trim() || s.username?.trim()) continue;
+        if (s.pictureUrl) continue;
         if (igScopedProfileCallsThisRequest >= maxIgScopedProfileCallsThisRequest) break;
         try {
           const profile = await fetchIgUserProfileViaPageTokenBudgeted(s.id, pageToken);
@@ -473,7 +492,9 @@ export async function enrichFacebookAvatarsFromParticipants(args: {
   const out = list.map((c) => ({ ...c, senders: [...c.senders] }));
   const senderNeedsProfile = (s: InboxConversationListItem['senders'][number]) => !s.pictureUrl;
 
-  const toFetch = out.filter((c) => c.senders.some(senderNeedsProfile)).slice(0, maxConversations);
+  const toFetch = out
+    .filter((c) => c.senders.length === 0 || c.senders.some(senderNeedsProfile))
+    .slice(0, maxConversations);
 
   for (const conv of toFetch) {
     const idx = out.findIndex((c) => c.id === conv.id);
@@ -514,19 +535,38 @@ export async function enrichFacebookAvatarsFromParticipants(args: {
 
       out[idx] = {
         ...out[idx],
-        senders: out[idx].senders.map((s) => {
-          let p = s.id ? findParticipant(participants, s.id, s.username) : undefined;
-          if (!p && others.length === 1) p = others[0];
-          if (!p) return s;
-          const pictureUrl = s.pictureUrl ?? pictureFromRow(p);
-          const profile: InboxSenderProfile = {
-            name: s.name || p.name,
-            username: s.username || p.username,
-            pictureUrl,
-          };
-          if (s.id) cacheFacebookProfile(s.id, profile, p.id);
-          return { ...s, ...profile };
-        }),
+        senders:
+          out[idx].senders.length > 0
+            ? out[idx].senders.map((s) => {
+                let p = s.id ? findParticipant(participants, s.id, s.username) : undefined;
+                if (!p && others.length === 1) p = others[0];
+                if (!p) return s;
+                const pictureUrl = s.pictureUrl ?? pictureFromRow(p);
+                const profile: InboxSenderProfile = {
+                  name: s.name || p.name,
+                  username: s.username || p.username,
+                  pictureUrl,
+                };
+                if (s.id) cacheFacebookProfile(s.id, profile, p.id);
+                return { ...s, ...profile };
+              })
+            : others.length > 0
+              ? others.slice(0, 1).map((p) => {
+                  const pictureUrl = pictureFromRow(p);
+                  const profile: InboxSenderProfile = {
+                    name: p.name,
+                    username: p.username,
+                    pictureUrl,
+                  };
+                  if (p.id) cacheFacebookProfile(p.id, profile);
+                  return {
+                    id: p.id,
+                    name: p.name,
+                    username: p.username,
+                    pictureUrl,
+                  };
+                })
+              : out[idx].senders,
       };
     } catch {
       /* next conversation */
@@ -627,10 +667,13 @@ export async function enrichInboxSendersFromLatestMessages(args: {
 
   const senderNeedsIdentity = (s: InboxConversationListItem['senders'][number]) =>
     !(s.name?.trim() || s.username?.trim());
+  const convNeedsIdentity = (c: InboxConversationListItem) =>
+    c.senders.length === 0 ||
+    c.senders.some((s) => senderNeedsIdentity(s) || !s.pictureUrl);
 
   const out = list.map((c) => ({ ...c, senders: [...c.senders] }));
   const toFetch = out
-    .filter((c) => c.senders.length === 0 || c.senders.some(senderNeedsIdentity))
+    .filter((c) => (forceEnrich ? convNeedsIdentity(c) : c.senders.length === 0 || c.senders.some(senderNeedsIdentity)))
     .slice(0, maxConversations);
 
   for (const conv of toFetch) {

@@ -1765,6 +1765,17 @@ function InboxPage() {
               accountId: account.id,
             })
           );
+          const recipientName = res.data?.recipientName ?? null;
+          const recipientPictureUrl = res.data?.recipientPictureUrl ?? null;
+          if (recipientPictureUrl || recipientName) {
+            applySenderPicture(
+              conv.id,
+              recipientPictureUrl,
+              recipientName,
+              conv.senders?.[0]?.username,
+              account.id
+            );
+          }
         } catch {
           // Foreground open may retry; dedupe prevents parallel duplicate Meta calls.
         }
@@ -1775,7 +1786,7 @@ function InboxPage() {
         warmPromisesRef.current.delete(cacheKey);
       });
     },
-    [effectiveAccounts]
+    [effectiveAccounts, applySenderPicture]
   );
 
   // Background prefetch: newest conversations first so manual clicks on recent threads are usually instant.
