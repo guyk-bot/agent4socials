@@ -6,10 +6,11 @@ import { isTikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-complianc
 import { sendScheduleConfirmationEmail } from '@/lib/resend';
 import { friendlyMessageIfPrismaSchemaDrift } from '@/lib/prisma-db-hints';
 import {
+  buildPostScalarsSelect,
   isMissingPostMediaTypeColumn,
-  postScalarsSelectWithMediaType,
-  postScalarsSelectWithoutMediaType,
+  isMissingPostThreadsShareToInstagramColumn,
   prismaPostReadWithMediaTypeFallback,
+  stripMissingPostColumnsFromWriteData,
 } from '@/lib/prisma-post-media-type-fallback';
 import { mediaMetadataWithComposerType } from '@/lib/composer-media-type';
 
@@ -23,11 +24,11 @@ export async function GET(request: NextRequest) {
   }
   try {
     const posts = await withPrismaPoolRetry('GET /api/posts', () =>
-      prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+      prismaPostReadWithMediaTypeFallback((opts) =>
         prisma.post.findMany({
           where: { userId },
           select: {
-            ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
+            ...buildPostScalarsSelect(opts),
             media: true,
             targets: {
               include: {
@@ -217,7 +218,7 @@ export async function POST(request: NextRequest) {
   const createArgs = {
     data: baseCreateData as never,
     select: {
-      ...postScalarsSelectWithoutMediaType(),
+      ...buildPostScalarsSelect({ withMediaType: false, withThreadsShareToInstagram: false }),
       media: true,
       targets: {
         include: {
@@ -230,11 +231,12 @@ export async function POST(request: NextRequest) {
   try {
     post = await prisma.post.create(createArgs);
   } catch (createErr) {
-    if (!isMissingPostMediaTypeColumn(createErr)) throw createErr;
-    const { mediaType: _dropMediaType, ...withoutMediaType } = baseCreateData;
+    if (!isMissingPostMediaTypeColumn(createErr) && !isMissingPostThreadsShareToInstagramColumn(createErr)) {
+      throw createErr;
+    }
     post = await prisma.post.create({
       ...createArgs,
-      data: withoutMediaType as never,
+      data: stripMissingPostColumnsFromWriteData(baseCreateData, createErr) as never,
     });
   }
   if (scheduledAt) {

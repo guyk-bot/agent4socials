@@ -5,10 +5,11 @@ import { PostStatus, Platform, Prisma } from '@prisma/client';
 import { isTikTokDirectPostPayload, remapTikTokPublishPayloadForTargets } from '@/lib/tiktok/tiktok-publish-compliance';
 import { friendlyMessageIfPrismaSchemaDrift } from '@/lib/prisma-db-hints';
 import {
+  buildPostScalarsSelect,
   isMissingPostMediaTypeColumn,
-  postScalarsSelectWithMediaType,
-  postScalarsSelectWithoutMediaType,
+  isMissingPostThreadsShareToInstagramColumn,
   prismaPostReadWithMediaTypeFallback,
+  stripMissingPostColumnsFromWriteData,
 } from '@/lib/prisma-post-media-type-fallback';
 import { mediaMetadataWithComposerType } from '@/lib/composer-media-type';
 
@@ -29,11 +30,11 @@ export async function GET(
   const { id } = await params;
   try {
     const post = await withPrismaPoolRetry('GET /api/posts/:id', () =>
-      prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+      prismaPostReadWithMediaTypeFallback((opts) =>
         prisma.post.findFirst({
           where: { id, userId },
           select: {
-            ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
+            ...buildPostScalarsSelect(opts),
             media: true,
             targets: {
               include: {
@@ -71,11 +72,11 @@ export async function PATCH(
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   const { id } = await params;
-  const existing = await prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+  const existing = await prismaPostReadWithMediaTypeFallback((opts) =>
     prisma.post.findFirst({
       where: { id, userId },
       select: {
-        ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
+        ...buildPostScalarsSelect(opts),
         targets: true,
       },
     })
@@ -237,7 +238,7 @@ export async function PATCH(
       where: { id },
       data: updateData as never,
       select: {
-        ...postScalarsSelectWithoutMediaType(),
+        ...buildPostScalarsSelect({ withMediaType: false, withThreadsShareToInstagram: false }),
         media: true,
         targets: {
           include: {
@@ -250,13 +251,14 @@ export async function PATCH(
     try {
       post = await prisma.post.update(updateArgs);
     } catch (updateErr) {
-      if (!isMissingPostMediaTypeColumn(updateErr)) throw updateErr;
-      const { mediaType: _dropMediaType, ...withoutMediaType } = updateData;
+      if (!isMissingPostMediaTypeColumn(updateErr) && !isMissingPostThreadsShareToInstagramColumn(updateErr)) {
+        throw updateErr;
+      }
       post = await prisma.post.update({
         ...updateArgs,
-        data: withoutMediaType as never,
+        data: stripMissingPostColumnsFromWriteData(updateData, updateErr) as never,
         select: {
-          ...postScalarsSelectWithoutMediaType(),
+          ...buildPostScalarsSelect({ withMediaType: false, withThreadsShareToInstagram: false }),
           media: true,
           targets: {
             include: {

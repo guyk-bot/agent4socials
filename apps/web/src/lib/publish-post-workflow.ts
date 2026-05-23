@@ -26,8 +26,7 @@ import { refreshTwitterToken } from '@/lib/twitter-refresh';
 import { getValidPinterestToken } from '@/lib/pinterest-token';
 import { getValidThreadsToken } from '@/lib/threads/threads-token';
 import {
-  postScalarsSelectWithMediaType,
-  postScalarsSelectWithoutMediaType,
+  buildPostScalarsSelect,
   prismaPostReadWithMediaTypeFallback,
 } from '@/lib/prisma-post-media-type-fallback';
 import { resolveComposerMediaType } from '@/lib/composer-media-type';
@@ -323,7 +322,7 @@ export async function runPublishPostWorkflow(input: {
 
   try {
   const post = await withPrismaPoolRetry('publish-find-post', () =>
-    prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+    prismaPostReadWithMediaTypeFallback((opts) =>
     prisma.post.findFirst({
       where: isCron
         ? { id: postId, status: PostStatus.SCHEDULED, scheduledAt: { lte: new Date() }, scheduleDelivery: 'auto' }
@@ -331,7 +330,7 @@ export async function runPublishPostWorkflow(input: {
           ? { id: postId, emailOpenToken: linkToken, emailOpenTokenExpiresAt: { gte: new Date() } }
           : { id: postId, userId: userId! },
       select: {
-        ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
+        ...buildPostScalarsSelect(opts),
         media: true,
         targets: {
           include: {

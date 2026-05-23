@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import {
-  postScalarsSelectWithMediaType,
-  postScalarsSelectWithoutMediaType,
+  buildPostScalarsSelect,
   prismaPostReadWithMediaTypeFallback,
 } from '@/lib/prisma-post-media-type-fallback';
 
@@ -22,7 +21,7 @@ export async function GET(
   if (!t?.trim()) {
     return NextResponse.json({ message: 'Token required' }, { status: 400 });
   }
-  const post = await prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+  const post = await prismaPostReadWithMediaTypeFallback((opts) =>
     prisma.post.findFirst({
       where: {
         id: postId,
@@ -30,7 +29,7 @@ export async function GET(
         emailOpenTokenExpiresAt: { gte: new Date() },
       },
       select: {
-        ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
+        ...buildPostScalarsSelect(opts),
         media: true,
         targets: {
           include: {

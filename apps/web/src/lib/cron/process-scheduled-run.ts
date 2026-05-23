@@ -4,8 +4,7 @@ import { randomBytes } from 'crypto';
 import { sendScheduledPostLinksEmail, sendScheduledPublishFailureEmail } from '@/lib/resend';
 import { runPublishPostWorkflow } from '@/lib/publish-post-workflow';
 import {
-  postScalarsSelectWithMediaType,
-  postScalarsSelectWithoutMediaType,
+  buildPostScalarsSelect,
   prismaPostReadWithMediaTypeFallback,
 } from '@/lib/prisma-post-media-type-fallback';
 
@@ -33,7 +32,7 @@ export async function executeProcessScheduled(opts?: { chainCommentAutomation?: 
 
   let due;
   try {
-    due = await prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+    due = await prismaPostReadWithMediaTypeFallback((opts) =>
       prisma.post.findMany({
         where: {
           status: PostStatus.SCHEDULED,
@@ -42,7 +41,7 @@ export async function executeProcessScheduled(opts?: { chainCommentAutomation?: 
         orderBy: { scheduledAt: 'asc' },
         take: MAX_POSTS_PER_RUN,
         select: {
-          ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
+          ...buildPostScalarsSelect(opts),
           user: { select: { id: true, email: true } },
           targets: true,
         },

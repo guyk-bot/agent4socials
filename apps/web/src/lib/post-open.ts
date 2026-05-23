@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/db';
 import {
-  postScalarsSelectWithMediaType,
-  postScalarsSelectWithoutMediaType,
+  buildPostScalarsSelect,
   prismaPostReadWithMediaTypeFallback,
 } from '@/lib/prisma-post-media-type-fallback';
 
@@ -21,7 +20,7 @@ export type PostOpenData = {
 };
 
 export async function getPostForOpen(postId: string, token: string): Promise<PostOpenData | null> {
-  const post = await prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+  const post = await prismaPostReadWithMediaTypeFallback((opts) =>
     prisma.post.findFirst({
       where: {
         id: postId,
@@ -29,7 +28,7 @@ export async function getPostForOpen(postId: string, token: string): Promise<Pos
         emailOpenTokenExpiresAt: { gte: new Date() },
       },
       select: {
-        ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
+        ...buildPostScalarsSelect(opts),
         media: true,
         targets: {
           include: {

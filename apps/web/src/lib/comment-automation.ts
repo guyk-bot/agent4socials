@@ -8,8 +8,7 @@ import { getValidYoutubeToken } from '@/lib/youtube-token';
 import { linkedInAuthorUrnForUgc } from '@/lib/linkedin/sync-ugc-posts';
 import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 import {
-  postScalarsSelectWithMediaType,
-  postScalarsSelectWithoutMediaType,
+  buildPostScalarsSelect,
   prismaPostReadWithMediaTypeFallback,
 } from '@/lib/prisma-post-media-type-fallback';
 
@@ -126,7 +125,7 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
     where: { status: PostStatus.POSTED, commentAutomation: { not: Prisma.DbNull } },
   });
 
-  const posts = await prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+  const posts = await prismaPostReadWithMediaTypeFallback((opts) =>
     prisma.post.findMany({
       where: {
         status: PostStatus.POSTED,
@@ -135,7 +134,7 @@ export async function executeCommentAutomation(): Promise<CommentAutomationSumma
       orderBy: { updatedAt: 'desc' },
       take: maxPostsPerRun,
       select: {
-        ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
+        ...buildPostScalarsSelect(opts),
         targets: {
           where: { platformPostId: { not: null }, status: PostStatus.POSTED },
           include: {

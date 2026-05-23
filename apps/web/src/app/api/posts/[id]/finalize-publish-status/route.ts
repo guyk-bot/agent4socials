@@ -7,8 +7,7 @@ import {
   reconcileMisreportedPublishTargets,
 } from '@/lib/publish-post-workflow';
 import {
-  postScalarsSelectWithMediaType,
-  postScalarsSelectWithoutMediaType,
+  buildPostScalarsSelect,
   prismaPostReadWithMediaTypeFallback,
 } from '@/lib/prisma-post-media-type-fallback';
 
@@ -51,11 +50,11 @@ export async function POST(
           )
         : 0;
     const post = await withPrismaPoolRetry('finalize-publish-read', () =>
-      prismaPostReadWithMediaTypeFallback((withMediaTypeCol) =>
+      prismaPostReadWithMediaTypeFallback((opts) =>
         prisma.post.findFirst({
           where: { id, userId },
           select: {
-            ...(withMediaTypeCol ? postScalarsSelectWithMediaType() : postScalarsSelectWithoutMediaType()),
+            ...buildPostScalarsSelect(opts),
             targets: {
               include: { socialAccount: { select: { username: true, platform: true } } },
             },

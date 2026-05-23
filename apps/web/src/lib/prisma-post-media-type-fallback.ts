@@ -8,9 +8,15 @@ export function isMissingPostMediaTypeColumn(error: unknown): boolean {
   return msg.includes('mediaType') && msg.includes('does not exist');
 }
 
-/** Post scalars for SELECT — omit mediaType (DB may not have migrated yet). */
-export function postScalarsSelectWithoutMediaType(): Pick<
-  Prisma.PostSelect,
+export function isMissingPostThreadsShareToInstagramColumn(error: unknown): boolean {
+  const e = error as { message?: string; code?: string; meta?: { column?: unknown } };
+  const msg = String(e?.message ?? '');
+  const metaColumn = String(e?.meta?.column ?? '');
+  if (e?.code === 'P2022' && metaColumn.toLowerCase().includes('threadssharetoinstagram')) return true;
+  return msg.includes('threadsShareToInstagram') && msg.includes('does not exist');
+}
+
+type PostScalarKey =
   | 'id'
   | 'userId'
   | 'title'
@@ -30,7 +36,9 @@ export function postScalarsSelectWithoutMediaType(): Pick<
   | 'createdAt'
   | 'updatedAt'
   | 'targetPlatforms'
-> {
+  | 'mediaType';
+
+function postScalarsSelectCore(): Pick<Prisma.PostSelect, PostScalarKey> {
   return {
     id: true,
     userId: true,
@@ -40,7 +48,6 @@ export function postScalarsSelectWithoutMediaType(): Pick<
     mediaByPlatform: true,
     commentAutomation: true,
     tiktokPublishByAccountId: true,
-    threadsShareToInstagram: true,
     status: true,
     scheduledAt: true,
     scheduleDelivery: true,
@@ -54,22 +61,72 @@ export function postScalarsSelectWithoutMediaType(): Pick<
   };
 }
 
-/** Same as {@link postScalarsSelectWithoutMediaType} plus mediaType when the column exists. */
+export function buildPostScalarsSelect(opts: {
+  withMediaType?: boolean;
+  withThreadsShareToInstagram?: boolean;
+}): Pick<Prisma.PostSelect, PostScalarKey> {
+  return {
+    ...postScalarsSelectCore(),
+    ...(opts.withThreadsShareToInstagram ? { threadsShareToInstagram: true } : {}),
+    ...(opts.withMediaType ? { mediaType: true } : {}),
+  };
+}
+
+/** Post scalars when mediaType column may be missing (includes threadsShare when that column exists). */
+export function postScalarsSelectWithoutMediaType(): Pick<Prisma.PostSelect, PostScalarKey> {
+  return buildPostScalarsSelect({ withThreadsShareToInstagram: true });
+}
+
+/** Full post scalars when DB has mediaType and threadsShareToInstagram columns. */
 export function postScalarsSelectWithMediaType(): ReturnType<typeof postScalarsSelectWithoutMediaType> & {
   mediaType: true;
 } {
-  return { ...postScalarsSelectWithoutMediaType(), mediaType: true };
+  return buildPostScalarsSelect({ withMediaType: true, withThreadsShareToInstagram: true }) as ReturnType<
+    typeof postScalarsSelectWithoutMediaType
+  > & { mediaType: true };
 }
 
+export type PostReadSchemaOpts = { withMediaType: boolean; withThreadsShareToInstagram: boolean };
+
 /**
- * Run a Prisma read that prefers selecting `mediaType`, and retries without it when the DB
- * is behind migrations (column missing).
+ * Run a Prisma Post read, retrying with fewer columns when the DB is behind migrations.
  */
-export async function prismaPostReadWithMediaTypeFallback<T>(read: (includeMediaTypeCol: boolean) => Promise<T>): Promise<T> {
-  try {
-    return await read(true);
-  } catch (e) {
-    if (!isMissingPostMediaTypeColumn(e)) throw e;
-    return await read(false);
+export async function prismaPostReadWithMediaTypeFallback<T>(
+  read: (opts: PostReadSchemaOpts) => Promise<T>
+): Promise<T> {
+  const attempts: PostReadSchemaOpts[] = [
+    { withMediaType: true, withThreadsShareToInstagram: true },
+    { withMediaType: false, withThreadsShareToInstagram: true },
+    { withMediaType: true, withThreadsShareToInstagram: false },
+    { withMediaType: false, withThreadsShareToInstagram: false },
+  ];
+  let lastError: unknown;
+  for (const opts of attempts) {
+    try {
+      return await read(opts);
+    } catch (e) {
+      lastError = e;
+      if (!isMissingPostMediaTypeColumn(e) && !isMissingPostThreadsShareToInstagramColumn(e)) {
+        throw e;
+      }
+    }
   }
+  throw lastError;
+}
+
+/** Strip Post write fields that are not migrated yet. */
+export function stripMissingPostColumnsFromWriteData(
+  data: Record<string, unknown>,
+  error: unknown
+): Record<string, unknown> {
+  let next = { ...data };
+  if (isMissingPostMediaTypeColumn(error)) {
+    const { mediaType: _m, ...rest } = next;
+    next = rest;
+  }
+  if (isMissingPostThreadsShareToInstagramColumn(error)) {
+    const { threadsShareToInstagram: _t, ...rest } = next;
+    next = rest;
+  }
+  return next;
 }

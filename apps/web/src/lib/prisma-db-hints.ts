@@ -11,5 +11,11 @@ export function friendlyMessageIfPrismaSchemaDrift(err: unknown): string | null 
       'so migrations apply. Details: apps/web/MIGRATE.md (section: tiktokPublishByAccountId).'
     );
   }
+  if (msg.includes('threadsShareToInstagram') && msg.includes('does not exist')) {
+    return (
+      'Database is missing the Threads share column. In Supabase: SQL Editor → run ' +
+      'apps/web/scripts/ensure-post-threads-share-to-instagram-column.sql, then redeploy.'
+    );
+  }
   return null;
 }
