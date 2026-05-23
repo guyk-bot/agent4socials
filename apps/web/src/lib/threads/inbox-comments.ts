@@ -6,6 +6,7 @@
 import type { InboxCommentRow } from '@/lib/inbox/inbox-db-cache';
 import { threadsGet } from '@/lib/threads/threads-api';
 import { getValidThreadsToken } from '@/lib/threads/threads-token';
+import { waitForThreadsContainerReady } from '@/lib/threads/publish';
 
 export type ThreadsPostSource = {
   platformPostId: string;
@@ -127,6 +128,7 @@ function pushReplyRow(
     platform: 'THREADS',
     authorName: author || 'Threads user',
     authorPictureUrl: r.profile_picture_url ?? null,
+    threadsReplyToId: id,
     text: typeof r.text === 'string' ? r.text : '',
     createdAt: r.timestamp ? new Date(r.timestamp).toISOString() : new Date().toISOString(),
     isFromMe: false,
@@ -219,6 +221,7 @@ export async function fetchThreadsInboxComments(
       accountId: account.id,
       platform: 'THREADS',
       authorName: author || 'Threads user',
+      threadsReplyToId: id,
       text: typeof m.text === 'string' && m.text.trim() ? m.text : '@mention',
       createdAt: m.timestamp ? new Date(m.timestamp).toISOString() : new Date().toISOString(),
       isFromMe: false,
@@ -265,26 +268,79 @@ export async function fetchThreadsInboxComments(
 /** Legacy inbox cache stored post id as parentCommentId; normalize so rows appear in Comments tab. */
 export { normalizeThreadsInboxCommentRow } from '@/lib/threads/normalize-threads-inbox-comment';
 
+async function threadsMediaExists(
+  mediaId: string,
+  token: string
+): Promise<boolean> {
+  const id = mediaId.replace(/^\//, '').trim();
+  if (!id) return false;
+  const { status, data } = await threadsGet<{ id?: string }>(id, token, { fields: 'id' });
+  return status === 200 && !!data?.id;
+}
+
+/** Pick a reply_to_id that exists for this token (reply media, else root thread). */
+export async function resolveThreadsReplyToMediaId(
+  token: string,
+  args: {
+    commentId: string;
+    platformPostId?: string | null;
+    threadsReplyToId?: string | null;
+    parentCommentId?: string | null;
+  }
+): Promise<{ replyToId: string; usedRootFallback: boolean } | { error: string }> {
+  const candidates = [
+    args.threadsReplyToId,
+    threadsReplyToMediaId(args),
+    args.parentCommentId,
+    args.platformPostId,
+  ]
+    .map((x) => (typeof x === 'string' ? x.replace(/^\//, '').trim() : ''))
+    .filter((x) => x.length > 0);
+  const unique = [...new Set(candidates)];
+
+  for (let i = 0; i < unique.length; i++) {
+    const id = unique[i]!;
+    if (await threadsMediaExists(id, token)) {
+      return { replyToId: id, usedRootFallback: i > 0 && id === (args.platformPostId ?? '').trim() };
+    }
+  }
+
+  return {
+    error:
+      'This Threads comment could not be found. Refresh Comments in Inbox, then try again. If it still fails, reconnect Threads from Account.',
+  };
+}
+
 export async function postThreadsReply(
   account: { id: string; accessToken: string; expiresAt?: Date | null },
-  replyToMediaId: string,
-  message: string
+  args: {
+    commentId: string;
+    message: string;
+    platformPostId?: string | null;
+    threadsReplyToId?: string | null;
+    parentCommentId?: string | null;
+  }
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const token = await getValidThreadsToken(account);
   const { threadsPostForm } = await import('@/lib/threads/threads-api');
 
-  const text = message.trim().slice(0, 500);
+  const text = args.message.trim().slice(0, 500);
   if (!text) {
     return { ok: false, message: 'Reply text is required.' };
   }
 
-  const replyToId = replyToMediaId.replace(/^\//, '').trim();
-  if (!replyToId) {
-    return { ok: false, message: 'Missing Threads post id to reply to.' };
+  const resolved = await resolveThreadsReplyToMediaId(token, {
+    commentId: args.commentId,
+    platformPostId: args.platformPostId,
+    threadsReplyToId: args.threadsReplyToId,
+    parentCommentId: args.parentCommentId,
+  });
+  if ('error' in resolved) {
+    return { ok: false, message: resolved.error };
   }
+  const replyToId = resolved.replyToId;
 
   // Official flow: POST me/threads with reply_to_id, then threads_publish.
-  // POST {id}/replies is not supported and returns "Unsupported post request".
   const create = await threadsPostForm<{ id?: string; error?: { message?: string } }>(
     'me/threads',
     token,
@@ -295,20 +351,44 @@ export async function postThreadsReply(
     }
   );
   if (create.status !== 200 || !create.data?.id) {
-    const msg =
+    const raw =
       create.data?.error?.message ?? `Threads could not create reply (HTTP ${create.status})`;
-    return { ok: false, message: msg.slice(0, 300) };
+    const lower = raw.toLowerCase();
+    if (lower.includes('does not exist') || lower.includes('not exist')) {
+      return {
+        ok: false,
+        message:
+          'Threads could not find that comment or thread. Refresh Comments, then try again. Reconnect Threads if the problem continues.',
+      };
+    }
+    if (lower.includes('permission') || lower.includes('scope')) {
+      return {
+        ok: false,
+        message:
+          'Threads reply permission missing. Reconnect Threads from Account and approve threads_manage_replies.',
+      };
+    }
+    return { ok: false, message: raw.slice(0, 300) };
+  }
+
+  const containerId = create.data.id;
+  const ready = await waitForThreadsContainerReady(containerId, token, 45_000);
+  if (!ready) {
+    return {
+      ok: false,
+      message: 'Threads is still processing your reply. Wait a moment and try again.',
+    };
   }
 
   const pub = await threadsPostForm<{ id?: string; error?: { message?: string } }>(
     'me/threads_publish',
     token,
-    { creation_id: create.data.id }
+    { creation_id: containerId }
   );
   if (pub.status !== 200 || !pub.data?.id) {
-    const msg =
+    const raw =
       pub.data?.error?.message ?? `Threads could not publish reply (HTTP ${pub.status})`;
-    return { ok: false, message: msg.slice(0, 300) };
+    return { ok: false, message: raw.slice(0, 300) };
   }
 
   return { ok: true };
@@ -318,11 +398,17 @@ export async function postThreadsReply(
 export function threadsReplyToMediaId(args: {
   commentId: string;
   platformPostId?: string | null;
+  threadsReplyToId?: string | null;
+  parentCommentId?: string | null;
 }): string {
+  const explicit = args.threadsReplyToId?.trim();
+  if (explicit) return explicit.replace(/^\//, '');
   const commentId = args.commentId.trim();
   if (commentId.startsWith('mention-')) {
     return commentId.replace(/^mention-/, '');
   }
-  if (commentId) return commentId;
-  return (args.platformPostId ?? '').trim();
+  if (commentId) return commentId.replace(/^\//, '');
+  const parent = args.parentCommentId?.trim();
+  if (parent) return parent.replace(/^\//, '');
+  return (args.platformPostId ?? '').trim().replace(/^\//, '');
 }

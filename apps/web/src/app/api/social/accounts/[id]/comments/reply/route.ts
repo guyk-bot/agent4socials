@@ -30,8 +30,11 @@ export async function POST(
     message?: string;
     linkedInObjectUrn?: string;
     platformPostId?: string;
+    threadsReplyToId?: string;
+    parentCommentId?: string;
   };
-  const { commentId, message, linkedInObjectUrn, platformPostId } = body;
+  const { commentId, message, linkedInObjectUrn, platformPostId, threadsReplyToId, parentCommentId } =
+    body;
 
   if (!commentId || !message?.trim()) {
     return NextResponse.json({ message: 'commentId and message are required' }, { status: 400 });
@@ -120,25 +123,20 @@ export async function POST(
     }
 
     if (platform === 'THREADS') {
-      const { postThreadsReply, threadsReplyToMediaId } = await import('@/lib/threads/inbox-comments');
-      const replyToId = threadsReplyToMediaId({
-        commentId: commentId.trim(),
-        platformPostId: typeof platformPostId === 'string' ? platformPostId : undefined,
-      });
-      if (!replyToId) {
-        return NextResponse.json(
-          { message: 'Threads reply: missing post id. Refresh Comments and try again.' },
-          { status: 400 }
-        );
-      }
+      const { postThreadsReply } = await import('@/lib/threads/inbox-comments');
       const result = await postThreadsReply(
         {
           id: account.id,
           accessToken: account.accessToken ?? '',
           expiresAt: account.expiresAt,
         },
-        replyToId,
-        message.trim()
+        {
+          commentId: commentId.trim(),
+          message: message.trim(),
+          platformPostId: typeof platformPostId === 'string' ? platformPostId : undefined,
+          threadsReplyToId: typeof threadsReplyToId === 'string' ? threadsReplyToId : undefined,
+          parentCommentId: typeof parentCommentId === 'string' ? parentCommentId : undefined,
+        }
       );
       if (!result.ok) {
         return NextResponse.json({ message: result.message }, { status: 400 });

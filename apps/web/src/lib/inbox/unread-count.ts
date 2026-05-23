@@ -1,6 +1,7 @@
 import {
   getConversationLastReadCounts,
   getConversationLastSeenUpdated,
+  getInboxInitializedAccountIds,
   getInboxInitializedAccountIdsForConversations,
   getReadCommentIds,
   getReadConversationIds,
@@ -30,10 +31,25 @@ export type InboxUnreadConversation = {
 export type InboxUnreadComment = {
   commentId: string;
   platform?: string;
+  accountId?: string;
   /** Outbound comments you wrote should not inflate the badge. */
   isFromMe?: boolean;
   parentCommentId?: string | null;
 };
+
+/** Whether a top-level comment should count as unread (nav badge + inbox row). */
+export function isCommentUnread(
+  c: InboxUnreadComment,
+  readComments: Set<string>,
+  initializedCommentAccounts: Set<string>
+): boolean {
+  if (!c.commentId || c.isFromMe || c.parentCommentId) return false;
+  if (readComments.has(c.commentId)) return false;
+  const accId = c.accountId;
+  // Historical inbox load: do not flash every cached comment as "new" before first sync.
+  if (accId && !initializedCommentAccounts.has(accId)) return false;
+  return true;
+}
 
 /** Unread top-level comments from persisted read state + sticky pending (survives refresh). */
 export function deriveUnreadTopLevelCommentIds(
@@ -42,12 +58,15 @@ export function deriveUnreadTopLevelCommentIds(
 ): Set<string> {
   const readSet = getReadCommentIds(userId);
   const pending = getPendingUnreadCommentIds(userId);
+  const initialized = getInboxInitializedAccountIds(userId);
   const unread = new Set<string>();
   for (const c of topLevel) {
     if (!c.commentId || c.isFromMe) continue;
-    if (pending.has(c.commentId) || !readSet.has(c.commentId)) {
+    if (pending.has(c.commentId)) {
       unread.add(c.commentId);
+      continue;
     }
+    if (isCommentUnread(c, readSet, initialized)) unread.add(c.commentId);
   }
   return unread;
 }
@@ -152,16 +171,9 @@ export function ensurePendingIdsForUnreadCounts(
   }
 
   const readComments = getReadCommentIds(userId);
-  const pendingComments = getPendingUnreadCommentIds(userId);
-  for (const c of comments) {
-    if (!c.commentId || c.isFromMe) continue;
-    if (!readComments.has(c.commentId) && !pendingComments.has(c.commentId)) {
-      addPendingUnreadCommentIds([c.commentId], userId, c.platform);
-    }
-  }
-}
+  const initializedCommentAccounts = getInboxInitializedAccountIds(userId);
 
-/** Keep the last non-zero badge across refresh until the user clears it by reading. */
+  for (const c of conversations) {
 export function mergeInboxBadgeWithSnapshot(
   computed: InboxHeaderUnread,
   userId: string

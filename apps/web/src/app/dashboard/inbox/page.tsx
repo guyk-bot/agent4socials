@@ -204,6 +204,8 @@ type PostComment = {
   parentCommentId?: string | null;
   /** LinkedIn Community Management: thread URN from GET /comments (required for replies). */
   linkedInObjectUrn?: string | null;
+  /** Threads: media id for reply_to_id (from inbox sync). */
+  threadsReplyToId?: string | null;
 };
 type EngagementItem = {
   platformPostId: string;
@@ -2951,7 +2953,9 @@ function InboxPage() {
                 const isUnread = isCommentNewNotification(c.commentId);
                 const hasReplied = hasRepliedByParent.has(c.commentId);
                 const isSelected = selectMode && selectedCommentIds.has(c.commentId);
-                const account = effectiveAccounts.find((a) => a.platform === c.platform);
+                const account =
+                  effectiveAccounts.find((a) => a.id === c.accountId) ??
+                  effectiveAccounts.find((a) => a.platform === c.platform);
                 const canDelete = account && (c.platform === 'INSTAGRAM' || c.platform === 'FACEBOOK' || c.platform === 'YOUTUBE' || c.platform === 'TWITTER');
                 return (
                   <div
@@ -3850,7 +3854,9 @@ function InboxPage() {
                           .map((c) => {
                             const msg = (batchCommentTexts[c.commentId] ?? '').trim();
                             if (!msg) return null;
-                            const account = effectiveAccounts.find((a) => a.platform === c.platform);
+                            const account =
+                              effectiveAccounts.find((a) => a.id === c.accountId) ??
+                              effectiveAccounts.find((a) => a.platform === c.platform);
                             if (!account) return null;
                             return { c, msg, account };
                           })
@@ -3875,7 +3881,13 @@ function InboxPage() {
                             api.post(`/social/accounts/${account.id}/comments/reply`, {
                               commentId: c.commentId,
                               message: msg,
-                              ...(c.platform === 'THREADS' ? { platformPostId: c.platformPostId } : {}),
+                              ...(c.platform === 'THREADS'
+                                ? {
+                                    platformPostId: c.platformPostId,
+                                    threadsReplyToId: c.threadsReplyToId,
+                                    parentCommentId: c.parentCommentId,
+                                  }
+                                : {}),
                               ...(c.platform === 'LINKEDIN' && c.linkedInObjectUrn
                                 ? { linkedInObjectUrn: c.linkedInObjectUrn }
                                 : {}),
@@ -4155,7 +4167,9 @@ function InboxPage() {
                         onClick={async (e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          const account = effectiveAccounts.find((a) => a.platform === selectedComment.platform);
+                          const account =
+                            effectiveAccounts.find((a) => a.id === selectedComment.accountId) ??
+                            effectiveAccounts.find((a) => a.platform === selectedComment.platform);
                           if (!account || !selectedComment) return;
                           setDeletingCommentId(selectedComment.commentId);
                           setReplySendError(null);
@@ -4324,7 +4338,9 @@ function InboxPage() {
                   type="button"
                   disabled={replySending || aiReplyLoading || !replyText.trim()}
                   onClick={async () => {
-                    const account = effectiveAccounts.find((a) => a.platform === selectedComment.platform);
+                    const account =
+                      effectiveAccounts.find((a) => a.id === selectedComment.accountId) ??
+                      effectiveAccounts.find((a) => a.platform === selectedComment.platform);
                     if (!account || !selectedComment) return;
                     if (aiReplyLoading) return;
                     setReplySending(true);
@@ -4334,7 +4350,11 @@ function InboxPage() {
                         commentId: selectedComment.commentId,
                         message: sentMessage,
                         ...(selectedComment.platform === 'THREADS'
-                          ? { platformPostId: selectedComment.platformPostId }
+                          ? {
+                              platformPostId: selectedComment.platformPostId,
+                              threadsReplyToId: selectedComment.threadsReplyToId,
+                              parentCommentId: selectedComment.parentCommentId,
+                            }
                           : {}),
                         ...(selectedComment.platform === 'LINKEDIN' && selectedComment.linkedInObjectUrn
                           ? { linkedInObjectUrn: selectedComment.linkedInObjectUrn }

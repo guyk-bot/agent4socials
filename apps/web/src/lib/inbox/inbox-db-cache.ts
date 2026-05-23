@@ -198,6 +198,8 @@ export type InboxCommentRow = {
   authorName: string;
   /** Meta scoped user id when known (used to resolve profile photos). */
   authorPlatformUserId?: string | null;
+  /** Threads: media id for reply_to_id when posting a reply from Inbox. */
+  threadsReplyToId?: string | null;
   authorPictureUrl?: string | null;
   text: string;
   createdAt: string;
@@ -250,6 +252,7 @@ function mergeCommentRows(existing: InboxCommentRow[], incoming: InboxCommentRow
       ...row,
       authorPictureUrl: row.authorPictureUrl ?? prev?.authorPictureUrl ?? null,
       authorPlatformUserId: row.authorPlatformUserId ?? prev?.authorPlatformUserId ?? null,
+      threadsReplyToId: row.threadsReplyToId ?? prev?.threadsReplyToId ?? null,
       authorName: row.authorName?.trim() ? row.authorName : prev?.authorName ?? row.authorName,
     });
   }
