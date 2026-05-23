@@ -5,6 +5,11 @@ import { getTwitterOAuth1 } from '@/lib/twitter-oauth1';
 import axios from 'axios';
 import { Platform } from '@prisma/client';
 import { META_GRAPH_FACEBOOK_API_VERSION } from '@/lib/meta-graph-insights';
+import {
+  defaultThreadsOAuthScopes,
+  threadsAppId,
+  threadsAppSecret,
+} from '@/lib/threads/threads-api';
 
 /** OAuth start must never be statically cached. */
 export const dynamic = 'force-dynamic';
@@ -117,15 +122,9 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
     }
     case 'THREADS': {
       const threadsRedirect = (process.env.THREADS_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
-      const clientId = encodeURIComponent(
-        process.env.THREADS_APP_ID?.trim() || process.env.META_APP_ID?.trim() || ''
-      );
-      const scopes = encodeURIComponent(
-        typeof process.env.THREADS_OAUTH_SCOPES === 'string' && process.env.THREADS_OAUTH_SCOPES.trim()
-          ? process.env.THREADS_OAUTH_SCOPES.trim()
-          : 'threads_basic,threads_content_publish,threads_manage_insights,threads_read_replies,threads_manage_replies,threads_manage_mentions,threads_share_to_instagram'
-      );
-      return `https://threads.net/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(threadsRedirect)}&scope=${scopes}&response_type=code&state=${encodeURIComponent(state)}`;
+      const appId = threadsAppId();
+      const scopes = encodeURIComponent(defaultThreadsOAuthScopes());
+      return `https://www.threads.net/oauth/authorize?client_id=${encodeURIComponent(appId)}&redirect_uri=${encodeURIComponent(threadsRedirect)}&scope=${scopes}&response_type=code&state=${encodeURIComponent(state)}`;
     }
     case 'PINTEREST': {
       const pinRedirect = (process.env.PINTEREST_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
@@ -250,13 +249,11 @@ export async function GET(
         );
       }
     } else if (plat === 'THREADS') {
-      const hasMetaId = Boolean(process.env.META_APP_ID?.trim() || process.env.THREADS_APP_ID?.trim());
-      const hasMetaSecret = Boolean(process.env.META_APP_SECRET?.trim() || process.env.THREADS_APP_SECRET?.trim());
-      if (!hasMetaId || !hasMetaSecret) {
+      if (!threadsAppId() || !threadsAppSecret()) {
         return NextResponse.json(
           {
             message:
-              'Threads requires META_APP_ID and META_APP_SECRET (same Meta app with Access the Threads API) in Vercel.',
+              'Threads is not configured. In Meta → your app → Threads settings → Basic, copy Threads App ID and Threads App Secret into Vercel as THREADS_APP_ID and THREADS_APP_SECRET (or META_APP_ID and META_APP_SECRET if you use one Meta app for everything). Enable Production, then redeploy.',
           },
           { status: 503 }
         );
@@ -275,6 +272,20 @@ export async function GET(
       }
     }
     const url = getOAuthUrl(plat, userId, method);
+    if (plat === 'THREADS') {
+      const parsed = new URL(url);
+      const clientId = parsed.searchParams.get('client_id')?.trim();
+      if (!clientId) {
+        console.error('[Social OAuth] Threads authorize URL missing client_id');
+        return NextResponse.json(
+          {
+            message:
+              'Threads App ID is missing on the server. Set THREADS_APP_ID and THREADS_APP_SECRET in Vercel (from Meta → Threads → Basic), enable Production, and redeploy.',
+          },
+          { status: 503 }
+        );
+      }
+    }
     return NextResponse.json({ url });
   } catch (e) {
     const err = e as Error;

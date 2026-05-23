@@ -1699,8 +1699,15 @@ export default function DashboardPage() {
       } else {
         const msg = getMessage(err);
         if (msg) {
-          if (msg.includes('META_APP_ID') || msg.includes('META_APP_SECRET')) {
-            setAlertMessage('Set META_APP_ID and META_APP_SECRET in Vercel.');
+          if (
+            msg.includes('META_APP_ID') ||
+            msg.includes('META_APP_SECRET') ||
+            msg.includes('THREADS_APP_ID') ||
+            msg.includes('Threads App ID')
+          ) {
+            setAlertMessage(
+              'Threads needs THREADS_APP_ID and THREADS_APP_SECRET in Vercel (Meta → Threads → Basic). Redeploy after saving.'
+            );
           } else if (msg === 'Unauthorized') {
             setAlertMessage('Sign out and back in, then try Connect again.');
           } else {
