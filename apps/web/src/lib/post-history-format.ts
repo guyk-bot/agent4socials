@@ -96,6 +96,45 @@ export function isPostHistoryVerticalThumb(format: PostHistoryFormat): boolean {
   return format.key === 'reel' || format.key === 'story';
 }
 
+/** Synced/imported posts on platform dashboards (Threads, X, LinkedIn, Facebook text). */
+export function isAnalyticsTextOnlyPost(post: {
+  platform?: string | null;
+  mediaType?: string | null;
+  thumbnailUrl?: string | null;
+}): boolean {
+  const plat = (post.platform ?? '').toUpperCase();
+  const mt = (post.mediaType ?? '').trim().toUpperCase();
+  const thumb = (post.thumbnailUrl ?? '').trim();
+
+  const textCapable = plat === 'TWITTER' || plat === 'X' || plat === 'THREADS' || plat === 'LINKEDIN' || plat === 'FACEBOOK';
+  if (!textCapable) return false;
+
+  if (mt === 'TEXT' || mt === 'NOTE') return true;
+
+  const hasVisualMedia =
+    mt.includes('VIDEO') ||
+    mt.includes('REEL') ||
+    mt === 'IMAGE' ||
+    mt === 'PHOTO' ||
+    mt.includes('CAROUSEL') ||
+    mt.includes('ALBUM') ||
+    mt === 'STORY' ||
+    mt === 'GIF' ||
+    mt === 'ANIMATED_GIF';
+
+  if (hasVisualMedia) return false;
+
+  if (plat === 'TWITTER' || plat === 'X') return !thumb;
+
+  if (plat === 'THREADS') return !mt || mt === 'TEXT';
+
+  if (plat === 'LINKEDIN') return !thumb;
+
+  if (plat === 'FACEBOOK') return !thumb && (!mt || mt === 'POST' || mt === 'STATUS' || mt === 'TEXT');
+
+  return false;
+}
+
 export type PostHistoryFormatFilterValue = 'ALL' | PostHistoryFormatKey;
 
 export const POST_HISTORY_FORMAT_FILTER_OPTIONS: { value: PostHistoryFormatFilterValue; label: string }[] = [

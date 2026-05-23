@@ -49,8 +49,10 @@ export async function syncThreadsPosts(account: {
     const publishedAt = row.timestamp ? new Date(row.timestamp) : new Date();
     const content = typeof row.text === 'string' ? row.text : null;
     const thumb =
-      (typeof row.thumbnail_url === 'string' ? row.thumbnail_url : null) ||
-      (typeof row.media_url === 'string' && row.media_type === 'IMAGE' ? row.media_url : null);
+      row.media_type === 'TEXT'
+        ? null
+        : (typeof row.thumbnail_url === 'string' ? row.thumbnail_url : null) ||
+          (typeof row.media_url === 'string' && row.media_type === 'IMAGE' ? row.media_url : null);
     await prisma.importedPost.upsert({
       where: {
         socialAccountId_platformPostId: {

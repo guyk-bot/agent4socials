@@ -40,6 +40,7 @@ import {
 } from '@/lib/youtube-video-format';
 import { useTheme } from '@/context/ThemeContext';
 import { isStoryPost, storyPostInteractions } from '@/lib/analytics/story-post';
+import { PostContentPreviewThumb } from '@/components/PostContentPreviewThumb';
 
 export { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
 
@@ -2283,20 +2284,17 @@ export function PostsPerformanceTable({
                         <ExternalLink size={14} />
                       </Link>
                     ) : null}
-                    {r.rawPost.thumbnailUrl || platUpper !== 'TWITTER' ? (
-                      <div className="relative shrink-0 flex items-start">
-                        {r.rawPost.thumbnailUrl ? (
-                          <img
-                            src={r.rawPost.thumbnailUrl}
-                            alt=""
-                            className="w-9 h-9 rounded object-cover shrink-0"
-                            {...pinterestCdnImgProps(r.rawPost.thumbnailUrl)}
-                          />
-                        ) : (
-                          <div className="w-9 h-9 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
-                        )}
-                      </div>
-                    ) : null}
+                    {(() => {
+                      const preview = (
+                        <PostContentPreviewThumb
+                          platform={r.rawPost.platform ?? platform}
+                          mediaType={r.rawPost.mediaType}
+                          thumbnailUrl={r.rawPost.thumbnailUrl}
+                          imgExtraProps={pinterestCdnImgProps(r.rawPost.thumbnailUrl)}
+                        />
+                      );
+                      return preview ? <div className="relative shrink-0 flex items-start">{preview}</div> : null;
+                    })()}
                     <div className="min-w-0 flex-1 pt-0.5">
                       <p
                         className="text-[13px] leading-snug line-clamp-4"
@@ -2389,20 +2387,19 @@ export function PostsPerformanceTable({
                   <ExternalLink size={14} />
                 </Link>
               ) : null}
-              {r.rawPost.thumbnailUrl || platUpper !== 'TWITTER' ? (
-                <div className="flex shrink-0 items-start">
-                  {r.rawPost.thumbnailUrl ? (
-                    <img
-                      src={r.rawPost.thumbnailUrl}
-                      alt=""
-                      className="w-10 h-10 rounded object-cover shrink-0"
-                      {...pinterestCdnImgProps(r.rawPost.thumbnailUrl)}
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
-                  )}
-                </div>
-              ) : null}
+              {(() => {
+                const preview = (
+                  <PostContentPreviewThumb
+                    platform={r.rawPost.platform ?? platform}
+                    mediaType={r.rawPost.mediaType}
+                    thumbnailUrl={r.rawPost.thumbnailUrl}
+                    className="w-10 h-10"
+                    imgClassName="w-10 h-10 rounded object-cover shrink-0"
+                    imgExtraProps={pinterestCdnImgProps(r.rawPost.thumbnailUrl)}
+                  />
+                );
+                return preview ? <div className="flex shrink-0 items-start">{preview}</div> : null;
+              })()}
               <div className="min-w-0 flex-1">
                 <p className="text-sm line-clamp-5 leading-snug" style={{ color: COLOR.text }} title={(r.preview || '').trim() || undefined}>
                   {normalizePostPreview(r.preview || '') || '—'}
