@@ -1,16 +1,23 @@
 /** Message type posted from OAuth popup back to the opener tab after connect succeeds. */
 export const OAUTH_COMPLETE_MESSAGE = 'agent4socials-oauth-complete';
 
-/** Open platform OAuth in a new browser tab (keeps the app open in the current tab). */
-export function openOAuthConnectUrl(url: string): Window | null {
-  const popup = window.open(url, '_blank', 'noopener,noreferrer');
+export type OpenOAuthConnectResult = { opened: boolean; blocked: boolean };
+
+/**
+ * Open platform OAuth in a new tab. Keeps opener so the callback can postMessage back.
+ * Do not use noopener here: it breaks window.opener and leaves two dashboard tabs open.
+ */
+export function openOAuthConnectUrl(url: string): OpenOAuthConnectResult {
+  const popup = window.open(url, '_blank');
   if (!popup) {
-    // Popup blocked: fall back so connect still works.
-    window.location.href = url;
-    return null;
+    return { opened: false, blocked: true };
   }
-  popup.focus();
-  return popup;
+  try {
+    popup.focus();
+  } catch {
+    /* ignore */
+  }
+  return { opened: true, blocked: false };
 }
 
 /** Listen for OAuth completion from a popup tab. Returns cleanup. */

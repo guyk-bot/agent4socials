@@ -164,7 +164,9 @@ export async function exchangeThreadsCodeForShortLivedToken(
         : `Threads token exchange failed (HTTP ${r.status}). Confirm THREADS_APP_ID and THREADS_APP_SECRET in Vercel match Meta → Threads → Settings, and redirect URI is exactly ${redirectUri}`
     );
   }
-  return { accessToken: r.data.access_token, userId: r.data.user_id };
+  const userId =
+    r.data.user_id !== undefined && r.data.user_id !== null ? String(r.data.user_id) : undefined;
+  return { accessToken: r.data.access_token, userId };
 }
 
 /** Exchange short-lived token for long-lived (about 60 days). */

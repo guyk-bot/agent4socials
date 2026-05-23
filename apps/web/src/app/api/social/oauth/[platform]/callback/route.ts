@@ -19,6 +19,7 @@ import { resolveLinkedInAuthorUrn } from '@/lib/linkedin/rest-person';
 import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 import { scheduleInboxWarmForUser } from '@/lib/inbox/schedule-inbox-warm';
 import { resolvePrismaUserIdFromOAuthState } from '@/lib/get-prisma-user';
+import { OAUTH_COMPLETE_MESSAGE } from '@/lib/oauth-connect';
 import { isPrismaPoolError } from '@/lib/db';
 
 export const maxDuration = 60;
@@ -52,6 +53,38 @@ if (window.opener) { try { window.close(); } catch (e) {} }
 </script>
 </body></html>`;
   return new NextResponse(html, { status, headers: { 'Content-Type': 'text/html' } });
+}
+
+function oauthSuccessHtml(
+  baseUrl: string,
+  accountId: string,
+  extraQuery: string,
+  connectParams: string
+): NextResponse {
+  const dashboardUrl = `${baseUrl.replace(/\/+$/, '')}/dashboard?accountId=${encodeURIComponent(accountId)}&connecting=1${extraQuery}${connectParams}`;
+  const safeUrl = JSON.stringify(dashboardUrl);
+  const safeAccountId = JSON.stringify(accountId);
+  const msgType = JSON.stringify(OAUTH_COMPLETE_MESSAGE);
+  const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Connected</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;">
+<h2 style="color:#15803d;">Account connected</h2>
+<p>You can close this tab and return to Agent4Socials.</p>
+<script>
+(function () {
+  var dashboardUrl = ${safeUrl};
+  var accountId = ${safeAccountId};
+  if (window.opener) {
+    try {
+      window.opener.postMessage({ type: ${msgType}, accountId: accountId }, window.location.origin);
+    } catch (e) {}
+    setTimeout(function () { try { window.close(); } catch (e2) {} }, 400);
+    return;
+  }
+  window.location.replace(dashboardUrl);
+})();
+</script>
+<p><a href="${dashboardUrl.replace(/"/g, '&quot;')}">Continue in app</a></p>
+</body></html>`;
+  return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
 }
 
 type TokenResult = {
@@ -497,7 +530,9 @@ async function exchangeCode(
       const expiresAt = new Date(
         Date.now() + (long?.expiresInSec ?? 60 * 24 * 60 * 60) * 1000
       );
-      let platformUserId = short.userId?.trim() || 'threads-' + accessToken.slice(-8);
+      const threadsUserId =
+        short.userId !== undefined && short.userId !== null ? String(short.userId).trim() : '';
+      let platformUserId = threadsUserId || 'threads-' + accessToken.slice(-8);
       let username = 'Threads';
       let profilePicture: string | null = null;
       try {
@@ -1349,8 +1384,8 @@ export async function GET(
     scheduleInboxWarmForUser(userId);
   }
   const genericConnectParams = buildConnectParams(plat, tokenData.username, tokenData.profilePicture ?? null);
-  const successRedirectUrl = mainAccount?.id
-    ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(mainAccount.id)}&connecting=1${extraQuery}${genericConnectParams}`
-    : `${baseUrl}/dashboard`;
-  return NextResponse.redirect(successRedirectUrl);
+  if (mainAccount?.id) {
+    return oauthSuccessHtml(baseUrl, mainAccount.id, extraQuery, genericConnectParams);
+  }
+  return NextResponse.redirect(`${baseUrl}/dashboard`);
 }

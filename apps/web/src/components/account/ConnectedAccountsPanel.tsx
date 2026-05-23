@@ -179,7 +179,12 @@ export function ConnectedAccountsPanel() {
                         try {
                           const res = await api.get(`/social/oauth/${acc.platform.toLowerCase()}/start`);
                           const url = res?.data?.url;
-                          if (url && typeof url === 'string') openOAuthConnectUrl(url);
+                          if (url && typeof url === 'string') {
+                            const opened = openOAuthConnectUrl(url);
+                            if (opened.blocked) {
+                              alert('Allow pop-ups for agent4socials.com, then try Reconnect again.');
+                            }
+                          }
                         } catch (_) {}
                         setReconnectingId(null);
                       }}

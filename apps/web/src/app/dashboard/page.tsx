@@ -674,6 +674,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     return listenForOAuthComplete((accountId) => {
+      setSelectedPlatformForConnect(null);
       void fetchAccounts().then((list) => {
         if (accountId) {
           setSelectedAccountId(accountId);
@@ -1709,7 +1710,13 @@ export default function DashboardPage() {
       }
       const url = data?.url;
       if (url && typeof url === 'string') {
-        openOAuthConnectUrl(url);
+        const opened = openOAuthConnectUrl(url);
+        if (opened.blocked) {
+          setAlertMessage(
+            'Your browser blocked the sign-in tab. Allow pop-ups for agent4socials.com, then click Connect again.'
+          );
+          return;
+        }
         return;
       }
       setAlertMessage('Invalid response from server. Check server logs.');
