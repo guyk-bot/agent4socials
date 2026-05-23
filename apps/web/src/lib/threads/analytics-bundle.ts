@@ -1,3 +1,4 @@
+import { prisma } from '@/lib/db';
 import { threadsGet } from '@/lib/threads/threads-api';
 import { fetchThreadsProfile } from '@/lib/threads/threads-api';
 
@@ -65,6 +66,44 @@ function threadsInsightsUnixRange(since?: string, until?: string): { since?: str
     if (Number.isFinite(ms)) out.until = String(Math.floor(ms / 1000));
   }
   return out;
+}
+
+/** Sum synced per-post metrics in range (fallback when account-level reposts/quotes lag). */
+export async function sumThreadsImportedPostMetricsInRange(
+  socialAccountId: string,
+  since?: string,
+  until?: string
+): Promise<{ likes: number; replies: number; repostsQuotes: number; views: number }> {
+  const sinceDate = since?.trim()
+    ? new Date(`${since.trim().slice(0, 10)}T00:00:00.000Z`)
+    : new Date(0);
+  const untilDate = until?.trim()
+    ? new Date(`${until.trim().slice(0, 10)}T23:59:59.999Z`)
+    : new Date();
+  const posts = await prisma.importedPost.findMany({
+    where: {
+      socialAccountId,
+      publishedAt: { gte: sinceDate, lte: untilDate },
+    },
+    select: {
+      likeCount: true,
+      commentsCount: true,
+      repostsCount: true,
+      sharesCount: true,
+      impressions: true,
+    },
+  });
+  let likes = 0;
+  let replies = 0;
+  let repostsQuotes = 0;
+  let views = 0;
+  for (const p of posts) {
+    likes += p.likeCount ?? 0;
+    replies += p.commentsCount ?? 0;
+    repostsQuotes += Math.max(p.repostsCount ?? 0, p.sharesCount ?? 0);
+    views += p.impressions ?? 0;
+  }
+  return { likes, replies, repostsQuotes, views };
 }
 
 export async function buildThreadsInsightsBundle(

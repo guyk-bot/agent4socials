@@ -146,6 +146,7 @@ export async function syncThreadsPosts(account: {
               likeCount: metrics.likes,
               commentsCount: metrics.replies,
               repostsCount: metrics.reposts + metrics.quotes,
+              sharesCount: metrics.reposts + metrics.quotes,
               interactions,
             }
           : {}),
@@ -163,6 +164,7 @@ export async function syncThreadsPosts(account: {
         likeCount: metrics?.likes ?? 0,
         commentsCount: metrics?.replies ?? 0,
         repostsCount: metrics ? metrics.reposts + metrics.quotes : 0,
+        sharesCount: metrics ? metrics.reposts + metrics.quotes : 0,
         interactions: interactions ?? 0,
       },
     });

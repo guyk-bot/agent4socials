@@ -3609,7 +3609,7 @@ export function FacebookAnalyticsView({
       const postEng = seriesToMap(
         aggregatePostsByDayValue(
           postsInRange,
-          (p) => (p.likeCount ?? 0) + (p.commentsCount ?? 0) + bestShareCount(p) + (p.repostsCount ?? 0)
+          (p) => (p.likeCount ?? 0) + (p.commentsCount ?? 0) + bestRepostCount(p)
         )
       );
       const engMap = mergeSeriesMapsMax(apiEng, postEng);
@@ -4828,7 +4828,9 @@ type PostsUploadDayTooltipAgg = {
   }, [isTikTok, tiktokEffectivePosts, isTwitter, postsInRangeForPostsTabUi, postsInRange, isThreads, threadsTotals, insights]);
   const sharesTotal = useMemo(() => {
     const src = isTikTok ? tiktokEffectivePosts : isTwitter ? postsInRangeForPostsTabUi : postsInRange;
-    const fromPosts = src.reduce((sum, post) => sum + bestShareCount(post), 0);
+    const fromPosts = isThreads
+      ? src.reduce((sum, post) => sum + bestRepostCount(post), 0)
+      : src.reduce((sum, post) => sum + bestShareCount(post), 0);
     if (isYouTube) return Math.max(fromPosts, youtubeSharesTotal);
     if (isThreads) {
       const fromInsights = Number((insights as FacebookInsights & { sharesTotal?: number })?.sharesTotal ?? 0);
@@ -4892,6 +4894,11 @@ type PostsUploadDayTooltipAgg = {
       }
     }
     if (isThreads) {
+      for (const p of postsInRange) {
+        const d = localCalendarDateFromIso(p.publishedAt);
+        if (!d) continue;
+        sharesByDate[d] = Math.max(sharesByDate[d] ?? 0, bestRepostCount(p));
+      }
       const extra = insights?.extra as {
         threadsMetricSeries?: {
           likes?: Array<{ date: string; value: number }>;
@@ -6148,7 +6155,11 @@ type PostsUploadDayTooltipAgg = {
                   style={{ borderColor: COLOR.border, color: COLOR.textSecondary, background: 'rgba(255,255,255,0.02)' }}
                 >
                   <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: ENGAGEMENT_METRIC_CONFIG[m].color }} />
-                  {ENGAGEMENT_METRIC_CONFIG[m].label}
+                  {isThreads && m === 'shares'
+                    ? 'Reposts & quotes'
+                    : isThreads && m === 'comments'
+                      ? 'Replies'
+                      : ENGAGEMENT_METRIC_CONFIG[m].label}
                 </span>
               ))}
             </div>
@@ -6191,7 +6202,13 @@ type PostsUploadDayTooltipAgg = {
                   formatter={(v: number | string | undefined, n?: string, entry?: TooltipFormatterEntry) => {
                     const key = tooltipSeriesKeyFromEntry(n, entry) as EngagementMetricKey;
                     const label =
-                      key && key in ENGAGEMENT_METRIC_CONFIG ? ENGAGEMENT_METRIC_CONFIG[key].label : String(key || n || '');
+                      isThreads && key === 'shares'
+                        ? 'Reposts & quotes'
+                        : isThreads && key === 'comments'
+                          ? 'Replies'
+                          : key && key in ENGAGEMENT_METRIC_CONFIG
+                            ? ENGAGEMENT_METRIC_CONFIG[key].label
+                            : String(key || n || '');
                     return colorizeTooltipMetric(formatNumber(Number(v) || 0), label, entry);
                   }}
                   labelFormatter={(l) => formatShortDate(String(l))}

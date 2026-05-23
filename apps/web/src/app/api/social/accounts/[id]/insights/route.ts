@@ -3258,14 +3258,56 @@ export async function GET(
 
     if (account.platform === 'THREADS') {
       const { getValidThreadsToken } = await import('@/lib/threads/threads-token');
-      const { buildThreadsInsightsBundle } = await import('@/lib/threads/analytics-bundle');
+      const { buildThreadsInsightsBundle, sumThreadsImportedPostMetricsInRange } = await import(
+        '@/lib/threads/analytics-bundle'
+      );
       const token = await getValidThreadsToken({
         id: account.id,
         accessToken: account.accessToken,
         expiresAt: account.expiresAt,
       });
       try {
-        const bundle = await buildThreadsInsightsBundle(token, sinceParam, untilParam);
+        let bundle = await buildThreadsInsightsBundle(token, sinceParam, untilParam);
+        const fromPosts = await sumThreadsImportedPostMetricsInRange(
+          account.id,
+          sinceParam,
+          untilParam
+        );
+
+        if (bundle.repostsTotal + bundle.quotesTotal === 0 && fromPosts.repostsQuotes > 0) {
+          bundle = {
+            ...bundle,
+            repostsTotal: fromPosts.repostsQuotes,
+            quotesTotal: 0,
+          };
+        } else if (fromPosts.repostsQuotes > bundle.repostsTotal + bundle.quotesTotal) {
+          bundle = {
+            ...bundle,
+            repostsTotal: Math.max(bundle.repostsTotal, fromPosts.repostsQuotes),
+          };
+        }
+
+        if (
+          bundle.repostsTotal + bundle.quotesTotal === 0 &&
+          fromPosts.repostsQuotes === 0
+        ) {
+          const { syncThreadsPosts } = await import('@/lib/threads/sync-imported-posts');
+          await syncThreadsPosts({
+            id: account.id,
+            platformUserId: account.platformUserId,
+            accessToken: token,
+            expiresAt: account.expiresAt,
+          });
+          const refreshed = await sumThreadsImportedPostMetricsInRange(
+            account.id,
+            sinceParam,
+            untilParam
+          );
+          if (refreshed.repostsQuotes > 0) {
+            bundle = { ...bundle, repostsTotal: refreshed.repostsQuotes, quotesTotal: 0 };
+          }
+        }
+
         if (bundle.profile?.username || bundle.profile?.name) {
           out.extra = {
             ...(out.extra ?? {}),
