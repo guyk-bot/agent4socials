@@ -36,14 +36,14 @@ const PLATFORM_LABELS: Record<string, string> = {
 };
 
 const PLATFORM_ICON: Record<string, React.ReactNode> = {
-  INSTAGRAM: <InstagramIcon size={22} />,
-  FACEBOOK: <FacebookIcon size={22} />,
-  TIKTOK: <TikTokIcon size={22} />,
-  YOUTUBE: <YoutubeIcon size={22} />,
-  TWITTER: <XTwitterIcon size={22} className="text-neutral-800" />,
-  LINKEDIN: <LinkedinIcon size={22} />,
-  PINTEREST: <PinterestIcon size={22} />,
-  THREADS: <ThreadsIcon size={22} />,
+  INSTAGRAM: <InstagramIcon size={26} />,
+  FACEBOOK: <FacebookIcon size={26} />,
+  TIKTOK: <TikTokIcon size={26} />,
+  YOUTUBE: <YoutubeIcon size={26} />,
+  TWITTER: <XTwitterIcon size={26} className="text-neutral-800" />,
+  LINKEDIN: <LinkedinIcon size={26} />,
+  PINTEREST: <PinterestIcon size={26} />,
+  THREADS: <ThreadsIcon size={26} />,
 };
 
 const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'THREADS', 'LINKEDIN', 'PINTEREST'];
@@ -190,24 +190,25 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
 
   const sidebarContent = (
     <>
-      <div className="px-2 pt-2 pb-1 shrink-0">
+      <div className="p-3 shrink-0">
         <Link
           href="/dashboard/console"
           onClick={(e) => {
             // Avoid redundant navigation when the user is already on Console.
             if (pathname === '/dashboard/console') e.preventDefault();
           }}
-          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+          className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
             isMainAnalyticsView ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 border border-transparent dark:hover:border-neutral-700'
           }`}
         >
-          <BarChart3 size={16} className="shrink-0" />
+          <BarChart3 size={18} className="shrink-0" />
           Console
           {isMainAnalyticsView && <ChevronRight size={14} className="ml-auto opacity-70" />}
         </Link>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-1.5 space-y-0">
+      {/* Natural height (no flex-1) so History/nav sit right under accounts; scroll only if many accounts */}
+      <div className="shrink-0 px-2 space-y-0 overflow-y-auto max-h-[min(52vh,calc(100dvh-19rem))]">
         {PLATFORM_ORDER.map((platform) => {
           const accounts = accountsByPlatform[platform] ?? [];
           const isPlatformSelected = selectedPlatformForConnect === platform;
@@ -217,12 +218,12 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
             const needsUpgrade = UPGRADE_TO_CONNECT_PLATFORMS.includes(platform);
             /** Connect URL per platform; optional gem styling when platform is in UPGRADE_TO_CONNECT_PLATFORMS. */
             const href = `/dashboard?connect=${connectParam}`;
-            const platformRowClass = `w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm transition-colors border border-transparent ${
+            const platformRowClass = `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors border border-transparent ${
               isPlatformSelected ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80 dark:hover:border-neutral-700'
             } ${needsUpgrade ? 'ring-1 ring-orange-400/50 bg-gradient-to-r from-orange-500/10 to-orange-500/10' : ''}`;
             const platformRowInner = (
               <>
-                <div className="w-8 h-8 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 flex items-center justify-center shrink-0">
                   {PLATFORM_ICON[platform]}
                 </div>
                 <span className="truncate flex-1 font-medium">{PLATFORM_LABELS[platform]}</span>
@@ -231,8 +232,8 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                     <Gem size={14} className="text-orange-600" aria-hidden />
                   </span>
                 ) : null}
-                <div className="w-7 h-7 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 hover:bg-neutral-300">
-                  <Plus size={13} className="text-neutral-600" />
+                <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 hover:bg-neutral-300">
+                  <Plus size={14} className="text-neutral-600" />
                 </div>
               </>
             );
@@ -253,7 +254,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
             <div key={platform} className="space-y-0">
               {accounts.map((acc) => {
                 const isSelected = selectedAccountId === acc.id;
-                const accountRowClass = `w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-sm transition-colors min-w-0 border border-transparent ${
+                const accountRowClass = `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors min-w-0 border border-transparent ${
                   isSelected ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80 dark:hover:border-neutral-700'
                 }`;
                 // From Inbox or any page: go to this account's analytics via client-side nav (keeps cache, no reload).
@@ -280,15 +281,15 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                     aria-label={`View ${acc.username || platformLabel} analytics`}
                   >
                     <div
-                      className="w-8 h-8 flex items-center justify-center shrink-0 rounded-lg"
+                      className="w-10 h-10 flex items-center justify-center shrink-0 rounded-lg"
                       aria-hidden
                     >
                       {PLATFORM_ICON[platform]}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium leading-tight">{acc.username || PLATFORM_LABELS[platform]}</div>
+                      <div className="truncate font-medium">{acc.username || PLATFORM_LABELS[platform]}</div>
                     </div>
-                    <div className={`w-7 h-7 flex items-center justify-center shrink-0 rounded-full overflow-hidden ${acc.profilePicture && !brokenAvatarIds[acc.id] ? '' : 'bg-neutral-200 dark:bg-neutral-700'}`}>
+                    <div className={`w-8 h-8 flex items-center justify-center shrink-0 rounded-full overflow-hidden ${acc.profilePicture && !brokenAvatarIds[acc.id] ? '' : 'bg-neutral-200 dark:bg-neutral-700'}`}>
                       {(() => {
                         const avatarSrc = avatarDisplayUrl(platform, acc.profilePicture);
                         return avatarSrc && !brokenAvatarIds[acc.id] ? (
@@ -314,47 +315,50 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         })}
       </div>
 
-      <div className="shrink-0 px-2 py-1.5 space-y-0 border-t border-neutral-200">
+      <div className="p-3 space-y-0 border-t border-neutral-200 shrink-0">
         <Link
           href="/posts"
-          className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm font-medium border border-transparent ${isPostsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isPostsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
         >
-          <FileText size={16} className="shrink-0" />
+          <FileText size={18} className="shrink-0" />
           <span>History</span>
         </Link>
         <Link
           href="/dashboard/automation"
-          className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm font-medium border border-transparent ${isAutomationPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isAutomationPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
         >
-          <Zap size={16} className="shrink-0" />
+          <Zap size={18} className="shrink-0" />
           <span>Automation</span>
         </Link>
         <Link
           href="/dashboard/hashtag-pool"
-          className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm font-medium border border-transparent ${isHashtagPoolPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isHashtagPoolPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
         >
-          <Hash size={16} className="shrink-0" />
+          <Hash size={18} className="shrink-0" />
           <span>Hashtag Pool</span>
         </Link>
         <Link
           href="/dashboard/ai-assistant"
-          className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm font-medium border border-transparent ${isAiAssistantPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isAiAssistantPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
         >
-          <Sparkles size={16} className="shrink-0" />
+          <Sparkles size={18} className="shrink-0" />
           <span>AI Assistant</span>
         </Link>
         <Link
           href="/dashboard/reports"
-          className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm font-medium border border-transparent ${isReportsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isReportsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
         >
-          <FileText size={16} className="shrink-0" />
+          <FileText size={18} className="shrink-0" />
           <span>Reports</span>
         </Link>
+      </div>
+
+      <div className="mt-auto p-3 border-t border-neutral-200 shrink-0">
         <Link
           href="/help"
-          className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm font-medium border border-transparent ${isHelpPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isHelpPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
         >
-          <HelpCircle size={16} className="shrink-0" />
+          <HelpCircle size={18} className="shrink-0" />
           <span>Need help?</span>
         </Link>
       </div>
