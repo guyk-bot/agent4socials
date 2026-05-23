@@ -7,6 +7,7 @@ import { Platform } from '@prisma/client';
 import { META_GRAPH_FACEBOOK_API_VERSION } from '@/lib/meta-graph-insights';
 import {
   defaultThreadsOAuthScopes,
+  resolveThreadsRedirectUri,
   threadsAppId,
   threadsAppSecret,
 } from '@/lib/threads/threads-api';
@@ -121,7 +122,7 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
       return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${redirect}&state=${encodeURIComponent(state)}&scope=${encodeURIComponent(linkedInScopes)}&enable_extended_login=true`;
     }
     case 'THREADS': {
-      const threadsRedirect = (process.env.THREADS_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
+      const threadsRedirect = resolveThreadsRedirectUri();
       const appId = threadsAppId();
       const scopes = encodeURIComponent(defaultThreadsOAuthScopes());
       return `https://www.threads.net/oauth/authorize?client_id=${encodeURIComponent(appId)}&redirect_uri=${encodeURIComponent(threadsRedirect)}&scope=${scopes}&response_type=code&state=${encodeURIComponent(state)}`;

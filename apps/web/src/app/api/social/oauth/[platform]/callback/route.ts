@@ -10,6 +10,7 @@ import {
   exchangeThreadsCodeForShortLivedToken,
   exchangeThreadsLongLivedToken,
   fetchThreadsProfile,
+  resolveThreadsRedirectUri,
 } from '@/lib/threads/threads-api';
 import { ensureSocialAccountOAuthSchema } from '@/lib/ensure-social-account-oauth-schema';
 import { syncTikTokImportedVideos } from '@/lib/tiktok/sync-imported-videos';
@@ -481,7 +482,7 @@ async function exchangeCode(
       };
     }
     case 'THREADS': {
-      const redirectUri = (process.env.THREADS_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
+      const redirectUri = resolveThreadsRedirectUri();
       const short = await exchangeThreadsCodeForShortLivedToken(code, redirectUri);
       if (!short?.accessToken) {
         throw new Error('Threads token exchange failed. Check META_APP_ID, META_APP_SECRET, and Threads redirect URI in Meta app settings.');
@@ -650,8 +651,8 @@ export async function GET(
     callbackUrl = process.env.PINTEREST_REDIRECT_URI.replace(/\/+$/, '');
   } else if (plat === 'LINKEDIN' && process.env.LINKEDIN_REDIRECT_URI?.trim()) {
     callbackUrl = process.env.LINKEDIN_REDIRECT_URI.replace(/\/+$/, '');
-  } else if (plat === 'THREADS' && process.env.THREADS_REDIRECT_URI?.trim()) {
-    callbackUrl = process.env.THREADS_REDIRECT_URI.replace(/\/+$/, '');
+  } else if (plat === 'THREADS') {
+    callbackUrl = resolveThreadsRedirectUri();
   }
 
   let tokenData: TokenResult;

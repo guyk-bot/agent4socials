@@ -2,17 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { disconnectThreadsByPlatformUserId } from '@/lib/meta/disconnect-threads-account';
 import { metaSignedRequestUserId, parseMetaSignedRequest } from '@/lib/meta/parse-signed-request';
-import { threadsAppSecret } from '@/lib/threads/threads-api';
+import { resolveAppBaseUrl, threadsAppSecret } from '@/lib/threads/threads-api';
 
 export const dynamic = 'force-dynamic';
-
-function appBaseUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    'https://agent4socials.com'
-  ).replace(/\/+$/, '');
-}
 
 function confirmationCode(): string {
   return crypto.randomBytes(16).toString('hex');
@@ -46,7 +38,7 @@ export async function POST(request: NextRequest) {
   }
 
   const code = confirmationCode();
-  const base = appBaseUrl();
+  const base = resolveAppBaseUrl();
   const statusUrl = `${base}/data-deletion?confirmation_code=${encodeURIComponent(code)}&platform=threads`;
 
   try {

@@ -22,7 +22,7 @@ Threads OAuth uses the **Threads App ID** and **Threads App Secret** from Meta (
 | `THREADS_APP_SECRET` | Recommended | Threads App Secret from the same screen |
 | `META_APP_ID` | Fallback | Used only if `THREADS_APP_ID` is unset |
 | `META_APP_SECRET` | Fallback | Used only if `THREADS_APP_SECRET` is unset |
-| `THREADS_REDIRECT_URI` | Optional | Defaults to `{APP_URL}/api/social/oauth/threads/callback` |
+| `THREADS_REDIRECT_URI` | Optional | Must use the **same host** as `NEXT_PUBLIC_APP_URL` (e.g. both `agent4socials.com` or both `www.agent4socials.com`). If hosts differ, the app ignores `THREADS_REDIRECT_URI` and uses `{APP_URL}/api/social/oauth/threads/callback`. |
 | `THREADS_OAUTH_SCOPES` | Optional | Override default scopes |
 
 If Connect opens Threads with **"No app ID was sent"**, the server built an authorize URL with an empty `client_id`. Add `THREADS_APP_ID` / `THREADS_APP_SECRET` in Vercel for **Production**, then **Redeploy**.

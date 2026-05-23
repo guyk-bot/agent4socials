@@ -2,6 +2,40 @@ import axios from 'axios';
 
 export const THREADS_GRAPH_BASE = 'https://graph.threads.net/v1.0';
 
+const DEFAULT_APP_ORIGIN = 'https://agent4socials.com';
+
+/** Canonical site origin for OAuth callbacks (NEXT_PUBLIC_APP_URL). */
+export function resolveAppBaseUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    DEFAULT_APP_ORIGIN
+  ).replace(/\/+$/, '');
+}
+
+/**
+ * Threads OAuth redirect URI. Uses THREADS_REDIRECT_URI only when its host matches
+ * NEXT_PUBLIC_APP_URL so Meta whitelist and authorize redirect stay aligned.
+ */
+export function resolveThreadsRedirectUri(): string {
+  const baseUrl = resolveAppBaseUrl();
+  const defaultUri = `${baseUrl}/api/social/oauth/threads/callback`;
+  const fromEnv = process.env.THREADS_REDIRECT_URI?.trim();
+  if (!fromEnv) return defaultUri;
+  try {
+    const normalized = fromEnv.replace(/\/+$/, '');
+    const envHost = new URL(normalized).host;
+    const baseHost = new URL(baseUrl).host;
+    if (envHost === baseHost) return normalized;
+    console.warn(
+      `[Threads OAuth] THREADS_REDIRECT_URI host (${envHost}) differs from app URL (${baseHost}); using ${defaultUri}`
+    );
+    return defaultUri;
+  } catch {
+    return defaultUri;
+  }
+}
+
 export function threadsAppId(): string {
   return (
     process.env.THREADS_APP_ID?.trim() ||
