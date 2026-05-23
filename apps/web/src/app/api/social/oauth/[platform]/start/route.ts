@@ -109,7 +109,8 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
       const includeWrite =
         process.env.LINKEDIN_INCLUDE_W_MEMBER_SOCIAL === 'true' ||
         process.env.LINKEDIN_REQUEST_ORG_SCOPES === 'true';
-      const includeMemberSocialRead = process.env.LINKEDIN_INCLUDE_R_MEMBER_SOCIAL === 'true';
+      const includeMemberSocialRead =
+        process.env.LINKEDIN_INCLUDE_R_MEMBER_SOCIAL === 'true' || includeWrite;
       // r_liteprofile enables /v2/me for numeric member ID lookup; include it whenever w_member_social is requested.
       const baseScopes = includeWrite ? 'openid profile email r_liteprofile w_member_social' : 'openid profile email';
       const memberReadScope = includeMemberSocialRead ? ' r_member_social' : '';

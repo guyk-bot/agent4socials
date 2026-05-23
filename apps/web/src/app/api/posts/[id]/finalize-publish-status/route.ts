@@ -39,7 +39,7 @@ export async function POST(
     }
     const reconciled = await reconcileMisreportedPublishTargets(id);
     await finalizePostPublishState(id);
-    const stuckMs = 5 * 60 * 1000;
+    const stuckMs = 3 * 60 * 1000;
     const postingAgeMs =
       owned.status === 'POSTING' ? Date.now() - owned.updatedAt.getTime() : 0;
     const failedStuck =

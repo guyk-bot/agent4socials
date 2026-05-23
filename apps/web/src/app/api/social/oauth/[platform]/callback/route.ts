@@ -123,6 +123,8 @@ type TokenResult = {
   profilePicture?: string | null;
   /** OAuth 2.0 scopes actually granted by X (captured at token exchange time) */
   twitterGrantedScope?: string;
+  /** OAuth 2.0 scopes granted by LinkedIn (captured at token exchange time) */
+  linkedinGrantedScope?: string;
   /** When multiple Facebook Pages, list for user to pick one (access_token is the Page token) */
   pages?: Array<{ id: string; name?: string; picture?: string; instagram_business_account_id?: string; access_token?: string }>;
   /** When multiple Instagram Business accounts (via Facebook), list for user to pick one */
@@ -535,6 +537,12 @@ async function exchangeCode(
       } catch (_) {
         // keep defaults if userinfo fails
       }
+      const grantedScope =
+        typeof r.data.scope === 'string'
+          ? r.data.scope.trim()
+          : Array.isArray(r.data.scope)
+            ? (r.data.scope as string[]).join(' ')
+            : '';
       return {
         accessToken,
         refreshToken: null,
@@ -542,6 +550,7 @@ async function exchangeCode(
         platformUserId,
         username,
         profilePicture,
+        linkedinGrantedScope: grantedScope || undefined,
       };
     }
     case 'THREADS': {
@@ -1196,10 +1205,20 @@ export async function GET(
         ? { ...(prev.credentialsJson as Record<string, unknown>) }
         : {};
     const baseCreds = credentialsJsonToSet && typeof credentialsJsonToSet === 'object' ? credentialsJsonToSet : prevObj;
+    const grantedScope =
+      typeof tokenData.linkedinGrantedScope === 'string' ? tokenData.linkedinGrantedScope.trim() : '';
     if (resolved.personUrn) {
-      credentialsJsonToSet = { ...baseCreds, linkedinRestPersonUrn: resolved.personUrn };
+      credentialsJsonToSet = {
+        ...baseCreds,
+        linkedinRestPersonUrn: resolved.personUrn,
+        ...(grantedScope ? { linkedinGrantedScope: grantedScope } : {}),
+      };
       console.log('[LinkedIn OAuth] stored author URN', { source: resolved.source });
     } else {
+      credentialsJsonToSet = {
+        ...baseCreds,
+        ...(grantedScope ? { linkedinGrantedScope: grantedScope } : {}),
+      };
       console.error('[LinkedIn OAuth] author URN not resolved at connect', {
         restMeStatus: resolved.restMeStatus,
         source: resolved.source,

@@ -170,6 +170,13 @@ export function ConnectedAccountsPanel() {
                   <div className="text-[10px] sm:text-xs text-neutral-500 truncate">
                     {(acc.username || '').replace(/^@/, '') || 'Connected'}
                   </div>
+                  {acc.platform === 'LINKEDIN' &&
+                  typeof acc.linkedinReconnectHint === 'string' &&
+                  acc.linkedinReconnectHint.trim() ? (
+                    <p className="mt-2 text-left text-[10px] leading-snug text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+                      {acc.linkedinReconnectHint}
+                    </p>
+                  ) : null}
                   <div className="mt-2 flex items-center justify-center gap-2">
                     <button
                       type="button"

@@ -836,7 +836,14 @@ export default function PostsPage() {
                                                         ? 'bg-neutral-200 text-neutral-700'
                                                         : 'bg-neutral-100 text-neutral-700';
                                             const failedErrors = (Array.isArray(post.targets) ? post.targets : [])
-                                                .filter((t: { status?: string; error?: string }) => t.status === 'FAILED' && typeof t.error === 'string' && t.error.trim())
+                                                .filter((t: { status?: string; error?: string }) => {
+                                                    const st = (t.status ?? '').toString().toUpperCase();
+                                                    return (
+                                                        (st === 'FAILED' || (st === 'POSTING' && post.status === 'POSTING')) &&
+                                                        typeof t.error === 'string' &&
+                                                        t.error.trim()
+                                                    );
+                                                })
                                                 .map((t: { platform?: string; error?: string }) => {
                                                     const platform = (t.platform ?? 'Platform').toUpperCase();
                                                     const err = t.error!.trim();

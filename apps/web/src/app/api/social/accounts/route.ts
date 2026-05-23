@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma, databaseUrlLooksDirect } from '@/lib/db';
+import { linkedInOAuthHealthFromCredentials } from '@/lib/linkedin/oauth-health';
 
 const POOLER_MESSAGE =
   'Database: use the Supabase Transaction pooler (port 6543) to avoid max connections. Set DATABASE_URL in Vercel to the Transaction pooler URI, add ?pgbouncer=true if needed, then redeploy. https://supabase.com/docs/guides/database/connecting-to-postgres#connection-pooler';
@@ -36,6 +37,10 @@ export async function GET(request: NextRequest) {
       if (rest.platform === 'INSTAGRAM') {
         const creds = credentialsJson as { loginMethod?: string } | null;
         (out as { instagramLoginOnly?: boolean }).instagramLoginOnly = creds?.loginMethod === 'instagram_business';
+      }
+      if (rest.platform === 'LINKEDIN') {
+        const li = linkedInOAuthHealthFromCredentials(credentialsJson);
+        Object.assign(out, li);
       }
       return out;
     });
