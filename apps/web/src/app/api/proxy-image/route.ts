@@ -25,16 +25,18 @@ export async function GET(request: NextRequest) {
   const isFacebookCdn = /fbcdn\.net|fbsbx\.com|facebook\.com/i.test(decoded);
   const isTikTokCdn = /tiktokcdn|tiktokv\.com|byteimg\.com|muscdn\.com/i.test(decoded);
   const isInstagramCdn = /cdninstagram\.com|instagram\.com/i.test(decoded);
+  const isThreadsCdn = /threads\.net|thread\.com/i.test(decoded);
 
   try {
     const response = await fetch(decoded, {
       headers: {
         'User-Agent':
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        Accept: 'image/avif,image/webp,image/apng,image/*,video/*,*/*;q=0.8',
         ...(isTikTokCdn ? { Referer: 'https://www.tiktok.com/' } : {}),
         ...(isInstagramCdn ? { Referer: 'https://www.instagram.com/' } : {}),
         ...(isFacebookCdn ? { Referer: 'https://www.facebook.com/' } : {}),
+        ...(isThreadsCdn ? { Referer: 'https://www.threads.net/' } : {}),
       },
       cache: 'no-store',
       redirect: 'follow',

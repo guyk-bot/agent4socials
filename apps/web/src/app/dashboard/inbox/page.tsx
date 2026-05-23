@@ -98,6 +98,7 @@ import {
   ThreadsIcon,
 } from '@/components/SocialPlatformIcons';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
+import { InboxCommentPostMedia } from '@/components/inbox/InboxCommentPostMedia';
 
 /** All platforms that can appear in the inbox strip (per mode filter below). */
 const INBOX_PLATFORM_DEFS = [
@@ -4119,33 +4120,13 @@ function InboxPage() {
                         )}
                       </div>
                       <div className="flex gap-4 items-start">
-                        <div className="rounded-lg overflow-hidden shrink-0 w-[min(200px,100%)] max-w-[200px]">
-                          {(selectedComment.platform === 'INSTAGRAM' || selectedComment.platform === 'FACEBOOK' || selectedComment.platform === 'YOUTUBE' || selectedComment.platform === 'TWITTER') && selectedComment.accountId ? (
-                            <img
-                              src={freshPostImageUrl(selectedComment)}
-                              alt="Post"
-                              className="w-full h-auto object-contain max-h-[18rem]"
-                              onError={(e) => {
-                                const el = e.currentTarget;
-                                if (selectedComment.postImageUrl && !el.src.includes('/api/proxy-image')) {
-                                  el.src = proxyImageUrl(selectedComment.postImageUrl)!;
-                                } else {
-                                  el.style.display = 'none';
-                                }
-                              }}
-                            />
-                          ) : selectedComment.postImageUrl ? (
-                            <img
-                              src={proxyImageUrl(selectedComment.postImageUrl)!}
-                              alt="Post"
-                              className="w-full h-auto object-contain max-h-[18rem]"
-                            />
-                          ) : (
-                            <div className="flex flex-col items-center justify-center gap-2 p-8 text-neutral-400 min-h-[200px] bg-neutral-50 rounded-lg">
-                              <ImageIcon size={48} strokeWidth={1.5} />
-                              <span className="text-sm text-center">No image</span>
-                            </div>
-                          )}
+                        <div className="rounded-lg overflow-hidden shrink-0 w-[min(280px,100%)] max-w-[280px]">
+                          <InboxCommentPostMedia
+                            accountId={selectedComment.accountId}
+                            platformPostId={selectedComment.platformPostId}
+                            platform={selectedComment.platform}
+                            fallbackImageUrl={selectedComment.postImageUrl}
+                          />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1">Post description</p>
