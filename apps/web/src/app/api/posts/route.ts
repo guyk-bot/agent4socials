@@ -7,6 +7,7 @@ import { sendScheduleConfirmationEmail } from '@/lib/resend';
 import { friendlyMessageIfPrismaSchemaDrift } from '@/lib/prisma-db-hints';
 import {
   buildPostScalarsSelect,
+  isMissingPostAlsoPostToStoryColumn,
   isMissingPostMediaTypeColumn,
   isMissingPostThreadsShareToInstagramColumn,
   prismaPostReadWithMediaTypeFallback,
@@ -24,11 +25,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
   try {
-    try {
-      await finalizeStalePostingPostsForUser(userId, 20);
-    } catch (staleErr) {
-      console.warn('[GET /api/posts] finalize stale posting:', (staleErr as Error)?.message ?? staleErr);
-    }
+    void finalizeStalePostingPostsForUser(userId, 20).catch((staleErr) => {
+      console.warn('[GET /api/posts] finalize stale posting (background):', (staleErr as Error)?.message ?? staleErr);
+    });
     const posts = await withPrismaPoolRetry('GET /api/posts', () =>
       prismaPostReadWithMediaTypeFallback((opts) =>
         prisma.post.findMany({
@@ -240,7 +239,11 @@ export async function POST(request: NextRequest) {
   try {
     post = await prisma.post.create(createArgs);
   } catch (createErr) {
-    if (!isMissingPostMediaTypeColumn(createErr) && !isMissingPostThreadsShareToInstagramColumn(createErr)) {
+    if (
+      !isMissingPostMediaTypeColumn(createErr) &&
+      !isMissingPostThreadsShareToInstagramColumn(createErr) &&
+      !isMissingPostAlsoPostToStoryColumn(createErr)
+    ) {
       throw createErr;
     }
     post = await prisma.post.create({

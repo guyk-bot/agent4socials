@@ -6,6 +6,7 @@ import { isTikTokDirectPostPayload, remapTikTokPublishPayloadForTargets } from '
 import { friendlyMessageIfPrismaSchemaDrift } from '@/lib/prisma-db-hints';
 import {
   buildPostScalarsSelect,
+  isMissingPostAlsoPostToStoryColumn,
   isMissingPostMediaTypeColumn,
   isMissingPostThreadsShareToInstagramColumn,
   prismaPostReadWithMediaTypeFallback,
@@ -256,7 +257,11 @@ export async function PATCH(
     try {
       post = await prisma.post.update(updateArgs);
     } catch (updateErr) {
-      if (!isMissingPostMediaTypeColumn(updateErr) && !isMissingPostThreadsShareToInstagramColumn(updateErr)) {
+      if (
+        !isMissingPostMediaTypeColumn(updateErr) &&
+        !isMissingPostThreadsShareToInstagramColumn(updateErr) &&
+        !isMissingPostAlsoPostToStoryColumn(updateErr)
+      ) {
         throw updateErr;
       }
       post = await prisma.post.update({

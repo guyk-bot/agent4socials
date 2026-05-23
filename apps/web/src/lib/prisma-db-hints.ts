@@ -17,5 +17,11 @@ export function friendlyMessageIfPrismaSchemaDrift(err: unknown): string | null 
       'apps/web/scripts/ensure-post-threads-share-to-instagram-column.sql, then redeploy.'
     );
   }
+  if (msg.includes('alsoPostToStory') && msg.includes('does not exist')) {
+    return (
+      'Database is missing the alsoPostToStory column. In Supabase: SQL Editor → run ' +
+      'apps/web/scripts/ensure-post-also-post-to-story-column.sql, or POST /api/admin/apply-pending-migrations with X-Cron-Secret.'
+    );
+  }
   return null;
 }

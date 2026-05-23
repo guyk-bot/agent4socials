@@ -28,6 +28,10 @@ const MIGRATIONS: Array<{ name: string; sql: string }> = [
     name: '20260408153000_imported_post_saves_count',
     sql: `ALTER TABLE "ImportedPost" ADD COLUMN IF NOT EXISTS "savesCount" INTEGER DEFAULT 0`,
   },
+  {
+    name: '20260523210000_post_also_post_to_story',
+    sql: `ALTER TABLE "Post" ADD COLUMN IF NOT EXISTS "alsoPostToStory" BOOLEAN NOT NULL DEFAULT false`,
+  },
 ];
 
 export async function POST(req: NextRequest) {

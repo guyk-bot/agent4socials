@@ -1335,6 +1335,12 @@ export default function ComposerPage() {
                 if (user?.id) writeBrandContextCache(parseBrandContextApiPayload(res.data), user.id);
             })
             .catch(() => {
+                const fallback = user?.id ? readBrandContextCache(user.id) : readBrandContextCache();
+                if (fallback && hasComposerBrandContext(fallback)) {
+                    setHasBrandContext(true);
+                    writeComposerBrandReadyCache(true);
+                    return;
+                }
                 setHasBrandContext((prev) => (prev === true ? true : false));
             })
             .finally(() => setBrandContextChecked(true));
@@ -1358,7 +1364,9 @@ export default function ComposerPage() {
     }, []);
 
     const handleAiGenerate = useCallback(() => {
-        if (hasBrandContext === false) {
+        const cachedBrand = user?.id ? readBrandContextCache(user.id) : readBrandContextCache();
+        const cacheReady = !!(cachedBrand && hasComposerBrandContext(cachedBrand));
+        if (!cacheReady && hasBrandContext === false) {
             setAiError('Set up your brand context in Dashboard → AI Assistant first.');
             return;
         }
@@ -1480,7 +1488,7 @@ export default function ComposerPage() {
                 setAiError(msg);
             }).finally(() => setAiLoading(false));
         }
-    }, [aiTopic, aiPrompt, aiPlatform, aiIncludeCtaAndAutomation, aiCtaAutomationPrompt, differentContentPerPlatform, platforms, clampTwitterAiText, hasBrandContext]);
+    }, [aiTopic, aiPrompt, aiPlatform, aiIncludeCtaAndAutomation, aiCtaAutomationPrompt, differentContentPerPlatform, platforms, clampTwitterAiText, hasBrandContext, user?.id]);
 
     const openDmAiModal = useCallback(() => {
         if (hasBrandContext === false) {

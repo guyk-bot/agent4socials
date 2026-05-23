@@ -27,7 +27,11 @@ import { getValidPinterestToken } from '@/lib/pinterest-token';
 import { getValidThreadsToken } from '@/lib/threads/threads-token';
 import {
   buildPostScalarsSelect,
+  isMissingPostAlsoPostToStoryColumn,
+  isMissingPostMediaTypeColumn,
+  isMissingPostThreadsShareToInstagramColumn,
   prismaPostReadWithMediaTypeFallback,
+  stripMissingPostColumnsFromWriteData,
 } from '@/lib/prisma-post-media-type-fallback';
 import { resolveComposerMediaType } from '@/lib/composer-media-type';
 
@@ -145,11 +149,26 @@ export async function preparePostForBackgroundPublish(
       updateData.alsoPostToStory = false;
     }
 
-    await prisma.post.update({
-      where: { id: postId },
-      data: updateData,
-      select: { id: true },
-    });
+    try {
+      await prisma.post.update({
+        where: { id: postId },
+        data: updateData,
+        select: { id: true },
+      });
+    } catch (updateErr) {
+      if (
+        !isMissingPostMediaTypeColumn(updateErr) &&
+        !isMissingPostThreadsShareToInstagramColumn(updateErr) &&
+        !isMissingPostAlsoPostToStoryColumn(updateErr)
+      ) {
+        throw updateErr;
+      }
+      await prisma.post.update({
+        where: { id: postId },
+        data: stripMissingPostColumnsFromWriteData(updateData as Record<string, unknown>, updateErr) as Prisma.PostUpdateInput,
+        select: { id: true },
+      });
+    }
     if (post.status === PostStatus.POSTED && hasFailedTargets) {
       await prisma.postTarget.updateMany({
         where: { postId, status: PostStatus.FAILED },
