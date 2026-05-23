@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { ANALYTICS_CHART_SELECT_METRIC_MESSAGE } from '@/lib/analytics-chart-messages';
+import { PostContentPreviewThumb } from '@/components/PostContentPreviewThumb';
 import { AnalyticsDateRangePicker } from '@/components/analytics/AnalyticsDateRangePicker';
 import {
   getDefaultAnalyticsDateRange,
@@ -892,6 +893,7 @@ type ConsoleHighlightRow = {
   preview: string;
   permalink: string | null;
   thumbnailUrl: string | null;
+  mediaType?: string | null;
   views: number;
   interactions: number;
   reactions: number;
@@ -927,6 +929,7 @@ function historyPostToHighlightRow(h: UnifiedHistoryPost): ConsoleHighlightRow {
     preview: h.caption ?? '',
     permalink: h.url,
     thumbnailUrl: h.thumbnailUrl,
+    mediaType: h.mediaType,
     views: h.impressions ?? 0,
     interactions: h.totalEngagement ?? 0,
     reactions: h.likes ?? 0,
@@ -986,33 +989,19 @@ function ConsoleTopPostsHighlights({
             style={{ background: cardBg, border: `1px solid ${COLOR.border}` }}
           >
             <div className="flex min-h-0 flex-1 items-start gap-3">
-              {r.platform === 'X' && !r.thumbnailUrl ? (
-                <div className="relative isolate mt-1 shrink-0 pt-1" style={{ width: TH, height: TH }}>
-                  <div
-                    className="absolute inset-0 flex items-center justify-center overflow-hidden rounded-xl border"
-                    style={{ borderColor: COLOR.border, background: COLOR.pageBg }}
-                  >
-                    <FileText size={22} style={{ color: COLOR.textMuted }} />
-                  </div>
-                  <img
-                    src={rankBadge(idx)}
-                    alt={`Rank ${idx + 1}`}
-                    className="pointer-events-none absolute left-0 top-0 z-10 h-11 w-11 -translate-x-2 -translate-y-2 object-contain drop-shadow-md sm:h-12 sm:w-12 sm:-translate-x-2.5 sm:-translate-y-2.5"
-                  />
-                </div>
-              ) : (
-                <div className="relative isolate mt-1 shrink-0 pt-1" style={{ width: TH, height: TH }}>
+              <div className="relative isolate mt-1 shrink-0 pt-1" style={{ width: TH, height: TH }}>
                   <div
                     className="absolute inset-0 overflow-hidden rounded-xl border"
                     style={{ borderColor: COLOR.border, background: COLOR.pageBg }}
                   >
-                    {r.thumbnailUrl ? (
-                      <img src={r.thumbnailUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center" style={{ color: COLOR.textMuted }}>
-                        <FileText size={22} />
-                      </div>
-                    )}
+                    <PostContentPreviewThumb
+                      platform={r.platform}
+                      mediaType={r.mediaType}
+                      thumbnailUrl={r.thumbnailUrl}
+                      className="w-full h-full rounded-xl"
+                      imgClassName="h-full w-full object-cover"
+                      emptyClassName="w-full h-full"
+                    />
                     {r.permalink ? (
                       <a
                         href={r.permalink}
@@ -1032,7 +1021,6 @@ function ConsoleTopPostsHighlights({
                     className="pointer-events-none absolute left-0 top-0 z-10 h-11 w-11 -translate-x-2 -translate-y-2 object-contain drop-shadow-md sm:h-12 sm:w-12 sm:-translate-x-2.5 sm:-translate-y-2.5"
                   />
                 </div>
-              )}
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" style={{ minHeight: TH }}>
                 <div className="flex shrink-0 items-center gap-2">
                   <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center [&>svg]:max-h-[18px] [&>svg]:max-w-[18px]" aria-hidden>
@@ -1192,7 +1180,14 @@ function HistoryTable({ rows }: { rows: UnifiedHistoryPost[] }) {
                   <td className="py-2.5 px-3 whitespace-nowrap"><span className="flex items-center gap-1.5"><PlatformIcon platform={row.platform} size={13} /><span className="text-xs font-medium" style={{ color: c }}>{row.platform}</span></span></td>
                   <td className="py-2.5 px-3 max-w-[240px]">
                     <span className="flex items-center gap-2">
-                      {row.thumbnailUrl ? <img src={row.thumbnailUrl} alt="" className="w-8 h-8 rounded-md object-cover shrink-0" /> : <div className="flex w-8 h-8 rounded-md items-center justify-center shrink-0 border" style={{ background: COLOR.elevated, borderColor: COLOR.border, color: COLOR.textMuted }}><FileText size={13} /></div>}
+                      <PostContentPreviewThumb
+                        platform={row.platform}
+                        mediaType={row.mediaType}
+                        thumbnailUrl={row.thumbnailUrl}
+                        className="w-8 h-8 rounded-md"
+                        imgClassName="w-8 h-8 rounded-md object-cover shrink-0"
+                        emptyClassName="w-8 h-8 rounded-md border"
+                      />
                       <span className="truncate max-w-[180px] block" style={{ color: COLOR.text }}>{row.caption || '(no caption)'}</span>
                       {row.url && (
                         <a

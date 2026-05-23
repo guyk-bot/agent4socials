@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Search, ArrowUpDown } from 'lucide-react';
 import type { SummaryPost } from './types';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon } from '@/components/SocialPlatformIcons';
+import { PostContentPreviewThumb } from '@/components/PostContentPreviewThumb';
 
 const PLATFORM_ICON: Record<string, React.ReactNode> = {
   INSTAGRAM: <InstagramIcon size={18} />,
@@ -151,20 +152,14 @@ export function PostPerformanceTable({ posts }: PostPerformanceTableProps) {
                 >
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3">
-                      {post.thumbnailUrl ? (
-                        <img
-                          src={post.thumbnailUrl}
-                          alt=""
-                          className="w-12 h-12 rounded-lg object-cover shrink-0"
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement | null)?.style.removeProperty('display'); }}
-                        />
-                      ) : null}
-                      <div
-                        className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center shrink-0"
-                        style={{ display: post.thumbnailUrl ? 'none' : 'flex' }}
-                      >
-                        {PLATFORM_ICON[post.platform]}
-                      </div>
+                      <PostContentPreviewThumb
+                        platform={post.platform}
+                        mediaType={post.mediaType}
+                        thumbnailUrl={post.thumbnailUrl}
+                        className="w-12 h-12 rounded-lg"
+                        imgClassName="w-12 h-12 rounded-lg object-cover shrink-0"
+                        emptyClassName="w-12 h-12 rounded-lg bg-slate-100"
+                      />
                       <div className="min-w-0 max-w-[200px]">
                         <div className="flex items-center gap-1.5 mb-0.5">
                           <span className="shrink-0 [&>svg]:w-3.5 [&>svg]:h-3.5 text-slate-400">{PLATFORM_ICON[post.platform]}</span>

@@ -96,13 +96,20 @@ export function isPostHistoryVerticalThumb(format: PostHistoryFormat): boolean {
   return format.key === 'reel' || format.key === 'story';
 }
 
+export function normalizeAnalyticsPlatform(platform?: string | null): string {
+  const plat = (platform ?? '').trim().toUpperCase();
+  if (plat === 'X') return 'TWITTER';
+  if (plat === 'META') return 'FACEBOOK';
+  return plat;
+}
+
 /** Synced/imported posts on platform dashboards (Threads, X, LinkedIn, Facebook text). */
 export function isAnalyticsTextOnlyPost(post: {
   platform?: string | null;
   mediaType?: string | null;
   thumbnailUrl?: string | null;
 }): boolean {
-  const plat = (post.platform ?? '').toUpperCase();
+  const plat = normalizeAnalyticsPlatform(post.platform);
   const mt = (post.mediaType ?? '').trim().toUpperCase();
   const thumb = (post.thumbnailUrl ?? '').trim();
 

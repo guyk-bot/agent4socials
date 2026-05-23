@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { isAnalyticsTextOnlyPost } from '@/lib/post-history-format';
+import { isAnalyticsTextOnlyPost, normalizeAnalyticsPlatform } from '@/lib/post-history-format';
 
 export function PostHistoryTextThumb({ className = 'w-9 h-9' }: { className?: string }) {
   return (
@@ -44,8 +44,8 @@ export function PostContentPreviewThumb({
 
   const thumb = (thumbnailUrl ?? '').trim();
   if (!thumb) {
-    const plat = (platform ?? '').toUpperCase();
-    if (plat === 'TWITTER' || plat === 'X') return null;
+    const plat = normalizeAnalyticsPlatform(platform);
+    if (plat === 'TWITTER') return null;
     return (
       <div
         className={`rounded shrink-0 ${emptyClassName ?? className}`}

@@ -49,6 +49,7 @@ import {
   ArrowUpDown,
 } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
+import { PostContentPreviewThumb } from '@/components/PostContentPreviewThumb';
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
 import { FacebookAnalyticsView, AnalyticsGrid, AnalyticsGridItem, AnalyticsWatermarkedChart } from '@/components/analytics';
 import type { FacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
@@ -2519,25 +2520,19 @@ export default function DashboardPage() {
                           <tr key={post.id} className="hover:bg-neutral-50">
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-3">
-                                {thumbnailSrc ? (
-                                  <img
-                                    src={thumbnailSrc}
-                                    alt=""
-                                    className="w-12 h-12 rounded object-cover shrink-0"
-                                    referrerPolicy={
-                                      /pinimg\.com|pinterest\.com/i.test(String(post.thumbnailUrl ?? ''))
-                                        ? 'no-referrer'
-                                        : undefined
-                                    }
-                                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; (e.currentTarget.nextElementSibling as HTMLElement | null)?.style.removeProperty('display'); }}
-                                  />
-                                ) : null}
-                                <div
-                                  className="w-12 h-12 rounded bg-neutral-100 flex items-center justify-center shrink-0"
-                                  style={{ display: thumbnailSrc ? 'none' : 'flex' }}
-                                >
-                                  {PLATFORM_ICON[post.platform]}
-                                </div>
+                                <PostContentPreviewThumb
+                                  platform={post.platform}
+                                  mediaType={post.mediaType}
+                                  thumbnailUrl={thumbnailSrc}
+                                  className="w-12 h-12 rounded"
+                                  imgClassName="w-12 h-12 rounded object-cover shrink-0"
+                                  emptyClassName="w-12 h-12 rounded bg-neutral-100"
+                                  imgExtraProps={
+                                    /pinimg\.com|pinterest\.com/i.test(String(post.thumbnailUrl ?? ''))
+                                      ? { referrerPolicy: 'no-referrer' as const }
+                                      : undefined
+                                  }
+                                />
                                 <div className="min-w-0 max-w-[220px]">
                                   <div className="flex items-center gap-1.5 mb-0.5">
                                     <span className="shrink-0 [&>svg]:w-3.5 [&>svg]:h-3.5 text-neutral-400">{PLATFORM_ICON[post.platform]}</span>

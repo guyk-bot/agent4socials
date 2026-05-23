@@ -8,6 +8,7 @@ import { OverviewMetricCard } from './OverviewMetricCard';
 import { VisibilityMetricsCard } from './VisibilityMetricsCard';
 import { AnalyticsWatermarkedChart } from './AnalyticsWatermarkedChart';
 import { AnalyticsUpgradeCard } from './AnalyticsUpgradeCard';
+import { PostContentPreviewThumb } from '@/components/PostContentPreviewThumb';
 import {
   ComposedChart,
   Bar,
@@ -32,6 +33,7 @@ export interface PlatformPost {
   impressions?: number;
   content?: string | null;
   thumbnailUrl?: string | null;
+  mediaType?: string | null;
 }
 
 export interface PlatformOverviewTabProps {
@@ -389,11 +391,14 @@ export function PlatformOverviewTab({
               <AnalyticsGridItem key={post.id} span={4}>
                 <AnalyticsCard>
                   <div className="flex gap-3">
-                    {post.thumbnailUrl ? (
-                      <img src={post.thumbnailUrl} alt="" className="w-14 h-14 rounded-lg object-cover shrink-0" />
-                    ) : (
-                      <div className="w-14 h-14 rounded-lg bg-neutral-100 shrink-0" />
-                    )}
+                    <PostContentPreviewThumb
+                      platform={platform ?? undefined}
+                      mediaType={post.mediaType}
+                      thumbnailUrl={post.thumbnailUrl}
+                      className="w-14 h-14 rounded-lg"
+                      imgClassName="w-14 h-14 rounded-lg object-cover shrink-0"
+                      emptyClassName="w-14 h-14 rounded-lg bg-neutral-100"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs text-[#6b7280] line-clamp-2">{post.content || 'Post'}</p>
                       <div className="flex flex-wrap gap-2 mt-2 text-xs">

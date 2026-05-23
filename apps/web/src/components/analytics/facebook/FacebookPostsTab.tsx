@@ -6,7 +6,7 @@ import { AnalyticsKpiCard } from '../AnalyticsKpiCard';
 import { AnalyticsSectionHeader } from '../AnalyticsSectionHeader';
 import { AnalyticsWatermarkedChart } from '../AnalyticsWatermarkedChart';
 import { AnalyticsUpgradeCard } from '../AnalyticsUpgradeCard';
-import { FacebookIcon } from '@/components/SocialPlatformIcons';
+import { PostContentPreviewThumb } from '@/components/PostContentPreviewThumb';
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import type { FacebookPost } from './types';
@@ -251,13 +251,14 @@ export function FacebookPostsTab({
                       <tr key={post.id} className="hover:bg-[#fafafa] transition-colors" style={{ minHeight: 64 }}>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            {post.thumbnailUrl ? (
-                              <img src={post.thumbnailUrl} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
-                            ) : (
-                              <div className="w-12 h-12 rounded-lg bg-neutral-100 flex items-center justify-center shrink-0">
-                                <FacebookIcon size={24} />
-                              </div>
-                            )}
+                            <PostContentPreviewThumb
+                              platform={post.platform}
+                              mediaType={post.mediaType}
+                              thumbnailUrl={post.thumbnailUrl}
+                              className="w-12 h-12 rounded-lg"
+                              imgClassName="w-12 h-12 rounded-lg object-cover shrink-0"
+                              emptyClassName="w-12 h-12 rounded-lg bg-neutral-100"
+                            />
                             <p className="text-sm text-[#111827] line-clamp-2 max-w-[220px]">{post.content || 'No caption'}</p>
                           </div>
                         </td>

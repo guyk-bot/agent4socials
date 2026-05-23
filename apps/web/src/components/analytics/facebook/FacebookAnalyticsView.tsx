@@ -1823,7 +1823,7 @@ export function TopPostsGrid({
   metricColor,
 }: {
   title: string;
-  items: Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; value: number }>;
+  items: Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; mediaType?: string | null; platform?: string | null; value: number }>;
   metricLabel: string;
   metricColor: string;
 }) {
@@ -1851,17 +1851,15 @@ export function TopPostsGrid({
                       <ExternalLink size={14} />
                     </Link>
                   ) : null}
-                  {p.thumbnailUrl ? (
-                    <img
-                      src={p.thumbnailUrl}
-                      alt=""
-                      className="h-9 w-9 rounded-md object-cover shrink-0"
-                      {...pinterestCdnImgProps(p.thumbnailUrl)}
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                    />
-                  ) : (
-                    <div className="h-9 w-9 rounded-md shrink-0" style={{ background: 'rgba(124,108,255,0.12)' }} />
-                  )}
+                  <PostContentPreviewThumb
+                    platform={p.platform}
+                    mediaType={p.mediaType}
+                    thumbnailUrl={p.thumbnailUrl}
+                    className="h-9 w-9 rounded-md"
+                    imgClassName="h-9 w-9 rounded-md object-cover shrink-0"
+                    emptyClassName="h-9 w-9 rounded-md"
+                    imgExtraProps={p.thumbnailUrl ? pinterestCdnImgProps(p.thumbnailUrl) : undefined}
+                  />
                   <p className="text-sm leading-5 min-w-0 pt-0.5" style={{ color: COLOR.textSecondary }}>
                     <span className="mr-2 rounded-md px-2 py-0.5 text-xs" style={{ color: COLOR.text, background: 'rgba(124,108,255,0.14)' }}>#{idx + 1}</span>
                     {clampText(firstWords(p.content, 3) || 'View post', 76)}
@@ -2497,7 +2495,6 @@ function TopContentHighlights({
   /** Section heading above the leader columns. */
   title?: string;
 }) {
-  const isTwitterHighlight = (platform ?? '').toUpperCase() === 'TWITTER';
   const rankBadge = (idx: number) => `/rank-badges/${Math.min(3, idx + 1)}.svg`;
   const formatBadgeLabel = (r: TopHighlightRow): string =>
     r.type === 'Story' ? 'Story' : r.type === 'Reel' ? 'Reel' : isCarouselAlbumMedia(r.mediaType) ? 'Carousel' : 'Image';
@@ -2510,27 +2507,18 @@ function TopContentHighlights({
         rows.map((r, idx) => (
           <div key={`${title}-${r.id}-${idx}`} className="rounded-xl p-3 h-[136px] overflow-hidden" style={{ background: COLOR.elevated }}>
             <div className="flex items-start gap-3">
-              {isTwitterHighlight && !r.thumbnailUrl ? (
-                /* Text-only tweet: show just the rank badge, no thumbnail box */
-                <div className="shrink-0 flex items-start pt-1">
-                  <img
-                    src={rankBadge(idx)}
-                    alt={`Rank ${idx + 1}`}
-                    className="h-11 w-11 object-contain drop-shadow-md sm:h-12 sm:w-12"
-                  />
-                </div>
-              ) : (
               <div className="shrink-0 w-[104px] pt-1">
                 <div className="relative isolate mt-1 h-[92px] w-[92px]">
                   <div className="absolute inset-0 overflow-hidden rounded-xl border" style={{ borderColor: COLOR.border, background: '#f3f4f6' }}>
-                    {r.thumbnailUrl ? (
-                      <img
-                        src={r.thumbnailUrl}
-                        alt="Post thumbnail"
-                        className="h-full w-full object-cover"
-                        {...pinterestCdnImgProps(r.thumbnailUrl)}
-                      />
-                    ) : null}
+                    <PostContentPreviewThumb
+                      platform={platform}
+                      mediaType={r.mediaType}
+                      thumbnailUrl={r.thumbnailUrl}
+                      className="w-full h-full rounded-xl"
+                      imgClassName="h-full w-full object-cover"
+                      emptyClassName="w-full h-full"
+                      imgExtraProps={r.thumbnailUrl ? pinterestCdnImgProps(r.thumbnailUrl) : undefined}
+                    />
                     {r.permalink ? (
                       <Link
                         href={r.permalink}
@@ -2551,7 +2539,6 @@ function TopContentHighlights({
                   />
                 </div>
               </div>
-              )}
               <div className="min-w-0 flex-1 min-h-[92px] flex flex-col">
                 <p className="text-[11px] leading-4 tabular-nums shrink-0" style={{ color: COLOR.textMuted }}>
                   {formatPostCardDateTime(r.publishedAt) || '—'}
