@@ -371,6 +371,7 @@ export async function GET(
   }
 
   // Threads: list recent threads so replies load even before dashboard post sync.
+  let threadsPostsListError: string | null = null;
   if (platform === 'THREADS') {
     try {
       const { threadsGet } = await import('@/lib/threads/threads-api');
@@ -389,6 +390,7 @@ export async function GET(
           thumbnail_url?: string;
           media_url?: string;
         }>;
+        error?: { message?: string };
       }>('me/threads', token, {
         fields: 'id,text,timestamp,permalink,thumbnail_url,media_url',
         limit: 50,
@@ -408,9 +410,11 @@ export async function GET(
             };
           })
           .filter((x): x is NonNullable<typeof x> => x != null);
+      } else {
+        threadsPostsListError = data?.error?.message ?? `Threads posts list failed (HTTP ${status})`;
       }
-    } catch {
-      /* dbSources only */
+    } catch (err) {
+      threadsPostsListError = err instanceof Error ? err.message : 'Could not load Threads posts list';
     }
   }
 
@@ -420,7 +424,12 @@ export async function GET(
   const existingPostIds = new Set(dbSources.map((s) => s.platformPostId));
   const extraLive = liveSources.filter((s) => !existingPostIds.has(s.platformPostId));
   const maxSourcesBase = metaThrottle && platform === 'INSTAGRAM' ? 16 : MAX_SOURCES;
-  const maxSources = deltaMode ? Math.min(12, maxSourcesBase) : maxSourcesBase;
+  const maxSources =
+    platform === 'THREADS'
+      ? Math.max(maxSourcesBase, 25)
+      : deltaMode
+        ? Math.min(12, maxSourcesBase)
+        : maxSourcesBase;
   const mergedSources: PostSource[] = [
     ...dbSources,
     ...extraLive,
@@ -434,7 +443,12 @@ export async function GET(
 
   if (platform === 'THREADS') {
     const { fetchThreadsInboxComments } = await import('@/lib/threads/inbox-comments');
-    const { comments: threadComments, error: threadsErr } = await fetchThreadsInboxComments(
+    const {
+      comments: threadComments,
+      error: threadsErr,
+      hint: threadsHint,
+      meta: threadsMeta,
+    } = await fetchThreadsInboxComments(
       {
         id: account.id,
         accessToken: account.accessToken ?? '',
@@ -456,21 +470,22 @@ export async function GET(
     let responseComments = (threadComments as InboxCommentRow[]).map((c) =>
       normalizeThreadsInboxCommentRow(c)
     );
-    if (!threadsErr && responseComments.length > 0) {
+    const resolvedError =
+      threadsErr ??
+      (threadsPostsListError && responseComments.length === 0 ? threadsPostsListError : undefined);
+    if (!resolvedError && responseComments.length > 0) {
       responseComments = await mergeInboxCommentsInDb(id, responseComments);
-    } else if (!threadsErr) {
+    } else if (!resolvedError) {
       const stored = await getInboxCommentsFromDb(id);
       if (stored && stored.length > 0) responseComments = stored;
     }
     const payload = {
       comments: responseComments,
-      ...(threadsErr ? { error: threadsErr } : {}),
-      hint:
-        responseComments.length === 0 && !threadsErr
-          ? 'No replies or mentions yet. Publish a thread from Composer, then have someone reply or @mention you to test.'
-          : undefined,
+      ...(resolvedError ? { error: resolvedError } : {}),
+      hint: responseComments.length === 0 && !resolvedError ? threadsHint : undefined,
+      threadsMeta,
     };
-    if (!threadsErr && responseComments.length > 0) {
+    if (!resolvedError && responseComments.length > 0) {
       setCached(cacheKey, payload, COMMENTS_CACHE_TTL_MS);
     }
     const res = NextResponse.json(payload);

@@ -765,7 +765,13 @@ function InboxPage() {
     loading: boolean;
     error: string | null;
     hint: string | null;
-  }>({ loading: false, error: null, hint: null });
+    meta: {
+      sourcesTried?: number;
+      repliesFound?: number;
+      mentionsFound?: number;
+      skippedOwn?: number;
+    } | null;
+  }>({ loading: false, error: null, hint: null, meta: null });
   const [selectedComment, setSelectedComment] = useState<PostComment | null>(null);
   const [replyText, setReplyText] = useState('');
   const [replySending, setReplySending] = useState(false);
@@ -2007,6 +2013,64 @@ function InboxPage() {
   const applyConversationsToUiRef = useRef(applyConversationsToUi);
   applyConversationsToUiRef.current = applyConversationsToUi;
 
+  const refreshThreadsComments = useCallback(async () => {
+    const threadsAccounts = effectiveAccountsRef.current.filter((a) => a.platform === 'THREADS');
+    if (threadsAccounts.length === 0) return;
+    setThreadsCommentsSync({ loading: true, error: null, hint: null, meta: null });
+    const threadsCommentRows: PostComment[] = [];
+    let threadsSyncError: string | null = null;
+    let threadsSyncHint: string | null = null;
+    let threadsSyncMeta: {
+      sourcesTried?: number;
+      repliesFound?: number;
+      mentionsFound?: number;
+      skippedOwn?: number;
+    } | null = null;
+    for (const acc of threadsAccounts) {
+      try {
+        const r = await api.get<{
+          comments?: PostComment[];
+          error?: string;
+          hint?: string;
+          threadsMeta?: {
+            sourcesTried?: number;
+            repliesFound?: number;
+            mentionsFound?: number;
+            skippedOwn?: number;
+          };
+        }>(`/social/accounts/${acc.id}/comments?refresh=1`, { timeout: 120_000 });
+        if (r.data?.error) threadsSyncError = r.data.error;
+        if (r.data?.hint) threadsSyncHint = r.data.hint;
+        if (r.data?.threadsMeta) threadsSyncMeta = r.data.threadsMeta;
+        const cs = r.data?.comments ?? [];
+        threadsCommentRows.push(
+          ...cs.map((c) => ({
+            ...c,
+            accountId: c.accountId ?? acc.id,
+            platform: c.platform ?? acc.platform,
+          }))
+        );
+      } catch {
+        threadsSyncError = 'Could not refresh Threads comments. Check your connection and try again.';
+      }
+    }
+    applyCommentsToUiRef.current(threadsCommentRows);
+    for (const acc of threadsAccounts) {
+      const perAcc = commentsStableRef.current.filter((c) => c.accountId === acc.id);
+      appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
+    }
+    setThreadsCommentsSync({
+      loading: false,
+      error: threadsSyncError,
+      hint: threadsSyncHint,
+      meta: threadsSyncMeta,
+    });
+    if (threadsSyncError) setCommentsError(threadsSyncError);
+  }, []);
+
+  const refreshThreadsCommentsRef = useRef(refreshThreadsComments);
+  refreshThreadsCommentsRef.current = refreshThreadsComments;
+
   const refreshInboxFromServer = useCallback(
     async (opts?: { liveMeta?: boolean }) => {
       const accs = effectiveAccountsRef.current;
@@ -2051,46 +2115,7 @@ function InboxPage() {
           }
         }
 
-        const threadsAccounts = accs.filter((a) => a.platform === 'THREADS');
-        if (threadsAccounts.length > 0) {
-          setThreadsCommentsSync({ loading: true, error: null, hint: null });
-        }
-        const threadsCommentRows: PostComment[] = [];
-        let threadsSyncError: string | null = null;
-        let threadsSyncHint: string | null = null;
-        for (const acc of threadsAccounts) {
-          try {
-            const r = await api.get<{ comments?: PostComment[]; error?: string; hint?: string }>(
-              `/social/accounts/${acc.id}/comments?refresh=1`,
-              { timeout: 120_000 }
-            );
-            if (r.data?.error) threadsSyncError = r.data.error;
-            if (r.data?.hint) threadsSyncHint = r.data.hint;
-            const cs = r.data?.comments ?? [];
-            threadsCommentRows.push(
-              ...cs.map((c) => ({
-                ...c,
-                accountId: c.accountId ?? acc.id,
-                platform: c.platform ?? acc.platform,
-              }))
-            );
-          } catch {
-            threadsSyncError = 'Could not refresh Threads comments. Check your connection and try again.';
-          }
-        }
-        if (threadsAccounts.length > 0) {
-          applyCommentsToUiRef.current(threadsCommentRows);
-          for (const acc of threadsAccounts) {
-            const perAcc = commentsStableRef.current.filter((c) => c.accountId === acc.id);
-            appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
-          }
-          setThreadsCommentsSync({
-            loading: false,
-            error: threadsSyncError,
-            hint: threadsSyncHint,
-          });
-          if (threadsSyncError) setCommentsError(threadsSyncError);
-        }
+        await refreshThreadsCommentsRef.current();
 
         if (opts?.liveMeta) {
           const metaAccounts = accs.filter(
@@ -2339,6 +2364,7 @@ function InboxPage() {
     if (pathname !== '/dashboard/inbox' || inboxMode !== 'comments') return;
     if (!connectedPlatformIds.includes('THREADS')) return;
     setSelectedPlatforms((prev) => (prev.includes('THREADS') ? prev : [...prev, 'THREADS']));
+    void refreshThreadsCommentsRef.current();
   }, [pathname, inboxMode, connectedPlatformIds.join(',')]);
 
   /** Steer users to Comments when badge counts Threads activity. */
@@ -3277,17 +3303,52 @@ function InboxPage() {
             <div className="mx-2 mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
               <p className="font-medium">Threads comments could not load</p>
               <p className="mt-0.5">{threadsCommentsSync.error}</p>
-              <a
-                href="/dashboard/account"
-                className="mt-2 inline-block font-semibold text-amber-800 underline hover:text-amber-950 dark:text-amber-300"
-              >
-                Reconnect Threads
-              </a>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <a
+                  href="/dashboard/account"
+                  className="font-semibold text-amber-800 underline hover:text-amber-950 dark:text-amber-300"
+                >
+                  Reconnect Threads
+                </a>
+                <button
+                  type="button"
+                  onClick={() => void refreshThreadsCommentsRef.current()}
+                  className="font-semibold text-amber-800 underline hover:text-amber-950 dark:text-amber-300"
+                >
+                  Retry sync
+                </button>
+              </div>
             </div>
-          ) : !hasThreadsCommentsInList && threadsCommentsSync.hint ? (
+          ) : !hasThreadsCommentsInList ? (
             <div className="mx-2 mt-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-900 dark:border-orange-900/50 dark:bg-orange-950/40 dark:text-orange-100">
-              <p className="font-medium">Threads</p>
-              <p className="mt-0.5">{threadsCommentsSync.hint}</p>
+              <p className="font-medium">Threads comments</p>
+              <p className="mt-0.5">
+                {threadsCommentsSync.hint ??
+                  'Replies on your threads and @mentions appear in this list. Private Threads messages stay in the Threads app.'}
+              </p>
+              {threadsCommentsSync.meta?.sourcesTried != null ? (
+                <p className="mt-1 text-orange-800/80 dark:text-orange-200/80">
+                  Checked {threadsCommentsSync.meta.sourcesTried} thread
+                  {threadsCommentsSync.meta.sourcesTried === 1 ? '' : 's'}
+                  {typeof threadsCommentsSync.meta.repliesFound === 'number'
+                    ? `, ${threadsCommentsSync.meta.repliesFound} incoming repl${threadsCommentsSync.meta.repliesFound === 1 ? 'y' : 'ies'}`
+                    : ''}
+                  {typeof threadsCommentsSync.meta.mentionsFound === 'number' && threadsCommentsSync.meta.mentionsFound > 0
+                    ? `, ${threadsCommentsSync.meta.mentionsFound} @mention${threadsCommentsSync.meta.mentionsFound === 1 ? '' : 's'}`
+                    : ''}
+                  {typeof threadsCommentsSync.meta.skippedOwn === 'number' && threadsCommentsSync.meta.skippedOwn > 0
+                    ? ` (${threadsCommentsSync.meta.skippedOwn} from your account hidden)`
+                    : ''}
+                  .
+                </p>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => void refreshThreadsCommentsRef.current()}
+                className="mt-2 font-semibold text-orange-700 underline hover:text-orange-900 dark:text-orange-300"
+              >
+                Refresh Threads comments
+              </button>
             </div>
           ) : null
         ) : null}
