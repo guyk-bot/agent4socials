@@ -21,19 +21,19 @@ const META_THROTTLE_HARD_MINUTES = 20;
 /** x-app-usage header high, or short burst of calls on one server instance. */
 const META_THROTTLE_SOFT_MINUTES = 10;
 /** Soft backoff when Meta x-app-usage crosses this (stay under ~50% on dashboard). */
-const META_USAGE_HIGH_PCT = 38;
+const META_USAGE_HIGH_PCT = 32;
 /** Skip live avatar/name enrichment above this. */
-const META_USAGE_SKIP_ENRICH_PCT = 40;
+const META_USAGE_SKIP_ENRICH_PCT = 34;
 /** Reduce per-request fan-out (fewer participant/profile calls) above this. */
-const META_USAGE_REDUCE_FANOUT_PCT = 35;
+const META_USAGE_REDUCE_FANOUT_PCT = 28;
 /** Block comments fan-out, message-count probes, and latest-message enrichment. */
-const META_USAGE_BLOCK_NON_ESSENTIAL_PCT = 42;
+const META_USAGE_BLOCK_NON_ESSENTIAL_PCT = 36;
 /** One lightweight conversation-list call per account (participants include names; no IGBusinessScopedID fan-out). */
-const META_USAGE_ALLOW_LIST_SYNC_PCT = 72;
+const META_USAGE_ALLOW_LIST_SYNC_PCT = 55;
 /** Up to 2 live profile lookups per inbox sync when usage is elevated but below list-sync cap. */
-const META_USAGE_MINIMAL_PROFILE_PCT = 73;
+const META_USAGE_MINIMAL_PROFILE_PCT = 58;
 /** Hard pause non-critical Meta work when dashboard usage is near the limit. */
-const META_USAGE_EMERGENCY_PCT = 48;
+const META_USAGE_EMERGENCY_PCT = 42;
 const L1_TTL_MS = 10_000;
 const USAGE_PCT_TTL_MS = 5 * 60_000;
 

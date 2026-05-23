@@ -17,7 +17,7 @@ const igBaseUrl = 'https://graph.instagram.com/v25.0';
 const fbBaseUrl = facebookGraphBaseUrl;
 
 /** Caps IGBusinessScopedID User Profile API calls per inbox conversations request. */
-const DEFAULT_MAX_IG_SCOPED_PROFILE_CALLS_PER_REQUEST = 3;
+const DEFAULT_MAX_IG_SCOPED_PROFILE_CALLS_PER_REQUEST = 2;
 let maxIgScopedProfileCallsThisRequest = DEFAULT_MAX_IG_SCOPED_PROFILE_CALLS_PER_REQUEST;
 
 /** Meta user / IGSID node ids are numeric strings (10–20 digits). Avoid InvalidID on bad ids. */
@@ -427,7 +427,7 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
 
   const toFetch = out.filter(convNeedsEnrich).slice(0, maxConversations);
 
-  const enriched = await mapWithConcurrency(toFetch, forceEnrich ? 8 : 2, async (conv) => {
+  const enriched = await mapWithConcurrency(toFetch, forceEnrich ? 3 : 2, async (conv) => {
     let senders = [...(out.find((c) => c.id === conv.id)?.senders ?? conv.senders)];
 
     const cacheResolved = await Promise.all(

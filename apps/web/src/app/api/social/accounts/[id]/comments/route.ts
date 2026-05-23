@@ -159,7 +159,7 @@ export async function GET(
               accessToken: account.accessToken,
               isInstagramBusinessLogin: isInstagramBusinessLoginEarly,
               forceEnrich: refreshRequested,
-              maxLiveFetches: refreshRequested ? 8 : 0,
+              maxLiveFetches: 0,
             })
           : stored;
       const res = NextResponse.json({
@@ -1050,7 +1050,7 @@ export async function GET(
       accessToken: isInstagramBusinessLogin && igUserToken ? igUserToken : token,
       isInstagramBusinessLogin,
       forceEnrich: refreshRequested,
-      maxLiveFetches: metaThrottle ? 0 : refreshRequested ? 12 : 6,
+      maxLiveFetches: metaThrottle ? 0 : refreshRequested ? 4 : 3,
     });
     comments.splice(0, comments.length, ...(enriched as typeof comments));
   }

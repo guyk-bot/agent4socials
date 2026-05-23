@@ -10,7 +10,7 @@ import axios from 'axios';
 import { signTwitterRequest } from '@/lib/twitter-oauth1';
 import { runFirstWelcomeMaybe } from '@/lib/dm-first-welcome';
 import { loadConversationForFirstWelcome } from '@/lib/inbox/load-conversation-for-first-welcome';
-import { isMetaNonCriticalThrottled } from '@/lib/meta-usage-guard';
+import { isMetaNonCriticalThrottled, shouldAllowMetaInboxProfileEnrichment } from '@/lib/meta-usage-guard';
 import { deleteInboxMessagesFromDb, getInboxMessagesFromDb, setInboxMessagesInDb } from '@/lib/inbox/inbox-db-cache';
 import { readInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
 import {
@@ -178,7 +178,7 @@ export async function GET(
       const cachedProfile = await readInboxProfileCache(profilePlatform, recipientId);
       recipientName = cachedProfile?.name ?? cachedProfile?.username ?? recipientName;
       recipientPictureUrl = cachedProfile?.pictureUrl ?? null;
-      if (!recipientPictureUrl) {
+      if (!recipientPictureUrl && forceRefresh && shouldAllowMetaInboxProfileEnrichment()) {
         const isInstagramBusinessLogin =
           account.platform === 'INSTAGRAM' && credJson.loginMethod === 'instagram_business';
         const profile =
@@ -187,7 +187,7 @@ export async function GET(
                 senderId: recipientId,
                 accessToken: account.accessToken,
                 conversationId,
-                forceEnrich: true,
+                forceEnrich: false,
               })
             : await resolveInstagramInboxSenderProfile({
                 userId,
@@ -196,7 +196,7 @@ export async function GET(
                 isInstagramBusinessLogin,
                 conversationId,
                 username: recipientName?.startsWith('@') ? recipientName.slice(1) : recipientName ?? undefined,
-                forceEnrich: true,
+                forceEnrich: false,
               });
         recipientName = profile?.name ?? profile?.username ?? recipientName;
         recipientPictureUrl = profile?.pictureUrl ?? recipientPictureUrl;

@@ -27,6 +27,12 @@ import {
 } from '@/lib/api-error-message';
 import { INBOX_SYSTEM_SYNC_MS } from '@/lib/inbox/inbox-sync-config';
 import {
+  canRunInboxLiveRefresh,
+  INBOX_LIGHT_META_SYNC_MS,
+  INBOX_THREADS_LIVE_REFRESH_MS,
+  markInboxLiveRefresh,
+} from '@/lib/inbox/inbox-refresh-cooldown';
+import {
   markInboxAccountRecentlyConnected,
   isInboxAccountRecentlyConnected,
   clearInboxAccountRecentlyConnected,
@@ -214,8 +220,10 @@ const INBOX_MESSAGES_CACHE_KEY = 'agent4socials_inbox_messages_cache';
 const INBOX_MESSAGES_CACHE_MAX_BYTES = 2_000_000;
 /** Keep up to 150 conversations in localStorage (covers multi-platform inbox lists). */
 const INBOX_MESSAGES_CACHE_MAX_ENTRIES = 150;
-/** Prefetch/warm this many threads in the browser (newest first). */
-const INBOX_CLIENT_PREFETCH_MAX = 150;
+/** Prefetch/warm this many threads in the browser (newest first). Keep low to avoid Meta IGBusinessScopedID spikes. */
+const INBOX_CLIENT_PREFETCH_MAX = 8;
+/** Max per-session live profile backfills for DM list rows missing avatars. */
+const INBOX_PROFILE_BACKFILL_MAX = 5;
 /** While Inbox is open, refresh conversation list and open thread about every 90s. */
 /** How long open-thread client message cache stays fresh (background sync handles list data). */
 const INBOX_THREAD_CACHE_MS = INBOX_SYSTEM_SYNC_MS;
@@ -1901,14 +1909,17 @@ function InboxPage() {
     if (targets.length === 0) return;
 
     let cancelled = false;
-    const PREFETCH_CONCURRENCY = 12;
+    const PREFETCH_CONCURRENCY = 2;
 
     void (async () => {
       const queue = [...targets];
       const workers = Array.from({ length: PREFETCH_CONCURRENCY }, async () => {
         while (queue.length > 0 && !cancelled) {
           const conv = queue.shift();
-          if (conv) await warmConversationMessages(conv);
+          if (conv) {
+            await warmConversationMessages(conv);
+            await new Promise((r) => setTimeout(r, 250));
+          }
         }
       });
       await Promise.allSettled(workers);
@@ -2040,10 +2051,15 @@ function InboxPage() {
   const applyConversationsToUiRef = useRef(applyConversationsToUi);
   applyConversationsToUiRef.current = applyConversationsToUi;
 
-  const refreshThreadsComments = useCallback(async () => {
+  const refreshThreadsComments = useCallback(async (opts?: { live?: boolean; manual?: boolean }) => {
     const threadsAccounts = effectiveAccountsRef.current.filter((a) => a.platform === 'THREADS');
     if (threadsAccounts.length === 0) return;
-    setThreadsCommentsSync({ loading: true, error: null, hint: null, meta: null });
+    const uid = user?.id ?? '';
+    const wantLive =
+      opts?.manual === true ||
+      (opts?.live === true &&
+        (!uid || canRunInboxLiveRefresh('threads-comments', uid, INBOX_THREADS_LIVE_REFRESH_MS)));
+    setThreadsCommentsSync({ loading: wantLive, error: null, hint: null, meta: null });
     const threadsCommentRows: PostComment[] = [];
     let threadsSyncError: string | null = null;
     let threadsSyncHint: string | null = null;
@@ -2055,6 +2071,7 @@ function InboxPage() {
     } | null = null;
 
     for (const acc of threadsAccounts) {
+      if (wantLive) break;
       try {
         const cached = await api.get<{ comments?: PostComment[] }>(
           `/social/accounts/${acc.id}/comments?cacheOnly=1`,
@@ -2076,6 +2093,16 @@ function InboxPage() {
     }
     if (threadsCommentRows.length > 0) {
       applyCommentsToUiRef.current(threadsCommentRows);
+    }
+
+    if (!wantLive) {
+      setThreadsCommentsSync({
+        loading: false,
+        error: null,
+        hint: threadsCommentRows.length > 0 ? null : 'Showing saved Threads comments. Tap Retry to refresh live.',
+        meta: null,
+      });
+      return;
     }
 
     for (const acc of threadsAccounts) {
@@ -2141,7 +2168,8 @@ function InboxPage() {
       hint: threadsSyncHint,
       meta: threadsSyncMeta,
     });
-  }, []);
+    if (uid) markInboxLiveRefresh('threads-comments', uid);
+  }, [user?.id]);
 
   const refreshThreadsCommentsRef = useRef(refreshThreadsComments);
   refreshThreadsCommentsRef.current = refreshThreadsComments;
@@ -2190,39 +2218,42 @@ function InboxPage() {
           }
         }
 
-        await refreshThreadsCommentsRef.current();
+        await refreshThreadsCommentsRef.current({ live: true });
 
-        if (opts?.liveMeta) {
+        if (opts?.liveMeta && user?.id) {
           const metaAccounts = accs.filter(
             (a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK'
           );
           let mergedConvRows = [...convRows];
-          for (const acc of metaAccounts) {
-            try {
-              const convRes = await api.get<{ conversations?: Conversation[] }>(
-                `/social/accounts/${acc.id}/conversations?fullEnrich=1&fresh=1`,
-                { timeout: 180_000 }
-              );
-              const enriched = convRes.data?.conversations ?? [];
-              if (enriched.length > 0) {
-                const byId = new Map(mergedConvRows.map((c) => [c.id, c]));
-                for (const c of enriched) {
-                  byId.set(c.id, {
-                    ...c,
-                    platform: acc.platform,
-                    messageAccountId: acc.id,
-                  });
+          const lightMetaAllowed = canRunInboxLiveRefresh(
+            'meta-conversations',
+            user.id,
+            INBOX_LIGHT_META_SYNC_MS
+          );
+          if (lightMetaAllowed) {
+            for (const acc of metaAccounts) {
+              try {
+                const convRes = await api.get<{ conversations?: Conversation[] }>(
+                  `/social/accounts/${acc.id}/conversations?badgePoll=1&minimalEnrich=1`,
+                  { timeout: 90_000 }
+                );
+                const enriched = convRes.data?.conversations ?? [];
+                if (enriched.length > 0) {
+                  const byId = new Map(mergedConvRows.map((c) => [c.id, c]));
+                  for (const c of enriched) {
+                    byId.set(c.id, {
+                      ...c,
+                      platform: acc.platform,
+                      messageAccountId: acc.id,
+                    });
+                  }
+                  mergedConvRows = [...byId.values()];
                 }
-                mergedConvRows = [...byId.values()];
+              } catch {
+                /* keep bootstrap data for this account */
               }
-            } catch {
-              /* keep bootstrap data for this account */
             }
-            try {
-              await api.get(`/social/accounts/${acc.id}/comments?refresh=1`, { timeout: 120_000 });
-            } catch {
-              /* comments refresh is optional on inbox open */
-            }
+            markInboxLiveRefresh('meta-conversations', user.id);
           }
           if (mergedConvRows.length > 0) {
             applyConversationsToUiRef.current(mergedConvRows);
@@ -2232,29 +2263,6 @@ function InboxPage() {
             }
           } else {
             setConversationsLoading(false);
-          }
-          const boot2 = await api.get<{
-            commentsByAccountId?: Record<string, PostComment[]>;
-          }>('/inbox/bootstrap', { timeout: 60_000 });
-          const commentRows2: PostComment[] = [];
-          for (const acc of accs) {
-            const cs = boot2.data?.commentsByAccountId?.[acc.id] ?? [];
-            commentRows2.push(
-              ...cs.map((c) => ({
-                ...c,
-                accountId: c.accountId ?? acc.id,
-                platform: c.platform ?? acc.platform,
-              }))
-            );
-          }
-          if (commentRows2.length > 0) {
-            applyCommentsToUiRef.current(commentRows2);
-            for (const acc of accs) {
-              const perAcc = commentsStableRef.current.filter((c) => c.accountId === acc.id);
-              if (perAcc.length) appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
-            }
-          } else {
-            setCommentsLoading(false);
           }
         }
       } finally {
@@ -2352,27 +2360,28 @@ function InboxPage() {
   useEffect(() => {
     if (pathname !== '/dashboard/inbox' || !user?.id || effectiveAccounts.length === 0) return;
     void refreshInboxFromServerRef.current({ liveMeta: true });
-    const intervalId = setInterval(() => {
-      void refreshInboxFromServerRef.current({ liveMeta: false });
-    }, INBOX_SYSTEM_SYNC_MS);
-    return () => clearInterval(intervalId);
   }, [pathname, user?.id, effectiveAccounts.map((a) => a.id).join(',')]);
 
-  // Backfill missing DM names/avatars one thread at a time (avoids fullEnrich timeouts).
+  const profileBackfillCountRef = useRef(0);
+
+  // Backfill missing DM names/avatars one thread at a time (capped; respects Meta usage guard server-side).
   useEffect(() => {
     if (pathname !== '/dashboard/inbox' || !user?.id || inboxMode !== 'messages') return;
     let cancelled = false;
-    const queue = conversations.filter(
-      (c) =>
-        c.platform &&
-        (c.platform === 'INSTAGRAM' || c.platform === 'FACEBOOK') &&
-        convNeedsProfileData(c)
-    );
+    const queue = conversations
+      .filter(
+        (c) =>
+          c.platform &&
+          (c.platform === 'INSTAGRAM' || c.platform === 'FACEBOOK') &&
+          convNeedsProfileData(c)
+      )
+      .slice(0, INBOX_PROFILE_BACKFILL_MAX);
     if (queue.length === 0) return;
 
     void (async () => {
       for (const conv of queue) {
         if (cancelled) break;
+        if (profileBackfillCountRef.current >= INBOX_PROFILE_BACKFILL_MAX) break;
         const accountId =
           (conv as Conversation & { messageAccountId?: string }).messageAccountId ??
           effectiveAccounts.find((a) => a.platform === conv.platform)?.id;
@@ -2380,6 +2389,7 @@ function InboxPage() {
         const attemptKey = `${accountId}:${conv.id}`;
         if (profileEnrichInFlightRef.current.has(attemptKey)) continue;
         profileEnrichInFlightRef.current.add(attemptKey);
+        profileBackfillCountRef.current += 1;
         try {
           const sendersJson = encodeURIComponent(JSON.stringify(conv.senders ?? []));
           const res = await api.get<{
@@ -2400,7 +2410,7 @@ function InboxPage() {
         } finally {
           profileEnrichInFlightRef.current.delete(attemptKey);
         }
-        await new Promise((r) => setTimeout(r, 120));
+        await new Promise((r) => setTimeout(r, 800));
       }
     })();
 
@@ -2460,7 +2470,7 @@ function InboxPage() {
     if (pathname !== '/dashboard/inbox' || inboxMode !== 'comments') return;
     if (!connectedPlatformIds.includes('THREADS')) return;
     setSelectedPlatforms((prev) => (prev.includes('THREADS') ? prev : [...prev, 'THREADS']));
-    void refreshThreadsCommentsRef.current();
+    void refreshThreadsCommentsRef.current({ live: false });
   }, [pathname, inboxMode, connectedPlatformIds.join(',')]);
 
   /** Steer users to Comments when badge counts Threads activity. */
@@ -3413,7 +3423,7 @@ function InboxPage() {
                 </a>
                 <button
                   type="button"
-                  onClick={() => void refreshThreadsCommentsRef.current()}
+                  onClick={() => void refreshThreadsCommentsRef.current({ manual: true })}
                   className="font-semibold text-amber-800 underline hover:text-amber-950 dark:text-amber-300"
                 >
                   Retry sync
@@ -3445,7 +3455,7 @@ function InboxPage() {
               ) : null}
               <button
                 type="button"
-                onClick={() => void refreshThreadsCommentsRef.current()}
+                onClick={() => void refreshThreadsCommentsRef.current({ manual: true })}
                 className="mt-2 font-semibold text-orange-700 underline hover:text-orange-900 dark:text-orange-300"
               >
                 Refresh Threads comments

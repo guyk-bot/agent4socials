@@ -94,8 +94,13 @@ export async function GET(
   const minimalEnrich =
     searchParams.get('minimalEnrich') === '1' || searchParams.get('minimalEnrich') === 'true';
   /** One-shot inbox open: refresh names/avatars from Meta (capped; does not fan out comments). */
-  const fullEnrich =
+  const fullEnrichRequested =
     searchParams.get('fullEnrich') === '1' || searchParams.get('fullEnrich') === 'true';
+  const fullEnrich =
+    fullEnrichRequested &&
+    !shouldBlockMetaNonEssentialCalls() &&
+    !shouldSkipMetaProfileEnrichment() &&
+    !isMetaNonCriticalThrottled();
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
     select: {
@@ -840,7 +845,7 @@ export async function GET(
         ? 2
         : 4;
     if (fullEnrich) {
-      setIgScopedProfileCallBudgetForRequest(Math.min(Math.max(convsNeedingProfile.length, 25), 50));
+      setIgScopedProfileCallBudgetForRequest(Math.min(Math.max(convsNeedingProfile.length, 6), 12));
     } else {
       resetIgScopedProfileCallBudget();
     }
@@ -857,7 +862,7 @@ export async function GET(
         list: list as InboxConversationListItem[],
         accessToken: token,
         ourIds,
-        maxConversations: fullEnrich ? Math.min(convsNeedingProfile.length, 50) : igEnrichMax,
+        maxConversations: fullEnrich ? Math.min(convsNeedingProfile.length, 12) : igEnrichMax,
         forceEnrich: fullEnrich,
       })) as typeof list;
     }
@@ -954,7 +959,7 @@ export async function GET(
           }
         } else if (isInstagram) {
           const enrichCap = fullEnrich
-            ? Math.min(idsToEnrich.size, 50)
+            ? Math.min(idsToEnrich.size, 12)
             : allowMinimalLive
               ? 2
               : reduceFanOut
@@ -1018,7 +1023,7 @@ export async function GET(
           );
         } else {
           // Facebook Page messaging: batch lookup, then per-user fallback for any still missing.
-          const enrichIds = Array.from(idsToEnrich).slice(0, fullEnrich ? 25 : allowMinimalLive ? 2 : 50);
+          const enrichIds = Array.from(idsToEnrich).slice(0, fullEnrich ? 12 : allowMinimalLive ? 2 : 6);
           for (const id of enrichIds) {
             const cached = await readInboxProfileCache('facebook', id);
             if (cached?.pictureUrl || cached?.name) {

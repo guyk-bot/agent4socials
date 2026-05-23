@@ -3,6 +3,7 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { getInboxMessagesFromDb } from '@/lib/inbox/inbox-db-cache';
 import { resolveConversationSenderProfile } from '@/lib/inbox/resolve-inbox-sender-profile';
+import { shouldAllowMetaInboxProfileEnrichment } from '@/lib/meta-usage-guard';
 
 /**
  * GET /api/social/accounts/[id]/conversations/[conversationId]/sender-profile
@@ -57,6 +58,11 @@ export async function GET(
     }
   }
 
+  const forceEnrich =
+    (request.nextUrl.searchParams.get('force') === '1' ||
+      request.nextUrl.searchParams.get('forceEnrich') === '1') &&
+    shouldAllowMetaInboxProfileEnrichment();
+
   const profile = await resolveConversationSenderProfile({
     userId,
     platform: account.platform === 'INSTAGRAM' ? 'instagram' : 'facebook',
@@ -64,7 +70,7 @@ export async function GET(
     senders,
     accessToken: account.accessToken,
     isInstagramBusinessLogin,
-    forceEnrich: true,
+    forceEnrich,
   });
 
   let name = profile.name ?? null;

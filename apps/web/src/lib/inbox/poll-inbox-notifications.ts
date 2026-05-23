@@ -30,6 +30,11 @@ import {
   shouldAllowMinimalProfileEnrichment,
   shouldBlockMetaNonEssentialCalls,
 } from '@/lib/meta-usage-guard';
+import {
+  canRunInboxLiveRefresh,
+  INBOX_THREADS_LIVE_REFRESH_MS,
+  markInboxLiveRefresh,
+} from '@/lib/inbox/inbox-refresh-cooldown';
 
 /** @deprecated Use INBOX_SYSTEM_SYNC_MS */
 export const INBOX_NOTIFICATION_POLL_MS = INBOX_SYSTEM_SYNC_MS;
@@ -108,7 +113,7 @@ function markConversationActivity(
     // Only flag as unread when truly newly-arrived: updatedTime must be within 2× the poll
     // interval. If the conversation is old (cache miss after a page refresh wiped sessionStorage),
     // treating it as unread would produce a spurious badge on every refresh.
-    const RECENT_THRESHOLD_MS = 2 * 120_000; // 4 min — 2× the 2-min poll cadence
+    const RECENT_THRESHOLD_MS = 2 * INBOX_SYSTEM_SYNC_MS;
     const updatedMs = next.updatedTime ? Date.parse(next.updatedTime) : 0;
     const isRecent = updatedMs > 0 && Date.now() - updatedMs < RECENT_THRESHOLD_MS;
     if (isRecent && getInboxInitializedAccountIdsForConversations(userId).has(accountId)) {
@@ -279,16 +284,20 @@ export async function pollInboxNotifications(args: {
       } catch {
         /* skip account */
       }
-      await new Promise((r) => setTimeout(r, 800));
+      await new Promise((r) => setTimeout(r, 1500));
     }
 
     if (BACKGROUND_COMMENT_PLATFORMS.has(acc.platform)) {
       try {
         const existing = getComments(acc.id) ?? [];
+        const threadsLiveAllowed = canRunInboxLiveRefresh('threads-comments', userId, INBOX_THREADS_LIVE_REFRESH_MS);
         const res = await api.get<{ comments?: CachedComment[]; error?: string }>(
-          `/social/accounts/${acc.id}/comments?refresh=1`,
-          { timeout: 90_000 }
+          threadsLiveAllowed
+            ? `/social/accounts/${acc.id}/comments?refresh=1`
+            : `/social/accounts/${acc.id}/comments?cacheOnly=1`,
+          { timeout: threadsLiveAllowed ? 90_000 : 30_000 }
         );
+        if (threadsLiveAllowed) markInboxLiveRefresh('threads-comments', userId);
         if (res.data?.error) continue;
         const incoming = res.data?.comments ?? [];
         if (incoming.length === 0 && existing.length === 0) continue;
@@ -296,7 +305,7 @@ export async function pollInboxNotifications(args: {
       } catch {
         /* skip account */
       }
-      await new Promise((r) => setTimeout(r, 800));
+      await new Promise((r) => setTimeout(r, 1500));
     }
   }
 
