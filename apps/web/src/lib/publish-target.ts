@@ -233,7 +233,8 @@ async function waitForLinkedInVideoAvailable(
   axiosInstance: PublishDeps['axios'],
   videoUrn: string,
   token: string,
-  maxWaitMs = 300_000
+  /** Keep under Vercel publish maxDuration so we return FAILED instead of hanging until the worker is killed. */
+  maxWaitMs = 120_000
 ): Promise<void> {
   const encodedUrn = encodeURIComponent(videoUrn);
   const intervalMs = 3000;
@@ -241,6 +242,7 @@ async function waitForLinkedInVideoAvailable(
   while (elapsed < maxWaitMs) {
     const res = await axiosInstance.get(`https://api.linkedin.com/rest/videos/${encodedUrn}`, {
       headers: linkedInRestCommunityHeaders(token),
+      timeout: 20_000,
       validateStatus: () => true,
     });
     if (res.status >= 200 && res.status < 300) {
@@ -254,7 +256,9 @@ async function waitForLinkedInVideoAvailable(
     await new Promise((r) => setTimeout(r, intervalMs));
     elapsed += intervalMs;
   }
-  throw new Error('LinkedIn video is still processing after upload. Wait a minute and retry from Composer.');
+  throw new Error(
+    'LinkedIn video is still processing after upload (waited 2 minutes). Try again from History in a few minutes or use a shorter clip.'
+  );
 }
 
 /** Fetch any media (image or video) as buffer; used for video uploads to LinkedIn, TikTok FILE_UPLOAD, and Twitter. */
@@ -1111,6 +1115,7 @@ export async function publishTarget(
                 'Content-Type': 'application/json',
                 ...linkedInRestCommunityHeaders(token),
               },
+              timeout: 60_000,
               validateStatus: () => true,
             }
           );
@@ -1136,6 +1141,7 @@ export async function publishTarget(
               },
               maxBodyLength: Infinity,
               maxContentLength: Infinity,
+              timeout: 120_000,
               validateStatus: () => true,
             });
             if (putRes.status < 200 || putRes.status >= 300) {
@@ -1161,6 +1167,7 @@ export async function publishTarget(
                 'Content-Type': 'application/json',
                 ...linkedInRestCommunityHeaders(token),
               },
+              timeout: 60_000,
               validateStatus: () => true,
             }
           );

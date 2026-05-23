@@ -3,6 +3,7 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { trackUsage } from '@/lib/usage-tracking';
 import {
+  failStuckPostingTargets,
   finalizePostPublishState,
   preparePostForBackgroundPublish,
   runPublishPostWorkflow,
@@ -70,6 +71,14 @@ export async function POST(
         });
       } catch (e) {
         console.error('[publish after]', postId, e instanceof Error ? e.message : e);
+        try {
+          await failStuckPostingTargets(
+            postId,
+            'Publishing was interrupted before it finished (server time limit). Check the platform, then open in Composer and try Post now again.'
+          );
+        } catch (stuckErr) {
+          console.error('[publish after] failStuck', postId, stuckErr);
+        }
         try {
           await finalizePostPublishState(postId);
         } catch (finalizeErr) {

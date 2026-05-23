@@ -60,7 +60,7 @@ function publishTargetTimeoutMs(platform: string): number {
   if (platform === 'TIKTOK') return 280_000;
   if (platform === 'YOUTUBE') return 180_000;
   if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') return 150_000;
-  if (platform === 'LINKEDIN') return 600_000;
+  if (platform === 'LINKEDIN') return 240_000;
   if (platform === 'THREADS') return 180_000;
   return 120_000;
 }

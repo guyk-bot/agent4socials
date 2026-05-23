@@ -85,8 +85,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
       platform !== 'TWITTER' &&
       platform !== 'YOUTUBE' &&
       platform !== 'PINTEREST' &&
-      platform !== 'LINKEDIN' &&
-      platform !== 'THREADS'
+      platform !== 'LINKEDIN'
     ) return;
     refreshingAvatarIds.current.add(accountId);
     try {
@@ -130,8 +129,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
               a?.platform === 'TWITTER' ||
               a?.platform === 'YOUTUBE' ||
               a?.platform === 'PINTEREST' ||
-              a?.platform === 'LINKEDIN' ||
-              a?.platform === 'THREADS'
+              a?.platform === 'LINKEDIN'
             )
             .map((a) => a.id)
             .filter((id): id is string => typeof id === 'string' && id.length > 0);
