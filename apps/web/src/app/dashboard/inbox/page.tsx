@@ -106,7 +106,12 @@ const INBOX_PLATFORM_DEFS = [
 
 const MESSAGE_STRIP_PLATFORM_IDS = new Set<string>(
   INBOX_PLATFORM_DEFS.filter(
-    (p) => p.id !== 'YOUTUBE' && p.id !== 'TIKTOK' && p.id !== 'LINKEDIN' && p.id !== 'PINTEREST'
+    (p) =>
+      p.id !== 'YOUTUBE' &&
+      p.id !== 'TIKTOK' &&
+      p.id !== 'LINKEDIN' &&
+      p.id !== 'PINTEREST' &&
+      p.id !== 'THREADS'
   ).map((p) => p.id)
 );
 const COMMENT_STRIP_PLATFORM_IDS = new Set<string>(INBOX_PLATFORM_DEFS.map((p) => p.id));
