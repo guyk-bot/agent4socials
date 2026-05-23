@@ -115,6 +115,7 @@ export async function GET(
       refreshToken: true,
       expiresAt: true,
       credentialsJson: true,
+      username: true,
     },
   });
   if (!account) {
@@ -173,11 +174,12 @@ export async function GET(
     platform !== 'YOUTUBE' &&
     platform !== 'TIKTOK' &&
     platform !== 'LINKEDIN' &&
-    platform !== 'PINTEREST'
+    platform !== 'PINTEREST' &&
+    platform !== 'THREADS'
   ) {
     return NextResponse.json({
       comments: [],
-      error: 'Comments are only available for Instagram, Facebook, X, YouTube, TikTok, and LinkedIn.',
+      error: 'Comments are only available for Instagram, Facebook, X, YouTube, TikTok, LinkedIn, and Threads.',
     });
   }
 
@@ -385,6 +387,51 @@ export async function GET(
     return tb - ta;
   });
   const sources: PostSource[] = mergedSources.slice(0, maxSources);
+
+  if (platform === 'THREADS') {
+    const { fetchThreadsInboxComments } = await import('@/lib/threads/inbox-comments');
+    const { comments: threadComments, error: threadsErr } = await fetchThreadsInboxComments(
+      {
+        id: account.id,
+        accessToken: account.accessToken ?? '',
+        expiresAt: account.expiresAt,
+        platformUserId: account.platformUserId,
+        username: account.username,
+      },
+      sources.map((s) => ({
+        platformPostId: s.platformPostId,
+        postPreview: s.postPreview,
+        postTargetId: s.postTargetId,
+        postPublishedAt: s.postPublishedAt ?? null,
+        postImageUrl: s.postImageUrl ?? null,
+        postUrl: s.postUrl ?? null,
+      })),
+      maxSources
+    );
+    let responseComments = threadComments as InboxCommentRow[];
+    if (!threadsErr && responseComments.length > 0) {
+      responseComments = await mergeInboxCommentsInDb(id, responseComments);
+    } else if (!threadsErr) {
+      const stored = await getInboxCommentsFromDb(id);
+      if (stored && stored.length > 0) responseComments = stored;
+    }
+    const payload = {
+      comments: responseComments,
+      ...(threadsErr ? { error: threadsErr } : {}),
+      hint:
+        responseComments.length === 0 && !threadsErr
+          ? 'No replies or mentions yet. Publish a thread from Composer, then have someone reply or @mention you to test.'
+          : undefined,
+    };
+    if (!threadsErr && responseComments.length > 0) {
+      setCached(cacheKey, payload, COMMENTS_CACHE_TTL_MS);
+    }
+    const res = NextResponse.json(payload);
+    res.headers.set('Cache-Control', 'private, max-age=300');
+    res.headers.set('X-Comments-Cache', 'MISS');
+    return res;
+  }
+
   const credJson = credJsonEarly as { loginMethod?: string; igUserToken?: string };
 
   // Instagram Business Login: account.accessToken IS the long-lived Instagram User token.

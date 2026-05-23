@@ -88,6 +88,7 @@ import {
   LinkedinIcon,
   PinterestIcon,
   TikTokIcon,
+  ThreadsIcon,
 } from '@/components/SocialPlatformIcons';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 
@@ -100,6 +101,7 @@ const INBOX_PLATFORM_DEFS = [
   { id: 'LINKEDIN', label: 'LinkedIn', icon: LinkedinIcon },
   { id: 'PINTEREST', label: 'Pinterest', icon: PinterestIcon },
   { id: 'TIKTOK', label: 'TikTok', icon: TikTokIcon },
+  { id: 'THREADS', label: 'Threads', icon: ThreadsIcon },
 ] as const;
 
 const MESSAGE_STRIP_PLATFORM_IDS = new Set<string>(
@@ -2879,15 +2881,22 @@ function InboxPage() {
       const dmNotInApp =
         selectedPlatform === 'LINKEDIN' ||
         selectedPlatform === 'PINTEREST' ||
+        selectedPlatform === 'THREADS' ||
         messageFetchPlatformIds.every((p) => !DM_THREAD_PLATFORM_IDS.has(p));
       return (
         <div className="p-6 text-center">
           <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
           {dmNotInApp ? (
             <>
-              <p className="text-sm font-medium text-neutral-800">LinkedIn and Pinterest DMs are not in this app</p>
+              <p className="text-sm font-medium text-neutral-800">
+                {selectedPlatform === 'THREADS'
+                  ? 'Threads direct messages are not in this app'
+                  : 'LinkedIn, Pinterest, and Threads DMs are not in this app'}
+              </p>
               <p className="text-xs text-neutral-500 mt-2 max-w-sm mx-auto">
-                Your LinkedIn inbox on linkedin.com will not sync here. LinkedIn does not expose member messaging to our integration. Use Instagram, Facebook, or X for Messages, or open the Comments tab to read and reply to comments on your LinkedIn posts.
+                {selectedPlatform === 'THREADS'
+                  ? 'Use the Comments tab for replies on your threads and @mentions. Threads private messages stay in the Threads app for now.'
+                  : 'Your LinkedIn inbox on linkedin.com will not sync here. LinkedIn does not expose member messaging to our integration. Use Instagram, Facebook, or X for Messages, or open the Comments tab to read and reply to comments on your LinkedIn posts.'}
               </p>
             </>
           ) : showInboxWarmupNotice ? (
@@ -3343,7 +3352,7 @@ function InboxPage() {
           /* Batch reply to selected comments: show each in a card + Generate with AI */
           (() => {
             const selectedComments = comments.filter((c) => !c.parentCommentId && selectedCommentIds.has(c.commentId));
-            const canReplyPlatforms = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER', 'YOUTUBE', 'LINKEDIN']);
+            const canReplyPlatforms = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER', 'YOUTUBE', 'LINKEDIN', 'THREADS']);
             const replyable = selectedComments.filter((c) => {
               if (!canReplyPlatforms.has(c.platform)) return false;
               if (c.platform === 'LINKEDIN' && !(c.linkedInObjectUrn && c.commentId.startsWith('urn:li:comment:'))) {
@@ -3918,9 +3927,10 @@ function InboxPage() {
                 selectedComment.platform !== 'FACEBOOK' &&
                 selectedComment.platform !== 'YOUTUBE' &&
                 selectedComment.platform !== 'TWITTER' &&
-                selectedComment.platform !== 'LINKEDIN' ? (
+                selectedComment.platform !== 'LINKEDIN' &&
+                selectedComment.platform !== 'THREADS' ? (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                    <p className="font-medium">Reply from the app is available for Instagram, Facebook, YouTube, X (Twitter), and LinkedIn.</p>
+                    <p className="font-medium">Reply from the app is available for Instagram, Facebook, YouTube, X (Twitter), LinkedIn, and Threads.</p>
                     <p className="mt-1 text-xs text-amber-700">For other platforms, reply on the platform.</p>
                   </div>
                 ) : selectedComment.platform === 'LINKEDIN' &&

@@ -64,6 +64,16 @@ After adding `threads_share_to_instagram`, reconnect Threads from Account so the
 
 **Dashboard → Account → Connect** or `?connect=THREADS` on the dashboard URL.
 
+## Inbox (replies and mentions)
+
+Threads **direct messages** are not available on the official Threads Graph API for third-party apps. In Agent4Socials, Threads appears in **Inbox → Comments** (not Messages):
+
+- **Replies** on your synced threads (`GET {thread-id}/replies`, scope `threads_read_replies`)
+- **@mentions** (`GET me/mentions`, scope `threads_manage_mentions`)
+- **Reply from the app** (`POST {media-id}/replies`, scope `threads_manage_replies`)
+
+Sync posts first (open **Dashboard** with Threads selected, or wait for background sync) so the inbox has thread IDs to load replies from.
+
 ## Database
 
 Production DBs need enum value `THREADS` on `Platform`. The OAuth callback runs `ensureThreadsPlatformEnum()` automatically; you can also deploy Prisma migrations when available.

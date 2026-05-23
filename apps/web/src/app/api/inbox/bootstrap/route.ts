@@ -36,7 +36,8 @@ export async function GET(request: NextRequest) {
       acc.platform === 'TWITTER' ||
       acc.platform === 'YOUTUBE' ||
       acc.platform === 'LINKEDIN' ||
-      acc.platform === 'PINTEREST'
+      acc.platform === 'PINTEREST' ||
+      acc.platform === 'THREADS'
     ) {
       const storedComments = await getInboxCommentsFromDb(acc.id);
       if (storedComments?.length) {

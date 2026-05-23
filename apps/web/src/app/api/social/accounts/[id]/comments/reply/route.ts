@@ -54,10 +54,11 @@ export async function POST(
     platform !== 'FACEBOOK' &&
     platform !== 'YOUTUBE' &&
     platform !== 'TWITTER' &&
-    platform !== 'LINKEDIN'
+    platform !== 'LINKEDIN' &&
+    platform !== 'THREADS'
   ) {
     return NextResponse.json({
-      message: 'Comment replies are only supported for Instagram, Facebook, YouTube, X (Twitter), and LinkedIn.',
+      message: 'Comment replies are only supported for Instagram, Facebook, YouTube, X (Twitter), LinkedIn, and Threads.',
     }, { status: 400 });
   }
 
@@ -110,6 +111,24 @@ export async function POST(
         { text: message.trim(), reply: { in_reply_to_tweet_id: commentId } },
         { headers: { Authorization: `Bearer ${account.accessToken}`, 'Content-Type': 'application/json' }, timeout: 15_000 }
       );
+      return NextResponse.json({ ok: true });
+    }
+
+    if (platform === 'THREADS') {
+      const { postThreadsReply } = await import('@/lib/threads/inbox-comments');
+      const parentId = commentId.startsWith('mention-') ? commentId.replace(/^mention-/, '') : commentId;
+      const result = await postThreadsReply(
+        {
+          id: account.id,
+          accessToken: account.accessToken ?? '',
+          expiresAt: account.expiresAt,
+        },
+        parentId,
+        message.trim()
+      );
+      if (!result.ok) {
+        return NextResponse.json({ message: result.message }, { status: 400 });
+      }
       return NextResponse.json({ ok: true });
     }
 
