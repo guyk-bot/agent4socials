@@ -7,9 +7,12 @@ Threads OAuth uses the **Threads App ID** and **Threads App Secret** from Meta (
 1. App → **Use cases** → add **Access the Threads API**.
 2. Complete **App Review → Testing** API calls for required scopes (see Graph API Explorer with `graph.threads.net`).
 3. **Threads app settings → Basic** → copy **Threads App ID** and **Threads App Secret**.
-4. **Client OAuth Settings** → **Valid OAuth redirect URIs** → add (use **Add URL** in the dropdown if the field does not save):
-   - `https://agent4socials.com/api/social/oauth/threads/callback`
-   - (and your staging URL if applicable)
+4. **Threads use case → Settings** → fill **all three** callback fields (Meta will not save if any are empty):
+   - **Redirect Callback URLs:** `https://agent4socials.com/api/social/oauth/threads/callback`
+   - **Uninstall Callback URL:** `https://agent4socials.com/api/social/oauth/threads/deauthorize`
+   - **Delete Callback URL:** `https://agent4socials.com/api/social/oauth/threads/data-deletion`
+   - Use **Add URL** under Redirect Callback URLs, then **Save**.
+   - (add staging URLs too if you use a preview domain)
 
 ## Vercel environment variables
 

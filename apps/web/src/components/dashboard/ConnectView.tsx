@@ -317,12 +317,20 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
             )}
 
             <p className="mt-4 text-xs text-neutral-500 leading-relaxed">
-              If Meta shows <span className="font-medium text-neutral-700">URL Blocked</span>, add this under Threads →
-              Client OAuth Settings → Valid OAuth redirect URIs (use Add URL, then Save):
+              In Meta → Threads → Settings, fill <span className="font-medium text-neutral-700">all three</span> callback
+              fields (the form will not save with only Redirect). Use Add URL for redirect, then Save:
             </p>
-            <p className="mt-1.5 rounded-lg bg-neutral-100 px-3 py-2 text-xs font-mono text-neutral-800 break-all select-all">
-              {threadsCallback}
-            </p>
+            <ul className="mt-1.5 space-y-1 rounded-lg bg-neutral-100 px-3 py-2 text-xs font-mono text-neutral-800 break-all">
+              <li>Redirect: {threadsCallback}</li>
+              <li>
+                Uninstall:{' '}
+                {threadsCallback.replace('/callback', '/deauthorize')}
+              </li>
+              <li>
+                Delete:{' '}
+                {threadsCallback.replace('/callback', '/data-deletion')}
+              </li>
+            </ul>
 
             <button
               type="button"

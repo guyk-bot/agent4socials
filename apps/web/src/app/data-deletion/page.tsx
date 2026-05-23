@@ -2,13 +2,33 @@ import Link from 'next/link';
 import SiteHeader from '@/components/landing/SiteHeader';
 import SiteFooter from '@/components/landing/SiteFooter';
 
-export default function DataDeletionPage() {
+type Props = { searchParams?: Promise<{ confirmation_code?: string; platform?: string }> };
+
+export default async function DataDeletionPage({ searchParams }: Props) {
+  const params = searchParams ? await searchParams : undefined;
+  const confirmationCode = params?.confirmation_code?.trim();
+  const platform = params?.platform?.trim();
+
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <SiteHeader />
       <main className="mx-auto max-w-3xl px-4 pt-24 pb-20 sm:px-6">
         <h1 className="text-3xl font-bold sm:text-4xl">Data deletion</h1>
         <p className="mt-4 text-slate-400">How to request deletion of your data from Agent4Socials</p>
+
+        {confirmationCode && (
+          <div className="mt-6 rounded-xl border border-emerald-500/40 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-100">
+            <p className="font-medium text-white">Deletion request received</p>
+            <p className="mt-1">
+              Confirmation code: <span className="font-mono">{confirmationCode}</span>
+              {platform ? ` (${platform})` : null}
+            </p>
+            <p className="mt-2 text-emerald-100/90">
+              We removed your connected social account data for this platform from Agent4Socials. To delete your full
+              app account, use Account settings or email support@agent4socials.com.
+            </p>
+          </div>
+        )}
 
         <div className="mt-10 space-y-6 text-slate-300">
           <section>
