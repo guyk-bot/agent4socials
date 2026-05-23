@@ -48,6 +48,9 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
 
 const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'THREADS', 'LINKEDIN', 'PINTEREST'];
 
+/** Tighter vertical padding on platform rows only (icons stay full size). */
+const PLATFORM_ROW_PY = 'py-1';
+
 /** Platforms that show a gem / upgrade styling on the connect row (empty = same as other networks). */
 const UPGRADE_TO_CONNECT_PLATFORMS: string[] = [];
 
@@ -188,8 +191,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const isReportsPage = pathname === '/dashboard/reports';
   const isHelpPage = pathname === '/help';
 
-/** Vertical padding for platform account rows only (tight stack, full-size icons unchanged). */
-const PLATFORM_ROW_PY = 'py-1';
+  const sidebarContent = (
     <>
       <div className="p-3 shrink-0">
         <Link
@@ -208,8 +210,7 @@ const PLATFORM_ROW_PY = 'py-1';
         </Link>
       </div>
 
-      {/* Natural height (no flex-1) so History/nav sit right under accounts; scroll only if many accounts */}
-      <div className="shrink-0 px-2 space-y-0 overflow-y-auto max-h-[min(52vh,calc(100dvh-19rem))]">
+      <div className="shrink-0 px-2 space-y-0">
         {PLATFORM_ORDER.map((platform) => {
           const accounts = accountsByPlatform[platform] ?? [];
           const isPlatformSelected = selectedPlatformForConnect === platform;
@@ -219,7 +220,7 @@ const PLATFORM_ROW_PY = 'py-1';
             const needsUpgrade = UPGRADE_TO_CONNECT_PLATFORMS.includes(platform);
             /** Connect URL per platform; optional gem styling when platform is in UPGRADE_TO_CONNECT_PLATFORMS. */
             const href = `/dashboard?connect=${connectParam}`;
-            const platformRowClass = `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors border border-transparent ${
+            const platformRowClass = `w-full flex items-center gap-3 px-3 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors border border-transparent ${
               isPlatformSelected ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80 dark:hover:border-neutral-700'
             } ${needsUpgrade ? 'ring-1 ring-orange-400/50 bg-gradient-to-r from-orange-500/10 to-orange-500/10' : ''}`;
             const platformRowInner = (
@@ -255,7 +256,7 @@ const PLATFORM_ROW_PY = 'py-1';
             <div key={platform} className="space-y-0">
               {accounts.map((acc) => {
                 const isSelected = selectedAccountId === acc.id;
-                const accountRowClass = `w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm transition-colors min-w-0 border border-transparent ${
+                const accountRowClass = `w-full flex items-center gap-3 px-3 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors min-w-0 border border-transparent ${
                   isSelected ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80 dark:hover:border-neutral-700'
                 }`;
                 // From Inbox or any page: go to this account's analytics via client-side nav (keeps cache, no reload).
