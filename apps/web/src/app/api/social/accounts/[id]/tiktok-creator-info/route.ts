@@ -4,56 +4,9 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { isPrismaPoolError, prisma, withPrismaPoolRetry } from '@/lib/db';
 import { parseTikTokCreatorInfoResponse } from '@/lib/tiktok/tiktok-publish-compliance';
 import { buildTikTokCreatorInfoForClient } from '@/lib/tiktok/tiktok-creator-info-response';
+import { refreshTikTokAccessToken } from '@/lib/tiktok/refresh-token';
 
 export const maxDuration = 30;
-
-type TikTokOAuthRefreshResponse = {
-  access_token?: string;
-  refresh_token?: string;
-  expires_in?: number;
-  error?: string;
-  error_description?: string;
-};
-
-async function refreshTikTokAccessToken(account: {
-  id: string;
-  refreshToken: string | null;
-}): Promise<string | null> {
-  if (!account.refreshToken) return null;
-  const clientKey = process.env.TIKTOK_CLIENT_KEY;
-  const clientSecret = process.env.TIKTOK_CLIENT_SECRET;
-  if (!clientKey || !clientSecret) return null;
-
-  const r = await axios.post<TikTokOAuthRefreshResponse>(
-    'https://open.tiktokapis.com/v2/oauth/token/',
-    new URLSearchParams({
-      client_key: clientKey,
-      client_secret: clientSecret,
-      grant_type: 'refresh_token',
-      refresh_token: account.refreshToken,
-    }).toString(),
-    {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      timeout: 8_000,
-      validateStatus: () => true,
-    }
-  );
-  const data = r.data;
-  if (r.status < 200 || r.status >= 300 || !data?.access_token || data?.error) return null;
-
-  const expiresInSec = typeof data.expires_in === 'number' && Number.isFinite(data.expires_in) ? data.expires_in : 86_400;
-  await withPrismaPoolRetry('tiktok-refresh-token', () =>
-    prisma.socialAccount.update({
-      where: { id: account.id },
-      data: {
-        accessToken: data.access_token,
-        ...(data.refresh_token ? { refreshToken: data.refresh_token } : {}),
-        expiresAt: new Date(Date.now() + expiresInSec * 1000),
-      },
-    })
-  );
-  return data.access_token;
-}
 
 function fallbackResponse(account: { username: string | null; profilePicture: string | null }, reason?: string) {
   return NextResponse.json({

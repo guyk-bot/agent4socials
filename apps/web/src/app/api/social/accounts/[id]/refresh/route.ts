@@ -20,7 +20,15 @@ export async function PATCH(
   const { id } = await params;
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
-    select: { id: true, platform: true, accessToken: true, platformUserId: true, credentialsJson: true },
+    select: {
+      id: true,
+      platform: true,
+      accessToken: true,
+      refreshToken: true,
+      expiresAt: true,
+      platformUserId: true,
+      credentialsJson: true,
+    },
   });
   if (!account) {
     return NextResponse.json({ message: 'Account not found' }, { status: 404 });
@@ -194,7 +202,38 @@ export async function PATCH(
       } catch (_) {}
     } else if (account.platform === 'TIKTOK') {
       const { fetchTikTokProfile } = await import('@/lib/tiktok/fetch-profile');
-      const tiktokProfile = await fetchTikTokProfile(token, { socialAccountId: account.id });
+      const { refreshTikTokAccessToken } = await import('@/lib/tiktok/refresh-token');
+      let tiktokToken = token;
+      const tokenExpired = account.expiresAt ? account.expiresAt.getTime() <= Date.now() + 60_000 : false;
+      if (tokenExpired) {
+        const refreshed = await refreshTikTokAccessToken(account);
+        if (refreshed) tiktokToken = refreshed;
+      }
+      let tiktokProfile = await fetchTikTokProfile(tiktokToken, { socialAccountId: account.id });
+      if (tiktokProfile.tokenInvalid) {
+        const refreshed = await refreshTikTokAccessToken(account);
+        if (refreshed) {
+          tiktokToken = refreshed;
+          tiktokProfile = await fetchTikTokProfile(tiktokToken, { socialAccountId: account.id });
+        }
+      }
+      if (tiktokProfile.tokenInvalid) {
+        await prisma.socialAccount.update({
+          where: { id: account.id },
+          data: {
+            lastSyncStatus: 'needs_reconnect',
+            lastSyncError: 'TikTok access token expired. Disconnect and reconnect TikTok in Accounts.',
+          },
+        });
+        return NextResponse.json(
+          {
+            ok: false,
+            needsReconnect: true,
+            message: 'TikTok session expired. Disconnect and reconnect TikTok in Accounts.',
+          },
+          { status: 401 }
+        );
+      }
       if (tiktokProfile.username) username = tiktokProfile.username;
       if (tiktokProfile.profilePicture) profilePicture = tiktokProfile.profilePicture;
     } else if (account.platform === 'YOUTUBE') {

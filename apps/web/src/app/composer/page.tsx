@@ -3839,7 +3839,7 @@ export default function ComposerPage() {
                                         <span className="text-sm text-neutral-700">
                                             <span className="font-medium text-neutral-900">Also share to Instagram Story</span>
                                             <span className="mt-0.5 block text-xs text-neutral-500">
-                                                Uses your Threads-linked Instagram account. Requires reconnecting Threads if you connected before this option was added.
+                                                Shares to the Instagram account linked in the Threads app (Settings). Reconnect Threads in Accounts if you connected before this option existed. Story may take a few minutes to appear.
                                             </span>
                                         </span>
                                     </label>

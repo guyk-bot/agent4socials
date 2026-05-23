@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { mirrorExternalImageToR2, tiktokAvatarR2Key } from '@/lib/mirror-external-image-r2';
+import { isTikTokAccessTokenInvalid } from '@/lib/tiktok/refresh-token';
 import { parseTikTokCreatorInfoResponse } from '@/lib/tiktok/tiktok-publish-compliance';
 
 const TIKTOK_USER_INFO_URL = 'https://open.tiktokapis.com/v2/user/info/';
@@ -30,6 +31,7 @@ export async function fetchTikTokProfile(
 ): Promise<{
   username?: string;
   profilePicture?: string;
+  tokenInvalid?: boolean;
 }> {
   const headers = tikTokAuthHeaders(accessToken);
   let username: string | undefined;
@@ -64,6 +66,9 @@ export async function fetchTikTokProfile(
         user.avatar_url_100?.trim();
       if (pic) profilePicture = pic;
     } else if (userRes.status >= 400) {
+      if (isTikTokAccessTokenInvalid(userRes.status, err?.message)) {
+        return { tokenInvalid: true };
+      }
       console.warn('[TikTok] user/info HTTP', userRes.status, err?.message ?? '');
     }
   } catch (e) {

@@ -13,6 +13,7 @@ async function publishCreationId(
   options?: { shareToInstagramStory?: boolean }
 ): Promise<ThreadsPublishResult> {
   const form: Record<string, string> = { creation_id: creationId };
+  // Meta also accepts this on publish; keep for compatibility with older docs/scripts.
   if (options?.shareToInstagramStory) {
     form.crossreshare_to_ig = 'true';
   }
@@ -59,6 +60,11 @@ export async function publishToThreads(options: {
       media_type: 'TEXT',
       text,
     };
+  }
+
+  // Official Threads API: crossreshare_to_ig is set on container creation (me/threads).
+  if (options.shareToInstagramStory === true) {
+    form.crossreshare_to_ig = 'true';
   }
 
   const create = await threadsPostForm<{ id?: string; error?: { message?: string } }>(

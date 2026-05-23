@@ -5,6 +5,7 @@
 
 import { prisma } from '@/lib/db';
 import { upsertDailyMetricSnapshot } from '@/lib/analytics/metric-snapshots';
+import { isTikTokAccessTokenInvalid } from '@/lib/tiktok/refresh-token';
 import { parseTikTokVideoEngagement, parseTikTokVideoDurationSec } from '@/lib/tiktok/video-engagement';
 import axios from 'axios';
 
@@ -22,12 +23,24 @@ async function syncAccountOverview(account: AccountRow) {
   try {
     const res = await axios.get<{
       data?: { user?: { follower_count?: number; following_count?: number } };
-      error?: { code?: string };
+      error?: { code?: string; message?: string };
     }>(`${TIKTOK_API}/user/info/`, {
       params: { fields: 'follower_count,following_count,likes_count' },
       headers: { Authorization: `Bearer ${account.accessToken}` },
       timeout: 10_000,
+      validateStatus: () => true,
     });
+
+    if (isTikTokAccessTokenInvalid(res.status, res.data?.error?.message)) {
+      await prisma.socialAccount.update({
+        where: { id: account.id },
+        data: {
+          lastSyncStatus: 'needs_reconnect',
+          lastSyncError: 'TikTok access token expired. Reconnect TikTok in Accounts.',
+        },
+      });
+      return { itemsProcessed: 0, partial: true };
+    }
 
     const user = res.data?.data?.user;
     if (!user) return { itemsProcessed: 0, partial: true };
