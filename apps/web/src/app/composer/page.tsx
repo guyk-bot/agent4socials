@@ -1689,6 +1689,32 @@ export default function ComposerPage() {
         }
     }, [mediaType, mediaList.length]);
 
+    const threadsInstagramStoryEligible = useMemo(() => {
+        if (!platforms.includes('THREADS')) return false;
+        if (mediaType === 'text' || mediaType === 'story') return false;
+        return mediaList.length > 0;
+    }, [platforms, mediaType, mediaList.length]);
+
+    const threadsInstagramStoryHint = useMemo(() => {
+        if (!platforms.includes('THREADS')) return null;
+        if (mediaType === 'text') {
+            return 'Switch to Photo, Reel, or Video and add media to share to Instagram Story.';
+        }
+        if (mediaType === 'story') {
+            return 'Story format is for Instagram/Facebook Stories. Use Reel or Video for Threads plus Instagram Story.';
+        }
+        if (mediaList.length === 0) {
+            return 'Add photo or video to enable Instagram Story sharing.';
+        }
+        return null;
+    }, [platforms, mediaType, mediaList.length]);
+
+    useEffect(() => {
+        if (!threadsInstagramStoryEligible && threadsShareToInstagram) {
+            setThreadsShareToInstagram(false);
+        }
+    }, [threadsInstagramStoryEligible, threadsShareToInstagram]);
+
     const addToHashtagPool = () => {
         const tag = normalizeHashtag(newHashtagInput);
         if (!tag || hashtagPool.includes(tag)) return;
@@ -3833,19 +3859,31 @@ export default function ComposerPage() {
                                         {content.trim().length + (selectedHashtags.length ? ' ' + selectedHashtags.join(' ') : '').length}
                                     </p>
                                 )}
-                                {platforms.includes('THREADS') && mediaType !== 'text' && mediaList.length > 0 && (
-                                    <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-xl border border-neutral-200 bg-neutral-50/80 px-3 py-2.5">
+                                {platforms.includes('THREADS') && (
+                                    <label
+                                        className={`mt-3 flex items-start gap-2 rounded-xl border border-neutral-200 bg-neutral-50/80 px-3 py-2.5 ${
+                                            threadsInstagramStoryEligible ? 'cursor-pointer' : 'cursor-not-allowed opacity-90'
+                                        }`}
+                                    >
                                         <input
                                             type="checkbox"
                                             checked={threadsShareToInstagram}
+                                            disabled={!threadsInstagramStoryEligible}
                                             onChange={(e) => setThreadsShareToInstagram(e.target.checked)}
-                                            className="mt-0.5 rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
+                                            className="mt-0.5 rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)] disabled:opacity-50"
                                         />
                                         <span className="text-sm text-neutral-700">
                                             <span className="font-medium text-neutral-900">Also share to Instagram Story</span>
                                             <span className="mt-0.5 block text-xs text-neutral-500">
-                                                Shares to the Instagram account linked in the Threads app (Settings). Reconnect Threads in Accounts if you connected before this option existed. Story may take a few minutes to appear.
+                                                Shares to the Instagram account linked in the Threads app (Settings). Reconnect
+                                                Threads in Accounts if you connected before this option existed. Story may take a
+                                                few minutes to appear.
                                             </span>
+                                            {threadsInstagramStoryHint ? (
+                                                <span className="mt-1.5 block text-xs font-medium text-amber-700">
+                                                    {threadsInstagramStoryHint}
+                                                </span>
+                                            ) : null}
                                         </span>
                                     </label>
                                 )}
