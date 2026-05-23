@@ -900,7 +900,7 @@ export default function PostsPage() {
                                         <Link
                                             href={`/composer?edit=${post.id}`}
                                             prefetch
-                                            className="inline-flex items-center gap-1 text-sm font-medium text-orange-700 hover:text-orange-800"
+                                            className="inline-flex items-center gap-1 text-sm font-medium text-[var(--button)] hover:text-[var(--button-hover)]"
                                             title={
                                                 isPendingHistoryPostId(post.id)
                                                     ? 'Restore your last attempt (post did not finish saving)'
