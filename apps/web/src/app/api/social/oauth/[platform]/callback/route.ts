@@ -629,6 +629,12 @@ export async function GET(
   }
 
   if (!code || !stateRaw) {
+    if (plat === 'THREADS') {
+      const hint = encodeURIComponent(
+        'Threads connect was interrupted. Use Connect Threads in the app (do not open the callback URL directly).'
+      );
+      return NextResponse.redirect(`${dashboardUrl}?connect=THREADS&connect_error=${hint}`);
+    }
     return NextResponse.json({ error: 'Missing code or state' }, { status: 400 });
   }
 
