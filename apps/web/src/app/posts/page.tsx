@@ -29,10 +29,7 @@ import {
     writeStoredAnalyticsDateRange,
 } from '@/lib/calendar-date';
 import { InstagramIcon, YoutubeIcon, TikTokIcon, FacebookIcon, XTwitterIcon, LinkedinIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
-import {
-    readScheduledPostsClientCache,
-    writeScheduledPostsClientCache,
-} from '@/lib/scheduled-posts-client-cache';
+import { readScheduledPostsClientCache } from '@/lib/scheduled-posts-client-cache';
 import {
     getPostHistoryFormat,
     isPostHistoryVerticalThumb,
@@ -48,6 +45,7 @@ import {
     upsertPostInHistoryList,
     type PostHistoryRow,
 } from '@/lib/posts-history-merge';
+import { mergeAndWriteScheduledPostsClientCache } from '@/lib/scheduled-posts-client-cache';
 
 function postMediaProxyUrl(fileUrl: string): string {
     if (fileUrl.startsWith('http') && (fileUrl.includes('r2.dev') || fileUrl.includes('cloudflarestorage.com'))) {
@@ -180,7 +178,9 @@ function postMatchesStatusFilter(post: any, filter: string): boolean {
     const targets: Array<{ status?: string }> = Array.isArray(post.targets) ? post.targets : [];
     const hasPosted = targets.some((t) => t.status === 'POSTED');
     const hasFailed = targets.some((t) => t.status === 'FAILED');
+    const hasPosting = post.status === 'POSTING' || targets.some((t) => t.status === 'POSTING');
     const partial = hasPosted && hasFailed;
+    if (filter === 'POSTING') return hasPosting;
     if (filter === 'POSTED') return post.status === 'POSTED' || partial;
     if (filter === 'FAILED') return post.status === 'FAILED' || partial;
     return post.status === filter;
@@ -284,8 +284,8 @@ export default function PostsPage() {
         if (postsHistoryListsVisuallyEqual(postsRef.current, merged)) return;
         postsRef.current = merged;
         setPosts(merged);
+        mergeAndWriteScheduledPostsClientCache(merged);
         appDataRef.current?.setScheduledPosts?.(merged as never);
-        writeScheduledPostsClientCache(merged);
     }, []);
 
     const applyHistoryPost = useCallback((post: PostHistoryRow) => {
@@ -293,8 +293,8 @@ export default function PostsPage() {
         if (postsHistoryListsVisuallyEqual(postsRef.current, merged)) return;
         postsRef.current = merged;
         setPosts(merged);
+        mergeAndWriteScheduledPostsClientCache(merged);
         appDataRef.current?.setScheduledPosts?.(merged as never);
-        writeScheduledPostsClientCache(merged);
     }, []);
 
     // Paint cached rows before first paint so History is never empty while the network warms up.
@@ -327,7 +327,6 @@ export default function PostsPage() {
                 if (cancelled) return;
                 const list = Array.isArray(res.data) ? (res.data as PostHistoryRow[]) : [];
                 applyHistoryList(list);
-                appDataRef.current?.setScheduledPosts?.(list as never);
                 setLoadError(null);
                 const needsTikTokSync = list.filter((p) => {
                     const targets = Array.isArray(p.targets) ? p.targets : [];
@@ -686,6 +685,7 @@ export default function PostsPage() {
                         onChange={setFilter}
                         options={[
                             { value: 'ALL', label: 'All Status' },
+                            { value: 'POSTING', label: 'Publishing' },
                             { value: 'POSTED', label: 'Posted' },
                             { value: 'SCHEDULED', label: 'Scheduled' },
                             { value: 'DRAFT', label: 'Draft' },
@@ -749,15 +749,21 @@ export default function PostsPage() {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center space-x-3">
-                                            {post.media?.[0] && (
+                                            {postFormat.key === 'text' ? (
+                                                <div
+                                                    className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-neutral-800 flex items-center justify-center flex-shrink-0"
+                                                    aria-hidden
+                                                >
+                                                    <span className="text-sm font-semibold text-slate-500 dark:text-neutral-400">
+                                                        Aa
+                                                    </span>
+                                                </div>
+                                            ) : post.media?.[0] ? (
                                                 <PostMediaThumb
                                                     mediaItem={post.media[0]}
                                                     reelLike={isPostHistoryVerticalThumb(postFormat)}
                                                 />
-                                            )}
-                                            {!post.media?.length && (
-                                                <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-400"><ImageIcon size={20} /></div>
-                                            )}
+                                            ) : null}
                                             <div className="text-sm font-medium text-gray-900 dark:text-neutral-100 truncate max-w-xs">
                                                 <PostFormatBadge format={postFormat} />
                                                 {post.title || post.content || (

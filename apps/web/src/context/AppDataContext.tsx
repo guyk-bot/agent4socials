@@ -23,9 +23,10 @@ import {
   pollInboxNotifications,
 } from '@/lib/inbox/poll-inbox-notifications';
 import {
+  mergeAndWriteScheduledPostsClientCache,
   readScheduledPostsClientCache,
-  writeScheduledPostsClientCache,
 } from '@/lib/scheduled-posts-client-cache';
+import type { PostHistoryRow } from '@/lib/posts-history-merge';
 import {
   clearBrandContextCache,
   hasComposerBrandContext,
@@ -528,8 +529,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const setScheduledPosts = useCallback((posts: CachedScheduledPost[]) => {
-    setScheduledPostsState(posts);
-    writeScheduledPostsClientCache(posts);
+    const merged = mergeAndWriteScheduledPostsClientCache(posts as PostHistoryRow[]);
+    setScheduledPostsState(merged as CachedScheduledPost[]);
   }, []);
 
   const setEngagementForAccount = useCallback((accountId: string, engagement: CachedEngagement[]) => {

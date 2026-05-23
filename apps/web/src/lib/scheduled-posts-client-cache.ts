@@ -1,3 +1,5 @@
+import { mergePostsHistoryLists, type PostHistoryRow } from '@/lib/posts-history-merge';
+
 /** Shared localStorage cache for GET /api/posts (drafts, scheduled, published). */
 export const SCHEDULED_POSTS_CACHE_KEY = 'calendar_posts_cache_v1';
 
@@ -20,4 +22,12 @@ export function writeScheduledPostsClientCache(list: unknown[]): void {
   } catch {
     // ignore quota
   }
+}
+
+/** Merge with existing cache so in-flight POSTING rows are not dropped on refresh. */
+export function mergeAndWriteScheduledPostsClientCache(incoming: PostHistoryRow[]): PostHistoryRow[] {
+  const prev = readScheduledPostsClientCache() as PostHistoryRow[];
+  const merged = mergePostsHistoryLists(prev, incoming);
+  writeScheduledPostsClientCache(merged);
+  return merged;
 }

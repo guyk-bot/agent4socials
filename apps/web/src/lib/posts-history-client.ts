@@ -3,7 +3,10 @@ import {
   upsertPostInHistoryList,
   type PostHistoryRow,
 } from '@/lib/posts-history-merge';
-import { writeScheduledPostsClientCache, readScheduledPostsClientCache } from '@/lib/scheduled-posts-client-cache';
+import {
+  mergeAndWriteScheduledPostsClientCache,
+  readScheduledPostsClientCache,
+} from '@/lib/scheduled-posts-client-cache';
 
 /** Push a merged History update to client cache and any open History listeners. */
 export function pushPostsHistoryClientUpdate(
@@ -11,7 +14,7 @@ export function pushPostsHistoryClientUpdate(
 ): PostHistoryRow[] {
   const prev = readScheduledPostsClientCache() ?? [];
   const next = typeof incoming === 'function' ? incoming(prev) : mergePostsHistoryLists(prev, incoming);
-  writeScheduledPostsClientCache(next);
+  mergeAndWriteScheduledPostsClientCache(next);
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('agent4socials:posts-history-refresh', { detail: { posts: next } }));
   }
@@ -21,7 +24,7 @@ export function pushPostsHistoryClientUpdate(
 export function upsertPostInHistoryClient(post: PostHistoryRow): PostHistoryRow[] {
   const prev = readScheduledPostsClientCache() ?? [];
   const next = upsertPostInHistoryList(prev, post);
-  writeScheduledPostsClientCache(next);
+  mergeAndWriteScheduledPostsClientCache(next);
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('agent4socials:posts-history-refresh', { detail: { post, posts: next } }));
   }
