@@ -243,9 +243,12 @@ function isConvCacheFresh(
   cached: ConvCache | undefined,
   accountId: string,
   convUpdatedTime?: string | null,
-  platform?: string | null
+  platform?: string | null,
+  conv?: Conversation & { senders?: Array<{ name?: string; username?: string; pictureUrl?: string | null }> }
 ): boolean {
   if (!isConvCacheUsable(cached, accountId)) return false;
+  if (conv && convNeedsProfileData(conv)) return false;
+  if (cached && !cached.recipientPictureUrl && platform !== 'TWITTER') return false;
   if (!cached!._ts) return true; // legacy: no timestamp = assume fresh
   const maxAge = platform === 'TWITTER' ? INBOX_TWITTER_CACHE_MS : INBOX_THREAD_CACHE_MS;
   if (Date.now() - cached!._ts > maxAge) return false;
@@ -254,6 +257,15 @@ function isConvCacheFresh(
     if (Number.isFinite(convMs) && convMs > cached!._ts) return false;
   }
   return true;
+}
+
+function convNeedsProfileData(
+  conv: Conversation & { senders?: Array<{ name?: string; username?: string; pictureUrl?: string | null }> }
+): boolean {
+  const s = conv.senders?.[0];
+  if (!s) return true;
+  const hasName = !!(s.name?.trim() || s.username?.trim());
+  return !hasName || !s.pictureUrl;
 }
 
 function patchConversationSenderPicture(
@@ -807,6 +819,7 @@ function InboxPage() {
   const commentsStableRef = useRef<PostComment[]>([]);
   const conversationsStableRef = useRef<Array<Conversation & { platform?: string; messageAccountId?: string }>>([]);
   const inboxRefreshInFlightRef = useRef(false);
+  const profileEnrichInFlightRef = useRef<Set<string>>(new Set());
   // Stable ref so effects that call appData setters don't list appData as a dep
   // (which would cause infinite re-run loops whenever context state updates).
   const appDataRef = useRef(appData);
@@ -1481,7 +1494,8 @@ function InboxPage() {
         cached,
         accountIdForFetch,
         convForRecipient?.updatedTime,
-        convForRecipient?.platform ?? dmThreadPlatform
+        convForRecipient?.platform ?? dmThreadPlatform,
+        convForRecipient
       );
 
       if (cacheUsable) applyCacheToUi(cached);
@@ -1501,7 +1515,8 @@ function InboxPage() {
               afterWarm,
               accountIdForFetch,
               convForRecipient?.updatedTime,
-              convForRecipient?.platform ?? dmThreadPlatform
+              convForRecipient?.platform ?? dmThreadPlatform,
+              convForRecipient
             )
           ) {
             return;
@@ -1737,7 +1752,7 @@ function InboxPage() {
       if (inFlight) return inFlight;
 
       const existing = conversationMessagesCacheRef.current[conv.id];
-      if (isConvCacheFresh(existing, account.id, conv.updatedTime, conv.platform)) {
+      if (isConvCacheFresh(existing, account.id, conv.updatedTime, conv.platform, conv)) {
         prefetchedConversationMessagesRef.current.add(cacheKey);
         return Promise.resolve();
       }
@@ -2028,13 +2043,10 @@ function InboxPage() {
           let mergedConvRows = [...convRows];
           for (const acc of metaAccounts) {
             try {
-              const [convRes] = await Promise.all([
-                api.get<{ conversations?: Conversation[] }>(
-                  `/social/accounts/${acc.id}/conversations?fullEnrich=1&fresh=1`,
-                  { timeout: 120_000 }
-                ),
-                api.get(`/social/accounts/${acc.id}/comments?refresh=1`, { timeout: 120_000 }),
-              ]);
+              const convRes = await api.get<{ conversations?: Conversation[] }>(
+                `/social/accounts/${acc.id}/conversations?fullEnrich=1&fresh=1`,
+                { timeout: 180_000 }
+              );
               const enriched = convRes.data?.conversations ?? [];
               if (enriched.length > 0) {
                 appDataRef.current?.setConversationsForAccount(acc.id, enriched);
@@ -2049,7 +2061,12 @@ function InboxPage() {
                 mergedConvRows = [...byId.values()];
               }
             } catch {
-              /* keep bootstrap data */
+              /* keep bootstrap data for this account */
+            }
+            try {
+              await api.get(`/social/accounts/${acc.id}/comments?refresh=1`, { timeout: 120_000 });
+            } catch {
+              /* comments refresh is optional on inbox open */
             }
           }
           if (mergedConvRows.length > 0) {
@@ -2130,6 +2147,57 @@ function InboxPage() {
     }, INBOX_SYSTEM_SYNC_MS);
     return () => clearInterval(intervalId);
   }, [pathname, user?.id, effectiveAccounts.map((a) => a.id).join(',')]);
+
+  // Backfill missing DM names/avatars one thread at a time (avoids fullEnrich timeouts).
+  useEffect(() => {
+    if (pathname !== '/dashboard/inbox' || !user?.id || inboxMode !== 'messages') return;
+    let cancelled = false;
+    const queue = conversations.filter(
+      (c) =>
+        c.platform &&
+        (c.platform === 'INSTAGRAM' || c.platform === 'FACEBOOK') &&
+        convNeedsProfileData(c)
+    );
+    if (queue.length === 0) return;
+
+    void (async () => {
+      for (const conv of queue) {
+        if (cancelled) break;
+        const accountId =
+          (conv as Conversation & { messageAccountId?: string }).messageAccountId ??
+          effectiveAccounts.find((a) => a.platform === conv.platform)?.id;
+        if (!accountId || !conv.id) continue;
+        const attemptKey = `${accountId}:${conv.id}`;
+        if (profileEnrichInFlightRef.current.has(attemptKey)) continue;
+        profileEnrichInFlightRef.current.add(attemptKey);
+        try {
+          const sendersJson = encodeURIComponent(JSON.stringify(conv.senders ?? []));
+          const res = await api.get<{
+            senderId?: string | null;
+            name?: string | null;
+            username?: string | null;
+            pictureUrl?: string | null;
+          }>(
+            `/social/accounts/${accountId}/conversations/${conv.id}/sender-profile?senders=${sendersJson}`,
+            { timeout: 30_000 }
+          );
+          const { name, username, pictureUrl } = res.data ?? {};
+          if (name || username || pictureUrl) {
+            applySenderPicture(conv.id, pictureUrl ?? null, name, username, accountId);
+          }
+        } catch {
+          /* try next thread */
+        } finally {
+          profileEnrichInFlightRef.current.delete(attemptKey);
+        }
+        await new Promise((r) => setTimeout(r, 120));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname, user?.id, inboxMode, conversations, effectiveAccounts, applySenderPicture]);
 
   // Messages mode: YouTube/TikTok have no DM strip; switch to a message-capable platform.
   useEffect(() => {

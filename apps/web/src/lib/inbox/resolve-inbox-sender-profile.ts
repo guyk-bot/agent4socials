@@ -28,6 +28,71 @@ export function isLikelyMetaScopedUserId(id: string | undefined | null): boolean
 }
 let igScopedProfileCallsThisRequest = 0;
 
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  if (items.length === 0) return [];
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const i = nextIndex++;
+      results[i] = await fn(items[i]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+async function fetchInstagramConversationParticipants(args: {
+  conversationId: string;
+  isInstagramBusinessLogin: boolean;
+  accessToken: string;
+  pageToken: string | null;
+}): Promise<ParticipantRow[]> {
+  const { conversationId, isInstagramBusinessLogin, accessToken, pageToken } = args;
+  const fields = 'participants{id,name,username,profile_pic,profile_picture_url,picture}';
+  const attempts: Array<{ url: string; params: Record<string, string> }> = [];
+  if (isInstagramBusinessLogin) {
+    attempts.push({
+      url: `${igBaseUrl}/${conversationId}`,
+      params: { fields, access_token: accessToken },
+    });
+    if (pageToken) {
+      attempts.push({
+        url: `${fbBaseUrl}/${conversationId}`,
+        params: { fields, access_token: pageToken, platform: 'instagram' },
+      });
+    }
+  } else {
+    attempts.push({
+      url: `${fbBaseUrl}/${conversationId}`,
+      params: { fields, access_token: accessToken, platform: 'instagram' },
+    });
+    if (pageToken && pageToken !== accessToken) {
+      attempts.push({
+        url: `${fbBaseUrl}/${conversationId}`,
+        params: { fields, access_token: pageToken, platform: 'instagram' },
+      });
+    }
+  }
+  for (const attempt of attempts) {
+    try {
+      const convRes = await axios.get<{ participants?: { data?: ParticipantRow[] } }>(attempt.url, {
+        params: attempt.params,
+        timeout: 10_000,
+      });
+      const participants = convRes.data?.participants?.data ?? [];
+      if (participants.length > 0) return participants;
+    } catch {
+      /* try next Meta path */
+    }
+  }
+  return [];
+}
+
 export function resetIgScopedProfileCallBudget(): void {
   igScopedProfileCallsThisRequest = 0;
   maxIgScopedProfileCallsThisRequest = DEFAULT_MAX_IG_SCOPED_PROFILE_CALLS_PER_REQUEST;
@@ -362,13 +427,11 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
 
   const toFetch = out.filter(convNeedsEnrich).slice(0, maxConversations);
 
-  for (const conv of toFetch) {
-    const idx = out.findIndex((c) => c.id === conv.id);
-    if (idx < 0) continue;
+  const enriched = await mapWithConcurrency(toFetch, forceEnrich ? 8 : 2, async (conv) => {
+    let senders = [...(out.find((c) => c.id === conv.id)?.senders ?? conv.senders)];
 
-    // Check profile cache first — avoids a Meta API call when we already have the picture.
     const cacheResolved = await Promise.all(
-      out[idx].senders.map(async (s) => {
+      senders.map(async (s) => {
         if (s.pictureUrl) return s;
         const cached = s.id ? await readInboxProfileCache('instagram', s.id) : null;
         const cachedByUsername = !cached?.pictureUrl && s.username
@@ -376,93 +439,80 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
           : null;
         const best = cached?.pictureUrl ? cached : (cachedByUsername ?? cached);
         if (!best) return s;
-        return { ...s, pictureUrl: s.pictureUrl ?? best.pictureUrl ?? null, name: s.name || best.name, username: s.username || best.username };
+        return {
+          ...s,
+          pictureUrl: s.pictureUrl ?? best.pictureUrl ?? null,
+          name: s.name || best.name,
+          username: s.username || best.username,
+        };
       })
     );
-    const allPicturesResolved = cacheResolved.every((s) => !!s.pictureUrl);
-    if (allPicturesResolved) {
-      out[idx] = { ...out[idx], senders: cacheResolved };
-      continue;
+    senders = cacheResolved;
+    if (cacheResolved.every((s) => !!s.pictureUrl && !!(s.name?.trim() || s.username?.trim()))) {
+      return { id: conv.id, senders };
     }
-    // At least one sender still missing picture — call Meta participants endpoint.
-    out[idx] = { ...out[idx], senders: cacheResolved };
 
-    try {
-      const convUrl = isInstagramBusinessLogin
-        ? `${igBaseUrl}/${conv.id}`
-        : `${fbBaseUrl}/${conv.id}`;
-      const params: Record<string, string> = {
-        fields: 'participants{id,name,username,profile_pic,profile_picture_url,picture}',
-        access_token: token,
-      };
-      if (!isInstagramBusinessLogin) params.platform = 'instagram';
-
-      const convRes = await axios.get<{ participants?: { data?: ParticipantRow[] } }>(convUrl, {
-        params,
-        timeout: 10_000,
-      });
-      const participants = convRes.data?.participants?.data ?? [];
+    const participants = await fetchInstagramConversationParticipants({
+      conversationId: conv.id,
+      isInstagramBusinessLogin,
+      accessToken,
+      pageToken,
+    });
+    if (participants.length > 0) {
       const others = participants.filter((p) => {
         if (p.id && ourIds.has(p.id)) return false;
         if (p.username && ourUsernames.has(p.username.toLowerCase())) return false;
         return true;
       });
-
-      out[idx] = {
-        ...out[idx],
-        senders:
-          out[idx].senders.length > 0
-            ? out[idx].senders.map((s) => {
-                let p = s.id ? findParticipant(participants, s.id, s.username) : undefined;
-                if (!p && others.length === 1) p = others[0];
-                if (!p) return s;
-                const pictureUrl = s.pictureUrl ?? pictureFromRow(p);
-                const profile: InboxSenderProfile = {
-                  name: s.name || p.name,
-                  username: s.username || p.username,
-                  pictureUrl,
-                };
-                if (s.id) cacheInstagramProfile(s.id, profile, p.id);
-                return { ...s, ...profile };
-              })
-            : others.length > 0
-              ? others.slice(0, 1).map((p) => {
-                  const pictureUrl = pictureFromRow(p);
-                  const profile: InboxSenderProfile = {
-                    name: p.name,
-                    username: p.username,
-                    pictureUrl,
-                  };
-                  if (p.id) cacheInstagramProfile(p.id, profile);
-                  return {
-                    id: p.id,
-                    name: p.name,
-                    username: p.username,
-                    pictureUrl,
-                  };
-                })
-              : out[idx].senders,
-      };
-    } catch {
-      /* next conversation */
+      senders =
+        senders.length > 0
+          ? senders.map((s) => {
+              let p = s.id ? findParticipant(participants, s.id, s.username) : undefined;
+              if (!p && others.length === 1) p = others[0];
+              if (!p) return s;
+              const pictureUrl = s.pictureUrl ?? pictureFromRow(p);
+              const profile: InboxSenderProfile = {
+                name: s.name || p.name,
+                username: s.username || p.username,
+                pictureUrl,
+              };
+              if (s.id) cacheInstagramProfile(s.id, profile, p.id);
+              return { ...s, ...profile };
+            })
+          : others.slice(0, 1).map((p) => {
+              const pictureUrl = pictureFromRow(p);
+              const profile: InboxSenderProfile = {
+                name: p.name,
+                username: p.username,
+                pictureUrl,
+              };
+              if (p.id) cacheInstagramProfile(p.id, profile);
+              return {
+                id: p.id,
+                name: p.name,
+                username: p.username,
+                pictureUrl,
+              };
+            });
     }
 
-    // User Profile API (page token): fill missing avatars (bills IGBusinessScopedID).
     if (pageToken) {
-      for (const s of out[idx].senders) {
+      for (const s of senders) {
         if (!s.id || !isLikelyMetaScopedUserId(s.id)) continue;
-        if (s.pictureUrl) continue;
-        if (igScopedProfileCallsThisRequest >= maxIgScopedProfileCallsThisRequest) break;
+        if (s.pictureUrl && (s.name?.trim() || s.username?.trim())) continue;
+        if (!forceEnrich && igScopedProfileCallsThisRequest >= maxIgScopedProfileCallsThisRequest) break;
         try {
-          const profile = await fetchIgUserProfileViaPageTokenBudgeted(s.id, pageToken);
+          const profile = forceEnrich
+            ? await fetchIgUserProfileViaPageToken(s.id, pageToken)
+            : await fetchIgUserProfileViaPageTokenBudgeted(s.id, pageToken);
           if (!profile) continue;
-          const si = out[idx].senders.findIndex((x) => x.id === s.id);
+          const si = senders.findIndex((x) => x.id === s.id);
           if (si < 0) continue;
-          out[idx].senders[si] = {
-            ...out[idx].senders[si],
-            name: out[idx].senders[si].name || profile.name,
-            username: out[idx].senders[si].username || profile.username,
-            pictureUrl: out[idx].senders[si].pictureUrl ?? profile.pictureUrl ?? null,
+          senders[si] = {
+            ...senders[si],
+            name: senders[si].name || profile.name,
+            username: senders[si].username || profile.username,
+            pictureUrl: senders[si].pictureUrl ?? profile.pictureUrl ?? null,
           };
           cacheInstagramProfile(s.id, profile);
         } catch {
@@ -470,6 +520,35 @@ export async function enrichInstagramAvatarsFromParticipants(args: {
         }
       }
     }
+
+  if (isInstagramBusinessLogin) {
+      for (const s of senders) {
+        if (!s.id || !isLikelyMetaScopedUserId(s.id)) continue;
+        if (s.pictureUrl && (s.name?.trim() || s.username?.trim())) continue;
+        try {
+          const profile = await fetchIgUserProfileViaInstagramHost(s.id, accessToken);
+          if (!profile) continue;
+          const si = senders.findIndex((x) => x.id === s.id);
+          if (si < 0) continue;
+          senders[si] = {
+            ...senders[si],
+            name: senders[si].name || profile.name,
+            username: senders[si].username || profile.username,
+            pictureUrl: senders[si].pictureUrl ?? profile.pictureUrl ?? null,
+          };
+          cacheInstagramProfile(s.id, profile);
+        } catch {
+          /* try next sender */
+        }
+      }
+    }
+
+    return { id: conv.id, senders };
+  });
+
+  for (const row of enriched) {
+    const idx = out.findIndex((c) => c.id === row.id);
+    if (idx >= 0) out[idx] = { ...out[idx], senders: row.senders };
   }
 
   return out;
@@ -737,4 +816,75 @@ export async function enrichInboxSendersFromLatestMessages(args: {
   }
 
   return out;
+}
+
+/** Resolve one DM thread's other-party profile (used by sender-profile API + client backfill). */
+export async function resolveConversationSenderProfile(args: {
+  userId: string;
+  platform: 'instagram' | 'facebook';
+  conversationId: string;
+  senders: InboxConversationListItem['senders'];
+  accessToken: string;
+  isInstagramBusinessLogin?: boolean;
+  forceEnrich?: boolean;
+}): Promise<{
+  senderId: string | null;
+  name?: string | null;
+  username?: string | null;
+  pictureUrl?: string | null;
+}> {
+  const sender = args.senders[0];
+  const senderId = sender?.id ?? null;
+  const forceEnrich = args.forceEnrich !== false;
+
+  if (args.platform === 'facebook') {
+    const profile = senderId
+      ? await resolveFacebookInboxSenderProfile({
+          senderId,
+          accessToken: args.accessToken,
+          conversationId: args.conversationId,
+          forceEnrich,
+        })
+      : null;
+    return {
+      senderId,
+      name: profile?.name ?? sender?.name ?? null,
+      username: profile?.username ?? sender?.username ?? null,
+      pictureUrl: profile?.pictureUrl ?? sender?.pictureUrl ?? null,
+    };
+  }
+
+  if (senderId) {
+    const profile = await resolveInstagramInboxSenderProfile({
+      userId: args.userId,
+      senderId,
+      accessToken: args.accessToken,
+      isInstagramBusinessLogin: args.isInstagramBusinessLogin ?? false,
+      conversationId: args.conversationId,
+      username: sender?.username,
+      forceEnrich,
+    });
+    return {
+      senderId,
+      name: profile?.name ?? sender?.name ?? null,
+      username: profile?.username ?? sender?.username ?? null,
+      pictureUrl: profile?.pictureUrl ?? sender?.pictureUrl ?? null,
+    };
+  }
+
+  const enriched = await enrichInstagramAvatarsFromParticipants({
+    userId: args.userId,
+    list: [{ id: args.conversationId, senders: args.senders, updatedTime: null }],
+    isInstagramBusinessLogin: args.isInstagramBusinessLogin ?? false,
+    accessToken: args.accessToken,
+    maxConversations: 1,
+    forceEnrich,
+  });
+  const resolved = enriched[0]?.senders?.[0];
+  return {
+    senderId: resolved?.id ?? null,
+    name: resolved?.name ?? null,
+    username: resolved?.username ?? null,
+    pictureUrl: resolved?.pictureUrl ?? null,
+  };
 }

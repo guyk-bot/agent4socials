@@ -929,6 +929,7 @@ export async function GET(
     // Enrich senders with profile picture only when data is missing from the conversation list.
     const idsToEnrich = new Set<string>();
     for (const conv of list) {
+      if (conv.senders.length === 0) continue;
       for (const s of conv.senders) {
         const needsProfile =
           s.id &&
@@ -981,12 +982,12 @@ export async function GET(
             if (cached && (cached.name || cached.username || cached.pictureUrl)) {
               profiles.set(id, cached);
             }
-            if (!cached?.name && !cached?.username) {
+            if (!cached?.pictureUrl || (!cached?.name && !cached?.username)) {
               needsLive.push(id);
             }
           }
           const maxLiveProfileLookups = fullEnrich
-            ? Math.min(needsLive.length, 25)
+            ? needsLive.length
             : allowMinimalLive
               ? 2
               : reduceFanOut
