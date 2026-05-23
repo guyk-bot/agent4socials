@@ -3351,7 +3351,7 @@ export default function ComposerPage() {
                         {!differentMediaPerPlatform ? (
                             <>
                                 <p className="text-sm font-medium text-neutral-700">Choose post format</p>
-                                <div className={`flex flex-wrap gap-2 p-1 rounded-xl w-fit ${isDark ? 'bg-neutral-800/90' : 'bg-neutral-100/80'}`}>
+                                <div className={`flex flex-nowrap gap-1.5 p-1 rounded-xl w-full max-w-full overflow-x-auto ${isDark ? 'bg-neutral-800/90' : 'bg-neutral-100/80'}`}>
                                     {(['text', 'photo', 'reel', 'video', 'carousel', 'story'] as const).map((type) => (
                                         <button
                                             key={type}
@@ -3388,7 +3388,7 @@ export default function ComposerPage() {
                                                     );
                                                 }
                                             }}
-                                            className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${mediaType === type
+                                            className={`shrink-0 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${mediaType === type
                                                 ? (isDark ? 'bg-neutral-700 text-neutral-100 shadow-sm' : 'sidebar-item-selected text-neutral-900 shadow-sm')
                                                 : (isDark ? 'text-neutral-300 hover:text-white hover:bg-neutral-700/80' : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/80')
                                                 }`}
