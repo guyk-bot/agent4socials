@@ -19,7 +19,7 @@ export function readApiErrorMessage(e: unknown, fallback: string): string {
   }
   const raw = typeof err.message === 'string' ? err.message : '';
   if (/timeout of \d+ms exceeded/i.test(raw) || /ECONNABORTED/i.test(raw)) {
-    return 'Request timed out. Please try again.';
+    return 'Request timed out. Threads replies can take up to a minute; try again in a moment.';
   }
   if (raw && !/^Network Error$/i.test(raw)) return raw;
   return fallback;

@@ -3,9 +3,13 @@ import { getSupabaseBrowser } from '@/lib/supabase/client';
 
 const raw = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
 const base = raw || '';
+/** Default for most API calls; Threads comment replies need longer (Meta container + publish). */
+export const API_DEFAULT_TIMEOUT_MS = 25_000;
+export const API_THREADS_COMMENT_REPLY_TIMEOUT_MS = 90_000;
+
 const api = axios.create({
   baseURL: `${base}/api`,
-  timeout: 25_000,
+  timeout: API_DEFAULT_TIMEOUT_MS,
 });
 
 // ─── Global concurrent-request limiter ──────────────────────────────────────
@@ -78,6 +82,11 @@ api.interceptors.request.use(async (config) => {
 
   if (!isPriorityApiPath(typeof config.url === 'string' ? config.url : undefined)) {
     await acquireSlot();
+  }
+
+  const url = typeof config.url === 'string' ? config.url : '';
+  if (url.includes('/comments/reply')) {
+    config.timeout = API_THREADS_COMMENT_REPLY_TIMEOUT_MS;
   }
 
   return config;

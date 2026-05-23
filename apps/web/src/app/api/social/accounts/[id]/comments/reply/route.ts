@@ -7,6 +7,9 @@ import { getValidYoutubeToken } from '@/lib/youtube-token';
 import { linkedInAuthorUrnForUgc } from '@/lib/linkedin/sync-ugc-posts';
 import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 
+/** Threads reply: create container, poll Meta, publish (can exceed default 10s). */
+export const maxDuration = 60;
+
 /**
  * POST /api/social/accounts/[id]/comments/reply
  * Reply to a comment on Instagram, Facebook, YouTube, X, or LinkedIn.

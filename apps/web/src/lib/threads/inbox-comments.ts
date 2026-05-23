@@ -311,6 +311,40 @@ export async function resolveThreadsReplyToMediaId(
   };
 }
 
+function threadsReplyCreateErrorMessage(raw: string, httpStatus: number): string {
+  const lower = raw.toLowerCase();
+  if (lower.includes('does not exist') || lower.includes('not exist')) {
+    return 'Threads could not find that comment or thread. Refresh Comments, then try again. Reconnect Threads if the problem continues.';
+  }
+  if (lower.includes('permission') || lower.includes('scope')) {
+    return 'Threads reply permission missing. Reconnect Threads from Account and approve threads_manage_replies.';
+  }
+  return (raw || `Threads could not create reply (HTTP ${httpStatus})`).slice(0, 300);
+}
+
+async function publishThreadsReplyContainer(
+  containerId: string,
+  token: string
+): Promise<{ ok: true } | { ok: false; message: string; retryable: boolean }> {
+  const { threadsPostForm } = await import('@/lib/threads/threads-api');
+  const pub = await threadsPostForm<{ id?: string; error?: { message?: string } }>(
+    'me/threads_publish',
+    token,
+    { creation_id: containerId }
+  );
+  if (pub.status === 200 && pub.data?.id) {
+    return { ok: true };
+  }
+  const raw = pub.data?.error?.message ?? `Threads could not publish reply (HTTP ${pub.status})`;
+  const lower = raw.toLowerCase();
+  const retryable =
+    lower.includes('not ready') ||
+    lower.includes('processing') ||
+    lower.includes('in progress') ||
+    lower.includes('try again');
+  return { ok: false, message: raw.slice(0, 300), retryable };
+}
+
 export async function postThreadsReply(
   account: { id: string; accessToken: string; expiresAt?: Date | null },
   args: {
@@ -329,50 +363,70 @@ export async function postThreadsReply(
     return { ok: false, message: 'Reply text is required.' };
   }
 
-  const resolved = await resolveThreadsReplyToMediaId(token, {
+  let replyToId = threadsReplyToMediaId({
     commentId: args.commentId,
     platformPostId: args.platformPostId,
     threadsReplyToId: args.threadsReplyToId,
     parentCommentId: args.parentCommentId,
   });
-  if ('error' in resolved) {
-    return { ok: false, message: resolved.error };
-  }
-  const replyToId = resolved.replyToId;
 
-  // Official flow: POST me/threads with reply_to_id, then threads_publish.
-  const create = await threadsPostForm<{ id?: string; error?: { message?: string } }>(
-    'me/threads',
-    token,
-    {
+  const tryCreate = async (targetId: string) =>
+    threadsPostForm<{ id?: string; error?: { message?: string } }>('me/threads', token, {
       media_type: 'TEXT',
       text,
-      reply_to_id: replyToId,
+      reply_to_id: targetId,
+    });
+
+  let create = replyToId ? await tryCreate(replyToId) : { status: 400, data: undefined };
+
+  if ((create.status !== 200 || !create.data?.id) && replyToId) {
+    const raw = create.data?.error?.message ?? '';
+    if (raw.toLowerCase().includes('does not exist') || raw.toLowerCase().includes('not exist')) {
+      const resolved = await resolveThreadsReplyToMediaId(token, {
+        commentId: args.commentId,
+        platformPostId: args.platformPostId,
+        threadsReplyToId: args.threadsReplyToId,
+        parentCommentId: args.parentCommentId,
+      });
+      if ('error' in resolved) {
+        return { ok: false, message: resolved.error };
+      }
+      replyToId = resolved.replyToId;
+      create = await tryCreate(replyToId);
     }
-  );
+  }
+
+  if (!replyToId) {
+    const resolved = await resolveThreadsReplyToMediaId(token, {
+      commentId: args.commentId,
+      platformPostId: args.platformPostId,
+      threadsReplyToId: args.threadsReplyToId,
+      parentCommentId: args.parentCommentId,
+    });
+    if ('error' in resolved) {
+      return { ok: false, message: resolved.error };
+    }
+    replyToId = resolved.replyToId;
+    create = await tryCreate(replyToId);
+  }
+
   if (create.status !== 200 || !create.data?.id) {
-    const raw =
-      create.data?.error?.message ?? `Threads could not create reply (HTTP ${create.status})`;
-    const lower = raw.toLowerCase();
-    if (lower.includes('does not exist') || lower.includes('not exist')) {
-      return {
-        ok: false,
-        message:
-          'Threads could not find that comment or thread. Refresh Comments, then try again. Reconnect Threads if the problem continues.',
-      };
-    }
-    if (lower.includes('permission') || lower.includes('scope')) {
-      return {
-        ok: false,
-        message:
-          'Threads reply permission missing. Reconnect Threads from Account and approve threads_manage_replies.',
-      };
-    }
-    return { ok: false, message: raw.slice(0, 300) };
+    const raw = create.data?.error?.message ?? `Threads could not create reply (HTTP ${create.status})`;
+    return { ok: false, message: threadsReplyCreateErrorMessage(raw, create.status) };
   }
 
   const containerId = create.data.id;
-  const ready = await waitForThreadsContainerReady(containerId, token, 45_000);
+
+  // TEXT replies are often publishable immediately; poll only if Meta says the container is not ready.
+  let published = await publishThreadsReplyContainer(containerId, token);
+  if (published.ok) {
+    return { ok: true };
+  }
+  if (!published.retryable) {
+    return { ok: false, message: published.message };
+  }
+
+  const ready = await waitForThreadsContainerReady(containerId, token, 35_000);
   if (!ready) {
     return {
       ok: false,
@@ -380,18 +434,11 @@ export async function postThreadsReply(
     };
   }
 
-  const pub = await threadsPostForm<{ id?: string; error?: { message?: string } }>(
-    'me/threads_publish',
-    token,
-    { creation_id: containerId }
-  );
-  if (pub.status !== 200 || !pub.data?.id) {
-    const raw =
-      pub.data?.error?.message ?? `Threads could not publish reply (HTTP ${pub.status})`;
-    return { ok: false, message: raw.slice(0, 300) };
+  published = await publishThreadsReplyContainer(containerId, token);
+  if (published.ok) {
+    return { ok: true };
   }
-
-  return { ok: true };
+  return { ok: false, message: published.message };
 }
 
 /** Resolve the Threads media id passed as reply_to_id when posting a reply. */
