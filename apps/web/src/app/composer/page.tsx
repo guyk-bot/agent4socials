@@ -3921,7 +3921,8 @@ export default function ComposerPage() {
                                         {content.trim().length + (selectedHashtags.length ? ' ' + selectedHashtags.join(' ') : '').length}
                                     </p>
                                 )}
-                                {(platforms.includes('INSTAGRAM') || platforms.includes('FACEBOOK')) && (
+                                {mediaType !== 'text' &&
+                                (platforms.includes('INSTAGRAM') || platforms.includes('FACEBOOK')) && (
                                     <label
                                         className={`mt-3 flex items-start gap-2 rounded-xl border border-neutral-200 bg-neutral-50/80 px-3 py-2.5 ${
                                             metaAlsoStoryEligible ? 'cursor-pointer' : 'cursor-not-allowed opacity-90'
@@ -3948,7 +3949,7 @@ export default function ComposerPage() {
                                         </span>
                                     </label>
                                 )}
-                                {platforms.includes('THREADS') && (
+                                {mediaType !== 'text' && platforms.includes('THREADS') && (
                                     <label
                                         className={`mt-3 flex items-start gap-2 rounded-xl border border-neutral-200 bg-neutral-50/80 px-3 py-2.5 ${
                                             threadsInstagramStoryEligible ? 'cursor-pointer' : 'cursor-not-allowed opacity-90'
