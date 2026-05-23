@@ -24,6 +24,26 @@ Threads OAuth uses the **Threads App ID** and **Threads App Secret** from Meta (
 
 If Connect opens Threads with **"No app ID was sent"**, the server built an authorize URL with an empty `client_id`. Add `THREADS_APP_ID` / `THREADS_APP_SECRET` in Vercel for **Production**, then **Redeploy**.
 
+### "URL Blocked" / redirect URI not whitelisted (error 1349168)
+
+Meta only allows the **exact** callback URL your app sends. Agent4Socials uses:
+
+`https://agent4socials.com/api/social/oauth/threads/callback`
+
+(no trailing slash)
+
+**Fix in Meta Developer Portal:**
+
+1. Open your app → **Use cases** → **Access the Threads API** → **Customize** (or **Threads** in the left menu → **Settings**).
+2. Under **Client OAuth Settings**:
+   - Turn on **Client OAuth Login** and **Web OAuth Login** if they are off.
+   - In **Valid OAuth redirect URIs**, paste the URL above **character for character**.
+   - Click the dropdown under the input and choose **Add URL**, then **Save**.
+3. If you use a custom domain or `THREADS_REDIRECT_URI` in Vercel, whitelist **that** URL instead (it must match exactly, including `www` vs non-`www` and `.com` vs `.co`).
+4. Set `NEXT_PUBLIC_APP_URL` in Vercel to the same origin (e.g. `https://agent4socials.com`) and redeploy.
+
+Do **not** add this URI only under Facebook Login; it must be under the **Threads** product OAuth settings.
+
 Default OAuth scopes: `threads_basic`, `threads_content_publish`, `threads_manage_insights`, `threads_read_replies`, `threads_manage_replies`, `threads_manage_mentions`, `threads_share_to_instagram`.
 
 ## Share to Instagram Story

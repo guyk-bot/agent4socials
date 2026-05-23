@@ -290,6 +290,55 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
     );
   }
 
+  // ── THREADS (Meta redirect URI must match exactly) ────────────────────────
+  if (platform === 'THREADS') {
+    const threadsCallback =
+      typeof process.env.NEXT_PUBLIC_APP_URL === 'string' && process.env.NEXT_PUBLIC_APP_URL.trim()
+        ? `${process.env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, '')}/api/social/oauth/threads/callback`
+        : 'https://agent4socials.com/api/social/oauth/threads/callback';
+    return (
+      <div className="connect-view-scope min-h-[calc(100vh-6rem)] flex items-start justify-center pt-16 sm:pt-20">
+        <div className="max-w-lg mx-auto px-4 w-full">
+          <div
+            className={`connect-surface rounded-2xl border-2 p-6 sm:p-8 ${info.accentBorder} bg-gradient-to-b from-white to-neutral-50/80 shadow-sm`}
+          >
+            <div className="text-center pt-2 pb-4">
+              <div className="inline-flex mb-3">{info.headerIcon}</div>
+              <h1 className="text-2xl font-bold text-neutral-900">Connect Threads</h1>
+              <p className="text-neutral-500 mt-1 text-sm max-w-xs mx-auto">{info.description}</p>
+            </div>
+
+            <ConnectPageSections functionalities={info.functionalities} helpAnchor={info.helpAnchor} />
+
+            {connectError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 mt-4">
+                {connectError}
+              </div>
+            )}
+
+            <p className="mt-4 text-xs text-neutral-500 leading-relaxed">
+              If Meta shows <span className="font-medium text-neutral-700">URL Blocked</span>, add this under Threads →
+              Client OAuth Settings → Valid OAuth redirect URIs (use Add URL, then Save):
+            </p>
+            <p className="mt-1.5 rounded-lg bg-neutral-100 px-3 py-2 text-xs font-mono text-neutral-800 break-all select-all">
+              {threadsCallback}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => onConnect(platformLower)}
+              disabled={connecting}
+              className={`mt-6 w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-sm font-semibold text-white bg-gradient-to-r ${info.buttonGradient} ${info.buttonHover} transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed`}
+            >
+              {connecting ? <Loader2 size={18} className="animate-spin" /> : null}
+              Connect {info.buttonLabel ?? info.name}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ── TIKTOK (two account type buttons) ─────────────────────────────────────
   if (platform === 'TIKTOK') {
     return (
