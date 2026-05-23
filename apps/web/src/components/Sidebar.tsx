@@ -188,7 +188,8 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const isReportsPage = pathname === '/dashboard/reports';
   const isHelpPage = pathname === '/help';
 
-  const sidebarContent = (
+/** Vertical padding for platform account rows only (tight stack, full-size icons unchanged). */
+const PLATFORM_ROW_PY = 'py-1';
     <>
       <div className="p-3 shrink-0">
         <Link

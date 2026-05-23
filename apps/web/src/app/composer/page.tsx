@@ -50,6 +50,13 @@ import {
     upsertPostInHistoryClient,
 } from '@/lib/posts-history-client';
 import {
+    isPendingHistoryPostId,
+    readPendingPostSnapshot,
+    removePendingPostSnapshot,
+    savePendingPostSnapshot,
+    type ComposerPendingSnapshot,
+} from '@/lib/composer-pending-snapshot';
+import {
     nextFutureTenMinuteLocalString,
     isTenMinuteLocalScheduleString,
     isoInstantToLocalTenMinuteSnappedUp,
@@ -780,6 +787,9 @@ export default function ComposerPage() {
     const accountsLoadError = accountsCache?.accountsLoadError ?? null;
     const searchParams = useSearchParams();
     const editPostId = searchParams.get('edit');
+    /** Real DB post id from History; `pending-*` ids are client-only and must create a new post. */
+    const persistedEditPostId =
+        editPostId && !isPendingHistoryPostId(editPostId) ? editPostId : null;
     const [platforms, setPlatforms] = useState<string[]>([]);
     const [content, setContent] = useState('');
     const [contentByPlatform, setContentByPlatform] = useState<Record<string, string>>({});
@@ -1067,90 +1077,191 @@ export default function ComposerPage() {
         } catch (_) { /* ignore */ }
     }, [hashtagPool]);
 
+    const applyComposerDraftFromPartial = useCallback((d: Partial<ComposerDraft> | ComposerPendingSnapshot) => {
+        if (!d || typeof d !== 'object') return;
+        if (Array.isArray(d.platforms)) setPlatforms(d.platforms);
+        if (typeof d.content === 'string') setContent(d.content);
+        if (d.contentByPlatform && typeof d.contentByPlatform === 'object') setContentByPlatform(d.contentByPlatform);
+        if (typeof d.differentContentPerPlatform === 'boolean') setDifferentContentPerPlatform(d.differentContentPerPlatform);
+        if (
+            d.mediaType === 'text' ||
+            d.mediaType === 'photo' ||
+            d.mediaType === 'video' ||
+            d.mediaType === 'reel' ||
+            d.mediaType === 'carousel' ||
+            d.mediaType === 'story'
+        ) {
+            setMediaType(d.mediaType);
+        }
+        if (Array.isArray(d.mediaList)) {
+            const valid = d.mediaList.filter((m) => m && isPersistableMediaUrl(m.fileUrl));
+            if (valid.length) setMediaList(valid as MediaItem[]);
+        }
+        if (d.mediaByPlatform && typeof d.mediaByPlatform === 'object') {
+            const cleaned: Record<string, MediaItem[]> = {};
+            for (const [k, arr] of Object.entries(d.mediaByPlatform)) {
+                if (Array.isArray(arr)) {
+                    const v = arr.filter((m) => m && isPersistableMediaUrl(m.fileUrl)) as MediaItem[];
+                    if (v.length) cleaned[k] = v;
+                }
+            }
+            if (Object.keys(cleaned).length) setMediaByPlatform(cleaned);
+        }
+        if (typeof d.differentMediaPerPlatform === 'boolean') setDifferentMediaPerPlatform(d.differentMediaPerPlatform);
+        if (typeof d.differentThumbnailPerPlatform === 'boolean') setDifferentThumbnailPerPlatform(d.differentThumbnailPerPlatform);
+        if (d.thumbnailByPlatform && typeof d.thumbnailByPlatform === 'object') setThumbnailByPlatform(d.thumbnailByPlatform);
+        if (d.thumbnailChoice === 'none' || d.thumbnailChoice === 'upload' || d.thumbnailChoice === 'frame') setThumbnailChoice(d.thumbnailChoice);
+        if (typeof d.scheduledAt === 'string') {
+            const parsed = new Date(d.scheduledAt);
+            if (!Number.isNaN(parsed.getTime())) {
+                setScheduledAt(isoInstantToLocalTenMinuteSnappedUp(d.scheduledAt));
+            } else setScheduledAt(d.scheduledAt);
+        }
+        if (d.scheduleDelivery === 'auto' || d.scheduleDelivery === 'email_links') setScheduleDelivery(d.scheduleDelivery);
+        if (Array.isArray(d.selectedHashtags)) setSelectedHashtags(d.selectedHashtags);
+        if (typeof d.differentHashtagsPerPlatform === 'boolean') setDifferentHashtagsPerPlatform(d.differentHashtagsPerPlatform);
+        if (d.selectedHashtagsByPlatform && typeof d.selectedHashtagsByPlatform === 'object') setSelectedHashtagsByPlatform(d.selectedHashtagsByPlatform);
+        if (typeof d.commentAutomationEnabled === 'boolean') setCommentAutomationEnabled(d.commentAutomationEnabled);
+        if (typeof d.commentAutomationKeywords === 'string') setCommentAutomationKeywords(d.commentAutomationKeywords);
+        if (typeof d.commentAutomationReplyTemplate === 'string') setCommentAutomationReplyTemplate(d.commentAutomationReplyTemplate);
+        if (d.commentAutomationReplyByPlatform && typeof d.commentAutomationReplyByPlatform === 'object') {
+            setCommentAutomationReplyByPlatform(d.commentAutomationReplyByPlatform);
+        }
+        if (typeof d.commentAutomationReplyOnComment === 'boolean') setCommentAutomationReplyOnComment(d.commentAutomationReplyOnComment);
+        if (typeof d.commentAutomationInstagramPublicReply === 'boolean') {
+            setCommentAutomationInstagramPublicReply(d.commentAutomationInstagramPublicReply);
+        }
+        if (typeof d.commentAutomationInstagramPrivateReply === 'boolean') {
+            setCommentAutomationInstagramPrivateReply(d.commentAutomationInstagramPrivateReply);
+        }
+        if (typeof d.commentAutomationInstagramDmMessage === 'string') {
+            setCommentAutomationInstagramDmMessage(d.commentAutomationInstagramDmMessage);
+        }
+        if (typeof d.commentAutomationTagCommenter === 'boolean') setCommentAutomationTagCommenter(d.commentAutomationTagCommenter);
+        if (d.tiktokPublishByAccountId && typeof d.tiktokPublishByAccountId === 'object') {
+            const cleaned: Record<string, TikTokDirectPostPayload> = {};
+            for (const [k, v] of Object.entries(d.tiktokPublishByAccountId)) {
+                if (isTikTokDirectPostPayload(v)) cleaned[k] = v;
+            }
+            if (Object.keys(cleaned).length) setTiktokPublishByAccountId(cleaned);
+        }
+        if (typeof d.threadsShareToInstagram === 'boolean') setThreadsShareToInstagram(d.threadsShareToInstagram);
+        if (typeof d.alsoPostToStory === 'boolean') setAlsoPostToStory(d.alsoPostToStory);
+    }, []);
+
+    const buildComposerDraftSnapshot = useCallback((): ComposerDraft => {
+        const mediaListToSave = mediaList.filter((m) => isPersistableMediaUrl(m.fileUrl)) as MediaItem[];
+        const mediaByPlatformToSave: Record<string, MediaItem[]> = {};
+        for (const [k, arr] of Object.entries(mediaByPlatform)) {
+            const v = (arr || []).filter((m) => isPersistableMediaUrl(m.fileUrl)) as MediaItem[];
+            if (v.length) mediaByPlatformToSave[k] = v;
+        }
+        return {
+            platforms,
+            content,
+            contentByPlatform,
+            differentContentPerPlatform,
+            mediaType,
+            mediaList: mediaListToSave,
+            mediaByPlatform: mediaByPlatformToSave,
+            differentMediaPerPlatform,
+            differentThumbnailPerPlatform,
+            thumbnailByPlatform,
+            thumbnailChoice,
+            scheduledAt,
+            scheduleDelivery,
+            selectedHashtags,
+            differentHashtagsPerPlatform,
+            selectedHashtagsByPlatform,
+            commentAutomationEnabled,
+            commentAutomationKeywords,
+            commentAutomationReplyTemplate,
+            commentAutomationReplyByPlatform,
+            commentAutomationReplyOnComment,
+            commentAutomationInstagramPublicReply,
+            commentAutomationInstagramPrivateReply,
+            ...(commentAutomationInstagramDmMessage ? { commentAutomationInstagramDmMessage } : {}),
+            commentAutomationTagCommenter,
+            ...(Object.keys(tiktokPublishByAccountId).length > 0 ? { tiktokPublishByAccountId } : {}),
+            threadsShareToInstagram,
+            alsoPostToStory,
+        };
+    }, [
+        platforms,
+        content,
+        contentByPlatform,
+        differentContentPerPlatform,
+        mediaType,
+        mediaList,
+        mediaByPlatform,
+        differentMediaPerPlatform,
+        differentThumbnailPerPlatform,
+        thumbnailByPlatform,
+        thumbnailChoice,
+        scheduledAt,
+        scheduleDelivery,
+        selectedHashtags,
+        differentHashtagsPerPlatform,
+        selectedHashtagsByPlatform,
+        commentAutomationEnabled,
+        commentAutomationKeywords,
+        commentAutomationReplyTemplate,
+        commentAutomationReplyByPlatform,
+        commentAutomationReplyOnComment,
+        commentAutomationInstagramPublicReply,
+        commentAutomationInstagramPrivateReply,
+        commentAutomationInstagramDmMessage,
+        commentAutomationTagCommenter,
+        tiktokPublishByAccountId,
+        threadsShareToInstagram,
+        alsoPostToStory,
+    ]);
+
     // Restore composer draft from localStorage on mount (so progress survives navigation/refresh).
     // useLayoutEffect avoids an extra paint on "Loading composer…" when draft read is synchronous.
     const [draftRestored, setDraftRestored] = useState(false);
     useLayoutEffect(() => {
         if (typeof window === 'undefined' || draftRestored) return;
-        if (editPostId) { setDraftRestored(true); return; }
+        if (editPostId) {
+            if (isPendingHistoryPostId(editPostId)) {
+                const snap = readPendingPostSnapshot(editPostId);
+                if (snap) {
+                    applyComposerDraftFromPartial(snap);
+                } else {
+                    try {
+                        const raw = localStorage.getItem(COMPOSER_DRAFT_KEY);
+                        if (raw) applyComposerDraftFromPartial(JSON.parse(raw) as Partial<ComposerDraft>);
+                    } catch {
+                        /* ignore */
+                    }
+                }
+            }
+            setDraftRestored(true);
+            return;
+        }
         try {
             const raw = localStorage.getItem(COMPOSER_DRAFT_KEY);
             if (!raw) {
                 setDraftRestored(true);
                 return;
             }
-            const d = JSON.parse(raw) as Partial<ComposerDraft>;
-            if (d && typeof d === 'object') {
-                if (Array.isArray(d.platforms)) setPlatforms(d.platforms);
-                if (typeof d.content === 'string') setContent(d.content);
-                if (d.contentByPlatform && typeof d.contentByPlatform === 'object') setContentByPlatform(d.contentByPlatform);
-                if (typeof d.differentContentPerPlatform === 'boolean') setDifferentContentPerPlatform(d.differentContentPerPlatform);
-                if (
-                    d.mediaType === 'text' ||
-                    d.mediaType === 'photo' ||
-                    d.mediaType === 'video' ||
-                    d.mediaType === 'reel' ||
-                    d.mediaType === 'carousel' ||
-                    d.mediaType === 'story'
-                ) {
-                    setMediaType(d.mediaType);
-                }
-                if (Array.isArray(d.mediaList)) {
-                    const valid = d.mediaList.filter((m) => m && isPersistableMediaUrl(m.fileUrl));
-                    if (valid.length) setMediaList(valid);
-                }
-                if (d.mediaByPlatform && typeof d.mediaByPlatform === 'object') {
-                    const cleaned: Record<string, MediaItem[]> = {};
-                    for (const [k, arr] of Object.entries(d.mediaByPlatform)) {
-                        if (Array.isArray(arr)) {
-                            const v = arr.filter((m) => m && isPersistableMediaUrl(m.fileUrl)) as MediaItem[];
-                            if (v.length) cleaned[k] = v;
-                        }
-                    }
-                    if (Object.keys(cleaned).length) setMediaByPlatform(cleaned);
-                }
-                if (typeof d.differentMediaPerPlatform === 'boolean') setDifferentMediaPerPlatform(d.differentMediaPerPlatform);
-                if (typeof d.differentThumbnailPerPlatform === 'boolean') setDifferentThumbnailPerPlatform(d.differentThumbnailPerPlatform);
-                if (d.thumbnailByPlatform && typeof d.thumbnailByPlatform === 'object') setThumbnailByPlatform(d.thumbnailByPlatform);
-                if (d.thumbnailChoice === 'none' || d.thumbnailChoice === 'upload' || d.thumbnailChoice === 'frame') setThumbnailChoice(d.thumbnailChoice);
-                if (typeof d.scheduledAt === 'string') {
-                    const parsed = new Date(d.scheduledAt);
-                    if (!Number.isNaN(parsed.getTime())) {
-                        setScheduledAt(isoInstantToLocalTenMinuteSnappedUp(d.scheduledAt));
-                    } else setScheduledAt(d.scheduledAt);
-                }
-                if (d.scheduleDelivery === 'auto' || d.scheduleDelivery === 'email_links') setScheduleDelivery(d.scheduleDelivery);
-                if (Array.isArray(d.selectedHashtags)) setSelectedHashtags(d.selectedHashtags);
-                if (typeof d.differentHashtagsPerPlatform === 'boolean') setDifferentHashtagsPerPlatform(d.differentHashtagsPerPlatform);
-                if (d.selectedHashtagsByPlatform && typeof d.selectedHashtagsByPlatform === 'object') setSelectedHashtagsByPlatform(d.selectedHashtagsByPlatform);
-                if (typeof d.commentAutomationEnabled === 'boolean') setCommentAutomationEnabled(d.commentAutomationEnabled);
-                if (typeof d.commentAutomationKeywords === 'string') setCommentAutomationKeywords(d.commentAutomationKeywords);
-                if (typeof d.commentAutomationReplyTemplate === 'string') setCommentAutomationReplyTemplate(d.commentAutomationReplyTemplate);
-                if (d.commentAutomationReplyByPlatform && typeof d.commentAutomationReplyByPlatform === 'object') setCommentAutomationReplyByPlatform(d.commentAutomationReplyByPlatform);
-                if (typeof d.commentAutomationReplyOnComment === 'boolean') setCommentAutomationReplyOnComment(d.commentAutomationReplyOnComment);
-                if (typeof d.commentAutomationInstagramPublicReply === 'boolean') setCommentAutomationInstagramPublicReply(d.commentAutomationInstagramPublicReply);
-                if (typeof d.commentAutomationInstagramPrivateReply === 'boolean') setCommentAutomationInstagramPrivateReply(d.commentAutomationInstagramPrivateReply);
-                if (typeof d.commentAutomationInstagramDmMessage === 'string') setCommentAutomationInstagramDmMessage(d.commentAutomationInstagramDmMessage);
-                if (typeof d.commentAutomationTagCommenter === 'boolean') setCommentAutomationTagCommenter(d.commentAutomationTagCommenter);
-                if (d.tiktokPublishByAccountId && typeof d.tiktokPublishByAccountId === 'object') {
-                    const cleaned: Record<string, TikTokDirectPostPayload> = {};
-                    for (const [k, v] of Object.entries(d.tiktokPublishByAccountId)) {
-                        if (isTikTokDirectPostPayload(v)) cleaned[k] = v;
-                    }
-                    if (Object.keys(cleaned).length) setTiktokPublishByAccountId(cleaned);
-                }
-                if (typeof d.threadsShareToInstagram === 'boolean') setThreadsShareToInstagram(d.threadsShareToInstagram);
-                if (typeof d.alsoPostToStory === 'boolean') setAlsoPostToStory(d.alsoPostToStory);
-            }
+            applyComposerDraftFromPartial(JSON.parse(raw) as Partial<ComposerDraft>);
         } catch (_) { /* ignore */ }
         setDraftRestored(true);
-    }, [draftRestored]);
+    }, [draftRestored, editPostId, applyComposerDraftFromPartial]);
 
     // Load post for editing when ?edit=id is present
     const [editLoaded, setEditLoaded] = useState(false);
     const [editPostAlreadyPosted, setEditPostAlreadyPosted] = useState(false);
     useEffect(() => {
         if (!editPostId || editLoaded) return;
+        if (isPendingHistoryPostId(editPostId)) {
+            setEditLoaded(true);
+            setAlertMessage(
+                'This post never finished saving to the server. Your last attempt is restored below. Connect accounts if needed, then try Post now again.'
+            );
+            return;
+        }
         let cancelled = false;
         api.get(`/posts/${editPostId}`)
             .then((res) => {
@@ -1308,9 +1419,18 @@ export default function ComposerPage() {
                 }
                 setEditLoaded(true);
             })
-            .catch(() => setEditLoaded(true));
+            .catch(() => {
+                try {
+                    const raw = localStorage.getItem(COMPOSER_DRAFT_KEY);
+                    if (raw) applyComposerDraftFromPartial(JSON.parse(raw) as Partial<ComposerDraft>);
+                } catch {
+                    /* ignore */
+                }
+                setAlertMessage('Could not load this post from the server. Restored your last composer draft if available.');
+                setEditLoaded(true);
+            });
         return () => { cancelled = true; };
-    }, [editPostId, editLoaded]);
+    }, [editPostId, editLoaded, applyComposerDraftFromPartial]);
 
     const clearComposerDraft = useCallback(() => {
         try {
@@ -1538,79 +1658,11 @@ export default function ComposerPage() {
         if (!draftRestored) return;
         const t = setTimeout(() => {
             try {
-                const mediaListToSave = mediaList.filter((m) => isPersistableMediaUrl(m.fileUrl)) as MediaItem[];
-                const mediaByPlatformToSave: Record<string, MediaItem[]> = {};
-                for (const [k, arr] of Object.entries(mediaByPlatform)) {
-                    const v = (arr || []).filter((m) => isPersistableMediaUrl(m.fileUrl)) as MediaItem[];
-                    if (v.length) mediaByPlatformToSave[k] = v;
-                }
-                const draft: ComposerDraft = {
-                    platforms,
-                    content,
-                    contentByPlatform,
-                    differentContentPerPlatform,
-                    mediaType,
-                    mediaList: mediaListToSave,
-                    mediaByPlatform: mediaByPlatformToSave,
-                    differentMediaPerPlatform,
-                    differentThumbnailPerPlatform,
-                    thumbnailByPlatform,
-                    thumbnailChoice,
-                    scheduledAt,
-                    scheduleDelivery,
-                    selectedHashtags,
-                    differentHashtagsPerPlatform,
-                    selectedHashtagsByPlatform,
-                    commentAutomationEnabled,
-                    commentAutomationKeywords,
-                    commentAutomationReplyTemplate,
-                    commentAutomationReplyByPlatform,
-                    commentAutomationReplyOnComment,
-                    commentAutomationInstagramPublicReply,
-                    commentAutomationInstagramPrivateReply,
-                    ...(commentAutomationInstagramDmMessage ? { commentAutomationInstagramDmMessage } : {}),
-                    commentAutomationTagCommenter,
-                    ...(Object.keys(tiktokPublishByAccountId).length > 0 ? { tiktokPublishByAccountId } : {}),
-                    threadsShareToInstagram,
-                    alsoPostToStory,
-                };
-                localStorage.setItem(COMPOSER_DRAFT_KEY, JSON.stringify(draft));
+                localStorage.setItem(COMPOSER_DRAFT_KEY, JSON.stringify(buildComposerDraftSnapshot()));
             } catch (_) { /* ignore */ }
         }, debounceMs);
         return () => clearTimeout(t);
-    }, [
-        draftRestored,
-        platforms,
-        content,
-        contentByPlatform,
-        differentContentPerPlatform,
-        mediaType,
-        mediaList,
-        mediaByPlatform,
-        differentMediaPerPlatform,
-        differentThumbnailPerPlatform,
-        thumbnailByPlatform,
-        thumbnailChoice,
-        scheduledAt,
-        scheduleDelivery,
-        selectedHashtags,
-        differentHashtagsPerPlatform,
-        selectedHashtagsByPlatform,
-        commentAutomationEnabled,
-        commentAutomationKeywords,
-        commentAutomationReplyTemplate,
-        commentAutomationReplyByPlatform,
-        commentAutomationReplyOnComment,
-        commentAutomationInstagramPublicReply,
-        commentAutomationInstagramPrivateReply,
-        commentAutomationInstagramDmMessage,
-        commentAutomationTagCommenter,
-        tiktokPublishByAccountId,
-        threadsShareToInstagram,
-        alsoPostToStory,
-        mediaSignature,
-        debounceMs,
-    ]);
+    }, [draftRestored, buildComposerDraftSnapshot, mediaSignature, debounceMs]);
 
     // Prime from AccountsCacheContext (dashboard prefetch or persisted cache) so we do not wait on a
     // duplicate /social/accounts round-trip before showing the composer shell.
@@ -2740,21 +2792,21 @@ export default function ComposerPage() {
                 payload.alsoPostToStory = alsoPostToStory;
             }
 
-            const updateExisting = editPostId && !editPostAlreadyPosted;
+            const updateExisting = persistedEditPostId && !editPostAlreadyPosted;
             if (isPostNowCommit) {
                 await ensurePublishUiPrep();
                 const platformLabelsEarly = platforms.map((p) => PLATFORM_LABELS[p] ?? p).join(', ');
                 setPublishModal({
                     open: true,
                     kind: 'queued',
-                    postId: updateExisting && editPostId ? editPostId : '',
+                    postId: updateExisting && persistedEditPostId ? persistedEditPostId : '',
                     message: updateExisting
                         ? `Updating and publishing to ${platformLabelsEarly}. Check History for status.`
                         : `Publishing to ${platformLabelsEarly}. Check History for status.`,
                 });
-                if (updateExisting && editPostId) {
+                if (updateExisting && persistedEditPostId) {
                     upsertPostInHistoryClient({
-                        id: editPostId,
+                        id: persistedEditPostId,
                         status: 'POSTING',
                         content: contentFinal,
                         targetPlatforms: platforms,
@@ -2763,6 +2815,7 @@ export default function ComposerPage() {
                 } else {
                     const tempId = `pending-${Date.now()}`;
                     optimisticPostIdRef.current = tempId;
+                    savePendingPostSnapshot(tempId, buildComposerDraftSnapshot());
                     pushPostsHistoryClientUpdate([
                         buildOptimisticPostingRow({
                             id: tempId,
@@ -2818,9 +2871,9 @@ export default function ComposerPage() {
                 }, {} as Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO'; thumbnailUrl?: string }[]>);
             }
             // If editing an already-posted post, create a new post (and publish/schedule) instead of updating the original
-            if (updateExisting) {
+            if (updateExisting && persistedEditPostId) {
                 if (saveAsDraft) {
-                    await api.patch(`/posts/${editPostId}`, payload, { timeout: 180_000 });
+                    await api.patch(`/posts/${persistedEditPostId}`, payload, { timeout: 180_000 });
                     clearComposerDraft();
                     router.push('/posts?draft_saved=1');
                     setLoading(false);
@@ -2828,7 +2881,7 @@ export default function ComposerPage() {
                 }
                 if (scheduledAt) {
                     await ensurePublishUiPrep();
-                    await api.patch(`/posts/${editPostId}`, payload, { timeout: 180_000 });
+                    await api.patch(`/posts/${persistedEditPostId}`, payload, { timeout: 180_000 });
                     clearComposerDraft();
                     const schedParams = new URLSearchParams({ scheduled: '1', delivery: scheduleDelivery === 'email_links' ? 'email' : 'auto', platforms: platforms.join(','), at: new Date(scheduledAt).toISOString() });
                     router.push(`/calendar?${schedParams.toString()}`);
@@ -2843,7 +2896,7 @@ export default function ComposerPage() {
                     threadsShareToInstagram,
                     alsoPostToStory
                 );
-                const publishPath = `/posts/${editPostId}/publish${debug ? '?debug=1' : ''}`;
+                const publishPath = `/posts/${persistedEditPostId}/publish${debug ? '?debug=1' : ''}`;
                 if (includesTikTokTarget && !tiktokAccountIdsNeedingUi.every((id) => isTikTokDirectPostPayload(tiktokPublishByAccountId[id]))) {
                     setPublishModal({ open: false });
                     setTiktokModalAccountIds(tiktokAccountIdsNeedingUi);
@@ -2852,9 +2905,9 @@ export default function ComposerPage() {
                 }
                 void (async () => {
                     try {
-                        await api.patch(`/posts/${editPostId}`, payload, { timeout: 180_000 });
+                        await api.patch(`/posts/${persistedEditPostId}`, payload, { timeout: 180_000 });
                         clearComposerDraft();
-                        publishPostInBackground(editPostId, publishPath, publishBody, includesTikTokTarget);
+                        publishPostInBackground(persistedEditPostId, publishPath, publishBody, includesTikTokTarget);
                     } catch (err: unknown) {
                         const res =
                             err && typeof err === 'object' && 'response' in err
@@ -2912,14 +2965,20 @@ export default function ComposerPage() {
             }
             if (postId) {
                 setLoading(false);
+                if (editPostId && isPendingHistoryPostId(editPostId)) {
+                    pushPostsHistoryClientUpdate((prev) => prev.filter((p) => p?.id !== editPostId));
+                    removePendingPostSnapshot(editPostId);
+                }
                 if (optimisticPostIdRef.current) {
-                    replacePostIdInHistoryClient(optimisticPostIdRef.current, {
+                    const tempId = optimisticPostIdRef.current;
+                    replacePostIdInHistoryClient(tempId, {
                         id: postId,
                         status: 'POSTING',
                         content: contentFinal,
                         targetPlatforms: platforms,
                         targets: platforms.map((platform) => ({ platform, status: 'POSTING' })),
                     });
+                    removePendingPostSnapshot(tempId);
                     optimisticPostIdRef.current = null;
                 } else {
                     upsertPostInHistoryClient({

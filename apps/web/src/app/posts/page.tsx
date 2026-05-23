@@ -30,6 +30,7 @@ import {
 } from '@/lib/calendar-date';
 import { InstagramIcon, YoutubeIcon, TikTokIcon, FacebookIcon, XTwitterIcon, LinkedinIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
 import { readScheduledPostsClientCache } from '@/lib/scheduled-posts-client-cache';
+import { isPendingHistoryPostId } from '@/lib/composer-pending-snapshot';
 import {
     getPostHistoryFormat,
     isPostHistoryVerticalThumb,
@@ -900,8 +901,15 @@ export default function PostsPage() {
                                             href={`/composer?edit=${post.id}`}
                                             prefetch
                                             className="inline-flex items-center gap-1 text-sm font-medium text-orange-700 hover:text-orange-800"
+                                            title={
+                                                isPendingHistoryPostId(post.id)
+                                                    ? 'Restore your last attempt (post did not finish saving)'
+                                                    : undefined
+                                            }
                                         >
-                                            Open in Composer
+                                            {isPendingHistoryPostId(post.id)
+                                                ? 'Resume in Composer'
+                                                : 'Open in Composer'}
                                             <ChevronRight size={18} />
                                         </Link>
                                     </td>
