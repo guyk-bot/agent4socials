@@ -133,10 +133,83 @@ Use when the app UI does not yet call an endpoint, especially **`threads_share_t
 | `threads_read_replies` | `GET {thread-id}/replies` |
 | `threads_manage_replies` | `POST {thread-id}/replies` with `text=Test reply` |
 | `threads_manage_mentions` | `GET me/mentions` (or the mentions endpoint from [Threads API docs](https://developers.facebook.com/docs/threads)) |
-| `threads_share_to_instagram` | Only if you need this scope: use Meta’s documented **share to Instagram** endpoint once (not implemented in Agent4Socials today). You can skip it in App Review if Meta marks it optional. |
+| `threads_share_to_instagram` | See **B4** below (publish with `crossreshare_to_ig=true`). |
 
 5. Click **Submit**. Repeat for any permission still at **0 of 1**.
 6. Wait 2 to 5 minutes → refresh **App Review → Testing → Access the Threads API**.
+
+### B4. Test `threads_share_to_instagram` (share Threads post to Instagram Story)
+
+Meta counts this permission when you **publish** a Threads container with **`crossreshare_to_ig=true`**. Your Threads profile must be **linked to an Instagram account** (Threads app → Settings).
+
+**Option A: Graph API Explorer (manual)**
+
+1. [Graph API Explorer](https://developers.facebook.com/tools/explorer/) → your app.
+2. **Get Token** → **Get User Access Token** → enable at least:
+   - `threads_basic`
+   - `threads_content_publish`
+   - `threads_share_to_instagram`
+3. Set API version **v1.0** and use URLs on **`graph.threads.net`** (or pick **Threads API** if shown).
+
+**Request 1 – create container**
+
+- Method: **POST**
+- Path: `me/threads`
+- Body (form fields):
+
+| Key | Value |
+|-----|--------|
+| `media_type` | `TEXT` |
+| `text` | `App Review test share to IG Story` |
+
+Copy the returned **`id`** (media container id).
+
+**Request 2 – wait (if needed)**
+
+- Method: **GET**
+- Path: `{container-id}?fields=status`
+- Repeat until `status` is `FINISHED` (text is often instant).
+
+**Request 3 – publish + cross-share**
+
+- Method: **POST**
+- Path: `me/threads_publish`
+- Body:
+
+| Key | Value |
+|-----|--------|
+| `creation_id` | `{container-id}` from step 1 |
+| `crossreshare_to_ig` | `true` |
+
+Optional: `crossreshare_to_ig_dark_mode` = `true` or `false` (Story sticker style).
+
+**curl equivalent**
+
+```bash
+# Replace TOKEN and CONTAINER_ID
+curl -X POST "https://graph.threads.net/v1.0/me/threads" \
+  -H "Authorization: Bearer TOKEN" \
+  -d "media_type=TEXT" \
+  -d "text=App Review test share to IG Story"
+
+curl -X POST "https://graph.threads.net/v1.0/me/threads_publish" \
+  -H "Authorization: Bearer TOKEN" \
+  -d "creation_id=CONTAINER_ID" \
+  -d "crossreshare_to_ig=true"
+```
+
+**Option B: Script (uses DB token or pass token as argument)**
+
+```bash
+cd apps/web
+node scripts/run-threads-share-to-instagram-test.js
+# Or with Explorer token:
+node scripts/run-threads-share-to-instagram-test.js "THAA..."
+```
+
+If the DB token was created before you added `threads_share_to_instagram` to the app, reconnect Threads in the app with that scope in `THREADS_OAUTH_SCOPES`, or use an Explorer token as above.
+
+Reference: [Threads Publishing API](https://developers.facebook.com/docs/threads/reference/publishing/) (`crossreshare_to_ig` on `POST /{threads-user-id}/threads_publish`).
 
 ---
 
