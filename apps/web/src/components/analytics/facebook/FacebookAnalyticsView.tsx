@@ -41,6 +41,7 @@ import {
 import { useTheme } from '@/context/ThemeContext';
 import { isStoryPost, storyPostInteractions } from '@/lib/analytics/story-post';
 import { PostContentPreviewThumb } from '@/components/PostContentPreviewThumb';
+import { analyticsPostTypeLabel } from '@/lib/post-history-format';
 
 export { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
 
@@ -2309,7 +2310,14 @@ export function PostsPerformanceTable({
                 </td>
                 <td className="px-3 py-3">
                   <span className="rounded-full px-2 py-1 text-xs" style={{ background: 'rgba(255,255,255,0.08)', color: COLOR.text }}>
-                    {platUpper === 'YOUTUBE' ? 'Video' : r.type}
+                    {analyticsPostTypeLabel(
+                      {
+                        platform: r.rawPost.platform ?? platform,
+                        mediaType: r.rawPost.mediaType,
+                        thumbnailUrl: r.rawPost.thumbnailUrl,
+                      },
+                      r.type
+                    )}
                   </span>
                 </td>
                 <td className="px-3 py-3" style={{ color: COLOR.text }}>{formatNumber(r.views)}</td>
@@ -2407,7 +2415,14 @@ export function PostsPerformanceTable({
             <div className="mt-2 flex flex-wrap gap-2 text-xs" style={{ color: COLOR.textSecondary }}>
               <span>{formatPostCardDateTime(r.date) || new Date(r.date).toLocaleDateString()}</span>
               <span>
-                {platUpper === 'YOUTUBE' ? 'Video' : r.type}
+                {analyticsPostTypeLabel(
+                  {
+                    platform: r.rawPost.platform ?? platform,
+                    mediaType: r.rawPost.mediaType,
+                    thumbnailUrl: r.rawPost.thumbnailUrl,
+                  },
+                  r.type
+                )}
               </span>
               <span>Views {formatNumber(r.views)}</span>
               {!compactVideoTable ? <span>Reach {formatNumber(r.uniqueReach)}</span> : null}
@@ -2497,7 +2512,10 @@ function TopContentHighlights({
 }) {
   const rankBadge = (idx: number) => `/rank-badges/${Math.min(3, idx + 1)}.svg`;
   const formatBadgeLabel = (r: TopHighlightRow): string =>
-    r.type === 'Story' ? 'Story' : r.type === 'Reel' ? 'Reel' : isCarouselAlbumMedia(r.mediaType) ? 'Carousel' : 'Image';
+    analyticsPostTypeLabel(
+      { platform, mediaType: r.mediaType, thumbnailUrl: r.thumbnailUrl },
+      r.type === 'Story' ? 'Story' : r.type === 'Reel' ? 'Reel' : 'Post'
+    );
   const col = (title: string, metricLabel: 'Views' | 'Clicks' | 'Reactions' | 'Interactions', rows: TopHighlightRow[], showClicks = true) => (
     <div className="space-y-3">
       <p className="text-base font-semibold tracking-tight" style={{ color: COLOR.text }}>{title}</p>
@@ -3029,7 +3047,9 @@ export function FacebookAnalyticsView({
             ? 'VIDEO'
             : mtLower === 'photo'
               ? 'IMAGE'
-              : (t.mediaType ?? 'IMAGE').toUpperCase();
+              : mtLower === 'text' || (!t.thumbnailUrl?.trim() && !mtLower)
+                ? 'TEXT'
+                : (t.mediaType ?? 'TEXT').toUpperCase();
         return {
           id: `tw-posts-tab-${t.id}`,
           content: t.text,
@@ -3153,17 +3173,32 @@ export function FacebookAnalyticsView({
       0
     );
     if (fromRangeTweets > 0) return fromRangeTweets;
+    const fromSyncedPosts = postsInRangeForPostsTabUi.reduce(
+      (s, p) =>
+        s +
+        (p.likeCount ?? 0) +
+        (p.commentsCount ?? 0) +
+        bestShareCount(p) +
+        (p.repostsCount ?? 0),
+      0
+    );
+    if (fromSyncedPosts > 0) return fromSyncedPosts;
     const t = twitterTotals;
     if (t) return t.likes + t.replies + t.retweets + t.quotes + t.bookmarks;
     return 0;
-  }, [twitterTotals, insights?.twitterEngagementTimeSeries, twitterRecentTweetsInRange]);
+  }, [twitterTotals, insights?.twitterEngagementTimeSeries, twitterRecentTweetsInRange, postsInRangeForPostsTabUi]);
   const twitterImpressionsInRange = useMemo(() => {
     const fromSeries = sumMetricSeriesPoints(insights?.impressionsTimeSeries ?? []);
     if (fromSeries > 0) return fromSeries;
     const fromRangeTweets = twitterRecentTweetsInRange.reduce((s, t) => s + (t.impression_count ?? 0), 0);
     if (fromRangeTweets > 0) return fromRangeTweets;
+    const fromSyncedPosts = postsInRangeForPostsTabUi.reduce(
+      (s, p) => s + (p.impressions ?? bestPostPlayCount(p)),
+      0
+    );
+    if (fromSyncedPosts > 0) return fromSyncedPosts;
     return insights?.impressionsTotal ?? 0;
-  }, [insights?.impressionsTimeSeries, insights?.impressionsTotal, twitterRecentTweetsInRange]);
+  }, [insights?.impressionsTimeSeries, insights?.impressionsTotal, twitterRecentTweetsInRange, postsInRangeForPostsTabUi]);
   const threadsTotals = useMemo(() => {
     const extra = insights?.extra as { threadsTotals?: { views?: number; likes?: number; replies?: number; reposts?: number; quotes?: number } } | undefined;
     return extra?.threadsTotals;
@@ -5452,7 +5487,7 @@ type PostsUploadDayTooltipAgg = {
                   label="Posts"
                   source="Original posts with created_at in the selected range (replies & pure retweets excluded)"
                   color={TIKTOK_PERFORMANCE_LINE_COLORS.contentViews}
-                  value={formatNumber(insights?.recentTweets?.length ?? postsInRange.length)}
+                  value={formatNumber(postsInRangeForPostsTabUi.length)}
                   series={growthSparklineSeries.contentViews}
                   active={isCardSelected('contentViews')}
                   onClick={() => toggleStoryMetric('contentViews')}

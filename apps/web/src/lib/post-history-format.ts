@@ -142,6 +142,21 @@ export function isAnalyticsTextOnlyPost(post: {
   return false;
 }
 
+/** Content History / analytics table Type column (Text for text-only on X, Threads, LinkedIn, Facebook). */
+export function analyticsPostTypeLabel(
+  post: { platform?: string | null; mediaType?: string | null; thumbnailUrl?: string | null },
+  baseType: 'Story' | 'Reel' | 'Post' = 'Post'
+): string {
+  const plat = normalizeAnalyticsPlatform(post.platform);
+  if (plat === 'YOUTUBE') return 'Video';
+  if (baseType === 'Story') return 'Story';
+  if (baseType === 'Reel') return 'Reel';
+  if (isAnalyticsTextOnlyPost(post)) return 'Text';
+  const mt = (post.mediaType ?? '').trim().toUpperCase();
+  if (mt.includes('CAROUSEL') || mt === 'ALBUM') return 'Carousel';
+  return baseType;
+}
+
 export type PostHistoryFormatFilterValue = 'ALL' | PostHistoryFormatKey;
 
 export const POST_HISTORY_FORMAT_FILTER_OPTIONS: { value: PostHistoryFormatFilterValue; label: string }[] = [
