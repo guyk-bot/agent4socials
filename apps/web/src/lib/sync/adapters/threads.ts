@@ -26,8 +26,17 @@ async function syncRecentContent(account: AccountRow) {
   return { itemsProcessed, partial: Boolean(syncError) };
 }
 
-async function syncContentMetrics(_account: AccountRow) {
-  return { itemsProcessed: 0 };
+async function syncContentMetrics(account: AccountRow) {
+  const { itemsProcessed, syncError } = await syncThreadsPosts({
+    id: account.id,
+    platformUserId: account.platformUserId,
+    accessToken: account.accessToken,
+    expiresAt: account.expiresAt ?? null,
+  });
+  if (syncError) {
+    console.warn('[Threads adapter] syncContentMetrics:', syncError.slice(0, 200));
+  }
+  return { itemsProcessed, partial: Boolean(syncError) };
 }
 
 export const threadsAdapter = {

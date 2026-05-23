@@ -4,8 +4,31 @@ import { fetchThreadsProfile } from '@/lib/threads/threads-api';
 type InsightMetric = {
   name?: string;
   total_value?: { value?: number };
-  values?: Array<{ value?: number }>;
+  values?: Array<{ value?: number; end_time?: string }>;
 };
+
+function insightMetricTotal(m: InsightMetric): number {
+  if (m.total_value?.value != null && Number.isFinite(m.total_value.value)) {
+    return m.total_value.value;
+  }
+  const vals = m.values ?? [];
+  let sum = 0;
+  for (const v of vals) {
+    if (typeof v.value === 'number' && Number.isFinite(v.value)) sum += v.value;
+  }
+  return sum;
+}
+
+function insightTimeSeriesFromMetric(m: InsightMetric): Array<{ date: string; value: number }> {
+  const out: Array<{ date: string; value: number }> = [];
+  for (const v of m.values ?? []) {
+    if (typeof v.value !== 'number' || !Number.isFinite(v.value)) continue;
+    const end = v.end_time?.trim();
+    const date = end ? new Date(end).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+    out.push({ date, value: v.value });
+  }
+  return out;
+}
 
 export async function buildThreadsInsightsBundle(
   accessToken: string,
@@ -41,10 +64,7 @@ export async function buildThreadsInsightsBundle(
 
   if (status === 200 && Array.isArray(data?.data)) {
     for (const m of data.data) {
-      const val =
-        m.total_value?.value ??
-        (m.values?.[0]?.value != null ? m.values[0].value : 0);
-      const n = typeof val === 'number' && Number.isFinite(val) ? val : 0;
+      const n = insightMetricTotal(m);
       const name = (m.name ?? '').toLowerCase();
       if (name === 'views') viewsTotal += n;
       if (name === 'likes') likesTotal += n;
@@ -53,15 +73,9 @@ export async function buildThreadsInsightsBundle(
       if (name === 'quotes') quotesTotal += n;
     }
     const viewsMetric = data.data.find((m) => (m.name ?? '').toLowerCase() === 'views');
-    if (viewsMetric?.values?.length) {
-      for (const v of viewsMetric.values) {
-        if (typeof v.value === 'number') {
-          impressionsTimeSeries.push({
-            date: new Date().toISOString().slice(0, 10),
-            value: v.value,
-          });
-        }
-      }
+    if (viewsMetric) {
+      const series = insightTimeSeriesFromMetric(viewsMetric);
+      if (series.length > 0) impressionsTimeSeries.push(...series);
     }
   }
 

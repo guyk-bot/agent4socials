@@ -42,6 +42,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { isStoryPost, storyPostInteractions } from '@/lib/analytics/story-post';
 import { PostContentPreviewThumb } from '@/components/PostContentPreviewThumb';
 import { analyticsPostTypeLabel, isAnalyticsTextOnlyPost } from '@/lib/post-history-format';
+import { classifyThreadsFormatBucket } from '@/lib/threads/post-media-type';
 
 export { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
 
@@ -112,7 +113,7 @@ type TrafficMetricKey =
   | 'storyUniqueViewers';
 type ReelMetricKey = 'views' | 'watchTime' | 'avgWatch' | 'clicks' | 'likes' | 'comments' | 'shares' | 'reposts' | 'dislikes';
 type ReelPresetKey = 'performance' | 'engagement' | 'watch';
-type ContentHistoryFilter = 'all' | 'posts' | 'reels' | 'stories';
+type ContentHistoryFilter = 'all' | 'posts' | 'reels' | 'stories' | 'text' | 'image' | 'carousel';
 type StoryChartMetricKey = 'views' | 'likes' | 'comments' | 'shares';
 
 const COLOR = {
@@ -174,6 +175,13 @@ const CONTENT_TYPE_COLOR: Record<ContentTypeKey, string> = {
 const LINKEDIN_UPLOAD_COLOR: Record<PostsUploadBucket, string> = {
   ...CONTENT_TYPE_COLOR,
   text: '#64748B',
+};
+
+const THREADS_UPLOAD_COLOR: Record<PostsUploadBucket, string> = {
+  text: '#64748B',
+  image: '#ec4899',
+  reels: '#22d3ee',
+  carousel: '#9333ea',
 };
 
 const YOUTUBE_CONTENT_TYPE_COLOR: Record<YouTubeContentTypeKey, string> = {
@@ -831,6 +839,9 @@ function isReelPost(p: FacebookPost): boolean {
   if ((p.platform ?? '').toUpperCase() === 'TWITTER') {
     const mt = (p.mediaType ?? '').toUpperCase();
     return mt === 'VIDEO' || mt === 'GIF' || mt === 'ANIMATED_GIF' || mt === 'REEL';
+  }
+  if ((p.platform ?? '').toUpperCase() === 'THREADS') {
+    return classifyThreadsFormatBucket(p.mediaType, p.thumbnailUrl) === 'reels';
   }
   const url = (p.permalinkUrl ?? '').toLowerCase();
   if (url.includes('/reel/') || url.includes('/reels/')) return true;
@@ -2136,6 +2147,9 @@ function YoutubeVideosAnalyticsPanel({
 
 /** Best URL to open a post on the native platform (permalink from API, or Facebook fallback from `platformPostId`). */
 function classifyPostsUploadBucket(p: FacebookPost, forLinkedIn: boolean): PostsUploadBucket {
+  if ((p.platform ?? '').toUpperCase() === 'THREADS') {
+    return classifyThreadsFormatBucket(p.mediaType, p.thumbnailUrl);
+  }
   if (isStoryPost(p)) return forLinkedIn ? 'text' : 'image';
   if (isReelPost(p)) return 'reels';
   if (isCarouselAlbumMedia(p.mediaType)) return 'carousel';
@@ -2949,7 +2963,8 @@ export function FacebookAnalyticsView({
   useEffect(() => {
     if (!isThreads) return;
     setSelectedStoryMetrics(['videoViews', 'engagements', 'contentViews']);
-  }, [isThreads]);
+    setHistoryFilter('all');
+  }, [isThreads, socialAccountId]);
 
   useEffect(() => {
     if (!isFacebook && !isInstagram) return;
@@ -3116,6 +3131,15 @@ export function FacebookAnalyticsView({
         { key: 'carousel' as const, label: 'Carousel', color: LINKEDIN_UPLOAD_COLOR.carousel },
       ];
     }
+    if (isThreads) {
+      return [
+        { key: 'all' as const, label: 'All', color: COLOR.violet },
+        { key: 'text' as const, label: 'Text', color: THREADS_UPLOAD_COLOR.text },
+        { key: 'image' as const, label: 'Image', color: THREADS_UPLOAD_COLOR.image },
+        { key: 'reels' as const, label: 'Video', color: THREADS_UPLOAD_COLOR.reels },
+        { key: 'carousel' as const, label: 'Carousel', color: THREADS_UPLOAD_COLOR.carousel },
+      ];
+    }
     const base = [
       { key: 'all' as const, label: 'All', color: COLOR.violet },
       { key: 'reels' as const, label: isPinterest ? 'Videos' : 'Reels', color: CONTENT_TYPE_COLOR.reels },
@@ -3123,7 +3147,7 @@ export function FacebookAnalyticsView({
       { key: 'carousel' as const, label: 'Carousel', color: CONTENT_TYPE_COLOR.carousel },
     ];
     return base;
-  }, [isYouTube, isPinterest, isLinkedIn]);
+  }, [isYouTube, isPinterest, isLinkedIn, isThreads]);
   const postsUploadByDay = useMemo(() => {
     const axis = buildDateAxis(dateRange.start, dateRange.end);
     const byDate = new Map<string, {
@@ -3172,14 +3196,27 @@ export function FacebookAnalyticsView({
   }, [postsUploadByDay]);
 
   const postsUploadVisibleKeys = useMemo(() => {
-    const base = (isLinkedIn ? ['text', 'reels', 'image', 'carousel'] : ['reels', 'image', 'carousel']) as PostsUploadBucket[];
+    const base = (
+      isLinkedIn || isThreads
+        ? ['text', 'reels', 'image', 'carousel']
+        : ['reels', 'image', 'carousel']
+    ) as PostsUploadBucket[];
     return base.filter((k) => selectedPostsUploadTypes.includes(k));
-  }, [selectedPostsUploadTypes, isLinkedIn]);
+  }, [selectedPostsUploadTypes, isLinkedIn, isThreads]);
 
   useEffect(() => {
-    if (!isLinkedIn) return;
-    setSelectedPostsUploadTypes((prev) => (prev.includes('text') ? prev : [...prev, 'text']));
-  }, [isLinkedIn]);
+    if (!isLinkedIn && !isThreads) return;
+    setSelectedPostsUploadTypes((prev) => {
+      const next = new Set(prev);
+      next.add('text');
+      if (isThreads) {
+        next.add('image');
+        next.add('reels');
+        next.add('carousel');
+      }
+      return [...next];
+    });
+  }, [isLinkedIn, isThreads]);
   const tiktokViewsInRange = useMemo(() => {
     if (!isTikTok) return 0;
     const postViewsByDate = seriesToMap(
@@ -4410,10 +4447,10 @@ type PostsUploadDayTooltipAgg = {
       }
       const row = map.get(d)!;
       const bucket: PostsUploadBucket =
-        r.type === 'Reel'
+        r.type === 'Reel' && (r.rawPost.platform ?? '').toUpperCase() !== 'THREADS'
           ? 'reels'
-          : isLinkedIn
-            ? classifyPostsUploadBucket(r.rawPost, true)
+          : isLinkedIn || (r.rawPost.platform ?? '').toUpperCase() === 'THREADS'
+            ? classifyPostsUploadBucket(r.rawPost, isLinkedIn)
             : isCarouselAlbumMedia(r.rawPost.mediaType)
               ? 'carousel'
               : isTikTok
@@ -4444,7 +4481,7 @@ type PostsUploadDayTooltipAgg = {
       apply(row[bucket]);
     }
     return map;
-  }, [isTikTok, isLinkedIn, postsRows, resolveUploadedPostThumbnail]);
+  }, [isTikTok, isLinkedIn, isThreads, postsRows, resolveUploadedPostThumbnail]);
 
   const tiktokUploadedPreviewThumbnails = useMemo(() => {
     if (!isTikTok) return [] as string[];
@@ -5106,7 +5143,18 @@ type PostsUploadDayTooltipAgg = {
     const plat = insights?.platform?.toUpperCase() ?? '';
     const pinterest = plat === 'PINTEREST';
     const youtube = plat === 'YOUTUBE';
+    const threads = plat === 'THREADS';
     const rows = allPostsRowsWithTwitterExtras;
+    if (threads) {
+      const bucketOf = (r: (typeof rows)[number]) =>
+        classifyThreadsFormatBucket(r.rawPost.mediaType, r.rawPost.thumbnailUrl);
+      if (historyFilter === 'text') return rows.filter((r) => bucketOf(r) === 'text');
+      if (historyFilter === 'image') return rows.filter((r) => bucketOf(r) === 'image');
+      if (historyFilter === 'carousel') return rows.filter((r) => bucketOf(r) === 'carousel');
+      if (historyFilter === 'reels') return rows.filter((r) => bucketOf(r) === 'reels');
+      if (historyFilter === 'posts') return rows.filter((r) => bucketOf(r) === 'image');
+      return rows;
+    }
     if (historyFilter === 'posts') {
       // On X, "Tweets" = all tweets (photo + video). We label video tweets as Reel; Instagram "Posts" excludes Reels.
       if (plat === 'TWITTER') return rows;
@@ -6600,8 +6648,7 @@ type PostsUploadDayTooltipAgg = {
                 ))}
               </div>
             </div>
-            {!isThreads ? (
-            <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3">
+            <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
               {postsUploadChartPresets
                 .filter((preset) => preset.key !== 'all')
                 .map((preset) => {
@@ -6609,7 +6656,9 @@ type PostsUploadDayTooltipAgg = {
                   const total = Number(contentTypeCounts[key] ?? 0);
                   const candleColor = isLinkedIn
                     ? LINKEDIN_UPLOAD_COLOR[key]
-                    : CONTENT_TYPE_COLOR[key as ContentTypeKey];
+                    : isThreads
+                      ? THREADS_UPLOAD_COLOR[key]
+                      : CONTENT_TYPE_COLOR[key as ContentTypeKey];
                   const active = selectedPostsUploadTypes.includes(key);
                   return (
                     <button
@@ -6640,10 +6689,12 @@ type PostsUploadDayTooltipAgg = {
                   );
                 })}
             </div>
-            ) : null}
             </div>
-            {!isThreads ? (
-            <InsightChartCard title="Uploaded posts" hideHeader flat>
+            <InsightChartCard
+              title={isThreads ? 'Posts published' : 'Uploaded posts'}
+              hideHeader
+              flat
+            >
               {postsUploadByDay.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-sm" style={{ color: COLOR.textMuted }}>
                   No uploads found in this date range.
@@ -6713,7 +6764,7 @@ type PostsUploadDayTooltipAgg = {
                         })();
                         const uploadTypeLabel = (k: string | undefined) =>
                           k === 'reels'
-                            ? isLinkedIn
+                            ? isLinkedIn || isThreads
                               ? 'Video'
                               : 'Reels'
                             : k === 'text'
@@ -6806,7 +6857,7 @@ type PostsUploadDayTooltipAgg = {
                     />
                     {(isTikTok
                       ? (['reels', 'carousel'] as const)
-                      : isLinkedIn
+                      : isLinkedIn || isThreads
                         ? (['text', 'reels', 'image', 'carousel'] as const)
                         : (['reels', 'image', 'carousel'] as const)
                     ).map((key) => (
@@ -6815,7 +6866,13 @@ type PostsUploadDayTooltipAgg = {
                         dataKey={key}
                         name={key}
                         stackId="upload-by-type"
-                        fill={isLinkedIn ? LINKEDIN_UPLOAD_COLOR[key] : CONTENT_TYPE_COLOR[key as ContentTypeKey]}
+                        fill={
+                          isLinkedIn
+                            ? LINKEDIN_UPLOAD_COLOR[key]
+                            : isThreads
+                              ? THREADS_UPLOAD_COLOR[key]
+                              : CONTENT_TYPE_COLOR[key as ContentTypeKey]
+                        }
                         barSize={UNIFIED_BAR_SIZE}
                         isAnimationActive={false}
                         hide={!postsUploadVisibleKeys.includes(key)}
@@ -6826,7 +6883,6 @@ type PostsUploadDayTooltipAgg = {
                 </ResponsiveContainer>
               )}
             </InsightChartCard>
-            ) : null}
           </div>
           ) : null}
           <TopContentHighlights
@@ -7308,14 +7364,23 @@ type PostsUploadDayTooltipAgg = {
             <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Content History</h2>
           </div>
           <div className="flex flex-wrap gap-2">
-            {([
-              { id: 'all' as const, label: isYouTube ? 'All videos' : 'All' },
-              { id: 'posts' as const, label: isTwitter ? 'Tweets' : isPinterest ? 'Pins' : 'Posts' },
-              { id: 'reels' as const, label: isPinterest || isYouTube ? 'Videos' : 'Reels' },
-              ...(isFacebook || isInstagram
-                ? [{ id: 'stories' as const, label: 'Stories' }]
-                : []),
-            ]).map((f) => (
+            {(isThreads
+              ? [
+                  { id: 'all' as const, label: 'All' },
+                  { id: 'text' as const, label: 'Text' },
+                  { id: 'image' as const, label: 'Image' },
+                  { id: 'reels' as const, label: 'Video' },
+                  { id: 'carousel' as const, label: 'Carousel' },
+                ]
+              : [
+                  { id: 'all' as const, label: isYouTube ? 'All videos' : 'All' },
+                  { id: 'posts' as const, label: isTwitter ? 'Tweets' : isPinterest ? 'Pins' : 'Posts' },
+                  { id: 'reels' as const, label: isPinterest || isYouTube ? 'Videos' : 'Reels' },
+                  ...(isFacebook || isInstagram
+                    ? [{ id: 'stories' as const, label: 'Stories' }]
+                    : []),
+                ]
+            ).map((f) => (
               <button
                 key={f.id}
                 type="button"

@@ -1,4 +1,9 @@
 import { resolveComposerMediaType } from '@/lib/composer-media-type';
+import {
+  classifyThreadsFormatBucket,
+  normalizeThreadsMediaType,
+  threadsFormatDisplayLabel,
+} from '@/lib/threads/post-media-type';
 
 export type PostHistoryFormatKey = 'photo' | 'carousel' | 'story' | 'reel' | 'video' | 'text';
 
@@ -133,7 +138,11 @@ export function isAnalyticsTextOnlyPost(post: {
 
   if (plat === 'TWITTER' || plat === 'X') return !thumb;
 
-  if (plat === 'THREADS') return !mt || mt === 'TEXT';
+  if (plat === 'THREADS') {
+    const normalized = normalizeThreadsMediaType(post.mediaType);
+    if (normalized === 'TEXT' || normalized === 'REPOST') return true;
+    return !thumb && (normalized === '' || normalized === 'TEXT');
+  }
 
   if (plat === 'LINKEDIN') {
     if (mt === 'TEXT' || mt === 'NONE') return true;
@@ -156,8 +165,13 @@ export function analyticsPostTypeLabel(
   if (baseType === 'Story') return 'Story';
   if (baseType === 'Reel') return 'Reel';
   if (isAnalyticsTextOnlyPost(post)) return 'Text';
+  if (plat === 'THREADS') {
+    return threadsFormatDisplayLabel(post.mediaType, post.thumbnailUrl);
+  }
   const mt = (post.mediaType ?? '').trim().toUpperCase();
   if (mt.includes('CAROUSEL') || mt === 'ALBUM') return 'Carousel';
+  if (mt === 'IMAGE' || mt === 'PHOTO') return 'Image';
+  if (mt === 'VIDEO') return 'Video';
   return baseType;
 }
 
