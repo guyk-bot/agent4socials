@@ -129,6 +129,7 @@ type AppDataContextType = {
   invalidate: () => void;
   invalidateConversations: () => void;
   /** Increments every ~2 min after background inbox sync (for Inbox UI to re-read cache). */
+  inboxSystemSyncTick: number;
 };
 
 const defaultNotifications: NotificationsCache = { inbox: 0, comments: 0, messages: 0 };

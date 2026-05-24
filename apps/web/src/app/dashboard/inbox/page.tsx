@@ -131,8 +131,25 @@ const MESSAGE_STRIP_PLATFORM_IDS = new Set<string>(
   ).map((p) => p.id)
 );
 const COMMENT_STRIP_PLATFORM_IDS = new Set<string>(INBOX_PLATFORM_DEFS.map((p) => p.id));
-/** Platforms where we can open a DM thread (Meta + X). */
 const DM_THREAD_PLATFORM_IDS = new Set<string>(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
+
+function buildDmConversationRowsFromAccounts(
+  accounts: Array<{ id: string; platform: string }>,
+  getConversations: (accountId: string) => Array<Conversation & { platform?: string }> | undefined
+): Array<Conversation & { platform: string; messageAccountId: string }> {
+  const out: Array<Conversation & { platform: string; messageAccountId: string }> = [];
+  for (const acc of accounts) {
+    if (!DM_THREAD_PLATFORM_IDS.has(acc.platform)) continue;
+    for (const c of getConversations(acc.id) ?? []) {
+      out.push({
+        ...(c as Conversation),
+        platform: c.platform ?? acc.platform,
+        messageAccountId: acc.id,
+      });
+    }
+  }
+  return out;
+}
 
 function PlatformSourcePill({
   platformId,
@@ -2075,6 +2092,29 @@ function InboxPage() {
   const applyConversationsToUiRef = useRef(applyConversationsToUi);
   applyConversationsToUiRef.current = applyConversationsToUi;
 
+  const syncConversationsFromAppData = useCallback(() => {
+    if (!user?.id) return;
+    const accs = effectiveAccountsRef.current;
+    const fromAppData = buildDmConversationRowsFromAccounts(accs, (id) =>
+      appDataRef.current?.getConversations(id) as Array<Conversation & { platform?: string }> | undefined
+    );
+    if (fromAppData.length === 0) return;
+    const seed =
+      conversationsStableRef.current.length > 0
+        ? conversationsStableRef.current
+        : readInboxConversationsClientCache<Conversation & { platform: string; messageAccountId: string }>(
+            user.id
+          );
+    applyConversationsToUi(
+      mergeInboxConversationsWithUnreadDetection(user.id, seed, fromAppData) as Array<
+        Conversation & { platform: string; messageAccountId: string }
+      >
+    );
+  }, [user?.id, applyConversationsToUi]);
+
+  const syncConversationsFromAppDataRef = useRef(syncConversationsFromAppData);
+  syncConversationsFromAppDataRef.current = syncConversationsFromAppData;
+
   const refreshThreadsComments = useCallback(async (opts?: { live?: boolean; manual?: boolean }) => {
     const threadsAccounts = effectiveAccountsRef.current.filter((a) => a.platform === 'THREADS');
     if (threadsAccounts.length === 0) return;
@@ -2343,15 +2383,16 @@ function InboxPage() {
     let cachedComments = [...commentById.values()];
 
     let cachedConvs = readInboxConversationsClientCache<Conversation & { platform: string; messageAccountId: string }>(user.id);
-    if (cachedConvs.length === 0) {
-      const fromCtx: Array<Conversation & { platform: string; messageAccountId: string }> = [];
-      for (const acc of effectiveAccountsRef.current) {
-        const cs = appDataRef.current?.getConversations(acc.id) ?? [];
-        for (const c of cs) {
-          fromCtx.push({ ...(c as Conversation), platform: c.platform ?? acc.platform, messageAccountId: acc.id });
-        }
-      }
-      if (fromCtx.length > 0) cachedConvs = fromCtx;
+    const fromAppData = buildDmConversationRowsFromAccounts(
+      effectiveAccountsRef.current,
+      (id) => appDataRef.current?.getConversations(id) as Array<Conversation & { platform?: string }> | undefined
+    );
+    if (fromAppData.length > 0) {
+      cachedConvs = mergeInboxConversationsWithUnreadDetection(
+        user.id,
+        cachedConvs,
+        fromAppData
+      ) as Array<Conversation & { platform: string; messageAccountId: string }>;
     }
 
     if (cachedComments.length > 0) {
@@ -2371,8 +2412,50 @@ function InboxPage() {
 
   useEffect(() => {
     if (pathname !== '/dashboard/inbox' || !user?.id || effectiveAccounts.length === 0) return;
+    syncConversationsFromAppDataRef.current();
     void refreshInboxFromServerRef.current({ liveMeta: true });
   }, [pathname, user?.id, effectiveAccounts.map((a) => a.id).join(',')]);
+
+  // Background poll updated AppData — show new DMs in the list as soon as the nav badge updates.
+  useEffect(() => {
+    if (pathname !== '/dashboard/inbox' || !user?.id) return;
+    syncConversationsFromAppDataRef.current();
+  }, [pathname, user?.id, appData?.inboxSystemSyncTick, appData?.notifications?.messages, appData?.notifications?.inbox]);
+
+  const pendingConvListFetchAtRef = useRef(0);
+  useEffect(() => {
+    if (pathname !== '/dashboard/inbox' || !user?.id || inboxMode !== 'messages') return;
+    syncConversationsFromAppDataRef.current();
+    const pending = getPendingUnreadConversationIds(user.id);
+    if (pending.size === 0) return;
+    const listIds = new Set(conversationsRef.current.map((c) => c.id));
+    const missing = [...pending].filter((id) => !listIds.has(id));
+    if (missing.length === 0) return;
+    const now = Date.now();
+    if (now - pendingConvListFetchAtRef.current < 4_000) return;
+    pendingConvListFetchAtRef.current = now;
+
+    void (async () => {
+      for (const acc of effectiveAccountsRef.current.filter((a) => DM_THREAD_PLATFORM_IDS.has(a.platform))) {
+        try {
+          const res = await api.get<{ conversations?: Conversation[] }>(
+            `/social/accounts/${acc.id}/conversations?badgePoll=1`,
+            { timeout: 45_000 }
+          );
+          const incoming = (res.data?.conversations ?? []).map((c) => ({
+            ...c,
+            platform: acc.platform,
+            messageAccountId: acc.id,
+          }));
+          if (incoming.length > 0) {
+            applyConversationsToUiRef.current(incoming);
+          }
+        } catch {
+          /* keep cached list */
+        }
+      }
+    })();
+  }, [pathname, user?.id, inboxMode, pendingUnreadConversationIds, inboxReadStateVersion]);
 
   const profileBackfillCountRef = useRef(0);
 
