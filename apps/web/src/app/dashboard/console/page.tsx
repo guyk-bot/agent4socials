@@ -19,6 +19,7 @@ import {
   UNIFIED_SUMMARY_FRESH_MS,
 } from '@/lib/dashboard-unified-summary-cache';
 import { createMinWidthStackedBarShape } from '@/lib/recharts-stacked-bar-shape';
+import { sparseMonthTickFormatter } from '@/lib/analytics/chart-axis-date';
 import {
   XAxis,
   YAxis,
@@ -106,9 +107,16 @@ const CONSOLE_VIEWS_ACCENT = '#9333ea';
 const CONSOLE_PLATFORM_COLOR: Record<string, string> = {
   ...PLATFORM_COLOR,
   Instagram: '#f356ff',
-  LinkedIn: '#f5b942',
   Pinterest: '#f97316',
 };
+
+/** LinkedIn is hidden on Console until full analytics are ready. */
+const CONSOLE_EXCLUDED_ACCOUNT_PLATFORMS = new Set(['LINKEDIN']);
+const CONSOLE_CHART_PLATFORMS = CHART_PLATFORMS.filter((p) => p !== 'LinkedIn');
+
+function isConsoleVisibleAccount(acc: SocialAccount): boolean {
+  return !CONSOLE_EXCLUDED_ACCOUNT_PLATFORMS.has((acc.platform || '').toUpperCase());
+}
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 
@@ -247,21 +255,6 @@ function buildConsoleAxisTicks(series: Array<{ date: string }>, metricKeys: stri
     if (sorted.length > 1) out.add(sorted[sorted.length - 1].date);
   }
   return Array.from(out).sort((a, b) => a.localeCompare(b));
-}
-
-/** Label: month on the 1st, with year once at each new year boundary. */
-function formatConsoleAxisTickLabel(ymd: string): string {
-  const d = new Date(`${ymd}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return ymd;
-  if (d.getDate() === 1) {
-    // Show year once per year on January 1, keep other month starts concise.
-    if (d.getMonth() === 0) {
-      return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-    }
-    return d.toLocaleDateString('en-US', { month: 'long' });
-  }
-  // For non-month-start ticks, show only day number to avoid repeated month text.
-  return String(d.getDate());
 }
 
 /** Map SocialAccount.platform (e.g. FACEBOOK) to unified chart label (e.g. Meta). */
@@ -517,13 +510,11 @@ const CONSOLE_ACCOUNT_PLATFORM_ORDER = [
   'YOUTUBE',
   'TWITTER',
   'THREADS',
-  'LINKEDIN',
   'PINTEREST',
 ] as const;
 
 /** Stable fallback so `useMemo` / `useEffect` deps are not a new `[]` every render (avoids update loops). */
 const EMPTY_SOCIAL_ACCOUNTS: SocialAccount[] = [];
-const CHART_PLATFORMS_FALLBACK: string[] = [...CHART_PLATFORMS];
 const CONSOLE_PERF_PLATFORM_ORDER = [
   'Instagram',
   'Meta',
@@ -531,7 +522,6 @@ const CONSOLE_PERF_PLATFORM_ORDER = [
   'TikTok',
   'X',
   'Threads',
-  'LinkedIn',
   'Pinterest',
 ] as const;
 
@@ -652,13 +642,14 @@ function PlatformMixChart({
     () =>
       buildConsoleAxisTicks(
         data,
-        activePlatforms.length > 0 ? activePlatforms : ([...CHART_PLATFORMS] as string[])
+        activePlatforms.length > 0 ? activePlatforms : [...CONSOLE_CHART_PLATFORMS]
       ),
     [data, platformKey]
   );
+  const axisTickFormatter = useMemo(() => sparseMonthTickFormatter(axisTicks), [axisTicks]);
 
   const stackKeysForEngagement = useMemo(
-    () => (activePlatforms.length > 0 ? activePlatforms : ([...CHART_PLATFORMS] as string[])),
+    () => (activePlatforms.length > 0 ? activePlatforms : [...CONSOLE_CHART_PLATFORMS]),
     [platformKey],
   );
 
@@ -695,7 +686,7 @@ function PlatformMixChart({
           <XAxis
             dataKey="date"
             ticks={axisTicks}
-            tickFormatter={formatConsoleAxisTickLabel}
+            tickFormatter={axisTickFormatter}
             tick={{ fontSize: 10, fill: COLOR.textMuted }}
             tickLine={false}
             axisLine={false}
@@ -743,7 +734,7 @@ function PlatformMixChart({
         <XAxis
           dataKey="date"
           ticks={axisTicks}
-          tickFormatter={formatConsoleAxisTickLabel}
+          tickFormatter={axisTickFormatter}
           tick={{ fontSize: 10, fill: COLOR.textMuted }}
           tickLine={false}
           axisLine={false}
@@ -1122,7 +1113,6 @@ const CONSOLE_HISTORY_PLATFORM_ORDER: ReadonlyArray<{ key: string; label: string
   { key: 'YouTube', label: 'YouTube' },
   { key: 'TikTok', label: 'TikTok' },
   { key: 'X', label: 'X/Twitter' },
-  { key: 'LinkedIn', label: 'LinkedIn' },
   { key: 'Pinterest', label: 'Pinterest' },
 ];
 
@@ -1293,7 +1283,11 @@ export default function UnifiedSummaryPage() {
     return list;
     // accountsKey captures account set; read latest cachedAccounts from render closure
   }, [accountsKey]);
-  const accountIdsCsv = useMemo(() => orderedAccounts.map((a) => a.id).sort().join(','), [orderedAccounts]);
+  const consoleAccounts = useMemo(
+    () => orderedAccounts.filter(isConsoleVisibleAccount),
+    [orderedAccounts]
+  );
+  const accountIdsCsv = useMemo(() => consoleAccounts.map((a) => a.id).sort().join(','), [consoleAccounts]);
   const summaryScopeKey = accountIdsCsv || 'no-accounts';
 
   const goToAccountDashboard = useCallback((acc: SocialAccount) => {
@@ -1358,7 +1352,7 @@ export default function UnifiedSummaryPage() {
 
   /** Paint cached Console data before first paint (avoids skeleton flash on revisit). */
   useLayoutEffect(() => {
-    if (!user?.id || orderedAccounts.length === 0) return;
+    if (!user?.id || consoleAccounts.length === 0) return;
     const { data: cachedRaw } = readUnifiedSummaryCacheBest(
       user.id,
       dateRange.start,
@@ -1371,29 +1365,29 @@ export default function UnifiedSummaryPage() {
     setLoading(false);
     displayDataRef.current = cached;
     lastHydratedSummaryRangeRef.current = `${dateRange.start}|${dateRange.end}`;
-  }, [user?.id, dateRange.start, dateRange.end, summaryScopeKey, orderedAccounts.length]);
+  }, [user?.id, dateRange.start, dateRange.end, summaryScopeKey, consoleAccounts.length]);
 
   // Performance section
   const [performanceMode, setPerformanceMode] = useState<'growth' | 'engagement' | 'views'>('growth');
-  const [activePlatforms, setActivePlatforms] = useState<string[]>([...CHART_PLATFORMS]);
+  const [activePlatforms, setActivePlatforms] = useState<string[]>([...CONSOLE_CHART_PLATFORMS]);
   const [selectedOverviewMetrics, setSelectedOverviewMetrics] = useState<Array<'followers' | 'views' | 'engagements'>>([
     'followers',
     'views',
     'engagements',
   ]);
   const [postsPreset, setPostsPreset] = useState<PostTypeKey>('all');
-  const [postsActivePlatforms, setPostsActivePlatforms] = useState<string[]>([...CHART_PLATFORMS]);
+  const [postsActivePlatforms, setPostsActivePlatforms] = useState<string[]>([...CONSOLE_CHART_PLATFORMS]);
 
   /** Chart legend and series only for accounts the user has connected (fallback: all chart keys). */
   const connectedChartPlatforms = useMemo(() => {
     const labels = new Set<string>();
-    for (const acc of orderedAccounts) {
+    for (const acc of consoleAccounts) {
       const lab = chartLabelForAccountPlatform(acc.platform);
       if (lab) labels.add(lab);
     }
     const ordered = (CONSOLE_PERF_PLATFORM_ORDER as readonly string[]).filter((p) => labels.has(p));
     return ordered.length > 0 ? ordered : [...CONSOLE_PERF_PLATFORM_ORDER];
-  }, [orderedAccounts]);
+  }, [consoleAccounts]);
 
   useEffect(() => {
     setActivePlatforms((prev) => {
@@ -1438,7 +1432,7 @@ export default function UnifiedSummaryPage() {
       lastSummaryRangeRef.current !== null && lastSummaryRangeRef.current !== rangeSig;
     lastSummaryRangeRef.current = rangeSig;
 
-    if (orderedAccounts.length === 0) {
+    if (consoleAccounts.length === 0) {
       setData(EMPTY_UNIFIED_SUMMARY);
       setError(null);
       setLoading(false);
@@ -1516,7 +1510,7 @@ export default function UnifiedSummaryPage() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, dateRange.start, dateRange.end, orderedAccounts.length, accountIdsCsv, summaryScopeKey]);
+  }, [user?.id, dateRange.start, dateRange.end, consoleAccounts.length, accountIdsCsv, summaryScopeKey]);
 
   // NOTE: Twitter/Pinterest auto-sync on console open was removed.
   // All platform syncs happen exclusively via the backend cron job every 30 minutes.
@@ -1526,17 +1520,16 @@ export default function UnifiedSummaryPage() {
       setLivePlatformFallback({});
       return;
     }
-    const targets = orderedAccounts.filter((a) => a.platform === 'TWITTER' || a.platform === 'PINTEREST' || a.platform === 'LINKEDIN');
+    const targets = consoleAccounts.filter((a) => a.platform === 'TWITTER' || a.platform === 'PINTEREST');
     if (targets.length === 0) {
       setLivePlatformFallback({});
       return;
     }
     let cancelled = false;
 
-    const keyFor = (platform: SocialAccount['platform']): 'X' | 'Pinterest' | 'LinkedIn' | null => {
+    const keyFor = (platform: SocialAccount['platform']): 'X' | 'Pinterest' | null => {
       if (platform === 'TWITTER') return 'X';
       if (platform === 'PINTEREST') return 'Pinterest';
-      if (platform === 'LINKEDIN') return 'LinkedIn';
       return null;
     };
 
@@ -1574,7 +1567,7 @@ export default function UnifiedSummaryPage() {
             if (cancelled) return;
             const payload = res?.data as Record<string, unknown>;
             let parsed: PlatformLiveFallback | null = null;
-            let fallbackKey: 'X' | 'Pinterest' | 'LinkedIn' | null = null;
+            let fallbackKey: 'X' | 'Pinterest' | null = null;
             if (acc.platform === 'TWITTER') {
               fallbackKey = 'X';
               const viewsSeries = Array.isArray(payload.impressionsTimeSeries)
@@ -1619,14 +1612,6 @@ export default function UnifiedSummaryPage() {
                 viewsTotal: Number(payload.impressionsTotal ?? fbTotals?.totals?.contentViews ?? fbTotals?.totals?.postImpressions ?? 0),
                 engagementTotal: Math.max(engagementTotalFromSeries, engagementTotalFromBundle),
               };
-            } else if (acc.platform === 'LINKEDIN') {
-              fallbackKey = 'LinkedIn';
-              const viewsSeries = Array.isArray(payload.impressionsTimeSeries)
-                ? (payload.impressionsTimeSeries as Array<Record<string, unknown>>)
-                    .map((p) => ({ date: String(p.date ?? ''), value: Number(p.value ?? 0) }))
-                    .filter((p) => /^\d{4}-\d{2}-\d{2}$/.test(p.date))
-                : [];
-              parsed = { viewsSeries, viewsTotal: Number(payload.impressionsTotal ?? 0) };
             }
             if (parsed && fallbackKey) {
               writeConsoleFallbackCache(cacheKey, parsed);
@@ -1682,9 +1667,9 @@ export default function UnifiedSummaryPage() {
     const selectedTotalKey = performanceMode === 'views' ? 'viewsTotal' : 'engagementTotal';
     const out = activeChartData.map((r) => ({ ...r })) as UnifiedChartData;
     const byDate = new Map<string, number>();
-    // Merge live per-account insights for X / Pinterest / LinkedIn. Always use Math.max vs unified DB
+    // Merge live per-account insights for X / Pinterest. Always use Math.max vs unified DB
     // series so Pinterest account-level analytics still show when ImportedPost rows are sparse or zero.
-    for (const platform of ['X', 'Pinterest', 'LinkedIn']) {
+    for (const platform of ['X', 'Pinterest']) {
       const fallbackRow = livePlatformFallback[platform];
       const fallbackSeries = fallbackRow?.[selectedSeriesKey];
       if (fallbackSeries && fallbackSeries.length > 0) {
@@ -1804,6 +1789,14 @@ export default function UnifiedSummaryPage() {
       ),
     [postsTimelineData, connectedChartPlatforms.join('|'), postsPreset]
   );
+  const overviewAxisTickFormatter = useMemo(
+    () => sparseMonthTickFormatter(overviewAxisTicks),
+    [overviewAxisTicks]
+  );
+  const postsAxisTickFormatter = useMemo(
+    () => sparseMonthTickFormatter(postsAxisTicks),
+    [postsAxisTicks]
+  );
 
   const selectedOverviewLegendItems = useMemo(() => {
     const items: Array<{ key: 'followers' | 'engagements' | 'views'; label: string; color: string }> = [
@@ -1910,7 +1903,7 @@ export default function UnifiedSummaryPage() {
     for (const t of data.topPosts) {
       if (!map.has(t.id)) map.set(t.id, unifiedTopPostToHistoryPost(t));
     }
-    return Array.from(map.values());
+    return Array.from(map.values()).filter((h) => h.platform !== 'LinkedIn');
   }, [data]);
   const historyRowsForTable = useMemo(
     () => [...consoleTopPostsPool].sort((a, b) => new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime()),
@@ -1958,9 +1951,9 @@ export default function UnifiedSummaryPage() {
         <div className="flex flex-wrap items-center gap-3 justify-between">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5">
             <div className="flex flex-wrap items-center gap-2">
-              {orderedAccounts.length === 0 ? (
+              {consoleAccounts.length === 0 ? (
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold" style={{ background: `${COLOR.violet}22`, color: COLOR.violet }} aria-hidden>{emptyAccountsInitials}</div>
-              ) : orderedAccounts.map((acc) => {
+              ) : consoleAccounts.map((acc) => {
                 const label = acc.username || acc.platform || 'Account';
                 const initials = label.replace(/^@/, '').slice(0, 2).toUpperCase() || '?';
                 return (
@@ -2042,7 +2035,7 @@ export default function UnifiedSummaryPage() {
                     <XAxis
                       dataKey="date"
                       ticks={overviewAxisTicks}
-                      tickFormatter={formatConsoleAxisTickLabel}
+                      tickFormatter={overviewAxisTickFormatter}
                       tick={{ fontSize: 10, fill: COLOR.textMuted }}
                       dy={8}
                       tickLine={false}
@@ -2306,7 +2299,7 @@ export default function UnifiedSummaryPage() {
                     <XAxis
                       dataKey="date"
                       ticks={postsAxisTicks}
-                      tickFormatter={formatConsoleAxisTickLabel}
+                      tickFormatter={postsAxisTickFormatter}
                       tick={{ fill: COLOR.textMuted, fontSize: 10 }}
                       dy={8}
                       axisLine={false}
