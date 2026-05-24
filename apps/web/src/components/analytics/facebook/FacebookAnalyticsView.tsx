@@ -166,15 +166,11 @@ const COLOR = {
 function LinkedInAnalyticsStubNotice() {
   return (
     <div
-      className="rounded-xl border px-4 py-4 text-sm leading-relaxed"
+      className="rounded-xl border px-4 py-4 text-sm"
       style={{ borderColor: COLOR.border, background: COLOR.sectionAlt, color: COLOR.textSecondary }}
     >
-      <p className="mb-1.5 font-medium" style={{ color: COLOR.text }}>
+      <p className="font-medium" style={{ color: COLOR.text }}>
         LinkedIn analytics coming soon
-      </p>
-      <p>
-        Currently, Agent4Socials only supports LinkedIn posts and comments. Publish posts from the Composer and read
-        and reply to comments on your LinkedIn posts in Inbox.
       </p>
     </div>
   );
@@ -2819,10 +2815,7 @@ export function FacebookAnalyticsView({
       );
     }
     if (plat === 'LINKEDIN') {
-      return all.filter(
-        (s) =>
-          s.id !== FACEBOOK_ANALYTICS_SECTION_IDS.traffic && s.id !== FACEBOOK_ANALYTICS_SECTION_IDS.reels
-      );
+      return [{ id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' }];
     }
     return all;
   }, [insights?.platform]);
@@ -6628,6 +6621,7 @@ type PostsUploadDayTooltipAgg = {
       </section>
       ) : null}
 
+      {!isLinkedIn ? (
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.posts} className="scroll-mt-28 space-y-6">
         {overviewSkeleton ? (
           <AnalyticsPostsSkeleton />
@@ -6636,9 +6630,7 @@ type PostsUploadDayTooltipAgg = {
           <div>
             <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>{isTwitter ? 'Tweets' : isPinterest ? 'Pins' : isThreads ? 'Threads posts' : 'Posts'}</h2>
           </div>
-          {isLinkedIn ? (
-            <LinkedInAnalyticsStubNotice />
-          ) : !isYouTube ? (
+          {!isYouTube ? (
           <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
             <div className="mb-4 flex flex-col gap-3">
             <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -7063,6 +7055,7 @@ type PostsUploadDayTooltipAgg = {
         )}
 
       </section>
+      ) : null}
 
       {!isLinkedIn && isYouTube ? (
         overviewSkeleton ? (
@@ -7422,6 +7415,7 @@ type PostsUploadDayTooltipAgg = {
       </section>
       ) : null}
 
+      {!isLinkedIn ? (
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.history} className="scroll-mt-28 space-y-4">
         {overviewSkeleton ? (
           <AnalyticsHistorySkeleton />
@@ -7430,9 +7424,6 @@ type PostsUploadDayTooltipAgg = {
           <div>
             <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Content History</h2>
           </div>
-          {isLinkedIn ? (
-            <LinkedInAnalyticsStubNotice />
-          ) : (
           <>
           <div className="flex flex-wrap gap-2">
             {(isThreads
@@ -7504,10 +7495,10 @@ type PostsUploadDayTooltipAgg = {
             );
           })()}
           </>
-          )}
         </div>
         )}
       </section>
+      ) : null}
 
       {process.env.NODE_ENV !== 'production' ? (
         <details className="rounded-[20px] border p-4" style={{ background: COLOR.card, borderColor: COLOR.border }}>
