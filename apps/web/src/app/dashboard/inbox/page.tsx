@@ -3148,10 +3148,10 @@ function InboxPage() {
                       : !hasRepliedByParent.has(c.commentId);
                 })
                 .filter((c) => {
+                  if (c.platform !== 'THREADS') return true;
                   if (threadsInboxKind === 'mentions' && !isThreadsMentionComment(c)) return false;
                   if (
                     threadsInboxKind === 'replies' &&
-                    c.platform === 'THREADS' &&
                     isThreadsMentionComment(c)
                   ) {
                     return false;
