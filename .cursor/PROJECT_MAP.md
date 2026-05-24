@@ -21,6 +21,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | TikTok video.list → `ImportedPost` (OAuth + GET posts sync), engagement parsing | `apps/web/src/lib/tiktok/sync-imported-videos.ts`, `apps/web/src/lib/tiktok/video-engagement.ts`, `apps/web/src/lib/sync/adapters/tiktok.ts` |
 | Insights JSON for dashboard | `apps/web/src/app/api/social/accounts/[id]/insights/route.ts` |
 | Facebook / IG / TikTok analytics UI (TikTok hides Traffic; engagement is likes, comments, shares) | `apps/web/src/components/analytics/facebook/FacebookAnalyticsView.tsx`, `types.ts` |
+| Engagement **Mentioned** metric (Threads, X, Instagram, Facebook Page) | `lib/analytics/mentions-time-series.ts`, `lib/threads/mentions-analytics.ts`, `lib/twitter/mentions-analytics.ts`, `lib/meta/instagram-mentioned-analytics.ts`, `lib/meta/facebook-tagged-analytics.ts`, insights route |
 | YouTube analytics: expandable raw JSON (synced videos + insights) | `apps/web/src/components/analytics/AnalyticsLocalJsonPanel.tsx` (used from `FacebookAnalyticsView.tsx`) |
 | LinkedIn: UGC post import (sync engine + manual sync), author URN for person vs org Page | `apps/web/src/lib/linkedin/sync-ugc-posts.ts`, `apps/web/src/lib/sync/adapters/linkedin.ts` |
 | Threads: OAuth, publish, insights, post sync | `apps/web/src/lib/threads/`, `apps/web/src/lib/sync/adapters/threads.ts`, `docs/THREADS_SETUP.md`, `docs/APP_REVIEW_TEST_THREADS_INSTAGRAM_TWITTER.md` |

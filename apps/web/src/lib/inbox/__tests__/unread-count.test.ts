@@ -132,14 +132,35 @@ describe('computeInboxHeaderUnread', () => {
     expect(unread.comments).toBe(0);
   });
 
-  it('counts unread comments after account initialization', () => {
+  it('counts only pending comments after account initialization', () => {
     addInboxInitializedAccount('acc-1', 'user-1');
+    localStorage.setItem(
+      'agent4socials_badge_pending_comment_user-1',
+      JSON.stringify(['cmt-a'])
+    );
+    localStorage.setItem(
+      'agent4socials_badge_pending_comment_platform_user-1',
+      JSON.stringify({ 'cmt-a': 'INSTAGRAM' })
+    );
     const unread = computeInboxHeaderUnread(
       [],
       [{ commentId: 'cmt-a', platform: 'INSTAGRAM', accountId: 'acc-1' }],
       'user-1'
     );
     expect(unread.comments).toBe(1);
+  });
+
+  it('does not count cached comments missing from read set after initialization', () => {
+    addInboxInitializedAccount('acc-1', 'user-1');
+    const unread = computeInboxHeaderUnread(
+      [],
+      [
+        { commentId: 'cmt-a', platform: 'INSTAGRAM', accountId: 'acc-1' },
+        { commentId: 'cmt-b', platform: 'FACEBOOK', accountId: 'acc-2' },
+      ],
+      'user-1'
+    );
+    expect(unread.comments).toBe(0);
   });
 });
 
@@ -150,6 +171,16 @@ describe('isCommentUnread', () => {
         { commentId: 'cmt-a', accountId: 'acc-1', platform: 'INSTAGRAM' },
         new Set(),
         new Set()
+      )
+    ).toBe(false);
+  });
+
+  it('returns false for initialized accounts unless pending (badge uses pending only)', () => {
+    expect(
+      isCommentUnread(
+        { commentId: 'cmt-a', accountId: 'acc-1', platform: 'INSTAGRAM' },
+        new Set(),
+        new Set(['acc-1'])
       )
     ).toBe(false);
   });

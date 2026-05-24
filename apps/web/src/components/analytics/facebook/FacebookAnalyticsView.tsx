@@ -100,12 +100,25 @@ type YouTubeContentTypeKey = 'shorts' | 'videos';
 /** `all` = stacked reels + image + carousel (non-YouTube only). */
 
 /** Bottom → top stack order for the Engagement chart (must match `<Bar />` order). */
-const ENGAGEMENT_STACK_ORDER_META: readonly EngagementMetricKey[] = ['likes', 'comments', 'shares', 'reposts'];
+const ENGAGEMENT_STACK_ORDER_META: readonly EngagementMetricKey[] = [
+  'likes',
+  'comments',
+  'shares',
+  'mentions',
+  'reposts',
+];
 const ENGAGEMENT_STACK_ORDER_THREADS: readonly EngagementMetricKey[] = [
   'likes',
   'comments',
   'shares',
   'mentions',
+];
+const ENGAGEMENT_STACK_ORDER_TWITTER: readonly EngagementMetricKey[] = [
+  'likes',
+  'comments',
+  'shares',
+  'mentions',
+  'reposts',
 ];
 const ENGAGEMENT_STACK_ORDER_TIKTOK: readonly EngagementMetricKey[] = ['likes', 'comments', 'shares'];
 /** YouTube: dislikes on top (YouTube Analytics API daily; public dislike counts are not in Data API). */
@@ -2923,7 +2936,14 @@ export function FacebookAnalyticsView({
       return;
     }
     if (insights?.platform?.toUpperCase() === 'TWITTER') {
-      setSelectedEngagementMetrics(['likes', 'comments', 'shares', 'reposts']);
+      setSelectedEngagementMetrics(['likes', 'comments', 'shares', 'mentions', 'reposts']);
+      return;
+    }
+    if (
+      insights?.platform?.toUpperCase() === 'INSTAGRAM' ||
+      insights?.platform?.toUpperCase() === 'FACEBOOK'
+    ) {
+      setSelectedEngagementMetrics(['likes', 'comments', 'shares', 'mentions']);
       return;
     }
     if (insights?.platform?.toUpperCase() === 'PINTEREST') {
@@ -2970,6 +2990,7 @@ export function FacebookAnalyticsView({
   const isLinkedIn = insights?.platform?.toUpperCase() === 'LINKEDIN';
   const isTwitter = insights?.platform?.toUpperCase() === 'TWITTER';
   const isThreads = insights?.platform?.toUpperCase() === 'THREADS';
+  const supportsMentionsEngagement = isThreads || isTwitter || isInstagram || isFacebook;
 
   useEffect(() => {
     if (!isThreads) return;
@@ -4860,10 +4881,26 @@ type PostsUploadDayTooltipAgg = {
     }
     return fromPosts;
   }, [isTikTok, tiktokEffectivePosts, isTwitter, postsInRangeForPostsTabUi, postsInRange, isYouTube, youtubeSharesTotal, isThreads, threadsTotals, insights]);
+  const mentionsMetricSeries = useMemo(() => {
+    const extra = insights?.extra as {
+      mentionsMetricSeries?: Array<{ date: string; value: number }>;
+      threadsMetricSeries?: { mentions?: Array<{ date: string; value: number }> };
+    } | undefined;
+    if (isThreads && extra?.threadsMetricSeries?.mentions?.length) {
+      return extra.threadsMetricSeries.mentions;
+    }
+    return extra?.mentionsMetricSeries ?? [];
+  }, [insights?.extra, isThreads]);
   const mentionsTotal = useMemo(() => {
-    if (!isThreads) return 0;
-    return threadsTotals?.mentions ?? 0;
-  }, [isThreads, threadsTotals?.mentions]);
+    const extraTotal = (insights?.extra as { mentionsTotal?: number } | undefined)?.mentionsTotal ?? 0;
+    if (isThreads && (threadsTotals?.mentions ?? 0) > 0) {
+      return Math.max(threadsTotals!.mentions!, extraTotal);
+    }
+    if (mentionsMetricSeries.length > 0) {
+      return Math.max(extraTotal, mentionsMetricSeries.reduce((s, pt) => s + pt.value, 0));
+    }
+    return extraTotal;
+  }, [isThreads, threadsTotals?.mentions, insights?.extra, mentionsMetricSeries]);
   const repostsTotal = useMemo(() => {
     const src = isTwitter ? postsInRangeForPostsTabUi : postsInRange;
     const fromPosts = src.reduce((sum, post) => sum + bestRepostCount(post), 0);
@@ -4975,16 +5012,32 @@ type PostsUploadDayTooltipAgg = {
         dislikes: isYouTube ? (youtubeDislikesByDate[date] ?? 0) : 0,
       }));
     }
+    const mentionsByDate: Record<string, number> = {};
+    for (const pt of mentionsMetricSeries) {
+      mentionsByDate[pt.date] = Math.max(mentionsByDate[pt.date] ?? 0, pt.value);
+    }
     return dateAxis.map((date) => ({
       date,
       likes: likesByDate[date] ?? 0,
       comments: commentsByDate[date] ?? 0,
       shares: sharesByDate[date] ?? 0,
-      mentions: 0,
+      mentions: mentionsByDate[date] ?? 0,
       reposts: repostsByDate[date] ?? 0,
       dislikes: isYouTube ? (youtubeDislikesByDate[date] ?? 0) : 0,
     }));
-  }, [dateAxis, postsInRange, isTwitter, twitterRecentTweets, isYouTube, youtubeDislikesByDate, youtubeSharesByDate, isThreads, threadsTotals, insights?.extra]);
+  }, [
+    dateAxis,
+    postsInRange,
+    isTwitter,
+    twitterRecentTweets,
+    isYouTube,
+    youtubeDislikesByDate,
+    youtubeSharesByDate,
+    isThreads,
+    threadsTotals,
+    insights?.extra,
+    mentionsMetricSeries,
+  ]);
   const engagementTicks = useMemo(
     () =>
       buildKeyDateTicks(
@@ -5024,19 +5077,29 @@ type PostsUploadDayTooltipAgg = {
   const engagementStackKeysInRenderOrder = useMemo((): EngagementMetricKey[] => {
     const order = isThreads
       ? ENGAGEMENT_STACK_ORDER_THREADS
-      : isTikTok
-        ? ENGAGEMENT_STACK_ORDER_TIKTOK
-        : isYouTube
-          ? ENGAGEMENT_STACK_ORDER_YOUTUBE
-          : ENGAGEMENT_STACK_ORDER_META;
+      : isTwitter
+        ? ENGAGEMENT_STACK_ORDER_TWITTER
+        : isTikTok
+          ? ENGAGEMENT_STACK_ORDER_TIKTOK
+          : isYouTube
+            ? ENGAGEMENT_STACK_ORDER_YOUTUBE
+            : ENGAGEMENT_STACK_ORDER_META;
     return order.filter((k) => {
       if (!selectedEngagementMetrics.includes(k)) return false;
       if (k === 'reposts') return isInstagram || isTwitter;
       if (k === 'dislikes') return isYouTube;
-      if (k === 'mentions') return isThreads;
+      if (k === 'mentions') return supportsMentionsEngagement;
       return true;
     });
-  }, [isInstagram, isTwitter, isTikTok, isYouTube, isThreads, selectedEngagementMetrics]);
+  }, [
+    isInstagram,
+    isTwitter,
+    isTikTok,
+    isYouTube,
+    isThreads,
+    supportsMentionsEngagement,
+    selectedEngagementMetrics,
+  ]);
 
   const engagementStackKeysSig = engagementStackKeysInRenderOrder.join('|');
   const EngagementStackedBarShape = useMemo(
@@ -6091,7 +6154,7 @@ type PostsUploadDayTooltipAgg = {
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Engagement</h3>
           </div>
           <div
-            className={`grid gap-3 sm:grid-cols-2 ${isThreads ? 'xl:grid-cols-5' : 'xl:grid-cols-4'}`}
+            className={`grid gap-3 sm:grid-cols-2 ${supportsMentionsEngagement ? 'xl:grid-cols-5' : 'xl:grid-cols-4'}`}
           >
             <MetricCard
               label="Likes"
@@ -6152,10 +6215,18 @@ type PostsUploadDayTooltipAgg = {
               onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
               tiktokApiHighlight={isTikTok}
             />
-            {isThreads ? (
+            {supportsMentionsEngagement ? (
               <MetricCard
                 label="Mentioned"
-                source="Threads API · GET me/mentions (threads_manage_mentions), counted by day in range"
+                source={
+                  isThreads
+                    ? 'Threads API · GET me/mentions (threads_manage_mentions), counted by day in range'
+                    : isTwitter
+                      ? 'X API · GET users/{id}/mentions (tweet.read), counted by day in range'
+                      : isInstagram
+                        ? 'Instagram Graph API · mentioned_media, counted by day in range'
+                        : 'Facebook Graph API · Page /tagged posts, counted by day in range'
+                }
                 color={ENGAGEMENT_METRIC_CONFIG.mentions.color}
                 value={formatNumber(mentionsTotal)}
                 active={selectedEngagementMetrics.includes('mentions')}
@@ -6209,6 +6280,7 @@ type PostsUploadDayTooltipAgg = {
                 .filter((m) => {
                   if (m === 'reposts') return isTwitter || isInstagram;
                   if (m === 'dislikes') return isYouTube;
+                  if (m === 'mentions') return supportsMentionsEngagement;
                   return true;
                 })
                 .map((m) => (
@@ -6269,7 +6341,7 @@ type PostsUploadDayTooltipAgg = {
                         ? 'Reposts & quotes'
                         : isThreads && key === 'comments'
                           ? 'Replies'
-                          : isThreads && key === 'mentions'
+                          : key === 'mentions'
                             ? 'Mentioned'
                             : key && key in ENGAGEMENT_METRIC_CONFIG
                               ? ENGAGEMENT_METRIC_CONFIG[key].label
@@ -6311,7 +6383,7 @@ type PostsUploadDayTooltipAgg = {
                     shape={EngagementStackedBarShape}
                   />
                 ) : null}
-                {isThreads && selectedEngagementMetrics.includes('mentions') ? (
+                {supportsMentionsEngagement && selectedEngagementMetrics.includes('mentions') ? (
                   <Bar
                     dataKey="mentions"
                     name="Mentioned"

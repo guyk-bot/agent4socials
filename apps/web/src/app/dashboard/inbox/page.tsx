@@ -3433,9 +3433,7 @@ function InboxPage() {
                 (conversationsLoading && conversations.length === 0
                   ? (byPlatform[p.id]?.messages ?? 0)
                   : 0);
-              const cmtUnread =
-                unreadCommentsByPlatform[p.id] ??
-                (commentsLoading && comments.length === 0 ? (byPlatform[p.id]?.comments ?? 0) : 0);
+              const cmtUnread = unreadCommentsByPlatform[p.id] ?? 0;
               const displayCount = msgUnread + cmtUnread;
               const msgLabel =
                 msgUnread > 0 ? `${msgUnread} message${msgUnread === 1 ? '' : 's'}` : '';

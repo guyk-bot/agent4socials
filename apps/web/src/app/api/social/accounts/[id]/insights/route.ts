@@ -32,6 +32,7 @@ import {
 } from '@/lib/linkedin/community-analytics';
 import { normalizeLinkedInStoredMediaType } from '@/lib/linkedin/post-media-type';
 import type { DemographicBreakdownItem, Demographics } from '@/types/analytics';
+import { attachMentionsToInsightsExtra } from '@/lib/analytics/mentions-time-series';
 
 export const maxDuration = 60;
 
@@ -1190,6 +1191,32 @@ export async function GET(
           ...(out.impressionsTimeSeries?.length ? { impressions: out.impressionsTimeSeries } : {}),
         };
       }
+      if (!budgetExpired() && token && sinceParam && untilParam) {
+        try {
+          const { fetchInstagramMentionsTimeSeries } = await import(
+            '@/lib/meta/instagram-mentioned-analytics'
+          );
+          let igMentions = await fetchInstagramMentionsTimeSeries({
+            igUserId: account.platformUserId,
+            accessToken: token,
+            graphBaseUrl: fbBaseUrl,
+            since: sinceParam,
+            until: untilParam,
+          });
+          if (igMentions.total === 0 && isInstagramBusinessLogin) {
+            igMentions = await fetchInstagramMentionsTimeSeries({
+              igUserId: account.platformUserId,
+              accessToken: token,
+              graphBaseUrl: igBaseUrl,
+              since: sinceParam,
+              until: untilParam,
+            });
+          }
+          attachMentionsToInsightsExtra(out, igMentions);
+        } catch (e) {
+          console.warn('[Insights] Instagram mentions:', (e as Error)?.message ?? e);
+        }
+      }
       return NextResponse.json(out);
     }
 
@@ -1801,6 +1828,21 @@ export async function GET(
           (out as Record<string, unknown>).facebookAnalytics = bundle;
         }
       }
+      if (!budgetExpired() && token && sinceParam && untilParam) {
+        try {
+          const { fetchFacebookTaggedTimeSeries } = await import('@/lib/meta/facebook-tagged-analytics');
+          const fbMentions = await fetchFacebookTaggedTimeSeries({
+            pageId: account.platformUserId,
+            accessToken: token,
+            graphBaseUrl: fbBaseUrl,
+            since: sinceParam,
+            until: untilParam,
+          });
+          attachMentionsToInsightsExtra(out, fbMentions);
+        } catch (e) {
+          console.warn('[Insights] Facebook tagged posts:', (e as Error)?.message ?? e);
+        }
+      }
       return NextResponse.json(out);
     }
 
@@ -2407,6 +2449,21 @@ export async function GET(
         }
       } catch {
         // DB fallback is best effort.
+      }
+      if (!budgetExpired() && sinceParam && untilParam && /^\d+$/.test(twitterUserIdForApi)) {
+        try {
+          const { fetchTwitterMentionsTimeSeries } = await import('@/lib/twitter/mentions-analytics');
+          const xMentions = await fetchTwitterMentionsTimeSeries({
+            accessToken: liveAccessToken,
+            platformUserId: twitterUserIdForApi,
+            socialAccountId: account.id,
+            since: sinceParam,
+            until: untilParam,
+          });
+          attachMentionsToInsightsExtra(out, xMentions);
+        } catch (e) {
+          console.warn('[Insights] X mentions:', (e as Error)?.message ?? e);
+        }
       }
       const tweetCount = tw.twitterUser?.tweet_count ?? 0;
       const hintParts: string[] = [];
@@ -3342,6 +3399,10 @@ export async function GET(
           },
           threadsMetricSeries: bundle.metricSeries,
         };
+        attachMentionsToInsightsExtra(out, {
+          total: bundle.mentionsTotal,
+          series: bundle.metricSeries.mentions ?? [],
+        });
         if (bundle.impressionsTimeSeries.length > 0) {
           out.impressionsTimeSeries = bundle.impressionsTimeSeries;
         }

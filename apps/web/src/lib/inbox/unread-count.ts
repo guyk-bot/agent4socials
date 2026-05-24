@@ -48,7 +48,8 @@ export function isCommentUnread(
   const accId = c.accountId;
   // Historical inbox load: do not flash every cached comment as "new" before first sync.
   if (accId && !initializedCommentAccounts.has(accId)) return false;
-  return true;
+  // After init, badge counts only sticky pending IDs (set when mergeComments sees a new arrival).
+  return false;
 }
 
 /** Unread top-level comments from persisted read state + sticky pending (survives refresh). */
@@ -386,7 +387,6 @@ export function computeInboxHeaderUnread(
   const lastSeenUpdated = getConversationLastSeenUpdated(userId);
   const initializedConvAccounts = getInboxInitializedAccountIdsForConversations(userId);
   const readComments = getReadCommentIds(userId);
-  const initializedCommentAccounts = getInboxInitializedAccountIds(userId);
   const pendingConvPlatforms = getPendingUnreadConversationPlatforms(userId);
   const pendingCommentPlatforms = getPendingUnreadCommentPlatforms(userId);
 
@@ -421,11 +421,8 @@ export function computeInboxHeaderUnread(
   const unreadCommentIds = new Set<string>();
   const commentPlatformById = new Map<string, string | undefined>();
   for (const c of comments) {
-    if (!c.commentId || c.isFromMe) continue;
+    if (!c.commentId || c.isFromMe || c.parentCommentId) continue;
     commentPlatformById.set(c.commentId, c.platform);
-    if (isCommentUnread(c, readComments, initializedCommentAccounts)) {
-      unreadCommentIds.add(c.commentId);
-    }
   }
   for (const id of getPendingUnreadCommentIds(userId)) {
     if (readComments.has(id)) continue;
