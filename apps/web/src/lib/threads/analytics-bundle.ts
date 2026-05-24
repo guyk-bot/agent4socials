@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { threadsGet } from '@/lib/threads/threads-api';
 import { fetchThreadsProfile } from '@/lib/threads/threads-api';
+import { fetchThreadsMentionsTimeSeries } from '@/lib/threads/mentions-analytics';
 
 type InsightMetric = {
   name?: string;
@@ -116,6 +117,7 @@ export async function buildThreadsInsightsBundle(
   repliesTotal: number;
   repostsTotal: number;
   quotesTotal: number;
+  mentionsTotal: number;
   impressionsTimeSeries: Array<{ date: string; value: number }>;
   engagementTimeSeries: Array<{ date: string; value: number }>;
   metricSeries: {
@@ -123,6 +125,7 @@ export async function buildThreadsInsightsBundle(
     replies: Array<{ date: string; value: number }>;
     reposts: Array<{ date: string; value: number }>;
     quotes: Array<{ date: string; value: number }>;
+    mentions: Array<{ date: string; value: number }>;
   };
   profile?: { username?: string; name?: string; picture?: string };
 }> {
@@ -149,7 +152,9 @@ export async function buildThreadsInsightsBundle(
     replies: [] as Array<{ date: string; value: number }>,
     reposts: [] as Array<{ date: string; value: number }>,
     quotes: [] as Array<{ date: string; value: number }>,
+    mentions: [] as Array<{ date: string; value: number }>,
   };
+  let mentionsTotal = 0;
   let engagementTimeSeries: Array<{ date: string; value: number }> = [];
 
   if (status === 200 && Array.isArray(data?.data)) {
@@ -167,6 +172,7 @@ export async function buildThreadsInsightsBundle(
       replies: metricSeriesFromInsights(data.data, 'replies'),
       reposts: metricSeriesFromInsights(data.data, 'reposts'),
       quotes: metricSeriesFromInsights(data.data, 'quotes'),
+      mentions: [],
     };
     engagementTimeSeries = mergeDailySeries(
       metricSeries.likes,
@@ -181,12 +187,28 @@ export async function buildThreadsInsightsBundle(
     }
   }
 
+  try {
+    const mentions = await fetchThreadsMentionsTimeSeries(accessToken, since, until);
+    mentionsTotal = mentions.total;
+    metricSeries = { ...metricSeries, mentions: mentions.series };
+    engagementTimeSeries = mergeDailySeries(
+      metricSeries.likes,
+      metricSeries.replies,
+      metricSeries.reposts,
+      metricSeries.quotes,
+      metricSeries.mentions
+    );
+  } catch {
+    /* mentions are optional when scope missing */
+  }
+
   return {
     viewsTotal,
     likesTotal,
     repliesTotal,
     repostsTotal,
     quotesTotal,
+    mentionsTotal,
     impressionsTimeSeries,
     engagementTimeSeries,
     metricSeries,

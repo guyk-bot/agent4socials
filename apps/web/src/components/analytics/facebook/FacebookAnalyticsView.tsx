@@ -93,7 +93,7 @@ type StoryMetricKey =
   | 'pageVisits'
   | 'subscriberNet';
 type ActivityMetricKey = 'actions' | 'posts' | 'conversations' | 'subscriberNet';
-type EngagementMetricKey = 'likes' | 'comments' | 'shares' | 'reposts' | 'dislikes';
+type EngagementMetricKey = 'likes' | 'comments' | 'shares' | 'reposts' | 'dislikes' | 'mentions';
 type ContentTypeKey = 'reels' | 'image' | 'carousel';
 type PostsUploadBucket = ContentTypeKey | 'text';
 type YouTubeContentTypeKey = 'shorts' | 'videos';
@@ -101,6 +101,12 @@ type YouTubeContentTypeKey = 'shorts' | 'videos';
 
 /** Bottom → top stack order for the Engagement chart (must match `<Bar />` order). */
 const ENGAGEMENT_STACK_ORDER_META: readonly EngagementMetricKey[] = ['likes', 'comments', 'shares', 'reposts'];
+const ENGAGEMENT_STACK_ORDER_THREADS: readonly EngagementMetricKey[] = [
+  'likes',
+  'comments',
+  'shares',
+  'mentions',
+];
 const ENGAGEMENT_STACK_ORDER_TIKTOK: readonly EngagementMetricKey[] = ['likes', 'comments', 'shares'];
 /** YouTube: dislikes on top (YouTube Analytics API daily; public dislike counts are not in Data API). */
 const ENGAGEMENT_STACK_ORDER_YOUTUBE: readonly EngagementMetricKey[] = ['likes', 'comments', 'shares', 'dislikes'];
@@ -407,6 +413,7 @@ const ENGAGEMENT_METRIC_CONFIG: Record<EngagementMetricKey, { label: string; col
   shares: { label: 'Shares', color: COLOR.amber },
   reposts: { label: 'Reposts', color: '#64748b' },
   dislikes: { label: 'Dislikes', color: '#64748b' },
+  mentions: { label: 'Mentioned', color: '#0ea5e9' },
 };
 
 const TRAFFIC_METRIC_CONFIG: Record<TrafficMetricKey, { label: string; color: string }> = {
@@ -2911,6 +2918,10 @@ export function FacebookAnalyticsView({
   }, [insights?.platform]);
 
   useEffect(() => {
+    if (insights?.platform?.toUpperCase() === 'THREADS') {
+      setSelectedEngagementMetrics(['likes', 'comments', 'shares', 'mentions']);
+      return;
+    }
     if (insights?.platform?.toUpperCase() === 'TWITTER') {
       setSelectedEngagementMetrics(['likes', 'comments', 'shares', 'reposts']);
       return;
@@ -3270,7 +3281,16 @@ export function FacebookAnalyticsView({
     return insights?.impressionsTotal ?? 0;
   }, [insights?.impressionsTimeSeries, insights?.impressionsTotal, twitterRecentTweetsInRange, postsInRangeForPostsTabUi]);
   const threadsTotals = useMemo(() => {
-    const extra = insights?.extra as { threadsTotals?: { views?: number; likes?: number; replies?: number; reposts?: number; quotes?: number } } | undefined;
+    const extra = insights?.extra as {
+      threadsTotals?: {
+        views?: number;
+        likes?: number;
+        replies?: number;
+        reposts?: number;
+        quotes?: number;
+        mentions?: number;
+      };
+    } | undefined;
     return extra?.threadsTotals;
   }, [insights?.extra]);
   const threadsViewsInRange = useMemo(() => {
@@ -3285,7 +3305,8 @@ export function FacebookAnalyticsView({
         (threadsTotals.likes ?? 0) +
         (threadsTotals.replies ?? 0) +
         (threadsTotals.reposts ?? 0) +
-        (threadsTotals.quotes ?? 0)
+        (threadsTotals.quotes ?? 0) +
+        (threadsTotals.mentions ?? 0)
       );
     }
     const fromPosts = postsInRange.reduce(
@@ -4839,6 +4860,10 @@ type PostsUploadDayTooltipAgg = {
     }
     return fromPosts;
   }, [isTikTok, tiktokEffectivePosts, isTwitter, postsInRangeForPostsTabUi, postsInRange, isYouTube, youtubeSharesTotal, isThreads, threadsTotals, insights]);
+  const mentionsTotal = useMemo(() => {
+    if (!isThreads) return 0;
+    return threadsTotals?.mentions ?? 0;
+  }, [isThreads, threadsTotals?.mentions]);
   const repostsTotal = useMemo(() => {
     const src = isTwitter ? postsInRangeForPostsTabUi : postsInRange;
     const fromPosts = src.reduce((sum, post) => sum + bestRepostCount(post), 0);
@@ -4905,6 +4930,7 @@ type PostsUploadDayTooltipAgg = {
           replies?: Array<{ date: string; value: number }>;
           reposts?: Array<{ date: string; value: number }>;
           quotes?: Array<{ date: string; value: number }>;
+          mentions?: Array<{ date: string; value: number }>;
         };
       } | undefined;
       const ms = extra?.threadsMetricSeries;
@@ -4922,23 +4948,39 @@ type PostsUploadDayTooltipAgg = {
           sharesByDate[pt.date] = (sharesByDate[pt.date] ?? 0) + pt.value;
         }
       }
+      const mentionsByDate: Record<string, number> = {};
+      for (const pt of ms?.mentions ?? []) {
+        mentionsByDate[pt.date] = Math.max(mentionsByDate[pt.date] ?? 0, pt.value);
+      }
       const lastDay = dateAxis.length > 0 ? dateAxis[dateAxis.length - 1]! : '';
       const allEngZero =
         Object.values(likesByDate).every((v) => v === 0) &&
         Object.values(commentsByDate).every((v) => v === 0) &&
-        Object.values(sharesByDate).every((v) => v === 0);
+        Object.values(sharesByDate).every((v) => v === 0) &&
+        Object.values(mentionsByDate).every((v) => v === 0);
       if (lastDay && allEngZero && threadsTotals) {
         if (threadsTotals.likes) likesByDate[lastDay] = threadsTotals.likes;
         if (threadsTotals.replies) commentsByDate[lastDay] = threadsTotals.replies;
         const shareSum = (threadsTotals.reposts ?? 0) + (threadsTotals.quotes ?? 0);
         if (shareSum) sharesByDate[lastDay] = shareSum;
+        if (threadsTotals.mentions) mentionsByDate[lastDay] = threadsTotals.mentions;
       }
+      return dateAxis.map((date) => ({
+        date,
+        likes: likesByDate[date] ?? 0,
+        comments: commentsByDate[date] ?? 0,
+        shares: sharesByDate[date] ?? 0,
+        mentions: mentionsByDate[date] ?? 0,
+        reposts: repostsByDate[date] ?? 0,
+        dislikes: isYouTube ? (youtubeDislikesByDate[date] ?? 0) : 0,
+      }));
     }
     return dateAxis.map((date) => ({
       date,
       likes: likesByDate[date] ?? 0,
       comments: commentsByDate[date] ?? 0,
       shares: sharesByDate[date] ?? 0,
+      mentions: 0,
       reposts: repostsByDate[date] ?? 0,
       dislikes: isYouTube ? (youtubeDislikesByDate[date] ?? 0) : 0,
     }));
@@ -4951,6 +4993,7 @@ type PostsUploadDayTooltipAgg = {
           (d.likes ?? 0) > 0 ||
           (d.comments ?? 0) > 0 ||
           (d.shares ?? 0) > 0 ||
+          (d.mentions ?? 0) > 0 ||
           (d.reposts ?? 0) > 0 ||
           (d.dislikes ?? 0) > 0 ||
           false,
@@ -4971,6 +5014,7 @@ type PostsUploadDayTooltipAgg = {
           (Number(d.likes) || 0) +
           (Number(d.comments) || 0) +
           (Number(d.shares) || 0) +
+          (Number(d.mentions) || 0) +
           (Number(d.reposts) || 0) +
           (Number(d.dislikes) || 0),
         0
@@ -4978,18 +5022,21 @@ type PostsUploadDayTooltipAgg = {
     [engagementData]
   );
   const engagementStackKeysInRenderOrder = useMemo((): EngagementMetricKey[] => {
-    const order = isTikTok
-      ? ENGAGEMENT_STACK_ORDER_TIKTOK
-      : isYouTube
-        ? ENGAGEMENT_STACK_ORDER_YOUTUBE
-        : ENGAGEMENT_STACK_ORDER_META;
+    const order = isThreads
+      ? ENGAGEMENT_STACK_ORDER_THREADS
+      : isTikTok
+        ? ENGAGEMENT_STACK_ORDER_TIKTOK
+        : isYouTube
+          ? ENGAGEMENT_STACK_ORDER_YOUTUBE
+          : ENGAGEMENT_STACK_ORDER_META;
     return order.filter((k) => {
       if (!selectedEngagementMetrics.includes(k)) return false;
       if (k === 'reposts') return isInstagram || isTwitter;
       if (k === 'dislikes') return isYouTube;
+      if (k === 'mentions') return isThreads;
       return true;
     });
-  }, [isInstagram, isTwitter, isTikTok, isYouTube, selectedEngagementMetrics]);
+  }, [isInstagram, isTwitter, isTikTok, isYouTube, isThreads, selectedEngagementMetrics]);
 
   const engagementStackKeysSig = engagementStackKeysInRenderOrder.join('|');
   const EngagementStackedBarShape = useMemo(
@@ -6043,7 +6090,9 @@ type PostsUploadDayTooltipAgg = {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Engagement</h3>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div
+            className={`grid gap-3 sm:grid-cols-2 ${isThreads ? 'xl:grid-cols-5' : 'xl:grid-cols-4'}`}
+          >
             <MetricCard
               label="Likes"
               source={
@@ -6103,6 +6152,20 @@ type PostsUploadDayTooltipAgg = {
               onClick={() => setSelectedEngagementMetrics((prev) => prev.includes('shares') ? prev.filter((m) => m !== 'shares') : [...prev, 'shares'])}
               tiktokApiHighlight={isTikTok}
             />
+            {isThreads ? (
+              <MetricCard
+                label="Mentioned"
+                source="Threads API · GET me/mentions (threads_manage_mentions), counted by day in range"
+                color={ENGAGEMENT_METRIC_CONFIG.mentions.color}
+                value={formatNumber(mentionsTotal)}
+                active={selectedEngagementMetrics.includes('mentions')}
+                onClick={() =>
+                  setSelectedEngagementMetrics((prev) =>
+                    prev.includes('mentions') ? prev.filter((m) => m !== 'mentions') : [...prev, 'mentions']
+                  )
+                }
+              />
+            ) : null}
             {isPinterest ? (
               <MetricCard
                 label="Engagements"
@@ -6206,9 +6269,11 @@ type PostsUploadDayTooltipAgg = {
                         ? 'Reposts & quotes'
                         : isThreads && key === 'comments'
                           ? 'Replies'
-                          : key && key in ENGAGEMENT_METRIC_CONFIG
-                            ? ENGAGEMENT_METRIC_CONFIG[key].label
-                            : String(key || n || '');
+                          : isThreads && key === 'mentions'
+                            ? 'Mentioned'
+                            : key && key in ENGAGEMENT_METRIC_CONFIG
+                              ? ENGAGEMENT_METRIC_CONFIG[key].label
+                              : String(key || n || '');
                     return colorizeTooltipMetric(formatNumber(Number(v) || 0), label, entry);
                   }}
                   labelFormatter={(l) => formatShortDate(String(l))}
@@ -6241,6 +6306,17 @@ type PostsUploadDayTooltipAgg = {
                     name="Shares"
                     stackId="engagement"
                     fill={ENGAGEMENT_METRIC_CONFIG.shares.color}
+                    barSize={UNIFIED_BAR_SIZE}
+                    isAnimationActive={false}
+                    shape={EngagementStackedBarShape}
+                  />
+                ) : null}
+                {isThreads && selectedEngagementMetrics.includes('mentions') ? (
+                  <Bar
+                    dataKey="mentions"
+                    name="Mentioned"
+                    stackId="engagement"
+                    fill={ENGAGEMENT_METRIC_CONFIG.mentions.color}
                     barSize={UNIFIED_BAR_SIZE}
                     isAnimationActive={false}
                     shape={EngagementStackedBarShape}

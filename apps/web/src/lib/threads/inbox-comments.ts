@@ -44,6 +44,7 @@ type ThreadsMentionRow = {
   username?: string;
   timestamp?: string;
   media_type?: string;
+  profile_picture_url?: string;
 };
 
 const CONVERSATION_FIELDS =
@@ -129,6 +130,7 @@ function pushReplyRow(
     authorName: author || 'Threads user',
     authorPictureUrl: r.profile_picture_url ?? null,
     threadsReplyToId: id,
+    inboxKind: 'threads_reply',
     text: typeof r.text === 'string' ? r.text : '',
     createdAt: r.timestamp ? new Date(r.timestamp).toISOString() : new Date().toISOString(),
     isFromMe: false,
@@ -205,8 +207,8 @@ export async function fetchThreadsInboxComments(
   const mentionResult = await fetchThreadsPagedRows<ThreadsMentionRow>(
     'me/mentions',
     token,
-    { fields: 'id,text,username,timestamp,media_type', limit: 50 },
-    2
+    { fields: 'id,text,username,timestamp,media_type,profile_picture_url', limit: 50 },
+    3
   );
   if (mentionResult.error) {
     if (!firstError) firstError = mentionResult.error;
@@ -216,13 +218,16 @@ export async function fetchThreadsInboxComments(
     const id = typeof m.id === 'string' ? m.id.trim() : '';
     if (!id) continue;
     const author = (m.username ?? 'Threads user').replace(/^@/, '');
+    const mentionPermalink = `https://www.threads.net/post/${encodeURIComponent(id)}`;
     comments.push({
       commentId: `mention-${id}`,
       accountId: account.id,
       platform: 'THREADS',
-      authorName: author || 'Threads user',
+      authorName: author ? `@${author}` : 'Threads user',
+      authorPictureUrl: m.profile_picture_url ?? null,
       threadsReplyToId: id,
-      text: typeof m.text === 'string' && m.text.trim() ? m.text : '@mention',
+      inboxKind: 'threads_mention',
+      text: typeof m.text === 'string' && m.text.trim() ? m.text : 'Mentioned you on Threads',
       createdAt: m.timestamp ? new Date(m.timestamp).toISOString() : new Date().toISOString(),
       isFromMe: false,
       parentCommentId: null,
@@ -231,7 +236,7 @@ export async function fetchThreadsInboxComments(
       postPreview: 'Mentioned you on Threads',
       postImageUrl: null,
       postPublishedAt: null,
-      postUrl: author ? `https://www.threads.net/@${encodeURIComponent(author)}` : 'https://www.threads.net/',
+      postUrl: mentionPermalink,
     });
     meta.mentionsFound += 1;
   }
@@ -267,6 +272,10 @@ export async function fetchThreadsInboxComments(
 
 /** Legacy inbox cache stored post id as parentCommentId; normalize so rows appear in Comments tab. */
 export { normalizeThreadsInboxCommentRow } from '@/lib/threads/normalize-threads-inbox-comment';
+export {
+  isThreadsMentionComment,
+  isThreadsReplyComment,
+} from '@/lib/threads/threads-inbox-comment';
 
 async function threadsMediaExists(
   mediaId: string,

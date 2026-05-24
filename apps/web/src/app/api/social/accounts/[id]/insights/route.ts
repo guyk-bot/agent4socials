@@ -3322,7 +3322,11 @@ export async function GET(
         out.impressionsTotal = bundle.viewsTotal;
         const outRec = out as Record<string, unknown>;
         outRec.interactionsTotal =
-          bundle.likesTotal + bundle.repliesTotal + bundle.repostsTotal + bundle.quotesTotal;
+          bundle.likesTotal +
+          bundle.repliesTotal +
+          bundle.repostsTotal +
+          bundle.quotesTotal +
+          bundle.mentionsTotal;
         outRec.likesTotal = bundle.likesTotal;
         outRec.commentsTotal = bundle.repliesTotal;
         outRec.sharesTotal = bundle.repostsTotal + bundle.quotesTotal;
@@ -3334,6 +3338,7 @@ export async function GET(
             replies: bundle.repliesTotal,
             reposts: bundle.repostsTotal,
             quotes: bundle.quotesTotal,
+            mentions: bundle.mentionsTotal,
           },
           threadsMetricSeries: bundle.metricSeries,
         };

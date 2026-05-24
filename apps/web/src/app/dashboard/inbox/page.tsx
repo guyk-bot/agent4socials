@@ -74,6 +74,7 @@ import {
   removePendingUnreadConversationIds,
 } from '@/lib/inbox/inbox-badge-pending';
 import { normalizeThreadsInboxCommentRow } from '@/lib/threads/normalize-threads-inbox-comment';
+import { isThreadsMentionComment } from '@/lib/threads/threads-inbox-comment';
 import {
   deriveUnreadTopLevelCommentIds,
   isConversationUnread,
@@ -207,6 +208,7 @@ type PostComment = {
   linkedInObjectUrn?: string | null;
   /** Threads: media id for reply_to_id (from inbox sync). */
   threadsReplyToId?: string | null;
+  inboxKind?: 'threads_reply' | 'threads_mention' | null;
 };
 type EngagementItem = {
   platformPostId: string;
@@ -762,6 +764,7 @@ function InboxPage() {
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
   const [inboxFilter, setInboxFilter] = useState<'all' | 'read' | 'unread'>('all');
   const [commentsFilter, setCommentsFilter] = useState<'all' | 'replied' | 'didnt_reply'>('all');
+  const [threadsInboxKind, setThreadsInboxKind] = useState<'all' | 'replies' | 'mentions'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [inboxMode, setInboxMode] = useState<'messages' | 'comments' | 'engagement'>('messages');
   const [batchConversationLastMessage, setBatchConversationLastMessage] = useState<Record<string, string>>({});
@@ -2949,6 +2952,17 @@ function InboxPage() {
                       : !hasRepliedByParent.has(c.commentId)
                 )
                 .filter((c) => {
+                  if (threadsInboxKind === 'mentions' && !isThreadsMentionComment(c)) return false;
+                  if (
+                    threadsInboxKind === 'replies' &&
+                    c.platform === 'THREADS' &&
+                    isThreadsMentionComment(c)
+                  ) {
+                    return false;
+                  }
+                  return true;
+                })
+                .filter((c) => {
                   if (!searchQuery) return true;
                   const q = searchQuery.toLowerCase();
                   return (
@@ -3021,9 +3035,15 @@ function InboxPage() {
                             <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
                             <PlatformSourcePill platformId={c.platform} />
                           </div>
-                          <p className="text-xs font-medium text-neutral-600 dark:text-neutral-300 truncate mt-0.5">
-                            {(c.postPreview || 'Post').slice(0, 48)}{(c.postPreview?.length ?? 0) > 48 ? '…' : ''}
-                          </p>
+                          {isThreadsMentionComment(c) ? (
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300 mt-0.5">
+                              Mentioned you on Threads
+                            </p>
+                          ) : (
+                            <p className="text-xs font-medium text-neutral-600 dark:text-neutral-300 truncate mt-0.5">
+                              {(c.postPreview || 'Post').slice(0, 48)}{(c.postPreview?.length ?? 0) > 48 ? '…' : ''}
+                            </p>
+                          )}
                           <p className="text-xs text-neutral-600 dark:text-neutral-400 line-clamp-2 mt-0.5">{c.text}</p>
                         </div>
                       </div>
@@ -3604,6 +3624,31 @@ function InboxPage() {
                 </button>
               </div>
             )}
+            {hasThreadsCommentsInList ? (
+              <div className="flex border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/80 dark:bg-neutral-900/40">
+                <button
+                  type="button"
+                  onClick={() => setThreadsInboxKind('all')}
+                  className={`flex-1 py-1.5 text-[11px] font-medium ${threadsInboxKind === 'all' ? 'text-neutral-900 border-b-2 border-neutral-900 dark:text-neutral-100 dark:border-neutral-100' : 'text-neutral-500 border-b-2 border-transparent'}`}
+                >
+                  All Threads
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setThreadsInboxKind('replies')}
+                  className={`flex-1 py-1.5 text-[11px] font-medium ${threadsInboxKind === 'replies' ? 'text-neutral-900 border-b-2 border-neutral-900 dark:text-neutral-100 dark:border-neutral-100' : 'text-neutral-500 border-b-2 border-transparent'}`}
+                >
+                  Replies
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setThreadsInboxKind('mentions')}
+                  className={`flex-1 py-1.5 text-[11px] font-medium ${threadsInboxKind === 'mentions' ? 'text-neutral-900 border-b-2 border-neutral-900 dark:text-neutral-100 dark:border-neutral-100' : 'text-neutral-500 border-b-2 border-transparent'}`}
+                >
+                  @Mentions
+                </button>
+              </div>
+            ) : null}
             <div className="flex border-b border-neutral-100 dark:border-neutral-800">
               <button
                 type="button"
@@ -4138,10 +4183,25 @@ function InboxPage() {
                         <span className="text-xs text-neutral-500">{new Date(selectedComment.createdAt).toLocaleString()}</span>
                       </div>
                       <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100 mt-1 truncate">
-                        {(selectedComment.postPreview || 'Your post').slice(0, 80)}
-                        {(selectedComment.postPreview?.length ?? 0) > 80 ? '…' : ''}
+                        {isThreadsMentionComment(selectedComment)
+                          ? 'Mentioned you on Threads'
+                          : (selectedComment.postPreview || 'Your post').slice(0, 80)}
+                        {!isThreadsMentionComment(selectedComment) &&
+                        (selectedComment.postPreview?.length ?? 0) > 80
+                          ? '…'
+                          : ''}
                       </p>
                       <p className="text-xs text-neutral-500 mt-0.5">{selectedComment.authorName}</p>
+                      {isThreadsMentionComment(selectedComment) && selectedComment.postUrl ? (
+                        <a
+                          href={selectedComment.postUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-sky-600 hover:underline mt-0.5 inline-block"
+                        >
+                          Open on Threads
+                        </a>
+                      ) : null}
                     </div>
                   </div>
                   <div className="p-4 space-y-3">

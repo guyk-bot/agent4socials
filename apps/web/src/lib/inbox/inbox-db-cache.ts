@@ -200,6 +200,8 @@ export type InboxCommentRow = {
   authorPlatformUserId?: string | null;
   /** Threads: media id for reply_to_id when posting a reply from Inbox. */
   threadsReplyToId?: string | null;
+  /** Threads inbox: reply on your post vs @mention of your handle. */
+  inboxKind?: 'threads_reply' | 'threads_mention' | null;
   authorPictureUrl?: string | null;
   text: string;
   createdAt: string;
@@ -253,6 +255,7 @@ function mergeCommentRows(existing: InboxCommentRow[], incoming: InboxCommentRow
       authorPictureUrl: row.authorPictureUrl ?? prev?.authorPictureUrl ?? null,
       authorPlatformUserId: row.authorPlatformUserId ?? prev?.authorPlatformUserId ?? null,
       threadsReplyToId: row.threadsReplyToId ?? prev?.threadsReplyToId ?? null,
+      inboxKind: row.inboxKind ?? prev?.inboxKind ?? null,
       authorName: row.authorName?.trim() ? row.authorName : prev?.authorName ?? row.authorName,
     });
   }
