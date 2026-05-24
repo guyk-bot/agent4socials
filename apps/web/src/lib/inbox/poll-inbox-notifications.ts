@@ -31,7 +31,14 @@ import {
   shouldBlockMetaNonEssentialCalls,
 } from '@/lib/meta-usage-guard';
 import {
+  INBOX_COMMENT_BACKGROUND_POLL_PLATFORMS,
+  INBOX_COMMENT_META_PLATFORMS,
+  inboxCommentsCooldownScope,
+} from '@/lib/inbox/inbox-comment-platforms';
+import {
   canRunInboxLiveRefresh,
+  INBOX_LIGHT_COMMENTS_REFRESH_MS,
+  INBOX_META_COMMENTS_REFRESH_MS,
   INBOX_THREADS_LIVE_REFRESH_MS,
   markInboxLiveRefresh,
 } from '@/lib/inbox/inbox-refresh-cooldown';
@@ -40,8 +47,6 @@ import {
 export const INBOX_NOTIFICATION_POLL_MS = INBOX_SYSTEM_SYNC_MS;
 
 const MESSAGE_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER']);
-/** Lightweight comment APIs (not Meta fan-out). Polled for nav badge + AppData cache. */
-const BACKGROUND_COMMENT_PLATFORMS = new Set(['THREADS']);
 
 const COMMENTS_SINCE_KEY = (userId: string) => `agent4socials_badge_poll_comments_since_${userId}`;
 
@@ -289,17 +294,26 @@ export async function pollInboxNotifications(args: {
       await new Promise((r) => setTimeout(r, 1500));
     }
 
-    if (BACKGROUND_COMMENT_PLATFORMS.has(acc.platform)) {
+    if (INBOX_COMMENT_BACKGROUND_POLL_PLATFORMS.has(acc.platform)) {
       try {
         const existing = getComments(acc.id) ?? [];
-        const threadsLiveAllowed = canRunInboxLiveRefresh('threads-comments', userId, INBOX_THREADS_LIVE_REFRESH_MS);
+        const scope = inboxCommentsCooldownScope(acc.platform, acc.id);
+        const cooldownMs =
+          acc.platform === 'THREADS'
+            ? INBOX_THREADS_LIVE_REFRESH_MS
+            : INBOX_COMMENT_META_PLATFORMS.has(acc.platform)
+              ? INBOX_META_COMMENTS_REFRESH_MS
+              : INBOX_LIGHT_COMMENTS_REFRESH_MS;
+        const liveAllowed =
+          !INBOX_COMMENT_META_PLATFORMS.has(acc.platform) &&
+          canRunInboxLiveRefresh(scope, userId, cooldownMs);
         const res = await api.get<{ comments?: CachedComment[]; error?: string }>(
-          threadsLiveAllowed
+          liveAllowed
             ? `/social/accounts/${acc.id}/comments?refresh=1`
             : `/social/accounts/${acc.id}/comments?cacheOnly=1`,
-          { timeout: threadsLiveAllowed ? 90_000 : 30_000 }
+          { timeout: liveAllowed ? 90_000 : 30_000 }
         );
-        if (threadsLiveAllowed) markInboxLiveRefresh('threads-comments', userId);
+        if (liveAllowed) markInboxLiveRefresh(scope, userId);
         if (res.data?.error) continue;
         const incoming = res.data?.comments ?? [];
         if (incoming.length === 0 && existing.length === 0) continue;

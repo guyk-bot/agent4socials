@@ -46,7 +46,7 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
   THREADS: <ThreadsIcon size={26} />,
 };
 
-const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'THREADS', 'LINKEDIN', 'PINTEREST'];
+const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'THREADS', 'PINTEREST', 'LINKEDIN'];
 
 /** Vertical padding on platform rows (icons stay full size). */
 const PLATFORM_ROW_PY = 'py-1.5';

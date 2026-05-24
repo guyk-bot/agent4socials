@@ -2,6 +2,11 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ANALYTICS_CHART_SELECT_METRIC_MESSAGE } from '@/lib/analytics-chart-messages';
+import {
+  buildKeyDateTicks,
+  formatChartShortDate,
+  sparseMonthTickFormatter,
+} from '@/lib/analytics/chart-axis-date';
 import { Download } from 'lucide-react';
 import {
   Line,
@@ -77,7 +82,7 @@ function formatDate(str: string) {
 }
 
 function formatDateShort(str: string) {
-  return new Date(str + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return formatChartShortDate(str);
 }
 
 // Count-up display value for KPI (animates from 0 to value on mount/change)
@@ -279,6 +284,19 @@ function FollowersGrowthChart({
 
   const lastDate = chartData.length > 0 ? chartData[chartData.length - 1].date : null;
   const tickCount = 4;
+  const growthAxisTicks = useMemo(
+    () =>
+      buildKeyDateTicks(
+        chartData,
+        (d) => (d.followers ?? 0) > 0 || (d.posts ?? 0) > 0 || (d.views ?? 0) > 0 || (d.visits ?? 0) > 0,
+        10
+      ),
+    [chartData]
+  );
+  const growthAxisTickFormatter = useMemo(
+    () => sparseMonthTickFormatter(growthAxisTicks),
+    [growthAxisTicks]
+  );
 
   if (activeMetrics.size === 0) {
     return (
@@ -356,11 +374,12 @@ function FollowersGrowthChart({
             )}
             <XAxis
               dataKey="date"
+              ticks={growthAxisTicks}
               tick={{ fontSize: 12, fill: '#525252' }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={formatDateShort}
-              interval="preserveStartEnd"
+              tickFormatter={growthAxisTickFormatter}
+              interval={0}
             />
             {(leftMetricIds.length > 0 || !useRightAxis) && (
               <YAxis
@@ -514,6 +533,14 @@ function ContentActivityChart({
     const totalP = data.reduce((s, d) => s + (d.posts ?? 0), 0);
     return data.length >= 2 && totalP > 0;
   }, [data]);
+  const contentAxisTicks = useMemo(
+    () => buildKeyDateTicks(data, (d) => (d.posts ?? 0) > 0, 10),
+    [data]
+  );
+  const contentAxisTickFormatter = useMemo(
+    () => sparseMonthTickFormatter(contentAxisTicks),
+    [contentAxisTicks]
+  );
 
   return (
     <div className={`rounded-[22px] bg-white border border-neutral-100 shadow-sm p-6 hover:shadow-md hover:border-neutral-200/80 transition-all duration-200 ${!hasEnoughData ? 'opacity-90' : ''}`}>
@@ -549,11 +576,12 @@ function ContentActivityChart({
             )}
             <XAxis
               dataKey="date"
+              ticks={contentAxisTicks}
               tick={{ fontSize: 12, fill: '#525252' }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={formatDateShort}
-              interval="preserveStartEnd"
+              tickFormatter={contentAxisTickFormatter}
+              interval={0}
             />
             <YAxis
               tick={{ fontSize: 12, fill: '#525252' }}
@@ -633,6 +661,19 @@ function BalanceOfFollowersChart({
       })),
     [growthTimeSeries]
   );
+  const balanceAxisTicks = useMemo(
+    () =>
+      buildKeyDateTicks(
+        chartData,
+        (d) => Math.abs(d.gained) > 0 || Math.abs(d.lost) > 0 || Math.abs(d.net) > 0,
+        10
+      ),
+    [chartData]
+  );
+  const balanceAxisTickFormatter = useMemo(
+    () => sparseMonthTickFormatter(balanceAxisTicks),
+    [balanceAxisTicks]
+  );
 
   return (
     <div className={`rounded-[22px] bg-white border border-neutral-100 shadow-sm p-6 hover:shadow-md hover:border-neutral-200/80 transition-all duration-200 ${!hasData ? 'opacity-90' : ''}`}>
@@ -666,11 +707,12 @@ function BalanceOfFollowersChart({
             )}
             <XAxis
               dataKey="date"
+              ticks={balanceAxisTicks}
               tick={{ fontSize: 12, fill: '#525252' }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={formatDateShort}
-              interval="preserveStartEnd"
+              tickFormatter={balanceAxisTickFormatter}
+              interval={0}
             />
             <YAxis
               tick={{ fontSize: 12, fill: '#525252' }}

@@ -2,6 +2,10 @@
 
 export const INBOX_THREADS_LIVE_REFRESH_MS = 5 * 60_000;
 export const INBOX_LIGHT_META_SYNC_MS = 10 * 60_000;
+/** YouTube, X, LinkedIn comment refresh (lighter than Meta fan-out). */
+export const INBOX_LIGHT_COMMENTS_REFRESH_MS = 5 * 60_000;
+/** Instagram / Facebook comment refresh (many Graph calls per account). */
+export const INBOX_META_COMMENTS_REFRESH_MS = 15 * 60_000;
 
 function storageKey(scope: string, userId: string): string {
   return `agent4socials_inbox_live_${scope}_${userId}`;

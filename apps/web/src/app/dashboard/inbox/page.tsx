@@ -28,10 +28,17 @@ import {
 import { INBOX_SYSTEM_SYNC_MS } from '@/lib/inbox/inbox-sync-config';
 import {
   canRunInboxLiveRefresh,
+  INBOX_LIGHT_COMMENTS_REFRESH_MS,
   INBOX_LIGHT_META_SYNC_MS,
+  INBOX_META_COMMENTS_REFRESH_MS,
   INBOX_THREADS_LIVE_REFRESH_MS,
   markInboxLiveRefresh,
 } from '@/lib/inbox/inbox-refresh-cooldown';
+import {
+  INBOX_COMMENT_LIVE_PLATFORMS,
+  inboxCommentsCooldownScope,
+  supportsInboxComments,
+} from '@/lib/inbox/inbox-comment-platforms';
 import {
   markInboxAccountRecentlyConnected,
   isInboxAccountRecentlyConnected,
@@ -796,6 +803,10 @@ function InboxPage() {
   const [comments, setComments] = useState<PostComment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentsError, setCommentsError] = useState<string | null>(null);
+  const [commentsLiveSync, setCommentsLiveSync] = useState<{ loading: boolean; hint: string | null }>({
+    loading: false,
+    hint: null,
+  });
   const [threadsCommentsSync, setThreadsCommentsSync] = useState<{
     loading: boolean;
     error: string | null;
@@ -2115,16 +2126,91 @@ function InboxPage() {
   const syncConversationsFromAppDataRef = useRef(syncConversationsFromAppData);
   syncConversationsFromAppDataRef.current = syncConversationsFromAppData;
 
-  const refreshThreadsComments = useCallback(async (opts?: { live?: boolean; manual?: boolean }) => {
-    const threadsAccounts = effectiveAccountsRef.current.filter((a) => a.platform === 'THREADS');
-    if (threadsAccounts.length === 0) return;
+  const syncCommentsFromAppData = useCallback(() => {
+    if (!user?.id) return;
+    const fromAppData: PostComment[] = [];
+    for (const acc of effectiveAccountsRef.current) {
+      if (!supportsInboxComments(acc.platform)) continue;
+      for (const c of (appDataRef.current?.getComments(acc.id) ?? []) as PostComment[]) {
+        fromAppData.push({
+          ...c,
+          accountId: c.accountId ?? acc.id,
+          platform: c.platform ?? acc.platform,
+        });
+      }
+    }
+    if (fromAppData.length === 0) return;
+    const seed =
+      commentsStableRef.current.length > 0
+        ? commentsStableRef.current
+        : readInboxCommentsClientCache<PostComment>(user.id);
+    applyCommentsToUi(
+      mergeInboxCommentsWithUnreadDetection(user.id, seed, fromAppData) as PostComment[]
+    );
+  }, [user?.id, applyCommentsToUi]);
+
+  const syncCommentsFromAppDataRef = useRef(syncCommentsFromAppData);
+  syncCommentsFromAppDataRef.current = syncCommentsFromAppData;
+
+  const refreshAllPlatformComments = useCallback(async (opts?: { live?: boolean; manual?: boolean }) => {
+    const commentAccounts = effectiveAccountsRef.current.filter((a) =>
+      supportsInboxComments(a.platform)
+    );
+    if (commentAccounts.length === 0) return;
     const uid = user?.id ?? '';
-    const wantLive =
-      opts?.manual === true ||
-      (opts?.live === true &&
-        (!uid || canRunInboxLiveRefresh('threads-comments', uid, INBOX_THREADS_LIVE_REFRESH_MS)));
+    const wantLive = opts?.manual === true || opts?.live === true;
+    const threadsAccounts = commentAccounts.filter((a) => a.platform === 'THREADS');
+
+    setCommentsLiveSync({ loading: wantLive, hint: null });
     setThreadsCommentsSync({ loading: wantLive, error: null, hint: null, meta: null });
-    const threadsCommentRows: PostComment[] = [];
+    setCommentsError(null);
+
+    const mapRows = (acc: Account, rows: PostComment[]) =>
+      rows.map((c) => ({
+        ...c,
+        accountId: c.accountId ?? acc.id,
+        platform: c.platform ?? acc.platform,
+      }));
+
+    const cachedRows: PostComment[] = [];
+    for (const acc of commentAccounts) {
+      try {
+        const cached = await api.get<{ comments?: PostComment[] }>(
+          `/social/accounts/${acc.id}/comments?cacheOnly=1`,
+          { timeout: 30_000 }
+        );
+        const rows = cached.data?.comments ?? [];
+        if (rows.length > 0) cachedRows.push(...mapRows(acc, rows));
+      } catch {
+        /* optional cache */
+      }
+    }
+    if (cachedRows.length > 0) {
+      applyCommentsToUiRef.current(cachedRows);
+    }
+
+    if (!wantLive) {
+      setCommentsLiveSync({
+        loading: false,
+        hint:
+          cachedRows.length > 0
+            ? null
+            : 'Showing saved comments when available. Tap Refresh comments for a live sync.',
+      });
+      if (threadsAccounts.length > 0) {
+        setThreadsCommentsSync({
+          loading: false,
+          error: null,
+          hint:
+            cachedRows.some((c) => c.platform === 'THREADS')
+              ? null
+              : 'Showing saved Threads comments. Tap Refresh comments to sync live.',
+          meta: null,
+        });
+      }
+      return;
+    }
+
     let threadsSyncError: string | null = null;
     let threadsSyncHint: string | null = null;
     let threadsSyncMeta: {
@@ -2133,43 +2219,21 @@ function InboxPage() {
       mentionsFound?: number;
       skippedOwn?: number;
     } | null = null;
+    const liveRows: PostComment[] = [];
+    const platformErrors: string[] = [];
+    let refreshedLive = 0;
 
-    for (const acc of threadsAccounts) {
-      if (wantLive) break;
-      try {
-        const cached = await api.get<{ comments?: PostComment[] }>(
-          `/social/accounts/${acc.id}/comments?cacheOnly=1`,
-          { timeout: 30_000 }
-        );
-        const cachedRows = cached.data?.comments ?? [];
-        if (cachedRows.length > 0) {
-          threadsCommentRows.push(
-            ...cachedRows.map((c) => ({
-              ...c,
-              accountId: c.accountId ?? acc.id,
-              platform: c.platform ?? acc.platform,
-            }))
-          );
-        }
-      } catch {
-        /* optional cache */
+    for (const acc of commentAccounts) {
+      const scope = inboxCommentsCooldownScope(acc.platform, acc.id);
+      const cooldownMs =
+        acc.platform === 'THREADS'
+          ? INBOX_THREADS_LIVE_REFRESH_MS
+          : acc.platform === 'INSTAGRAM' || acc.platform === 'FACEBOOK'
+            ? INBOX_META_COMMENTS_REFRESH_MS
+            : INBOX_LIGHT_COMMENTS_REFRESH_MS;
+      if (!opts?.manual && uid && !canRunInboxLiveRefresh(scope, uid, cooldownMs)) {
+        continue;
       }
-    }
-    if (threadsCommentRows.length > 0) {
-      applyCommentsToUiRef.current(threadsCommentRows);
-    }
-
-    if (!wantLive) {
-      setThreadsCommentsSync({
-        loading: false,
-        error: null,
-        hint: threadsCommentRows.length > 0 ? null : 'Showing saved Threads comments. Tap Retry to refresh live.',
-        meta: null,
-      });
-      return;
-    }
-
-    for (const acc of threadsAccounts) {
       try {
         const r = await api.get<{
           comments?: PostComment[];
@@ -2182,61 +2246,74 @@ function InboxPage() {
             skippedOwn?: number;
           };
         }>(`/social/accounts/${acc.id}/comments?refresh=1`, { timeout: 90_000 });
-        if (r.data?.hint) threadsSyncHint = r.data.hint;
-        if (r.data?.threadsMeta) threadsSyncMeta = r.data.threadsMeta;
+        if (acc.platform === 'THREADS') {
+          if (r.data?.hint) threadsSyncHint = r.data.hint;
+          if (r.data?.threadsMeta) threadsSyncMeta = r.data.threadsMeta;
+          if (r.data?.error && !(r.data?.comments?.length ?? 0)) {
+            threadsSyncError = r.data.error;
+          } else if (r.data?.error) {
+            threadsSyncHint = r.data.error;
+          }
+        }
         const cs = r.data?.comments ?? [];
         if (r.data?.error && cs.length === 0) {
-          threadsSyncError = r.data.error;
-        } else if (r.data?.error) {
-          threadsSyncHint = r.data.error;
+          platformErrors.push(`${acc.platform}: ${r.data.error}`);
+        } else if (cs.length > 0) {
+          liveRows.push(...mapRows(acc, cs));
+          refreshedLive += 1;
         }
-        if (cs.length > 0) {
-          threadsCommentRows.push(
-            ...cs.map((c) => ({
-              ...c,
-              accountId: c.accountId ?? acc.id,
-              platform: c.platform ?? acc.platform,
-            }))
-          );
-        }
+        if (uid) markInboxLiveRefresh(scope, uid);
       } catch (err: unknown) {
         const msg =
           (err as { response?: { data?: { error?: string; message?: string } } })?.response?.data
             ?.error ??
-          (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-        if (threadsCommentRows.length === 0) {
-          threadsSyncError =
-            msg ?? 'Could not refresh Threads comments. Check your connection and try again.';
-        } else {
-          threadsSyncHint =
-            msg ?? 'Live refresh failed. Showing saved Threads comments from cache.';
+          (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+          'Could not refresh comments.';
+        if (acc.platform === 'THREADS' && liveRows.filter((c) => c.platform === 'THREADS').length === 0) {
+          threadsSyncError = msg;
         }
+        platformErrors.push(`${acc.platform}: ${msg}`);
       }
     }
 
-    if (threadsCommentRows.length > 0) {
+    if (liveRows.length > 0) {
       const byId = new Map<string, PostComment>();
-      for (const c of threadsCommentRows) {
+      for (const c of liveRows) {
         if (c.commentId) byId.set(c.commentId, c);
       }
       applyCommentsToUiRef.current([...byId.values()]);
-      for (const acc of threadsAccounts) {
+      for (const acc of commentAccounts) {
         const perAcc = commentsStableRef.current.filter((c) => c.accountId === acc.id);
-        appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
+        if (perAcc.length) appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
       }
     }
 
-    setThreadsCommentsSync({
+    if (platformErrors.length > 0 && liveRows.length === 0 && cachedRows.length === 0) {
+      setCommentsError(platformErrors.slice(0, 2).join(' '));
+    }
+
+    setCommentsLiveSync({
       loading: false,
-      error: threadsSyncError,
-      hint: threadsSyncHint,
-      meta: threadsSyncMeta,
+      hint:
+        refreshedLive === 0 && liveRows.length === 0 && cachedRows.length > 0
+          ? 'Some platforms are on a refresh cooldown. Showing saved comments. Tap Refresh comments to force sync.'
+          : refreshedLive === 0 && liveRows.length === 0
+            ? 'Sync posts from Dashboard for YouTube, X, and LinkedIn if comments are missing.'
+            : null,
     });
-    if (uid) markInboxLiveRefresh('threads-comments', uid);
+
+    if (threadsAccounts.length > 0) {
+      setThreadsCommentsSync({
+        loading: false,
+        error: threadsSyncError,
+        hint: threadsSyncHint,
+        meta: threadsSyncMeta,
+      });
+    }
   }, [user?.id]);
 
-  const refreshThreadsCommentsRef = useRef(refreshThreadsComments);
-  refreshThreadsCommentsRef.current = refreshThreadsComments;
+  const refreshAllPlatformCommentsRef = useRef(refreshAllPlatformComments);
+  refreshAllPlatformCommentsRef.current = refreshAllPlatformComments;
 
   const refreshInboxFromServer = useCallback(
     async (opts?: { liveMeta?: boolean }) => {
@@ -2282,7 +2359,7 @@ function InboxPage() {
           }
         }
 
-        await refreshThreadsCommentsRef.current({ live: true });
+        await refreshAllPlatformCommentsRef.current({ live: true });
 
         if (opts?.liveMeta && user?.id) {
           const metaAccounts = accs.filter(
@@ -2416,11 +2493,22 @@ function InboxPage() {
     void refreshInboxFromServerRef.current({ liveMeta: true });
   }, [pathname, user?.id, effectiveAccounts.map((a) => a.id).join(',')]);
 
-  // Background poll updated AppData — show new DMs in the list as soon as the nav badge updates.
+  // Background poll updated AppData — merge new DMs and comments into the open Inbox lists.
   useEffect(() => {
     if (pathname !== '/dashboard/inbox' || !user?.id) return;
     syncConversationsFromAppDataRef.current();
-  }, [pathname, user?.id, appData?.inboxSystemSyncTick, appData?.notifications?.messages, appData?.notifications?.inbox]);
+    if (inboxMode === 'comments') {
+      syncCommentsFromAppDataRef.current();
+    }
+  }, [
+    pathname,
+    user?.id,
+    inboxMode,
+    appData?.inboxSystemSyncTick,
+    appData?.notifications?.messages,
+    appData?.notifications?.inbox,
+    appData?.notifications?.comments,
+  ]);
 
   const pendingConvListFetchAtRef = useRef(0);
   useEffect(() => {
@@ -2560,12 +2648,16 @@ function InboxPage() {
   const threadsInboxUnreadCount = unreadCommentsByPlatform['THREADS'] ?? 0;
   const threadsInboxSteeredRef = useRef(false);
 
-  /** Threads only appears under Comments (no DMs). Keep Threads in the platform selection on Comments tab. */
+  /** Comments tab: ensure all connected comment platforms are selected (list shows every platform). */
   useEffect(() => {
     if (pathname !== '/dashboard/inbox' || inboxMode !== 'comments') return;
-    if (!connectedPlatformIds.includes('THREADS')) return;
-    setSelectedPlatforms((prev) => (prev.includes('THREADS') ? prev : [...prev, 'THREADS']));
-    void refreshThreadsCommentsRef.current({ live: false });
+    const commentPlatformIds = connectedPlatformIds.filter((p) => COMMENT_STRIP_PLATFORM_IDS.has(p));
+    if (commentPlatformIds.length === 0) return;
+    setSelectedPlatforms((prev) => {
+      const merged = new Set([...prev, ...commentPlatformIds]);
+      return [...merged];
+    });
+    void refreshAllPlatformCommentsRef.current({ live: false });
   }, [pathname, inboxMode, connectedPlatformIds.join(',')]);
 
   /** Steer users to Comments when badge counts Threads activity. */
@@ -2943,7 +3035,7 @@ function InboxPage() {
             </div>
               );
             }
-    if (selectedPlatforms.length === 0) {
+    if (selectedPlatforms.length === 0 && inboxMode !== 'comments') {
       return (
         <div className="p-6 text-center">
           <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
@@ -3013,8 +3105,16 @@ function InboxPage() {
             <p className="text-xs text-neutral-400 mt-1">
               {threadsSelected
                 ? 'Replies on your threads and mentions of your handle appear here. Private Threads messages stay in the Threads app.'
-                : 'Comments on your posts will appear here. Make sure to sync your posts first from the Dashboard.'}
+                : 'Comments from Instagram, Facebook, X, YouTube, LinkedIn, and Threads appear here. Sync posts on Dashboard for YouTube, X, and LinkedIn, then tap Refresh comments.'}
             </p>
+            <button
+              type="button"
+              onClick={() => void refreshAllPlatformCommentsRef.current({ manual: true })}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-orange-500 px-3 py-2 text-sm font-medium text-white hover:bg-orange-600"
+            >
+              <RefreshCw size={14} />
+              Refresh comments
+            </button>
           </div>
         );
       }
@@ -3524,6 +3624,18 @@ function InboxPage() {
         </div>
 
 
+        {inboxMode === 'comments' && commentsLiveSync.loading ? (
+          <div className="mx-2 mt-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
+            Syncing comments from your connected platforms…
+          </div>
+        ) : null}
+
+        {inboxMode === 'comments' && !commentsLiveSync.loading && commentsLiveSync.hint ? (
+          <div className="mx-2 mt-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-100">
+            {commentsLiveSync.hint}
+          </div>
+        ) : null}
+
         {inboxMode === 'comments' && connectedPlatformIds.includes('THREADS') ? (
           threadsCommentsSync.loading ? (
             <div className="mx-2 mt-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
@@ -3542,10 +3654,10 @@ function InboxPage() {
                 </a>
                 <button
                   type="button"
-                  onClick={() => void refreshThreadsCommentsRef.current({ manual: true })}
+                  onClick={() => void refreshAllPlatformCommentsRef.current({ manual: true })}
                   className="font-semibold text-amber-800 underline hover:text-amber-950 dark:text-amber-300"
                 >
-                  Retry sync
+                  Refresh comments
                 </button>
               </div>
             </div>
@@ -3574,10 +3686,10 @@ function InboxPage() {
               ) : null}
               <button
                 type="button"
-                onClick={() => void refreshThreadsCommentsRef.current({ manual: true })}
+                onClick={() => void refreshAllPlatformCommentsRef.current({ manual: true })}
                 className="mt-2 font-semibold text-orange-700 underline hover:text-orange-900 dark:text-orange-300"
               >
-                Refresh Threads comments
+                Refresh comments
               </button>
             </div>
           ) : null
@@ -3754,6 +3866,15 @@ function InboxPage() {
               </button>
             </div>
             <div className="flex items-center gap-2 px-2 py-1.5 bg-neutral-50/70 dark:bg-neutral-900 border-t border-neutral-100 dark:border-neutral-800">
+              <button
+                type="button"
+                disabled={commentsLiveSync.loading}
+                onClick={() => void refreshAllPlatformCommentsRef.current({ manual: true })}
+                className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 disabled:opacity-50 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              >
+                <RefreshCw size={13} className={commentsLiveSync.loading ? 'animate-spin' : ''} />
+                Refresh
+              </button>
               <button
                 type="button"
                 onClick={toggleSelectMode}

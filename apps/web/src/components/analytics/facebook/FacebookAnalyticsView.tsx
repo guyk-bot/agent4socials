@@ -29,6 +29,13 @@ import type { FacebookInsights, FacebookPost } from './types';
 import { FACEBOOK_ANALYTICS_SECTION_IDS } from './facebook-analytics-section-ids';
 import { localCalendarDateFromIso, toLocalCalendarDate } from '@/lib/calendar-date';
 import { formatMetricNumber as formatNumber } from '@/lib/metric-format';
+import {
+  buildKeyDateTicks,
+  formatChartShortDate,
+  sparseMonthTickFormatter,
+  sparseMonthTickFormatterFromRows,
+  sortChartTickDates,
+} from '@/lib/analytics/chart-axis-date';
 import { ANALYTICS_CHART_SELECT_METRIC_MESSAGE } from '@/lib/analytics-chart-messages';
 import { isLegacyInstagramInsightsUnavailableHint } from '@/lib/strip-legacy-insights-hint';
 import { createMinWidthStackedBarShape } from '@/lib/recharts-stacked-bar-shape';
@@ -496,63 +503,7 @@ function formatPercent(v: number): string {
   return `${(v * 100).toFixed(v < 0.1 ? 2 : 1)}%`;
 }
 
-function formatShortDate(date: string): string {
-  try {
-    return new Date(`${date}T12:00:00Z`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  } catch {
-    return date;
-  }
-}
-
-/** X-axis: first tick in a month shows "Mar 5", following ticks in the same month show "12", "31" only. */
-function formatSparseMonthTick(date: string, index: number, allDates: string[]): string {
-  try {
-    const d = new Date(`${date}T12:00:00Z`);
-    const day = d.getUTCDate();
-    const month = d.toLocaleDateString(undefined, { month: 'short', timeZone: 'UTC' });
-    if (index <= 0) return `${month} ${day}`;
-    const prev = allDates[index - 1];
-    if (!prev) return `${month} ${day}`;
-    const pd = new Date(`${prev}T12:00:00Z`);
-    const changedMonth = d.getUTCMonth() !== pd.getUTCMonth() || d.getUTCFullYear() !== pd.getUTCFullYear();
-    return changedMonth ? `${month} ${day}` : String(day);
-  } catch {
-    return date;
-  }
-}
-
-function buildKeyDateTicks<T extends { date: string }>(
-  rows: T[],
-  isEvent: (row: T) => boolean,
-  maxTicks = 10
-): string[] {
-  if (!rows.length) return [];
-  const first = rows[0].date;
-  const last = rows[rows.length - 1].date;
-
-  const monthStartDates: string[] = [];
-  let prevMonth = '';
-  for (const r of rows) {
-    const monthKey = r.date.slice(0, 7);
-    if (monthKey !== prevMonth) {
-      monthStartDates.push(r.date);
-      prevMonth = monthKey;
-    }
-  }
-
-  const eventDates = rows.filter(isEvent).map((r) => r.date);
-  const combined = Array.from(new Set([first, ...monthStartDates, ...eventDates, last]));
-
-  if (combined.length <= maxTicks) return combined;
-
-  // Evenly sample while keeping first/last.
-  const sampled: string[] = [];
-  for (let i = 0; i < maxTicks; i++) {
-    const idx = Math.round((i / Math.max(1, maxTicks - 1)) * (combined.length - 1));
-    sampled.push(combined[idx]);
-  }
-  return Array.from(new Set(sampled));
-}
+const formatShortDate = formatChartShortDate;
 
 function formatDurationMs(ms: number): string {
   if (!Number.isFinite(ms) || ms <= 0) return '0s';
@@ -1804,6 +1755,7 @@ function AnalyticsChartSelectMetricPlaceholder() {
 export function StackedTrafficChart({ data }: { data: Array<{ date: string; nonviral: number; viral: number }> }) {
   const { theme } = useTheme();
   const trafficTicks = buildKeyDateTicks(data, (d) => (d.nonviral ?? 0) > 0 || (d.viral ?? 0) > 0, 10);
+  const trafficTickFormatter = useMemo(() => sparseMonthTickFormatter(trafficTicks), [trafficTicks]);
   const trafficYMax = useMemo(() => {
     let max = 0;
     for (const row of data) {
@@ -1815,7 +1767,7 @@ export function StackedTrafficChart({ data }: { data: Array<{ date: string; nonv
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-        <XAxis dataKey="date" ticks={trafficTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} minTickGap={18} axisLine={false} tickLine={false} />
+        <XAxis dataKey="date" ticks={trafficTicks} tickFormatter={trafficTickFormatter} tick={{ fill: COLOR.textMuted, fontSize: 11 }} minTickGap={18} axisLine={false} tickLine={false} />
         <YAxis domain={[0, trafficYMax]} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
         <Tooltip
           cursor={{ fill: analyticsBarTooltipCursorFill(theme === 'dark') }}
@@ -1980,6 +1932,7 @@ function YoutubeVideosAnalyticsPanel({
   setSelectedReelMetrics,
 }: YoutubeVideosAnalyticsPanelProps) {
   const { theme } = useTheme();
+  const axisTickFormatter = useMemo(() => sparseMonthTickFormatterFromRows(chartData), [chartData]);
   return (
     <section id={sectionId} className="scroll-mt-28 space-y-6">
       <div
@@ -2097,7 +2050,7 @@ function YoutubeVideosAnalyticsPanel({
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
                 <XAxis
                   dataKey="date"
-                  tickFormatter={formatShortDate}
+                  tickFormatter={axisTickFormatter}
                   interval={0}
                   angle={chartAxisDense ? -32 : 0}
                   textAnchor={chartAxisDense ? 'end' : 'middle'}
@@ -2253,7 +2206,7 @@ export function PostsPerformanceTable({
 }) {
   const platUpper = (platform ?? '').toUpperCase();
   const compactVideoTable = platUpper === 'LINKEDIN' || platUpper === 'TWITTER';
-  const hideWatchMetrics = compactVideoTable || platUpper === 'PINTEREST';
+  const hideWatchMetrics = compactVideoTable || platUpper === 'PINTEREST' || platUpper === 'THREADS';
   // Disabled hover-zoom preview in Content History rows per UX request.
 
   const tableHeaders: Array<{ label: string; className: string; title?: string }> = [
@@ -3208,6 +3161,20 @@ export function FacebookAnalyticsView({
     }
     return axis.map((d) => byDate.get(d)!);
   }, [dateRange.end, dateRange.start, isYouTube, isLinkedIn, postsInRangeForPostsTabUi]);
+
+  const postsUploadTicks = useMemo(
+    () =>
+      buildKeyDateTicks(
+        postsUploadByDay,
+        (d) => d.reels + d.image + d.carousel + d.text + d.shorts + d.videos > 0,
+        12
+      ),
+    [postsUploadByDay]
+  );
+  const postsUploadTickFormatter = useMemo(
+    () => sparseMonthTickFormatter(postsUploadTicks),
+    [postsUploadTicks]
+  );
 
   const postsUploadChartYMax = useMemo(() => {
     if (postsUploadByDay.length === 0) return 1;
@@ -4646,6 +4613,10 @@ type PostsUploadDayTooltipAgg = {
     }
     return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date));
   }, [isTwitter, twitterRecentTweets]);
+  const twitterTweetTickFormatter = useMemo(
+    () => sparseMonthTickFormatterFromRows(twitterTweetChartData),
+    [twitterTweetChartData]
+  );
 
   const youtubeUnifiedVideoChartData = useMemo(() => {
     if (!isYouTube) return [] as ReelChartDayRow[];
@@ -4707,6 +4678,7 @@ type PostsUploadDayTooltipAgg = {
       ),
     [chartByMode, selectedStoryMetrics]
   );
+  const storyTickFormatter = useMemo(() => sparseMonthTickFormatter(storyTicks), [storyTicks]);
 
   const performanceStoryDualAxis = useMemo(() => {
     if (selectedStoryMetrics.length < 2) return false;
@@ -4739,8 +4711,13 @@ type PostsUploadDayTooltipAgg = {
       ),
     [trafficTimelineData]
   );
+  const mainTrafficTickFormatter = useMemo(() => sparseMonthTickFormatter(trafficTicks), [trafficTicks]);
   const reelsTicks = useMemo(
     () => buildKeyDateTicks(reelsChartData, (d) => (d.views ?? 0) > 0 || (d.watchTimeMinutes ?? 0) > 0 || (d.avgWatchSeconds ?? 0) > 0, 10),
+    [reelsChartData]
+  );
+  const reelsTickFormatter = useMemo(
+    () => sparseMonthTickFormatterFromRows(reelsChartData),
     [reelsChartData]
   );
 
@@ -5055,8 +5032,12 @@ type PostsUploadDayTooltipAgg = {
     [engagementData]
   );
   const engagementTicksSorted = useMemo(
-    () => [...engagementTicks].sort((a, b) => a.localeCompare(b)),
+    () => sortChartTickDates(engagementTicks),
     [engagementTicks]
+  );
+  const engagementTickFormatter = useMemo(
+    () => sparseMonthTickFormatter(engagementTicksSorted),
+    [engagementTicksSorted]
   );
   /** Keep Engagement KPI consistent with the Engagement section graph breakdown. */
   const engagementBreakdownTotal = useMemo(
@@ -5387,6 +5368,19 @@ type PostsUploadDayTooltipAgg = {
       shares: sharesMap[date] ?? 0,
     }));
   }, [storyPostsInRange, dateAxis, series?.storyMediaViews]);
+  const storyPerformanceTicks = useMemo(
+    () =>
+      buildKeyDateTicks(
+        storyChartData,
+        (d) => (d.views ?? 0) + (d.likes ?? 0) + (d.comments ?? 0) + (d.shares ?? 0) > 0,
+        10
+      ),
+    [storyChartData]
+  );
+  const storyPerformanceTickFormatter = useMemo(
+    () => sparseMonthTickFormatter(storyPerformanceTicks),
+    [storyPerformanceTicks]
+  );
 
   return (
     <div className="analytics-dark-scope p-0 md:p-0.5 space-y-3" style={{ background: COLOR.pageBg, maxWidth: 1400 }}>
@@ -5750,14 +5744,7 @@ type PostsUploadDayTooltipAgg = {
             </>
           ) : isThreads ? (
             <>
-              <div
-                className="rounded-xl border px-3 py-2 text-xs leading-relaxed mb-3"
-                style={{ borderColor: COLOR.border, background: COLOR.sectionAlt, color: COLOR.textSecondary }}
-              >
-                Metrics come from Threads Insights (views, likes, replies, reposts, quotes) for your selected date range.
-                Text posts and media posts are both included.
-              </div>
-              <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+<div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <SparklineMetricCard
                   label="Views"
                   source="Threads API · me/threads_insights · views"
@@ -5789,6 +5776,14 @@ type PostsUploadDayTooltipAgg = {
             </>
           ) : isLinkedIn ? (
             <>
+              <div
+                className="rounded-xl border px-3 py-2 text-xs leading-relaxed mb-3"
+                style={{ borderColor: COLOR.border, background: COLOR.sectionAlt, color: COLOR.textSecondary }}
+              >
+                LinkedIn analytics are not available yet. Today, Agent4Socials supports posting from the Composer
+                and reading and replying to comments on your LinkedIn posts in Inbox. We are actively working on
+                bringing full performance metrics to this page.
+              </div>
               {(linkedInExtras?.network?.companiesFollowed != null && linkedInExtras.network.companiesFollowed > 0) ||
               (linkedInExtras?.posts?.totalSynced != null && linkedInExtras.posts.totalSynced > 0) ? (
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: COLOR.textSecondary }}>
@@ -6074,7 +6069,7 @@ type PostsUploadDayTooltipAgg = {
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={chartByMode}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                <XAxis dataKey="date" ticks={storyTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
+                <XAxis dataKey="date" ticks={storyTicks} tickFormatter={storyTickFormatter} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
                 <YAxis
                   {...(performanceStoryDualAxis ? { yAxisId: 'left' as const } : {})}
                   domain={
@@ -6316,12 +6311,7 @@ type PostsUploadDayTooltipAgg = {
                 <XAxis
                   dataKey="date"
                   ticks={engagementTicks}
-                  tickFormatter={(value) => {
-                    const v = String(value);
-                    const idx = engagementTicksSorted.indexOf(v);
-                    if (idx < 0) return formatShortDate(v);
-                    return formatSparseMonthTick(v, idx, engagementTicksSorted);
-                  }}
+                  tickFormatter={engagementTickFormatter}
                   tick={{ fill: COLOR.textMuted, fontSize: 11 }}
                   dy={8}
                   minTickGap={28}
@@ -6687,7 +6677,7 @@ type PostsUploadDayTooltipAgg = {
                   margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                  <XAxis dataKey="date" ticks={trafficTicks} tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="date" ticks={trafficTicks} tickFormatter={mainTrafficTickFormatter} tick={{ fill: COLOR.textMuted, fontSize: 11 }} dy={8} minTickGap={18} axisLine={false} tickLine={false} />
                   <YAxis domain={[0, 'auto']} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                   <Tooltip
                     cursor={{ fill: analyticsBarTooltipCursorFill(isAnalyticsDark) }}
@@ -6926,7 +6916,8 @@ type PostsUploadDayTooltipAgg = {
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
                     <XAxis
                       dataKey="date"
-                      tickFormatter={formatShortDate}
+                      ticks={postsUploadTicks}
+                      tickFormatter={postsUploadTickFormatter}
                       tick={{ fill: COLOR.textMuted, fontSize: 11 }}
                       dy={8}
                       minTickGap={18}
@@ -7169,7 +7160,7 @@ type PostsUploadDayTooltipAgg = {
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
                   <XAxis
                     dataKey="date"
-                    tickFormatter={formatShortDate}
+                    tickFormatter={twitterTweetTickFormatter}
                     interval={0}
                     angle={twitterTweetChartData.length > 10 ? -32 : 0}
                     textAnchor={twitterTweetChartData.length > 10 ? 'end' : 'middle'}
@@ -7409,7 +7400,7 @@ type PostsUploadDayTooltipAgg = {
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
                 <XAxis
                   dataKey="date"
-                  tickFormatter={formatShortDate}
+                  tickFormatter={reelsTickFormatter}
                   interval={0}
                   angle={reelChartAxisDense ? -32 : 0}
                   textAnchor={reelChartAxisDense ? 'end' : 'middle'}
@@ -7537,7 +7528,7 @@ type PostsUploadDayTooltipAgg = {
                   margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(17,24,39,0.08)" vertical={false} />
-                  <XAxis dataKey="date" tickFormatter={formatShortDate} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="date" ticks={storyPerformanceTicks} tickFormatter={storyPerformanceTickFormatter} tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: COLOR.textMuted, fontSize: 11 }} axisLine={false} tickLine={false} />
                   <Tooltip
                     cursor={{ fill: analyticsBarTooltipCursorFill(isAnalyticsDark) }}
