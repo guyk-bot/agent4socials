@@ -163,6 +163,23 @@ const COLOR = {
   coral: '#ff8b7b',
 };
 
+function LinkedInAnalyticsStubNotice() {
+  return (
+    <div
+      className="rounded-xl border px-4 py-4 text-sm leading-relaxed"
+      style={{ borderColor: COLOR.border, background: COLOR.sectionAlt, color: COLOR.textSecondary }}
+    >
+      <p className="mb-1.5 font-medium" style={{ color: COLOR.text }}>
+        LinkedIn analytics coming soon
+      </p>
+      <p>
+        Currently, Agent4Socials only supports LinkedIn posts and comments. Publish posts from the Composer and read
+        and reply to comments on your LinkedIn posts in Inbox.
+      </p>
+    </div>
+  );
+}
+
 /** Recharts tooltip formatter item for this file's charts (matches Tooltip `formatter` third argument). */
 type TooltipFormatterEntry = TooltipPayloadEntry<string | number, string>;
 
@@ -5775,168 +5792,7 @@ type PostsUploadDayTooltipAgg = {
               </div>
             </>
           ) : isLinkedIn ? (
-            <>
-              <div
-                className="rounded-xl border px-3 py-2 text-xs leading-relaxed mb-3"
-                style={{ borderColor: COLOR.border, background: COLOR.sectionAlt, color: COLOR.textSecondary }}
-              >
-                LinkedIn analytics are not available yet. Today, Agent4Socials supports posting from the Composer
-                and reading and replying to comments on your LinkedIn posts in Inbox. We are actively working on
-                bringing full performance metrics to this page.
-              </div>
-              {(linkedInExtras?.network?.companiesFollowed != null && linkedInExtras.network.companiesFollowed > 0) ||
-              (linkedInExtras?.posts?.totalSynced != null && linkedInExtras.posts.totalSynced > 0) ? (
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: COLOR.textSecondary }}>
-                  {linkedInExtras?.network?.companiesFollowed != null && linkedInExtras.network.companiesFollowed > 0 ? (
-                    <span>Companies you follow (API): {formatNumber(linkedInExtras.network.companiesFollowed)}</span>
-                  ) : null}
-                  {linkedInExtras?.posts?.totalSynced != null ? (
-                    <span>Posts synced (all time): {formatNumber(linkedInExtras.posts.totalSynced)}</span>
-                  ) : null}
-                </div>
-              ) : null}
-              {process.env.NODE_ENV !== 'production' && linkedInExtras?.permissionHint ? (
-                <div
-                  className="rounded-xl border px-3 py-2 text-xs leading-relaxed"
-                  style={{ borderColor: COLOR.border, background: COLOR.sectionAlt, color: COLOR.textSecondary }}
-                >
-                  {linkedInExtras.permissionHint}
-                </div>
-              ) : null}
-              {process.env.NODE_ENV !== 'production' &&
-              linkedInExtras?.storedPosts &&
-              linkedInExtras.storedPosts.length > 0 ? (
-                <div className="overflow-x-auto rounded-xl border" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
-                  <div className="border-b px-3 py-2 text-xs font-medium" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
-                    Stored post metrics (from our database — last sync)
-                  </div>
-                  <table className="w-full min-w-[720px] text-left text-xs">
-                    <thead>
-                      <tr style={{ color: COLOR.textSecondary }}>
-                        <th className="px-3 py-2 font-medium">Published</th>
-                        <th className="px-3 py-2 font-medium">Type</th>
-                        <th className="px-3 py-2 font-medium">Impressions</th>
-                        <th className="px-3 py-2 font-medium">Unique</th>
-                        <th className="px-3 py-2 font-medium">Reached</th>
-                        <th className="px-3 py-2 font-medium">Likes</th>
-                        <th className="px-3 py-2 font-medium">Comments</th>
-                        <th className="px-3 py-2 font-medium">Shares</th>
-                        <th className="px-3 py-2 font-medium">Clicks</th>
-                        <th className="px-3 py-2 font-medium">Post</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {linkedInExtras.storedPosts.map((row) => (
-                        <tr key={row.platformPostId} className="border-t" style={{ borderColor: COLOR.border }}>
-                          <td className="whitespace-nowrap px-3 py-2" style={{ color: COLOR.text }}>
-                            {row.publishedAt ? new Date(row.publishedAt).toLocaleDateString() : '—'}
-                          </td>
-                          <td className="px-3 py-2 capitalize" style={{ color: COLOR.textSecondary }}>
-                            {(row.mediaType ?? 'post').toLowerCase()}
-                          </td>
-                          <td className="px-3 py-2 tabular-nums">{formatNumber(row.impressions ?? 0)}</td>
-                          <td className="px-3 py-2 tabular-nums">{formatNumber(row.uniqueImpressions ?? 0)}</td>
-                          <td className="px-3 py-2 tabular-nums">{formatNumber(row.membersReached ?? 0)}</td>
-                          <td className="px-3 py-2 tabular-nums">{formatNumber(row.likeCount ?? 0)}</td>
-                          <td className="px-3 py-2 tabular-nums">{formatNumber(row.commentsCount ?? 0)}</td>
-                          <td className="px-3 py-2 tabular-nums">{formatNumber(row.sharesCount ?? 0)}</td>
-                          <td className="px-3 py-2 tabular-nums">{formatNumber(row.clicks ?? 0)}</td>
-                          <td className="max-w-[200px] truncate px-3 py-2" style={{ color: COLOR.textSecondary }}>
-                            {row.permalinkUrl ? (
-                              <a
-                                href={row.permalinkUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="underline decoration-dotted underline-offset-2"
-                                style={{ color: COLOR.violet }}
-                              >
-                                Open
-                              </a>
-                            ) : (
-                              <span title={row.platformPostId}>{row.contentPreview ?? row.platformPostId.slice(0, 24)}</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
-              {linkedInExtras?.engagementInRange ? (
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 text-xs">
-                  {(
-                    [
-                      ['Likes', linkedInExtras.engagementInRange.likes],
-                      ['Comments', linkedInExtras.engagementInRange.comments],
-                      ['Shares', linkedInExtras.engagementInRange.shares],
-                      ['Clicks', linkedInExtras.engagementInRange.clicks],
-                      ['Unique impressions', linkedInExtras.engagementInRange.uniqueImpressions],
-                      ['Members reached', linkedInExtras.engagementInRange.membersReached],
-                    ] as const
-                  ).map(([label, value]) => (
-                    <div
-                      key={label}
-                      className="rounded-lg border px-3 py-2"
-                      style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}
-                    >
-                      <p style={{ color: COLOR.textSecondary }}>{label}</p>
-                      <p className="text-base font-semibold tabular-nums" style={{ color: COLOR.text }}>
-                        {formatNumber(value ?? 0)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-              <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <SparklineMetricCard
-                  label="New Connections"
-                  source={`Connection increase in selected period from synced history. Current total: ${formatNumber(totalFollowers)}`}
-                  color={COLOR.mint}
-                  value={formatNumber(followersIncreaseInSelectedRange)}
-                  series={growthSparklineSeries.follows}
-                  active={isCardSelected('followers')}
-                  onClick={() => toggleStoryMetric('followers')}
-                />
-                <SparklineMetricCard
-                  label="Posts in range"
-                  source="Synced LinkedIn posts with publish date in the selected range"
-                  color={COLOR.amber}
-                  value={formatNumber(postsInRange.length)}
-                  series={growthSparklineSeries.contentViews}
-                  active={isCardSelected('contentViews')}
-                  onClick={() => toggleStoryMetric('contentViews')}
-                />
-                <SparklineMetricCard
-                  label="Impressions (synced)"
-                  source="Sum of stored impressions on synced posts in range"
-                  color={TIKTOK_PERFORMANCE_LINE_COLORS.videoViews}
-                  value={formatNumber(
-                    Math.max(
-                      performanceTotalsFromChart.videoViews,
-                      insights?.impressionsTotal ?? 0,
-                      linkedInImpressionsInRange
-                    )
-                  )}
-                  series={growthSparklineSeries.videoViews}
-                  active={isCardSelected('videoViews')}
-                  onClick={() => toggleStoryMetric('videoViews')}
-                />
-                <SparklineMetricCard
-                  label="Engagements (range)"
-                  source="Synced posts breakdown in selected range: likes + comments + shares (and reposts/dislikes when available)"
-                  color={COLOR.coral}
-                  value={formatNumber(
-                    Math.max(
-                      engagementBreakdownTotal,
-                      linkedInEngagementsInRange
-                    )
-                  )}
-                  series={growthSparklineSeries.engagement}
-                  active={isCardSelected('engagements')}
-                  onClick={() => toggleStoryMetric('engagements')}
-                />
-              </div>
-            </>
+            <LinkedInAnalyticsStubNotice />
           ) : isYouTube ? (
             <>
               <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -6030,6 +5886,8 @@ type PostsUploadDayTooltipAgg = {
             />
           </div>
           )}
+          {!isLinkedIn ? (
+          <>
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
               {selectedStoryMetrics.map((metric) => (
@@ -6141,9 +5999,11 @@ type PostsUploadDayTooltipAgg = {
             </ResponsiveContainer>
           )}
           </InsightChartCard>
+          </>
+          ) : null}
         </div>
 
-        {!isPinterest ? (
+        {!isPinterest && !isLinkedIn ? (
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Engagement</h3>
@@ -6776,7 +6636,9 @@ type PostsUploadDayTooltipAgg = {
           <div>
             <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>{isTwitter ? 'Tweets' : isPinterest ? 'Pins' : isThreads ? 'Threads posts' : 'Posts'}</h2>
           </div>
-          {!isYouTube ? (
+          {isLinkedIn ? (
+            <LinkedInAnalyticsStubNotice />
+          ) : !isYouTube ? (
           <div className="rounded-xl border p-4 sm:p-5" style={{ borderColor: COLOR.border, background: COLOR.sectionAlt }}>
             <div className="mb-4 flex flex-col gap-3">
             <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -7568,6 +7430,10 @@ type PostsUploadDayTooltipAgg = {
           <div>
             <h2 className="text-[30px] font-semibold tracking-tight" style={{ color: COLOR.text }}>Content History</h2>
           </div>
+          {isLinkedIn ? (
+            <LinkedInAnalyticsStubNotice />
+          ) : (
+          <>
           <div className="flex flex-wrap gap-2">
             {(isThreads
               ? [
@@ -7637,6 +7503,8 @@ type PostsUploadDayTooltipAgg = {
               />
             );
           })()}
+          </>
+          )}
         </div>
         )}
       </section>
