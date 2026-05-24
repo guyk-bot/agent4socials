@@ -6,9 +6,42 @@ import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { getValidYoutubeToken } from '@/lib/youtube-token';
 import { linkedInAuthorUrnForUgc } from '@/lib/linkedin/sync-ugc-posts';
 import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
+import type { InboxCommentRow } from '@/lib/inbox/inbox-db-cache';
 
 /** Threads reply: create container, poll Meta, publish (can exceed default 10s). */
 export const maxDuration = 60;
+
+async function persistOutboundInboxReply(args: {
+  accountId: string;
+  platform: string;
+  parentCommentId: string;
+  message: string;
+}): Promise<string> {
+  const { getInboxCommentsFromDb, mergeInboxCommentsInDb } = await import('@/lib/inbox/inbox-db-cache');
+  const stored = (await getInboxCommentsFromDb(args.accountId)) ?? [];
+  const parent = stored.find((c) => c.commentId === args.parentCommentId);
+  const sentId = `sent-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const row: InboxCommentRow = {
+    commentId: sentId,
+    accountId: args.accountId,
+    platform: args.platform,
+    postTargetId: parent?.postTargetId ?? `reply-${args.parentCommentId}`,
+    platformPostId: parent?.platformPostId ?? '',
+    postPreview: parent?.postPreview ?? 'Post',
+    postImageUrl: parent?.postImageUrl ?? null,
+    postPublishedAt: parent?.postPublishedAt ?? null,
+    postUrl: parent?.postUrl ?? null,
+    text: args.message,
+    authorName: 'You',
+    authorPictureUrl: null,
+    createdAt: new Date().toISOString(),
+    isFromMe: true,
+    parentCommentId: args.parentCommentId,
+    threadsReplyToId: null,
+  };
+  await mergeInboxCommentsInDb(args.accountId, [row]);
+  return sentId;
+}
 
 /**
  * POST /api/social/accounts/[id]/comments/reply
@@ -144,7 +177,13 @@ export async function POST(
       if (!result.ok) {
         return NextResponse.json({ message: result.message }, { status: 400 });
       }
-      return NextResponse.json({ ok: true });
+      const replyCommentId = await persistOutboundInboxReply({
+        accountId: account.id,
+        platform: 'THREADS',
+        parentCommentId: commentId.trim(),
+        message: message.trim(),
+      });
+      return NextResponse.json({ ok: true, replyCommentId });
     }
 
     if (platform === 'YOUTUBE') {
@@ -186,7 +225,13 @@ export async function POST(
         { params: { message: message.trim(), access_token: accessToken }, timeout: 15_000 }
       );
     }
-    return NextResponse.json({ ok: true });
+    const replyCommentId = await persistOutboundInboxReply({
+      accountId: account.id,
+      platform,
+      parentCommentId: commentId.trim(),
+      message: message.trim(),
+    });
+    return NextResponse.json({ ok: true, replyCommentId });
   } catch (err) {
     const axErr = err as { response?: { data?: unknown; status?: number }; message?: string };
     const rawData = axErr?.response?.data;

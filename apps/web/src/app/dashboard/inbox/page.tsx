@@ -84,6 +84,7 @@ import {
   mergeInboxCommentsWithUnreadDetection,
   mergeInboxConversationsWithUnreadDetection,
 } from '@/lib/inbox/merge-inbox-unread';
+import { mergeOptimisticInboxReplies } from '@/lib/inbox/merge-optimistic-replies';
 import {
   readInboxCommentsClientCache,
   writeInboxCommentsClientCache,
@@ -2012,7 +2013,10 @@ function InboxPage() {
             : [];
       const seed = seedRaw.map((c) => normalizeThreadsInboxCommentRow(c));
       const incomingNorm = incoming.map((c) => normalizeThreadsInboxCommentRow(c));
-      const stable = mergeInboxCommentsWithUnreadDetection(user?.id, seed, incomingNorm).map((c) =>
+      const stableRaw = mergeInboxCommentsWithUnreadDetection(user?.id, seed, incomingNorm).map((c) =>
+        normalizeThreadsInboxCommentRow(c)
+      );
+      const stable = mergeOptimisticInboxReplies(stableRaw, seed).map((c) =>
         normalizeThreadsInboxCommentRow(c)
       );
       commentsStableRef.current = stable;
@@ -2020,6 +2024,21 @@ function InboxPage() {
       setComments(stable);
       if (stable.length > 0) commentsEverLoadedRef.current = true;
       setCommentsLoading(false);
+    },
+    [user?.id]
+  );
+
+  const appendInboxCommentReply = useCallback(
+    (reply: PostComment) => {
+      const normalized = normalizeThreadsInboxCommentRow(reply);
+      const next = mergeOptimisticInboxReplies([normalized, ...commentsStableRef.current], commentsStableRef.current);
+      commentsStableRef.current = next;
+      if (user?.id) writeInboxCommentsClientCache(user.id, next);
+      setComments(next);
+      if (reply.accountId && appDataRef.current) {
+        const perAcc = next.filter((c) => c.accountId === reply.accountId);
+        appDataRef.current.setCommentsForAccount(reply.accountId, perAcc);
+      }
     },
     [user?.id]
   );
@@ -3891,8 +3910,30 @@ function InboxPage() {
                         ).then((results) => {
                           const failed: string[] = [];
                           results.forEach((r, i) => {
-                            if (r.status === 'rejected') {
-                              failed.push(toSend[i].c.authorName || toSend[i].c.commentId);
+                            const { c, msg } = toSend[i]!;
+                            if (r.status === 'fulfilled') {
+                              const replyId =
+                                (r.value.data as { replyCommentId?: string } | undefined)?.replyCommentId ??
+                                `local-reply-${Date.now()}-${i}`;
+                              appendInboxCommentReply({
+                                commentId: replyId,
+                                postTargetId: c.postTargetId,
+                                platformPostId: c.platformPostId,
+                                accountId: c.accountId,
+                                postPreview: c.postPreview,
+                                postImageUrl: c.postImageUrl,
+                                postPublishedAt: c.postPublishedAt,
+                                postUrl: c.postUrl,
+                                text: msg,
+                                authorName: 'You',
+                                authorPictureUrl: user?.avatarUrl ?? null,
+                                createdAt: new Date().toISOString(),
+                                platform: c.platform,
+                                isFromMe: true,
+                                parentCommentId: c.commentId,
+                              });
+                            } else {
+                              failed.push(c.authorName || c.commentId);
                             }
                           });
                           if (failed.length > 0) {
@@ -4341,7 +4382,9 @@ function InboxPage() {
                     setReplySending(true);
                     try {
                       const sentMessage = replyText.trim();
-                      await api.post(`/social/accounts/${account.id}/comments/reply`, {
+                      const res = await api.post<{ replyCommentId?: string }>(
+                        `/social/accounts/${account.id}/comments/reply`,
+                        {
                         commentId: selectedComment.commentId,
                         message: sentMessage,
                         ...(selectedComment.platform === 'THREADS'
@@ -4355,9 +4398,8 @@ function InboxPage() {
                           ? { linkedInObjectUrn: selectedComment.linkedInObjectUrn }
                           : {}),
                       });
-                      // Add the sent reply optimistically to the top of the list
                       const myReply: PostComment = {
-                        commentId: `local-reply-${Date.now()}`,
+                        commentId: res.data?.replyCommentId ?? `local-reply-${Date.now()}`,
                         postTargetId: selectedComment.postTargetId,
                         platformPostId: selectedComment.platformPostId,
                         accountId: selectedComment.accountId,
@@ -4373,7 +4415,8 @@ function InboxPage() {
                         isFromMe: true,
                         parentCommentId: selectedComment.commentId,
                       };
-                      setComments((prev) => [myReply, ...prev]);
+                      appendInboxCommentReply(myReply);
+                      markInboxCommentRead(selectedComment.commentId);
                       setReplyText('');
                       setReplySendError(null);
                     } catch (e: unknown) {
