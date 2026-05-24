@@ -2232,11 +2232,11 @@ function InboxPage() {
       mentionsFound?: number;
       skippedOwn?: number;
     } | null = null;
-    const liveRows: PostComment[] = [];
     const platformErrors: string[] = [];
     let refreshedLive = 0;
+    let skippedCooldown = 0;
 
-    for (const acc of commentAccounts) {
+    const refreshOneAccount = async (acc: Account) => {
       const scope = inboxCommentsCooldownScope(acc.platform, acc.id);
       const cooldownMs =
         acc.platform === 'THREADS'
@@ -2245,7 +2245,8 @@ function InboxPage() {
             ? INBOX_META_COMMENTS_REFRESH_MS
             : INBOX_LIGHT_COMMENTS_REFRESH_MS;
       if (!opts?.manual && uid && !canRunInboxLiveRefresh(scope, uid, cooldownMs)) {
-        continue;
+        skippedCooldown += 1;
+        return;
       }
       try {
         const r = await api.get<{
@@ -2272,8 +2273,10 @@ function InboxPage() {
         if (r.data?.error && cs.length === 0) {
           platformErrors.push(`${acc.platform}: ${r.data.error}`);
         } else if (cs.length > 0) {
-          liveRows.push(...mapRows(acc, cs));
+          applyCommentsToUiRef.current(mapRows(acc, cs));
           refreshedLive += 1;
+          const perAcc = commentsStableRef.current.filter((c) => c.accountId === acc.id);
+          if (perAcc.length) appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
         }
         if (uid) markInboxLiveRefresh(scope, uid);
       } catch (err: unknown) {
@@ -2282,36 +2285,30 @@ function InboxPage() {
             ?.error ??
           (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
           'Could not refresh comments.';
-        if (acc.platform === 'THREADS' && liveRows.filter((c) => c.platform === 'THREADS').length === 0) {
+        if (
+          acc.platform === 'THREADS' &&
+          !commentsStableRef.current.some((c) => c.platform === 'THREADS')
+        ) {
           threadsSyncError = msg;
         }
         platformErrors.push(`${acc.platform}: ${msg}`);
       }
-    }
+    };
 
-    if (liveRows.length > 0) {
-      const byId = new Map<string, PostComment>();
-      for (const c of liveRows) {
-        if (c.commentId) byId.set(c.commentId, c);
-      }
-      applyCommentsToUiRef.current([...byId.values()]);
-      for (const acc of commentAccounts) {
-        const perAcc = commentsStableRef.current.filter((c) => c.accountId === acc.id);
-        if (perAcc.length) appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
-      }
-    }
+    await Promise.all(commentAccounts.map((acc) => refreshOneAccount(acc)));
 
-    if (platformErrors.length > 0 && liveRows.length === 0 && cachedRows.length === 0) {
+    const hasAnyComments = commentsStableRef.current.length > 0 || cachedRows.length > 0;
+    if (platformErrors.length > 0 && !hasAnyComments) {
       setCommentsError(platformErrors.slice(0, 2).join(' '));
     }
 
     setCommentsLiveSync({
       loading: false,
       hint:
-        refreshedLive === 0 && liveRows.length === 0 && cachedRows.length > 0
+        skippedCooldown > 0 && refreshedLive === 0 && cachedRows.length > 0
           ? 'Some platforms are on a refresh cooldown. Showing saved comments. Tap Refresh comments to force sync.'
-          : refreshedLive === 0 && liveRows.length === 0
-            ? 'Sync posts from Dashboard for YouTube, X, and LinkedIn if comments are missing.'
+          : refreshedLive === 0 && !hasAnyComments
+            ? 'Sync posts from Dashboard if YouTube, X, LinkedIn, TikTok, or Pinterest comments are missing. Refresh can take up to about a minute for all platforms.'
             : null,
     });
 
@@ -3118,7 +3115,7 @@ function InboxPage() {
             <p className="text-xs text-neutral-400 mt-1">
               {threadsSelected
                 ? 'Replies on your threads and mentions of your handle appear here. Private Threads messages stay in the Threads app.'
-                : 'Comments from Instagram, Facebook, X, YouTube, LinkedIn, and Threads appear here. TikTok and Pinterest show posts with comments: tap Open to reply in their apps. Sync posts on Dashboard first.'}
+                : 'Comments from your connected platforms appear here after a refresh. Sync posts on Dashboard first if a platform looks empty.'}
             </p>
             <button
               type="button"
@@ -3666,21 +3663,13 @@ function InboxPage() {
 
         {inboxMode === 'comments' && commentsLiveSync.loading ? (
           <div className="mx-2 mt-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
-            Syncing comments from your connected platforms…
+            Syncing comments from your connected platforms (usually under a minute)…
           </div>
         ) : null}
 
         {inboxMode === 'comments' && !commentsLiveSync.loading && commentsLiveSync.hint ? (
           <div className="mx-2 mt-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-100">
             {commentsLiveSync.hint}
-          </div>
-        ) : null}
-
-        {inboxMode === 'comments' &&
-        (connectedPlatformIds.includes('TIKTOK') || connectedPlatformIds.includes('PINTEREST')) ? (
-          <div className="mx-2 mt-2 rounded-lg border border-violet-200 bg-violet-50/90 px-3 py-2 text-xs text-violet-950 dark:border-violet-900/50 dark:bg-violet-950/40 dark:text-violet-100">
-            <span className="font-semibold">TikTok &amp; Pinterest:</span> comment text cannot be loaded here. Posts with
-            comments show an <span className="font-semibold">Open</span> button to reply in the TikTok or Pinterest app.
           </div>
         ) : null}
 

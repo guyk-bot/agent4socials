@@ -237,7 +237,6 @@ export async function GET(
         publishedAt: p.publishedAt,
         commentsCount: p.commentsCount,
       })),
-      includeZeroCommentPosts: 12,
     });
     let responseComments = externalRows;
     if (responseComments.length > 0) {
