@@ -9,6 +9,7 @@ import { AnalyticsUpgradeCard } from '../AnalyticsUpgradeCard';
 import { PostContentPreviewThumb } from '@/components/PostContentPreviewThumb';
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartTooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { buildKeyDateTicks, sparseMonthTickFormatter } from '@/lib/analytics/chart-axis-date';
 import type { FacebookPost } from './types';
 
 interface FacebookPostsTabProps {
@@ -86,6 +87,15 @@ export function FacebookPostsTab({
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [posts]);
 
+  const postsChartAxisTicks = useMemo(
+    () => buildKeyDateTicks(postsByDate, (d) => d.value > 0, 10),
+    [postsByDate]
+  );
+  const postsChartTickFormatter = useMemo(
+    () => sparseMonthTickFormatter(postsChartAxisTicks),
+    [postsChartAxisTicks]
+  );
+
   if (loading) {
     return (
       <div className="space-y-10 animate-pulse">
@@ -127,12 +137,11 @@ export function FacebookPostsTab({
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(107,114,128,0.08)" vertical={false} />
                   <XAxis
                     dataKey="date"
+                    ticks={postsChartAxisTicks}
                     tick={{ fontSize: 11, fill: '#6b7280' }}
                     axisLine={false}
                     tickLine={false}
-                    tickFormatter={(v) => {
-                      try { return new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); } catch { return v; }
-                    }}
+                    tickFormatter={postsChartTickFormatter}
                   />
                   <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <RechartTooltip

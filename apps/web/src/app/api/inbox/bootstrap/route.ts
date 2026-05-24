@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
       acc.platform === 'YOUTUBE' ||
       acc.platform === 'LINKEDIN' ||
       acc.platform === 'PINTEREST' ||
+      acc.platform === 'TIKTOK' ||
       acc.platform === 'THREADS'
     ) {
       let storedComments = await getInboxCommentsFromDb(acc.id);

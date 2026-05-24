@@ -27,6 +27,11 @@ import {
   type InboxCommentRow,
 } from '@/lib/inbox/inbox-db-cache';
 import { fetchAllPublishedPostsForPage, sortFbPublishedPostsNewestFirst } from '@/lib/facebook/fetchers';
+import {
+  buildExternalPlatformCommentRows,
+  externalPlatformProfileUrl,
+  isExternalOpenPlatform,
+} from '@/lib/inbox/external-platform-comments';
 
 /**
  * Rate-limit guardrails (see Meta app dashboard spikes):
@@ -205,21 +210,56 @@ export async function GET(
     });
   }
 
-  // TikTok: Comment *reading* exists in TikTok's Research API, but that API is only for approved
-  // researchers. The Display API (what we use: video.list, user.info, etc.) does not expose comment text.
-  if (platform === 'TIKTOK') {
-    return NextResponse.json({
-      comments: [],
-      error: "TikTok's Display API (used by this app) doesn't include comment text. Comment reading is available only in TikTok's Research API for approved researchers. You can see comment counts in Analytics.",
+  // TikTok / Pinterest: no comment text in our APIs; show posts with comment activity + open-on-platform links.
+  if (isExternalOpenPlatform(platform)) {
+    const importedForExternal = await prisma.importedPost.findMany({
+      where: { socialAccountId: account.id },
+      orderBy: { publishedAt: 'desc' },
+      take: 80,
+      select: {
+        platformPostId: true,
+        content: true,
+        thumbnailUrl: true,
+        permalinkUrl: true,
+        publishedAt: true,
+        commentsCount: true,
+      },
     });
-  }
-
-  if (platform === 'PINTEREST') {
-    return NextResponse.json({
-      comments: [],
-      error: null,
-      hint: 'Pin comments are not loaded in this inbox yet. Use Pinterest or analytics for pin activity.',
+    const externalRows = buildExternalPlatformCommentRows({
+      accountId: account.id,
+      platform: platform as 'TIKTOK' | 'PINTEREST',
+      username: account.username,
+      posts: importedForExternal.map((p) => ({
+        platformPostId: p.platformPostId,
+        content: p.content,
+        thumbnailUrl: p.thumbnailUrl,
+        permalinkUrl: p.permalinkUrl,
+        publishedAt: p.publishedAt,
+        commentsCount: p.commentsCount,
+      })),
+      includeZeroCommentPosts: 12,
     });
+    let responseComments = externalRows;
+    if (responseComments.length > 0) {
+      responseComments = await mergeInboxCommentsInDb(id, responseComments);
+    }
+    const label = platform === 'TIKTOK' ? 'TikTok' : 'Pinterest';
+    const profileUrl = externalPlatformProfileUrl(platform, account.username);
+    const hint =
+      externalRows.length > 0
+        ? `${label} does not allow reading comment text in this app. Tap a row to open comments on ${label}.`
+        : `Sync ${label} posts from Dashboard, then refresh. You can also open your ${label} profile to check comments.`;
+    const payload = {
+      comments: responseComments,
+      hint,
+      externalOpenOnly: true,
+      profileOpenUrl: profileUrl,
+    };
+    if (!deltaMode && !refresh) setCached(cacheKey, payload, COMMENTS_CACHE_TTL_MS);
+    const res = NextResponse.json(payload);
+    res.headers.set('Cache-Control', 'private, max-age=60');
+    res.headers.set('X-Comments-Cache', 'EXTERNAL');
+    return res;
   }
 
   // Auto-refresh YouTube tokens

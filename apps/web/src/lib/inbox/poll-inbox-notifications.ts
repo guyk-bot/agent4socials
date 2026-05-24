@@ -32,6 +32,7 @@ import {
 } from '@/lib/meta-usage-guard';
 import {
   INBOX_COMMENT_BACKGROUND_POLL_PLATFORMS,
+  INBOX_COMMENT_EXTERNAL_OPEN_PLATFORMS,
   INBOX_COMMENT_META_PLATFORMS,
   inboxCommentsCooldownScope,
 } from '@/lib/inbox/inbox-comment-platforms';
@@ -305,8 +306,9 @@ export async function pollInboxNotifications(args: {
               ? INBOX_META_COMMENTS_REFRESH_MS
               : INBOX_LIGHT_COMMENTS_REFRESH_MS;
         const liveAllowed =
-          !INBOX_COMMENT_META_PLATFORMS.has(acc.platform) &&
-          canRunInboxLiveRefresh(scope, userId, cooldownMs);
+          INBOX_COMMENT_EXTERNAL_OPEN_PLATFORMS.has(acc.platform) ||
+          (!INBOX_COMMENT_META_PLATFORMS.has(acc.platform) &&
+            canRunInboxLiveRefresh(scope, userId, cooldownMs));
         const res = await api.get<{ comments?: CachedComment[]; error?: string }>(
           liveAllowed
             ? `/social/accounts/${acc.id}/comments?refresh=1`

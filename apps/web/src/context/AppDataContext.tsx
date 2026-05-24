@@ -747,6 +747,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           'YOUTUBE',
           'LINKEDIN',
           'THREADS',
+          'TIKTOK',
+          'PINTEREST',
         ]);
         const CONVO_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK']);
         const ENGAGEMENT_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'YOUTUBE']);

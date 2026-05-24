@@ -213,6 +213,9 @@ export type InboxCommentRow = {
   postImageUrl?: string | null;
   postPublishedAt?: string | null;
   postUrl?: string | null;
+  /** TikTok / Pinterest: no API comment text; open post on platform to reply. */
+  openOnPlatformOnly?: boolean;
+  externalCommentCount?: number;
 };
 
 export function inboxCommentsKey(socialAccountId: string): string {

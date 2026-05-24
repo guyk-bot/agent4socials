@@ -13,6 +13,7 @@ import {
   TooltipProps,
 } from 'recharts';
 import { formatMetricNumber } from '@/lib/metric-format';
+import { sparseMonthTickFormatterFromRows } from '@/lib/analytics/chart-axis-date';
 
 export type TimeSeriesPoint = { date: string; value: number };
 
@@ -72,6 +73,11 @@ export function InteractiveLineChart({
     return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
   }, [data, secondaryData]);
 
+  const axisTickFormatter = useMemo(
+    () => sparseMonthTickFormatterFromRows(chartData),
+    [chartData]
+  );
+
   const CustomTooltip = useCallback(
     (rawProps: TooltipProps<number, string>) => {
       const { active, payload, label } = rawProps as unknown as {
@@ -125,13 +131,7 @@ export function InteractiveLineChart({
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
           <XAxis
             dataKey="date"
-            tickFormatter={(v) => {
-              try {
-                return new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-              } catch {
-                return v;
-              }
-            }}
+            tickFormatter={axisTickFormatter}
             tick={{ fontSize: 11, fill: '#6b7280' }}
             axisLine={false}
             tickLine={false}

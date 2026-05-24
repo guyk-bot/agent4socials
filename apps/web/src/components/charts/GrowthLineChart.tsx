@@ -12,6 +12,7 @@ import {
   TooltipProps,
 } from 'recharts';
 import { formatMetricNumber } from '@/lib/metric-format';
+import { sparseMonthTickFormatterFromRows } from '@/lib/analytics/chart-axis-date';
 
 export type TimeSeriesPoint = { date: string; value: number };
 
@@ -51,6 +52,11 @@ export function GrowthLineChart({ data, metric, height = 320, className = '' }: 
     }));
   }, [data, metric, config.dataKey]);
 
+  const axisTickFormatter = useMemo(
+    () => sparseMonthTickFormatterFromRows(chartData),
+    [chartData]
+  );
+
   const CustomTooltip = useCallback(
     (props: TooltipProps<number, string>) => {
       const { active, payload, label } = props as unknown as { active?: boolean; payload?: Array<{ value?: number }>; label?: string };
@@ -83,13 +89,7 @@ export function GrowthLineChart({ data, metric, height = 320, className = '' }: 
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
           <XAxis
             dataKey="date"
-            tickFormatter={(v) => {
-              try {
-                return new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-              } catch {
-                return v;
-              }
-            }}
+            tickFormatter={axisTickFormatter}
             tick={{ fontSize: 11, fill: '#64748b' }}
             axisLine={false}
             tickLine={false}

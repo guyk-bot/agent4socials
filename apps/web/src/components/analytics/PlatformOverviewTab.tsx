@@ -20,6 +20,7 @@ import {
   CartesianGrid,
   Legend,
 } from 'recharts';
+import { buildKeyDateTicks, sparseMonthTickFormatter } from '@/lib/analytics/chart-axis-date';
 
 export type PlatformId = 'INSTAGRAM' | 'TIKTOK' | 'YOUTUBE' | 'TWITTER' | 'LINKEDIN' | 'PINTEREST';
 
@@ -131,13 +132,31 @@ export function PlatformOverviewTab({
   }, [impressions, reach, pageViews, profileViews]);
 
   const showWatermark = days > 30;
-  const followersChartShowYear = useMemo(() => {
-    const dates = growthChartData.map((d) => d.date);
-    if (dates.length <= 2) return true;
-    const first = new Date(dates[0]);
-    const last = new Date(dates[dates.length - 1]);
-    return first.getMonth() === last.getMonth() && first.getDate() === last.getDate();
-  }, [growthChartData]);
+
+  const growthAxisTicks = useMemo(
+    () => buildKeyDateTicks(growthChartData, (d) => d.followers > 0, 10),
+    [growthChartData]
+  );
+  const growthAxisTickFormatter = useMemo(
+    () => sparseMonthTickFormatter(growthAxisTicks),
+    [growthAxisTicks]
+  );
+  const engagementAxisTicks = useMemo(
+    () => buildKeyDateTicks(engagementByDate, (d) => d.likes + d.comments + d.shares > 0, 10),
+    [engagementByDate]
+  );
+  const engagementAxisTickFormatter = useMemo(
+    () => sparseMonthTickFormatter(engagementAxisTicks),
+    [engagementAxisTicks]
+  );
+  const postsAxisTicks = useMemo(
+    () => buildKeyDateTicks(postsByDate, (d) => d.value > 0, 10),
+    [postsByDate]
+  );
+  const postsAxisTickFormatter = useMemo(
+    () => sparseMonthTickFormatter(postsAxisTicks),
+    [postsAxisTicks]
+  );
 
   const chartId = useMemo(() => `po-${Math.random().toString(36).slice(2, 9)}`, []);
 
@@ -225,12 +244,11 @@ export function PlatformOverviewTab({
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(107,114,128,0.08)" vertical={false} />
                     <XAxis
                       dataKey="date"
+                      ticks={growthAxisTicks}
                       tick={{ fontSize: 11, fill: '#6b7280' }}
                       axisLine={false}
                       tickLine={false}
-                      tickFormatter={(v) =>
-                        new Date(v).toLocaleDateString(undefined, followersChartShowYear ? { month: 'short', day: 'numeric', year: '2-digit' } : { month: 'short', day: 'numeric' })
-                      }
+                      tickFormatter={growthAxisTickFormatter}
                     />
                     <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
                     <RechartTooltip
@@ -294,10 +312,11 @@ export function PlatformOverviewTab({
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(107,114,128,0.08)" vertical={false} />
                     <XAxis
                       dataKey="date"
+                      ticks={engagementAxisTicks}
                       tick={{ fontSize: 11, fill: '#6b7280' }}
                       axisLine={false}
                       tickLine={false}
-                      tickFormatter={(v) => new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      tickFormatter={engagementAxisTickFormatter}
                     />
                     <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
                     <RechartTooltip
@@ -337,10 +356,11 @@ export function PlatformOverviewTab({
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(107,114,128,0.08)" vertical={false} />
                     <XAxis
                       dataKey="date"
+                      ticks={postsAxisTicks}
                       tick={{ fontSize: 11, fill: '#6b7280' }}
                       axisLine={false}
                       tickLine={false}
-                      tickFormatter={(v) => new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      tickFormatter={postsAxisTickFormatter}
                     />
                     <YAxis tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} />
                     <RechartTooltip

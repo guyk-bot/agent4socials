@@ -35,10 +35,14 @@ import {
   markInboxLiveRefresh,
 } from '@/lib/inbox/inbox-refresh-cooldown';
 import {
-  INBOX_COMMENT_LIVE_PLATFORMS,
   inboxCommentsCooldownScope,
   supportsInboxComments,
+  supportsInboxCommentsTab,
 } from '@/lib/inbox/inbox-comment-platforms';
+import {
+  externalPlatformProfileUrl,
+  isOpenOnPlatformInboxComment,
+} from '@/lib/inbox/external-platform-comments';
 import {
   markInboxAccountRecentlyConnected,
   isInboxAccountRecentlyConnected,
@@ -233,6 +237,9 @@ type PostComment = {
   /** Threads: media id for reply_to_id (from inbox sync). */
   threadsReplyToId?: string | null;
   inboxKind?: 'threads_reply' | 'threads_mention' | null;
+  /** TikTok / Pinterest: open the post on-platform to read and reply. */
+  openOnPlatformOnly?: boolean;
+  externalCommentCount?: number;
 };
 type EngagementItem = {
   platformPostId: string;
@@ -541,6 +548,12 @@ function InboxAvatar({
       )}
     </div>
   );
+}
+
+function openOnPlatformLabel(platform: string | undefined): string {
+  if (platform === 'TIKTOK') return 'Open on TikTok';
+  if (platform === 'PINTEREST') return 'Open on Pinterest';
+  return 'Open in app';
 }
 
 function inboxSenderDisplayName(
@@ -2130,7 +2143,7 @@ function InboxPage() {
     if (!user?.id) return;
     const fromAppData: PostComment[] = [];
     for (const acc of effectiveAccountsRef.current) {
-      if (!supportsInboxComments(acc.platform)) continue;
+      if (!supportsInboxCommentsTab(acc.platform)) continue;
       for (const c of (appDataRef.current?.getComments(acc.id) ?? []) as PostComment[]) {
         fromAppData.push({
           ...c,
@@ -2154,7 +2167,7 @@ function InboxPage() {
 
   const refreshAllPlatformComments = useCallback(async (opts?: { live?: boolean; manual?: boolean }) => {
     const commentAccounts = effectiveAccountsRef.current.filter((a) =>
-      supportsInboxComments(a.platform)
+      supportsInboxCommentsTab(a.platform)
     );
     if (commentAccounts.length === 0) return;
     const uid = user?.id ?? '';
@@ -3105,7 +3118,7 @@ function InboxPage() {
             <p className="text-xs text-neutral-400 mt-1">
               {threadsSelected
                 ? 'Replies on your threads and mentions of your handle appear here. Private Threads messages stay in the Threads app.'
-                : 'Comments from Instagram, Facebook, X, YouTube, LinkedIn, and Threads appear here. Sync posts on Dashboard for YouTube, X, and LinkedIn, then tap Refresh comments.'}
+                : 'Comments from Instagram, Facebook, X, YouTube, LinkedIn, and Threads appear here. TikTok and Pinterest show posts with comments: tap Open to reply in their apps. Sync posts on Dashboard first.'}
             </p>
             <button
               type="button"
@@ -3127,13 +3140,16 @@ function InboxPage() {
                 displayComments.filter((r) => r.isFromMe && r.parentCommentId).map((r) => r.parentCommentId)
               );
               const filtered = topLevelOnly
-                .filter((c) =>
-                  commentsFilter === 'all'
+                .filter((c) => {
+                  if (isOpenOnPlatformInboxComment(c)) {
+                    return commentsFilter === 'all' || commentsFilter === 'didnt_reply';
+                  }
+                  return commentsFilter === 'all'
                     ? true
                     : commentsFilter === 'replied'
                       ? hasRepliedByParent.has(c.commentId)
-                      : !hasRepliedByParent.has(c.commentId)
-                )
+                      : !hasRepliedByParent.has(c.commentId);
+                })
                 .filter((c) => {
                   if (threadsInboxKind === 'mentions' && !isThreadsMentionComment(c)) return false;
                   if (
@@ -3167,7 +3183,14 @@ function InboxPage() {
                 const account =
                   effectiveAccounts.find((a) => a.id === c.accountId) ??
                   effectiveAccounts.find((a) => a.platform === c.platform);
-                const canDelete = account && (c.platform === 'INSTAGRAM' || c.platform === 'FACEBOOK' || c.platform === 'YOUTUBE' || c.platform === 'TWITTER');
+                const isOpenOnPlatform = isOpenOnPlatformInboxComment(c);
+                const canDelete =
+                  !isOpenOnPlatform &&
+                  account &&
+                  (c.platform === 'INSTAGRAM' ||
+                    c.platform === 'FACEBOOK' ||
+                    c.platform === 'YOUTUBE' ||
+                    c.platform === 'TWITTER');
                 return (
                   <div
                     key={c.commentId}
@@ -3217,6 +3240,11 @@ function InboxPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
                             <PlatformSourcePill platformId={c.platform} />
+                            {isOpenOnPlatform ? (
+                              <span className="text-[10px] font-semibold uppercase tracking-wide rounded-full bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200 px-2 py-0.5">
+                                Open in app
+                              </span>
+                            ) : null}
                           </div>
                           {isThreadsMentionComment(c) ? (
                             <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-700 dark:text-sky-300 mt-0.5">
@@ -3231,6 +3259,18 @@ function InboxPage() {
                         </div>
                       </div>
                     </div>
+                    {isOpenOnPlatform && c.postUrl ? (
+                      <a
+                        href={c.postUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-xs font-semibold text-sky-800 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-100"
+                      >
+                        <ExternalLink size={12} />
+                        Open
+                      </a>
+                    ) : null}
                     {canDelete && (
                       <button
                         type="button"
@@ -3636,6 +3676,14 @@ function InboxPage() {
           </div>
         ) : null}
 
+        {inboxMode === 'comments' &&
+        (connectedPlatformIds.includes('TIKTOK') || connectedPlatformIds.includes('PINTEREST')) ? (
+          <div className="mx-2 mt-2 rounded-lg border border-violet-200 bg-violet-50/90 px-3 py-2 text-xs text-violet-950 dark:border-violet-900/50 dark:bg-violet-950/40 dark:text-violet-100">
+            <span className="font-semibold">TikTok &amp; Pinterest:</span> comment text cannot be loaded here. Posts with
+            comments show an <span className="font-semibold">Open</span> button to reply in the TikTok or Pinterest app.
+          </div>
+        ) : null}
+
         {inboxMode === 'comments' && connectedPlatformIds.includes('THREADS') ? (
           threadsCommentsSync.loading ? (
             <div className="mx-2 mt-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
@@ -3985,6 +4033,7 @@ function InboxPage() {
             const selectedComments = comments.filter((c) => !c.parentCommentId && selectedCommentIds.has(c.commentId));
             const canReplyPlatforms = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER', 'YOUTUBE', 'LINKEDIN', 'THREADS']);
             const replyable = selectedComments.filter((c) => {
+              if (isOpenOnPlatformInboxComment(c)) return false;
               if (!canReplyPlatforms.has(c.platform)) return false;
               if (c.platform === 'LINKEDIN' && !(c.linkedInObjectUrn && c.commentId.startsWith('urn:li:comment:'))) {
                 return false;
@@ -3996,7 +4045,10 @@ function InboxPage() {
                 <div className="p-4 border-b border-neutral-200 bg-white">
                   <h2 className="text-lg font-semibold text-neutral-900">Reply to {selectedComments.length} comment{selectedComments.length !== 1 ? 's' : ''}</h2>
                   {replyable.length < selectedComments.length && (
-                    <p className="text-sm text-amber-700 mt-1">Only Instagram, Facebook, X (Twitter), and YouTube comments can be replied to from the app. Others will be skipped.</p>
+                    <p className="text-sm text-amber-700 mt-1">
+                      TikTok and Pinterest open in their apps. Only Instagram, Facebook, X, YouTube, LinkedIn, and Threads
+                      support in-app replies here.
+                    </p>
                   )}
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -4572,15 +4624,52 @@ function InboxPage() {
                 {aiReplyError && (
                   <p className="text-sm text-amber-700 mb-2">{aiReplyError}</p>
                 )}
-                {selectedComment.platform !== 'INSTAGRAM' &&
-                selectedComment.platform !== 'FACEBOOK' &&
-                selectedComment.platform !== 'YOUTUBE' &&
-                selectedComment.platform !== 'TWITTER' &&
-                selectedComment.platform !== 'LINKEDIN' &&
-                selectedComment.platform !== 'THREADS' ? (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                    <p className="font-medium">Reply from the app is available for Instagram, Facebook, YouTube, X (Twitter), LinkedIn, and Threads.</p>
-                    <p className="mt-1 text-xs text-amber-700">For other platforms, reply on the platform.</p>
+                {isOpenOnPlatformInboxComment(selectedComment) ? (
+                  <div className="rounded-xl border border-sky-200 bg-gradient-to-b from-sky-50 to-white px-5 py-6 text-center dark:border-sky-900/50 dark:from-sky-950/40 dark:to-neutral-900">
+                    <PlatformSourcePill platformId={selectedComment.platform} size="md" />
+                    <p className="mt-3 text-base font-semibold text-neutral-900 dark:text-neutral-100">
+                      Reply on {openOnPlatformLabel(selectedComment.platform).replace('Open on ', '')}
+                    </p>
+                    <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400 max-w-md mx-auto">
+                      {selectedComment.platform === 'TIKTOK'
+                        ? "TikTok's API does not let third-party apps read comment text. We show how many comments each video has so you can jump into TikTok to read and reply."
+                        : 'Pinterest does not expose pin comments through the API we use. Open the pin on Pinterest to view and reply to comments.'}
+                    </p>
+                    {(selectedComment.externalCommentCount ?? 0) > 0 ? (
+                      <p className="mt-3 inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-sm font-medium text-sky-900 dark:bg-sky-900/60 dark:text-sky-100">
+                        {selectedComment.externalCommentCount} comment
+                        {selectedComment.externalCommentCount === 1 ? '' : 's'} on this post
+                      </p>
+                    ) : null}
+                    {selectedComment.postUrl ? (
+                      <a
+                        href={selectedComment.postUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-neutral-900 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+                      >
+                        <ExternalLink size={16} />
+                        {openOnPlatformLabel(selectedComment.platform)}
+                      </a>
+                    ) : null}
+                    {(() => {
+                      const profileUrl = externalPlatformProfileUrl(
+                        selectedComment.platform,
+                        effectiveAccounts.find((a) => a.id === selectedComment.accountId)?.username ??
+                          effectiveAccounts.find((a) => a.platform === selectedComment.platform)?.username
+                      );
+                      if (!profileUrl) return null;
+                      return (
+                        <a
+                          href={profileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-3 block text-xs font-medium text-sky-700 hover:underline dark:text-sky-300"
+                        >
+                          Or open your {selectedComment.platform === 'TIKTOK' ? 'TikTok' : 'Pinterest'} profile
+                        </a>
+                      );
+                    })()}
                   </div>
                 ) : selectedComment.platform === 'LINKEDIN' &&
                   (!selectedComment.linkedInObjectUrn || !selectedComment.commentId.startsWith('urn:li:comment:')) ? (
