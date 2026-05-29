@@ -52,7 +52,7 @@ export const LINKEDIN_CONNECT_OPTIONS: Record<LinkedInConnectMethod, LinkedInCon
       {
         id: 'personal_use',
         label:
-          'I authorize Agent4Socials to read my posts and comments and to reply on my behalf when I use Inbox, using the permissions LinkedIn shows at sign-in.',
+          'I authorize Agent4Socials to use the permissions LinkedIn shows at sign-in (publish now; read posts and Inbox replies when LinkedIn grants those scopes).',
       },
       SHARED_NOT_ADS,
       {

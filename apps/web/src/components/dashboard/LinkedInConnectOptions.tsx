@@ -150,8 +150,8 @@ export default function LinkedInConnectOptions({ connecting, connectingMethod, c
             </div>
             <h1 className="text-2xl font-bold text-neutral-900">Connect LinkedIn</h1>
             <p className="text-neutral-500 mt-1 max-w-md mx-auto text-sm">
-              Choose a personal profile or a Company Page. Both can publish from Composer; personal profiles also
-              support dashboard analytics and Inbox comments when LinkedIn grants read access at sign-in.
+              Choose a personal profile or a Company Page. Connect uses publish permissions first so sign-in succeeds.
+              Dashboard sync and Inbox need read scopes after LinkedIn approves Community Management on the app.
             </p>
           </div>
           {connectError ? (

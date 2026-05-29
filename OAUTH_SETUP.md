@@ -215,7 +215,7 @@ If you use the same app for both flows, you can leave these unset and use `META_
    - Add `https://agent4socials.com/api/social/oauth/linkedin/callback`.
 6. Go to the **Products** tab.
    - Add **Sign in with LinkedIn using OpenID Connect** (required for connect: scopes `openid`, `profile`, `email`).
-   - Add **Share on LinkedIn** (publish) and **Community Management API** member products (read posts, comments, metrics) for personal dashboard and Inbox. Personal connect requests `w_member_social`, `r_member_social`, and `r_member_postAnalytics` by default. If OAuth shows "Bummer" before consent, set **`LINKEDIN_PERSONAL_PUBLISH_ONLY`** = `true` in Vercel until LinkedIn approves those products, then reconnect.
+   - Add **Share on LinkedIn** for Composer publishing (`w_member_social`). Personal connect requests publish scopes by default so OAuth does not fail. After LinkedIn approves **Community Management API** member read, set **`LINKEDIN_INCLUDE_R_MEMBER_SOCIAL`** = `true` (and optionally **`LINKEDIN_INCLUDE_R_MEMBER_POST_ANALYTICS`** = `true`) in Vercel, redeploy, then users reconnect for dashboard sync and Inbox.
 7. Back in the **Auth** tab, **copy these values:**
    - `LINKEDIN_CLIENT_ID`
    - `LINKEDIN_CLIENT_SECRET`

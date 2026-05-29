@@ -13,33 +13,33 @@ const MEMBER_READ = 'r_member_social';
 /** Post impressions / engagement metrics (memberCreatorPostAnalytics). */
 const MEMBER_POST_ANALYTICS = 'r_member_postAnalytics';
 
-/**
- * Personal profile: full Share + Community Management member read (posts, comments, metrics).
- * Set LINKEDIN_PERSONAL_PUBLISH_ONLY=true in Vercel to request publish-only scopes if OAuth fails.
- */
-export const LINKEDIN_PERSONAL_OAUTH_SCOPES_FULL =
-  `${OPENID_BASE} ${MEMBER_PUBLISH} ${MEMBER_READ} ${MEMBER_POST_ANALYTICS}`.replace(/\s+/g, ' ').trim();
-
+/** Personal: publish from Composer (Share on LinkedIn product). Safe default for OAuth. */
 export const LINKEDIN_PERSONAL_OAUTH_SCOPES_PUBLISH_ONLY =
   `${OPENID_BASE} ${MEMBER_PUBLISH}`.replace(/\s+/g, ' ').trim();
 
+/** Personal: publish + dashboard sync + Inbox (Community Management member products). */
+export const LINKEDIN_PERSONAL_OAUTH_SCOPES_FULL =
+  `${OPENID_BASE} ${MEMBER_PUBLISH} ${MEMBER_READ} ${MEMBER_POST_ANALYTICS}`.replace(/\s+/g, ' ').trim();
+
 /** @deprecated use LINKEDIN_PERSONAL_OAUTH_SCOPES_PUBLISH_ONLY or FULL */
-export const LINKEDIN_PERSONAL_OAUTH_SCOPES = LINKEDIN_PERSONAL_OAUTH_SCOPES_FULL;
+export const LINKEDIN_PERSONAL_OAUTH_SCOPES = LINKEDIN_PERSONAL_OAUTH_SCOPES_PUBLISH_ONLY;
 
 /** Company Page: publish + read org posts/comments/metrics. */
 export const LINKEDIN_PAGE_OAUTH_SCOPES =
   `${OPENID_BASE} w_organization_social r_organization_social`.replace(/\s+/g, ' ').trim();
 
 function linkedInPersonalScopesForConnect(): string {
+  // Default publish-only so OAuth does not fail before consent (unapproved read scopes → "Bummer").
   if (process.env.LINKEDIN_PERSONAL_PUBLISH_ONLY === 'true') {
     return LINKEDIN_PERSONAL_OAUTH_SCOPES_PUBLISH_ONLY;
   }
-  if (process.env.LINKEDIN_INCLUDE_R_MEMBER_SOCIAL === 'false') {
+  const includeRead = process.env.LINKEDIN_INCLUDE_R_MEMBER_SOCIAL === 'true';
+  if (!includeRead) {
     return LINKEDIN_PERSONAL_OAUTH_SCOPES_PUBLISH_ONLY;
   }
   const parts = LINKEDIN_PERSONAL_OAUTH_SCOPES_PUBLISH_ONLY.split(/\s+/);
   parts.push(MEMBER_READ);
-  if (process.env.LINKEDIN_INCLUDE_R_MEMBER_POST_ANALYTICS !== 'false') {
+  if (process.env.LINKEDIN_INCLUDE_R_MEMBER_POST_ANALYTICS === 'true') {
     parts.push(MEMBER_POST_ANALYTICS);
   }
   return [...new Set(parts)].join(' ');
