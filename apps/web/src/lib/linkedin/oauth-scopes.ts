@@ -4,11 +4,26 @@ export type LinkedInConnectMethod = 'personal' | 'page';
 
 const OPENID_BASE = 'openid profile email r_liteprofile';
 
-/** Personal: publish + read own posts/metrics (Community Management member products). */
-export const LINKEDIN_PERSONAL_OAUTH_SCOPES = `${OPENID_BASE} w_member_social r_member_social r_member_postAnalytics`;
+/**
+ * Personal profile: OpenID + publish (Share on LinkedIn).
+ * Do not add r_member_social here by default: LinkedIn shows "Bummer, something went wrong"
+ * if the app has not been approved for Community Management member read products.
+ */
+export const LINKEDIN_PERSONAL_OAUTH_SCOPES = `${OPENID_BASE} w_member_social`;
 
 /** Company Page: Community Management (posts, comments, org analytics). */
 export const LINKEDIN_PAGE_OAUTH_SCOPES = `${OPENID_BASE} w_organization_social r_organization_social`;
+
+function linkedInPersonalScopesWithOptionalRead(): string {
+  const parts = LINKEDIN_PERSONAL_OAUTH_SCOPES.split(/\s+/).filter(Boolean);
+  if (process.env.LINKEDIN_INCLUDE_R_MEMBER_SOCIAL === 'true') {
+    parts.push('r_member_social');
+  }
+  if (process.env.LINKEDIN_INCLUDE_R_MEMBER_POST_ANALYTICS === 'true') {
+    parts.push('r_member_postAnalytics');
+  }
+  return parts.join(' ');
+}
 
 export function buildLinkedInOAuthScopeString(method?: LinkedInConnectMethod): string {
   const envOverride =
@@ -18,7 +33,7 @@ export function buildLinkedInOAuthScopeString(method?: LinkedInConnectMethod): s
   if (envOverride) return envOverride.replace(/\s+/g, ' ').trim();
 
   if (method === 'page') return LINKEDIN_PAGE_OAUTH_SCOPES;
-  if (method === 'personal') return LINKEDIN_PERSONAL_OAUTH_SCOPES;
+  if (method === 'personal') return linkedInPersonalScopesWithOptionalRead();
 
   // Legacy: env toggles on generic connect (no method).
   const requestOrgScopes = process.env.LINKEDIN_REQUEST_ORG_SCOPES === 'true';
