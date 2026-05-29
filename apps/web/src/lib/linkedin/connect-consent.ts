@@ -36,12 +36,7 @@ export const LINKEDIN_CONNECT_OPTIONS: Record<LinkedInConnectMethod, LinkedInCon
   personal: {
     title: 'Personal profile',
     subtitle: 'Publish posts from your personal LinkedIn profile',
-    features: [
-      'Publish and schedule text posts (Share on LinkedIn: w_member_social)',
-      'Video posts may need extra LinkedIn API access beyond Share on LinkedIn',
-      'Dashboard posts and Inbox comments need read scope (r_member_social), separate from Share on LinkedIn',
-      'Comment replies use w_member_social; loading threads still needs r_member_social',
-    ],
+    features: ['Publish & schedule posts on LinkedIn'],
     consentTitle: 'Before connecting your personal profile',
     consentIntro: SHARED_CONSENT_INTRO,
     items: [
@@ -63,8 +58,7 @@ export const LINKEDIN_CONNECT_OPTIONS: Record<LinkedInConnectMethod, LinkedInCon
       },
       SHARED_AGENT_TERMS,
     ],
-    scopesSummary:
-      'Share on LinkedIn covers publishing (w_member_social). LinkedIn documents listing your posts and loading comments as a separate read permission (r_member_social), which may not appear in the developer portal until LinkedIn grants it.',
+    scopesSummary: '',
     dataUseNote:
       'We do not use this data to build ad audiences or sell profiles. Disconnect anytime from Account settings.',
   },

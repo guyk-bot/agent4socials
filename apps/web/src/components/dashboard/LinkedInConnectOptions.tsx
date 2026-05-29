@@ -150,9 +150,8 @@ export default function LinkedInConnectOptions({ connecting, connectingMethod, c
             </div>
             <h1 className="text-2xl font-bold text-neutral-900">Connect LinkedIn</h1>
             <p className="text-neutral-500 mt-1 max-w-md mx-auto text-sm">
-              Personal connect uses Share on LinkedIn to publish. Seeing your posts and comment threads in Agent4Socials uses
-              LinkedIn&apos;s read scope (r_member_social), which is separate from Share on LinkedIn in LinkedIn&apos;s docs and
-              may require LinkedIn to enable it on your app.
+              Connect your personal profile to publish and schedule from Composer, or connect a Company Page for Page
+              analytics and inbox.
             </p>
           </div>
           {connectError ? (
