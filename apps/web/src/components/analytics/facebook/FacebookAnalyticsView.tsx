@@ -90,6 +90,8 @@ export interface FacebookAnalyticsViewProps {
   postsSyncError?: string | null;
   /** From account health when LinkedIn OAuth lacks post-read permissions. */
   linkedInReconnectHint?: string | null;
+  /** False when personal LinkedIn token cannot read posts (publish-only connect). */
+  linkedInSyncReady?: boolean;
   /** Called when the header avatar image fails to load so the parent can refresh the URL. */
   onAvatarError?: () => void;
 }
@@ -2714,6 +2716,7 @@ export function FacebookAnalyticsView({
   socialAccountId = null,
   postsSyncError = null,
   linkedInReconnectHint = null,
+  linkedInSyncReady,
   onAvatarError,
 }: FacebookAnalyticsViewProps) {
   const { theme } = useTheme();
@@ -3442,6 +3445,43 @@ export function FacebookAnalyticsView({
           latestFollowersFromSeries,
           (series?.follows?.length ? (series.follows[series.follows.length - 1]?.value ?? 0) : 0)
         );
+  const linkedInProfileMetricTotal = useMemo(() => {
+    if (!isLinkedInPersonal) return totalFollowers;
+    const network = linkedInExtras?.network;
+    if (typeof network?.connections === 'number' && Number.isFinite(network.connections)) {
+      return Math.max(0, Math.round(network.connections));
+    }
+    if (
+      typeof network?.memberProfileFollowersCount === 'number' &&
+      Number.isFinite(network.memberProfileFollowersCount)
+    ) {
+      return Math.max(0, Math.round(network.memberProfileFollowersCount));
+    }
+    return totalFollowers;
+  }, [isLinkedInPersonal, linkedInExtras?.network, totalFollowers]);
+  const linkedInConnectionsCardLabel =
+    isLinkedInPersonal &&
+    linkedInExtras?.network?.connections == null &&
+    typeof linkedInExtras?.network?.memberProfileFollowersCount === 'number'
+      ? 'Followers'
+      : 'Connections';
+  const linkedInSyncNotice = useMemo(() => {
+    if (!isLinkedInPersonal) return null;
+    if (postsSyncError?.trim()) return postsSyncError.trim();
+    if (linkedInReconnectHint?.trim()) return linkedInReconnectHint.trim();
+    if (insights?.insightsHint?.trim()) return insights.insightsHint.trim();
+    if (linkedInSyncReady === false || (linkedInExtras?.posts?.totalSynced ?? 0) === 0) {
+      return 'LinkedIn is connected for posting. To see posts and metrics here, LinkedIn must approve read access on the Agent4Socials app, then you reconnect your personal profile.';
+    }
+    return null;
+  }, [
+    isLinkedInPersonal,
+    postsSyncError,
+    linkedInReconnectHint,
+    insights?.insightsHint,
+    linkedInSyncReady,
+    linkedInExtras?.posts?.totalSynced,
+  ]);
   const liveConversationCount =
     ((insights as unknown as { facebookLiveConversationsCount?: number })?.facebookLiveConversationsCount ?? 0);
   const liveConversationDates =
@@ -5824,10 +5864,10 @@ type PostsUploadDayTooltipAgg = {
             <>
               <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <SparklineMetricCard
-                  label="Connections"
-                  source="LinkedIn network size or profile followers from your last sync"
+                  label={linkedInConnectionsCardLabel}
+                  source="LinkedIn network size or memberFollowersCount from Community Management APIs when available"
                   color={COLOR.mint}
-                  value={formatNumber(totalFollowers)}
+                  value={formatNumber(linkedInProfileMetricTotal)}
                   series={growthSparklineSeries.follows}
                   active={isCardSelected('followers')}
                   onClick={() => toggleStoryMetric('followers')}
@@ -5860,12 +5900,12 @@ type PostsUploadDayTooltipAgg = {
                   onClick={() => toggleStoryMetric('contentViews')}
                 />
               </div>
-              {postsSyncError || linkedInReconnectHint ? (
+              {linkedInSyncNotice ? (
                 <div
                   className="rounded-xl border px-4 py-3 text-sm"
                   style={{ borderColor: 'rgba(245,185,66,0.45)', color: COLOR.text, background: 'rgba(245,185,66,0.08)' }}
                 >
-                  <p>{postsSyncError || linkedInReconnectHint}</p>
+                  <p>{linkedInSyncNotice}</p>
                   {onReconnectFacebook ? (
                     <button
                       type="button"
@@ -7608,7 +7648,12 @@ type PostsUploadDayTooltipAgg = {
         </details>
       ) : null}
 
-      {insights?.insightsHint && !isTikTok && !isTwitter && !isLinkedInPageAccount && !isLegacyInstagramInsightsUnavailableHint(insights.insightsHint) ? (
+      {insights?.insightsHint &&
+      !isTikTok &&
+      !isTwitter &&
+      !isLinkedInPageAccount &&
+      !(isLinkedInPersonal && linkedInSyncNotice) &&
+      !isLegacyInstagramInsightsUnavailableHint(insights.insightsHint) ? (
         <div className="rounded-[16px] border px-4 py-3 text-sm" style={{ borderColor: 'rgba(255,138,122,0.45)', color: COLOR.coral, background: 'rgba(255,138,122,0.08)' }}>
           {insights.insightsHint}
           {onReconnectFacebook ? (

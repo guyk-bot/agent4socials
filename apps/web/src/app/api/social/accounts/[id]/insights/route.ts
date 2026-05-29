@@ -2177,6 +2177,18 @@ export async function GET(
       };
 
       const hintParts: string[] = [];
+      const grantedScope =
+        account.credentialsJson &&
+        typeof account.credentialsJson === 'object' &&
+        typeof (account.credentialsJson as { linkedinGrantedScope?: string }).linkedinGrantedScope === 'string'
+          ? (account.credentialsJson as { linkedinGrantedScope: string }).linkedinGrantedScope
+          : '';
+      const hasMemberReadScope = /\br_member_social\b/.test(grantedScope);
+      if (!isOrgPage && !hasMemberReadScope && totalSynced === 0) {
+        hintParts.push(
+          'LinkedIn is connected for publishing only. Posts and impressions on this dashboard need read access (r_member_social), which LinkedIn grants only after Community Management read is approved on the Agent4Socials app. Reconnect your personal profile after that is enabled in production.'
+        );
+      }
       if (out.followers === 0 && connections == null && companiesFollowed != null) {
         hintParts.push(
           'LinkedIn returned companies you follow but not your connection count in this session.'

@@ -2263,6 +2263,11 @@ export default function DashboardPage() {
               const hint = (analyticsAccount as { linkedinReconnectHint?: string }).linkedinReconnectHint;
               return typeof hint === 'string' && hint.trim() ? hint.trim() : null;
             })()}
+            linkedInSyncReady={
+              analyticsAccount.platform === 'LINKEDIN'
+                ? (analyticsAccount as { linkedinSyncReady?: boolean }).linkedinSyncReady
+                : undefined
+            }
             onDateRangeChange={handleAnalyticsDateRangeChange}
             followersLabel={
               analyticsAccount.platform === 'YOUTUBE'
