@@ -169,11 +169,16 @@ export default function LinkedInConnectOptions({ connecting, connectingMethod, c
             <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Personal</span>
             <span className="font-semibold text-neutral-900 mt-1">{personal.title}</span>
             <p className="text-xs text-neutral-500 mt-0.5 mb-3">{personal.subtitle}</p>
-            <ul className="space-y-1.5 text-sm text-neutral-600 flex-1">
+            <ul className="space-y-1.5 text-sm flex-1">
               {personal.features.map((f) => (
-                <li key={f} className="flex items-start gap-2">
+                <li key={f} className="flex items-start gap-2 text-neutral-600">
                   <Check size={13} className="text-green-500 shrink-0 mt-0.5" />
                   <span>{f}</span>
+                </li>
+              ))}
+              {(personal.notes ?? []).map((n) => (
+                <li key={n} className="text-xs text-neutral-500 leading-snug pl-0.5">
+                  {n}
                 </li>
               ))}
             </ul>
@@ -188,16 +193,9 @@ export default function LinkedInConnectOptions({ connecting, connectingMethod, c
             disabled={connecting}
             className="connect-option text-left p-5 rounded-2xl border-2 border-blue-300 hover:border-blue-500 hover:bg-blue-50/40 transition-all flex flex-col bg-white relative"
           >
-            <div className="flex items-center justify-between gap-2 mb-1">
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">
-                <Star size={10} /> For Page admins
-              </span>
-              {page.badge ? (
-                <span className="text-[10px] font-semibold text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full uppercase tracking-wide">
-                  {page.badge}
-                </span>
-              ) : null}
-            </div>
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full mb-1 w-fit whitespace-nowrap">
+              <Star size={10} className="shrink-0" /> For Page admins
+            </span>
             <span className="font-semibold text-neutral-900">{page.title}</span>
             <p className="text-xs text-neutral-500 mt-0.5 mb-3">{page.subtitle}</p>
             <ul className="space-y-1.5 text-sm text-neutral-600 flex-1">

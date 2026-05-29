@@ -4,8 +4,8 @@ export type LinkedInConnectMethod = 'personal' | 'page';
 
 const OPENID_BASE = 'openid profile email r_liteprofile';
 
-/** Personal: publish and moderate comments on the member's own posts. */
-export const LINKEDIN_PERSONAL_OAUTH_SCOPES = `${OPENID_BASE} w_member_social r_member_social`;
+/** Personal: publish only (LinkedIn has no personal-profile comment or analytics APIs). */
+export const LINKEDIN_PERSONAL_OAUTH_SCOPES = `${OPENID_BASE} w_member_social`;
 
 /** Company Page: Community Management (posts, comments, org analytics). */
 export const LINKEDIN_PAGE_OAUTH_SCOPES = `${OPENID_BASE} w_organization_social r_organization_social`;

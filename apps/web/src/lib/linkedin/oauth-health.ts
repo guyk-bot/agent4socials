@@ -64,7 +64,7 @@ export function linkedInOAuthHealthFromCredentials(credentialsJson: unknown): Li
         linkedinPublishReady: false,
         linkedinSyncReady: false,
         linkedinReconnectHint:
-          'Reconnect using Company Page and accept organization permissions (Community Management).',
+          'Reconnect using Company Page and accept the Page permissions LinkedIn shows at sign-in.',
       };
     }
     return {
@@ -98,19 +98,10 @@ export function linkedInOAuthHealthFromCredentials(credentialsJson: unknown): Li
         'Reconnect personal profile to enable posting (w_member_social).',
     };
   }
-  if (!hasMemberRead) {
-    return {
-      linkedinConnectionKind: 'personal',
-      linkedinPublishReady: true,
-      linkedinSyncReady: false,
-      linkedinReconnectHint:
-        'Reconnect personal profile to load comments on your posts (r_member_social).',
-    };
-  }
   return {
     linkedinConnectionKind: 'personal',
     linkedinPublishReady: true,
-    linkedinSyncReady: true,
+    linkedinSyncReady: false,
   };
 }
 
