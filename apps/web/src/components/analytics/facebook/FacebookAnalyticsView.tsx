@@ -2815,10 +2815,17 @@ export function FacebookAnalyticsView({
       );
     }
     if (plat === 'LINKEDIN') {
-      return [{ id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' }];
+      const isPage = insights?.linkedIn?.connectionKind === 'organization_page';
+      if (isPage) {
+        return [{ id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' }];
+      }
+      return all.filter(
+        (s) =>
+          s.id !== FACEBOOK_ANALYTICS_SECTION_IDS.traffic && s.id !== FACEBOOK_ANALYTICS_SECTION_IDS.reels
+      );
     }
     return all;
-  }, [insights?.platform]);
+  }, [insights?.platform, insights?.linkedIn?.connectionKind]);
 
   useEffect(() => {
     setGeoPieHover(null);
@@ -2864,8 +2871,9 @@ export function FacebookAnalyticsView({
 
   useEffect(() => {
     if (insights?.platform?.toUpperCase() !== 'LINKEDIN') return;
+    if (insights?.linkedIn?.connectionKind === 'organization_page') return;
     setSelectedStoryMetrics(['followers', 'contentViews', 'videoViews', 'engagements']);
-  }, [insights?.platform]);
+  }, [insights?.platform, insights?.linkedIn?.connectionKind]);
 
   useEffect(() => {
     if (insights?.platform?.toUpperCase() !== 'YOUTUBE') return;
@@ -2894,6 +2902,12 @@ export function FacebookAnalyticsView({
   }, [insights?.platform]);
 
   useEffect(() => {
+    if (insights?.platform?.toUpperCase() === 'LINKEDIN') {
+      if (insights?.linkedIn?.connectionKind !== 'organization_page') {
+        setSelectedEngagementMetrics(['likes', 'comments', 'shares']);
+      }
+      return;
+    }
     if (insights?.platform?.toUpperCase() === 'THREADS') {
       setSelectedEngagementMetrics(['likes', 'comments', 'shares', 'mentions']);
       return;
@@ -2951,6 +2965,11 @@ export function FacebookAnalyticsView({
   const isYouTube = insights?.platform?.toUpperCase() === 'YOUTUBE';
   const isPinterest = insights?.platform?.toUpperCase() === 'PINTEREST';
   const isLinkedIn = insights?.platform?.toUpperCase() === 'LINKEDIN';
+  const isLinkedInPageAccount =
+    isLinkedIn &&
+    (linkedInExtras?.connectionKind === 'organization_page' ||
+      accountUsername?.trim() === 'LinkedIn Page');
+  const isLinkedInPersonal = isLinkedIn && !isLinkedInPageAccount;
   const isTwitter = insights?.platform?.toUpperCase() === 'TWITTER';
   const isThreads = insights?.platform?.toUpperCase() === 'THREADS';
   const supportsMentionsEngagement = isThreads || isTwitter || isInstagram || isFacebook;
@@ -4844,8 +4863,11 @@ type PostsUploadDayTooltipAgg = {
       const fromInsights = Number((insights as FacebookInsights & { likesTotal?: number })?.likesTotal ?? 0);
       return Math.max(fromPosts, threadsTotals?.likes ?? 0, fromInsights);
     }
+    if (isLinkedInPersonal && linkedInExtras?.engagementInRange?.likes != null) {
+      return Math.max(fromPosts, linkedInExtras.engagementInRange.likes);
+    }
     return fromPosts;
-  }, [isTikTok, tiktokEffectivePosts, isTwitter, postsInRangeForPostsTabUi, postsInRange, isThreads, threadsTotals, insights]);
+  }, [isTikTok, tiktokEffectivePosts, isTwitter, postsInRangeForPostsTabUi, postsInRange, isThreads, threadsTotals, insights, isLinkedInPersonal, linkedInExtras?.engagementInRange?.likes]);
   const commentsTotal = useMemo(() => {
     const src = isTikTok ? tiktokEffectivePosts : isTwitter ? postsInRangeForPostsTabUi : postsInRange;
     const fromPosts = src.reduce((sum, post) => sum + (post.facebookInsights?.post_comments ?? post.commentsCount ?? post.engagementBreakdown?.comments ?? 0), 0);
@@ -4853,8 +4875,11 @@ type PostsUploadDayTooltipAgg = {
       const fromInsights = Number((insights as FacebookInsights & { commentsTotal?: number })?.commentsTotal ?? 0);
       return Math.max(fromPosts, threadsTotals?.replies ?? 0, fromInsights);
     }
+    if (isLinkedInPersonal && linkedInExtras?.engagementInRange?.comments != null) {
+      return Math.max(fromPosts, linkedInExtras.engagementInRange.comments);
+    }
     return fromPosts;
-  }, [isTikTok, tiktokEffectivePosts, isTwitter, postsInRangeForPostsTabUi, postsInRange, isThreads, threadsTotals, insights]);
+  }, [isTikTok, tiktokEffectivePosts, isTwitter, postsInRangeForPostsTabUi, postsInRange, isThreads, threadsTotals, insights, isLinkedInPersonal, linkedInExtras?.engagementInRange?.comments]);
   const sharesTotal = useMemo(() => {
     const src = isTikTok ? tiktokEffectivePosts : isTwitter ? postsInRangeForPostsTabUi : postsInRange;
     const fromPosts = isThreads
@@ -4866,8 +4891,11 @@ type PostsUploadDayTooltipAgg = {
       const fromTotals = (threadsTotals?.reposts ?? 0) + (threadsTotals?.quotes ?? 0);
       return Math.max(fromPosts, fromTotals, fromInsights);
     }
+    if (isLinkedInPersonal && linkedInExtras?.engagementInRange?.shares != null) {
+      return Math.max(fromPosts, linkedInExtras.engagementInRange.shares);
+    }
     return fromPosts;
-  }, [isTikTok, tiktokEffectivePosts, isTwitter, postsInRangeForPostsTabUi, postsInRange, isYouTube, youtubeSharesTotal, isThreads, threadsTotals, insights]);
+  }, [isTikTok, tiktokEffectivePosts, isTwitter, postsInRangeForPostsTabUi, postsInRange, isYouTube, youtubeSharesTotal, isThreads, threadsTotals, insights, isLinkedInPersonal, linkedInExtras?.engagementInRange?.shares]);
   const mentionsMetricSeries = useMemo(() => {
     const extra = insights?.extra as {
       mentionsMetricSeries?: Array<{ date: string; value: number }>;
@@ -5784,8 +5812,54 @@ type PostsUploadDayTooltipAgg = {
                 />
               </div>
             </>
-          ) : isLinkedIn ? (
+          ) : isLinkedInPageAccount ? (
             <LinkedInAnalyticsStubNotice />
+          ) : isLinkedInPersonal ? (
+            <>
+              <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <SparklineMetricCard
+                  label="Connections"
+                  source="LinkedIn network size or profile followers from your last sync"
+                  color={COLOR.mint}
+                  value={formatNumber(totalFollowers)}
+                  series={growthSparklineSeries.follows}
+                  active={isCardSelected('followers')}
+                  onClick={() => toggleStoryMetric('followers')}
+                />
+                <SparklineMetricCard
+                  label="Impressions"
+                  source="Synced LinkedIn posts · impressions (and insights time series when available)"
+                  color={COLOR.amber}
+                  value={formatNumber(performanceTotalsFromChart.videoViews)}
+                  series={growthSparklineSeries.videoViews}
+                  active={isCardSelected('videoViews')}
+                  onClick={() => toggleStoryMetric('videoViews')}
+                />
+                <SparklineMetricCard
+                  label="Engagements"
+                  source="Synced LinkedIn posts · likes + comments + shares in range"
+                  color={COLOR.coral}
+                  value={formatNumber(engagementBreakdownTotal)}
+                  series={growthSparklineSeries.engagement}
+                  active={isCardSelected('engagements')}
+                  onClick={() => toggleStoryMetric('engagements')}
+                />
+                <SparklineMetricCard
+                  label="Posts"
+                  source="Synced LinkedIn posts published in the selected date range"
+                  color={TIKTOK_PERFORMANCE_LINE_COLORS.contentViews}
+                  value={formatNumber(postsInRange.length)}
+                  series={growthSparklineSeries.contentViews}
+                  active={isCardSelected('contentViews')}
+                  onClick={() => toggleStoryMetric('contentViews')}
+                />
+              </div>
+              {(linkedInExtras?.posts?.totalSynced ?? 0) === 0 && !postsSyncActive ? (
+                <p className="text-sm" style={{ color: COLOR.textSecondary }}>
+                  No synced posts yet. Open Posts below or use Sync in the sidebar to pull your LinkedIn activity into this dashboard.
+                </p>
+              ) : null}
+            </>
           ) : isYouTube ? (
             <>
               <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -5879,7 +5953,7 @@ type PostsUploadDayTooltipAgg = {
             />
           </div>
           )}
-          {!isLinkedIn ? (
+          {!isLinkedInPageAccount ? (
           <>
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
@@ -5996,7 +6070,7 @@ type PostsUploadDayTooltipAgg = {
           ) : null}
         </div>
 
-        {!isPinterest && !isLinkedIn ? (
+        {!isPinterest && !isLinkedInPageAccount ? (
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>Engagement</h3>
@@ -6621,7 +6695,7 @@ type PostsUploadDayTooltipAgg = {
       </section>
       ) : null}
 
-      {!isLinkedIn ? (
+      {!isLinkedInPageAccount ? (
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.posts} className="scroll-mt-28 space-y-6">
         {overviewSkeleton ? (
           <AnalyticsPostsSkeleton />
@@ -7415,7 +7489,7 @@ type PostsUploadDayTooltipAgg = {
       </section>
       ) : null}
 
-      {!isLinkedIn ? (
+      {!isLinkedInPageAccount ? (
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.history} className="scroll-mt-28 space-y-4">
         {overviewSkeleton ? (
           <AnalyticsHistorySkeleton />
@@ -7426,7 +7500,7 @@ type PostsUploadDayTooltipAgg = {
           </div>
           <>
           <div className="flex flex-wrap gap-2">
-            {(isThreads
+            {(isThreads || isLinkedInPersonal
               ? [
                   { id: 'all' as const, label: 'All' },
                   { id: 'text' as const, label: 'Text' },
@@ -7515,7 +7589,7 @@ type PostsUploadDayTooltipAgg = {
         </details>
       ) : null}
 
-      {insights?.insightsHint && !isTikTok && !isLinkedIn && !isTwitter && !isLegacyInstagramInsightsUnavailableHint(insights.insightsHint) ? (
+      {insights?.insightsHint && !isTikTok && !isTwitter && !isLinkedInPageAccount && !isLegacyInstagramInsightsUnavailableHint(insights.insightsHint) ? (
         <div className="rounded-[16px] border px-4 py-3 text-sm" style={{ borderColor: 'rgba(255,138,122,0.45)', color: COLOR.coral, background: 'rgba(255,138,122,0.08)' }}>
           {insights.insightsHint}
           {onReconnectFacebook ? (

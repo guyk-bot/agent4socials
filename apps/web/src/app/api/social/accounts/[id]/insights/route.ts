@@ -2134,6 +2134,7 @@ export async function GET(
         .sort((a, b) => a.date.localeCompare(b.date));
 
       (out as Record<string, unknown>).linkedIn = {
+        connectionKind: isOrgPage ? 'organization_page' : 'personal',
         network: {
           connections: connections ?? undefined,
           companiesFollowed: companiesFollowed ?? undefined,

@@ -123,6 +123,7 @@ export interface FacebookInsights {
   };
   /** LinkedIn: OpenID + networkSizes + aggregates from synced posts (see GET …/insights). */
   linkedIn?: {
+    connectionKind?: 'personal' | 'organization_page';
     network?: { connections?: number; companiesFollowed?: number };
     profile?: { headline?: string; vanityName?: string; picture?: string; email?: string };
     posts?: {
