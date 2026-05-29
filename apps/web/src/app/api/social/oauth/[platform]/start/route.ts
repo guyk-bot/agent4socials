@@ -15,6 +15,10 @@ import {
   threadsAppId,
   threadsAppSecret,
 } from '@/lib/threads/threads-api';
+import {
+  buildLinkedInOAuthScopeString,
+  type LinkedInConnectMethod,
+} from '@/lib/linkedin/oauth-scopes';
 
 /** OAuth start must never be statically cached. */
 export const dynamic = 'force-dynamic';
@@ -29,7 +33,9 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
       ? `${userId}:instagram`
       : platform === 'LINKEDIN' && method === 'page'
         ? `${userId}:linkedin_page`
-        : userId;
+        : platform === 'LINKEDIN' && method === 'personal'
+          ? `${userId}:linkedin_personal`
+          : userId;
 
   switch (platform) {
     case 'INSTAGRAM':
@@ -97,34 +103,11 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
       return `https://twitter.com/i/oauth2/authorize?client_id=${process.env.TWITTER_CLIENT_ID}&redirect_uri=${encodeURIComponent(process.env.TWITTER_REDIRECT_URI || callbackUrl)}&response_type=code&scope=${encodeURIComponent(twitterScope)}&state=${state}&code_challenge=challenge&code_challenge_method=plain`;
     }
     case 'LINKEDIN': {
-      // OpenID scopes (Sign in with LinkedIn using OpenID Connect) work once that product is on the app.
-      // w_member_social needs the separate "Share on LinkedIn" product; requesting it without that product causes
-      // LinkedIn's generic "Bummer, something went wrong" (invalid scope). Opt in with LINKEDIN_INCLUDE_W_MEMBER_SOCIAL
-      // or set LINKEDIN_OAUTH_SCOPES to the full list you have approved in the portal.
-      // r_organization_social / w_organization_social need Community Management / Marketing API; opt-in via LINKEDIN_REQUEST_ORG_SCOPES + page method.
-      // Community Management features (posts, comments, reactions/socialMetadata, org share stats, follower demographics)
-      // each need the matching LinkedIn products and scopes — see Microsoft Learn "Community Management API".
-      // Server-side REST calls use LINKEDIN_REST_API_VERSION (YYYYMM) on /rest/* (defaults in code if unset).
-      const requestOrgScopes = process.env.LINKEDIN_REQUEST_ORG_SCOPES === 'true' && method === 'page';
-      const includeWrite =
-        process.env.LINKEDIN_INCLUDE_W_MEMBER_SOCIAL === 'true' ||
-        process.env.LINKEDIN_REQUEST_ORG_SCOPES === 'true';
-      // r_member_social is a separate LinkedIn product (Marketing API). Do not bundle it with write:
-      // requesting it without portal approval causes LinkedIn's generic "Bummer, something went wrong".
-      const includeMemberSocialRead = process.env.LINKEDIN_INCLUDE_R_MEMBER_SOCIAL === 'true';
-      // r_liteprofile enables /v2/me for numeric member ID lookup; include it whenever w_member_social is requested.
-      const baseScopes = includeWrite ? 'openid profile email r_liteprofile w_member_social' : 'openid profile email';
-      const memberReadScope = includeMemberSocialRead ? ' r_member_social' : '';
-      const defaultScopes = `${requestOrgScopes ? `${baseScopes} r_organization_social w_organization_social` : baseScopes}${memberReadScope}`
-        .replace(/\s+/g, ' ')
-        .trim();
-      const linkedInScopes =
-        typeof process.env.LINKEDIN_OAUTH_SCOPES === 'string' && process.env.LINKEDIN_OAUTH_SCOPES.trim()
-          ? process.env.LINKEDIN_OAUTH_SCOPES.trim()
-          : defaultScopes;
+      const linkedInMethod =
+        method === 'page' || method === 'personal' ? (method as LinkedInConnectMethod) : undefined;
+      const linkedInScopes = buildLinkedInOAuthScopeString(linkedInMethod);
       const redirect = encodeURIComponent((process.env.LINKEDIN_REDIRECT_URI || callbackUrl).replace(/\/+$/, ''));
       const clientId = encodeURIComponent(process.env.LINKEDIN_CLIENT_ID || '');
-      // enable_extended_login helps LinkedIn show Google/Apple/passkey login on supported browsers (LinkedIn docs).
       return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${redirect}&state=${encodeURIComponent(state)}&scope=${encodeURIComponent(linkedInScopes)}&enable_extended_login=true`;
     }
     case 'THREADS': {

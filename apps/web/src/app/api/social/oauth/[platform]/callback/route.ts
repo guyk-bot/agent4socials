@@ -717,6 +717,7 @@ export async function GET(
 
   const isInstagramLogin = stateRaw.includes(':instagram');
   const isLinkedInPage = stateRaw.includes(':linkedin_page');
+  const isLinkedInPersonal = stateRaw.includes(':linkedin_personal');
   let userId: string;
   try {
     if (stateRaw.startsWith('sb:')) {
@@ -734,7 +735,9 @@ export async function GET(
         ? stateRaw.replace(/:instagram$/, '')
         : isLinkedInPage
           ? stateRaw.replace(/:linkedin_page$/, '')
-          : stateRaw;
+          : isLinkedInPersonal
+            ? stateRaw.replace(/:linkedin_personal$/, '')
+            : stateRaw;
     }
   } catch (e) {
     if (isPrismaPoolError(e)) {
@@ -1189,10 +1192,9 @@ export async function GET(
         }
       : undefined;
   let credentialsJsonToSet: object | undefined = igBusinessCreds ?? twitterCreds ?? pinterestStored ?? undefined;
-  if (plat === 'LINKEDIN' && tokenData.accessToken && !isLinkedInPage) {
-    const resolved = await resolveLinkedInAuthorUrn(tokenData.accessToken, {
-      platformUserId: tokenData.platformUserId,
-    });
+  if (plat === 'LINKEDIN' && tokenData.accessToken) {
+    const grantedScope =
+      typeof tokenData.linkedinGrantedScope === 'string' ? tokenData.linkedinGrantedScope.trim() : '';
     const prev = await prisma.socialAccount.findFirst({
       where: {
         userId,
@@ -1206,24 +1208,41 @@ export async function GET(
         ? { ...(prev.credentialsJson as Record<string, unknown>) }
         : {};
     const baseCreds = credentialsJsonToSet && typeof credentialsJsonToSet === 'object' ? credentialsJsonToSet : prevObj;
-    const grantedScope =
-      typeof tokenData.linkedinGrantedScope === 'string' ? tokenData.linkedinGrantedScope.trim() : '';
-    if (resolved.personUrn) {
+
+    if (isLinkedInPage) {
+      const orgUrn =
+        typeof tokenData.platformUserId === 'string' && tokenData.platformUserId.startsWith('urn:li:organization:')
+          ? tokenData.platformUserId
+          : undefined;
       credentialsJsonToSet = {
         ...baseCreds,
-        linkedinRestPersonUrn: resolved.personUrn,
+        linkedinConnectionKind: 'organization_page',
+        ...(orgUrn ? { linkedinOrganizationUrn: orgUrn } : {}),
         ...(grantedScope ? { linkedinGrantedScope: grantedScope } : {}),
       };
-      console.log('[LinkedIn OAuth] stored author URN', { source: resolved.source });
     } else {
-      credentialsJsonToSet = {
-        ...baseCreds,
-        ...(grantedScope ? { linkedinGrantedScope: grantedScope } : {}),
-      };
-      console.error('[LinkedIn OAuth] author URN not resolved at connect', {
-        restMeStatus: resolved.restMeStatus,
-        source: resolved.source,
+      const resolved = await resolveLinkedInAuthorUrn(tokenData.accessToken, {
+        platformUserId: tokenData.platformUserId,
       });
+      if (resolved.personUrn) {
+        credentialsJsonToSet = {
+          ...baseCreds,
+          linkedinConnectionKind: 'personal',
+          linkedinRestPersonUrn: resolved.personUrn,
+          ...(grantedScope ? { linkedinGrantedScope: grantedScope } : {}),
+        };
+        console.log('[LinkedIn OAuth] stored author URN', { source: resolved.source });
+      } else {
+        credentialsJsonToSet = {
+          ...baseCreds,
+          linkedinConnectionKind: 'personal',
+          ...(grantedScope ? { linkedinGrantedScope: grantedScope } : {}),
+        };
+        console.error('[LinkedIn OAuth] author URN not resolved at connect', {
+          restMeStatus: resolved.restMeStatus,
+          source: resolved.source,
+        });
+      }
     }
   }
   if (plat === 'TWITTER' && twitterCreds) {

@@ -171,6 +171,12 @@ export function ConnectedAccountsPanel() {
                     {(acc.username || '').replace(/^@/, '') || 'Connected'}
                   </div>
                   {acc.platform === 'LINKEDIN' &&
+                  (acc as { linkedinConnectionKind?: string }).linkedinConnectionKind === 'organization_page' ? (
+                    <p className="mt-1 text-[10px] font-medium text-blue-700">Company Page</p>
+                  ) : acc.platform === 'LINKEDIN' ? (
+                    <p className="mt-1 text-[10px] font-medium text-blue-700">Personal profile</p>
+                  ) : null}
+                  {acc.platform === 'LINKEDIN' &&
                   typeof acc.linkedinReconnectHint === 'string' &&
                   acc.linkedinReconnectHint.trim() ? (
                     <p className="mt-2 text-left text-[10px] leading-snug text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
@@ -184,7 +190,21 @@ export function ConnectedAccountsPanel() {
                         if (reconnectingId) return;
                         setReconnectingId(acc.id);
                         try {
-                          const res = await api.get(`/social/oauth/${acc.platform.toLowerCase()}/start`);
+                          const liMethod =
+                            acc.platform === 'LINKEDIN' &&
+                            typeof (acc as { linkedinConnectionKind?: string }).linkedinConnectionKind ===
+                              'string' &&
+                            (acc as { linkedinConnectionKind?: string }).linkedinConnectionKind ===
+                              'organization_page'
+                              ? 'page'
+                              : acc.platform === 'LINKEDIN'
+                                ? 'personal'
+                                : undefined;
+                          const qs =
+                            liMethod != null ? `?method=${encodeURIComponent(liMethod)}` : '';
+                          const res = await api.get(
+                            `/social/oauth/${acc.platform.toLowerCase()}/start${qs}`
+                          );
                           const url = res?.data?.url;
                           if (url && typeof url === 'string') {
                             const opened = openOAuthConnectUrl(url);

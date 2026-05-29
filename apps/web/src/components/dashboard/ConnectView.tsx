@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Check, Star, Loader2, BookOpen, Send, Calendar, BarChart2, MessageCircle, TrendingUp } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, YoutubeIcon, LinkedinIcon, TikTokIcon, XTwitterIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
+import LinkedInConnectOptions from '@/components/dashboard/LinkedInConnectOptions';
 
 const BULLET_ICONS = [Send, Calendar, BarChart2, MessageCircle, TrendingUp];
 
@@ -324,6 +325,18 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
           </div>
         </div>
       </div>
+    );
+  }
+
+  // ── LINKEDIN (personal vs Company Page + in-app consent) ─────────────────
+  if (platform === 'LINKEDIN') {
+    return (
+      <LinkedInConnectOptions
+        connecting={connecting}
+        connectingMethod={connectingMethod}
+        connectError={connectError}
+        onConnect={onConnect}
+      />
     );
   }
 
