@@ -150,8 +150,8 @@ export default function LinkedInConnectOptions({ connecting, connectingMethod, c
             </div>
             <h1 className="text-2xl font-bold text-neutral-900">Connect LinkedIn</h1>
             <p className="text-neutral-500 mt-1 max-w-md mx-auto text-sm">
-              Choose how you want to use LinkedIn. We show our permission summary first, then LinkedIn&apos;s official
-              sign-in.
+              Choose whether to connect a personal profile or a Company Page. A personal profile is limited to
+              publishing posts only; comments and post metrics need a Company Page.
             </p>
           </div>
           {connectError ? (
