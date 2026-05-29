@@ -291,6 +291,7 @@ function postsSyncParamsForPlatform(
   if (!postImportSyncOnFirstLoad(platform)) return {};
   if (platform === 'TIKTOK') return { sync: 1, force: 1 };
   if (platform === 'THREADS') return { sync: 1, force: 1 };
+  if (platform === 'LINKEDIN') return { sync: 1, force: 1 };
   // Instagram/Facebook: never auto sync=1 on dashboard load (cron + manual Sync only).
   if (platform === 'INSTAGRAM' || platform === 'FACEBOOK') {
     return opts?.explicitSync ? { sync: 1, force: 1 } : {};
@@ -2252,7 +2253,16 @@ export default function DashboardPage() {
                 ? () => router.push('/dashboard?connect=facebook')
                 : analyticsAccount?.platform === 'PINTEREST'
                   ? () => router.push('/dashboard?connect=pinterest')
-                  : undefined
+                  : analyticsAccount?.platform === 'LINKEDIN'
+                    ? () => router.push('/dashboard?connect=linkedin')
+                    : undefined
+            }
+            postsSyncError={analyticsAccount.platform === 'LINKEDIN' ? postsSyncError : null}
+            linkedInReconnectHint={
+              analyticsAccount.platform === 'LINKEDIN' &&
+              typeof (analyticsAccount as { linkedinReconnectHint?: string }).linkedinReconnectHint === 'string'
+                ? (analyticsAccount as { linkedinReconnectHint: string }).linkedinReconnectHint
+                : null
             }
             onDateRangeChange={handleAnalyticsDateRangeChange}
             followersLabel={

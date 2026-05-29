@@ -36,7 +36,10 @@ export const LINKEDIN_CONNECT_OPTIONS: Record<LinkedInConnectMethod, LinkedInCon
   personal: {
     title: 'Personal profile',
     subtitle: 'Publish posts from your personal LinkedIn profile',
-    features: ['Publish and schedule posts from Composer'],
+    features: [
+      'Publish and schedule posts from Composer',
+      'Sync your posts and performance metrics on the dashboard',
+    ],
     consentTitle: 'Before connecting your personal profile',
     consentIntro: SHARED_CONSENT_INTRO,
     items: [
@@ -48,7 +51,7 @@ export const LINKEDIN_CONNECT_OPTIONS: Record<LinkedInConnectMethod, LinkedInCon
       {
         id: 'personal_use',
         label:
-          'I understand that personal profile access does not include reading or replying to comments in Agent4Socials, or personal profile analytics via LinkedIn APIs.',
+          'I understand that personal profile access does not include Inbox comment replies in Agent4Socials. Post sync and metrics depend on the read permissions LinkedIn shows at sign-in.',
       },
       SHARED_NOT_ADS,
       {

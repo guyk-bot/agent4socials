@@ -86,6 +86,10 @@ export interface FacebookAnalyticsViewProps {
   accountPlatform?: string | null;
   /** LinkedIn: used to load raw Community Management API debug JSON on the analytics page. */
   socialAccountId?: string | null;
+  /** Latest posts importer error (e.g. LinkedIn missing read scopes). */
+  postsSyncError?: string | null;
+  /** From account health when LinkedIn OAuth lacks post-read permissions. */
+  linkedInReconnectHint?: string | null;
   /** Called when the header avatar image fails to load so the parent can refresh the URL. */
   onAvatarError?: () => void;
 }
@@ -2708,6 +2712,8 @@ export function FacebookAnalyticsView({
   accountUsername,
   accountPlatform = null,
   socialAccountId = null,
+  postsSyncError = null,
+  linkedInReconnectHint = null,
   onAvatarError,
 }: FacebookAnalyticsViewProps) {
   const { theme } = useTheme();
@@ -5854,10 +5860,23 @@ type PostsUploadDayTooltipAgg = {
                   onClick={() => toggleStoryMetric('contentViews')}
                 />
               </div>
-              {(linkedInExtras?.posts?.totalSynced ?? 0) === 0 && !postsSyncActive ? (
-                <p className="text-sm" style={{ color: COLOR.textSecondary }}>
-                  No synced posts yet. Open Posts below or use Sync in the sidebar to pull your LinkedIn activity into this dashboard.
-                </p>
+              {postsSyncError || linkedInReconnectHint ? (
+                <div
+                  className="rounded-xl border px-4 py-3 text-sm"
+                  style={{ borderColor: 'rgba(245,185,66,0.45)', color: COLOR.text, background: 'rgba(245,185,66,0.08)' }}
+                >
+                  <p>{postsSyncError || linkedInReconnectHint}</p>
+                  {onReconnectFacebook ? (
+                    <button
+                      type="button"
+                      onClick={onReconnectFacebook}
+                      className="mt-2 inline-flex items-center gap-1 text-sm font-medium underline"
+                      style={{ color: COLOR.text }}
+                    >
+                      Reconnect LinkedIn <ChevronRight size={14} />
+                    </button>
+                  ) : null}
+                </div>
               ) : null}
             </>
           ) : isYouTube ? (

@@ -98,10 +98,19 @@ export function linkedInOAuthHealthFromCredentials(credentialsJson: unknown): Li
         'Reconnect personal profile to enable posting (w_member_social).',
     };
   }
+  if (!hasMemberRead) {
+    return {
+      linkedinConnectionKind: 'personal',
+      linkedinPublishReady: true,
+      linkedinSyncReady: false,
+      linkedinReconnectHint:
+        'Reconnect your personal profile so LinkedIn can grant post read access. Without it, posts and impressions cannot sync to this dashboard.',
+    };
+  }
   return {
     linkedinConnectionKind: 'personal',
     linkedinPublishReady: true,
-    linkedinSyncReady: false,
+    linkedinSyncReady: true,
   };
 }
 
