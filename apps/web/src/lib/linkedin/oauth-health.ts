@@ -104,7 +104,7 @@ export function linkedInOAuthHealthFromCredentials(credentialsJson: unknown): Li
       linkedinPublishReady: true,
       linkedinSyncReady: false,
       linkedinReconnectHint:
-        'Reconnect your personal profile so LinkedIn can grant post read access. Without it, posts and impressions cannot sync to this dashboard.',
+        'Share on LinkedIn is connected (publish works). To sync posts and comments here, LinkedIn must also grant read scope (r_member_social) at sign-in, then reconnect.',
     };
   }
   return {

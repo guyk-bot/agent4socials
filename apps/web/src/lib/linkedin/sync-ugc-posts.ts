@@ -125,7 +125,7 @@ export async function syncLinkedInUgcPosts(params: {
         return {
           itemsProcessed: 0,
           syncError:
-            'LinkedIn could not load posts (permission denied). Personal profiles need the r_member_social scope (Marketing Developer Platform) in your LinkedIn app and OAuth flow, then reconnect. Organization Pages need r_organization_social (Community Management). OpenID (userinfo) alone is not enough for posts or comments.',
+            'LinkedIn could not load posts (permission denied). Publishing uses Share on LinkedIn (w_member_social); listing posts here needs read scope r_member_social (personal) or r_organization_social (Page), then reconnect. OpenID alone is not enough.',
         };
       }
       return { itemsProcessed: 0, syncError: msg.slice(0, 400) };

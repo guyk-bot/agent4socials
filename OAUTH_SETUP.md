@@ -215,7 +215,7 @@ If you use the same app for both flows, you can leave these unset and use `META_
    - Add `https://agent4socials.com/api/social/oauth/linkedin/callback`.
 6. Go to the **Products** tab.
    - Add **Sign in with LinkedIn using OpenID Connect** (required for connect: scopes `openid`, `profile`, `email`).
-   - Add **Share on LinkedIn** for Composer publishing (`w_member_social`). Personal connect requests publish scopes by default so OAuth does not fail. After LinkedIn approves **Community Management API** member read, set **`LINKEDIN_INCLUDE_R_MEMBER_SOCIAL`** = `true` (and optionally **`LINKEDIN_INCLUDE_R_MEMBER_POST_ANALYTICS`** = `true`) in Vercel, redeploy, then users reconnect for dashboard sync and Inbox.
+   - Add **Share on LinkedIn** for Composer publishing (`w_member_social`). Per [LinkedIn’s Share on LinkedIn docs](https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/share-on-linkedin), that product only documents create/publish, not listing posts or comments. Dashboard sync and Inbox need read scope **`r_member_social`** ([Posts API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api)); LinkedIn often treats it as a separate, restricted permission. When `r_member_social` is on your app, set **`LINKEDIN_INCLUDE_R_MEMBER_SOCIAL`** = `true` in Vercel, redeploy, and reconnect.
 7. Back in the **Auth** tab, **copy these values:**
    - `LINKEDIN_CLIENT_ID`
    - `LINKEDIN_CLIENT_SECRET`

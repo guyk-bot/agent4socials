@@ -2172,7 +2172,7 @@ export async function GET(
               : undefined,
         },
         permissionHint: !isOrgPage
-          ? 'Community Management (member): r_member_social for posts, comments, UGC sync; w_member_social for publishing and replies; r_member_profileAnalytics (or the product LinkedIn ties to memberFollowersCount) for profile follower counts; r_member_postAnalytics for memberCreatorPostAnalytics. OpenID alone is basic profile only.'
+          ? 'Share on LinkedIn (w_member_social): publish and comment/reply actions. Listing posts and comments in Agent4Socials uses r_member_social (read), which LinkedIn documents separately and may not be on your app yet. Post impressions use r_member_postAnalytics when available. OpenID alone is basic profile only.'
           : 'Community Management (organization Page): r_organization_social for posts and organizationalEntityShareStatistics; w_organization_social for publishing; organizationalEntityFollowerStatistics for follower demographics (see LinkedIn docs for required admin/follower scopes). Reconnect after each product is approved.',
       };
 
@@ -2186,7 +2186,7 @@ export async function GET(
       const hasMemberReadScope = /\br_member_social\b/.test(grantedScope);
       if (!isOrgPage && !hasMemberReadScope && totalSynced === 0) {
         hintParts.push(
-          'LinkedIn is connected for publishing only. Posts and impressions on this dashboard need read access (r_member_social), which LinkedIn grants only after Community Management read is approved on the Agent4Socials app. Reconnect your personal profile after that is enabled in production.'
+          'LinkedIn granted Share on LinkedIn (publish) but not read access (r_member_social). The dashboard cannot list your posts or comments until LinkedIn adds that scope to this app and you reconnect. Share on LinkedIn alone does not include read per LinkedIn\'s API docs.'
         );
       }
       if (out.followers === 0 && connections == null && companiesFollowed != null) {

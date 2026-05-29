@@ -7,7 +7,7 @@ const OPENID_BASE = 'openid profile email r_liteprofile';
 /** Publish (Share on LinkedIn). */
 const MEMBER_PUBLISH = 'w_member_social';
 
-/** Read posts + comments (Community Management member). */
+/** Read posts + comments (LinkedIn Posts API; not granted by Share on LinkedIn product alone). */
 const MEMBER_READ = 'r_member_social';
 
 /** Post impressions / engagement metrics (memberCreatorPostAnalytics). */
