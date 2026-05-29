@@ -34,10 +34,6 @@ export const LINKEDIN_CONNECT_OPTIONS: Record<LinkedInConnectMethod, LinkedInCon
     title: 'Personal profile',
     subtitle: 'Publish posts from your personal LinkedIn profile',
     features: ['Publish and schedule posts from Composer'],
-    notes: [
-      'LinkedIn does not provide APIs to reply to comments or show analytics on personal profiles.',
-      'For comments and post metrics, connect a Company Page instead.',
-    ],
     consentTitle: 'Before connecting your personal profile',
     consentIntro:
       'LinkedIn may show a short sign-in screen. Agent4Socials also asks you to confirm the following before we request access:',

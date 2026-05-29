@@ -176,14 +176,9 @@ export default function LinkedInConnectOptions({ connecting, connectingMethod, c
                   <span>{f}</span>
                 </li>
               ))}
-              {(personal.notes ?? []).map((n) => (
-                <li key={n} className="text-xs text-neutral-500 leading-snug pl-0.5">
-                  {n}
-                </li>
-              ))}
             </ul>
             <div className="mt-4 w-full py-2.5 rounded-xl text-sm font-semibold text-center text-white bg-gradient-to-r from-blue-600 to-blue-800">
-              Review permissions
+              Continue
             </div>
           </button>
 
@@ -207,7 +202,7 @@ export default function LinkedInConnectOptions({ connecting, connectingMethod, c
               ))}
             </ul>
             <div className="mt-4 w-full py-2.5 rounded-xl text-sm font-semibold text-center text-white bg-gradient-to-r from-blue-700 to-blue-900">
-              Review permissions
+              Continue
             </div>
           </button>
         </div>
