@@ -518,6 +518,12 @@ function handlePublishResultOutcome(
 
 // Platforms that support comment-automation (replies to keyword comments)
 const COMMENT_AUTOMATION_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER', 'YOUTUBE', 'LINKEDIN']);
+
+function optionalLinkedInConnectionKind(acc: unknown): { linkedinConnectionKind?: string } {
+    const kind = (acc as { linkedinConnectionKind?: unknown }).linkedinConnectionKind;
+    return typeof kind === 'string' ? { linkedinConnectionKind: kind } : {};
+}
+
 const TWITTER_AI_MAX_CHARS = 230;
 const TWITTER_POST_LIMIT = 280;
 
@@ -1744,9 +1750,7 @@ export default function ComposerPage() {
                 username: (typeof a.username === 'string' ? a.username : null) as string | null,
                 profilePicture:
                     typeof a.profilePicture === 'string' && a.profilePicture.trim() ? a.profilePicture : null,
-                ...(typeof (a as { linkedinConnectionKind?: string }).linkedinConnectionKind === 'string'
-                    ? { linkedinConnectionKind: (a as { linkedinConnectionKind: string }).linkedinConnectionKind }
-                    : {}),
+                ...optionalLinkedInConnectionKind(a),
             })),
         );
         setAccountsFetched(true);
@@ -1789,9 +1793,7 @@ export default function ComposerPage() {
             username: (typeof a.username === 'string' ? a.username : null) as string | null,
             profilePicture:
                 typeof a.profilePicture === 'string' && a.profilePicture.trim() ? a.profilePicture : null,
-            ...(typeof (a as { linkedinConnectionKind?: string }).linkedinConnectionKind === 'string'
-                ? { linkedinConnectionKind: (a as { linkedinConnectionKind: string }).linkedinConnectionKind }
-                : {}),
+            ...optionalLinkedInConnectionKind(a),
         }));
     }, [accounts, cachedAccounts]);
 
