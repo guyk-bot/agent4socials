@@ -70,8 +70,7 @@ export const LINKEDIN_CONNECT_OPTIONS: Record<LinkedInConnectMethod, LinkedInCon
       'Page post sync and performance metrics',
     ],
     consentTitle: 'Before connecting a Company Page',
-    consentIntro:
-      'You must be a Page administrator. LinkedIn may show a short sign-in screen. Confirm the following before we request access:',
+    consentIntro: 'Please mark all relevant items below to continue.',
     items: [
       {
         id: 'page_admin',
@@ -96,8 +95,7 @@ export const LINKEDIN_CONNECT_OPTIONS: Record<LinkedInConnectMethod, LinkedInCon
       },
       SHARED_AGENT_TERMS,
     ],
-    scopesSummary:
-      'Requested access: sign-in (OpenID), read and manage your Company Page posts, comments, and performance data where LinkedIn provides it.',
+    scopesSummary: '',
     dataUseNote:
       'Page data is used only for Page management in Agent4Socials. We do not resell or use it for off-platform advertising.',
   },

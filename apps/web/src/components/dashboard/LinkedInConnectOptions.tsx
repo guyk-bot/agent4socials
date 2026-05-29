@@ -47,11 +47,13 @@ function ConsentPanel({
         {method === 'page' ? 'Company Page consent' : 'Personal profile consent'}
       </p>
       <h3 className="mt-1 text-base font-semibold text-neutral-900">{title}</h3>
-      <p className="mt-1 text-sm text-neutral-600">{intro}</p>
-      <p className="mt-3 text-xs text-neutral-500 rounded-lg border border-blue-100 bg-white/80 px-3 py-2">
-        {scopesSummary}
-      </p>
-      <ul className="mt-4 space-y-3">
+      {intro.trim() ? <p className="mt-1 text-sm text-neutral-600">{intro}</p> : null}
+      {scopesSummary.trim() ? (
+        <p className="mt-3 text-xs text-neutral-500 rounded-lg border border-blue-100 bg-white/80 px-3 py-2">
+          {scopesSummary}
+        </p>
+      ) : null}
+      <ul className={`space-y-3 ${intro.trim() || scopesSummary.trim() ? 'mt-4' : 'mt-3'}`}>
         {items.map((item) => (
           <li key={item.id}>
             <label className="flex items-start gap-2.5 cursor-pointer text-sm text-neutral-700">
