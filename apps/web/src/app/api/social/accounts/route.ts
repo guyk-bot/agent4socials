@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma, databaseUrlLooksDirect } from '@/lib/db';
 import { linkedInOAuthHealthFromCredentials } from '@/lib/linkedin/oauth-health';
+import { tikTokConnectionKindFromCredentials } from '@/lib/tiktok/tiktok-connection-kind';
 
 const POOLER_MESSAGE =
   'Database: use the Supabase Transaction pooler (port 6543) to avoid max connections. Set DATABASE_URL in Vercel to the Transaction pooler URI, add ?pgbouncer=true if needed, then redeploy. https://supabase.com/docs/guides/database/connecting-to-postgres#connection-pooler';
@@ -41,6 +42,10 @@ export async function GET(request: NextRequest) {
       if (rest.platform === 'LINKEDIN') {
         const li = linkedInOAuthHealthFromCredentials(credentialsJson);
         Object.assign(out, li);
+      }
+      if (rest.platform === 'TIKTOK') {
+        const kind = tikTokConnectionKindFromCredentials(credentialsJson);
+        if (kind) (out as { tiktokConnectionKind?: string }).tiktokConnectionKind = kind;
       }
       return out;
     });

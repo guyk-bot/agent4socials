@@ -175,6 +175,12 @@ export function ConnectedAccountsPanel() {
                     <p className="mt-1 text-[10px] font-medium text-blue-700">Company Page</p>
                   ) : acc.platform === 'LINKEDIN' ? (
                     <p className="mt-1 text-[10px] font-medium text-blue-700">Personal profile</p>
+                  ) : acc.platform === 'TIKTOK' &&
+                    (acc as { tiktokConnectionKind?: string }).tiktokConnectionKind === 'business' ? (
+                    <p className="mt-1 text-[10px] font-medium text-neutral-800">Business account</p>
+                  ) : acc.platform === 'TIKTOK' &&
+                    (acc as { tiktokConnectionKind?: string }).tiktokConnectionKind === 'personal' ? (
+                    <p className="mt-1 text-[10px] font-medium text-neutral-800">Personal account</p>
                   ) : null}
                   {acc.platform === 'LINKEDIN' &&
                   typeof acc.linkedinReconnectHint === 'string' &&
@@ -200,8 +206,19 @@ export function ConnectedAccountsPanel() {
                               : acc.platform === 'LINKEDIN'
                                 ? 'personal'
                                 : undefined;
+                          const tiktokMethod =
+                            acc.platform === 'TIKTOK' &&
+                            (acc as { tiktokConnectionKind?: string }).tiktokConnectionKind === 'business'
+                              ? 'business'
+                              : acc.platform === 'TIKTOK' &&
+                                  (acc as { tiktokConnectionKind?: string }).tiktokConnectionKind === 'personal'
+                                ? 'personal'
+                                : undefined;
+                          const reconnectMethod = liMethod ?? tiktokMethod;
                           const qs =
-                            liMethod != null ? `?method=${encodeURIComponent(liMethod)}` : '';
+                            reconnectMethod != null
+                              ? `?method=${encodeURIComponent(reconnectMethod)}`
+                              : '';
                           const res = await api.get(
                             `/social/oauth/${acc.platform.toLowerCase()}/start${qs}`
                           );

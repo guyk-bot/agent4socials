@@ -35,7 +35,11 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
         ? `${userId}:linkedin_page`
         : platform === 'LINKEDIN' && method === 'personal'
           ? `${userId}:linkedin_personal`
-          : userId;
+          : platform === 'TIKTOK' && method === 'business'
+            ? `${userId}:tiktok_business`
+            : platform === 'TIKTOK' && method === 'personal'
+              ? `${userId}:tiktok_personal`
+              : userId;
 
   switch (platform) {
     case 'INSTAGRAM':

@@ -718,10 +718,18 @@ export async function GET(
   const isInstagramLogin = stateRaw.includes(':instagram');
   const isLinkedInPage = stateRaw.includes(':linkedin_page');
   const isLinkedInPersonal = stateRaw.includes(':linkedin_personal');
+  const isTikTokPersonal = stateRaw.includes(':tiktok_personal');
+  const isTikTokBusiness = stateRaw.includes(':tiktok_business');
+  const oauthStateBase = stateRaw
+    .replace(/:instagram$/, '')
+    .replace(/:linkedin_page$/, '')
+    .replace(/:linkedin_personal$/, '')
+    .replace(/:tiktok_personal$/, '')
+    .replace(/:tiktok_business$/, '');
   let userId: string;
   try {
-    if (stateRaw.startsWith('sb:')) {
-      const resolved = await resolvePrismaUserIdFromOAuthState(stateRaw);
+    if (oauthStateBase.startsWith('sb:')) {
+      const resolved = await resolvePrismaUserIdFromOAuthState(oauthStateBase);
       if (!resolved) {
         return oauthErrorHtml(
           baseUrl,
@@ -731,13 +739,7 @@ export async function GET(
       }
       userId = resolved;
     } else {
-      userId = isInstagramLogin
-        ? stateRaw.replace(/:instagram$/, '')
-        : isLinkedInPage
-          ? stateRaw.replace(/:linkedin_page$/, '')
-          : isLinkedInPersonal
-            ? stateRaw.replace(/:linkedin_personal$/, '')
-            : stateRaw;
+      userId = oauthStateBase;
     }
   } catch (e) {
     if (isPrismaPoolError(e)) {
@@ -1259,6 +1261,32 @@ export async function GET(
         ? { ...(existingTw.credentialsJson as Record<string, unknown>) }
         : {};
     credentialsJsonToSet = { ...prevTw, ...twitterCreds };
+  }
+  if (plat === 'TIKTOK') {
+    const kind = isTikTokBusiness ? 'business' : isTikTokPersonal ? 'personal' : undefined;
+    const prev = await prisma.socialAccount.findFirst({
+      where: {
+        userId,
+        platform: 'TIKTOK',
+        platformUserId: tokenData.platformUserId,
+      },
+      select: { credentialsJson: true },
+    });
+    const prevObj =
+      prev?.credentialsJson && typeof prev.credentialsJson === 'object' && prev.credentialsJson !== null
+        ? { ...(prev.credentialsJson as Record<string, unknown>) }
+        : {};
+    const baseCreds =
+      credentialsJsonToSet && typeof credentialsJsonToSet === 'object'
+        ? (credentialsJsonToSet as Record<string, unknown>)
+        : prevObj;
+    const existingKind =
+      typeof prevObj.tiktokConnectionKind === 'string' &&
+      (prevObj.tiktokConnectionKind === 'personal' || prevObj.tiktokConnectionKind === 'business')
+        ? prevObj.tiktokConnectionKind
+        : undefined;
+    const nextKind = kind ?? existingKind;
+    credentialsJsonToSet = nextKind ? { ...baseCreds, tiktokConnectionKind: nextKind } : baseCreds;
   }
   try {
     if (plat === 'PINTEREST') {
