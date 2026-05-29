@@ -66,8 +66,8 @@ export const LINKEDIN_CONNECT_OPTIONS: Record<LinkedInConnectMethod, LinkedInCon
     title: 'Company Page',
     subtitle: 'Community Management for a LinkedIn Page you administer',
     features: [
-      'Publish as your Company Page from Composer',
-      'Inbox: comments and engagement on Page posts',
+      'Publish & schedule posts on your LinkedIn Company Page',
+      'Reply to comments on your posts and auto reply using keyword automation',
       'Page post sync and performance metrics',
     ],
     consentTitle: 'Before connecting a Company Page',
