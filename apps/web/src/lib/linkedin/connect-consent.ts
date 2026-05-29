@@ -29,14 +29,16 @@ const SHARED_AGENT_TERMS: LinkedInConsentItem = {
   label: 'I agree to Agent4Socials Terms of Service and Privacy Policy.',
 };
 
+const SHARED_CONSENT_INTRO =
+  'Please mark all relevant items below to continue. To fully use Agent4Socials, you must mark all of them to continue.';
+
 export const LINKEDIN_CONNECT_OPTIONS: Record<LinkedInConnectMethod, LinkedInConnectOptionCopy> = {
   personal: {
     title: 'Personal profile',
     subtitle: 'Publish posts from your personal LinkedIn profile',
     features: ['Publish and schedule posts from Composer'],
     consentTitle: 'Before connecting your personal profile',
-    consentIntro:
-      'LinkedIn may show a short sign-in screen. Agent4Socials also asks you to confirm the following before we request access:',
+    consentIntro: SHARED_CONSENT_INTRO,
     items: [
       {
         id: 'own_account',
@@ -56,8 +58,7 @@ export const LINKEDIN_CONNECT_OPTIONS: Record<LinkedInConnectMethod, LinkedInCon
       },
       SHARED_AGENT_TERMS,
     ],
-    scopesSummary:
-      'Requested access: sign-in (OpenID), basic profile info, and permission to post on your personal profile.',
+    scopesSummary: '',
     dataUseNote:
       'We do not use this data to build ad audiences or sell profiles. Disconnect anytime from Account settings.',
   },
@@ -70,7 +71,7 @@ export const LINKEDIN_CONNECT_OPTIONS: Record<LinkedInConnectMethod, LinkedInCon
       'Page post sync and performance metrics',
     ],
     consentTitle: 'Before connecting a Company Page',
-    consentIntro: 'Please mark all relevant items below to continue.',
+    consentIntro: SHARED_CONSENT_INTRO,
     items: [
       {
         id: 'page_admin',
