@@ -2258,12 +2258,11 @@ export default function DashboardPage() {
                     : undefined
             }
             postsSyncError={analyticsAccount.platform === 'LINKEDIN' ? postsSyncError : null}
-            linkedInReconnectHint={
-              analyticsAccount.platform === 'LINKEDIN' &&
-              typeof (analyticsAccount as { linkedinReconnectHint?: string }).linkedinReconnectHint === 'string'
-                ? (analyticsAccount as { linkedinReconnectHint: string }).linkedinReconnectHint
-                : null
-            }
+            linkedInReconnectHint={(() => {
+              if (analyticsAccount.platform !== 'LINKEDIN') return null;
+              const hint = (analyticsAccount as { linkedinReconnectHint?: string }).linkedinReconnectHint;
+              return typeof hint === 'string' && hint.trim() ? hint.trim() : null;
+            })()}
             onDateRangeChange={handleAnalyticsDateRangeChange}
             followersLabel={
               analyticsAccount.platform === 'YOUTUBE'
