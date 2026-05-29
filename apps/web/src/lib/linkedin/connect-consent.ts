@@ -37,9 +37,10 @@ export const LINKEDIN_CONNECT_OPTIONS: Record<LinkedInConnectMethod, LinkedInCon
     title: 'Personal profile',
     subtitle: 'Publish posts from your personal LinkedIn profile',
     features: [
-      'Publish and schedule posts (Share on LinkedIn: w_member_social)',
-      'Reply to comments on your posts when LinkedIn allows write access',
-      'Dashboard post list and Inbox comment feed need LinkedIn read scope (r_member_social) if shown at sign-in',
+      'Publish and schedule text posts (Share on LinkedIn: w_member_social)',
+      'Video posts may need extra LinkedIn API access beyond Share on LinkedIn',
+      'Dashboard posts and Inbox comments need read scope (r_member_social), separate from Share on LinkedIn',
+      'Comment replies use w_member_social; loading threads still needs r_member_social',
     ],
     consentTitle: 'Before connecting your personal profile',
     consentIntro: SHARED_CONSENT_INTRO,

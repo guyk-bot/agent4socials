@@ -220,7 +220,23 @@ If you use the same app for both flows, you can leave these unset and use `META_
    - `LINKEDIN_CLIENT_ID`
    - `LINKEDIN_CLIENT_SECRET`
 
-**Connect a LinkedIn Page (company page):** The app offers **Personal profile** and **LinkedIn Page**. By default the app only requests **OpenID Connect** scopes so connect works with that product alone. LinkedIn’s “Bummer, something went wrong” usually means a **scope your app does not have** (for example `w_member_social` without **Share on LinkedIn**, or org scopes without **Community Management API** / **Marketing Developer Platform**). To request org scopes (after LinkedIn approves the product), set **`LINKEDIN_REQUEST_ORG_SCOPES`** = `true` and redeploy; that flow includes `w_member_social`, so **Share on LinkedIn** must also be on the app.
+**Connect a LinkedIn Page (company page):** The app offers **Personal profile** and **LinkedIn Page**. Personal connect defaults to **Share on LinkedIn** scopes only (`w_member_social` plus OpenID). LinkedIn’s “Bummer, something went wrong” usually means a **scope your app does not have** (for example requesting `r_member_social` before LinkedIn adds it to the app). To request org scopes (after LinkedIn approves the product), set **`LINKEDIN_REQUEST_ORG_SCOPES`** = `true` and redeploy.
+
+### Personal profile: what Share on LinkedIn includes (LinkedIn-confirmed)
+
+| Capability | Scope / product | With Share on LinkedIn only? |
+|------------|-----------------|------------------------------|
+| Publish text posts from Composer | `w_member_social` | Yes |
+| Post comments / like (write) | `w_member_social` | Yes |
+| List your posts on our dashboard (`GET /rest/posts?q=author`) | `r_member_social` | No (separate, restricted) |
+| Load comment threads in Inbox (read) | `r_member_social` | No |
+| Reply in Inbox (write) | `w_member_social` | Yes, but read still needs `r_member_social` |
+| Post impressions / engagement metrics | `r_member_postAnalytics` | No (separate approval) |
+| Video publish (`POST /rest/videos` flow) | Videos API / beyond publish-only | Unclear; may need extra product access beyond Share on LinkedIn |
+
+When LinkedIn adds **`r_member_social`** to your app: set **`LINKEDIN_INCLUDE_R_MEMBER_SOCIAL`** = `true` in Vercel, redeploy, reconnect personal profile. For analytics, also request **`r_member_postAnalytics`** and set **`LINKEDIN_INCLUDE_R_MEMBER_POST_ANALYTICS`** = `true` if shown at sign-in.
+
+Docs: [Share on LinkedIn](https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/share-on-linkedin), [Posts API permissions](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api).
 
 ---
 
