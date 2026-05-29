@@ -32,6 +32,7 @@ import { getValidThreadsToken } from '@/lib/threads/threads-token';
 import {
   buildPostScalarsSelect,
   isMissingPostAlsoPostToStoryColumn,
+  isMissingPostLinkedInPublishByAccountIdColumn,
   isMissingPostMediaTypeColumn,
   isMissingPostThreadsShareToInstagramColumn,
   prismaPostReadWithMediaTypeFallback,
@@ -181,7 +182,8 @@ export async function preparePostForBackgroundPublish(
       if (
         !isMissingPostMediaTypeColumn(updateErr) &&
         !isMissingPostThreadsShareToInstagramColumn(updateErr) &&
-        !isMissingPostAlsoPostToStoryColumn(updateErr)
+        !isMissingPostAlsoPostToStoryColumn(updateErr) &&
+        !isMissingPostLinkedInPublishByAccountIdColumn(updateErr)
       ) {
         throw updateErr;
       }

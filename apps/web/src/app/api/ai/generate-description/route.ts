@@ -436,7 +436,7 @@ export async function POST(request: NextRequest) {
     } catch (e) {
       console.error('[OpenAI] generate-description batch', e instanceof Error ? e.message : e);
       return NextResponse.json(
-        { message: 'AI service error. Try again later.' },
+        { message: openAiErrorMessage(e) },
         { status: 502 }
       );
     }
@@ -462,8 +462,26 @@ export async function POST(request: NextRequest) {
   } catch (e) {
     console.error('[OpenAI] generate-description', e instanceof Error ? e.message : e);
     return NextResponse.json(
-      { message: 'AI service error. Try again later.' },
+      { message: openAiErrorMessage(e) },
       { status: 502 }
     );
   }
+}
+
+function openAiErrorMessage(e: unknown): string {
+  const raw = e instanceof Error ? e.message : String(e);
+  if (/OPENAI_API_KEY/i.test(raw)) {
+    return 'AI is not configured on the server (OPENAI_API_KEY). Contact support or try again later.';
+  }
+  if (/401|invalid_api_key|Incorrect API key/i.test(raw)) {
+    return 'AI API key is invalid. Check OPENAI_API_KEY in your deployment settings.';
+  }
+  if (/429|rate limit/i.test(raw)) {
+    return 'AI rate limit reached. Wait a minute and try again.';
+  }
+  if (/insufficient_quota|billing/i.test(raw)) {
+    return 'AI quota exceeded on the OpenAI account. Check billing at platform.openai.com.';
+  }
+  if (raw.length > 0 && raw.length < 280) return raw;
+  return 'AI service error. Try again later.';
 }

@@ -24,6 +24,14 @@ export function isMissingPostAlsoPostToStoryColumn(error: unknown): boolean {
   return msg.includes('alsoPostToStory') && msg.includes('does not exist');
 }
 
+export function isMissingPostLinkedInPublishByAccountIdColumn(error: unknown): boolean {
+  const e = error as { message?: string; code?: string; meta?: { column?: unknown } };
+  const msg = String(e?.message ?? '');
+  const metaColumn = String(e?.meta?.column ?? '');
+  if (e?.code === 'P2022' && metaColumn.toLowerCase().includes('linkedinpublishbyaccountid')) return true;
+  return msg.includes('linkedInPublishByAccountId') && msg.includes('does not exist');
+}
+
 type PostScalarKey =
   | 'id'
   | 'userId'
@@ -58,7 +66,6 @@ function postScalarsSelectCore(): Pick<Prisma.PostSelect, PostScalarKey> {
     mediaByPlatform: true,
     commentAutomation: true,
     tiktokPublishByAccountId: true,
-    linkedInPublishByAccountId: true,
     status: true,
     scheduledAt: true,
     scheduleDelivery: true,
@@ -76,12 +83,14 @@ export function buildPostScalarsSelect(opts: {
   withMediaType?: boolean;
   withThreadsShareToInstagram?: boolean;
   withAlsoPostToStory?: boolean;
+  withLinkedInPublishByAccountId?: boolean;
 }): Pick<Prisma.PostSelect, PostScalarKey> {
   return {
     ...postScalarsSelectCore(),
     ...(opts.withThreadsShareToInstagram ? { threadsShareToInstagram: true } : {}),
     ...(opts.withAlsoPostToStory ? { alsoPostToStory: true } : {}),
     ...(opts.withMediaType ? { mediaType: true } : {}),
+    ...(opts.withLinkedInPublishByAccountId !== false ? { linkedInPublishByAccountId: true } : {}),
   };
 }
 
@@ -105,6 +114,7 @@ export type PostReadSchemaOpts = {
   withMediaType: boolean;
   withThreadsShareToInstagram: boolean;
   withAlsoPostToStory: boolean;
+  withLinkedInPublishByAccountId: boolean;
 };
 
 /**
@@ -113,16 +123,21 @@ export type PostReadSchemaOpts = {
 export async function prismaPostReadWithMediaTypeFallback<T>(
   read: (opts: PostReadSchemaOpts) => Promise<T>
 ): Promise<T> {
-  const attempts: PostReadSchemaOpts[] = [
-    { withMediaType: true, withThreadsShareToInstagram: true, withAlsoPostToStory: true },
-    { withMediaType: false, withThreadsShareToInstagram: true, withAlsoPostToStory: true },
-    { withMediaType: true, withThreadsShareToInstagram: false, withAlsoPostToStory: true },
-    { withMediaType: false, withThreadsShareToInstagram: false, withAlsoPostToStory: true },
-    { withMediaType: true, withThreadsShareToInstagram: true, withAlsoPostToStory: false },
-    { withMediaType: false, withThreadsShareToInstagram: true, withAlsoPostToStory: false },
-    { withMediaType: true, withThreadsShareToInstagram: false, withAlsoPostToStory: false },
-    { withMediaType: false, withThreadsShareToInstagram: false, withAlsoPostToStory: false },
-  ];
+  const attempts: PostReadSchemaOpts[] = [];
+  for (const withMediaType of [true, false]) {
+    for (const withThreadsShareToInstagram of [true, false]) {
+      for (const withAlsoPostToStory of [true, false]) {
+        for (const withLinkedInPublishByAccountId of [true, false]) {
+          attempts.push({
+            withMediaType,
+            withThreadsShareToInstagram,
+            withAlsoPostToStory,
+            withLinkedInPublishByAccountId,
+          });
+        }
+      }
+    }
+  }
   let lastError: unknown;
   for (const opts of attempts) {
     try {
@@ -132,7 +147,8 @@ export async function prismaPostReadWithMediaTypeFallback<T>(
       if (
         !isMissingPostMediaTypeColumn(e) &&
         !isMissingPostThreadsShareToInstagramColumn(e) &&
-        !isMissingPostAlsoPostToStoryColumn(e)
+        !isMissingPostAlsoPostToStoryColumn(e) &&
+        !isMissingPostLinkedInPublishByAccountIdColumn(e)
       ) {
         throw e;
       }
@@ -157,6 +173,10 @@ export function stripMissingPostColumnsFromWriteData(
   }
   if (isMissingPostAlsoPostToStoryColumn(error)) {
     const { alsoPostToStory: _a, ...rest } = next;
+    next = rest;
+  }
+  if (isMissingPostLinkedInPublishByAccountIdColumn(error)) {
+    const { linkedInPublishByAccountId: _l, ...rest } = next;
     next = rest;
   }
   return next;

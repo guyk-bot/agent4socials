@@ -1316,6 +1316,12 @@ export async function publishTarget(
       if (postRes.status < 200 || postRes.status >= 300) {
         const errBody = postRes.data as { message?: string; code?: string } | undefined;
         const detail = typeof errBody?.message === 'string' ? errBody.message : JSON.stringify(postRes.data ?? {});
+        if (postRes.status === 403 && firstMediaUrl && !firstImageUrl) {
+          throw new Error(
+            'LinkedIn denied the video post (403). Share on LinkedIn may not include video upload for your app, or the video could not be attached. Try an image post, or check LinkedIn developer products.'
+              .slice(0, 450)
+          );
+        }
         if (postRes.status === 403 && !firstImageUrl && !firstMediaUrl) {
           try {
             const ugcRes = await axiosInstance.post(

@@ -72,6 +72,11 @@ import {
 import { resolveComposerMediaType } from '@/lib/composer-media-type';
 import { mergeCaptionWithCta } from '@/lib/composer/cta-caption';
 import {
+    filterPersistableComposerMedia,
+    getComposerMediaNotReadyReason,
+    isPersistableComposerMediaUrl,
+} from '@/lib/composer-media-ready';
+import {
     isLinkedInPublishSettings,
     normalizeLinkedInVisibility,
     type LinkedInPostVisibility,
@@ -135,7 +140,7 @@ type ComposerDraft = {
 };
 
 function isPersistableMediaUrl(url: string): boolean {
-    return typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'));
+    return isPersistableComposerMediaUrl(url);
 }
 
 /** Use proxy for R2 URLs so the browser gets correct Content-Type and avoids CORB. */
@@ -1067,6 +1072,9 @@ export default function ComposerPage() {
     const [aiCtaAutomationPrompt, setAiCtaAutomationPrompt] = useState('');
     const [aiLoading, setAiLoading] = useState(false);
     const [aiError, setAiError] = useState<string | null>(null);
+    /** True after the AI modal closes while caption generation runs in the background. */
+    const [aiContentGenerating, setAiContentGenerating] = useState(false);
+    const [aiInlineError, setAiInlineError] = useState<string | null>(null);
     const [hasBrandContext, setHasBrandContext] = useState<boolean | null>(() =>
       readComposerBrandReadyCache() ? true : null
     );
@@ -1537,10 +1545,16 @@ export default function ComposerPage() {
             setAiError('Describe what this post is about.');
             return;
         }
-        setAiLoading(true);
-        setAiError(null);
         const topic = aiTopic.trim();
         const prompt = aiPrompt.trim() || undefined;
+        const includeCta = aiIncludeCtaAndAutomation;
+        const ctaPrompt = aiIncludeCtaAndAutomation ? aiCtaAutomationPrompt.trim() || undefined : undefined;
+        const platformForSingle = aiPlatform || undefined;
+        setAiLoading(true);
+        setAiError(null);
+        setAiModalOpen(false);
+        setAiContentGenerating(true);
+        setAiInlineError(null);
 
         const applyCommentAutomationFromAi = (data: {
             keywords?: string[];
@@ -1568,18 +1582,17 @@ export default function ComposerPage() {
                     topic,
                     prompt,
                     platforms,
-                    includeCtaAndAutomation: aiIncludeCtaAndAutomation,
-                    ctaAutomationPrompt: aiIncludeCtaAndAutomation ? aiCtaAutomationPrompt.trim() || undefined : undefined,
+                    includeCtaAndAutomation: includeCta,
+                    ctaAutomationPrompt: ctaPrompt,
                 }, { timeout: 90_000 })
                     .then((res) => {
                         const { byPlatform, cta, keywords, replyTemplate } = res.data;
-                        const ctaText = aiIncludeCtaAndAutomation ? (cta?.trim() ?? '') : '';
-                        const firstPlatform = platforms[0];
+                        const ctaText = includeCta ? (cta?.trim() ?? '') : '';
                         setContentByPlatform((prev) => {
                             const next = { ...prev };
                             for (const platform of platforms) {
                                 let text = byPlatform?.[platform] ?? '';
-                                if (aiIncludeCtaAndAutomation && ctaText) {
+                                if (includeCta && ctaText) {
                                     text = mergeCaptionWithCta(text, ctaText);
                                 }
                                 if (platform === 'TWITTER') {
@@ -1589,67 +1602,73 @@ export default function ComposerPage() {
                             }
                             return next;
                         });
-                        if (aiIncludeCtaAndAutomation) {
+                        if (includeCta) {
                             applyCommentAutomationFromAi({ keywords, replyTemplate });
                         }
-                        setAiModalOpen(false);
                     })
                     .catch((err) => {
                         const msg = err.response?.data?.message ?? 'Failed to generate for one or more platforms. Try again.';
-                        setAiError(msg);
+                        setAiInlineError(msg);
                     })
-                    .finally(() => setAiLoading(false));
+                    .finally(() => {
+                        setAiLoading(false);
+                        setAiContentGenerating(false);
+                    });
             } else {
                 const firstPlatform = platforms[0];
                 api.post<{ content?: string; cta?: string; keywords?: string[]; replyTemplate?: string }>('/ai/generate-description', {
                     topic,
                     prompt,
                     platform: firstPlatform,
-                    includeCtaAndAutomation: aiIncludeCtaAndAutomation,
-                    ctaAutomationPrompt: aiIncludeCtaAndAutomation ? aiCtaAutomationPrompt.trim() || undefined : undefined,
+                    includeCtaAndAutomation: includeCta,
+                    ctaAutomationPrompt: ctaPrompt,
                 }, { timeout: 60_000 })
                     .then((res) => {
                         const d = res.data;
-                        const ctaText = aiIncludeCtaAndAutomation ? d?.cta?.trim() ?? '' : '';
+                        const ctaText = includeCta ? d?.cta?.trim() ?? '' : '';
                         let text = d?.content ?? '';
-                        if (aiIncludeCtaAndAutomation && ctaText) {
+                        if (includeCta && ctaText) {
                             text = mergeCaptionWithCta(text, ctaText);
                         }
                         if (firstPlatform === 'TWITTER') {
                             text = clampTwitterAiText(text);
                         }
                         setContentByPlatform((prev) => ({ ...prev, [firstPlatform]: text }));
-                        if (aiIncludeCtaAndAutomation && d) applyCommentAutomationFromAi(d);
-                        setAiModalOpen(false);
+                        if (includeCta && d) applyCommentAutomationFromAi(d);
                     })
                     .catch((err) => {
                         const msg = err.response?.data?.message ?? 'Failed to generate for one or more platforms. Try again.';
-                        setAiError(msg);
+                        setAiInlineError(msg);
                     })
-                    .finally(() => setAiLoading(false));
+                    .finally(() => {
+                        setAiLoading(false);
+                        setAiContentGenerating(false);
+                    });
             }
         } else {
             api.post<{ content?: string; cta?: string; keywords?: string[]; replyTemplate?: string }>('/ai/generate-description', {
                 topic,
                 prompt,
-                platform: aiPlatform || undefined,
-                includeCtaAndAutomation: aiIncludeCtaAndAutomation,
-                ctaAutomationPrompt: aiIncludeCtaAndAutomation ? aiCtaAutomationPrompt.trim() || undefined : undefined,
+                platform: platformForSingle,
+                includeCtaAndAutomation: includeCta,
+                ctaAutomationPrompt: ctaPrompt,
             }, { timeout: 60_000 }).then((res) => {
                 const data = res.data;
-                const isTwitter = (aiPlatform || '').toUpperCase() === 'TWITTER';
-                const ctaText = aiIncludeCtaAndAutomation ? (data?.cta?.trim() ?? '') : '';
+                const isTwitter = (platformForSingle || '').toUpperCase() === 'TWITTER';
+                const ctaText = includeCta ? (data?.cta?.trim() ?? '') : '';
                 let text = data?.content ?? '';
-                if (aiIncludeCtaAndAutomation && ctaText) {
+                if (includeCta && ctaText) {
                     text = mergeCaptionWithCta(text, ctaText);
                 }
                 setContent(isTwitter ? clampTwitterAiText(text) : text);
-                if (aiIncludeCtaAndAutomation && data) applyCommentAutomationFromAi(data);
-                setAiModalOpen(false);
+                if (includeCta && data) applyCommentAutomationFromAi(data);
             }).catch((err) => {
                 const msg = err.response?.data?.message ?? 'Failed to generate. Try again.';
-                setAiError(msg);
-            }).finally(() => setAiLoading(false));
+                setAiInlineError(msg);
+            }).finally(() => {
+                setAiLoading(false);
+                setAiContentGenerating(false);
+            });
         }
     }, [aiTopic, aiPrompt, aiPlatform, aiIncludeCtaAndAutomation, aiCtaAutomationPrompt, differentContentPerPlatform, platforms, clampTwitterAiText, hasBrandContext, user?.id]);
 
@@ -2071,32 +2090,12 @@ export default function ComposerPage() {
         setStoryCropPlatform(null);
         setStoryAdjustIndex(null);
 
-        if (storyPreviewBlobRef.current) {
-            URL.revokeObjectURL(storyPreviewBlobRef.current);
-            storyPreviewBlobRef.current = null;
-        }
-        const previewUrl = URL.createObjectURL(blob);
-        storyPreviewBlobRef.current = previewUrl;
-        const previewItem: MediaItem = { fileUrl: previewUrl, type: 'IMAGE' };
-
-        if (platformTarget) {
-            setMediaByPlatform((prev) => ({ ...prev, [platformTarget]: [previewItem] }));
-        } else if (adjustIndex != null) {
-            setMediaList((prev) => prev.map((m, i) => (i === adjustIndex ? previewItem : m)));
-        } else {
-            setMediaList([previewItem]);
-        }
-
         const safeName = (fileName || 'story.jpg').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 200) || 'story.jpg';
         const file = new File([blob], safeName.endsWith('.jpg') ? safeName : `${safeName}.jpg`, { type: 'image/jpeg' });
 
         setMediaUploading(true);
         try {
             const item = await uploadFile(file);
-            if (storyPreviewBlobRef.current === previewUrl) {
-                URL.revokeObjectURL(previewUrl);
-                storyPreviewBlobRef.current = null;
-            }
             if (platformTarget) {
                 setMediaByPlatform((prev) => ({ ...prev, [platformTarget]: [item] }));
             } else if (adjustIndex != null) {
@@ -2358,6 +2357,30 @@ export default function ComposerPage() {
         [differentMediaPerPlatform, mediaByPlatform, mediaList]
     );
 
+    const composerMediaNotReadyReason = useMemo(
+        () =>
+            getComposerMediaNotReadyReason({
+                mediaType,
+                mediaUploading,
+                thumbnailPicking,
+                storyCropOpen: Boolean(storyCropFile),
+                platforms,
+                mediaList,
+                mediaByPlatform,
+                differentMediaPerPlatform,
+            }),
+        [
+            mediaType,
+            mediaUploading,
+            thumbnailPicking,
+            storyCropFile,
+            platforms,
+            mediaList,
+            mediaByPlatform,
+            differentMediaPerPlatform,
+        ]
+    );
+
     const tikTokModalPreview = useMemo(() => {
         const list = getEffectiveMediaListForPlatform('TIKTOK');
         const hasVideo = list.some((m) => m.type === 'VIDEO');
@@ -2548,6 +2571,10 @@ export default function ComposerPage() {
     const runComposerCommit = async (saveAsDraft: boolean) => {
         saveAsDraftRef.current = saveAsDraft;
         const tiktokProcessingNotice = 'TikTok may take a few minutes to show your video on your profile.';
+        if (composerMediaNotReadyReason) {
+            setAlertMessage(composerMediaNotReadyReason);
+            return;
+        }
         if (platforms.length === 0) {
             setAlertMessage('Select at least one platform');
             return;
@@ -2741,7 +2768,7 @@ export default function ComposerPage() {
                 media:
                     mediaType === 'text'
                         ? []
-                        : mediaList.map((m, i) => {
+                        : filterPersistableComposerMedia(mediaList).map((m, i) => {
                               if (i === 0 && m.type === 'VIDEO') {
                                   return {
                                       ...m,
@@ -2830,6 +2857,11 @@ export default function ComposerPage() {
                     payload.linkedInPublishByAccountId = linkedInMap;
                 }
             }
+            if (mediaType !== 'text' && payload.media.length === 0) {
+                setLoading(false);
+                setAlertMessage('Media is still uploading or missing. Wait until upload finishes, then try again.');
+                return;
+            }
             if (platforms.includes('THREADS') && mediaType !== 'text' && hasMedia) {
                 payload.threadsShareToInstagram = threadsShareToInstagram;
             }
@@ -2886,12 +2918,15 @@ export default function ComposerPage() {
                                 idx === 0 && m.type === 'VIDEO' ? { ...m, thumbnailUrl: pinterestAutoCoverUrl } : m
                             );
                         }
-                        acc[p] = list;
+                        const ready = filterPersistableComposerMedia(list);
+                        if (ready.length) acc[p] = ready;
                     }
                     return acc;
                 }, {} as Record<string, { fileUrl: string; type: 'IMAGE' | 'VIDEO'; thumbnailUrl?: string }[]>);
                 const firstWithMedia = platforms.find((p) => (mediaByPlatform[p]?.length ?? 0) > 0);
-                const baseMedia = firstWithMedia ? mediaByPlatform[firstWithMedia]! : mediaList;
+                const baseMedia = filterPersistableComposerMedia(
+                    firstWithMedia ? mediaByPlatform[firstWithMedia]! : mediaList
+                );
                 payload.media = baseMedia.map((m, i) => {
                     if (i === 0 && m.type === 'VIDEO') {
                         const first = mediaList[0] as MediaItem;
@@ -2904,8 +2939,9 @@ export default function ComposerPage() {
                     return m;
                 });
             } else if (differentThumbnailPerPlatform && (mediaType === 'video' || mediaType === 'reel') && mediaList.length > 0) {
+                const readyMediaList = filterPersistableComposerMedia(mediaList);
                 payload.mediaByPlatform = platforms.reduce((acc, p) => {
-                    acc[p] = mediaList.map((m, i) => {
+                    acc[p] = readyMediaList.map((m, i) => {
                         if (i === 0 && m.type === 'VIDEO') {
                             const platformThumb = thumbnailByPlatform[p];
                             const finalThumb = platformThumb ?? (m as MediaItem).thumbnailUrl;
@@ -4010,13 +4046,23 @@ export default function ComposerPage() {
                         </div>
                         {!differentContentPerPlatform ? (
                             <div>
+                            {aiContentGenerating && (
+                                <p className="mb-2 flex items-center gap-2 text-sm text-neutral-600" role="status">
+                                    <Loader2 size={16} className="animate-spin shrink-0 text-[var(--button)]" aria-hidden />
+                                    Generating caption with AI…
+                                </p>
+                            )}
+                            {aiInlineError && !aiContentGenerating && (
+                                <p className="mb-2 text-sm text-red-600">{aiInlineError}</p>
+                            )}
                             <textarea
                                 value={content}
                                     onChange={(e) => { setContent(e.target.value); e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
                                     onFocus={(e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
-                                placeholder="What's on your mind?..."
+                                placeholder={aiContentGenerating ? 'AI is writing your caption…' : "What's on your mind?..."}
                                     rows={5}
-                                    className="w-full min-h-[7rem] p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] resize-none overflow-hidden"
+                                    disabled={aiContentGenerating}
+                                    className={`w-full min-h-[7rem] p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] resize-none overflow-hidden ${aiContentGenerating ? 'opacity-60 cursor-wait' : ''}`}
                                 />
                                 {platforms.includes('TWITTER') && (() => {
                                     const withTags = content.trim() + (selectedHashtags.length ? ' ' + selectedHashtags.join(' ') : '');
@@ -4448,11 +4494,16 @@ export default function ComposerPage() {
                         )}
                     </div>
 
+                    {composerMediaNotReadyReason ? (
+                        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3" role="status">
+                            {composerMediaNotReadyReason}
+                        </p>
+                    ) : null}
                     <div className="flex flex-col sm:flex-row gap-2">
                     <button
                         type="submit"
                             value="publish"
-                        disabled={loading && !publishModal.open}
+                        disabled={(loading && !publishModal.open) || !!composerMediaNotReadyReason || aiContentGenerating}
                             className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-base font-medium bg-neutral-700 text-white hover:bg-neutral-800 active:bg-neutral-900 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             {loading && !publishModal.open ? (
@@ -4471,7 +4522,7 @@ export default function ComposerPage() {
                         <button
                             type="submit"
                             value="draft"
-                            disabled={loading}
+                            disabled={loading || !!composerMediaNotReadyReason || aiContentGenerating}
                             className="shrink-0 px-6 py-3.5 rounded-xl border-2 border-neutral-200 text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300 font-medium disabled:opacity-70 disabled:cursor-not-allowed transition-colors"
                         >
                             {loading ? <Loader2 size={20} className="animate-spin" /> : 'Save draft'}

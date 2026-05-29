@@ -11,6 +11,7 @@ import {
   isMissingPostAlsoPostToStoryColumn,
   isMissingPostMediaTypeColumn,
   isMissingPostThreadsShareToInstagramColumn,
+  isMissingPostLinkedInPublishByAccountIdColumn,
   prismaPostReadWithMediaTypeFallback,
   stripMissingPostColumnsFromWriteData,
 } from '@/lib/prisma-post-media-type-fallback';
@@ -264,7 +265,8 @@ export async function POST(request: NextRequest) {
     if (
       !isMissingPostMediaTypeColumn(createErr) &&
       !isMissingPostThreadsShareToInstagramColumn(createErr) &&
-      !isMissingPostAlsoPostToStoryColumn(createErr)
+      !isMissingPostAlsoPostToStoryColumn(createErr) &&
+      !isMissingPostLinkedInPublishByAccountIdColumn(createErr)
     ) {
       throw createErr;
     }
