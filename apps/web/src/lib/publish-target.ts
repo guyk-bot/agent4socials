@@ -6,6 +6,11 @@
 import FormData from 'form-data';
 import { signTwitterRequest } from './twitter-oauth1';
 import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
+import {
+  linkedInVisibilityForRestApi,
+  linkedInVisibilityForUgcApi,
+  normalizeLinkedInVisibility,
+} from '@/lib/linkedin/publish-settings';
 import { facebookGraphBaseUrl, META_GRAPH_FACEBOOK_API_VERSION } from '@/lib/meta-graph-insights';
 import {
   buildTikTokPhotoPostInfoFromPayload,
@@ -43,6 +48,8 @@ export type PublishTargetOptions = {
   isStory?: boolean;
   /** LinkedIn REST author URN (urn:li:person:… or urn:li:organization:…). */
   linkedInAuthorUrn?: string;
+  /** LinkedIn post visibility: PUBLIC (default) or CONNECTIONS. */
+  linkedInVisibility?: 'PUBLIC' | 'CONNECTIONS';
   /** Threads: also share to linked Instagram account as a Story. */
   threadsShareToInstagram?: boolean;
   /** Instagram/Facebook feed publish: also post the same media as a Story. */
@@ -944,6 +951,12 @@ export async function publishTarget(
             'LinkedIn author URN missing. Disconnect and reconnect LinkedIn from Accounts after enabling Share on LinkedIn on your LinkedIn app and LINKEDIN_INCLUDE_W_MEMBER_SOCIAL=true in Vercel.',
         };
       }
+      const liVisibility = linkedInVisibilityForRestApi(
+        normalizeLinkedInVisibility(options.linkedInVisibility)
+      );
+      const liUgcVisibility = linkedInVisibilityForUgcApi(
+        normalizeLinkedInVisibility(options.linkedInVisibility)
+      );
       let postBody: {
         author: string;
         commentary: string;
@@ -955,7 +968,7 @@ export async function publishTarget(
       } = {
         author,
         commentary: caption || ' ',
-        visibility: 'PUBLIC',
+        visibility: liVisibility,
         distribution: {
           feedDistribution: 'MAIN_FEED',
           targetEntities: [],
@@ -1065,7 +1078,7 @@ export async function publishTarget(
                     ],
                   },
                 },
-                visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
+                visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': liUgcVisibility },
               },
               {
                 headers: {
@@ -1254,7 +1267,7 @@ export async function publishTarget(
                     ],
                   },
                 },
-                visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
+                visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': liUgcVisibility },
               },
               {
                 headers: {
@@ -1316,7 +1329,7 @@ export async function publishTarget(
                     shareMediaCategory: 'NONE',
                   },
                 },
-                visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },
+                visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': liUgcVisibility },
               },
               {
                 headers: {

@@ -33,6 +33,7 @@ type PostScalarKey =
   | 'mediaByPlatform'
   | 'commentAutomation'
   | 'tiktokPublishByAccountId'
+  | 'linkedInPublishByAccountId'
   | 'threadsShareToInstagram'
   | 'alsoPostToStory'
   | 'status'
@@ -57,6 +58,7 @@ function postScalarsSelectCore(): Pick<Prisma.PostSelect, PostScalarKey> {
     mediaByPlatform: true,
     commentAutomation: true,
     tiktokPublishByAccountId: true,
+    linkedInPublishByAccountId: true,
     status: true,
     scheduledAt: true,
     scheduleDelivery: true,

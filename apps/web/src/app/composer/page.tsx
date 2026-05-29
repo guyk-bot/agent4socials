@@ -71,6 +71,12 @@ import {
 } from '@/lib/brand-context-utils';
 import { resolveComposerMediaType } from '@/lib/composer-media-type';
 import { mergeCaptionWithCta } from '@/lib/composer/cta-caption';
+import {
+    isLinkedInPublishSettings,
+    normalizeLinkedInVisibility,
+    type LinkedInPostVisibility,
+    type LinkedInPublishSettings,
+} from '@/lib/linkedin/publish-settings';
 
 const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
 
@@ -123,6 +129,7 @@ type ComposerDraft = {
     commentAutomationInstagramDmMessage?: string;
     commentAutomationTagCommenter?: boolean;
     tiktokPublishByAccountId?: Record<string, TikTokDirectPostPayload>;
+    linkedInVisibility?: LinkedInPostVisibility;
     threadsShareToInstagram?: boolean;
     alsoPostToStory?: boolean;
 };
@@ -567,20 +574,34 @@ const COMPOSER_PLATFORM_ORDER = [
 ] as const;
 
 /** Platforms offered in Select Platforms for each media type (connected accounts only are shown). */
+function buildLinkedInPublishByAccountId(
+    targets: { platform: string; socialAccountId: string }[],
+    visibility: LinkedInPostVisibility
+): Record<string, LinkedInPublishSettings> {
+    const out: Record<string, LinkedInPublishSettings> = {};
+    for (const t of targets) {
+        if (t.platform === 'LINKEDIN') out[t.socialAccountId] = { visibility };
+    }
+    return out;
+}
+
 function buildPublishRequestBody(
     mediaType: MediaTypeChoice,
     tiktokPublishByAccountId: Record<string, TikTokDirectPostPayload>,
+    linkedInPublishByAccountId: Record<string, LinkedInPublishSettings>,
     threadsShareToInstagram: boolean,
     alsoPostToStory: boolean
 ): {
     mediaType: string;
     tiktokPublishByAccountId?: Record<string, TikTokDirectPostPayload>;
+    linkedInPublishByAccountId?: Record<string, LinkedInPublishSettings>;
     threadsShareToInstagram?: boolean;
     alsoPostToStory?: boolean;
 } {
     const body: {
         mediaType: string;
         tiktokPublishByAccountId?: Record<string, TikTokDirectPostPayload>;
+        linkedInPublishByAccountId?: Record<string, LinkedInPublishSettings>;
         threadsShareToInstagram?: boolean;
         alsoPostToStory?: boolean;
     } = {
@@ -588,6 +609,9 @@ function buildPublishRequestBody(
     };
     if (Object.keys(tiktokPublishByAccountId).length > 0) {
         body.tiktokPublishByAccountId = tiktokPublishByAccountId;
+    }
+    if (Object.keys(linkedInPublishByAccountId).length > 0) {
+        body.linkedInPublishByAccountId = linkedInPublishByAccountId;
     }
     if (threadsShareToInstagram) {
         body.threadsShareToInstagram = true;
@@ -856,6 +880,7 @@ export default function ComposerPage() {
     const skipTiktokGateRef = useRef(false);
     const optimisticPostIdRef = useRef<string | null>(null);
     const [tiktokPublishByAccountId, setTiktokPublishByAccountId] = useState<Record<string, TikTokDirectPostPayload>>({});
+    const [linkedInVisibility, setLinkedInVisibility] = useState<LinkedInPostVisibility>('PUBLIC');
     const [threadsShareToInstagram, setThreadsShareToInstagram] = useState(false);
     const [alsoPostToStory, setAlsoPostToStory] = useState(false);
     const [tiktokPublishModalOpen, setTiktokPublishModalOpen] = useState(false);
@@ -1145,6 +1170,9 @@ export default function ComposerPage() {
             }
             if (Object.keys(cleaned).length) setTiktokPublishByAccountId(cleaned);
         }
+        if (typeof d.linkedInVisibility === 'string') {
+            setLinkedInVisibility(normalizeLinkedInVisibility(d.linkedInVisibility));
+        }
         if (typeof d.threadsShareToInstagram === 'boolean') setThreadsShareToInstagram(d.threadsShareToInstagram);
         if (typeof d.alsoPostToStory === 'boolean') setAlsoPostToStory(d.alsoPostToStory);
     }, []);
@@ -1183,6 +1211,7 @@ export default function ComposerPage() {
             ...(commentAutomationInstagramDmMessage ? { commentAutomationInstagramDmMessage } : {}),
             commentAutomationTagCommenter,
             ...(Object.keys(tiktokPublishByAccountId).length > 0 ? { tiktokPublishByAccountId } : {}),
+            ...(platforms.includes('LINKEDIN') ? { linkedInVisibility } : {}),
             threadsShareToInstagram,
             alsoPostToStory,
         };
@@ -1213,6 +1242,7 @@ export default function ComposerPage() {
         commentAutomationInstagramDmMessage,
         commentAutomationTagCommenter,
         tiktokPublishByAccountId,
+        linkedInVisibility,
         threadsShareToInstagram,
         alsoPostToStory,
     ]);
@@ -1284,6 +1314,7 @@ export default function ComposerPage() {
                     scheduleDelivery?: string | null;
                     commentAutomation?: { keywords?: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; instagramPublicReply?: boolean; instagramPrivateReply?: boolean; instagramDmTemplate?: string } | null;
                     tiktokPublishByAccountId?: unknown;
+                    linkedInPublishByAccountId?: unknown;
                     threadsShareToInstagram?: boolean;
                     alsoPostToStory?: boolean;
                 };
@@ -1416,6 +1447,18 @@ export default function ComposerPage() {
                 }
                 if (typeof p.alsoPostToStory === 'boolean') {
                     setAlsoPostToStory(p.alsoPostToStory);
+                }
+                const li = p.linkedInPublishByAccountId;
+                if (li && typeof li === 'object' && !Array.isArray(li)) {
+                    const linkedInIds = (p.targets ?? [])
+                        .filter((t) => String(t.socialAccount?.platform ?? t.platform ?? '').toUpperCase() === 'LINKEDIN')
+                        .map((t) => t.socialAccount?.id)
+                        .filter((id): id is string => Boolean(id));
+                    const firstId = linkedInIds[0];
+                    const settings = firstId ? (li as Record<string, unknown>)[firstId] : undefined;
+                    if (isLinkedInPublishSettings(settings)) {
+                        setLinkedInVisibility(normalizeLinkedInVisibility(settings.visibility));
+                    }
                 }
                 setEditLoaded(true);
             })
@@ -2688,6 +2731,7 @@ export default function ComposerPage() {
                 scheduleDelivery?: 'auto' | 'email_links';
                 commentAutomation?: { keywords: string[]; replyTemplate: string; replyOnComment?: boolean; usePrivateReply?: boolean; tagCommenter?: boolean } | null;
                 tiktokPublishByAccountId?: Record<string, TikTokDirectPostPayload>;
+                linkedInPublishByAccountId?: Record<string, LinkedInPublishSettings>;
                 threadsShareToInstagram?: boolean;
                 alsoPostToStory?: boolean;
                 mediaType?: string;
@@ -2779,6 +2823,12 @@ export default function ComposerPage() {
             }
             if (platforms.includes('TIKTOK') && Object.keys(tiktokPublishByAccountId).length > 0) {
                 payload.tiktokPublishByAccountId = tiktokPublishByAccountId;
+            }
+            if (platforms.includes('LINKEDIN')) {
+                const linkedInMap = buildLinkedInPublishByAccountId(targets, linkedInVisibility);
+                if (Object.keys(linkedInMap).length > 0) {
+                    payload.linkedInPublishByAccountId = linkedInMap;
+                }
             }
             if (platforms.includes('THREADS') && mediaType !== 'text' && hasMedia) {
                 payload.threadsShareToInstagram = threadsShareToInstagram;
@@ -2893,6 +2943,7 @@ export default function ComposerPage() {
                 const publishBody = buildPublishRequestBody(
                     mediaType,
                     tiktokPublishByAccountId,
+                    buildLinkedInPublishByAccountId(targets, linkedInVisibility),
                     threadsShareToInstagram,
                     alsoPostToStory
                 );
@@ -3004,6 +3055,7 @@ export default function ComposerPage() {
                 const publishBodyCreate = buildPublishRequestBody(
                     mediaType,
                     tiktokPublishByAccountId,
+                    buildLinkedInPublishByAccountId(targets, linkedInVisibility),
                     threadsShareToInstagram,
                     alsoPostToStory
                 );
@@ -4015,6 +4067,29 @@ export default function ComposerPage() {
                                             ) : null}
                                         </span>
                                     </label>
+                                )}
+                                {platforms.includes('LINKEDIN') && (
+                                    <div className="mt-3 rounded-xl border border-neutral-200 bg-neutral-50/80 px-3 py-2.5">
+                                        <label className="text-sm font-medium text-neutral-900" htmlFor="linkedin-visibility">
+                                            LinkedIn visibility
+                                        </label>
+                                        <select
+                                            id="linkedin-visibility"
+                                            value={linkedInVisibility}
+                                            onChange={(e) =>
+                                                setLinkedInVisibility(
+                                                    normalizeLinkedInVisibility(e.target.value)
+                                                )
+                                            }
+                                            className="mt-2 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]"
+                                        >
+                                            <option value="PUBLIC">Anyone (public)</option>
+                                            <option value="CONNECTIONS">Connections only</option>
+                                        </select>
+                                        <p className="mt-1.5 text-xs text-neutral-500">
+                                            Applies when publishing to your LinkedIn personal profile or Company Page.
+                                        </p>
+                                    </div>
                                 )}
                                 {mediaType !== 'text' && platforms.includes('THREADS') && (
                                     <label

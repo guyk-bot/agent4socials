@@ -32,6 +32,7 @@ export type ComposerPendingSnapshot = {
   commentAutomationInstagramDmMessage?: string;
   commentAutomationTagCommenter?: boolean;
   tiktokPublishByAccountId?: Record<string, unknown>;
+  linkedInVisibility?: 'PUBLIC' | 'CONNECTIONS';
   threadsShareToInstagram?: boolean;
   alsoPostToStory?: boolean;
 };

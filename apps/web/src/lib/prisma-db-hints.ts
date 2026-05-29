@@ -4,6 +4,12 @@
  */
 export function friendlyMessageIfPrismaSchemaDrift(err: unknown): string | null {
   const msg = err instanceof Error ? err.message : String(err);
+  if (msg.includes('linkedInPublishByAccountId') && msg.includes('does not exist')) {
+    return (
+      'Database is missing the LinkedIn publish settings column. In Supabase: SQL Editor → run ' +
+      'apps/web/prisma/migrations/20260529180000_post_linkedin_publish_settings/migration.sql, then redeploy.'
+    );
+  }
   if (msg.includes('tiktokPublishByAccountId') && msg.includes('does not exist')) {
     return (
       'Database is missing the TikTok post settings column. In Supabase: SQL Editor → run the script ' +

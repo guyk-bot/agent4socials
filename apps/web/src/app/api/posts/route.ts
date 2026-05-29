@@ -3,6 +3,7 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { isPrismaPoolError, prisma, withPrismaPoolRetry } from '@/lib/db';
 import { PostStatus, Platform, Prisma } from '@prisma/client';
 import { isTikTokDirectPostPayload } from '@/lib/tiktok/tiktok-publish-compliance';
+import { isLinkedInPublishSettings } from '@/lib/linkedin/publish-settings';
 import { sendScheduleConfirmationEmail } from '@/lib/resend';
 import { friendlyMessageIfPrismaSchemaDrift } from '@/lib/prisma-db-hints';
 import {
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
     scheduleDelivery?: 'auto' | 'email_links' | null;
     commentAutomation?: { keywords: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; replyOnComment?: boolean; usePrivateReply?: boolean } | null;
     tiktokPublishByAccountId?: Record<string, unknown> | null;
+    linkedInPublishByAccountId?: Record<string, unknown> | null;
     threadsShareToInstagram?: boolean;
     alsoPostToStory?: boolean;
     mediaType?: string | null;
@@ -106,6 +108,7 @@ export async function POST(request: NextRequest) {
     scheduleDelivery,
     commentAutomation,
     tiktokPublishByAccountId: bodyTiktok,
+    linkedInPublishByAccountId: bodyLinkedIn,
     threadsShareToInstagram: bodyThreadsShareToInstagram,
     alsoPostToStory: bodyAlsoPostToStory,
     mediaType: bodyMediaType,
@@ -171,6 +174,24 @@ export async function POST(request: NextRequest) {
     }
     if (Object.keys(cleaned).length > 0) tiktokJson = cleaned as Prisma.InputJsonValue;
   }
+  let linkedInJson: Prisma.InputJsonValue | undefined;
+  if (bodyLinkedIn != null) {
+    if (typeof bodyLinkedIn !== 'object' || Array.isArray(bodyLinkedIn)) {
+      return NextResponse.json({ message: 'linkedInPublishByAccountId must be an object.' }, { status: 400 });
+    }
+    const allowedIds = new Set(accountIds);
+    const cleaned: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(bodyLinkedIn)) {
+      if (!allowedIds.has(k)) {
+        return NextResponse.json({ message: 'linkedInPublishByAccountId contains an unknown account id.' }, { status: 400 });
+      }
+      if (!isLinkedInPublishSettings(v)) {
+        return NextResponse.json({ message: 'Invalid LinkedIn publish settings.' }, { status: 400 });
+      }
+      cleaned[k] = v;
+    }
+    if (Object.keys(cleaned).length > 0) linkedInJson = cleaned as Prisma.InputJsonValue;
+  }
   if (scheduledAt) {
     const parsed = new Date(scheduledAt);
     if (Number.isNaN(parsed.getTime())) {
@@ -199,6 +220,7 @@ export async function POST(request: NextRequest) {
     scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
     scheduleDelivery: scheduledAt && (scheduleDelivery === 'auto' || scheduleDelivery === 'email_links') ? scheduleDelivery : null,
     ...(tiktokJson ? { tiktokPublishByAccountId: tiktokJson } : {}),
+    ...(linkedInJson ? { linkedInPublishByAccountId: linkedInJson } : {}),
     ...(bodyThreadsShareToInstagram === true ? { threadsShareToInstagram: true } : {}),
     ...(bodyAlsoPostToStory === true ? { alsoPostToStory: true } : {}),
     ...(bodyMediaType ? { mediaType: String(bodyMediaType).slice(0, 50) } : {}),

@@ -20,6 +20,10 @@ import {
   linkedInAuthorUrnMissingMessage,
   resolveLinkedInAuthorUrn,
 } from '@/lib/linkedin/rest-person';
+import {
+  linkedInVisibilityForAccount,
+  mergeLinkedInPublishByAccountId,
+} from '@/lib/linkedin/publish-settings';
 import { ensureInstagramJpegOnR2 } from '@/lib/instagram-media-r2';
 import { ensureStoryJpegOnR2 } from '@/lib/story-media-r2';
 import { refreshTwitterToken } from '@/lib/twitter-refresh';
@@ -40,6 +44,7 @@ export type PublishPostRequestBody = {
   contentByPlatform?: Record<string, string>;
   pinterestSandbox?: boolean;
   tiktokPublishByAccountId?: Record<string, unknown>;
+  linkedInPublishByAccountId?: Record<string, unknown>;
   threadsShareToInstagram?: boolean;
   alsoPostToStory?: boolean;
   /** Composer format (photo, story, reel, …). Used when Post.mediaType was not persisted. */
@@ -85,6 +90,7 @@ export async function preparePostForBackgroundPublish(
         content: true,
         title: true,
         tiktokPublishByAccountId: true,
+        linkedInPublishByAccountId: true,
         targets: { select: { id: true, socialAccountId: true, platform: true, status: true } },
       },
     });
@@ -138,6 +144,22 @@ export async function preparePostForBackgroundPublish(
     if (Object.keys(merged).length > 0) {
       updateData.tiktokPublishByAccountId = merged as Prisma.InputJsonValue;
     }
+
+    const storedLinkedIn =
+      post.linkedInPublishByAccountId &&
+      typeof post.linkedInPublishByAccountId === 'object' &&
+      !Array.isArray(post.linkedInPublishByAccountId)
+        ? (post.linkedInPublishByAccountId as Record<string, unknown>)
+        : {};
+    const linkedInMerged = mergeLinkedInPublishByAccountId(
+      storedLinkedIn,
+      requestBody.linkedInPublishByAccountId,
+      allowedAccountIds
+    );
+    if (Object.keys(linkedInMerged).length > 0) {
+      updateData.linkedInPublishByAccountId = linkedInMerged as Prisma.InputJsonValue;
+    }
+
     if (requestBody.threadsShareToInstagram === true) {
       updateData.threadsShareToInstagram = true;
     } else if (requestBody.threadsShareToInstagram === false) {
@@ -413,6 +435,17 @@ export async function runPublishPostWorkflow(input: {
       ...(bodyTiktok && typeof bodyTiktok === 'object' && !Array.isArray(bodyTiktok) ? bodyTiktok : {}),
     },
     tiktokAccountIds
+  );
+  const storedLinkedIn = (post as { linkedInPublishByAccountId?: Record<string, unknown> | null })
+    .linkedInPublishByAccountId;
+  const bodyLinkedIn = requestBody.linkedInPublishByAccountId;
+  const linkedInAccountIds = new Set(
+    post.targets.filter((t) => t.platform === 'LINKEDIN').map((t) => t.socialAccount.id)
+  );
+  const linkedInMerged = mergeLinkedInPublishByAccountId(
+    storedLinkedIn && typeof storedLinkedIn === 'object' && !Array.isArray(storedLinkedIn) ? storedLinkedIn : {},
+    bodyLinkedIn && typeof bodyLinkedIn === 'object' && !Array.isArray(bodyLinkedIn) ? bodyLinkedIn : {},
+    linkedInAccountIds
   );
   const threadsShareToInstagram =
     requestBody.threadsShareToInstagram === true ||
@@ -748,6 +781,7 @@ export async function runPublishPostWorkflow(input: {
           : {}),
       ...(platform === 'LINKEDIN'
         ? {
+            linkedInVisibility: linkedInVisibilityForAccount(linkedInMerged, socialAccount.id),
             linkedInAuthorUrn: await (async () => {
               const resolved = await resolveLinkedInAuthorUrn(token, {
                 platformUserId,
