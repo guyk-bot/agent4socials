@@ -182,6 +182,30 @@ function LinkedInAnalyticsStubNotice() {
   );
 }
 
+function LinkedInPersonalProfileDashboardNotice() {
+  return (
+    <div
+      className="rounded-[20px] border p-5 sm:p-6 space-y-3"
+      style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}
+    >
+      <h3 className="text-lg font-semibold" style={{ color: COLOR.text }}>
+        Personal profile
+      </h3>
+      <p className="text-sm leading-relaxed" style={{ color: COLOR.textSecondary }}>
+        Analytics data is only available for LinkedIn Company Pages. Personal profiles can publish from the
+        Composer, but posts, impressions, and comment history are not shown here.
+      </p>
+      <p className="text-sm leading-relaxed" style={{ color: COLOR.textSecondary }}>
+        Use{' '}
+        <Link href="/composer" className="font-medium underline" style={{ color: COLOR.text }}>
+          Composer
+        </Link>{' '}
+        to create and schedule posts for this profile.
+      </p>
+    </div>
+  );
+}
+
 /** Recharts tooltip formatter item for this file's charts (matches Tooltip `formatter` third argument). */
 type TooltipFormatterEntry = TooltipPayloadEntry<string | number, string>;
 
@@ -2824,14 +2848,7 @@ export function FacebookAnalyticsView({
       );
     }
     if (plat === 'LINKEDIN') {
-      const isPage = insights?.linkedIn?.connectionKind === 'organization_page';
-      if (isPage) {
-        return [{ id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' }];
-      }
-      return all.filter(
-        (s) =>
-          s.id !== FACEBOOK_ANALYTICS_SECTION_IDS.traffic && s.id !== FACEBOOK_ANALYTICS_SECTION_IDS.reels
-      );
+      return [{ id: FACEBOOK_ANALYTICS_SECTION_IDS.overview, label: 'Overview' }];
     }
     return all;
   }, [insights?.platform, insights?.linkedIn?.connectionKind]);
@@ -5587,15 +5604,17 @@ type PostsUploadDayTooltipAgg = {
               <span className="text-sm" style={{ color: COLOR.textSecondary }} />
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {onDateRangeChange ? (
-              <AnalyticsDateRangePicker start={dateRange.start} end={dateRange.end} onChange={onDateRangeChange} />
-            ) : (
-              <span className="rounded-xl border px-2.5 py-1 text-xs" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
-                {dateRange.start} to {dateRange.end}
-              </span>
-            )}
-          </div>
+          {!isLinkedInPersonal ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {onDateRangeChange ? (
+                <AnalyticsDateRangePicker start={dateRange.start} end={dateRange.end} onChange={onDateRangeChange} />
+              ) : (
+                <span className="rounded-xl border px-2.5 py-1 text-xs" style={{ borderColor: COLOR.border, color: COLOR.textSecondary }}>
+                  {dateRange.start} to {dateRange.end}
+                </span>
+              )}
+            </div>
+          ) : null}
         </div>
         <div className="mt-2">
           <StickySectionNav sections={sections} activeSection={activeSection} ariaLabel="Facebook analytics sections" />
@@ -5687,6 +5706,8 @@ type PostsUploadDayTooltipAgg = {
               />
             </div>
           </>
+        ) : isLinkedInPersonal ? (
+          <LinkedInPersonalProfileDashboardNotice />
         ) : (
         <>
         <div className="rounded-[20px] border p-4 sm:p-5 space-y-3" style={{ borderColor: COLOR.border, background: COLOR.card, boxShadow: '0 4px 22px rgba(15,23,42,0.06)' }}>
@@ -5860,65 +5881,6 @@ type PostsUploadDayTooltipAgg = {
             </>
           ) : isLinkedInPageAccount ? (
             <LinkedInAnalyticsStubNotice />
-          ) : isLinkedInPersonal ? (
-            <>
-              <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <SparklineMetricCard
-                  label={linkedInConnectionsCardLabel}
-                  source="LinkedIn network size or memberFollowersCount from Community Management APIs when available"
-                  color={COLOR.mint}
-                  value={formatNumber(linkedInProfileMetricTotal)}
-                  series={growthSparklineSeries.follows}
-                  active={isCardSelected('followers')}
-                  onClick={() => toggleStoryMetric('followers')}
-                />
-                <SparklineMetricCard
-                  label="Impressions"
-                  source="Synced LinkedIn posts · impressions (and insights time series when available)"
-                  color={COLOR.amber}
-                  value={formatNumber(performanceTotalsFromChart.videoViews)}
-                  series={growthSparklineSeries.videoViews}
-                  active={isCardSelected('videoViews')}
-                  onClick={() => toggleStoryMetric('videoViews')}
-                />
-                <SparklineMetricCard
-                  label="Engagements"
-                  source="Synced LinkedIn posts · likes + comments + shares in range"
-                  color={COLOR.coral}
-                  value={formatNumber(engagementBreakdownTotal)}
-                  series={growthSparklineSeries.engagement}
-                  active={isCardSelected('engagements')}
-                  onClick={() => toggleStoryMetric('engagements')}
-                />
-                <SparklineMetricCard
-                  label="Posts"
-                  source="Synced LinkedIn posts published in the selected date range"
-                  color={TIKTOK_PERFORMANCE_LINE_COLORS.contentViews}
-                  value={formatNumber(postsInRange.length)}
-                  series={growthSparklineSeries.contentViews}
-                  active={isCardSelected('contentViews')}
-                  onClick={() => toggleStoryMetric('contentViews')}
-                />
-              </div>
-              {linkedInSyncNotice ? (
-                <div
-                  className="rounded-xl border px-4 py-3 text-sm"
-                  style={{ borderColor: 'rgba(245,185,66,0.45)', color: COLOR.text, background: 'rgba(245,185,66,0.08)' }}
-                >
-                  <p>{linkedInSyncNotice}</p>
-                  {onReconnectFacebook ? (
-                    <button
-                      type="button"
-                      onClick={onReconnectFacebook}
-                      className="mt-2 inline-flex items-center gap-1 text-sm font-medium underline"
-                      style={{ color: COLOR.text }}
-                    >
-                      Reconnect LinkedIn <ChevronRight size={14} />
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
-            </>
           ) : isYouTube ? (
             <>
               <div className="mt-1 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -6012,7 +5974,7 @@ type PostsUploadDayTooltipAgg = {
             />
           </div>
           )}
-          {!isLinkedInPageAccount ? (
+          {!isLinkedInPageAccount && !isLinkedInPersonal ? (
           <>
           <div className="flex justify-end">
             <div className="flex flex-wrap gap-2">
@@ -6754,7 +6716,7 @@ type PostsUploadDayTooltipAgg = {
       </section>
       ) : null}
 
-      {!isLinkedInPageAccount ? (
+      {!isLinkedInPageAccount && !isLinkedInPersonal ? (
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.posts} className="scroll-mt-28 space-y-6">
         {overviewSkeleton ? (
           <AnalyticsPostsSkeleton />
@@ -7548,7 +7510,7 @@ type PostsUploadDayTooltipAgg = {
       </section>
       ) : null}
 
-      {!isLinkedInPageAccount ? (
+      {!isLinkedInPageAccount && !isLinkedInPersonal ? (
       <section id={FACEBOOK_ANALYTICS_SECTION_IDS.history} className="scroll-mt-28 space-y-4">
         {overviewSkeleton ? (
           <AnalyticsHistorySkeleton />

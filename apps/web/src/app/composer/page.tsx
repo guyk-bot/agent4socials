@@ -43,6 +43,7 @@ import {
     remapTikTokPublishPayloadForTargets,
     type TikTokDirectPostPayload,
 } from '@/lib/tiktok/tiktok-publish-compliance';
+import { commentAutomationSupportedForPlatform } from '@/lib/linkedin/composer-account';
 import {
     buildOptimisticPostingRow,
     pushPostsHistoryClientUpdate,
@@ -858,7 +859,13 @@ export default function ComposerPage() {
     const [scheduledAt, setScheduledAt] = useState('');
     const [scheduleDelivery, setScheduleDelivery] = useState<'auto' | 'email_links'>('auto');
     const [accounts, setAccounts] = useState<
-        { id: string; platform: string; username?: string | null; profilePicture?: string | null }[]
+        {
+            id: string;
+            platform: string;
+            username?: string | null;
+            profilePicture?: string | null;
+            linkedinConnectionKind?: string;
+        }[]
     >([]);
     const [accountsFetched, setAccountsFetched] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -1737,6 +1744,9 @@ export default function ComposerPage() {
                 username: (typeof a.username === 'string' ? a.username : null) as string | null,
                 profilePicture:
                     typeof a.profilePicture === 'string' && a.profilePicture.trim() ? a.profilePicture : null,
+                ...(typeof (a as { linkedinConnectionKind?: string }).linkedinConnectionKind === 'string'
+                    ? { linkedinConnectionKind: (a as { linkedinConnectionKind: string }).linkedinConnectionKind }
+                    : {}),
             })),
         );
         setAccountsFetched(true);
@@ -1779,8 +1789,40 @@ export default function ComposerPage() {
             username: (typeof a.username === 'string' ? a.username : null) as string | null,
             profilePicture:
                 typeof a.profilePicture === 'string' && a.profilePicture.trim() ? a.profilePicture : null,
+            ...(typeof (a as { linkedinConnectionKind?: string }).linkedinConnectionKind === 'string'
+                ? { linkedinConnectionKind: (a as { linkedinConnectionKind: string }).linkedinConnectionKind }
+                : {}),
         }));
     }, [accounts, cachedAccounts]);
+
+    const commentAutomationPlatformSupported = useCallback(
+        (platformKey: string) => commentAutomationSupportedForPlatform(platformKey, effectiveAccounts),
+        [effectiveAccounts]
+    );
+
+    const hasCommentAutomationPlatform = useMemo(
+        () => platforms.some((p) => commentAutomationPlatformSupported(p)),
+        [platforms, commentAutomationPlatformSupported]
+    );
+
+    useEffect(() => {
+        if (!accountsFetched) return;
+        if (!hasCommentAutomationPlatform && commentAutomationEnabled) {
+            setCommentAutomationEnabled(false);
+        }
+        if (
+            !platforms.includes('LINKEDIN') ||
+            commentAutomationSupportedForPlatform('LINKEDIN', effectiveAccounts)
+        ) {
+            return;
+        }
+        setCommentAutomationReplyByPlatform((prev) => {
+            if (!prev.LINKEDIN) return prev;
+            const next = { ...prev };
+            delete next.LINKEDIN;
+            return next;
+        });
+    }, [accountsFetched, hasCommentAutomationPlatform, commentAutomationEnabled, platforms, effectiveAccounts]);
 
     const connectedPlatformSet = useMemo(
         () => new Set(effectiveAccounts.map((a) => String(a.platform).toUpperCase())),
@@ -2818,7 +2860,7 @@ export default function ComposerPage() {
                     .map((k) => k.trim().toLowerCase())
                     .filter(Boolean);
                 const defaultReply = commentAutomationReplyTemplate.trim();
-                const supportedPlatforms = platforms.filter((p) => COMMENT_AUTOMATION_PLATFORMS.has(p));
+                const supportedPlatforms = platforms.filter((p) => commentAutomationPlatformSupported(p));
                 const byPlatform: Record<string, string> = {};
                 for (const p of supportedPlatforms) {
                     const t = (commentAutomationReplyByPlatform[p] ?? defaultReply).trim();
@@ -3415,6 +3457,7 @@ export default function ComposerPage() {
                                     rows={2}
                                     className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                                 />
+                                {hasCommentAutomationPlatform ? (
                                 <label className="mt-3 flex items-center gap-2 cursor-pointer">
                                     <input
                                         type="checkbox"
@@ -3424,7 +3467,8 @@ export default function ComposerPage() {
                                     />
                                     <span className="text-sm text-neutral-700">Also generate CTA and comment automation (keyword + reply)</span>
                                 </label>
-                                {aiIncludeCtaAndAutomation && (
+                                ) : null}
+                                {aiIncludeCtaAndAutomation && hasCommentAutomationPlatform && (
                                     <>
                                         <label className="mt-2 block text-sm font-medium text-neutral-700">Describe the CTA, keyword(s), and reply you want</label>
                                         <textarea
@@ -4197,7 +4241,7 @@ export default function ComposerPage() {
                         )}
                     </div>
 
-                    {platforms.some((p) => COMMENT_AUTOMATION_PLATFORMS.has(p)) && <div className="card space-y-4">
+                    {hasCommentAutomationPlatform && <div className="card space-y-4">
                         <button type="button" onClick={() => toggleSection('commentAutomation')} className="w-full flex items-center justify-between text-left">
                             <h3 className="font-semibold text-neutral-900">Comment automation</h3>
                             {sectionOpen.commentAutomation ? <ChevronUp size={20} className="text-neutral-400 shrink-0" /> : <ChevronDown size={20} className="text-neutral-400 shrink-0" />}
@@ -4246,11 +4290,11 @@ export default function ComposerPage() {
                                     />
                                     <span className="text-sm text-neutral-700">Tag the commenter in the reply (e.g. &quot;Hi @username, thanks!&quot;)</span>
                                 </label>
-                                {platforms.some((p) => COMMENT_AUTOMATION_PLATFORMS.has(p)) && (
+                                {hasCommentAutomationPlatform && (
                                     <div>
                                         <label className="block text-sm font-medium text-neutral-700 mb-2">Reply per platform (optional)</label>
                                         <div className="space-y-3">
-                                            {platforms.filter((p) => COMMENT_AUTOMATION_PLATFORMS.has(p)).map((p) => (
+                                            {platforms.filter((p) => commentAutomationPlatformSupported(p)).map((p) => (
                                                 <div key={p} className="space-y-1">
                                                     <span className="text-sm font-medium text-neutral-600">{PLATFORM_LABELS[p] || p}</span>
                                                     {p === 'INSTAGRAM' ? (
