@@ -807,7 +807,6 @@ function InboxPage() {
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
   const [inboxFilter, setInboxFilter] = useState<'all' | 'read' | 'unread'>('all');
   const [commentsFilter, setCommentsFilter] = useState<'all' | 'replied' | 'didnt_reply'>('all');
-  const [threadsInboxKind, setThreadsInboxKind] = useState<'all' | 'replies' | 'mentions'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [inboxMode, setInboxMode] = useState<'messages' | 'comments' | 'engagement'>('messages');
   const [batchConversationLastMessage, setBatchConversationLastMessage] = useState<Record<string, string>>({});
@@ -3946,31 +3945,6 @@ function InboxPage() {
                 </button>
               </div>
             )}
-            {hasThreadsCommentsInList ? (
-              <div className="flex border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50/80 dark:bg-neutral-900/40">
-                <button
-                  type="button"
-                  onClick={() => setThreadsInboxKind('all')}
-                  className={`flex-1 py-1.5 text-[11px] font-medium ${threadsInboxKind === 'all' ? 'text-neutral-900 border-b-2 border-neutral-900 dark:text-neutral-100 dark:border-neutral-100' : 'text-neutral-500 border-b-2 border-transparent'}`}
-                >
-                  All Threads
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setThreadsInboxKind('replies')}
-                  className={`flex-1 py-1.5 text-[11px] font-medium ${threadsInboxKind === 'replies' ? 'text-neutral-900 border-b-2 border-neutral-900 dark:text-neutral-100 dark:border-neutral-100' : 'text-neutral-500 border-b-2 border-transparent'}`}
-                >
-                  Replies
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setThreadsInboxKind('mentions')}
-                  className={`flex-1 py-1.5 text-[11px] font-medium ${threadsInboxKind === 'mentions' ? 'text-neutral-900 border-b-2 border-neutral-900 dark:text-neutral-100 dark:border-neutral-100' : 'text-neutral-500 border-b-2 border-transparent'}`}
-                >
-                  @Mentions
-                </button>
-              </div>
-            ) : null}
             <div className="flex border-b border-neutral-100 dark:border-neutral-800">
               <button
                 type="button"
@@ -3997,15 +3971,6 @@ function InboxPage() {
             <div className="flex items-center gap-2 px-2 py-1.5 bg-neutral-50/70 dark:bg-neutral-900 border-t border-neutral-100 dark:border-neutral-800">
               <button
                 type="button"
-                disabled={commentsLiveSync.loading}
-                onClick={() => void refreshAllPlatformCommentsRef.current({ manual: true })}
-                className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 disabled:opacity-50 dark:text-neutral-300 dark:hover:bg-neutral-800"
-              >
-                <RefreshCw size={13} className={commentsLiveSync.loading ? 'animate-spin' : ''} />
-                Refresh
-              </button>
-              <button
-                type="button"
                 onClick={toggleSelectMode}
                 className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${selectMode ? 'bg-orange-100 text-orange-700' : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100'}`}
               >
@@ -4021,24 +3986,37 @@ function InboxPage() {
                       const hasRepliedByParent = new Set(
                         comments.filter((r) => r.isFromMe && r.parentCommentId).map((r) => r.parentCommentId)
                       );
-                      const filtered = topLevel.filter((c) =>
-                        commentsFilter === 'all' ? true : commentsFilter === 'replied' ? hasRepliedByParent.has(c.commentId) : !hasRepliedByParent.has(c.commentId)
-                      );
-                      const allIds = new Set(filtered.map((c) => c.commentId));
-                      setSelectedCommentIds((prev) => prev.size === allIds.size ? new Set() : allIds);
+                      const filtered = topLevel.filter((c) => {
+                        if (isOpenOnPlatformInboxComment(c)) {
+                          return commentsFilter === 'all' || commentsFilter === 'didnt_reply';
+                        }
+                        return commentsFilter === 'all'
+                          ? true
+                          : commentsFilter === 'replied'
+                            ? hasRepliedByParent.has(c.commentId)
+                            : !hasRepliedByParent.has(c.commentId);
+                      });
+                      setSelectedCommentIds(new Set(filtered.map((c) => c.commentId)));
                     }}
-                    className="text-xs text-neutral-600 hover:text-neutral-900 underline"
+                    className="text-xs text-neutral-600 hover:text-neutral-900 underline dark:text-neutral-400 dark:hover:text-neutral-100"
                   >
-                    {(() => {
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
                       const topLevel = comments.filter((c) => !c.parentCommentId);
                       const hasRepliedByParent = new Set(
                         comments.filter((r) => r.isFromMe && r.parentCommentId).map((r) => r.parentCommentId)
                       );
-                      const filtered = topLevel.filter((c) =>
-                        commentsFilter === 'all' ? true : commentsFilter === 'replied' ? hasRepliedByParent.has(c.commentId) : !hasRepliedByParent.has(c.commentId)
+                      const unreplied = topLevel.filter(
+                        (c) => !hasRepliedByParent.has(c.commentId) && !isOpenOnPlatformInboxComment(c)
                       );
-                      return selectedCommentIds.size === filtered.length ? 'Deselect all' : 'Select all';
-                    })()}
+                      setSelectedCommentIds(new Set(unreplied.map((c) => c.commentId)));
+                    }}
+                    className="text-xs text-neutral-600 hover:text-neutral-900 underline dark:text-neutral-400 dark:hover:text-neutral-100"
+                  >
+                    Select unreplied
                   </button>
                   {selectedCommentIds.size > 0 && (
                     <button
