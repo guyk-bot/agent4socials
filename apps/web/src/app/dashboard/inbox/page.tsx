@@ -2905,15 +2905,8 @@ function InboxPage() {
   }, [engagement, user?.id]);
 
   const handlePlatformClick = (platformId: string) => {
-    setSelectedPlatforms((prev) => {
-      const next = prev.includes(platformId) ? prev.filter((p) => p !== platformId) : [...prev, platformId];
-      if (selectedPlatform != null && !next.includes(selectedPlatform)) {
-        setSelectedPlatform(next[0] ?? null);
-    setSelectedConversationId(null);
-        setSelectedComment(null);
-      }
-      return next;
-    });
+    setSelectedPlatforms([platformId]);
+    setSelectedPlatform(platformId);
     setSelectedConversationId(null);
     setSelectedComment(null);
     setAiReplyError(null);
