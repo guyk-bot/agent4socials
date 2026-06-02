@@ -49,7 +49,8 @@ import {
   clearInboxAccountRecentlyConnected,
 } from '@/lib/inbox/inbox-recent-connect';
 import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
-import { refreshInstagramDmInboxLive } from '@/lib/inbox/refresh-instagram-dm-inbox-client';
+import { refreshInstagramDmInboxLive, type InboxDmConversation } from '@/lib/inbox/refresh-instagram-dm-inbox-client';
+import { isBogusInstagramInboxSenderName } from '@/lib/inbox/instagram-dm-conversations';
 import {
   isMetaMessagingWindowClosed,
   META_MESSAGING_WINDOW_BLOCKED_MESSAGE,
@@ -261,7 +262,7 @@ const INBOX_MESSAGES_CACHE_MAX_ENTRIES = 150;
 /** Prefetch/warm this many threads in the browser (newest first). Keep low to avoid Meta IGBusinessScopedID spikes. */
 const INBOX_CLIENT_PREFETCH_MAX = 8;
 /** Max per-session live profile backfills for DM list rows missing avatars. */
-const INBOX_PROFILE_BACKFILL_MAX = 5;
+const INBOX_PROFILE_BACKFILL_MAX = 20;
 /** While Inbox is open, refresh conversation list and open thread about every 90s. */
 /** How long open-thread client message cache stays fresh (background sync handles list data). */
 const INBOX_THREAD_CACHE_MS = INBOX_SYSTEM_SYNC_MS;
@@ -325,7 +326,10 @@ function convNeedsProfileData(
 ): boolean {
   const s = conv.senders?.[0];
   if (!s) return true;
-  const hasName = !!(s.name?.trim() || s.username?.trim());
+  const hasName = !!(
+    (s.username?.trim()) ||
+    (s.name?.trim() && !isBogusInstagramInboxSenderName(s.name))
+  );
   return !hasName || !s.pictureUrl;
 }
 
@@ -565,7 +569,7 @@ function inboxSenderDisplayName(
   const username = sender?.username?.trim();
   if (username) return username.startsWith('@') ? username : `@${username}`;
   const name = sender?.name?.trim();
-  if (name) return name;
+  if (name && !isBogusInstagramInboxSenderName(name)) return name;
   if (platform === 'TWITTER') return 'X user';
   if (sender?.id) return `#${sender.id.slice(-8)}`;
   return 'Unknown';
@@ -814,7 +818,6 @@ function InboxPage() {
   const [conversationsError, setConversationsError] = useState<string | null>(null);
   const [conversationsErrorsByPlatform, setConversationsErrorsByPlatform] = useState<Record<string, string>>({});
   const [conversationsHintsByPlatform, setConversationsHintsByPlatform] = useState<Record<string, string>>({});
-  const [instagramRefreshLoading, setInstagramRefreshLoading] = useState(false);
   const [conversationsDebug, setConversationsDebug] = useState<{ rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string } | null>(null);
   const [comments, setComments] = useState<PostComment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -927,7 +930,6 @@ function InboxPage() {
   const conversationsStableRef = useRef<Array<Conversation & { platform?: string; messageAccountId?: string }>>([]);
   const inboxRefreshInFlightRef = useRef(false);
   /** Clears stuck "Checking Meta…" if a manual retry hangs on bootstrap or comment sync. */
-  const instagramRefreshSafetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const profileEnrichInFlightRef = useRef<Set<string>>(new Set());
   // Stable ref so effects that call appData setters don't list appData as a dep
   // (which would cause infinite re-run loops whenever context state updates).
@@ -2330,26 +2332,19 @@ function InboxPage() {
   const refreshAllPlatformCommentsRef = useRef(refreshAllPlatformComments);
   refreshAllPlatformCommentsRef.current = refreshAllPlatformComments;
 
-  /** Instagram DMs only: one API call, no bootstrap or comment sync. */
+  /** Instagram DMs only: silent background refresh (no banners or loading UI). */
   const refreshInstagramDmInbox = useCallback(async () => {
     const accs = effectiveAccountsRef.current;
     const igAccount = accs.find((a) => a.platform === 'INSTAGRAM');
     if (!user?.id || !igAccount) return;
-    setInstagramRefreshLoading(true);
-    if (instagramRefreshSafetyTimerRef.current) {
-      clearTimeout(instagramRefreshSafetyTimerRef.current);
-    }
-    instagramRefreshSafetyTimerRef.current = setTimeout(() => {
-      instagramRefreshSafetyTimerRef.current = null;
-      setInstagramRefreshLoading(false);
-    }, 60_000);
     try {
       const result = await refreshInstagramDmInboxLive();
       const igId = result.instagramAccountId ?? igAccount.id;
+      if (result.conversations.length === 0) return;
+
       setConversationsErrorsByPlatform((prev) => {
         const next = { ...prev };
-        if (result.error) next.INSTAGRAM = result.error;
-        else delete next.INSTAGRAM;
+        delete next.INSTAGRAM;
         return next;
       });
       setConversationsHintsByPlatform((prev) => {
@@ -2372,12 +2367,36 @@ function InboxPage() {
       const perIg = conversationsStableRef.current.filter((c) => c.messageAccountId === igId);
       if (perIg.length) appDataRef.current?.setConversationsForAccount(igId, perIg);
       setConversationsLoading(false);
-    } finally {
-      if (instagramRefreshSafetyTimerRef.current) {
-        clearTimeout(instagramRefreshSafetyTimerRef.current);
-        instagramRefreshSafetyTimerRef.current = null;
-      }
-      setInstagramRefreshLoading(false);
+
+      // Pick up sender names/avatars after server-side after() enrichment.
+      window.setTimeout(() => {
+        void api
+          .get<{ conversations?: InboxDmConversation[]; instagramAccountId?: string }>(
+            '/inbox/instagram-dms',
+            { params: { cacheOnly: 1 }, timeout: 20_000 }
+          )
+          .then((res) => {
+            const rows = res.data?.conversations ?? [];
+            if (rows.length === 0) return;
+            const seedLater = conversationsStableRef.current.filter(
+              (c) => (c as Conversation & { platform?: string }).platform !== 'INSTAGRAM'
+            ) as Array<Conversation & { platform: string; messageAccountId: string }>;
+            const igLater = rows.map((c) => ({
+              ...c,
+              platform: 'INSTAGRAM',
+              messageAccountId: igId,
+            }));
+            const mergedLater = mergeInboxConversationsWithUnreadDetection(
+              user.id,
+              seedLater,
+              igLater
+            ) as Array<Conversation & { platform: string; messageAccountId: string }>;
+            applyConversationsToUiRef.current(mergedLater);
+          })
+          .catch(() => {});
+      }, 45_000);
+    } catch {
+      /* keep cached threads */
     }
   }, [user?.id]);
 
@@ -3015,63 +3034,6 @@ function InboxPage() {
     }
   };
 
-  /** Instagram empty/error banner with Retry from Meta (shown even when the conversation list is empty). */
-  const renderInstagramMetaBanner = (): React.ReactNode => {
-    if (inboxMode !== 'messages') return null;
-    if (!messageFetchPlatformIds.includes('INSTAGRAM')) return null;
-    if (!effectiveAccounts.some((a) => a.platform === 'INSTAGRAM')) return null;
-    const igLoaded = conversations.filter((c) => c.platform === 'INSTAGRAM').length;
-    const err = conversationsErrorsByPlatform.INSTAGRAM;
-    const hint = conversationsHintsByPlatform.INSTAGRAM;
-    if (igLoaded > 0 && !err && !hint) return null;
-    const bannerText =
-      err ??
-      hint ??
-      (!conversationsLoading
-        ? 'No Instagram messages loaded yet. Tap Retry from Meta below.'
-        : null);
-    if (!bannerText) return null;
-    const isError = Boolean(err);
-    return (
-      <div
-        className={`p-3 border-b flex flex-wrap items-center justify-between gap-2 ${
-          isError ? 'border-amber-200 bg-amber-50' : 'border-sky-200 bg-sky-50'
-        }`}
-      >
-        <p className={`text-xs ${isError ? 'text-amber-900' : 'text-sky-900'}`}>
-          <span className="font-semibold">Instagram: </span>
-          {bannerText}
-        </p>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            disabled={instagramRefreshLoading}
-            onClick={() => {
-              void refreshInstagramDmInboxRef.current();
-            }}
-            className="text-xs px-2 py-1 rounded border border-sky-300 bg-white text-sky-900 font-medium hover:bg-sky-50 disabled:opacity-60 flex items-center gap-1"
-          >
-            {instagramRefreshLoading && <Loader2 className="w-3 h-3 animate-spin" />}
-            {instagramRefreshLoading ? 'Checking Meta…' : 'Retry from Meta'}
-          </button>
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                const res = await api.get('/social/oauth/INSTAGRAM/start');
-                const url = res?.data?.url;
-                if (url && typeof url === 'string') openOAuthConnectUrl(url);
-              } catch (_) {}
-            }}
-            className="text-xs px-2 py-1 rounded bg-gradient-to-r from-orange-500 to-pink-500 text-white font-medium hover:opacity-90"
-          >
-            Reconnect via Facebook
-          </button>
-        </div>
-      </div>
-    );
-  };
-
   const renderSidebarList = () => {
     if (inboxMode === 'engagement') {
       if (engagementLoading) {
@@ -3573,10 +3535,6 @@ function InboxPage() {
       );
     }
     if (conversations.length === 0) {
-      const instagramBanner = renderInstagramMetaBanner();
-      if (instagramBanner) {
-        return <>{instagramBanner}</>;
-      }
       const dmNotInApp =
         selectedPlatform === 'LINKEDIN' ||
         selectedPlatform === 'PINTEREST' ||
@@ -3616,7 +3574,6 @@ function InboxPage() {
     }
     return (
       <>
-        {renderInstagramMetaBanner()}
         {messageFetchPlatformIds.filter((platformId) => platformId !== 'INSTAGRAM').map((platformId) => {
           const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === platformId);
           const platformLabel = plat?.label ?? platformId;

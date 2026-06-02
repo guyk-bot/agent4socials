@@ -1,5 +1,12 @@
 import { getInboxMessagesFromDb, type InboxConversationListItem } from '@/lib/inbox/inbox-db-cache';
 import { writeInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
+import { isBogusInstagramInboxSenderName } from '@/lib/inbox/instagram-dm-conversations';
+
+function senderHasRealName(first: { name?: string; username?: string } | undefined): boolean {
+  if (first?.username?.trim()) return true;
+  if (first?.name?.trim() && !isBogusInstagramInboxSenderName(first.name)) return true;
+  return false;
+}
 
 /** Fill missing DM sender names/avatars from cached thread messages (no Meta API). */
 export async function enrichConversationListFromMessageCache(
@@ -12,7 +19,7 @@ export async function enrichConversationListFromMessageCache(
   for (const conv of list) {
     const senders = conv.senders ?? [];
     const first = senders[0];
-    const hasName = !!(first?.name?.trim() || first?.username?.trim());
+    const hasName = senderHasRealName(first);
     const hasPicture = !!first?.pictureUrl;
     if (hasName && hasPicture) {
       out.push(conv);

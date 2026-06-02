@@ -11,6 +11,7 @@ import {
   mergeInboxProfileCacheIntoConversations,
 } from '@/lib/inbox/resolve-inbox-sender-profile';
 import { normalizeThreadsInboxCommentRow } from '@/lib/threads/inbox-comments';
+import { sanitizeInstagramInboxSenders } from '@/lib/inbox/instagram-dm-conversations';
 
 /**
  * GET /api/inbox/bootstrap
@@ -69,6 +70,9 @@ export async function GET(request: NextRequest) {
           acc.platform === 'TWITTER'
             ? storedConvs
             : await mergeInboxProfileCacheIntoConversations(profilePlatform, storedConvs);
+        if (acc.platform === 'INSTAGRAM') {
+          list = sanitizeInstagramInboxSenders(list);
+        }
         if (acc.platform !== 'TWITTER') {
           list = await enrichConversationListFromMessageCache(acc.id, profilePlatform, list);
         }

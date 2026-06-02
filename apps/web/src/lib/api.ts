@@ -40,6 +40,7 @@ function isPriorityApiPath(url?: string): boolean {
     url.includes('/ai/generate-inbox-reply-batch') ||
     url.includes('/comments/reply') ||
     url.includes('/inbox/instagram-dms') ||
+    url.includes('/sender-profile') ||
     /\/conversations(\?|$|\/)/.test(url) ||
     /\/posts\/[^/]+(\/publish|\/finalize-publish-status)?$/.test(url)
   );

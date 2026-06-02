@@ -22,8 +22,8 @@ export type RefreshInstagramDmResult = {
   emptyHint?: string;
 };
 
-/** Match Vercel route maxDuration (60s). */
-const CLIENT_TIMEOUT_MS = 58_000;
+/** Fast list only; server enriches senders in after(). */
+const CLIENT_TIMEOUT_MS = 32_000;
 
 function parseResponse(data: {
   conversations?: InboxDmConversation[];
@@ -33,11 +33,9 @@ function parseResponse(data: {
 }): RefreshInstagramDmResult {
   const conversations = data.conversations ?? [];
   const error =
-    typeof data.error === 'string' && data.error.trim()
+    typeof data.error === 'string' && data.error.trim() && conversations.length === 0
       ? data.error.trim()
-      : typeof data.emptyHint === 'string' && data.emptyHint.trim() && conversations.length === 0
-        ? data.emptyHint.trim()
-        : undefined;
+      : undefined;
   return {
     conversations,
     instagramAccountId: data.instagramAccountId,
@@ -46,7 +44,7 @@ function parseResponse(data: {
   };
 }
 
-/** Live Instagram DM list: one request, server tries Page token then fallbacks. */
+/** Silent background refresh: never surfaces timeout errors to the UI. */
 export async function refreshInstagramDmInboxLive(): Promise<RefreshInstagramDmResult> {
   try {
     const res = await api.get<{
@@ -62,17 +60,7 @@ export async function refreshInstagramDmInboxLive(): Promise<RefreshInstagramDmR
   } catch (err: unknown) {
     const data = (err as { response?: { data?: { error?: string; emptyHint?: string; conversations?: InboxDmConversation[]; instagramAccountId?: string } } })
       ?.response?.data;
-    if (data?.conversations?.length || data?.error || data?.emptyHint) {
-      return parseResponse(data);
-    }
-    const isTimeout =
-      (err as { code?: string })?.code === 'ECONNABORTED' ||
-      /timeout/i.test((err as { message?: string })?.message ?? '');
-    return {
-      conversations: [],
-      error: isTimeout
-        ? 'Request timed out before Meta finished. Tap Retry from Meta once more. If it keeps failing, reconnect via Facebook and choose your Page.'
-        : 'Could not load Instagram messages. Try Retry from Meta or reconnect via Facebook.',
-    };
+    if (data) return parseResponse(data);
+    return { conversations: [] };
   }
 }

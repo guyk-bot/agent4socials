@@ -1,13 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
-import { loadInstagramDmInboxForUser } from '@/lib/inbox/instagram-dm-conversations';
+import {
+  enrichInstagramDmSendersInBackground,
+  loadInstagramDmInboxForUser,
+} from '@/lib/inbox/instagram-dm-conversations';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/inbox/instagram-dms
- * Instagram DM thread list only (Inbox Messages tab). One server round-trip.
+ * Fast thread list; sender names/avatars enrich in after() so the client does not time out.
  */
 export async function GET(request: NextRequest) {
   if (!process.env.DATABASE_URL) {
@@ -21,13 +24,26 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const fresh = searchParams.get('fresh') === '1' || searchParams.get('fresh') === 'true';
   const cacheOnly = searchParams.get('cacheOnly') === '1' || searchParams.get('cacheOnly') === 'true';
+  const deferHeavyEnrichment = fresh && !cacheOnly;
 
-  const payload = await loadInstagramDmInboxForUser(userId, { fresh, cacheOnly });
+  const payload = await loadInstagramDmInboxForUser(userId, {
+    fresh,
+    cacheOnly,
+    deferHeavyEnrichment,
+  });
+
+  if (deferHeavyEnrichment && (payload.conversations?.length ?? 0) > 0) {
+    after(() => {
+      enrichInstagramDmSendersInBackground(userId).catch((e) => {
+        console.warn('[InstagramDM] background sender enrich failed:', (e as Error)?.message ?? e);
+      });
+    });
+  }
 
   return NextResponse.json({
     conversations: payload.conversations,
     instagramAccountId: payload.instagramAccountId,
-    ...(payload.error ? { error: payload.error } : {}),
+    ...(payload.error && (payload.conversations?.length ?? 0) === 0 ? { error: payload.error } : {}),
     ...(payload.emptyHint ? { emptyHint: payload.emptyHint } : {}),
     ...(payload.fromCache ? { fromCache: true } : {}),
     ...(payload.stale ? { stale: true } : {}),
