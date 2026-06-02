@@ -12,15 +12,21 @@ import {
   setInboxConversationListInDb,
   type InboxConversationListItem,
 } from '@/lib/inbox/inbox-db-cache';
+import { enrichConversationListFromMessageCache } from '@/lib/inbox/enrich-conversations-from-messages';
 import { mergeInboxProfileCacheIntoConversations } from '@/lib/inbox/resolve-inbox-sender-profile';
 
 const IG_GRAPH = 'https://graph.instagram.com/v25.0';
 const FB_BASE = facebookGraphBaseUrl;
-/** Minimal fields: fastest Meta response (names come from DB profile cache). */
-const LIST_FIELDS = 'id,updated_time';
+/** Names from Meta; avatars from profile/message cache (no profile_pic fan-out on list). */
+const LIST_FIELDS = 'id,updated_time,participants{id,username,name}';
 const META_TIMEOUT_MS = 45_000;
 
-type ConvItem = { id: string; updated_time?: string };
+type ConvParticipant = { id?: string; name?: string; username?: string };
+type ConvItem = {
+  id: string;
+  updated_time?: string;
+  participants?: { data?: ConvParticipant[] };
+};
 
 export type InstagramDmLoadResult = {
   conversations: InboxConversationListItem[];
@@ -129,25 +135,61 @@ async function fetchFromMeta(target: MetaListTarget): Promise<ConvItem[]> {
   return res.data?.data ?? [];
 }
 
-function mapThreads(raw: ConvItem[]): InboxConversationListItem[] {
-  return raw.map((c) => ({
-    id: c.id,
-    updatedTime: c.updated_time ?? null,
-    senders: [{ name: 'Instagram conversation', username: undefined, pictureUrl: null }],
-    messageCount: undefined,
-  }));
+function mapThreads(
+  raw: ConvItem[],
+  ourIds: Set<string>,
+  ourUsernames: Set<string>
+): InboxConversationListItem[] {
+  return raw.map((c) => {
+    const participants = c.participants?.data ?? [];
+    const others = participants.filter((p) => {
+      if (!p.id) return true;
+      if (ourIds.has(p.id)) return false;
+      if (p.username && ourUsernames.has(p.username.toLowerCase())) return false;
+      return true;
+    });
+    const sendersData = others.length > 0 ? others : participants;
+    const senders = sendersData.map((s) => ({
+      id: s.id,
+      name: s.name,
+      username: s.username,
+      pictureUrl: null as string | null,
+    }));
+    return {
+      id: c.id,
+      updatedTime: c.updated_time ?? null,
+      senders,
+      messageCount: undefined,
+    };
+  });
 }
 
-async function applyProfileCache(
+function stripPlaceholderSenders(list: InboxConversationListItem[]): InboxConversationListItem[] {
+  return list.map((c) => {
+    const first = c.senders?.[0];
+    const bogusName = first?.name?.trim().toLowerCase() === 'instagram conversation';
+    if (bogusName && !first?.username?.trim()) {
+      return {
+        ...c,
+        senders: [{ id: first?.id, name: undefined, username: undefined, pictureUrl: first?.pictureUrl ?? null }],
+      };
+    }
+    return c;
+  });
+}
+
+async function enrichSenders(
   accountId: string,
   list: InboxConversationListItem[]
 ): Promise<InboxConversationListItem[]> {
-  const merged = (await mergeInboxProfileCacheIntoConversations(
+  let out = stripPlaceholderSenders(list);
+  out = (await mergeInboxProfileCacheIntoConversations(
     'instagram',
-    list
+    out
   )) as InboxConversationListItem[];
-  if (merged.length > 0) void setInboxConversationListInDb(accountId, merged);
-  return merged;
+  out = await enrichConversationListFromMessageCache(accountId, 'instagram', out);
+  if (out.length > 0) void setInboxConversationListInDb(accountId, out);
+  return out;
 }
 
 function permissionError(isBusinessLogin: boolean): string {
@@ -223,7 +265,7 @@ export async function loadInstagramDmConversations(args: {
   if (cacheOnly) {
     const cached = await getInboxConversationListFromDb(accountId);
     if (cached?.length) {
-      return { conversations: await applyProfileCache(accountId, cached), fromCache: true };
+      return { conversations: await enrichSenders(accountId, cached), fromCache: true };
     }
     return { conversations: [] };
   }
@@ -238,10 +280,17 @@ export async function loadInstagramDmConversations(args: {
 
   if (fresh) clearMetaThrottle();
 
+  const ourIds = new Set<string>();
+  if (account.platformUserId) ourIds.add(account.platformUserId);
+  const ourUsernames = new Set<string>();
+  if (account.username) ourUsernames.add(account.username.toLowerCase());
+
   const linkedPageId =
     account.platform === 'INSTAGRAM' && !isBusinessLogin && !facebookPageOnly
       ? await resolveLinkedPageId(userId, token, cred.linkedPageId)
       : cred.linkedPageId?.trim() ?? null;
+
+  if (linkedPageId) ourIds.add(linkedPageId);
 
   const target = buildMetaListTarget(account, linkedPageId);
   if (!target) {
@@ -260,7 +309,7 @@ export async function loadInstagramDmConversations(args: {
       const cached = await getInboxConversationListFromDb(accountId);
       if (cached?.length) {
         return {
-          conversations: await applyProfileCache(accountId, cached),
+          conversations: await enrichSenders(accountId, cached),
           fromCache: true,
           stale: true,
           emptyHint: 'Meta returned no new Instagram threads. Showing saved conversations.',
@@ -271,15 +320,15 @@ export async function loadInstagramDmConversations(args: {
       return { conversations: [], error: emptyHint, emptyHint, debug: { source: target.label, count: 0 } };
     }
 
-    let list = mapThreads(raw);
-    list = await applyProfileCache(accountId, list);
+    let list = mapThreads(raw, ourIds, ourUsernames);
+    list = await enrichSenders(accountId, list);
     return { conversations: list, debug: { source: target.label, count: list.length } };
   } catch (e) {
     const parsed = parseMetaFailure(e, isBusinessLogin);
     const cached = await getInboxConversationListFromDb(accountId);
     if (cached?.length) {
       return {
-        conversations: await applyProfileCache(accountId, cached),
+        conversations: await enrichSenders(accountId, cached),
         fromCache: true,
         stale: true,
         emptyHint: parsed?.error ?? 'Showing saved Instagram threads. Live refresh failed.',
