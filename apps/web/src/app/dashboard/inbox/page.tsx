@@ -510,7 +510,7 @@ function InboxMessageContent({ msg }: { msg: ConversationMessage }) {
               title={r.username ? `From ${r.username}` : undefined}
             >
               {r.reaction}
-              {r.username ? ` ... ${r.username}` : ''}
+              {r.username ? ` - ${r.username}` : ''}
             </span>
           ))}
         </div>
