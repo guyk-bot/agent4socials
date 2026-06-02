@@ -50,7 +50,7 @@ import {
 } from '@/lib/inbox/inbox-recent-connect';
 import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
 import { refreshInstagramDmInboxLive, type InboxDmConversation } from '@/lib/inbox/refresh-instagram-dm-inbox-client';
-import { isBogusInstagramInboxSenderName } from '@/lib/inbox/instagram-dm-conversations';
+import { isBogusInstagramInboxSenderName } from '@/lib/inbox/instagram-dm-sender-utils';
 import {
   isMetaMessagingWindowClosed,
   META_MESSAGING_WINDOW_BLOCKED_MESSAGE,

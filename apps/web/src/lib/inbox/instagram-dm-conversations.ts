@@ -19,6 +19,7 @@ import {
   mergeInboxProfileCacheIntoConversations,
   setIgScopedProfileCallBudgetForRequest,
 } from '@/lib/inbox/resolve-inbox-sender-profile';
+import { isBogusInstagramInboxSenderName, sanitizeInstagramInboxSenders } from '@/lib/inbox/instagram-dm-sender-utils';
 
 const IG_GRAPH = 'https://graph.instagram.com/v25.0';
 const FB_BASE = facebookGraphBaseUrl;
@@ -166,26 +167,6 @@ function mapThreads(
       senders,
       messageCount: undefined,
     };
-  });
-}
-
-/** Placeholder from an older inbox build; treat as missing identity. */
-export function isBogusInstagramInboxSenderName(name?: string | null): boolean {
-  const t = name?.trim().toLowerCase();
-  return t === 'instagram conversation' || t === 'instagram conversati...';
-}
-
-export function sanitizeInstagramInboxSenders(
-  list: InboxConversationListItem[]
-): InboxConversationListItem[] {
-  return list.map((c) => {
-    const senders = c.senders ?? [];
-    if (senders.length === 0) return c;
-    const cleaned = senders.map((s) => {
-      if (!isBogusInstagramInboxSenderName(s.name)) return s;
-      return { ...s, name: undefined };
-    });
-    return { ...c, senders: cleaned };
   });
 }
 

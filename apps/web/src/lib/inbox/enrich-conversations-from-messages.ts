@@ -1,6 +1,6 @@
 import { getInboxMessagesFromDb, type InboxConversationListItem } from '@/lib/inbox/inbox-db-cache';
 import { writeInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
-import { isBogusInstagramInboxSenderName } from '@/lib/inbox/instagram-dm-conversations';
+import { isBogusInstagramInboxSenderName } from '@/lib/inbox/instagram-dm-sender-utils';
 
 function senderHasRealName(first: { name?: string; username?: string } | undefined): boolean {
   if (first?.username?.trim()) return true;

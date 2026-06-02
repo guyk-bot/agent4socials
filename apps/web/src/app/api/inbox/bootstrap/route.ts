@@ -11,7 +11,7 @@ import {
   mergeInboxProfileCacheIntoConversations,
 } from '@/lib/inbox/resolve-inbox-sender-profile';
 import { normalizeThreadsInboxCommentRow } from '@/lib/threads/inbox-comments';
-import { sanitizeInstagramInboxSenders } from '@/lib/inbox/instagram-dm-conversations';
+import { sanitizeInstagramInboxSenders } from '@/lib/inbox/instagram-dm-sender-utils';
 
 /**
  * GET /api/inbox/bootstrap
