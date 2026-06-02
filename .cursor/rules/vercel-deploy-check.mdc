@@ -1,0 +1,22 @@
+---
+description: After pushing code, verify Vercel production deploy succeeded and fix build/runtime errors without waiting for the user.
+alwaysApply: true
+---
+
+# Vercel: auto-check after code changes
+
+When you **commit and push** (or the user expects production to update):
+
+1. **Build status** (within the same turn when possible):
+   - Run `vercel ls` from `apps/web` (or repo root if that is how the project is linked).
+   - If the latest **Production** deployment is **Error**, run:
+     `npx vercel inspect <deployment-url-or-id> --logs` and read the tail for TypeScript, ESLint, or `next build` failures.
+   - Fix the root cause in code, then commit and push again. Repeat until Production is **Ready** or you report a blocker that needs Vercel env/dashboard changes (e.g. wrong `DATABASE_DIRECT_URL`).
+
+2. **Runtime logs** (when the task touches API routes, inbox, OAuth, or cron):
+   - Run `vercel logs --limit 80` and grep for `error`, `504`, `500`, and the affected route path.
+   - `504` or status `---` on `/conversations` usually means function timeout: check `maxDuration`, reduce Meta fan-out for `fresh=1`, and surface errors in the API response.
+
+3. **Do not** tell the user to check Vercel first if you can run these commands yourself.
+
+4. **Local typecheck** before push when editing `apps/web`: prefer `cd apps/web && SKIP_PRISMA_MIGRATE_ON_VERCEL=1 npm run build` or `npx tsc --noEmit` if migrate fails locally.

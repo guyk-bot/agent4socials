@@ -2393,11 +2393,13 @@ function InboxPage() {
 
           await refreshAllPlatformCommentsRef.current({ live: true });
         } else {
-          convRows = conversationsStableRef.current.map((c) => ({
-            ...c,
-            platform: (c as Conversation & { platform?: string }).platform ?? 'UNKNOWN',
-            messageAccountId: c.messageAccountId,
-          }));
+          convRows = conversationsStableRef.current
+            .filter((c): c is Conversation & { messageAccountId: string } => Boolean(c.messageAccountId))
+            .map((c) => ({
+              ...c,
+              platform: (c as Conversation & { platform?: string }).platform ?? 'UNKNOWN',
+              messageAccountId: c.messageAccountId,
+            }));
         }
 
         if (opts?.liveMeta && user?.id) {
