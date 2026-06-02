@@ -919,19 +919,37 @@ export async function GET(
         if (fbAccount) {
           try { await ensureBootstrapSnapshotForToday(fbAccount); } catch (_) {}
         }
-        const igAccount = igId ? await prisma.socialAccount.findFirst({
-          where: { userId, platform: 'INSTAGRAM', platformUserId: igId },
-          select: { id: true, userId: true, platform: true, platformUserId: true, accessToken: true },
-        }) : null;
+        const igAccount = igId
+          ? await prisma.socialAccount.findFirst({
+              where: { userId, platform: 'INSTAGRAM', platformUserId: igId },
+              select: {
+                id: true,
+                userId: true,
+                platform: true,
+                platformUserId: true,
+                accessToken: true,
+                username: true,
+                profilePicture: true,
+              },
+            })
+          : null;
         if (igAccount) {
           try { await ensureBootstrapSnapshotForToday(igAccount); } catch (_) {}
         }
         scheduleInboxWarmForUser(userId);
         const fbUsername = firstPage.name ?? 'Facebook Page';
         const fbPic = firstPage.picture ?? null;
-        const fbConnectParams = buildConnectParams('FACEBOOK', fbUsername, fbPic);
-        const dashboardUrl = fbAccount?.id
-          ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(fbAccount.id)}&connecting=1${fbConnectParams}`
+        const preferIgAfterPageConnect = Boolean(igAccount?.id);
+        const connectAccountId = preferIgAfterPageConnect ? igAccount!.id : fbAccount?.id;
+        const connectParams = preferIgAfterPageConnect
+          ? buildConnectParams(
+              'INSTAGRAM',
+              igAccount?.username ?? 'Instagram',
+              igAccount?.profilePicture ?? null
+            )
+          : buildConnectParams('FACEBOOK', fbUsername, fbPic);
+        const dashboardUrl = connectAccountId
+          ? `${baseUrl}/dashboard?accountId=${encodeURIComponent(connectAccountId)}&connecting=1${connectParams}`
           : `${baseUrl}/dashboard`;
         return NextResponse.redirect(dashboardUrl);
       } catch (e) {

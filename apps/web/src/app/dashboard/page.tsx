@@ -22,6 +22,40 @@ import {
 } from '@/lib/dashboard-insights-session-cache';
 import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
 import { markInboxAccountRecentlyConnected } from '@/lib/inbox/inbox-recent-connect';
+import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
+
+const CONNECT_LOAD_DONE_KEY = (accountId: string) => `a4s_connect_load_done_${accountId}`;
+
+function clearConnectLoadDone(accountId: string): void {
+  if (typeof window === 'undefined' || !accountId) return;
+  try {
+    sessionStorage.removeItem(CONNECT_LOAD_DONE_KEY(accountId));
+  } catch {
+    /* ignore */
+  }
+}
+
+function isConnectLoadDone(accountId: string): boolean {
+  if (typeof window === 'undefined' || !accountId) return false;
+  try {
+    return sessionStorage.getItem(CONNECT_LOAD_DONE_KEY(accountId)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markConnectLoadDone(accountId: string): void {
+  if (typeof window === 'undefined' || !accountId) return;
+  try {
+    sessionStorage.setItem(CONNECT_LOAD_DONE_KEY(accountId), '1');
+  } catch {
+    /* ignore */
+  }
+}
+
+function isOAuthConnectSyncActive(accountId: string | undefined | null, justConnected: boolean): boolean {
+  return Boolean(justConnected && accountId && !isConnectLoadDone(accountId));
+}
 import {
   listenForOAuthComplete,
   notifyOAuthOpenerAndClose,
@@ -632,7 +666,10 @@ export default function DashboardPage() {
   useLayoutEffect(() => {
     if (!accountIdFromUrl || twitter1oaNext === '1') return;
     setSelectedAccountId(accountIdFromUrl);
-    if (connectingParam === '1') setJustConnected(true);
+    if (connectingParam === '1') {
+      clearConnectLoadDone(accountIdFromUrl);
+      setJustConnected(true);
+    }
   }, [accountIdFromUrl, connectingParam, twitter1oaNext, setSelectedAccountId]);
 
   // When accountId is in URL: clean URL; after connect refresh cache and clear stale per-account data.
@@ -646,9 +683,6 @@ export default function DashboardPage() {
       router.replace('/dashboard', { scroll: false });
       return;
     }
-
-    singleAccountPostsRunKeyRef.current = '';
-    insightsRunKeyRef.current = '';
 
     if (typeof window !== 'undefined' && window.opener) {
       const params = new URLSearchParams(window.location.search);
@@ -665,7 +699,12 @@ export default function DashboardPage() {
       .then((list) => {
         if (cancelled) return;
         const connected = list.find((a) => a.id === accountIdFromUrl);
-        if (connected) markInboxAccountRecentlyConnected(connected.id, connected.platform);
+        if (connected) {
+          markInboxAccountRecentlyConnected(connected.id, connected.platform);
+          if (connected.platform === 'INSTAGRAM' || connected.platform === 'FACEBOOK') {
+            triggerInboxWarmClient(true);
+          }
+        }
         delete postsCacheRef.current[accountIdFromUrl];
         Object.keys(insightsCacheRef.current).forEach((k) => {
           if (k.startsWith(accountIdFromUrl + '-')) delete insightsCacheRef.current[k];
@@ -673,7 +712,6 @@ export default function DashboardPage() {
         delete lastInsightsByAccountIdRef.current[accountIdFromUrl];
         appDataRef.current?.clearAccountData(accountIdFromUrl);
         router.replace('/dashboard', { scroll: false });
-        timeoutId = setTimeout(() => setJustConnected(false), 5000);
       })
       .catch(() => {
         if (!cancelled) router.replace('/dashboard', { scroll: false });
@@ -699,17 +737,19 @@ export default function DashboardPage() {
             profilePicture,
           })
         );
+        clearConnectLoadDone(accountId);
         setJustConnected(true);
       }
       void fetchAccounts().then((list) => {
         if (accountId) {
           setSelectedAccountId(accountId);
           const connected = list.find((a) => a.id === accountId);
-          if (connected) markInboxAccountRecentlyConnected(connected.id, connected.platform);
-        }
-        if (accountId) {
-          setJustConnected(true);
-          window.setTimeout(() => setJustConnected(false), 5000);
+          if (connected) {
+            markInboxAccountRecentlyConnected(connected.id, connected.platform);
+            if (connected.platform === 'INSTAGRAM' || connected.platform === 'FACEBOOK') {
+              triggerInboxWarmClient(true);
+            }
+          }
         }
       });
     });
@@ -718,7 +758,6 @@ export default function DashboardPage() {
   useEffect(() => {
     if (connectingParam !== '1' || accountIdFromUrl) return;
     let cancelled = false;
-    const timeoutId = setTimeout(() => setJustConnected(false), 5000);
     setJustConnected(true);
     void fetchAccounts().then((list) => {
       if (cancelled) return;
@@ -731,7 +770,6 @@ export default function DashboardPage() {
     router.replace('/dashboard', { scroll: false });
     return () => {
       cancelled = true;
-      clearTimeout(timeoutId);
     };
   }, [connectingParam, accountIdFromUrl, router]);
 
@@ -826,7 +864,9 @@ export default function DashboardPage() {
   useEffect(() => {
     const appCtx = appDataRef.current;
     const postsPhase2Running = Boolean(appCtx?.prefetchHasLoadedOnce && !appCtx?.prefetchPhase2Done);
-    const skipInstagramAutoRefresh = analyticsAccount?.platform === 'INSTAGRAM' && !justConnected;
+    const skipInstagramAutoRefresh =
+      analyticsAccount?.platform === 'INSTAGRAM' &&
+      !isOAuthConnectSyncActive(analyticsAccount.id, justConnected);
     if (analyticsAccount?.id) {
       const accountId = analyticsAccount.id;
       // Guard: skip this branch if we already ran it for the same
@@ -874,7 +914,7 @@ export default function DashboardPage() {
         if (hasAnyCachedPosts && analyticsAccount?.platform !== 'THREADS') return;
         if (skipInstagramAutoRefresh && hasAnyCachedPosts && !shouldBackgroundSyncPosts()) return;
         const bgParams = postsSyncParamsForPlatform(analyticsAccount?.platform, {
-          explicitSync: syncAllTrigger > 0 || justConnected,
+          explicitSync: syncAllTrigger > 0 || isOAuthConnectSyncActive(accountId, justConnected),
         });
         api.get(`/social/accounts/${accountId}/posts`, { params: bgParams })
           .then((res) => {
@@ -927,7 +967,7 @@ export default function DashboardPage() {
       }
       setImportedPostsLoading(true);
       const primaryPostsParams = postsSyncParamsForPlatform(analyticsAccount?.platform, {
-        explicitSync: syncAllTrigger > 0 || justConnected,
+        explicitSync: syncAllTrigger > 0 || isOAuthConnectSyncActive(accountId, justConnected),
       });
       api.get(`/social/accounts/${accountId}/posts`, { params: primaryPostsParams })
         .then((res) => {
@@ -1033,7 +1073,7 @@ export default function DashboardPage() {
   const selectedAccountIdRef = useRef<string | null>(null);
   /**
    * Locks the main insights effect to a single run per
-   * (accountId, dateRange, syncAllTrigger, justConnected) combination.
+   * (accountId, dateRange, syncAllTrigger) combination.
    * Otherwise benign dep changes — `appData?.prefetchStatus` flipping from
    * `idle` → `loading` → `done`, or `accounts` getting a new reference after
    * Phase 1 (which triggers a dashboard re-render) — would re-enter the
@@ -1092,11 +1132,8 @@ export default function DashboardPage() {
     // Wait for cache rehydration to complete before checking for cached data
     if (!appData?.cacheRehydrated) return;
     // Lock the main insights effect once we've acted on a given
-    // (account, dateRange, sync, justConnected) combination — see
-    // `insightsRunKeyRef` above for the reasoning. This prevents Phase 2 /
-    // prefetchStatus flips from replaying the effect and swapping the
-    // already-rendered chart data.
-    const runKey = `${analyticsAccount.id}:${dateRange.start}:${dateRange.end}:${syncAllTrigger}:${justConnected ? 1 : 0}:${tiktokInsightsResyncSeal}`;
+    // (account, dateRange, sync) combination — see `insightsRunKeyRef` above.
+    const runKey = `${analyticsAccount.id}:${dateRange.start}:${dateRange.end}:${syncAllTrigger}:${tiktokInsightsResyncSeal}`;
     if (insightsRunKeyRef.current === runKey) return;
     insightsRunKeyRef.current = runKey;
     const prevAccountId = selectedAccountIdRef.current;
@@ -1387,7 +1424,7 @@ export default function DashboardPage() {
         } else {
           setImportedPostsLoading(true);
           const insightsPostsParams = postsSyncParamsForPlatform(analyticsAccount?.platform, {
-            explicitSync: syncAllTrigger > 0 || justConnected,
+            explicitSync: syncAllTrigger > 0 || isOAuthConnectSyncActive(accountId, justConnected),
           });
           api.get(`/social/accounts/${accountId}/posts`, { params: insightsPostsParams })
             .then((postsRes) => {
@@ -1461,7 +1498,8 @@ export default function DashboardPage() {
     // - user changed date range/account and we have no usable cache to render.
     const isMetaInsightsAccount =
       analyticsAccount?.platform === 'INSTAGRAM' || analyticsAccount?.platform === 'FACEBOOK';
-    const explicitAction = syncAllTrigger > 0 || justConnected;
+    const explicitAction =
+      syncAllTrigger > 0 || isOAuthConnectSyncActive(accountId, justConnected);
 
     // Instagram/Facebook: never auto-fetch on mount or date-range change.
     // The insights route makes 5-10 live Graph calls and burns through the 200 call/hour quota.
@@ -1570,7 +1608,7 @@ export default function DashboardPage() {
       } else {
         // Fetch posts in background
         const fastPostsParams = postsSyncParamsForPlatform(analyticsAccount?.platform, {
-          explicitSync: syncAllTrigger > 0 || justConnected,
+          explicitSync: syncAllTrigger > 0 || isOAuthConnectSyncActive(accountId, justConnected),
         });
         const fastPostsPromise = api.get(`/social/accounts/${accountId}/posts`, { params: fastPostsParams });
         fastPostsPromise
@@ -1830,6 +1868,21 @@ export default function DashboardPage() {
     sessionInsightsForSelected,
   ]);
 
+  // End connect loading banner once analytics + posts are ready (one time per account until next OAuth).
+  useEffect(() => {
+    const accountId = analyticsAccount?.id;
+    if (!justConnected || !accountId || isConnectLoadDone(accountId)) return;
+    if (!displayInsights || insightsLoading || importedPostsLoading) return;
+    markConnectLoadDone(accountId);
+    setJustConnected(false);
+  }, [
+    justConnected,
+    analyticsAccount?.id,
+    displayInsights,
+    insightsLoading,
+    importedPostsLoading,
+  ]);
+
   const hasFbOrIg = accounts.some((a) => a.platform === 'FACEBOOK' || a.platform === 'INSTAGRAM');
   const hintText = displayInsights?.insightsHint ?? '';
   const hintNeedsReconnect = Boolean(hintText && (
@@ -1998,13 +2051,19 @@ export default function DashboardPage() {
   /** Full-page analytics skeleton: only when insights are loading AND no cached data.
    * Do NOT tie this to importedPostsLoading — post sync would hide the whole dashboard
    * even when insights + charts are already available (stale-while-revalidate). */
+  const connectLoadInProgress = Boolean(
+    justConnected &&
+    analyticsAccount?.id &&
+    !isConnectLoadDone(analyticsAccount.id)
+  );
   const analyticsLoadingOnly = Boolean(
     analyticsAccount &&
     !displayInsights &&
-    (insightsLoading || justConnected)
+    (insightsLoading || connectLoadInProgress)
   );
   const showDataSyncBanner = Boolean(
-    analyticsLoadingOnly || (justConnected && !displayInsights)
+    connectLoadInProgress &&
+    (analyticsLoadingOnly || insightsLoading || importedPostsLoading)
   );
   function openPricingPopup() {
     setPricingModalOpen(true);

@@ -48,6 +48,7 @@ import {
   isInboxAccountRecentlyConnected,
   clearInboxAccountRecentlyConnected,
 } from '@/lib/inbox/inbox-recent-connect';
+import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
 import {
   isMetaMessagingWindowClosed,
   META_MESSAGING_WINDOW_BLOCKED_MESSAGE,
@@ -2390,7 +2391,9 @@ function InboxPage() {
                   hint?: string;
                   emptyHint?: string;
                 }>(
-                  `/social/accounts/${acc.id}/conversations?badgePoll=1&minimalEnrich=1`,
+                  `/social/accounts/${acc.id}/conversations?${
+                    opts?.forceMeta ? 'fresh=1' : 'badgePoll=1&minimalEnrich=1'
+                  }`,
                   { timeout: 90_000 }
                 );
                 const enriched = convRes.data?.conversations ?? [];
@@ -2529,6 +2532,9 @@ function InboxPage() {
   useEffect(() => {
     if (pathname !== '/dashboard/inbox' || !user?.id || effectiveAccounts.length === 0) return;
     syncConversationsFromAppDataRef.current();
+    if (effectiveAccounts.some((a) => isInboxAccountRecentlyConnected(a.id))) {
+      triggerInboxWarmClient(true);
+    }
     void refreshInboxFromServerRef.current({ liveMeta: true });
   }, [pathname, user?.id, effectiveAccounts.map((a) => a.id).join(',')]);
 
@@ -3599,11 +3605,7 @@ function InboxPage() {
               // For messages: prefer locally-tracked unread count; fall back to total
               // conversations loaded for this platform (always available, no API needed).
               // For comments: use unread count; fall back to API byPlatform.comments.
-              const msgUnread =
-                unreadMessagesByPlatform[p.id] ??
-                (conversationsLoading && conversations.length === 0
-                  ? (byPlatform[p.id]?.messages ?? 0)
-                  : 0);
+              const msgUnread = unreadMessagesByPlatform[p.id] ?? 0;
               const cmtUnread = unreadCommentsByPlatform[p.id] ?? 0;
               const displayCount = msgUnread + cmtUnread;
               const msgLabel =
