@@ -22,7 +22,7 @@ export type RefreshInstagramDmResult = {
   emptyHint?: string;
 };
 
-/** Must stay below Vercel route maxDuration (60s). */
+/** Match Vercel route maxDuration (60s). */
 const CLIENT_TIMEOUT_MS = 58_000;
 
 function parseResponse(data: {

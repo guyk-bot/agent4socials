@@ -6,6 +6,7 @@ const base = raw || '';
 /** Default for most API calls; Threads comment replies need longer (Meta container + publish). */
 export const API_DEFAULT_TIMEOUT_MS = 25_000;
 export const API_THREADS_COMMENT_REPLY_TIMEOUT_MS = 90_000;
+export const API_INSTAGRAM_DM_TIMEOUT_MS = 58_000;
 
 const api = axios.create({
   baseURL: `${base}/api`,
@@ -38,6 +39,7 @@ function isPriorityApiPath(url?: string): boolean {
     url.includes('/ai/generate-inbox-reply') ||
     url.includes('/ai/generate-inbox-reply-batch') ||
     url.includes('/comments/reply') ||
+    url.includes('/inbox/instagram-dms') ||
     /\/conversations(\?|$|\/)/.test(url) ||
     /\/posts\/[^/]+(\/publish|\/finalize-publish-status)?$/.test(url)
   );
@@ -87,6 +89,8 @@ api.interceptors.request.use(async (config) => {
   const url = typeof config.url === 'string' ? config.url : '';
   if (url.includes('/comments/reply')) {
     config.timeout = API_THREADS_COMMENT_REPLY_TIMEOUT_MS;
+  } else if (url.includes('/inbox/instagram-dms')) {
+    config.timeout = API_INSTAGRAM_DM_TIMEOUT_MS;
   }
 
   return config;
