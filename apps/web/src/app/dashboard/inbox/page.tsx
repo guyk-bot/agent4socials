@@ -252,7 +252,7 @@ type EngagementItem = {
 };
 
 const INBOX_MESSAGES_CACHE_KEY = 'agent4socials_inbox_messages_cache';
-/** localStorage budget: ~2 MB ‚Äî generous but safe for most browsers. */
+/** localStorage budget: ~2 MB ù generous but safe for most browsers. */
 const INBOX_MESSAGES_CACHE_MAX_BYTES = 2_000_000;
 /** Keep up to 150 conversations in localStorage (covers multi-platform inbox lists). */
 const INBOX_MESSAGES_CACHE_MAX_ENTRIES = 150;
@@ -274,7 +274,7 @@ type ConvCache = {
   recipientPictureUrl?: string | null;
   error: string | null;
   accountId?: string;
-  /** Timestamp of last write ‚Äî used for LRU eviction. */
+  /** Timestamp of last write ù used for LRU eviction. */
   _ts?: number;
 };
 
@@ -409,7 +409,7 @@ function proxyImageUrl(url: string | null | undefined): string | null {
 /** Outgoing inbox bubbles (DMs and replies you sent). */
 const INBOX_SENT_BUBBLE_CLASS =
   'inbox-sent-bubble bg-[rgba(255,184,107,0.38)] text-neutral-900 dark:bg-[rgba(255,184,107,0.32)] dark:text-neutral-100';
-/** Incoming bubbles from the other person (white in light mode, not global neutral-100 ‚Üí black). */
+/** Incoming bubbles from the other person (white in light mode, not global neutral-100 ? black). */
 const INBOX_RECV_BUBBLE_CLASS =
   'inbox-recv-bubble bg-white border border-neutral-200 text-neutral-900 shadow-sm dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-100 dark:shadow-none';
 
@@ -510,7 +510,7 @@ function InboxMessageContent({ msg }: { msg: ConversationMessage }) {
               title={r.username ? `From ${r.username}` : undefined}
             >
               {r.reaction}
-              {r.username ? ` ¬∑ ${r.username}` : ''}
+              {r.username ? ` ù ${r.username}` : ''}
             </span>
           ))}
         </div>
@@ -565,7 +565,7 @@ function inboxSenderDisplayName(
   const name = sender?.name?.trim();
   if (name) return name;
   if (platform === 'TWITTER') return 'X user';
-  if (sender?.id) return `‚Ä¶${sender.id.slice(-8)}`;
+  if (sender?.id) return `ù${sender.id.slice(-8)}`;
   return 'Unknown';
 }
 
@@ -841,7 +841,7 @@ function InboxPage() {
   const [conversationMessagesLoading, setConversationMessagesLoading] = useState(false);
   const [conversationMessagesError, setConversationMessagesError] = useState<string | null>(null);
   // Lazy-init the cache synchronously from localStorage so it's populated before
-  // ANY effect runs ‚Äî preventing the "spinner on re-open" race where the fetch
+  // ANY effect runs ù preventing the "spinner on re-open" race where the fetch
   // effect fires with an empty cache because localStorage restore was async.
   const [conversationMessagesCache, setConversationMessagesCache] = useState<Record<string, ConvCache>>(() => {
     if (typeof window === 'undefined') return {};
@@ -2376,6 +2376,8 @@ function InboxPage() {
             (a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK'
           );
           let mergedConvRows = [...convRows];
+          const nextPlatformErrors: Record<string, string> = {};
+          const nextPlatformHints: Record<string, string> = {};
           const lightMetaAllowed = canRunInboxLiveRefresh(
             'meta-conversations',
             user.id,
@@ -2384,12 +2386,24 @@ function InboxPage() {
           if (lightMetaAllowed) {
             for (const acc of metaAccounts) {
               try {
-                const convRes = await api.get<{ conversations?: Conversation[] }>(
+                const convRes = await api.get<{ conversations?: Conversation[]; error?: string; hint?: string }>(
                   `/social/accounts/${acc.id}/conversations?badgePoll=1&minimalEnrich=1`,
                   { timeout: 90_000 }
                 );
                 const enriched = convRes.data?.conversations ?? [];
+                const errorText = typeof convRes.data?.error === 'string' ? convRes.data.error.trim() : '';
+                const hintText = typeof convRes.data?.hint === 'string' ? convRes.data.hint.trim() : '';
+                if (errorText) {
+                  nextPlatformErrors[acc.platform] = errorText;
+                } else if (hintText) {
+                  nextPlatformHints[acc.platform] = hintText;
+                } else {
+                  delete nextPlatformErrors[acc.platform];
+                  delete nextPlatformHints[acc.platform];
+                }
                 if (enriched.length > 0) {
+                  delete nextPlatformErrors[acc.platform];
+                  delete nextPlatformHints[acc.platform];
                   const byId = new Map(mergedConvRows.map((c) => [c.id, c]));
                   for (const c of enriched) {
                     byId.set(c.id, {
@@ -2406,6 +2420,8 @@ function InboxPage() {
             }
             markInboxLiveRefresh('meta-conversations', user.id);
           }
+          setConversationsErrorsByPlatform(nextPlatformErrors);
+          setConversationsHintsByPlatform(nextPlatformHints);
           if (mergedConvRows.length > 0) {
             applyConversationsToUiRef.current(mergedConvRows);
             for (const acc of metaAccounts) {
@@ -2415,6 +2431,9 @@ function InboxPage() {
           } else {
             setConversationsLoading(false);
           }
+        } else {
+          setConversationsErrorsByPlatform({});
+          setConversationsHintsByPlatform({});
         }
       } finally {
         inboxRefreshInFlightRef.current = false;
@@ -2503,7 +2522,7 @@ function InboxPage() {
     void refreshInboxFromServerRef.current({ liveMeta: true });
   }, [pathname, user?.id, effectiveAccounts.map((a) => a.id).join(',')]);
 
-  // Background poll updated AppData ‚Äî merge new DMs and comments into the open Inbox lists.
+  // Background poll updated AppData ù merge new DMs and comments into the open Inbox lists.
   useEffect(() => {
     if (pathname !== '/dashboard/inbox' || !user?.id) return;
     syncConversationsFromAppDataRef.current();
@@ -2905,8 +2924,18 @@ function InboxPage() {
   }, [engagement, user?.id]);
 
   const handlePlatformClick = (platformId: string) => {
-    setSelectedPlatforms([platformId]);
-    setSelectedPlatform(platformId);
+    setSelectedPlatforms((prev) => {
+      const next = prev.includes(platformId)
+        ? prev.length > 1
+          ? prev.filter((p) => p !== platformId)
+          : prev
+        : [...prev, platformId];
+      setSelectedPlatform((current) => {
+        if (!next.includes(current ?? '')) return next[0] ?? null;
+        return platformId;
+      });
+      return next;
+    });
     setSelectedConversationId(null);
     setSelectedComment(null);
     setAiReplyError(null);
@@ -2918,7 +2947,7 @@ function InboxPage() {
         return (
           <div className="p-6 flex flex-col items-center justify-center gap-3">
             <Loader2 size={32} className="text-orange-500 animate-spin" />
-            <p className="text-sm text-neutral-500">Loading engagement‚Ä¶</p>
+            <p className="text-sm text-neutral-500">Loading engagementù</p>
           </div>
         );
       }
@@ -3003,7 +3032,7 @@ function InboxPage() {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-neutral-900 truncate">{e.postPreview || 'Post'}</p>
                     <p className="text-xs text-neutral-500 mt-0.5">
-                      {e.likeCount} likes ¬∑ {e.commentCount} comments
+                      {e.likeCount} likes ù {e.commentCount} comments
                     </p>
                     <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5">
                       {(() => {
@@ -3051,7 +3080,7 @@ function InboxPage() {
         return (
           <div className="p-6 flex flex-col items-center justify-center gap-3">
             <Loader2 size={32} className="text-orange-500 animate-spin" />
-            <p className="text-sm text-neutral-500">Loading comments‚Ä¶</p>
+            <p className="text-sm text-neutral-500">Loading commentsù</p>
           </div>
         );
       }
@@ -3242,7 +3271,7 @@ function InboxPage() {
                             </p>
                           ) : (
                             <p className="text-xs font-medium text-neutral-600 dark:text-neutral-300 truncate mt-0.5">
-                              {(c.postPreview || 'Post').slice(0, 48)}{(c.postPreview?.length ?? 0) > 48 ? '‚Ä¶' : ''}
+                              {(c.postPreview || 'Post').slice(0, 48)}{(c.postPreview?.length ?? 0) > 48 ? 'ù' : ''}
                             </p>
                           )}
                           <p className="text-xs text-neutral-600 dark:text-neutral-400 line-clamp-2 mt-0.5">{c.text}</p>
@@ -3311,7 +3340,7 @@ function InboxPage() {
       return (
         <div className="p-6 flex flex-col items-center justify-center gap-3">
           <Loader2 size={32} className="text-orange-500 animate-spin" />
-          <p className="text-sm text-neutral-500">Loading conversations‚Ä¶</p>
+          <p className="text-sm text-neutral-500">Loading conversationsù</p>
           {showInboxWarmupNotice && (
             <p className="text-xs text-neutral-500 max-w-xs text-center mt-1">
               Instagram and Facebook conversations can take a few minutes to appear right after you connect. Please wait and they will show up here.
@@ -3643,7 +3672,7 @@ function InboxPage() {
 
         {inboxMode === 'comments' && commentsLiveSync.loading ? (
           <div className="mx-2 mt-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
-            Syncing comments from your connected platforms (usually under a minute)‚Ä¶
+            Syncing comments from your connected platforms (usually under a minute)ù
           </div>
         ) : null}
 
@@ -3656,7 +3685,7 @@ function InboxPage() {
         {inboxMode === 'comments' && connectedPlatformIds.includes('THREADS') ? (
           threadsCommentsSync.loading ? (
             <div className="mx-2 mt-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
-              Syncing Threads replies and @mentions‚Ä¶
+              Syncing Threads replies and @mentionsù
             </div>
           ) : threadsCommentsSync.error ? (
             <div className="mx-2 mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
@@ -3830,7 +3859,7 @@ function InboxPage() {
                   className="shrink-0 text-red-400 hover:text-red-600"
                   aria-label="Dismiss"
                 >
-                  ‚úï
+                  ?
                 </button>
               </div>
             )}
@@ -4075,7 +4104,7 @@ function InboxPage() {
                       Generate all with AI
                     </button>
                     {aiReplyLoading && (
-                      <span className="text-sm text-neutral-500">Writing {replyable.length} replies‚Ä¶</span>
+                      <span className="text-sm text-neutral-500">Writing {replyable.length} repliesù</span>
                     )}
                   </div>
                   {aiReplyError && <p className="text-sm text-amber-700">{aiReplyError}</p>}
@@ -4099,13 +4128,13 @@ function InboxPage() {
                               </div>
                               <p className="text-sm text-neutral-700 dark:text-neutral-300 mt-1">{c.text}</p>
                               {c.postPreview && (
-                                <p className="text-xs text-neutral-500 mt-1 truncate">Post: {c.postPreview.slice(0, 80)}‚Ä¶</p>
+                                <p className="text-xs text-neutral-500 mt-1 truncate">Post: {c.postPreview.slice(0, 80)}ù</p>
                               )}
                             </div>
                           </div>
                           {canReply ? (
                             <textarea
-                              placeholder={aiReplyLoading ? 'Generating‚Ä¶' : 'Your reply to this comment'}
+                              placeholder={aiReplyLoading ? 'Generatingù' : 'Your reply to this comment'}
                               rows={2}
                               value={draft}
                               onChange={(e) => {
@@ -4275,7 +4304,7 @@ function InboxPage() {
                             <p className="text-sm text-neutral-700 mb-2 rounded-lg bg-neutral-50 px-3 py-2 border border-neutral-100 min-h-[2.5rem]">
                               {batchConversationLastMessage[c.id] !== undefined
                                 ? (batchConversationLastMessage[c.id] || 'No message preview')
-                                : 'Loading‚Ä¶'}
+                                : 'Loadingù'}
                             </p>
                             {batchWindowClosed && (
                               <p className="text-xs text-amber-800 mb-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5">
@@ -4318,7 +4347,7 @@ function InboxPage() {
                               </button>
                             </div>
                             <textarea
-                              placeholder={aiReplyLoading ? 'Generating reply‚Ä¶' : 'Type a message for this conversation (or generate with AI above)...'}
+                              placeholder={aiReplyLoading ? 'Generating replyù' : 'Type a message for this conversation (or generate with AI above)...'}
                               rows={3}
                               value={value}
                               onChange={(e) => {
@@ -4411,7 +4440,7 @@ function InboxPage() {
                           : (selectedComment.postPreview || 'Your post').slice(0, 80)}
                         {!isThreadsMentionComment(selectedComment) &&
                         (selectedComment.postPreview?.length ?? 0) > 80
-                          ? '‚Ä¶'
+                          ? 'ù'
                           : ''}
                       </p>
                       <p className="text-xs text-neutral-500 mt-0.5">{selectedComment.authorName}</p>
@@ -4653,7 +4682,7 @@ function InboxPage() {
                 <>
                 <div className="flex items-end gap-2">
                   <textarea
-                    placeholder={aiReplyLoading ? 'Generating reply‚Ä¶' : 'Type your reply...'}
+                    placeholder={aiReplyLoading ? 'Generating replyù' : 'Type your reply...'}
                     rows={2}
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
@@ -4756,9 +4785,9 @@ function InboxPage() {
                 </div>
                 {replySendError && (
                   <div className="mt-2 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                    <span className="shrink-0 mt-0.5">‚ö†</span>
+                    <span className="shrink-0 mt-0.5">?</span>
                     <span>{replySendError}</span>
-                    <button type="button" onClick={() => setReplySendError(null)} className="ml-auto shrink-0 text-red-400 hover:text-red-600">‚úï</button>
+                    <button type="button" onClick={() => setReplySendError(null)} className="ml-auto shrink-0 text-red-400 hover:text-red-600">?</button>
                   </div>
                 )}
                 {!canUseCommentAi && inboxExamplesLoaded && (
@@ -4904,7 +4933,7 @@ function InboxPage() {
                     {conversationMessagesLoading ? (
                       <div className="flex flex-col items-center justify-center min-h-[12rem] py-12">
                         <Loader2 size={36} className="text-orange-500 animate-spin" aria-hidden />
-                        <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-400">Loading messages‚Ä¶</p>
+                        <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-400">Loading messagesù</p>
                       </div>
                     ) : conversationMessagesError ? (
                       <p className="text-sm text-amber-700">{conversationMessagesError}</p>
@@ -5019,7 +5048,7 @@ function InboxPage() {
                         }}
                         className="px-3 py-2 rounded-lg bg-[var(--button)] text-white text-sm font-medium hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {dmRecipientLookupLoading ? 'Looking up‚Ä¶' : 'Look up'}
+                        {dmRecipientLookupLoading ? 'Looking upù' : 'Look up'}
                       </button>
                     </div>
                     {dmRecipientLookupError && <p className="text-sm text-amber-800 mt-2">{dmRecipientLookupError}</p>}
@@ -5036,7 +5065,7 @@ function InboxPage() {
                 )}
                 <div className="flex items-end gap-2">
                 <textarea
-                  placeholder={aiReplyLoading ? 'Generating reply‚Ä¶' : 'Type a reply...'}
+                  placeholder={aiReplyLoading ? 'Generating replyù' : 'Type a reply...'}
                   rows={2}
                     value={dmReplyText}
                     onChange={(e) => setDmReplyText(e.target.value)}
