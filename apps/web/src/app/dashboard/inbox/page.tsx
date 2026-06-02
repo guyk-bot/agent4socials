@@ -3072,6 +3072,63 @@ function InboxPage() {
     }
   };
 
+  /** Instagram empty/error banner with Retry from Meta (shown even when the conversation list is empty). */
+  const renderInstagramMetaBanner = (): React.ReactNode => {
+    if (inboxMode !== 'messages') return null;
+    if (!messageFetchPlatformIds.includes('INSTAGRAM')) return null;
+    if (!effectiveAccounts.some((a) => a.platform === 'INSTAGRAM')) return null;
+    const igLoaded = conversations.filter((c) => c.platform === 'INSTAGRAM').length;
+    const err = conversationsErrorsByPlatform.INSTAGRAM;
+    const hint = conversationsHintsByPlatform.INSTAGRAM;
+    if (igLoaded > 0 && !err && !hint) return null;
+    const bannerText =
+      err ??
+      hint ??
+      (!conversationsLoading
+        ? 'No Instagram messages loaded yet. Tap Retry from Meta below.'
+        : null);
+    if (!bannerText) return null;
+    const isError = Boolean(err);
+    return (
+      <div
+        className={`p-3 border-b flex flex-wrap items-center justify-between gap-2 ${
+          isError ? 'border-amber-200 bg-amber-50' : 'border-sky-200 bg-sky-50'
+        }`}
+      >
+        <p className={`text-xs ${isError ? 'text-amber-900' : 'text-sky-900'}`}>
+          <span className="font-semibold">Instagram: </span>
+          {bannerText}
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={instagramRefreshLoading}
+            onClick={() => {
+              void refreshInboxFromServerRef.current({ liveMeta: true, forceMeta: true, forceUnlock: true });
+            }}
+            className="text-xs px-2 py-1 rounded border border-sky-300 bg-white text-sky-900 font-medium hover:bg-sky-50 disabled:opacity-60 flex items-center gap-1"
+          >
+            {instagramRefreshLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+            {instagramRefreshLoading ? 'Checking Meta…' : 'Retry from Meta'}
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const res = await api.get('/social/oauth/INSTAGRAM/start');
+                const url = res?.data?.url;
+                if (url && typeof url === 'string') openOAuthConnectUrl(url);
+              } catch (_) {}
+            }}
+            className="text-xs px-2 py-1 rounded bg-gradient-to-r from-orange-500 to-pink-500 text-white font-medium hover:opacity-90"
+          >
+            Reconnect via Facebook
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   const renderSidebarList = () => {
     if (inboxMode === 'engagement') {
       if (engagementLoading) {
@@ -3573,6 +3630,10 @@ function InboxPage() {
       );
     }
     if (conversations.length === 0) {
+      const instagramBanner = renderInstagramMetaBanner();
+      if (instagramBanner) {
+        return <>{instagramBanner}</>;
+      }
       const dmNotInApp =
         selectedPlatform === 'LINKEDIN' ||
         selectedPlatform === 'PINTEREST' ||
@@ -3612,7 +3673,8 @@ function InboxPage() {
     }
     return (
       <>
-        {messageFetchPlatformIds.map((platformId) => {
+        {renderInstagramMetaBanner()}
+        {messageFetchPlatformIds.filter((platformId) => platformId !== 'INSTAGRAM').map((platformId) => {
           const plat = INBOX_PLATFORM_DEFS.find((p) => p.id === platformId);
           const platformLabel = plat?.label ?? platformId;
           const err = conversationsErrorsByPlatform[platformId];
@@ -3621,11 +3683,11 @@ function InboxPage() {
           const bannerText =
             err ??
             hint ??
-            (platformId === 'INSTAGRAM' &&
-            selectedPlatforms.length === 1 &&
+            (platformId === 'FACEBOOK' &&
+            selectedPlatforms.includes('FACEBOOK') &&
             loadedCount === 0 &&
             !conversationsLoading
-              ? 'No Instagram messages loaded yet. Tap Retry from Meta below.'
+              ? 'No Facebook messages loaded yet. Try reconnecting your Page.'
               : null);
           if (!bannerText) return null;
           return (
@@ -3640,34 +3702,6 @@ function InboxPage() {
                 {bannerText}
               </p>
               <div className="flex gap-2">
-                {platformId === 'INSTAGRAM' && (
-                  <>
-                    <button
-                      type="button"
-                      disabled={instagramRefreshLoading}
-                      onClick={() => {
-                        void refreshInboxFromServerRef.current({ liveMeta: true, forceMeta: true, forceUnlock: true });
-                      }}
-                      className="text-xs px-2 py-1 rounded border border-sky-300 bg-white text-sky-900 font-medium hover:bg-sky-50 disabled:opacity-60 flex items-center gap-1"
-                    >
-                      {instagramRefreshLoading && <Loader2 className="w-3 h-3 animate-spin" />}
-                      {instagramRefreshLoading ? 'Checking Meta…' : 'Retry from Meta'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          const res = await api.get('/social/oauth/INSTAGRAM/start');
-                          const url = res?.data?.url;
-                          if (url && typeof url === 'string') openOAuthConnectUrl(url);
-                        } catch (_) {}
-                      }}
-                      className="text-xs px-2 py-1 rounded bg-gradient-to-r from-orange-500 to-pink-500 text-white font-medium hover:opacity-90"
-                    >
-                      Reconnect via Facebook
-                    </button>
-                  </>
-                )}
                 {platformId === 'FACEBOOK' && (
                   <button
                     type="button"

@@ -40,9 +40,13 @@ export async function PATCH(
     account.platform !== 'TIKTOK' &&
     account.platform !== 'YOUTUBE' &&
     account.platform !== 'PINTEREST' &&
-    account.platform !== 'LINKEDIN'
+    account.platform !== 'LINKEDIN' &&
+    account.platform !== 'THREADS'
   ) {
-    return NextResponse.json({ message: 'Refresh supported for Instagram, Facebook, Twitter, TikTok, YouTube, LinkedIn, and Pinterest only' }, { status: 400 });
+    return NextResponse.json({
+      message:
+        'Refresh supported for Instagram, Facebook, Twitter, TikTok, YouTube, LinkedIn, Pinterest, and Threads only',
+    }, { status: 400 });
   }
   const token = account.accessToken;
   let username: string | undefined;
@@ -288,6 +292,13 @@ export async function PATCH(
           },
         });
       }
+    } else if (account.platform === 'THREADS') {
+      const { fetchThreadsProfile } = await import('@/lib/threads/threads-api');
+      const profile = await fetchThreadsProfile(token);
+      if (profile?.id) platformUserId = profile.id;
+      if (profile?.username) username = profile.username;
+      else if (profile?.name) username = profile.name;
+      if (profile?.threads_profile_picture_url) profilePicture = profile.threads_profile_picture_url;
     }
     const data: { username?: string; profilePicture?: string; platformUserId?: string } = {};
     if (username) data.username = username;

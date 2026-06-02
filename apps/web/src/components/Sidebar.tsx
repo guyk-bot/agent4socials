@@ -87,7 +87,8 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
       platform !== 'TWITTER' &&
       platform !== 'YOUTUBE' &&
       platform !== 'PINTEREST' &&
-      platform !== 'LINKEDIN'
+      platform !== 'LINKEDIN' &&
+      platform !== 'THREADS'
     ) return;
     refreshingAvatarIds.current.add(accountId);
     try {
@@ -131,7 +132,8 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
               a?.platform === 'TWITTER' ||
               a?.platform === 'YOUTUBE' ||
               a?.platform === 'PINTEREST' ||
-              a?.platform === 'LINKEDIN'
+              a?.platform === 'LINKEDIN' ||
+              a?.platform === 'THREADS'
             )
             .map((a) => a.id)
             .filter((id): id is string => typeof id === 'string' && id.length > 0);
@@ -147,6 +149,20 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
             if (tiktokStillMissingAvatar.length > 0) {
               await Promise.allSettled(
                 tiktokStillMissingAvatar.map((a) => api.patch(`/social/accounts/${a.id}/refresh`))
+              );
+              if (!cancelled) {
+                const retry = await api.get('/social/accounts');
+                if (!cancelled) {
+                  refreshedData = Array.isArray(retry.data) ? retry.data : refreshedData;
+                }
+              }
+            }
+            const threadsStillMissingAvatar = refreshedData.filter(
+              (a) => a?.platform === 'THREADS' && !(a.profilePicture ?? '').trim()
+            );
+            if (threadsStillMissingAvatar.length > 0) {
+              await Promise.allSettled(
+                threadsStillMissingAvatar.map((a) => api.patch(`/social/accounts/${a.id}/refresh`))
               );
               if (!cancelled) {
                 const retry = await api.get('/social/accounts');
