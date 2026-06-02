@@ -2502,9 +2502,19 @@ function InboxPage() {
                     acc.id
                   );
                 }
-              } catch {
+              } catch (err: unknown) {
+                const apiErr =
+                  (err as { response?: { data?: { error?: string; emptyHint?: string } } })?.response
+                    ?.data?.error ??
+                  (err as { response?: { data?: { emptyHint?: string } } })?.response?.data?.emptyHint;
+                const isTimeout =
+                  (err as { code?: string; message?: string })?.code === 'ECONNABORTED' ||
+                  /timeout/i.test((err as { message?: string })?.message ?? '');
                 nextPlatformErrors[acc.platform] =
-                  'Could not refresh conversations from Meta right now. Try again in a few seconds. If this keeps happening, reconnect Instagram via Facebook and choose the linked Page.';
+                  (typeof apiErr === 'string' && apiErr.trim()) ||
+                  (isTimeout
+                    ? 'Meta took too long to respond. We shortened the retry; try again. If it keeps failing, reconnect via Facebook and choose your Page.'
+                    : 'Could not refresh conversations from Meta right now. Try again in a few seconds. If this keeps happening, reconnect Instagram via Facebook and choose the linked Page.');
               }
             }
             if (fbPageAccount) {

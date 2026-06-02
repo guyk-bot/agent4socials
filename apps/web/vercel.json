@@ -4,6 +4,7 @@
   "installCommand": "npm install",
   "env": { "NODE_OPTIONS": "--no-deprecation" },
   "functions": {
-    "app/api/posts/[id]/publish/route.ts": { "maxDuration": 300 }
+    "app/api/posts/[id]/publish/route.ts": { "maxDuration": 300 },
+    "app/api/social/accounts/[id]/conversations/route.ts": { "maxDuration": 60 }
   }
 }

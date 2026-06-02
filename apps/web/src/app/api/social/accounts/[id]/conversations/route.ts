@@ -39,6 +39,9 @@ import {
 import { enrichConversationListFromMessageCache } from '@/lib/inbox/enrich-conversations-from-messages';
 import { resolveInstagramInboxPageContext } from '@/lib/inbox/resolve-instagram-inbox-token';
 
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 const baseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
 
@@ -91,6 +94,8 @@ export async function GET(
   const cacheOnly = searchParams.get('cacheOnly') === '1' || searchParams.get('cacheOnly') === 'true';
   /** Lightweight live list for nav badge polling (no avatar enrichment or message counts). */
   const badgePoll = searchParams.get('badgePoll') === '1' || searchParams.get('badgePoll') === 'true';
+  /** Inbox Retry from Meta (fresh=1): list threads only so the route finishes before Vercel kills it. */
+  const listOnlyFetch = badgePoll || freshRetry || cacheOnly;
   /** Up to 2 live profile lookups during systematic sync when Meta usage is elevated. */
   const minimalEnrich =
     searchParams.get('minimalEnrich') === '1' || searchParams.get('minimalEnrich') === 'true';
@@ -660,7 +665,8 @@ export async function GET(
     url: string,
     params: Record<string, string>,
     fetchToken: string,
-    pageLimit = 5
+    pageLimit = 5,
+    requestTimeoutMs = 60_000
   ): Promise<ConvItem[]> {
     const all: ConvItem[] = [];
     let nextUrl: string | null = null;
@@ -672,7 +678,7 @@ export async function GET(
       try {
         res = await axios.get<ConvApiResponse>(currentFetchUrl, {
           params: currentParams,
-          timeout: 60_000,
+          timeout: requestTimeoutMs,
         });
         noteMetaUsageFromHeaders(res.headers);
       } catch (e) {
@@ -714,9 +720,17 @@ export async function GET(
 
   try {
     let rawConversations: ConvItem[];
+    const metaPageLimit = listOnlyFetch ? 2 : deltaMode ? 1 : 5;
+    const metaFetchTimeoutMs = listOnlyFetch ? 28_000 : 60_000;
     try {
-      console.log(`[Conversations] Fetching for account=${id} platform=${account.platform} loginMethod=${(account.credentialsJson as Record<string,unknown>|null)?.loginMethod ?? 'n/a'} url=${conversationsPath} tokenSuffix=${activeToken ? activeToken.slice(-6) : 'none'} linkedPageId=${linkedPageId || 'none'}`);
-      rawConversations = await fetchAllConversations(conversationsPath, queryParams, activeToken, deltaMode ? 1 : 5);
+      console.log(`[Conversations] Fetching for account=${id} platform=${account.platform} loginMethod=${(account.credentialsJson as Record<string,unknown>|null)?.loginMethod ?? 'n/a'} url=${conversationsPath} tokenSuffix=${activeToken ? activeToken.slice(-6) : 'none'} linkedPageId=${linkedPageId || 'none'} listOnly=${listOnlyFetch}`);
+      rawConversations = await fetchAllConversations(
+        conversationsPath,
+        queryParams,
+        activeToken,
+        metaPageLimit,
+        metaFetchTimeoutMs
+      );
       console.log(`[Conversations] Meta returned ${rawConversations.length} conversations for account=${id}`);
       clearMetaThrottle();
     } catch (innerErr) {
@@ -784,7 +798,13 @@ export async function GET(
       }
       for (const attempt of attempts) {
         try {
-          const alt = await fetchAllConversations(attempt.url, attempt.params, attempt.token, 5);
+          const alt = await fetchAllConversations(
+            attempt.url,
+            attempt.params,
+            attempt.token,
+            metaPageLimit,
+            metaFetchTimeoutMs
+          );
           if (alt.length > 0) {
             rawConversations = alt;
             if (attempt.viaPage && fbPage?.platformUserId) {
@@ -870,9 +890,9 @@ export async function GET(
 
     const reduceFanOut = fullEnrich ? false : shouldReduceMetaProfileFanOut();
     const allowProfileEnrich =
-      fullEnrich || shouldAllowMetaInboxProfileEnrichment();
+      !listOnlyFetch && (fullEnrich || shouldAllowMetaInboxProfileEnrichment());
     const allowMinimalLive =
-      !fullEnrich && badgePoll && minimalEnrich && shouldAllowMinimalProfileEnrichment();
+      !listOnlyFetch && !fullEnrich && badgePoll && minimalEnrich && shouldAllowMinimalProfileEnrichment();
     const igEnrichMax = fullEnrich
       ? list.length
       : reduceFanOut
@@ -1168,6 +1188,7 @@ export async function GET(
     // Optional message counts: capped + sequential (25 parallel Meta calls caused app rate-limit spikes).
     const metaThrottle = isInstagram && isMetaNonCriticalThrottled();
     const wantMessageCounts =
+      !listOnlyFetch &&
       (includeMessageCounts || !badgePoll) &&
       list.length > 0 &&
       !metaThrottle &&
@@ -1242,7 +1263,7 @@ export async function GET(
 
     return NextResponse.json({
       conversations: list,
-      ...(emptyHint ? { emptyHint } : {}),
+      ...(emptyHint ? { emptyHint, error: emptyHint } : {}),
     });
   } catch (e) {
     if (e instanceof MetaGraphThrottledError) {
