@@ -3464,20 +3464,7 @@ function InboxPage() {
           const platformLabel = plat?.label ?? platformId;
           const err = conversationsErrorsByPlatform[platformId];
           const hint = conversationsHintsByPlatform[platformId];
-          const loadedCount = conversations.filter((c) => c.platform === platformId).length;
-          const igEmptyNeedReconnect =
-            platformId === 'INSTAGRAM' &&
-            !err &&
-            !hint &&
-            loadedCount === 0 &&
-            !conversationsLoading &&
-            effectiveAccounts.some((a) => a.platform === 'INSTAGRAM');
-          const bannerText =
-            err ??
-            hint ??
-            (igEmptyNeedReconnect
-              ? 'No Instagram conversations loaded. Use Reconnect below and sign in with Facebook, then select the Page linked to your Instagram (recommended). Instagram-only login often cannot load DMs until Meta App Review approves messaging.'
-              : null);
+          const bannerText = err ?? hint ?? null;
           if (!bannerText) return null;
           return (
             <div
