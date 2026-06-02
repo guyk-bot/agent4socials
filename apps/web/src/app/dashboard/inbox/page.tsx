@@ -2335,7 +2335,6 @@ function InboxPage() {
     const accs = effectiveAccountsRef.current;
     const igAccount = accs.find((a) => a.platform === 'INSTAGRAM');
     if (!user?.id || !igAccount) return;
-    const fbPage = accs.find((a) => a.platform === 'FACEBOOK');
     setInstagramRefreshLoading(true);
     if (instagramRefreshSafetyTimerRef.current) {
       clearTimeout(instagramRefreshSafetyTimerRef.current);
@@ -2343,12 +2342,10 @@ function InboxPage() {
     instagramRefreshSafetyTimerRef.current = setTimeout(() => {
       instagramRefreshSafetyTimerRef.current = null;
       setInstagramRefreshLoading(false);
-    }, 35_000);
+    }, 60_000);
     try {
-      const result = await refreshInstagramDmInboxLive({
-        instagramAccountId: igAccount.id,
-        facebookPageAccountId: fbPage?.id ?? null,
-      });
+      const result = await refreshInstagramDmInboxLive();
+      const igId = result.instagramAccountId ?? igAccount.id;
       setConversationsErrorsByPlatform((prev) => {
         const next = { ...prev };
         if (result.error) next.INSTAGRAM = result.error;
@@ -2366,14 +2363,14 @@ function InboxPage() {
       const igRows = result.conversations.map((c) => ({
         ...c,
         platform: 'INSTAGRAM',
-        messageAccountId: igAccount.id,
+        messageAccountId: igId,
       }));
       const merged = mergeInboxConversationsWithUnreadDetection(user.id, seed, igRows) as Array<
         Conversation & { platform: string; messageAccountId: string }
       >;
       applyConversationsToUiRef.current(merged);
-      const perIg = conversationsStableRef.current.filter((c) => c.messageAccountId === igAccount.id);
-      if (perIg.length) appDataRef.current?.setConversationsForAccount(igAccount.id, perIg);
+      const perIg = conversationsStableRef.current.filter((c) => c.messageAccountId === igId);
+      if (perIg.length) appDataRef.current?.setConversationsForAccount(igId, perIg);
       setConversationsLoading(false);
     } finally {
       if (instagramRefreshSafetyTimerRef.current) {

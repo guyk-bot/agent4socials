@@ -1,40 +1,32 @@
 /**
- * Instagram DM inbox only: fetch thread list from Meta and map for the Inbox Messages tab.
- * Does not touch comments, analytics, or Facebook Messenger.
+ * Instagram DM inbox only (Messages tab). Does not touch comments, analytics, or Facebook Messenger.
  */
-import axios, { type AxiosResponse } from 'axios';
+import axios from 'axios';
 import { prisma } from '@/lib/db';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { clearMetaThrottle, noteMetaRateLimitError, noteMetaUsageFromHeaders } from '@/lib/meta-usage-guard';
+import { runMetaGraphRequest } from '@/lib/meta-graph-queue';
 import {
   getInboxConversationListFromDb,
   setInboxConversationListInDb,
   type InboxConversationListItem,
 } from '@/lib/inbox/inbox-db-cache';
+import { enrichConversationListFromMessageCache } from '@/lib/inbox/enrich-conversations-from-messages';
 import { mergeInboxProfileCacheIntoConversations } from '@/lib/inbox/resolve-inbox-sender-profile';
 import { resolveInstagramInboxPageContext } from '@/lib/inbox/resolve-instagram-inbox-token';
 
 const IG_GRAPH = 'https://graph.instagram.com/v25.0';
-const LIST_FIELDS =
-  'id,updated_time,participants{id,name,username,profile_pic,profile_picture_url,picture}';
-const META_LIST_TIMEOUT_MS = 20_000;
-const MAX_LIST_PAGES = 2;
+/** Light list: no profile_pic fan-out (that was timing out on Meta). */
+const LIST_FIELDS = 'id,updated_time,participants{id,username,name}';
+const PER_REQUEST_TIMEOUT_MS = 18_000;
+const TOTAL_BUDGET_MS = 48_000;
 
-type ConvParticipant = {
-  id?: string;
-  name?: string;
-  username?: string;
-  profile_pic?: string;
-  profile_picture_url?: string;
-  picture?: { data?: { url?: string } };
-};
-
+type ConvParticipant = { id?: string; name?: string; username?: string };
 type ConvItem = {
   id: string;
   updated_time?: string;
   participants?: { data?: ConvParticipant[] };
 };
-
 type ConvApiResponse = {
   data?: ConvItem[];
   paging?: { next?: string };
@@ -59,6 +51,12 @@ type AccountRow = {
   credentialsJson: unknown;
 };
 
+type MetaAttempt = {
+  label: string;
+  url: string;
+  params: Record<string, string>;
+};
+
 function isMetaRateLimit(e: unknown): boolean {
   const err = e as { response?: { status?: number; data?: { error?: { code?: number; message?: string } } } };
   const status = err?.response?.status;
@@ -67,33 +65,23 @@ function isMetaRateLimit(e: unknown): boolean {
   return status === 429 || code === 4 || code === 17 || code === 32 || msg.includes('rate limit');
 }
 
-async function fetchConversationPages(
-  url: string,
-  params: Record<string, string>,
-  token: string
-): Promise<ConvItem[]> {
-  const all: ConvItem[] = [];
-  let nextUrl: string | null = null;
-  let pages = 0;
-  do {
-    const res: AxiosResponse<ConvApiResponse> = await axios.get<ConvApiResponse>(
-      nextUrl ?? url,
-      {
-        params: nextUrl ? { access_token: token } : params,
-        timeout: META_LIST_TIMEOUT_MS,
-      }
-    );
-    noteMetaUsageFromHeaders(res.headers);
-    if (res.data?.error) {
-      const msg = res.data.error.message ?? 'Meta API error';
-      if (/rate.?limit|too many/i.test(msg)) noteMetaRateLimitError();
-      throw Object.assign(new Error(msg), { metaError: res.data.error });
-    }
-    all.push(...(res.data?.data ?? []));
-    nextUrl = res.data?.paging?.next ?? null;
-    pages++;
-  } while (nextUrl && pages < MAX_LIST_PAGES);
-  return all;
+async function fetchOnePage(attempt: MetaAttempt): Promise<ConvItem[]> {
+  const res = await runMetaGraphRequest(
+    `ig_dm_${attempt.label}`,
+    () =>
+      axios.get<ConvApiResponse>(attempt.url, {
+        params: attempt.params,
+        timeout: PER_REQUEST_TIMEOUT_MS,
+      }),
+    { allowWhenThrottled: true }
+  );
+  noteMetaUsageFromHeaders(res.headers);
+  if (res.data?.error) {
+    const msg = res.data.error.message ?? 'Meta API error';
+    if (/rate.?limit|too many/i.test(msg)) noteMetaRateLimitError();
+    throw Object.assign(new Error(msg), { metaError: res.data.error });
+  }
+  return res.data?.data ?? [];
 }
 
 function mapThreads(
@@ -114,9 +102,7 @@ function mapThreads(
       id: s.id,
       name: s.name,
       username: s.username,
-      pictureUrl: (s.profile_pic ?? s.profile_picture_url ?? s.picture?.data?.url ?? null) as
-        | string
-        | null,
+      pictureUrl: null as string | null,
     }));
     return {
       id: c.id,
@@ -129,45 +115,140 @@ function mapThreads(
 
 function permissionErrorMessage(isBusinessLogin: boolean): string {
   return isBusinessLogin
-    ? 'Instagram inbox needs Standard or Advanced Access for instagram_business_manage_messages. In Meta App Dashboard, add your Instagram account as a tester under Roles, then reconnect Instagram.'
-    : 'Instagram inbox needs Advanced Access for instagram_manage_messages in Meta App Dashboard. Add your account as an Instagram Tester while the app is in Development mode, then reconnect via Facebook and choose your Page.';
+    ? 'Instagram inbox needs instagram_business_manage_messages. Add your Instagram account as a tester under Roles in Meta App Dashboard, then reconnect Instagram.'
+    : 'Instagram inbox needs instagram_manage_messages (Advanced Access in Meta App Dashboard). Reconnect via Facebook and choose the Page linked to your Instagram profile.';
 }
 
-export async function loadInstagramDmConversations(args: {
-  userId: string;
+async function finalizeList(
+  accountId: string,
+  list: InboxConversationListItem[]
+): Promise<InboxConversationListItem[]> {
+  let out = (await mergeInboxProfileCacheIntoConversations('instagram', list)) as InboxConversationListItem[];
+  out = await enrichConversationListFromMessageCache(accountId, 'instagram', out);
+  if (out.length > 0) void setInboxConversationListInDb(accountId, out);
+  return out;
+}
+
+function buildAttempts(args: {
   account: AccountRow;
-  /** Facebook Page row: return only IG threads from Page conversations?platform=instagram */
+  pageCtx: { pageId: string; pageAccessToken: string } | null;
+  facebookPageRow: AccountRow | null;
   facebookPageOnly: boolean;
-  cacheOnly: boolean;
-  fresh: boolean;
-}): Promise<InstagramDmLoadResult> {
-  const { userId, account, facebookPageOnly, cacheOnly, fresh } = args;
-  const accountId = account.id;
+}): MetaAttempt[] {
+  const { account, pageCtx, facebookPageRow, facebookPageOnly } = args;
   const token = (account.accessToken || '').trim();
-
-  if (cacheOnly) {
-    const cached = await getInboxConversationListFromDb(accountId);
-    if (cached?.length) {
-      const merged = await mergeInboxProfileCacheIntoConversations('instagram', cached);
-      return { conversations: merged, fromCache: true };
-    }
-    return { conversations: [] };
-  }
-
-  if (!token) {
-    return {
-      conversations: [],
-      error:
-        'No access token. Reconnect Instagram via Facebook from Inbox and choose the Page linked to your profile.',
-    };
-  }
-
   const cred = (account.credentialsJson && typeof account.credentialsJson === 'object'
     ? account.credentialsJson
     : {}) as { loginMethod?: string; linkedPageId?: string };
 
   const isIgRow = account.platform === 'INSTAGRAM';
   const isBusinessLogin = isIgRow && cred.loginMethod === 'instagram_business';
+  const attempts: MetaAttempt[] = [];
+  const baseParams = (accessToken: string, platform?: string) => {
+    const p: Record<string, string> = {
+      fields: LIST_FIELDS,
+      access_token: accessToken,
+      limit: '50',
+    };
+    if (platform) p.platform = platform;
+    return p;
+  };
+
+  if (facebookPageOnly && account.platform === 'FACEBOOK') {
+    const t = (account.accessToken || '').trim();
+    if (t) {
+      attempts.push({
+        label: 'page_ig_only',
+        url: `${facebookGraphBaseUrl}/${account.platformUserId}/conversations`,
+        params: baseParams(t, 'instagram'),
+      });
+    }
+    return attempts;
+  }
+
+  if (isBusinessLogin && token) {
+    attempts.push({
+      label: 'ig_business_me',
+      url: `${IG_GRAPH}/me/conversations`,
+      params: baseParams(token),
+    });
+    return attempts;
+  }
+
+  if (pageCtx?.pageId && pageCtx.pageAccessToken) {
+    attempts.push({
+      label: 'page_instagram',
+      url: `${facebookGraphBaseUrl}/${pageCtx.pageId}/conversations`,
+      params: baseParams(pageCtx.pageAccessToken, 'instagram'),
+    });
+  }
+
+  if (facebookPageRow?.platformUserId && facebookPageRow.accessToken) {
+    const pt = facebookPageRow.accessToken.trim();
+    const pageId = facebookPageRow.platformUserId;
+    if (!attempts.some((a) => a.url.includes(`/${pageId}/conversations`))) {
+      attempts.push({
+        label: 'fb_row_page_ig',
+        url: `${facebookGraphBaseUrl}/${pageId}/conversations`,
+        params: baseParams(pt, 'instagram'),
+      });
+    }
+  }
+
+  if (token && pageCtx && token !== pageCtx.pageAccessToken) {
+    attempts.push({
+      label: 'page_instagram_ig_token',
+      url: `${facebookGraphBaseUrl}/${pageCtx.pageId}/conversations`,
+      params: baseParams(token, 'instagram'),
+    });
+  }
+
+  if (isIgRow && token) {
+    attempts.push({
+      label: 'ig_me',
+      url: `${IG_GRAPH}/me/conversations`,
+      params: baseParams(token),
+    });
+  }
+
+  return attempts;
+}
+
+export async function loadInstagramDmConversations(args: {
+  userId: string;
+  account: AccountRow;
+  facebookPageOnly: boolean;
+  cacheOnly: boolean;
+  fresh: boolean;
+  /** Optional connected Facebook Page row (same user) for token + fallback list. */
+  facebookPageAccount?: AccountRow | null;
+}): Promise<InstagramDmLoadResult> {
+  const { userId, account, facebookPageOnly, cacheOnly, fresh, facebookPageAccount } = args;
+  const accountId = account.id;
+  const token = (account.accessToken || '').trim();
+
+  if (cacheOnly) {
+    const cached = await getInboxConversationListFromDb(accountId);
+    if (cached?.length) {
+      const merged = await finalizeList(accountId, cached);
+      return { conversations: merged, fromCache: true };
+    }
+    return { conversations: [] };
+  }
+
+  if (!token && !facebookPageAccount?.accessToken) {
+    return {
+      conversations: [],
+      error:
+        'No access token. Reconnect via Facebook from Inbox and choose the Page linked to your Instagram profile.',
+    };
+  }
+
+  const cred = (account.credentialsJson && typeof account.credentialsJson === 'object'
+    ? account.credentialsJson
+    : {}) as { loginMethod?: string };
+  const isBusinessLogin =
+    account.platform === 'INSTAGRAM' && cred.loginMethod === 'instagram_business';
 
   if (fresh) clearMetaThrottle();
 
@@ -176,86 +257,44 @@ export async function loadInstagramDmConversations(args: {
   const ourUsernames = new Set<string>();
   if (account.username) ourUsernames.add(account.username.toLowerCase());
 
-  type Attempt = { url: string; params: Record<string, string>; token: string };
-  const attempts: Attempt[] = [];
+  const pageCtx =
+    account.platform === 'INSTAGRAM' && token
+      ? await resolveInstagramInboxPageContext(userId, {
+          id: account.id,
+          platformUserId: account.platformUserId,
+          accessToken: token,
+          credentialsJson: account.credentialsJson,
+        })
+      : null;
 
-  if (facebookPageOnly) {
-    attempts.push({
-      url: `${facebookGraphBaseUrl}/${account.platformUserId}/conversations`,
-      params: {
-        fields: LIST_FIELDS,
-        access_token: token,
-        limit: '50',
-        platform: 'instagram',
-      },
-      token,
-    });
-  } else if (isBusinessLogin) {
-    attempts.push({
-      url: `${IG_GRAPH}/me/conversations`,
-      params: { fields: LIST_FIELDS, access_token: token, limit: '50' },
-      token,
-    });
-  } else {
-    let pageId = cred.linkedPageId?.trim() || '';
-    let pageToken = token;
-    const pageCtx = await resolveInstagramInboxPageContext(userId, {
-      id: account.id,
-      platformUserId: account.platformUserId,
-      accessToken: token,
-      credentialsJson: account.credentialsJson,
-    });
-    if (pageCtx) {
-      pageId = pageCtx.pageId;
-      pageToken = pageCtx.pageAccessToken;
-    } else {
-      const fb = await prisma.socialAccount.findFirst({
-        where: { userId, platform: 'FACEBOOK', status: 'connected' },
-        select: { platformUserId: true, accessToken: true },
-        orderBy: { updatedAt: 'desc' },
-      });
-      if (fb?.platformUserId && fb.accessToken) {
-        pageId = fb.platformUserId;
-        pageToken = fb.accessToken.trim();
-      }
-    }
-    if (!pageId) {
-      return {
-        conversations: [],
-        error:
-          'Instagram inbox needs your Facebook Page linked to this account. Reconnect via Facebook from Inbox and choose the Page tied to your Instagram profile.',
-      };
-    }
-    ourIds.add(pageId);
-    attempts.push({
-      url: `${facebookGraphBaseUrl}/${pageId}/conversations`,
-      params: {
-        fields: LIST_FIELDS,
-        access_token: pageToken,
-        limit: '50',
-        platform: 'instagram',
-      },
-      token: pageToken,
-    });
-    if (token !== pageToken) {
-      attempts.push({
-        url: `${IG_GRAPH}/me/conversations`,
-        params: { fields: LIST_FIELDS, access_token: token, limit: '50' },
-        token,
-      });
-    }
+  if (pageCtx?.pageId) ourIds.add(pageCtx.pageId);
+
+  const attempts = buildAttempts({
+    account,
+    pageCtx,
+    facebookPageRow: facebookPageAccount ?? null,
+    facebookPageOnly,
+  });
+
+  if (attempts.length === 0) {
+    return {
+      conversations: [],
+      error:
+        'Instagram inbox needs your Facebook Page linked to this account. Reconnect via Facebook and choose the Page tied to your Instagram profile.',
+    };
   }
 
+  const deadline = Date.now() + TOTAL_BUDGET_MS;
   let lastMetaError: { message: string; code?: number } | null = null;
 
   for (const attempt of attempts) {
+    if (Date.now() >= deadline) break;
     try {
-      const raw = await fetchConversationPages(attempt.url, attempt.params, attempt.token);
+      const raw = await fetchOnePage(attempt);
       if (raw.length === 0) continue;
       let list = mapThreads(raw, ourIds, ourUsernames);
-      list = (await mergeInboxProfileCacheIntoConversations('instagram', list)) as typeof list;
-      void setInboxConversationListInDb(accountId, list);
-      return { conversations: list };
+      list = await finalizeList(accountId, list);
+      return { conversations: list, debug: { source: attempt.label, count: list.length } };
     } catch (e) {
       const metaErr = (e as { metaError?: { message?: string; code?: number } }).metaError;
       if (metaErr) {
@@ -267,14 +306,14 @@ export async function loadInstagramDmConversations(args: {
             error: isBusinessLogin
               ? 'Your Instagram session has expired. Reconnect your Instagram account.'
               : 'Reconnect via Facebook from Inbox and choose your Page when asked to grant messaging permission.',
-            debug: { metaMessage: msg, code: metaErr.code },
+            debug: { metaMessage: msg, code: metaErr.code, attempt: attempt.label },
           };
         }
         if (metaErr.code === 3 || /capability|does not have the capability/i.test(msg)) {
           return {
             conversations: [],
             error: permissionErrorMessage(isBusinessLogin),
-            debug: { metaMessage: msg, code: metaErr.code },
+            debug: { metaMessage: msg, code: metaErr.code, attempt: attempt.label },
           };
         }
         continue;
@@ -282,7 +321,7 @@ export async function loadInstagramDmConversations(args: {
       if (isMetaRateLimit(e)) {
         const cached = await getInboxConversationListFromDb(accountId);
         if (cached?.length) {
-          const merged = await mergeInboxProfileCacheIntoConversations('instagram', cached);
+          const merged = await finalizeList(accountId, cached);
           return {
             conversations: merged,
             fromCache: true,
@@ -296,17 +335,27 @@ export async function loadInstagramDmConversations(args: {
         lastMetaError = { message: 'Meta request timed out' };
         continue;
       }
+      lastMetaError = { message: err.message ?? 'Meta request failed' };
     }
   }
 
   const cached = await getInboxConversationListFromDb(accountId);
   if (cached?.length) {
-    const merged = await mergeInboxProfileCacheIntoConversations('instagram', cached);
+    const merged = await finalizeList(accountId, cached);
     return {
       conversations: merged,
       fromCache: true,
       stale: true,
       emptyHint: 'Showing saved Instagram threads. Live refresh did not return new data.',
+    };
+  }
+
+  if (lastMetaError?.message.includes('timed out')) {
+    return {
+      conversations: [],
+      error:
+        'Meta took too long to respond. Wait a moment and tap Retry from Meta. If it keeps failing, confirm instagram_manage_messages is approved in Meta App Dashboard and reconnect via Facebook.',
+      debug: { metaMessage: lastMetaError.message },
     };
   }
 
@@ -319,6 +368,50 @@ export async function loadInstagramDmConversations(args: {
   }
 
   const emptyHint =
-    'Meta returned no Instagram DM threads for this Page. If you expect messages here: request Advanced Access for instagram_manage_messages in Meta App Dashboard, add your account as an Instagram Tester while the app is in Development mode, send a new DM to this profile, then reconnect via Facebook.';
+    'Meta returned no Instagram DM threads for this Page. Send a test DM to your Instagram profile, then tap Retry. If the app is in Development mode, add your Instagram account as a tester under Roles in Meta App Dashboard.';
   return { conversations: [], error: emptyHint, emptyHint };
+}
+
+/** Load Instagram DMs for the user's connected Instagram (+ optional Facebook Page row). */
+export async function loadInstagramDmInboxForUser(
+  userId: string,
+  opts: { fresh: boolean; cacheOnly?: boolean }
+): Promise<InstagramDmLoadResult & { instagramAccountId?: string }> {
+  const ig = await prisma.socialAccount.findFirst({
+    where: { userId, platform: 'INSTAGRAM', status: 'connected' },
+    select: {
+      id: true,
+      platform: true,
+      platformUserId: true,
+      username: true,
+      accessToken: true,
+      credentialsJson: true,
+    },
+  });
+  if (!ig) {
+    return { conversations: [], error: 'No connected Instagram account. Connect Instagram from the sidebar.' };
+  }
+
+  const fbPage = await prisma.socialAccount.findFirst({
+    where: { userId, platform: 'FACEBOOK', status: 'connected' },
+    select: {
+      id: true,
+      platform: true,
+      platformUserId: true,
+      username: true,
+      accessToken: true,
+      credentialsJson: true,
+    },
+    orderBy: { updatedAt: 'desc' },
+  });
+
+  const result = await loadInstagramDmConversations({
+    userId,
+    account: ig,
+    facebookPageOnly: false,
+    cacheOnly: opts.cacheOnly ?? false,
+    fresh: opts.fresh,
+    facebookPageAccount: fbPage,
+  });
+  return { ...result, instagramAccountId: ig.id };
 }

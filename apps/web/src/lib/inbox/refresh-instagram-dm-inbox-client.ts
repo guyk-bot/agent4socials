@@ -1,5 +1,5 @@
 /**
- * Client-only: load Instagram DMs for Inbox Messages tab (no bootstrap, no comment sync).
+ * Client-only: load Instagram DMs for Inbox Messages tab (single API call).
  */
 import api from '@/lib/api';
 
@@ -17,14 +17,17 @@ export type InboxDmConversation = {
 
 export type RefreshInstagramDmResult = {
   conversations: InboxDmConversation[];
+  instagramAccountId?: string;
   error?: string;
   emptyHint?: string;
 };
 
-const CLIENT_TIMEOUT_MS = 32_000;
+/** Must stay below Vercel route maxDuration (60s). */
+const CLIENT_TIMEOUT_MS = 58_000;
 
-function parseConvResponse(data: {
+function parseResponse(data: {
   conversations?: InboxDmConversation[];
+  instagramAccountId?: string;
   error?: string;
   emptyHint?: string;
 }): RefreshInstagramDmResult {
@@ -35,52 +38,40 @@ function parseConvResponse(data: {
       : typeof data.emptyHint === 'string' && data.emptyHint.trim() && conversations.length === 0
         ? data.emptyHint.trim()
         : undefined;
-  return { conversations, error, emptyHint: data.emptyHint };
+  return {
+    conversations,
+    instagramAccountId: data.instagramAccountId,
+    error,
+    emptyHint: data.emptyHint,
+  };
 }
 
-/**
- * Live Instagram DM list: Instagram account row, then optional Page fallback.
- */
-export async function refreshInstagramDmInboxLive(args: {
-  instagramAccountId: string;
-  facebookPageAccountId?: string | null;
-}): Promise<RefreshInstagramDmResult> {
-  const { instagramAccountId, facebookPageAccountId } = args;
-
+/** Live Instagram DM list: one request, server tries Page token then fallbacks. */
+export async function refreshInstagramDmInboxLive(): Promise<RefreshInstagramDmResult> {
   try {
-    const primary = await api.get<{
+    const res = await api.get<{
       conversations?: InboxDmConversation[];
+      instagramAccountId?: string;
       error?: string;
       emptyHint?: string;
-    }>(`/social/accounts/${instagramAccountId}/conversations?fresh=1`, {
+    }>('/inbox/instagram-dms', {
+      params: { fresh: 1 },
       timeout: CLIENT_TIMEOUT_MS,
     });
-    const parsed = parseConvResponse(primary.data ?? {});
-    if (parsed.conversations.length > 0 || parsed.error) return parsed;
-
-    if (facebookPageAccountId) {
-      const pageRes = await api.get<{
-        conversations?: InboxDmConversation[];
-        error?: string;
-        emptyHint?: string;
-      }>(
-        `/social/accounts/${facebookPageAccountId}/conversations?instagramOnly=1&fresh=1`,
-        { timeout: CLIENT_TIMEOUT_MS }
-      );
-      return parseConvResponse(pageRes.data ?? {});
-    }
-    return parsed;
+    return parseResponse(res.data ?? {});
   } catch (err: unknown) {
-    const data = (err as { response?: { data?: { error?: string; emptyHint?: string } } })?.response
-      ?.data;
-    if (data) return parseConvResponse(data);
+    const data = (err as { response?: { data?: { error?: string; emptyHint?: string; conversations?: InboxDmConversation[]; instagramAccountId?: string } } })
+      ?.response?.data;
+    if (data?.conversations?.length || data?.error || data?.emptyHint) {
+      return parseResponse(data);
+    }
     const isTimeout =
       (err as { code?: string })?.code === 'ECONNABORTED' ||
       /timeout/i.test((err as { message?: string })?.message ?? '');
     return {
       conversations: [],
       error: isTimeout
-        ? 'Meta took too long to respond. Try Retry from Meta again in a moment, or reconnect via Facebook and choose your Page.'
+        ? 'Request timed out before Meta finished. Tap Retry from Meta once more. If it keeps failing, reconnect via Facebook and choose your Page.'
         : 'Could not load Instagram messages. Try Retry from Meta or reconnect via Facebook.',
     };
   }

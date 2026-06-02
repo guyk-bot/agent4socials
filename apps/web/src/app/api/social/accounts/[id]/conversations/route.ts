@@ -555,6 +555,21 @@ export async function GET(
     (searchParams.get('instagramOnly') === '1' || searchParams.get('instagramOnly') === 'true');
 
   if (account.platform === 'INSTAGRAM' || facebookInstagramOnly) {
+    const fbPageForIg =
+      account.platform === 'INSTAGRAM'
+        ? await prisma.socialAccount.findFirst({
+            where: { userId, platform: 'FACEBOOK', status: 'connected' },
+            select: {
+              id: true,
+              platform: true,
+              platformUserId: true,
+              username: true,
+              accessToken: true,
+              credentialsJson: true,
+            },
+            orderBy: { updatedAt: 'desc' },
+          })
+        : null;
     const igPayload = await loadInstagramDmConversations({
       userId,
       account: {
@@ -568,6 +583,7 @@ export async function GET(
       facebookPageOnly: facebookInstagramOnly,
       cacheOnly,
       fresh: freshRetry,
+      facebookPageAccount: fbPageForIg,
     });
     return NextResponse.json({
       conversations: igPayload.conversations,
