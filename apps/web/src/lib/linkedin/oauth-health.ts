@@ -103,8 +103,6 @@ export function linkedInOAuthHealthFromCredentials(credentialsJson: unknown): Li
       linkedinConnectionKind: 'personal',
       linkedinPublishReady: true,
       linkedinSyncReady: false,
-      linkedinReconnectHint:
-        'Share on LinkedIn is connected (publish works). To sync posts and comments here, LinkedIn must also grant read scope (r_member_social) at sign-in, then reconnect.',
     };
   }
   return {

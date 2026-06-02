@@ -183,6 +183,7 @@ export function ConnectedAccountsPanel() {
                     <p className="mt-1 text-[10px] font-medium text-neutral-800">Personal account</p>
                   ) : null}
                   {acc.platform === 'LINKEDIN' &&
+                  (acc as { linkedinPublishReady?: boolean }).linkedinPublishReady === false &&
                   typeof acc.linkedinReconnectHint === 'string' &&
                   acc.linkedinReconnectHint.trim() ? (
                     <p className="mt-2 text-left text-[10px] leading-snug text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
