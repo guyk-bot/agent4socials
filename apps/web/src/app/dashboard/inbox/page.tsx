@@ -2327,9 +2327,11 @@ function InboxPage() {
   refreshAllPlatformCommentsRef.current = refreshAllPlatformComments;
 
   const refreshInboxFromServer = useCallback(
-    async (opts?: { liveMeta?: boolean; forceMeta?: boolean }) => {
+    async (opts?: { liveMeta?: boolean; forceMeta?: boolean; forceUnlock?: boolean }) => {
       const accs = effectiveAccountsRef.current;
-      if (!user?.id || accs.length === 0 || inboxRefreshInFlightRef.current) return;
+      if (!user?.id || accs.length === 0) return;
+      if (inboxRefreshInFlightRef.current && !opts?.forceUnlock) return;
+      inboxRefreshInFlightRef.current = false;
       inboxRefreshInFlightRef.current = true;
       try {
         const boot = await api.get<{
@@ -2606,12 +2608,16 @@ function InboxPage() {
     void refreshInboxFromServerRef.current({ liveMeta: true, forceMeta: forceIg });
   }, [pathname, user?.id, effectiveAccounts.map((a) => a.id).join(',')]);
 
+  const prevSelectedPlatformsRef = useRef<string>('');
   useEffect(() => {
     if (pathname !== '/dashboard/inbox' || !user?.id) return;
-    if (selectedPlatforms.length === 1 && selectedPlatforms[0] === 'INSTAGRAM') {
-      void refreshInboxFromServerRef.current({ liveMeta: true, forceMeta: true });
+    const key = selectedPlatforms.join(',');
+    if (key === prevSelectedPlatformsRef.current) return;
+    prevSelectedPlatformsRef.current = key;
+    if (selectedPlatforms.includes('INSTAGRAM') && conversations.filter(c => c.platform === 'INSTAGRAM').length === 0) {
+      void refreshInboxFromServerRef.current({ liveMeta: true, forceMeta: true, forceUnlock: true });
     }
-  }, [pathname, user?.id, selectedPlatforms.join(',')]);
+  }, [pathname, user?.id, selectedPlatforms.join(','), conversations.length]);
 
   // Background poll updated AppData, merge new DMs and comments into the open Inbox lists.
   useEffect(() => {
@@ -3014,19 +3020,16 @@ function InboxPage() {
     previousEngagementIdsRef.current = ids;
   }, [engagement, user?.id]);
 
-  const handlePlatformClick = (platformId: string, e?: React.MouseEvent) => {
-    const multiSelect = Boolean(e?.shiftKey || e?.metaKey || e?.ctrlKey);
+  const handlePlatformClick = (platformId: string, _e?: React.MouseEvent) => {
     setSelectedPlatforms((prev) => {
-      const next = multiSelect
-        ? prev.includes(platformId)
-          ? prev.length > 1
-            ? prev.filter((p) => p !== platformId)
-            : prev
-          : [...prev, platformId]
-        : [platformId];
+      const next = prev.includes(platformId)
+        ? prev.length > 1
+          ? prev.filter((p) => p !== platformId)
+          : prev                        // keep at least one selected
+        : [...prev, platformId];
       setSelectedPlatform((current) => {
         if (!next.includes(current ?? '')) return next[0] ?? null;
-        return platformId;
+        return current;
       });
       return next;
     });
@@ -3611,7 +3614,7 @@ function InboxPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        void refreshInboxFromServerRef.current({ liveMeta: true, forceMeta: true });
+                        void refreshInboxFromServerRef.current({ liveMeta: true, forceMeta: true, forceUnlock: true });
                       }}
                       className="text-xs px-2 py-1 rounded border border-sky-300 bg-white text-sky-900 font-medium hover:bg-sky-50"
                     >

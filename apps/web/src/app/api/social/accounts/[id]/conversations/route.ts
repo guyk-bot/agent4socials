@@ -37,10 +37,7 @@ import {
   type InboxConversationListItem,
 } from '@/lib/inbox/inbox-db-cache';
 import { enrichConversationListFromMessageCache } from '@/lib/inbox/enrich-conversations-from-messages';
-import {
-  resolveInstagramInboxPageContext,
-  verifyInstagramLinkedToPage,
-} from '@/lib/inbox/resolve-instagram-inbox-token';
+import { resolveInstagramInboxPageContext } from '@/lib/inbox/resolve-instagram-inbox-token';
 
 const baseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
@@ -602,40 +599,23 @@ export async function GET(
     });
   }
 
+  // Try to resolve the freshest Page access token from the Facebook account row (avoids stale
+  // tokens stored on the Instagram row after reconnect). Never block if this lookup fails.
   let pageInboxToken: string | null = null;
   if (isInstagram && !isInstagramBusinessLogin && linkedPageId) {
-    const pageCtx = await resolveInstagramInboxPageContext(userId, {
-      id: account.id,
-      platformUserId: account.platformUserId,
-      accessToken: token,
-      credentialsJson: account.credentialsJson,
-    });
-    if (pageCtx) {
-      linkedPageId = pageCtx.pageId;
-      pageInboxToken = pageCtx.pageAccessToken;
-      const verify = await verifyInstagramLinkedToPage(
-        pageCtx.pageId,
-        pageCtx.pageAccessToken,
-        account.platformUserId
-      );
-      if (!verify.ok) {
-        return NextResponse.json({ conversations: [], error: verify.message });
+    try {
+      const pageCtx = await resolveInstagramInboxPageContext(userId, {
+        id: account.id,
+        platformUserId: account.platformUserId,
+        accessToken: token,
+        credentialsJson: account.credentialsJson,
+      });
+      if (pageCtx) {
+        linkedPageId = pageCtx.pageId;
+        pageInboxToken = pageCtx.pageAccessToken;
       }
-      if (pageCtx.pageAccessToken !== token) {
-        void prisma.socialAccount
-          .update({
-            where: { id: account.id },
-            data: {
-              accessToken: pageCtx.pageAccessToken,
-              credentialsJson: {
-                ...credJson,
-                loginMethod: 'facebook_login',
-                linkedPageId: pageCtx.pageId,
-              },
-            },
-          })
-          .catch(() => {});
-      }
+    } catch {
+      // Non-critical: fall through with whatever token we have.
     }
   }
 
