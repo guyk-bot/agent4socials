@@ -715,7 +715,9 @@ export async function GET(
   try {
     let rawConversations: ConvItem[];
     try {
+      console.log(`[Conversations] Fetching for account=${id} platform=${account.platform} loginMethod=${(account.credentialsJson as Record<string,unknown>|null)?.loginMethod ?? 'n/a'} url=${conversationsPath} tokenSuffix=${activeToken ? activeToken.slice(-6) : 'none'} linkedPageId=${linkedPageId || 'none'}`);
       rawConversations = await fetchAllConversations(conversationsPath, queryParams, activeToken, deltaMode ? 1 : 5);
+      console.log(`[Conversations] Meta returned ${rawConversations.length} conversations for account=${id}`);
       clearMetaThrottle();
     } catch (innerErr) {
       const metaErr = (innerErr as { metaError?: { message?: string; code?: number } }).metaError;
@@ -723,6 +725,7 @@ export async function GET(
         const msg = metaErr.message ?? '';
         const code = metaErr.code;
         const metaMsg = typeof msg === 'string' ? msg : '';
+        console.error(`[Conversations] Meta API error for account=${id}: code=${code} message=${metaMsg}`);
         if (msg.includes('permission') || msg.includes('OAuth') || msg.includes('access'))
           return NextResponse.json({
             conversations: [],
@@ -1212,6 +1215,9 @@ export async function GET(
           ? 'No Instagram conversations returned. Confirm instagram_business_manage_messages is granted, then reconnect your Instagram account.'
           : 'Meta returned no Instagram DM threads for this Page. If you expect messages here: request Advanced Access for instagram_manage_messages in Meta App Dashboard, add your account as an Instagram Tester while the app is in Development mode, send a new DM to this profile, then reconnect via Facebook.'
         : undefined;
+    if (emptyHint) {
+      console.log(`[Conversations] Empty result for Instagram account=${id} loginMethod=${isInstagramBusinessLogin ? 'instagram_business' : 'facebook_login'} linkedPageId=${linkedPageId || 'none'} emptyHint=set`);
+    }
 
     if (list.length > 0) {
       const profilePlatform = isInstagram ? 'instagram' : 'facebook';

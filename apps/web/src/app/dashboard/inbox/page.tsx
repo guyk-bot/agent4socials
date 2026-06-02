@@ -813,6 +813,7 @@ function InboxPage() {
   const [conversationsError, setConversationsError] = useState<string | null>(null);
   const [conversationsErrorsByPlatform, setConversationsErrorsByPlatform] = useState<Record<string, string>>({});
   const [conversationsHintsByPlatform, setConversationsHintsByPlatform] = useState<Record<string, string>>({});
+  const [instagramRefreshLoading, setInstagramRefreshLoading] = useState(false);
   const [conversationsDebug, setConversationsDebug] = useState<{ rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string } | null>(null);
   const [comments, setComments] = useState<PostComment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -2333,6 +2334,7 @@ function InboxPage() {
       if (inboxRefreshInFlightRef.current && !opts?.forceUnlock) return;
       inboxRefreshInFlightRef.current = false;
       inboxRefreshInFlightRef.current = true;
+      if (opts?.forceMeta) setInstagramRefreshLoading(true);
       try {
         const boot = await api.get<{
           commentsByAccountId?: Record<string, PostComment[]>;
@@ -2497,8 +2499,31 @@ function InboxPage() {
               markInboxLiveRefresh('meta-conversations', user.id);
             }
           }
-          setConversationsErrorsByPlatform(nextPlatformErrors);
-          setConversationsHintsByPlatform(nextPlatformHints);
+          // Merge errors/hints for processed platforms only (prevents a racing call with fewer
+          // processed platforms from clearing errors set by a previous call).
+          const processedPlatforms = new Set(metaAccounts.map((a) => a.platform));
+          setConversationsErrorsByPlatform((prev) => {
+            const next = { ...prev };
+            for (const platform of processedPlatforms) {
+              if (nextPlatformErrors[platform]) {
+                next[platform] = nextPlatformErrors[platform];
+              } else {
+                delete next[platform];
+              }
+            }
+            return next;
+          });
+          setConversationsHintsByPlatform((prev) => {
+            const next = { ...prev };
+            for (const platform of processedPlatforms) {
+              if (nextPlatformHints[platform]) {
+                next[platform] = nextPlatformHints[platform];
+              } else {
+                delete next[platform];
+              }
+            }
+            return next;
+          });
           if (mergedConvRows.length > 0) {
             applyConversationsToUiRef.current(mergedConvRows);
             for (const acc of metaAccounts) {
@@ -2518,6 +2543,7 @@ function InboxPage() {
         }
       } finally {
         inboxRefreshInFlightRef.current = false;
+        setInstagramRefreshLoading(false);
         const uid = user?.id;
         if (uid) {
           const convPayload = conversationsStableRef.current.map((c) => ({
@@ -2614,10 +2640,15 @@ function InboxPage() {
     const key = selectedPlatforms.join(',');
     if (key === prevSelectedPlatformsRef.current) return;
     prevSelectedPlatformsRef.current = key;
-    if (selectedPlatforms.includes('INSTAGRAM') && conversations.filter(c => c.platform === 'INSTAGRAM').length === 0) {
+    // Trigger a live Meta refresh when the user selects Instagram for the first time
+    // in this session and no Instagram conversations are visible yet.
+    // Note: do NOT include conversations.length as a dep — that would re-trigger every
+    // time Facebook conversations load, causing a race that clears the Instagram error.
+    const igConvCount = conversationsStableRef.current.filter(c => c.platform === 'INSTAGRAM').length;
+    if (selectedPlatforms.includes('INSTAGRAM') && igConvCount === 0) {
       void refreshInboxFromServerRef.current({ liveMeta: true, forceMeta: true, forceUnlock: true });
     }
-  }, [pathname, user?.id, selectedPlatforms.join(','), conversations.length]);
+  }, [pathname, user?.id, selectedPlatforms.join(',')]);
 
   // Background poll updated AppData, merge new DMs and comments into the open Inbox lists.
   useEffect(() => {
@@ -3613,12 +3644,14 @@ function InboxPage() {
                   <>
                     <button
                       type="button"
+                      disabled={instagramRefreshLoading}
                       onClick={() => {
                         void refreshInboxFromServerRef.current({ liveMeta: true, forceMeta: true, forceUnlock: true });
                       }}
-                      className="text-xs px-2 py-1 rounded border border-sky-300 bg-white text-sky-900 font-medium hover:bg-sky-50"
+                      className="text-xs px-2 py-1 rounded border border-sky-300 bg-white text-sky-900 font-medium hover:bg-sky-50 disabled:opacity-60 flex items-center gap-1"
                     >
-                      Retry from Meta
+                      {instagramRefreshLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+                      {instagramRefreshLoading ? 'Checking Meta…' : 'Retry from Meta'}
                     </button>
                     <button
                       type="button"
