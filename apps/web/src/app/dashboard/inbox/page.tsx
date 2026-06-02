@@ -2422,7 +2422,8 @@ function InboxPage() {
                   mergedConvRows = [...byId.values()];
                 }
               } catch {
-                /* keep bootstrap data for this account */
+                nextPlatformErrors[acc.platform] =
+                  'Could not refresh conversations from Meta right now. Try again in a few seconds. If this keeps happening, reconnect Instagram via Facebook and choose the linked Page.';
               }
             }
             if (opts?.forceMeta !== true) {
@@ -3498,7 +3499,19 @@ function InboxPage() {
           const platformLabel = plat?.label ?? platformId;
           const err = conversationsErrorsByPlatform[platformId];
           const hint = conversationsHintsByPlatform[platformId];
-          const bannerText = err ?? hint ?? null;
+          const loadedCount = conversations.filter((c) => c.platform === platformId).length;
+          const showInstagramTroubleshootBanner =
+            platformId === 'INSTAGRAM' &&
+            selectedPlatforms.includes('INSTAGRAM') &&
+            loadedCount === 0 &&
+            !conversationsLoading &&
+            effectiveAccounts.some((a) => a.platform === 'INSTAGRAM');
+          const bannerText =
+            err ??
+            hint ??
+            (showInstagramTroubleshootBanner
+              ? 'Instagram conversations are still empty after refresh. Reconnect Instagram via Facebook, choose the exact Facebook Page linked to this Instagram account, then send a fresh DM to test.'
+              : null);
           if (!bannerText) return null;
           return (
             <div
