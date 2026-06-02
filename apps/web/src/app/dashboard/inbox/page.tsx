@@ -252,7 +252,7 @@ type EngagementItem = {
 };
 
 const INBOX_MESSAGES_CACHE_KEY = 'agent4socials_inbox_messages_cache';
-/** localStorage budget: ~2 MB ù generous but safe for most browsers. */
+/** localStorage budget: ~2 MB, generous but safe for most browsers. */
 const INBOX_MESSAGES_CACHE_MAX_BYTES = 2_000_000;
 /** Keep up to 150 conversations in localStorage (covers multi-platform inbox lists). */
 const INBOX_MESSAGES_CACHE_MAX_ENTRIES = 150;
@@ -274,7 +274,7 @@ type ConvCache = {
   recipientPictureUrl?: string | null;
   error: string | null;
   accountId?: string;
-  /** Timestamp of last write ù used for LRU eviction. */
+  /** Timestamp of last write, used for LRU eviction. */
   _ts?: number;
 };
 
@@ -510,7 +510,7 @@ function InboxMessageContent({ msg }: { msg: ConversationMessage }) {
               title={r.username ? `From ${r.username}` : undefined}
             >
               {r.reaction}
-              {r.username ? ` ù ${r.username}` : ''}
+              {r.username ? ` ... ${r.username}` : ''}
             </span>
           ))}
         </div>
@@ -565,7 +565,7 @@ function inboxSenderDisplayName(
   const name = sender?.name?.trim();
   if (name) return name;
   if (platform === 'TWITTER') return 'X user';
-  if (sender?.id) return `ù${sender.id.slice(-8)}`;
+  if (sender?.id) return `#${sender.id.slice(-8)}`;
   return 'Unknown';
 }
 
@@ -841,7 +841,7 @@ function InboxPage() {
   const [conversationMessagesLoading, setConversationMessagesLoading] = useState(false);
   const [conversationMessagesError, setConversationMessagesError] = useState<string | null>(null);
   // Lazy-init the cache synchronously from localStorage so it's populated before
-  // ANY effect runs ù preventing the "spinner on re-open" race where the fetch
+  // ANY effect runs, preventing the "spinner on re-open" race where the fetch
   // effect fires with an empty cache because localStorage restore was async.
   const [conversationMessagesCache, setConversationMessagesCache] = useState<Record<string, ConvCache>>(() => {
     if (typeof window === 'undefined') return {};
@@ -2522,7 +2522,7 @@ function InboxPage() {
     void refreshInboxFromServerRef.current({ liveMeta: true });
   }, [pathname, user?.id, effectiveAccounts.map((a) => a.id).join(',')]);
 
-  // Background poll updated AppData ù merge new DMs and comments into the open Inbox lists.
+  // Background poll updated AppData, merge new DMs and comments into the open Inbox lists.
   useEffect(() => {
     if (pathname !== '/dashboard/inbox' || !user?.id) return;
     syncConversationsFromAppDataRef.current();
@@ -2947,7 +2947,7 @@ function InboxPage() {
         return (
           <div className="p-6 flex flex-col items-center justify-center gap-3">
             <Loader2 size={32} className="text-orange-500 animate-spin" />
-            <p className="text-sm text-neutral-500">Loading engagementù</p>
+            <p className="text-sm text-neutral-500">Loading engagement...</p>
           </div>
         );
       }
@@ -3032,7 +3032,7 @@ function InboxPage() {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-neutral-900 truncate">{e.postPreview || 'Post'}</p>
                     <p className="text-xs text-neutral-500 mt-0.5">
-                      {e.likeCount} likes ù {e.commentCount} comments
+                      {e.likeCount} likes, {e.commentCount} comments
                     </p>
                     <p className="text-xs text-neutral-500 mt-0.5 flex items-center gap-1.5">
                       {(() => {
@@ -3080,7 +3080,7 @@ function InboxPage() {
         return (
           <div className="p-6 flex flex-col items-center justify-center gap-3">
             <Loader2 size={32} className="text-orange-500 animate-spin" />
-            <p className="text-sm text-neutral-500">Loading commentsù</p>
+            <p className="text-sm text-neutral-500">Loading comments...</p>
           </div>
         );
       }
@@ -3271,7 +3271,7 @@ function InboxPage() {
                             </p>
                           ) : (
                             <p className="text-xs font-medium text-neutral-600 dark:text-neutral-300 truncate mt-0.5">
-                              {(c.postPreview || 'Post').slice(0, 48)}{(c.postPreview?.length ?? 0) > 48 ? 'ù' : ''}
+                              {(c.postPreview || 'Post').slice(0, 48)}{(c.postPreview?.length ?? 0) > 48 ? '...' : ''}
                             </p>
                           )}
                           <p className="text-xs text-neutral-600 dark:text-neutral-400 line-clamp-2 mt-0.5">{c.text}</p>
@@ -3340,7 +3340,7 @@ function InboxPage() {
       return (
         <div className="p-6 flex flex-col items-center justify-center gap-3">
           <Loader2 size={32} className="text-orange-500 animate-spin" />
-          <p className="text-sm text-neutral-500">Loading conversationsù</p>
+          <p className="text-sm text-neutral-500">Loading conversations...</p>
           {showInboxWarmupNotice && (
             <p className="text-xs text-neutral-500 max-w-xs text-center mt-1">
               Instagram and Facebook conversations can take a few minutes to appear right after you connect. Please wait and they will show up here.
@@ -3672,7 +3672,7 @@ function InboxPage() {
 
         {inboxMode === 'comments' && commentsLiveSync.loading ? (
           <div className="mx-2 mt-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
-            Syncing comments from your connected platforms (usually under a minute)ù
+            Syncing comments from your connected platforms (usually under a minute)...
           </div>
         ) : null}
 
@@ -3685,7 +3685,7 @@ function InboxPage() {
         {inboxMode === 'comments' && connectedPlatformIds.includes('THREADS') ? (
           threadsCommentsSync.loading ? (
             <div className="mx-2 mt-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
-              Syncing Threads replies and @mentionsù
+              Syncing Threads replies and @mentions...
             </div>
           ) : threadsCommentsSync.error ? (
             <div className="mx-2 mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
@@ -4104,7 +4104,7 @@ function InboxPage() {
                       Generate all with AI
                     </button>
                     {aiReplyLoading && (
-                      <span className="text-sm text-neutral-500">Writing {replyable.length} repliesù</span>
+                      <span className="text-sm text-neutral-500">Writing {replyable.length} replies...</span>
                     )}
                   </div>
                   {aiReplyError && <p className="text-sm text-amber-700">{aiReplyError}</p>}
@@ -4128,13 +4128,13 @@ function InboxPage() {
                               </div>
                               <p className="text-sm text-neutral-700 dark:text-neutral-300 mt-1">{c.text}</p>
                               {c.postPreview && (
-                                <p className="text-xs text-neutral-500 mt-1 truncate">Post: {c.postPreview.slice(0, 80)}ù</p>
+                                <p className="text-xs text-neutral-500 mt-1 truncate">Post: {c.postPreview.slice(0, 80)}...</p>
                               )}
                             </div>
                           </div>
                           {canReply ? (
                             <textarea
-                              placeholder={aiReplyLoading ? 'Generatingù' : 'Your reply to this comment'}
+                              placeholder={aiReplyLoading ? 'Generating...' : 'Your reply to this comment'}
                               rows={2}
                               value={draft}
                               onChange={(e) => {
@@ -4304,7 +4304,7 @@ function InboxPage() {
                             <p className="text-sm text-neutral-700 mb-2 rounded-lg bg-neutral-50 px-3 py-2 border border-neutral-100 min-h-[2.5rem]">
                               {batchConversationLastMessage[c.id] !== undefined
                                 ? (batchConversationLastMessage[c.id] || 'No message preview')
-                                : 'Loadingù'}
+                                : 'Loading...'}
                             </p>
                             {batchWindowClosed && (
                               <p className="text-xs text-amber-800 mb-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5">
@@ -4347,7 +4347,7 @@ function InboxPage() {
                               </button>
                             </div>
                             <textarea
-                              placeholder={aiReplyLoading ? 'Generating replyù' : 'Type a message for this conversation (or generate with AI above)...'}
+                              placeholder={aiReplyLoading ? 'Generating reply...' : 'Type a message for this conversation (or generate with AI above)...'}
                               rows={3}
                               value={value}
                               onChange={(e) => {
@@ -4440,7 +4440,7 @@ function InboxPage() {
                           : (selectedComment.postPreview || 'Your post').slice(0, 80)}
                         {!isThreadsMentionComment(selectedComment) &&
                         (selectedComment.postPreview?.length ?? 0) > 80
-                          ? 'ù'
+                          ? '...'
                           : ''}
                       </p>
                       <p className="text-xs text-neutral-500 mt-0.5">{selectedComment.authorName}</p>
@@ -4682,7 +4682,7 @@ function InboxPage() {
                 <>
                 <div className="flex items-end gap-2">
                   <textarea
-                    placeholder={aiReplyLoading ? 'Generating replyù' : 'Type your reply...'}
+                    placeholder={aiReplyLoading ? 'Generating reply...' : 'Type your reply...'}
                     rows={2}
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
@@ -4933,7 +4933,7 @@ function InboxPage() {
                     {conversationMessagesLoading ? (
                       <div className="flex flex-col items-center justify-center min-h-[12rem] py-12">
                         <Loader2 size={36} className="text-orange-500 animate-spin" aria-hidden />
-                        <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-400">Loading messagesù</p>
+                        <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-400">Loading messages...</p>
                       </div>
                     ) : conversationMessagesError ? (
                       <p className="text-sm text-amber-700">{conversationMessagesError}</p>
@@ -5048,7 +5048,7 @@ function InboxPage() {
                         }}
                         className="px-3 py-2 rounded-lg bg-[var(--button)] text-white text-sm font-medium hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {dmRecipientLookupLoading ? 'Looking upù' : 'Look up'}
+                        {dmRecipientLookupLoading ? 'Looking up...' : 'Look up'}
                       </button>
                     </div>
                     {dmRecipientLookupError && <p className="text-sm text-amber-800 mt-2">{dmRecipientLookupError}</p>}
@@ -5065,7 +5065,7 @@ function InboxPage() {
                 )}
                 <div className="flex items-end gap-2">
                 <textarea
-                  placeholder={aiReplyLoading ? 'Generating replyù' : 'Type a reply...'}
+                  placeholder={aiReplyLoading ? 'Generating reply...' : 'Type a reply...'}
                   rows={2}
                     value={dmReplyText}
                     onChange={(e) => setDmReplyText(e.target.value)}
