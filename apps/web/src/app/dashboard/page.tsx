@@ -118,10 +118,13 @@ function DataSyncBanner({
   platform,
   insightsLoading,
   postsLoading,
+  dataReady,
 }: {
   platform?: string | null;
   insightsLoading: boolean;
   postsLoading: boolean;
+  /** True when analytics payload is on screen (not just "requests finished"). */
+  dataReady: boolean;
 }) {
   const platformIcons: Record<string, React.ReactNode> = {
     INSTAGRAM: <InstagramIcon size={29} />,
@@ -136,9 +139,9 @@ function DataSyncBanner({
   /** Same violet → fuchsia → rose gradient on every platform (matches Upgrade / Get Pro CTA). */
   const grad = 'from-[#ffb000] via-[#ff7a00] to-[#ff4d00]';
   const icon = platform ? platformIcons[platform] : null;
-  const analyticsStep = insightsLoading ? 'loading' : 'done';
+  const analyticsStep = dataReady ? 'done' : insightsLoading ? 'loading' : 'pending';
   const postsStep = postsLoading ? 'loading' : 'done';
-  const allDone = !insightsLoading && !postsLoading;
+  const allDone = dataReady && !postsLoading;
 
   const Step = ({ state, label }: { state: 'done' | 'loading' | 'pending'; label: string }) => (
     <div className="flex items-center gap-1.5 min-w-0">
@@ -669,6 +672,18 @@ export default function DashboardPage() {
     if (connectingParam === '1') {
       clearConnectLoadDone(accountIdFromUrl);
       setJustConnected(true);
+      const cachedInsights = readInsightsFromLocalStorage(accountIdFromUrl, 7 * 24 * 60 * 60 * 1000);
+      if (cachedInsights && typeof cachedInsights === 'object') {
+        const row = cachedInsights as Record<string, unknown>;
+        lastInsightsByAccountIdRef.current[accountIdFromUrl] = row;
+        setInsights(row as NonNullable<Parameters<typeof setInsights>[0]>);
+        setInsightsLoading(false);
+      }
+      const cachedPosts = postsCacheRef.current[accountIdFromUrl] ?? appDataRef.current?.getPosts(accountIdFromUrl);
+      if (Array.isArray(cachedPosts) && cachedPosts.length > 0) {
+        setImportedPosts(cachedPosts);
+        setImportedPostsLoading(false);
+      }
     }
   }, [accountIdFromUrl, connectingParam, twitter1oaNext, setSelectedAccountId]);
 
@@ -706,11 +721,6 @@ export default function DashboardPage() {
           }
         }
         delete postsCacheRef.current[accountIdFromUrl];
-        Object.keys(insightsCacheRef.current).forEach((k) => {
-          if (k.startsWith(accountIdFromUrl + '-')) delete insightsCacheRef.current[k];
-        });
-        delete lastInsightsByAccountIdRef.current[accountIdFromUrl];
-        appDataRef.current?.clearAccountData(accountIdFromUrl);
         router.replace('/dashboard', { scroll: false });
       })
       .catch(() => {
@@ -1188,10 +1198,22 @@ export default function DashboardPage() {
               : null)
           )
         : null;
+    const metaQuickFallback =
+      analyticsAccount?.platform === 'INSTAGRAM' || analyticsAccount?.platform === 'FACEBOOK'
+        ? (
+            readInsightsFromLocalStorage(accountId, 7 * 24 * 60 * 60 * 1000) ??
+            (userIdRef.current
+              ? readDashboardInsightsSession(userIdRef.current, accountId, 7 * 24 * 60 * 60 * 1000)
+              : null)
+          )
+        : null;
     const staleCandidate =
       staleForAccount ??
       (pinterestQuickFallback && typeof pinterestQuickFallback === 'object'
         ? (pinterestQuickFallback as Record<string, unknown>)
+        : null) ??
+      (metaQuickFallback && typeof metaQuickFallback === 'object'
+        ? (metaQuickFallback as Record<string, unknown>)
         : null);
     const postsCached = postsCacheRef.current[accountId] ?? app?.getPosts(accountId);
     /** Per-account analytics: posts are loaded only by the posts effect (avoids racing sync vs non-sync and prefetch churn). */
@@ -1454,7 +1476,10 @@ export default function DashboardPage() {
     // those still clear until the new-range fetch returns.
     const preserveStaleWhileRefetch =
       analyticsAccount?.platform === 'PINTEREST' ||
-      analyticsAccount?.platform === 'THREADS' || analyticsAccount?.platform === 'TWITTER';
+      analyticsAccount?.platform === 'THREADS' ||
+      analyticsAccount?.platform === 'TWITTER' ||
+      analyticsAccount?.platform === 'INSTAGRAM' ||
+      analyticsAccount?.platform === 'FACEBOOK';
     if (staleCandidate && (!isDateRangeChange || preserveStaleWhileRefetch)) {
       const patchedStale = patchYouTubeExtended(staleCandidate);
       lastInsightsByAccountIdRef.current[accountId] = patchedStale;
@@ -1596,8 +1621,7 @@ export default function DashboardPage() {
         if (selectedAccountIdRef.current === accountId && !staleForAccount && !isSameAccount) setInsights(null); 
       })
       .finally(() => {
-        // Only clear loading when we had no cached data to begin with
-        if (!staleForAccount) setInsightsLoading(false);
+        setInsightsLoading(false);
       });
 
 
@@ -1868,7 +1892,7 @@ export default function DashboardPage() {
     sessionInsightsForSelected,
   ]);
 
-  // End connect loading banner once analytics + posts are ready (one time per account until next OAuth).
+  // End connect loading banner once analytics are on screen and posts finished (or timed out below).
   useEffect(() => {
     const accountId = analyticsAccount?.id;
     if (!justConnected || !accountId || isConnectLoadDone(accountId)) return;
@@ -1882,6 +1906,28 @@ export default function DashboardPage() {
     insightsLoading,
     importedPostsLoading,
   ]);
+
+  /** After connect: show cached dashboard within ~8s even if Meta insights are still syncing. */
+  useEffect(() => {
+    const accountId = analyticsAccount?.id;
+    if (!justConnected || !accountId || isConnectLoadDone(accountId)) return;
+    const timeoutId = window.setTimeout(() => {
+      if (isConnectLoadDone(accountId)) return;
+      const cached =
+        readInsightsFromLocalStorage(accountId, 7 * 24 * 60 * 60 * 1000) ??
+        lastInsightsByAccountIdRef.current[accountId];
+      if (cached && typeof cached === 'object') {
+        const row = cached as Record<string, unknown>;
+        lastInsightsByAccountIdRef.current[accountId] = row;
+        setInsights(row as NonNullable<Parameters<typeof setInsights>[0]>);
+      }
+      setInsightsLoading(false);
+      setImportedPostsLoading(false);
+      markConnectLoadDone(accountId);
+      setJustConnected(false);
+    }, 8000);
+    return () => window.clearTimeout(timeoutId);
+  }, [justConnected, analyticsAccount?.id]);
 
   const hasFbOrIg = accounts.some((a) => a.platform === 'FACEBOOK' || a.platform === 'INSTAGRAM');
   const hintText = displayInsights?.insightsHint ?? '';
@@ -2059,7 +2105,8 @@ export default function DashboardPage() {
   const analyticsLoadingOnly = Boolean(
     analyticsAccount &&
     !displayInsights &&
-    (insightsLoading || connectLoadInProgress)
+    insightsLoading &&
+    !connectLoadInProgress
   );
   const showDataSyncBanner = Boolean(
     connectLoadInProgress &&
@@ -2164,6 +2211,7 @@ export default function DashboardPage() {
           platform={analyticsAccount?.platform}
           insightsLoading={insightsLoading}
           postsLoading={importedPostsLoading}
+          dataReady={Boolean(displayInsights)}
         />
       )}
       {analyticsLoadingOnly && (

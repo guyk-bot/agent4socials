@@ -2383,50 +2383,110 @@ function InboxPage() {
             opts?.forceMeta === true ||
             canRunInboxLiveRefresh('meta-conversations', user.id, INBOX_LIGHT_META_SYNC_MS);
           if (lightMetaAllowed) {
+            const metaQuery = opts?.forceMeta ? 'fresh=1' : 'badgePoll=1&minimalEnrich=1';
+            const fbPageAccount = metaAccounts.find((a) => a.platform === 'FACEBOOK');
+            const mergeConvRows = (
+              enriched: Conversation[],
+              platform: string,
+              messageAccountId: string
+            ) => {
+              if (enriched.length === 0) return;
+              const byId = new Map(mergedConvRows.map((c) => [c.id, c]));
+              for (const c of enriched) {
+                byId.set(c.id, { ...c, platform, messageAccountId });
+              }
+              mergedConvRows = [...byId.values()];
+            };
+            const applyMetaConvResult = (
+              platform: string,
+              enriched: Conversation[],
+              errorText: string,
+              hintText: string,
+              emptyHintText: string
+            ) => {
+              if (errorText) nextPlatformErrors[platform] = errorText;
+              else if (hintText) nextPlatformHints[platform] = hintText;
+              else if (emptyHintText && enriched.length === 0) nextPlatformHints[platform] = emptyHintText;
+              else {
+                delete nextPlatformErrors[platform];
+                delete nextPlatformHints[platform];
+              }
+              if (enriched.length > 0) {
+                delete nextPlatformErrors[platform];
+                delete nextPlatformHints[platform];
+              }
+            };
+
             for (const acc of metaAccounts) {
+              if (acc.platform === 'FACEBOOK') continue;
               try {
                 const convRes = await api.get<{
                   conversations?: Conversation[];
                   error?: string;
                   hint?: string;
                   emptyHint?: string;
-                }>(
-                  `/social/accounts/${acc.id}/conversations?${
-                    opts?.forceMeta ? 'fresh=1' : 'badgePoll=1&minimalEnrich=1'
-                  }`,
-                  { timeout: 90_000 }
-                );
-                const enriched = convRes.data?.conversations ?? [];
-                const errorText = typeof convRes.data?.error === 'string' ? convRes.data.error.trim() : '';
-                const hintText = typeof convRes.data?.hint === 'string' ? convRes.data.hint.trim() : '';
-                const emptyHintText =
+                }>(`/social/accounts/${acc.id}/conversations?${metaQuery}`, { timeout: 90_000 });
+                let enriched = convRes.data?.conversations ?? [];
+                let errorText = typeof convRes.data?.error === 'string' ? convRes.data.error.trim() : '';
+                let hintText = typeof convRes.data?.hint === 'string' ? convRes.data.hint.trim() : '';
+                let emptyHintText =
                   typeof convRes.data?.emptyHint === 'string' ? convRes.data.emptyHint.trim() : '';
-                if (errorText) {
-                  nextPlatformErrors[acc.platform] = errorText;
-                } else if (hintText) {
-                  nextPlatformHints[acc.platform] = hintText;
-                } else if (emptyHintText && enriched.length === 0) {
-                  nextPlatformHints[acc.platform] = emptyHintText;
-                } else {
-                  delete nextPlatformErrors[acc.platform];
-                  delete nextPlatformHints[acc.platform];
-                }
-                if (enriched.length > 0) {
-                  delete nextPlatformErrors[acc.platform];
-                  delete nextPlatformHints[acc.platform];
-                  const byId = new Map(mergedConvRows.map((c) => [c.id, c]));
-                  for (const c of enriched) {
-                    byId.set(c.id, {
-                      ...c,
-                      platform: acc.platform,
-                      messageAccountId: acc.id,
-                    });
+
+                if (acc.platform === 'INSTAGRAM' && enriched.length === 0 && fbPageAccount) {
+                  try {
+                    const pageIgRes = await api.get<{
+                      conversations?: Conversation[];
+                      error?: string;
+                      hint?: string;
+                      emptyHint?: string;
+                    }>(
+                      `/social/accounts/${fbPageAccount.id}/conversations?instagramOnly=1&${metaQuery}`,
+                      { timeout: 90_000 }
+                    );
+                    const pageIg = pageIgRes.data?.conversations ?? [];
+                    if (pageIg.length > 0) {
+                      enriched = pageIg;
+                      errorText = '';
+                      hintText = '';
+                      emptyHintText = '';
+                    } else if (!errorText && !hintText) {
+                      errorText =
+                        typeof pageIgRes.data?.error === 'string' ? pageIgRes.data.error.trim() : errorText;
+                      hintText =
+                        typeof pageIgRes.data?.hint === 'string' ? pageIgRes.data.hint.trim() : hintText;
+                      emptyHintText =
+                        typeof pageIgRes.data?.emptyHint === 'string'
+                          ? pageIgRes.data.emptyHint.trim()
+                          : emptyHintText;
+                    }
+                  } catch {
+                    /* keep primary IG error */
                   }
-                  mergedConvRows = [...byId.values()];
+                }
+
+                applyMetaConvResult(acc.platform, enriched, errorText, hintText, emptyHintText);
+                if (enriched.length > 0) {
+                  mergeConvRows(
+                    enriched,
+                    acc.platform === 'INSTAGRAM' ? 'INSTAGRAM' : acc.platform,
+                    acc.id
+                  );
                 }
               } catch {
                 nextPlatformErrors[acc.platform] =
                   'Could not refresh conversations from Meta right now. Try again in a few seconds. If this keeps happening, reconnect Instagram via Facebook and choose the linked Page.';
+              }
+            }
+            if (fbPageAccount) {
+              try {
+                const convRes = await api.get<{ conversations?: Conversation[] }>(
+                  `/social/accounts/${fbPageAccount.id}/conversations?${metaQuery}`,
+                  { timeout: 90_000 }
+                );
+                const enriched = convRes.data?.conversations ?? [];
+                mergeConvRows(enriched, 'FACEBOOK', fbPageAccount.id);
+              } catch {
+                /* ignore */
               }
             }
             if (opts?.forceMeta !== true) {
@@ -2939,13 +2999,16 @@ function InboxPage() {
     previousEngagementIdsRef.current = ids;
   }, [engagement, user?.id]);
 
-  const handlePlatformClick = (platformId: string) => {
+  const handlePlatformClick = (platformId: string, e?: React.MouseEvent) => {
+    const multiSelect = Boolean(e?.shiftKey || e?.metaKey || e?.ctrlKey);
     setSelectedPlatforms((prev) => {
-      const next = prev.includes(platformId)
-        ? prev.length > 1
-          ? prev.filter((p) => p !== platformId)
-          : prev
-        : [...prev, platformId];
+      const next = multiSelect
+        ? prev.includes(platformId)
+          ? prev.length > 1
+            ? prev.filter((p) => p !== platformId)
+            : prev
+          : [...prev, platformId]
+        : [platformId];
       setSelectedPlatform((current) => {
         if (!next.includes(current ?? '')) return next[0] ?? null;
         return platformId;
@@ -3508,9 +3571,12 @@ function InboxPage() {
           const loadedCount = conversations.filter((c) => c.platform === platformId).length;
           const showInstagramTroubleshootBanner =
             platformId === 'INSTAGRAM' &&
-            selectedPlatforms.includes('INSTAGRAM') &&
+            selectedPlatforms.length === 1 &&
+            selectedPlatforms[0] === 'INSTAGRAM' &&
             loadedCount === 0 &&
             !conversationsLoading &&
+            !err &&
+            !hint &&
             effectiveAccounts.some((a) => a.platform === 'INSTAGRAM');
           const bannerText =
             err ??
@@ -3619,7 +3685,7 @@ function InboxPage() {
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    handlePlatformClick(p.id);
+                    handlePlatformClick(p.id, e);
                   }}
                   className={`relative w-10 h-10 rounded-lg flex items-center justify-center border cursor-pointer focus:outline-none select-none ${
                     isSelected ? 'bg-neutral-300 border-neutral-400 dark:bg-neutral-600 dark:border-neutral-500' : 'bg-white border-neutral-200 hover:bg-neutral-100 dark:bg-neutral-800 dark:border-neutral-700 dark:hover:bg-neutral-700'

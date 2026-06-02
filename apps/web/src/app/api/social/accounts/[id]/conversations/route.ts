@@ -101,6 +101,9 @@ export async function GET(
     !shouldBlockMetaNonEssentialCalls() &&
     !shouldSkipMetaProfileEnrichment() &&
     !isMetaNonCriticalThrottled();
+  /** Facebook Page row: return only Instagram DMs (Page conversations?platform=instagram). */
+  const instagramOnly =
+    searchParams.get('instagramOnly') === '1' || searchParams.get('instagramOnly') === 'true';
   const account = await prisma.socialAccount.findFirst({
     where: { id, userId },
     select: {
@@ -598,13 +601,16 @@ export async function GET(
   // Route to the correct API based on login method:
   // - Instagram Business Login → graph.instagram.com/v25.0/me/conversations (Instagram User token)
   // - Facebook Login           → graph.facebook.com/{version}/{PAGE_ID}/conversations (Page token)
+  const facebookInstagramOnly = account.platform === 'FACEBOOK' && instagramOnly;
   const conversationsPath = isInstagramBusinessLogin
     ? 'https://graph.instagram.com/v25.0/me/conversations'
     : isInstagram && linkedPageId
       ? `${baseUrl}/${linkedPageId}/conversations`
       : isInstagram
         ? 'https://graph.instagram.com/v25.0/me/conversations'
-        : `${baseUrl}/${account.platformUserId}/conversations`;
+        : facebookInstagramOnly
+          ? `${baseUrl}/${account.platformUserId}/conversations`
+          : `${baseUrl}/${account.platformUserId}/conversations`;
 
   const activeToken = isInstagramBusinessLogin ? igUserToken! : token;
   const queryParams: Record<string, string> = {
@@ -614,7 +620,9 @@ export async function GET(
   };
   // platform=instagram is only needed for graph.facebook.com Page token path (Facebook Login).
   // For graph.instagram.com (Instagram Business Login) it is not required and may cause errors.
-  if (isInstagram && !isInstagramBusinessLogin) queryParams.platform = 'instagram';
+  if ((isInstagram && !isInstagramBusinessLogin) || facebookInstagramOnly) {
+    queryParams.platform = 'instagram';
+  }
 
   function isMetaRateLimitResponse(e: unknown): boolean {
     const err = e as { response?: { status?: number; data?: { error?: { code?: number; message?: string } } } };
