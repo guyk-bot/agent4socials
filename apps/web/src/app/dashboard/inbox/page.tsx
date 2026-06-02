@@ -49,6 +49,7 @@ import {
   clearInboxAccountRecentlyConnected,
 } from '@/lib/inbox/inbox-recent-connect';
 import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
+import { refreshInstagramDmInboxLive } from '@/lib/inbox/refresh-instagram-dm-inbox-client';
 import {
   isMetaMessagingWindowClosed,
   META_MESSAGING_WINDOW_BLOCKED_MESSAGE,
@@ -2329,6 +2330,63 @@ function InboxPage() {
   const refreshAllPlatformCommentsRef = useRef(refreshAllPlatformComments);
   refreshAllPlatformCommentsRef.current = refreshAllPlatformComments;
 
+  /** Instagram DMs only: one API call, no bootstrap or comment sync. */
+  const refreshInstagramDmInbox = useCallback(async () => {
+    const accs = effectiveAccountsRef.current;
+    const igAccount = accs.find((a) => a.platform === 'INSTAGRAM');
+    if (!user?.id || !igAccount) return;
+    const fbPage = accs.find((a) => a.platform === 'FACEBOOK');
+    setInstagramRefreshLoading(true);
+    if (instagramRefreshSafetyTimerRef.current) {
+      clearTimeout(instagramRefreshSafetyTimerRef.current);
+    }
+    instagramRefreshSafetyTimerRef.current = setTimeout(() => {
+      instagramRefreshSafetyTimerRef.current = null;
+      setInstagramRefreshLoading(false);
+    }, 35_000);
+    try {
+      const result = await refreshInstagramDmInboxLive({
+        instagramAccountId: igAccount.id,
+        facebookPageAccountId: fbPage?.id ?? null,
+      });
+      setConversationsErrorsByPlatform((prev) => {
+        const next = { ...prev };
+        if (result.error) next.INSTAGRAM = result.error;
+        else delete next.INSTAGRAM;
+        return next;
+      });
+      setConversationsHintsByPlatform((prev) => {
+        const next = { ...prev };
+        delete next.INSTAGRAM;
+        return next;
+      });
+      const seed = conversationsStableRef.current.filter(
+        (c) => (c as Conversation & { platform?: string }).platform !== 'INSTAGRAM'
+      ) as Array<Conversation & { platform: string; messageAccountId: string }>;
+      const igRows = result.conversations.map((c) => ({
+        ...c,
+        platform: 'INSTAGRAM',
+        messageAccountId: igAccount.id,
+      }));
+      const merged = mergeInboxConversationsWithUnreadDetection(user.id, seed, igRows) as Array<
+        Conversation & { platform: string; messageAccountId: string }
+      >;
+      applyConversationsToUiRef.current(merged);
+      const perIg = conversationsStableRef.current.filter((c) => c.messageAccountId === igAccount.id);
+      if (perIg.length) appDataRef.current?.setConversationsForAccount(igAccount.id, perIg);
+      setConversationsLoading(false);
+    } finally {
+      if (instagramRefreshSafetyTimerRef.current) {
+        clearTimeout(instagramRefreshSafetyTimerRef.current);
+        instagramRefreshSafetyTimerRef.current = null;
+      }
+      setInstagramRefreshLoading(false);
+    }
+  }, [user?.id]);
+
+  const refreshInstagramDmInboxRef = useRef(refreshInstagramDmInbox);
+  refreshInstagramDmInboxRef.current = refreshInstagramDmInbox;
+
   const refreshInboxFromServer = useCallback(
     async (opts?: { liveMeta?: boolean; forceMeta?: boolean; forceUnlock?: boolean }) => {
       const accs = effectiveAccountsRef.current;
@@ -2336,254 +2394,99 @@ function InboxPage() {
       if (inboxRefreshInFlightRef.current && !opts?.forceUnlock) return;
       inboxRefreshInFlightRef.current = false;
       inboxRefreshInFlightRef.current = true;
-      const manualMetaRetry = opts?.forceMeta === true && opts?.liveMeta === true;
-      const metaConvTimeout = manualMetaRetry ? 45_000 : 90_000;
-      const showIgRetrySpinner = manualMetaRetry && opts?.forceUnlock === true;
-      if (showIgRetrySpinner) {
-        setInstagramRefreshLoading(true);
-        if (instagramRefreshSafetyTimerRef.current) {
-          clearTimeout(instagramRefreshSafetyTimerRef.current);
-        }
-        instagramRefreshSafetyTimerRef.current = setTimeout(() => {
-          instagramRefreshSafetyTimerRef.current = null;
-          setInstagramRefreshLoading(false);
-          inboxRefreshInFlightRef.current = false;
-        }, 50_000);
-      }
       try {
         const commentRows: PostComment[] = [];
         let convRows: Array<Conversation & { platform: string; messageAccountId: string }> = [];
 
-        if (!manualMetaRetry) {
-          const boot = await api.get<{
-            commentsByAccountId?: Record<string, PostComment[]>;
-            conversationsByAccountId?: Record<string, Conversation[]>;
-          }>('/inbox/bootstrap', { timeout: 60_000 });
+        const boot = await api.get<{
+          commentsByAccountId?: Record<string, PostComment[]>;
+          conversationsByAccountId?: Record<string, Conversation[]>;
+        }>('/inbox/bootstrap', { timeout: 60_000 });
 
-          for (const acc of accs) {
-            const cs = boot.data?.commentsByAccountId?.[acc.id] ?? [];
-            commentRows.push(
-              ...cs.map((c) => ({ ...c, accountId: c.accountId ?? acc.id, platform: c.platform ?? acc.platform }))
-            );
-            const cv = boot.data?.conversationsByAccountId?.[acc.id] ?? [];
-            for (const c of cv) {
-              convRows.push({
-                ...c,
-                platform: acc.platform,
-                messageAccountId: acc.id,
-              });
-            }
-          }
-          if (commentRows.length > 0) {
-            applyCommentsToUiRef.current(commentRows);
-            for (const acc of accs) {
-              const perAcc = commentsStableRef.current.filter((c) => c.accountId === acc.id);
-              if (perAcc.length) appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
-            }
-          } else {
-            setCommentsLoading(false);
-          }
-          if (convRows.length > 0) {
-            applyConversationsToUiRef.current(convRows);
-            for (const acc of accs) {
-              const perAcc = conversationsStableRef.current.filter((c) => c.messageAccountId === acc.id);
-              if (perAcc.length) appDataRef.current?.setConversationsForAccount(acc.id, perAcc);
-            }
-          }
-
-          await refreshAllPlatformCommentsRef.current({ live: true });
-        } else {
-          convRows = conversationsStableRef.current
-            .filter((c): c is Conversation & { messageAccountId: string } => Boolean(c.messageAccountId))
-            .map((c) => ({
+        for (const acc of accs) {
+          const cs = boot.data?.commentsByAccountId?.[acc.id] ?? [];
+          commentRows.push(
+            ...cs.map((c) => ({ ...c, accountId: c.accountId ?? acc.id, platform: c.platform ?? acc.platform }))
+          );
+          const cv = boot.data?.conversationsByAccountId?.[acc.id] ?? [];
+          for (const c of cv) {
+            convRows.push({
               ...c,
-              platform: (c as Conversation & { platform?: string }).platform ?? 'UNKNOWN',
-              messageAccountId: c.messageAccountId,
-            }));
+              platform: acc.platform,
+              messageAccountId: acc.id,
+            });
+          }
+        }
+        if (commentRows.length > 0) {
+          applyCommentsToUiRef.current(commentRows);
+          for (const acc of accs) {
+            const perAcc = commentsStableRef.current.filter((c) => c.accountId === acc.id);
+            if (perAcc.length) appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
+          }
+        } else {
+          setCommentsLoading(false);
+        }
+        if (convRows.length > 0) {
+          applyConversationsToUiRef.current(convRows);
+          for (const acc of accs) {
+            const perAcc = conversationsStableRef.current.filter((c) => c.messageAccountId === acc.id);
+            if (perAcc.length) appDataRef.current?.setConversationsForAccount(acc.id, perAcc);
+          }
         }
 
+        await refreshAllPlatformCommentsRef.current({ live: true });
+
         if (opts?.liveMeta && user?.id) {
-          const metaAccounts = accs.filter(
-            (a) => a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK'
-          );
+          const fbPageAccount = accs.find((a) => a.platform === 'FACEBOOK');
           let mergedConvRows = [...convRows];
           const nextPlatformErrors: Record<string, string> = {};
-          const nextPlatformHints: Record<string, string> = {};
           const lightMetaAllowed =
             opts?.forceMeta === true ||
             canRunInboxLiveRefresh('meta-conversations', user.id, INBOX_LIGHT_META_SYNC_MS);
-          if (lightMetaAllowed) {
+          if (lightMetaAllowed && fbPageAccount) {
             const metaQuery = opts?.forceMeta ? 'fresh=1' : 'badgePoll=1&minimalEnrich=1';
-            const fbPageAccount = metaAccounts.find((a) => a.platform === 'FACEBOOK');
-            const mergeConvRows = (
-              enriched: Conversation[],
-              platform: string,
-              messageAccountId: string
-            ) => {
-              if (enriched.length === 0) return;
-              const byId = new Map(mergedConvRows.map((c) => [c.id, c]));
-              for (const c of enriched) {
-                byId.set(c.id, { ...c, platform, messageAccountId });
-              }
-              mergedConvRows = [...byId.values()];
-            };
-            const applyMetaConvResult = (
-              platform: string,
-              enriched: Conversation[],
-              errorText: string,
-              hintText: string,
-              emptyHintText: string
-            ) => {
-              if (errorText) nextPlatformErrors[platform] = errorText;
-              else if (hintText) nextPlatformHints[platform] = hintText;
-              else if (emptyHintText && enriched.length === 0) {
-                nextPlatformErrors[platform] = emptyHintText;
-              }
-              else {
-                delete nextPlatformErrors[platform];
-                delete nextPlatformHints[platform];
-              }
+            try {
+              const convRes = await api.get<{ conversations?: Conversation[] }>(
+                `/social/accounts/${fbPageAccount.id}/conversations?${metaQuery}`,
+                { timeout: 90_000 }
+              );
+              const enriched = convRes.data?.conversations ?? [];
               if (enriched.length > 0) {
-                delete nextPlatformErrors[platform];
-                delete nextPlatformHints[platform];
-              }
-            };
-
-            for (const acc of metaAccounts) {
-              if (acc.platform === 'FACEBOOK') continue;
-              try {
-                const convRes = await api.get<{
-                  conversations?: Conversation[];
-                  error?: string;
-                  hint?: string;
-                  emptyHint?: string;
-                }>(`/social/accounts/${acc.id}/conversations?${metaQuery}`, { timeout: metaConvTimeout });
-                let enriched = convRes.data?.conversations ?? [];
-                let errorText = typeof convRes.data?.error === 'string' ? convRes.data.error.trim() : '';
-                let hintText = typeof convRes.data?.hint === 'string' ? convRes.data.hint.trim() : '';
-                let emptyHintText =
-                  typeof convRes.data?.emptyHint === 'string' ? convRes.data.emptyHint.trim() : '';
-
-                if (acc.platform === 'INSTAGRAM' && enriched.length === 0 && fbPageAccount) {
-                  try {
-                    const pageIgRes = await api.get<{
-                      conversations?: Conversation[];
-                      error?: string;
-                      hint?: string;
-                      emptyHint?: string;
-                    }>(
-                      `/social/accounts/${fbPageAccount.id}/conversations?instagramOnly=1&${metaQuery}`,
-                      { timeout: metaConvTimeout }
-                    );
-                    const pageIg = pageIgRes.data?.conversations ?? [];
-                    if (pageIg.length > 0) {
-                      enriched = pageIg;
-                      errorText = '';
-                      hintText = '';
-                      emptyHintText = '';
-                    } else if (!errorText && !hintText) {
-                      errorText =
-                        typeof pageIgRes.data?.error === 'string' ? pageIgRes.data.error.trim() : errorText;
-                      hintText =
-                        typeof pageIgRes.data?.hint === 'string' ? pageIgRes.data.hint.trim() : hintText;
-                      emptyHintText =
-                        typeof pageIgRes.data?.emptyHint === 'string'
-                          ? pageIgRes.data.emptyHint.trim()
-                          : emptyHintText;
-                    }
-                  } catch {
-                    /* keep primary IG error */
-                  }
+                const byId = new Map(mergedConvRows.map((c) => [c.id, c]));
+                for (const c of enriched) {
+                  byId.set(c.id, { ...c, platform: 'FACEBOOK', messageAccountId: fbPageAccount.id });
                 }
-
-                applyMetaConvResult(acc.platform, enriched, errorText, hintText, emptyHintText);
-                if (enriched.length > 0) {
-                  mergeConvRows(
-                    enriched,
-                    acc.platform === 'INSTAGRAM' ? 'INSTAGRAM' : acc.platform,
-                    acc.id
-                  );
-                }
-              } catch (err: unknown) {
-                const apiErr =
-                  (err as { response?: { data?: { error?: string; emptyHint?: string } } })?.response
-                    ?.data?.error ??
-                  (err as { response?: { data?: { emptyHint?: string } } })?.response?.data?.emptyHint;
-                const isTimeout =
-                  (err as { code?: string; message?: string })?.code === 'ECONNABORTED' ||
-                  /timeout/i.test((err as { message?: string })?.message ?? '');
-                nextPlatformErrors[acc.platform] =
-                  (typeof apiErr === 'string' && apiErr.trim()) ||
-                  (isTimeout
-                    ? 'Meta took too long to respond. We shortened the retry; try again. If it keeps failing, reconnect via Facebook and choose your Page.'
-                    : 'Could not refresh conversations from Meta right now. Try again in a few seconds. If this keeps happening, reconnect Instagram via Facebook and choose the linked Page.');
+                mergedConvRows = [...byId.values()];
               }
-            }
-            if (fbPageAccount) {
-              try {
-                const convRes = await api.get<{ conversations?: Conversation[] }>(
-                  `/social/accounts/${fbPageAccount.id}/conversations?${metaQuery}`,
-                  { timeout: metaConvTimeout }
-                );
-                const enriched = convRes.data?.conversations ?? [];
-                mergeConvRows(enriched, 'FACEBOOK', fbPageAccount.id);
-              } catch {
-                /* ignore */
-              }
+            } catch {
+              nextPlatformErrors.FACEBOOK =
+                'Could not refresh Facebook conversations from Meta right now. Try again in a few seconds.';
             }
             if (opts?.forceMeta !== true) {
               markInboxLiveRefresh('meta-conversations', user.id);
             }
           }
-          // Merge errors/hints for processed platforms only (prevents a racing call with fewer
-          // processed platforms from clearing errors set by a previous call).
-          const processedPlatforms = new Set(metaAccounts.map((a) => a.platform));
           setConversationsErrorsByPlatform((prev) => {
             const next = { ...prev };
-            for (const platform of processedPlatforms) {
-              if (nextPlatformErrors[platform]) {
-                next[platform] = nextPlatformErrors[platform];
-              } else {
-                delete next[platform];
-              }
-            }
-            return next;
-          });
-          setConversationsHintsByPlatform((prev) => {
-            const next = { ...prev };
-            for (const platform of processedPlatforms) {
-              if (nextPlatformHints[platform]) {
-                next[platform] = nextPlatformHints[platform];
-              } else {
-                delete next[platform];
-              }
-            }
+            if (nextPlatformErrors.FACEBOOK) next.FACEBOOK = nextPlatformErrors.FACEBOOK;
+            else delete next.FACEBOOK;
             return next;
           });
           if (mergedConvRows.length > 0) {
             applyConversationsToUiRef.current(mergedConvRows);
-            for (const acc of metaAccounts) {
-              const perAcc = conversationsStableRef.current.filter((c) => c.messageAccountId === acc.id);
-              if (perAcc.length) appDataRef.current?.setConversationsForAccount(acc.id, perAcc);
+            if (fbPageAccount) {
+              const perAcc = conversationsStableRef.current.filter(
+                (c) => c.messageAccountId === fbPageAccount.id
+              );
+              if (perAcc.length) appDataRef.current?.setConversationsForAccount(fbPageAccount.id, perAcc);
             }
           } else {
             setConversationsLoading(false);
           }
-        } else if (opts?.liveMeta && user?.id) {
-          setConversationsHintsByPlatform((prev) => ({
-            ...prev,
-            INSTAGRAM:
-              prev.INSTAGRAM ??
-              'Inbox is showing cached data. Tap Retry from Meta below to run a live check (or wait a few minutes between checks).',
-          }));
+          void refreshInstagramDmInboxRef.current();
         }
       } finally {
         inboxRefreshInFlightRef.current = false;
-        if (instagramRefreshSafetyTimerRef.current) {
-          clearTimeout(instagramRefreshSafetyTimerRef.current);
-          instagramRefreshSafetyTimerRef.current = null;
-        }
-        setInstagramRefreshLoading(false);
         const uid = user?.id;
         if (uid) {
           const convPayload = conversationsStableRef.current.map((c) => ({
@@ -2669,9 +2572,10 @@ function InboxPage() {
     if (effectiveAccounts.some((a) => isInboxAccountRecentlyConnected(a.id))) {
       triggerInboxWarmClient(true);
     }
-    const forceIg =
-      effectiveAccounts.some((a) => a.platform === 'INSTAGRAM' && isInboxAccountRecentlyConnected(a.id));
-    void refreshInboxFromServerRef.current({ liveMeta: true, forceMeta: forceIg });
+    void refreshInboxFromServerRef.current({ liveMeta: true, forceMeta: false });
+    if (effectiveAccounts.some((a) => a.platform === 'INSTAGRAM')) {
+      void refreshInstagramDmInboxRef.current();
+    }
   }, [pathname, user?.id, effectiveAccounts.map((a) => a.id).join(',')]);
 
   const prevSelectedPlatformsRef = useRef<string>('');
@@ -2686,7 +2590,7 @@ function InboxPage() {
     // time Facebook conversations load, causing a race that clears the Instagram error.
     const igConvCount = conversationsStableRef.current.filter(c => c.platform === 'INSTAGRAM').length;
     if (selectedPlatforms.includes('INSTAGRAM') && igConvCount === 0) {
-      void refreshInboxFromServerRef.current({ liveMeta: true, forceMeta: true, forceUnlock: true });
+      void refreshInstagramDmInboxRef.current();
     }
   }, [pathname, user?.id, selectedPlatforms.join(',')]);
 
@@ -3107,7 +3011,9 @@ function InboxPage() {
     setSelectedConversationId(null);
     setSelectedComment(null);
     setAiReplyError(null);
-    if (platformId === 'INSTAGRAM' || platformId === 'FACEBOOK') {
+    if (platformId === 'INSTAGRAM') {
+      void refreshInstagramDmInboxRef.current();
+    } else if (platformId === 'FACEBOOK') {
       void refreshInboxFromServerRef.current({ liveMeta: true, forceMeta: true, forceUnlock: true });
     }
   };
@@ -3144,7 +3050,7 @@ function InboxPage() {
             type="button"
             disabled={instagramRefreshLoading}
             onClick={() => {
-              void refreshInboxFromServerRef.current({ liveMeta: true, forceMeta: true, forceUnlock: true });
+              void refreshInstagramDmInboxRef.current();
             }}
             className="text-xs px-2 py-1 rounded border border-sky-300 bg-white text-sky-900 font-medium hover:bg-sky-50 disabled:opacity-60 flex items-center gap-1"
           >

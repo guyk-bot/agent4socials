@@ -37,6 +37,7 @@ import {
   type InboxConversationListItem,
 } from '@/lib/inbox/inbox-db-cache';
 import { enrichConversationListFromMessageCache } from '@/lib/inbox/enrich-conversations-from-messages';
+import { loadInstagramDmConversations } from '@/lib/inbox/instagram-dm-conversations';
 import { resolveInstagramInboxPageContext } from '@/lib/inbox/resolve-instagram-inbox-token';
 
 export const maxDuration = 60;
@@ -549,7 +550,43 @@ export async function GET(
     }
   }
 
-  const isInstagram = account.platform === 'INSTAGRAM';
+  const facebookInstagramOnly =
+    account.platform === 'FACEBOOK' &&
+    (searchParams.get('instagramOnly') === '1' || searchParams.get('instagramOnly') === 'true');
+
+  if (account.platform === 'INSTAGRAM' || facebookInstagramOnly) {
+    const igPayload = await loadInstagramDmConversations({
+      userId,
+      account: {
+        id: account.id,
+        platform: account.platform,
+        platformUserId: account.platformUserId,
+        username: account.username,
+        accessToken: account.accessToken,
+        credentialsJson: account.credentialsJson,
+      },
+      facebookPageOnly: facebookInstagramOnly,
+      cacheOnly,
+      fresh: freshRetry,
+    });
+    return NextResponse.json({
+      conversations: igPayload.conversations,
+      ...(igPayload.error ? { error: igPayload.error } : {}),
+      ...(igPayload.emptyHint ? { emptyHint: igPayload.emptyHint } : {}),
+      ...(igPayload.fromCache ? { fromCache: true } : {}),
+      ...(igPayload.stale ? { stale: true } : {}),
+      ...(igPayload.debug ? { debug: igPayload.debug } : {}),
+    });
+  }
+
+  if (account.platform !== 'FACEBOOK') {
+    return NextResponse.json({
+      conversations: [],
+      hint: 'Conversations are only available for Instagram, Facebook, and X (Twitter).',
+    });
+  }
+
+  const isInstagram = false;
   const credJson = (account.credentialsJson && typeof account.credentialsJson === 'object'
     ? account.credentialsJson
     : {}) as { loginMethod?: string; linkedPageId?: string; igUserToken?: string };
@@ -627,7 +664,6 @@ export async function GET(
   // Route to the correct API based on login method:
   // - Instagram Business Login → graph.instagram.com/v25.0/me/conversations (Instagram User token)
   // - Facebook Login           → graph.facebook.com/{version}/{PAGE_ID}/conversations (Page token)
-  const facebookInstagramOnly = account.platform === 'FACEBOOK' && instagramOnly;
   const conversationsPath = isInstagramBusinessLogin
     ? 'https://graph.instagram.com/v25.0/me/conversations'
     : isInstagram && linkedPageId
@@ -1286,19 +1322,15 @@ export async function GET(
     if (isCapabilityError)
       return NextResponse.json({
         conversations: [],
-        error: isInstagramBusinessLogin
-          ? 'Instagram inbox needs Standard or Advanced Access for instagram_business_manage_messages. In Meta for Developers: App Dashboard, go to App Review, Permissions and features, find instagram_business_manage_messages and add your Instagram account as a tester under Roles. Then reconnect your Instagram account.'
-          : 'Instagram inbox needs Advanced Access. In Meta for Developers: App Dashboard, App Review, Permissions and features, find instagram_manage_messages and Request Advanced Access. Add test users under Roles if the app is in Development mode. Then reconnect Facebook and Instagram from the sidebar and choose your Page.',
+        error:
+          'Facebook Messenger needs pages_messaging permission. Reconnect from the sidebar and choose your Page when asked to grant messaging permission.',
         debug: { rawMessage: msg, responseData: axiosData, metaMessage: metaErrorMsg },
       });
     const isTimeout = err?.code === 'ECONNABORTED' || /timeout|408/i.test(msg);
     if (status === 400) {
       const metaMsg = axiosData && typeof axiosData === 'object' && (axiosData as { error?: { message?: string } }).error?.message;
-      const hint = isInstagramBusinessLogin
-        ? 'Instagram returned 400. Ensure instagram_business_manage_messages is granted and your account is added as a tester in Meta App Dashboard under Roles. Reconnect your Instagram account and try again.'
-        : account.platform === 'INSTAGRAM'
-          ? 'Instagram returned 400. Ensure instagram_manage_messages is granted: reconnect from the sidebar and choose your Page, or request Advanced Access in Meta App Dashboard.'
-          : 'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.';
+      const hint =
+        'Reconnect from the sidebar and choose your Page when asked to grant messaging permission.';
       return NextResponse.json({
         conversations: [],
         error: hint,
