@@ -37,6 +37,10 @@ import {
   type InboxConversationListItem,
 } from '@/lib/inbox/inbox-db-cache';
 import { enrichConversationListFromMessageCache } from '@/lib/inbox/enrich-conversations-from-messages';
+import {
+  resolveInstagramInboxPageContext,
+  verifyInstagramLinkedToPage,
+} from '@/lib/inbox/resolve-instagram-inbox-token';
 
 const baseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
@@ -598,6 +602,43 @@ export async function GET(
     });
   }
 
+  let pageInboxToken: string | null = null;
+  if (isInstagram && !isInstagramBusinessLogin && linkedPageId) {
+    const pageCtx = await resolveInstagramInboxPageContext(userId, {
+      id: account.id,
+      platformUserId: account.platformUserId,
+      accessToken: token,
+      credentialsJson: account.credentialsJson,
+    });
+    if (pageCtx) {
+      linkedPageId = pageCtx.pageId;
+      pageInboxToken = pageCtx.pageAccessToken;
+      const verify = await verifyInstagramLinkedToPage(
+        pageCtx.pageId,
+        pageCtx.pageAccessToken,
+        account.platformUserId
+      );
+      if (!verify.ok) {
+        return NextResponse.json({ conversations: [], error: verify.message });
+      }
+      if (pageCtx.pageAccessToken !== token) {
+        void prisma.socialAccount
+          .update({
+            where: { id: account.id },
+            data: {
+              accessToken: pageCtx.pageAccessToken,
+              credentialsJson: {
+                ...credJson,
+                loginMethod: 'facebook_login',
+                linkedPageId: pageCtx.pageId,
+              },
+            },
+          })
+          .catch(() => {});
+      }
+    }
+  }
+
   // Route to the correct API based on login method:
   // - Instagram Business Login → graph.instagram.com/v25.0/me/conversations (Instagram User token)
   // - Facebook Login           → graph.facebook.com/{version}/{PAGE_ID}/conversations (Page token)
@@ -612,7 +653,9 @@ export async function GET(
           ? `${baseUrl}/${account.platformUserId}/conversations`
           : `${baseUrl}/${account.platformUserId}/conversations`;
 
-  const activeToken = isInstagramBusinessLogin ? igUserToken! : token;
+  const activeToken = isInstagramBusinessLogin
+    ? igUserToken!
+    : pageInboxToken || token;
   const queryParams: Record<string, string> = {
     fields: 'id,updated_time,participants{id,name,username,profile_pic,profile_picture_url,picture}',
     access_token: activeToken,
@@ -1183,10 +1226,11 @@ export async function GET(
     }
 
     const emptyHint =
-      isInstagram && list.length === 0
+      list.length === 0 &&
+      (isInstagram || facebookInstagramOnly)
         ? isInstagramBusinessLogin
           ? 'No Instagram conversations returned. Confirm instagram_business_manage_messages is granted, then reconnect your Instagram account.'
-          : 'No Instagram conversations returned. Open Meta App Dashboard and ensure instagram_manage_messages is approved for your Page, then reconnect Facebook and Instagram.'
+          : 'Meta returned no Instagram DM threads for this Page. If you expect messages here: request Advanced Access for instagram_manage_messages in Meta App Dashboard, add your account as an Instagram Tester while the app is in Development mode, send a new DM to this profile, then reconnect via Facebook.'
         : undefined;
 
     if (list.length > 0) {

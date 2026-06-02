@@ -2406,7 +2406,9 @@ function InboxPage() {
             ) => {
               if (errorText) nextPlatformErrors[platform] = errorText;
               else if (hintText) nextPlatformHints[platform] = hintText;
-              else if (emptyHintText && enriched.length === 0) nextPlatformHints[platform] = emptyHintText;
+              else if (emptyHintText && enriched.length === 0) {
+                nextPlatformErrors[platform] = emptyHintText;
+              }
               else {
                 delete nextPlatformErrors[platform];
                 delete nextPlatformHints[platform];
@@ -2504,9 +2506,13 @@ function InboxPage() {
           } else {
             setConversationsLoading(false);
           }
-        } else {
-          setConversationsErrorsByPlatform({});
-          setConversationsHintsByPlatform({});
+        } else if (opts?.liveMeta && user?.id) {
+          setConversationsHintsByPlatform((prev) => ({
+            ...prev,
+            INSTAGRAM:
+              prev.INSTAGRAM ??
+              'Inbox is showing cached data. Tap Retry from Meta below to run a live check (or wait a few minutes between checks).',
+          }));
         }
       } finally {
         inboxRefreshInFlightRef.current = false;
@@ -2595,8 +2601,17 @@ function InboxPage() {
     if (effectiveAccounts.some((a) => isInboxAccountRecentlyConnected(a.id))) {
       triggerInboxWarmClient(true);
     }
-    void refreshInboxFromServerRef.current({ liveMeta: true });
+    const forceIg =
+      effectiveAccounts.some((a) => a.platform === 'INSTAGRAM' && isInboxAccountRecentlyConnected(a.id));
+    void refreshInboxFromServerRef.current({ liveMeta: true, forceMeta: forceIg });
   }, [pathname, user?.id, effectiveAccounts.map((a) => a.id).join(',')]);
+
+  useEffect(() => {
+    if (pathname !== '/dashboard/inbox' || !user?.id) return;
+    if (selectedPlatforms.length === 1 && selectedPlatforms[0] === 'INSTAGRAM') {
+      void refreshInboxFromServerRef.current({ liveMeta: true, forceMeta: true });
+    }
+  }, [pathname, user?.id, selectedPlatforms.join(',')]);
 
   // Background poll updated AppData, merge new DMs and comments into the open Inbox lists.
   useEffect(() => {
@@ -3569,20 +3584,14 @@ function InboxPage() {
           const err = conversationsErrorsByPlatform[platformId];
           const hint = conversationsHintsByPlatform[platformId];
           const loadedCount = conversations.filter((c) => c.platform === platformId).length;
-          const showInstagramTroubleshootBanner =
-            platformId === 'INSTAGRAM' &&
-            selectedPlatforms.length === 1 &&
-            selectedPlatforms[0] === 'INSTAGRAM' &&
-            loadedCount === 0 &&
-            !conversationsLoading &&
-            !err &&
-            !hint &&
-            effectiveAccounts.some((a) => a.platform === 'INSTAGRAM');
           const bannerText =
             err ??
             hint ??
-            (showInstagramTroubleshootBanner
-              ? 'Instagram conversations are still empty after refresh. Reconnect Instagram via Facebook, choose the exact Facebook Page linked to this Instagram account, then send a fresh DM to test.'
+            (platformId === 'INSTAGRAM' &&
+            selectedPlatforms.length === 1 &&
+            loadedCount === 0 &&
+            !conversationsLoading
+              ? 'No Instagram messages loaded yet. Tap Retry from Meta below.'
               : null);
           if (!bannerText) return null;
           return (
@@ -3598,19 +3607,30 @@ function InboxPage() {
               </p>
               <div className="flex gap-2">
                 {platformId === 'INSTAGRAM' && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        const res = await api.get('/social/oauth/INSTAGRAM/start');
-                        const url = res?.data?.url;
-                        if (url && typeof url === 'string') openOAuthConnectUrl(url);
-                      } catch (_) {}
-                    }}
-                    className="text-xs px-2 py-1 rounded bg-gradient-to-r from-orange-500 to-pink-500 text-white font-medium hover:opacity-90"
-                  >
-                    Reconnect via Facebook
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void refreshInboxFromServerRef.current({ liveMeta: true, forceMeta: true });
+                      }}
+                      className="text-xs px-2 py-1 rounded border border-sky-300 bg-white text-sky-900 font-medium hover:bg-sky-50"
+                    >
+                      Retry from Meta
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const res = await api.get('/social/oauth/INSTAGRAM/start');
+                          const url = res?.data?.url;
+                          if (url && typeof url === 'string') openOAuthConnectUrl(url);
+                        } catch (_) {}
+                      }}
+                      className="text-xs px-2 py-1 rounded bg-gradient-to-r from-orange-500 to-pink-500 text-white font-medium hover:opacity-90"
+                    >
+                      Reconnect via Facebook
+                    </button>
+                  </>
                 )}
                 {platformId === 'FACEBOOK' && (
                   <button
