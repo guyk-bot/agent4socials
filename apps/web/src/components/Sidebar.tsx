@@ -264,6 +264,11 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                 const platformLabel = PLATFORM_LABELS[platform] ?? platform;
                 const goToAccountDashboard = () => {
                   setSelectedAccount(acc);
+                  // Inbox runs heavy live effects; force hard navigation there so sidebar clicks never stall.
+                  if (pathname === '/dashboard/inbox') {
+                    window.location.href = dashboardUrl;
+                    return;
+                  }
                   router.push(dashboardUrl);
                 };
                 return (
