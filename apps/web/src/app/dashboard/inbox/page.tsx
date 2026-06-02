@@ -925,6 +925,8 @@ function InboxPage() {
   const commentsStableRef = useRef<PostComment[]>([]);
   const conversationsStableRef = useRef<Array<Conversation & { platform?: string; messageAccountId?: string }>>([]);
   const inboxRefreshInFlightRef = useRef(false);
+  /** Clears stuck "Checking Meta…" if a manual retry hangs on bootstrap or comment sync. */
+  const instagramRefreshSafetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const profileEnrichInFlightRef = useRef<Set<string>>(new Set());
   // Stable ref so effects that call appData setters don't list appData as a dep
   // (which would cause infinite re-run loops whenever context state updates).
@@ -2334,47 +2336,69 @@ function InboxPage() {
       if (inboxRefreshInFlightRef.current && !opts?.forceUnlock) return;
       inboxRefreshInFlightRef.current = false;
       inboxRefreshInFlightRef.current = true;
-      if (opts?.forceMeta) setInstagramRefreshLoading(true);
+      const manualMetaRetry = opts?.forceMeta === true && opts?.liveMeta === true;
+      const metaConvTimeout = manualMetaRetry ? 45_000 : 90_000;
+      const showIgRetrySpinner = manualMetaRetry && opts?.forceUnlock === true;
+      if (showIgRetrySpinner) {
+        setInstagramRefreshLoading(true);
+        if (instagramRefreshSafetyTimerRef.current) {
+          clearTimeout(instagramRefreshSafetyTimerRef.current);
+        }
+        instagramRefreshSafetyTimerRef.current = setTimeout(() => {
+          instagramRefreshSafetyTimerRef.current = null;
+          setInstagramRefreshLoading(false);
+          inboxRefreshInFlightRef.current = false;
+        }, 50_000);
+      }
       try {
-        const boot = await api.get<{
-          commentsByAccountId?: Record<string, PostComment[]>;
-          conversationsByAccountId?: Record<string, Conversation[]>;
-        }>('/inbox/bootstrap', { timeout: 60_000 });
-
         const commentRows: PostComment[] = [];
-        const convRows: Array<Conversation & { platform: string; messageAccountId: string }> = [];
-        for (const acc of accs) {
-          const cs = boot.data?.commentsByAccountId?.[acc.id] ?? [];
-          commentRows.push(
-            ...cs.map((c) => ({ ...c, accountId: c.accountId ?? acc.id, platform: c.platform ?? acc.platform }))
-          );
-          const cv = boot.data?.conversationsByAccountId?.[acc.id] ?? [];
-          for (const c of cv) {
-            convRows.push({
-              ...c,
-              platform: acc.platform,
-              messageAccountId: acc.id,
-            });
-          }
-        }
-        if (commentRows.length > 0) {
-          applyCommentsToUiRef.current(commentRows);
-          for (const acc of accs) {
-            const perAcc = commentsStableRef.current.filter((c) => c.accountId === acc.id);
-            if (perAcc.length) appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
-          }
-        } else {
-          setCommentsLoading(false);
-        }
-        if (convRows.length > 0) {
-          applyConversationsToUiRef.current(convRows);
-          for (const acc of accs) {
-            const perAcc = conversationsStableRef.current.filter((c) => c.messageAccountId === acc.id);
-            if (perAcc.length) appDataRef.current?.setConversationsForAccount(acc.id, perAcc);
-          }
-        }
+        let convRows: Array<Conversation & { platform: string; messageAccountId: string }> = [];
 
-        await refreshAllPlatformCommentsRef.current({ live: true });
+        if (!manualMetaRetry) {
+          const boot = await api.get<{
+            commentsByAccountId?: Record<string, PostComment[]>;
+            conversationsByAccountId?: Record<string, Conversation[]>;
+          }>('/inbox/bootstrap', { timeout: 60_000 });
+
+          for (const acc of accs) {
+            const cs = boot.data?.commentsByAccountId?.[acc.id] ?? [];
+            commentRows.push(
+              ...cs.map((c) => ({ ...c, accountId: c.accountId ?? acc.id, platform: c.platform ?? acc.platform }))
+            );
+            const cv = boot.data?.conversationsByAccountId?.[acc.id] ?? [];
+            for (const c of cv) {
+              convRows.push({
+                ...c,
+                platform: acc.platform,
+                messageAccountId: acc.id,
+              });
+            }
+          }
+          if (commentRows.length > 0) {
+            applyCommentsToUiRef.current(commentRows);
+            for (const acc of accs) {
+              const perAcc = commentsStableRef.current.filter((c) => c.accountId === acc.id);
+              if (perAcc.length) appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
+            }
+          } else {
+            setCommentsLoading(false);
+          }
+          if (convRows.length > 0) {
+            applyConversationsToUiRef.current(convRows);
+            for (const acc of accs) {
+              const perAcc = conversationsStableRef.current.filter((c) => c.messageAccountId === acc.id);
+              if (perAcc.length) appDataRef.current?.setConversationsForAccount(acc.id, perAcc);
+            }
+          }
+
+          await refreshAllPlatformCommentsRef.current({ live: true });
+        } else {
+          convRows = conversationsStableRef.current.map((c) => ({
+            ...c,
+            platform: (c as Conversation & { platform?: string }).platform ?? 'UNKNOWN',
+            messageAccountId: c.messageAccountId,
+          }));
+        }
 
         if (opts?.liveMeta && user?.id) {
           const metaAccounts = accs.filter(
@@ -2431,7 +2455,7 @@ function InboxPage() {
                   error?: string;
                   hint?: string;
                   emptyHint?: string;
-                }>(`/social/accounts/${acc.id}/conversations?${metaQuery}`, { timeout: 90_000 });
+                }>(`/social/accounts/${acc.id}/conversations?${metaQuery}`, { timeout: metaConvTimeout });
                 let enriched = convRes.data?.conversations ?? [];
                 let errorText = typeof convRes.data?.error === 'string' ? convRes.data.error.trim() : '';
                 let hintText = typeof convRes.data?.hint === 'string' ? convRes.data.hint.trim() : '';
@@ -2447,7 +2471,7 @@ function InboxPage() {
                       emptyHint?: string;
                     }>(
                       `/social/accounts/${fbPageAccount.id}/conversations?instagramOnly=1&${metaQuery}`,
-                      { timeout: 90_000 }
+                      { timeout: metaConvTimeout }
                     );
                     const pageIg = pageIgRes.data?.conversations ?? [];
                     if (pageIg.length > 0) {
@@ -2487,7 +2511,7 @@ function InboxPage() {
               try {
                 const convRes = await api.get<{ conversations?: Conversation[] }>(
                   `/social/accounts/${fbPageAccount.id}/conversations?${metaQuery}`,
-                  { timeout: 90_000 }
+                  { timeout: metaConvTimeout }
                 );
                 const enriched = convRes.data?.conversations ?? [];
                 mergeConvRows(enriched, 'FACEBOOK', fbPageAccount.id);
@@ -2543,6 +2567,10 @@ function InboxPage() {
         }
       } finally {
         inboxRefreshInFlightRef.current = false;
+        if (instagramRefreshSafetyTimerRef.current) {
+          clearTimeout(instagramRefreshSafetyTimerRef.current);
+          instagramRefreshSafetyTimerRef.current = null;
+        }
         setInstagramRefreshLoading(false);
         const uid = user?.id;
         if (uid) {
@@ -3068,7 +3096,7 @@ function InboxPage() {
     setSelectedComment(null);
     setAiReplyError(null);
     if (platformId === 'INSTAGRAM' || platformId === 'FACEBOOK') {
-      void refreshInboxFromServerRef.current({ liveMeta: true, forceMeta: true });
+      void refreshInboxFromServerRef.current({ liveMeta: true, forceMeta: true, forceUnlock: true });
     }
   };
 
