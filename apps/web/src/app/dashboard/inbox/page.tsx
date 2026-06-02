@@ -2326,7 +2326,7 @@ function InboxPage() {
   refreshAllPlatformCommentsRef.current = refreshAllPlatformComments;
 
   const refreshInboxFromServer = useCallback(
-    async (opts?: { liveMeta?: boolean }) => {
+    async (opts?: { liveMeta?: boolean; forceMeta?: boolean }) => {
       const accs = effectiveAccountsRef.current;
       if (!user?.id || accs.length === 0 || inboxRefreshInFlightRef.current) return;
       inboxRefreshInFlightRef.current = true;
@@ -2378,25 +2378,32 @@ function InboxPage() {
           let mergedConvRows = [...convRows];
           const nextPlatformErrors: Record<string, string> = {};
           const nextPlatformHints: Record<string, string> = {};
-          const lightMetaAllowed = canRunInboxLiveRefresh(
-            'meta-conversations',
-            user.id,
-            INBOX_LIGHT_META_SYNC_MS
-          );
+          const lightMetaAllowed =
+            opts?.forceMeta === true ||
+            canRunInboxLiveRefresh('meta-conversations', user.id, INBOX_LIGHT_META_SYNC_MS);
           if (lightMetaAllowed) {
             for (const acc of metaAccounts) {
               try {
-                const convRes = await api.get<{ conversations?: Conversation[]; error?: string; hint?: string }>(
+                const convRes = await api.get<{
+                  conversations?: Conversation[];
+                  error?: string;
+                  hint?: string;
+                  emptyHint?: string;
+                }>(
                   `/social/accounts/${acc.id}/conversations?badgePoll=1&minimalEnrich=1`,
                   { timeout: 90_000 }
                 );
                 const enriched = convRes.data?.conversations ?? [];
                 const errorText = typeof convRes.data?.error === 'string' ? convRes.data.error.trim() : '';
                 const hintText = typeof convRes.data?.hint === 'string' ? convRes.data.hint.trim() : '';
+                const emptyHintText =
+                  typeof convRes.data?.emptyHint === 'string' ? convRes.data.emptyHint.trim() : '';
                 if (errorText) {
                   nextPlatformErrors[acc.platform] = errorText;
                 } else if (hintText) {
                   nextPlatformHints[acc.platform] = hintText;
+                } else if (emptyHintText && enriched.length === 0) {
+                  nextPlatformHints[acc.platform] = emptyHintText;
                 } else {
                   delete nextPlatformErrors[acc.platform];
                   delete nextPlatformHints[acc.platform];
@@ -2418,7 +2425,9 @@ function InboxPage() {
                 /* keep bootstrap data for this account */
               }
             }
-            markInboxLiveRefresh('meta-conversations', user.id);
+            if (opts?.forceMeta !== true) {
+              markInboxLiveRefresh('meta-conversations', user.id);
+            }
           }
           setConversationsErrorsByPlatform(nextPlatformErrors);
           setConversationsHintsByPlatform(nextPlatformHints);
@@ -2939,6 +2948,9 @@ function InboxPage() {
     setSelectedConversationId(null);
     setSelectedComment(null);
     setAiReplyError(null);
+    if (platformId === 'INSTAGRAM' || platformId === 'FACEBOOK') {
+      void refreshInboxFromServerRef.current({ liveMeta: true, forceMeta: true });
+    }
   };
 
   const renderSidebarList = () => {
