@@ -113,10 +113,6 @@ export async function POST(request: NextRequest) {
       status: 'connected',
     },
   });
-  await prisma.socialAccount.deleteMany({
-    where: { userId, platform: 'FACEBOOK', platformUserId: { not: page.id } },
-  });
-
   // Auto-connect linked Instagram if this Page has an Instagram Business account. Use the same Page token for IG API calls.
   if (instagramId) {
     let igUsername = 'Instagram';
@@ -158,9 +154,6 @@ export async function POST(request: NextRequest) {
         credentialsJson: { linkedPageId: page.id },
       },
     });
-    await prisma.socialAccount.deleteMany({
-      where: { userId, platform: 'INSTAGRAM', platformUserId: { not: instagramId } },
-    });
   }
   await prisma.pendingConnection.delete({ where: { id: pendingId } }).catch(() => {});
 
@@ -177,14 +170,12 @@ export async function POST(request: NextRequest) {
 
   scheduleInboxWarmForUser(userId);
 
-  const preferIg = Boolean(igAccount?.id);
-  const connectAccount = preferIg ? igAccount : fbAccount;
-  const redirect = connectAccount?.id
+  const redirect = fbAccount?.id
     ? buildPostConnectDashboardPath(
-        connectAccount.id,
-        preferIg ? 'INSTAGRAM' : 'FACEBOOK',
-        connectAccount.username,
-        connectAccount.profilePicture
+        fbAccount.id,
+        'FACEBOOK',
+        fbAccount.username,
+        fbAccount.profilePicture
       )
     : '/dashboard';
 

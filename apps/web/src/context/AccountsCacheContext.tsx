@@ -2,6 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { BrandAccountMovePrompt } from '@/components/account/BrandAccountMoveModal';
+import { platformAllowsMultipleConnects } from '@/lib/brand-platform-connect';
 
 type CachedAccount = { id: string; platform: string; username?: string; profilePicture?: string | null; [key: string]: unknown };
 
@@ -196,13 +197,18 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       postConnectBrandCheckDoneRef.current = checkKey;
       const mappedBrandId = accountBrandMap[accountId] ?? DEFAULT_BRAND_ID;
       if (mappedBrandId !== activeBrandId) {
-        const fromBrand = brands.find((b) => b.id === mappedBrandId);
-        setBrandMovePrompt({
-          accountId,
-          platform: account.platform,
-          username: typeof account.username === 'string' ? account.username : undefined,
-          fromBrandName: fromBrand?.name ?? 'another brand',
-        });
+        if (!platformAllowsMultipleConnects(account.platform)) {
+          const fromBrand = brands.find((b) => b.id === mappedBrandId);
+          setBrandMovePrompt({
+            accountId,
+            platform: account.platform,
+            username: typeof account.username === 'string' ? account.username : undefined,
+            fromBrandName: fromBrand?.name ?? 'another brand',
+          });
+          return;
+        }
+        // Same Page/account on another brand: assign here so a second Page can be added via the picker.
+        setAccountBrandMap((prev) => ({ ...prev, [accountId]: activeBrandId }));
         return;
       }
       setAccountBrandMap((prev) => {
@@ -331,6 +337,10 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       if (!account) return false;
       const mappedBrandId = accountBrandMap[accountId] ?? DEFAULT_BRAND_ID;
       if (mappedBrandId === activeBrandId) return false;
+      if (platformAllowsMultipleConnects(account.platform)) {
+        setAccountBrandMap((prev) => ({ ...prev, [accountId]: activeBrandId }));
+        return false;
+      }
       const fromBrand = brands.find((b) => b.id === mappedBrandId);
       setBrandMovePrompt({
         accountId,
@@ -345,6 +355,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
 
   const maybePromptBrandMoveForPlatform = useCallback(
     (platform: string): boolean => {
+      if (platformAllowsMultipleConnects(platform)) return false;
       const norm = platform.toUpperCase();
       const matches = allCachedAccounts.filter((a) => a.platform === norm);
       if (matches.length === 0) return false;

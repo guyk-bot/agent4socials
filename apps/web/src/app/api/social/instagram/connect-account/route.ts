@@ -153,10 +153,6 @@ export async function POST(request: NextRequest) {
       credentialsJson: igCredentials,
     },
   });
-  await prisma.socialAccount.deleteMany({
-    where: { userId, platform: 'INSTAGRAM', platformUserId: { not: accountId } },
-  });
-
   if (pageId) {
     await prisma.socialAccount.upsert({
       where: {
@@ -184,9 +180,6 @@ export async function POST(request: NextRequest) {
         expiresAt,
         status: 'connected',
       },
-    });
-    await prisma.socialAccount.deleteMany({
-      where: { userId, platform: 'FACEBOOK', platformUserId: { not: pageId } },
     });
   }
 

@@ -864,9 +864,6 @@ export async function GET(
             connectedAt: new Date(),
           },
         });
-        await prisma.socialAccount.deleteMany({
-          where: { userId, platform: 'FACEBOOK', platformUserId: { not: firstPage.id } },
-        });
         const igId = (firstPage as { instagram_business_account_id?: string }).instagram_business_account_id;
         if (igId) {
           let igUsername = 'Instagram';
@@ -907,9 +904,6 @@ export async function GET(
               connectedAt: new Date(),
               credentialsJson: { loginMethod: 'facebook_login' as const, linkedPageId: firstPage.id },
             },
-          });
-          await prisma.socialAccount.deleteMany({
-            where: { userId, platform: 'INSTAGRAM', platformUserId: { not: igId } },
           });
         }
         const fbAccount = await prisma.socialAccount.findFirst({
@@ -1003,9 +997,6 @@ export async function GET(
             connectedAt: new Date(),
           },
         });
-        await prisma.socialAccount.deleteMany({
-          where: { userId, platform: 'FACEBOOK', platformUserId: { not: firstPage.id } },
-        });
         const igId = firstPage.instagram_business_account_id;
         if (igId) {
           let igUsername = 'Instagram';
@@ -1046,9 +1037,6 @@ export async function GET(
               connectedAt: new Date(),
               credentialsJson: { loginMethod: 'facebook_login' as const, linkedPageId: firstPage.id },
             },
-          });
-          await prisma.socialAccount.deleteMany({
-            where: { userId, platform: 'INSTAGRAM', platformUserId: { not: igId } },
           });
         }
         const fbAccount = await prisma.socialAccount.findFirst({
@@ -1138,9 +1126,6 @@ export async function GET(
           credentialsJson: fbLoginCreds,
         },
       });
-      await prisma.socialAccount.deleteMany({
-        where: { userId, platform: 'INSTAGRAM', platformUserId: { not: first.id } },
-      });
       if (linkedPage) {
         await prisma.socialAccount.upsert({
           where: {
@@ -1169,9 +1154,6 @@ export async function GET(
             firstConnectedAt: new Date(),
             connectedAt: new Date(),
           },
-        });
-        await prisma.socialAccount.deleteMany({
-          where: { userId, platform: 'FACEBOOK', platformUserId: { not: linkedPage.id } },
         });
       }
       const igAccount = await prisma.socialAccount.findFirst({
@@ -1348,9 +1330,11 @@ export async function GET(
         ...(credentialsJsonToSet && { credentialsJson: credentialsJsonToSet }),
       },
     });
-    await prisma.socialAccount.deleteMany({
-      where: { userId, platform: plat, platformUserId: { not: tokenData.platformUserId } },
-    });
+    if (plat !== 'FACEBOOK' && plat !== 'INSTAGRAM') {
+      await prisma.socialAccount.deleteMany({
+        where: { userId, platform: plat, platformUserId: { not: tokenData.platformUserId } },
+      });
+    }
     // Auto-connect linked account: Instagram via Facebook → also create Facebook Page; Facebook → also create linked Instagram
     if (plat === 'INSTAGRAM' && tokenData.linkedPage) {
       await prisma.socialAccount.upsert({
@@ -1384,9 +1368,6 @@ export async function GET(
           firstConnectedAt: new Date(),
           connectedAt: new Date(),
         },
-      });
-      await prisma.socialAccount.deleteMany({
-        where: { userId, platform: 'FACEBOOK', platformUserId: { not: tokenData.linkedPage.id } },
       });
     }
     if (plat === 'FACEBOOK' && tokenData.linkedInstagram) {
@@ -1424,9 +1405,6 @@ export async function GET(
           connectedAt: new Date(),
           credentialsJson: fbLinkedIgCreds,
         },
-      });
-      await prisma.socialAccount.deleteMany({
-        where: { userId, platform: 'INSTAGRAM', platformUserId: { not: tokenData.linkedInstagram.id } },
       });
     }
   } catch (e) {

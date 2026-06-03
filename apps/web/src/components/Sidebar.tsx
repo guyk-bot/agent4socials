@@ -23,6 +23,7 @@ import { useTheme } from '@/context/ThemeContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
 import { avatarDisplayUrl } from '@/lib/avatar-display-url';
+import { platformAllowsMultipleConnects } from '@/lib/brand-platform-connect';
 
 const PLATFORM_LABELS: Record<string, string> = {
   INSTAGRAM: 'Instagram',
@@ -327,6 +328,22 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
                   </div>
                 );
               })}
+              {platformAllowsMultipleConnects(platform) ? (
+                <Link
+                  href={`/dashboard?connect=${platform.toLowerCase()}`}
+                  onClick={() => setSelectedPlatformForConnect(platform)}
+                  className={`w-full flex items-center gap-3 px-3 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors border border-transparent border-dashed border-neutral-300/80 dark:border-neutral-600 hover:bg-neutral-100/80 dark:hover:border-neutral-700`}
+                  title={`Connect another ${PLATFORM_LABELS[platform] ?? platform} Page`}
+                >
+                  <div className="w-10 h-10 flex items-center justify-center shrink-0 opacity-70">
+                    {PLATFORM_ICON[platform]}
+                  </div>
+                  <span className="truncate flex-1 font-medium text-neutral-500">Add another Page</span>
+                  <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center shrink-0">
+                    <Plus size={14} className="text-neutral-600 dark:text-neutral-300" />
+                  </div>
+                </Link>
+              ) : null}
             </div>
           );
         })}

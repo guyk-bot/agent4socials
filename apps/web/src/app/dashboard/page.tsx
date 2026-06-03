@@ -365,7 +365,6 @@ export default function DashboardPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { openSignup } = useAuthModal();
-  const accountsCache = useAccountsCache();
   const {
     cachedAccounts,
     setCachedAccounts,
@@ -373,7 +372,7 @@ export default function DashboardPage() {
     setAccountsLoadError,
     maybePromptBrandMove,
     maybePromptBrandMoveForPlatform,
-  } = accountsCache ?? {
+  } = useAccountsCache() ?? {
     cachedAccounts: [],
     setCachedAccounts: () => {},
     accountsLoadError: null,
@@ -654,24 +653,6 @@ export default function DashboardPage() {
     ? connectParam.toUpperCase()
     : null;
   const showConnectView = selectedPlatformForConnect || connectFromUrl;
-  const connectBrandCheckRef = React.useRef('');
-
-  useEffect(() => {
-    const platform = selectedPlatformForConnect || connectFromUrl;
-    if (!platform) return;
-    const key = `${platform}:${accountsCache?.activeBrandId ?? ''}`;
-    if (connectBrandCheckRef.current === key) return;
-    if (maybePromptBrandMoveForPlatform(platform)) {
-      connectBrandCheckRef.current = key;
-    }
-  }, [
-    showConnectView,
-    selectedPlatformForConnect,
-    connectFromUrl,
-    maybePromptBrandMoveForPlatform,
-    accountsCache?.activeBrandId,
-    accountsCache?.allCachedAccounts,
-  ]);
 
   const accountIdsKey = accounts.map((a) => a.id).sort().join(',');
 
@@ -1823,9 +1804,6 @@ export default function DashboardPage() {
       return res?.data?.message ?? null;
     };
     setAlertMessage(null);
-    if (maybePromptBrandMoveForPlatform(platform)) {
-      return;
-    }
     const oauthPopup = prepareOAuthConnectPopup();
     setConnectingPlatform(platform);
     setConnectingMethod(method);
