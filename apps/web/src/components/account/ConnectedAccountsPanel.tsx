@@ -273,6 +273,11 @@ export function ConnectedAccountsPanel() {
                           );
                           const url = res?.data?.url;
                           if (url && typeof url === 'string') {
+                            if (acc.platform === 'TWITTER') {
+                              closeOAuthConnectPopup(oauthPopup);
+                              window.location.assign(url);
+                              return;
+                            }
                             const opened = navigateOAuthConnect(url, oauthPopup);
                             if (!opened.opened) {
                               alert('Could not open sign-in. Allow pop-ups for agent4socials.com or try Reconnect again.');

@@ -19,6 +19,10 @@ import {
   buildLinkedInOAuthAuthorizationUrl,
 } from '@/lib/linkedin/build-oauth-authorization-url';
 import { prepareLinkedInOAuthConnect } from '@/lib/linkedin/prepare-oauth-connect';
+import {
+  buildTwitterOAuth2AuthorizeUrl,
+  createTwitterOAuthPkce,
+} from '@/lib/twitter/oauth-pkce';
 import type { LinkedInConnectMethod } from '@/lib/linkedin/oauth-scopes';
 
 /** OAuth start must never be statically cached. */
@@ -217,8 +221,28 @@ export async function GET(
       const apiKey = process.env.TWITTER_API_KEY?.trim();
       const apiSecret = process.env.TWITTER_API_SECRET?.trim();
       if (twitterClientId) {
-        // OAuth 2.0: one screen, then Bearer token with dm.read, dm.write, tweet.read, users.read.
-        // No branch here; fall through to getOAuthUrl(plat, userId, method) below.
+        const { verifier, challenge } = createTwitterOAuthPkce();
+        await prisma.pendingConnection.deleteMany({
+          where: { userId: oauthStateKey, platform: 'TWITTER' },
+        });
+        await prisma.pendingConnection.create({
+          data: {
+            userId: oauthStateKey,
+            platform: 'TWITTER',
+            payload: { pkceVerifier: verifier, oauthVersion: '2' },
+            expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+          },
+        });
+        const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(
+          /\/+$/,
+          ''
+        );
+        const url = buildTwitterOAuth2AuthorizeUrl({
+          userId: oauthStateKey,
+          codeChallenge: challenge,
+          baseUrl,
+        });
+        return NextResponse.json({ url });
       } else if (apiKey && apiSecret) {
         // Fallback: OAuth 1.0a when only API Key/Secret are set.
         const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');

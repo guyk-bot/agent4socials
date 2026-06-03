@@ -1872,6 +1872,11 @@ export default function DashboardPage() {
       }
       const url = data?.url;
       if (url && typeof url === 'string') {
+        if (platform.toLowerCase() === 'twitter') {
+          closeOAuthConnectPopup(oauthPopup);
+          window.location.assign(url);
+          return;
+        }
         const opened = navigateOAuthConnect(url, oauthPopup);
         if (!opened.opened) {
           setAlertMessage(

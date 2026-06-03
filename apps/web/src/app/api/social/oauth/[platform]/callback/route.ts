@@ -223,7 +223,8 @@ async function exchangeCodeInstagramLogin(code: string, callbackUrl: string): Pr
 async function exchangeCode(
   platform: Platform,
   code: string,
-  callbackUrl: string
+  callbackUrl: string,
+  options?: { twitterCodeVerifier?: string }
 ): Promise<TokenResult> {
   switch (platform) {
     case 'INSTAGRAM': {
@@ -487,11 +488,15 @@ async function exchangeCode(
       };
     }
     case 'TWITTER': {
+      const codeVerifier = options?.twitterCodeVerifier?.trim();
+      if (!codeVerifier) {
+        throw new Error('X sign-in session expired. Close this tab, return to Agent4Socials, and click Connect X again.');
+      }
       const r = await axios.post('https://api.twitter.com/2/oauth2/token', new URLSearchParams({
         code,
         grant_type: 'authorization_code',
         redirect_uri: callbackUrl,
-        code_verifier: 'challenge',
+        code_verifier: codeVerifier,
       }).toString(), {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         auth: {
@@ -800,6 +805,18 @@ export async function GET(
   try {
     if (plat === 'INSTAGRAM' && isInstagramLogin) {
       tokenData = await exchangeCodeInstagramLogin(code, callbackUrl);
+    } else if (plat === 'TWITTER') {
+      const pending = await prisma.pendingConnection.findFirst({
+        where: { userId, platform: 'TWITTER' },
+        orderBy: { createdAt: 'desc' },
+      });
+      const pendingPayload = (pending?.payload ?? {}) as { pkceVerifier?: string };
+      tokenData = await exchangeCode(plat, code, callbackUrl, {
+        twitterCodeVerifier: pendingPayload.pkceVerifier,
+      });
+      if (pending?.id) {
+        await prisma.pendingConnection.delete({ where: { id: pending.id } }).catch(() => {});
+      }
     } else {
       tokenData = await exchangeCode(plat, code, callbackUrl);
     }
