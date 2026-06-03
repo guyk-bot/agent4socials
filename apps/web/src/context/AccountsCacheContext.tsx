@@ -4,10 +4,12 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import type { BrandAccountMovePrompt } from '@/components/account/BrandAccountMoveModal';
 import { skipBrandMovePromptBeforeConnect } from '@/lib/brand-platform-connect';
 import {
+  ACCOUNT_BRAND_MAP_KEY,
   buildNextBrandMapForMove,
   isBrandMoveResolvedFromUrl,
   isOAuthConnectingFromUrl,
   persistAccountBrandMapSync,
+  readAccountBrandMapFromStorage,
   readPostConnectAccountIdFromUrl,
 } from '@/lib/brand-account-move';
 
