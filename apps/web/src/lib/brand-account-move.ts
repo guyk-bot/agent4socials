@@ -6,6 +6,22 @@ export const ACCOUNT_BRAND_MAP_KEY = 'agent4socials_account_brand_map_v1';
 
 export const DEFAULT_BRAND_ID = 'brand-default';
 
+/** Brand workspace that owns this account in the client map (unset = default brand). */
+export function accountMappedBrandId(
+  map: Record<string, string>,
+  accountId: string
+): string {
+  return map[accountId] ?? DEFAULT_BRAND_ID;
+}
+
+export function isAccountMappedToOtherBrand(
+  map: Record<string, string>,
+  accountId: string,
+  activeBrandId: string
+): boolean {
+  return accountMappedBrandId(map, accountId) !== activeBrandId;
+}
+
 export function readAccountBrandMapFromStorage(): Record<string, string> {
   if (typeof window === 'undefined') return {};
   try {

@@ -68,30 +68,31 @@ function InstagramSelectContent() {
         const redirect = res.data.redirect;
         const accountId = parseAccountIdFromDashboardRedirect(redirect);
         const username = selected.instagramUsername ?? 'Instagram';
+        const optimisticRow = {
+          id: accountId!,
+          platform: 'INSTAGRAM',
+          username,
+          profilePicture: selected.instagramPicture ?? null,
+        };
         if (accountId && setCachedAccounts) {
-          let freshList: Array<{ id: string; platform: string; username?: string }> = [];
+          let freshList: Array<{ id: string; platform: string; username?: string; profilePicture?: string | null }> =
+            [];
           try {
             const listRes = await api.get('/social/accounts');
             freshList = Array.isArray(listRes.data) ? listRes.data : [];
-            setCachedAccounts(freshList);
           } catch {
-            setCachedAccounts((prev) =>
-              upsertOptimisticConnectedAccount(prev, {
-                id: accountId,
-                platform: 'INSTAGRAM',
-                username,
-                profilePicture: selected.instagramPicture ?? null,
-              })
-            );
-            freshList = [];
+            // Brand move check still runs below using storage + hint.
           }
+          const withOptimistic = upsertOptimisticConnectedAccount(
+            freshList.length > 0 ? freshList : [],
+            optimisticRow
+          );
+          setCachedAccounts((prev) => upsertOptimisticConnectedAccount(prev, optimisticRow));
           const moved =
-            finishPostConnectBrandAssignment &&
-            freshList.length > 0 &&
-            finishPostConnectBrandAssignment(accountId, freshList, {
+            finishPostConnectBrandAssignment?.(accountId, withOptimistic, {
               platform: 'INSTAGRAM',
               username,
-            });
+            }) ?? false;
           if (moved) {
             try {
               sessionStorage.setItem(PENDING_CONNECT_REDIRECT_KEY, redirect);

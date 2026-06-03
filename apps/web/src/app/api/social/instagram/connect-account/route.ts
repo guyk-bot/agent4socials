@@ -13,6 +13,7 @@ type AccountItem = {
   pageId?: string;
   pageName?: string;
   pagePicture?: string;
+  pageAccessToken?: string;
 };
 
 /**
@@ -60,6 +61,7 @@ export async function POST(request: NextRequest) {
     name?: string;
     picture?: string;
     instagram_business_account_id?: string;
+    access_token?: string;
   }>;
   const account = accountId ? accounts.find((a) => a.id === accountId) : undefined;
   const pageFromPayload = pageId ? pages.find((p) => p.id === pageId) : undefined;
@@ -70,43 +72,49 @@ export async function POST(request: NextRequest) {
   const connectInstagramId = account?.id ?? pageFromPayload?.instagram_business_account_id ?? null;
   const connectPageId = account?.pageId ?? pageFromPayload?.id ?? pageId ?? null;
 
-  // Get the PAGE access token from me/accounts. Insights, posts, and inbox require it.
-  let pageAccessToken: string | null = null;
+  // Prefer Page token from OAuth pending payload (already fetched at login).
+  let pageAccessToken: string | null = account?.pageAccessToken ?? null;
   let resolvedPageId = connectPageId;
   let pageName = account?.pageName ?? pageFromPayload?.name ?? 'Facebook Page';
   let pagePicture: string | null = account?.pagePicture ?? pageFromPayload?.picture ?? null;
   let igUsername = account?.username ?? 'Instagram';
   let igPicture: string | null = account?.profilePicture ?? null;
 
-  try {
-    const pagesRes = await axios.get<{
-      data?: Array<{
-        id: string;
-        name?: string;
-        picture?: { data?: { url?: string } };
-        access_token?: string;
-        instagram_business_account?: { id: string };
-      }>;
-    }>(`${facebookGraphBaseUrl}/me/accounts`, {
-      params: {
-        fields: 'id,name,picture,access_token,instagram_business_account',
-        access_token: payload.accessToken,
-      },
-    });
-    const pagesFromApi = pagesRes.data?.data ?? [];
-    const linkedPage = resolvedPageId
-      ? pagesFromApi.find((p) => p.id === resolvedPageId)
-      : connectInstagramId
-        ? pagesFromApi.find((p) => p.instagram_business_account?.id === connectInstagramId)
-        : undefined;
-    if (linkedPage?.access_token) {
-      pageAccessToken = linkedPage.access_token;
-      resolvedPageId = linkedPage.id;
-      if (linkedPage.name) pageName = linkedPage.name;
-      if (linkedPage.picture?.data?.url) pagePicture = linkedPage.picture.data.url;
+  if (!pageAccessToken && resolvedPageId) {
+    pageAccessToken = pages.find((p) => p.id === resolvedPageId)?.access_token ?? null;
+  }
+
+  if (!pageAccessToken && payload.accessToken) {
+    try {
+      const pagesRes = await axios.get<{
+        data?: Array<{
+          id: string;
+          name?: string;
+          picture?: { data?: { url?: string } };
+          access_token?: string;
+          instagram_business_account?: { id: string };
+        }>;
+      }>(`${facebookGraphBaseUrl}/me/accounts`, {
+        params: {
+          fields: 'id,name,picture,access_token,instagram_business_account',
+          access_token: payload.accessToken,
+        },
+      });
+      const pagesFromApi = pagesRes.data?.data ?? [];
+      const linkedPage = resolvedPageId
+        ? pagesFromApi.find((p) => p.id === resolvedPageId)
+        : connectInstagramId
+          ? pagesFromApi.find((p) => p.instagram_business_account?.id === connectInstagramId)
+          : undefined;
+      if (linkedPage?.access_token) {
+        pageAccessToken = linkedPage.access_token;
+        resolvedPageId = linkedPage.id;
+        if (linkedPage.name) pageName = linkedPage.name;
+        if (linkedPage.picture?.data?.url) pagePicture = linkedPage.picture.data.url;
+      }
+    } catch (e) {
+      console.warn('[Instagram connect-account] me/accounts error:', (e as Error)?.message ?? e);
     }
-  } catch (e) {
-    console.warn('[Instagram connect-account] me/accounts error:', (e as Error)?.message ?? e);
   }
 
   if (!pageAccessToken) {
@@ -120,7 +128,8 @@ export async function POST(request: NextRequest) {
   }
 
   const igIdToConnect = connectInstagramId ?? null;
-  if (igIdToConnect) {
+  const needsIgProfileRefresh = !account?.username || !account?.profilePicture;
+  if (igIdToConnect && needsIgProfileRefresh) {
     try {
       const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
         `${facebookGraphBaseUrl}/${igIdToConnect}`,
@@ -138,66 +147,68 @@ export async function POST(request: NextRequest) {
     linkedPageId: resolvedPageId ?? null,
   };
 
-  if (igIdToConnect) {
-    await prisma.socialAccount.upsert({
-      where: {
-        userId_platform_platformUserId: {
-          userId,
-          platform: 'INSTAGRAM',
-          platformUserId: igIdToConnect,
-        },
-      },
-      update: {
-        accessToken: pageAccessToken,
-        username: igUsername,
-        profilePicture: igPicture,
-        expiresAt,
-        status: 'connected',
-        credentialsJson: igCredentials,
-      },
-      create: {
-        userId,
-        platform: 'INSTAGRAM',
-        platformUserId: igIdToConnect,
-        username: igUsername,
-        profilePicture: igPicture,
-        accessToken: pageAccessToken,
-        refreshToken: null,
-        expiresAt,
-        status: 'connected',
-        credentialsJson: igCredentials,
-      },
-    });
-  }
-  if (resolvedPageId) {
-    await prisma.socialAccount.upsert({
-      where: {
-        userId_platform_platformUserId: {
-          userId,
-          platform: 'FACEBOOK',
-          platformUserId: resolvedPageId,
-        },
-      },
-      update: {
-        accessToken: pageAccessToken,
-        username: pageName,
-        profilePicture: pagePicture,
-        expiresAt,
-        status: 'connected',
-      },
-      create: {
-        userId,
-        platform: 'FACEBOOK',
-        platformUserId: resolvedPageId,
-        username: pageName,
-        profilePicture: pagePicture,
-        accessToken: pageAccessToken,
-        refreshToken: null,
-        expiresAt,
-        status: 'connected',
-      },
-    });
-  }
+  await Promise.all([
+    igIdToConnect
+      ? prisma.socialAccount.upsert({
+          where: {
+            userId_platform_platformUserId: {
+              userId,
+              platform: 'INSTAGRAM',
+              platformUserId: igIdToConnect,
+            },
+          },
+          update: {
+            accessToken: pageAccessToken,
+            username: igUsername,
+            profilePicture: igPicture,
+            expiresAt,
+            status: 'connected',
+            credentialsJson: igCredentials,
+          },
+          create: {
+            userId,
+            platform: 'INSTAGRAM',
+            platformUserId: igIdToConnect,
+            username: igUsername,
+            profilePicture: igPicture,
+            accessToken: pageAccessToken,
+            refreshToken: null,
+            expiresAt,
+            status: 'connected',
+            credentialsJson: igCredentials,
+          },
+        })
+      : Promise.resolve(),
+    resolvedPageId
+      ? prisma.socialAccount.upsert({
+          where: {
+            userId_platform_platformUserId: {
+              userId,
+              platform: 'FACEBOOK',
+              platformUserId: resolvedPageId,
+            },
+          },
+          update: {
+            accessToken: pageAccessToken,
+            username: pageName,
+            profilePicture: pagePicture,
+            expiresAt,
+            status: 'connected',
+          },
+          create: {
+            userId,
+            platform: 'FACEBOOK',
+            platformUserId: resolvedPageId,
+            username: pageName,
+            profilePicture: pagePicture,
+            accessToken: pageAccessToken,
+            refreshToken: null,
+            expiresAt,
+            status: 'connected',
+          },
+        })
+      : Promise.resolve(),
+  ]);
 
   await prisma.pendingConnection.delete({ where: { id: pendingId } }).catch(() => {});
 
