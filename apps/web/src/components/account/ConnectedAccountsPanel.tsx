@@ -258,6 +258,13 @@ export function ConnectedAccountsPanel() {
                                 ? 'personal'
                                 : undefined;
                           const reconnectMethod = liMethod ?? tiktokMethod;
+                          if (acc.platform === 'LINKEDIN' && reconnectMethod) {
+                            const returnTo = encodeURIComponent('/dashboard/account#connected-accounts');
+                            window.location.assign(
+                              `/connect/linkedin/consent?method=${encodeURIComponent(reconnectMethod)}&returnTo=${returnTo}`
+                            );
+                            return;
+                          }
                           const qs =
                             reconnectMethod != null
                               ? `?method=${encodeURIComponent(reconnectMethod)}`

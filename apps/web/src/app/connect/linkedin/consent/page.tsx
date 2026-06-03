@@ -3,8 +3,7 @@
 import React, { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { LinkedInOAuthConsentScreen } from '@/components/dashboard/LinkedInOAuthConsentScreen';
-import { LinkedInConsentSignInStep } from '@/components/dashboard/LinkedInConsentSignInStep';
-import { startLinkedInConnectAfterConsent } from '@/lib/linkedin/start-oauth';
+import { startLinkedInConnectAfterConsent, startLinkedInOAuth } from '@/lib/linkedin/start-oauth';
 import { avatarDisplayUrl } from '@/lib/avatar-display-url';
 import api from '@/lib/api';
 import type { LinkedInConnectMethod } from '@/lib/linkedin/oauth-scopes';
@@ -64,6 +63,18 @@ function LinkedInConsentContent() {
     router.replace(`/connect/linkedin/consent?method=${method}&returnTo=${returnToEnc}`);
   };
 
+  const handleAllowBeforeOAuth = async () => {
+    setError(null);
+    setAllowing(true);
+    const result = await startLinkedInOAuth(method);
+    if (result.ok) {
+      window.location.href = result.url;
+      return;
+    }
+    setAllowing(false);
+    setError(result.message);
+  };
+
   const handleAllow = async () => {
     if (!previewId) return;
     setError(null);
@@ -79,7 +90,14 @@ function LinkedInConsentContent() {
 
   if (!previewId) {
     return (
-      <LinkedInConsentSignInStep method={method} returnTo={returnTo} onCancel={goBack} />
+      <LinkedInOAuthConsentScreen
+        method={method}
+        redirectDisplayUrl="linkedin.com"
+        allowing={allowing}
+        errorMessage={error}
+        onCancel={goBack}
+        onAllow={() => void handleAllowBeforeOAuth()}
+      />
     );
   }
 

@@ -17,6 +17,8 @@ type Props = {
   method: LinkedInConnectMethod;
   memberAvatarUrl?: string;
   memberName?: string | null;
+  /** Footer line: where the user goes after Allow (default: Agent4Socials). */
+  redirectDisplayUrl?: string;
   onCancel: () => void;
   onAllow: () => void;
   onNotYou?: () => void;
@@ -31,6 +33,7 @@ export function LinkedInOAuthConsentScreen({
   method,
   memberAvatarUrl,
   memberName,
+  redirectDisplayUrl = LINKEDIN_OAUTH_REDIRECT_DISPLAY_URL,
   onCancel,
   onAllow,
   onNotYou,
@@ -155,7 +158,7 @@ export function LinkedInOAuthConsentScreen({
           <div className="linkedin-oauth-consent-footer px-6 sm:px-8 pb-6 text-center text-xs leading-relaxed border-t border-neutral-100">
             <p>
               You will be redirected to{' '}
-              <span className="break-all">{LINKEDIN_OAUTH_REDIRECT_DISPLAY_URL}</span>
+              <span className="break-all">{redirectDisplayUrl}</span>
             </p>
             <p className="mt-2">
               <Link href="/privacy" className="linkedin-oauth-consent-footer-link hover:underline">

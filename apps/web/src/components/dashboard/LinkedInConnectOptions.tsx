@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Check, Star, Loader2 } from 'lucide-react';
+import React from 'react';
+import { useRouter } from 'next/navigation';
+import { Check, Star } from 'lucide-react';
 import { LinkedinIcon } from '@/components/SocialPlatformIcons';
 import { LINKEDIN_CONNECT_OPTIONS } from '@/lib/linkedin/connect-consent';
-import { startLinkedInOAuth } from '@/lib/linkedin/start-oauth';
 import type { LinkedInConnectMethod } from '@/lib/linkedin/oauth-scopes';
 
 type Props = {
@@ -13,21 +13,13 @@ type Props = {
 };
 
 export default function LinkedInConnectOptions({ connecting, connectError }: Props) {
+  const router = useRouter();
   const personal = LINKEDIN_CONNECT_OPTIONS.personal;
   const page = LINKEDIN_CONNECT_OPTIONS.page;
-  const [busyMethod, setBusyMethod] = useState<LinkedInConnectMethod | null>(null);
-  const [localError, setLocalError] = useState<string | null>(null);
 
-  const startConnect = async (method: LinkedInConnectMethod) => {
-    setLocalError(null);
-    setBusyMethod(method);
-    const result = await startLinkedInOAuth(method);
-    if (result.ok) {
-      window.location.href = result.url;
-      return;
-    }
-    setBusyMethod(null);
-    setLocalError(result.message);
+  const startConnect = (method: LinkedInConnectMethod) => {
+    const returnTo = encodeURIComponent('/dashboard?connect=LINKEDIN');
+    router.push(`/connect/linkedin/consent?method=${method}&returnTo=${returnTo}`);
   };
 
   return (
@@ -40,12 +32,13 @@ export default function LinkedInConnectOptions({ connecting, connectError }: Pro
             </div>
             <h1 className="text-2xl font-bold text-neutral-900">Connect LinkedIn</h1>
             <p className="text-neutral-500 mt-1 max-w-md mx-auto text-sm">
-              Choose personal profile or Company Page, then sign in once at LinkedIn to connect.
+              Choose personal profile or Company Page, review permissions, then continue to LinkedIn
+              to sign in.
             </p>
           </div>
-          {connectError || localError ? (
+          {connectError ? (
             <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 mt-2">
-              {localError ?? connectError}
+              {connectError}
             </div>
           ) : null}
         </div>
@@ -53,8 +46,8 @@ export default function LinkedInConnectOptions({ connecting, connectError }: Pro
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <button
             type="button"
-            onClick={() => void startConnect('personal')}
-            disabled={connecting || Boolean(busyMethod)}
+            onClick={() => startConnect('personal')}
+            disabled={connecting}
             className="connect-option text-left p-5 rounded-2xl border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50/30 transition-all flex flex-col bg-white"
           >
             <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Personal</span>
@@ -69,15 +62,14 @@ export default function LinkedInConnectOptions({ connecting, connectError }: Pro
               ))}
             </ul>
             <div className="mt-4 w-full py-2.5 rounded-xl text-sm font-semibold text-center text-white bg-gradient-to-r from-blue-600 to-blue-800 flex items-center justify-center gap-2 min-h-[40px]">
-              {busyMethod === 'personal' ? <Loader2 size={16} className="animate-spin" /> : null}
               Continue
             </div>
           </button>
 
           <button
             type="button"
-            onClick={() => void startConnect('page')}
-            disabled={connecting || Boolean(busyMethod)}
+            onClick={() => startConnect('page')}
+            disabled={connecting}
             className="connect-option text-left p-5 rounded-2xl border-2 border-blue-300 hover:border-blue-500 hover:bg-blue-50/40 transition-all flex flex-col bg-white relative"
           >
             <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full mb-1 w-fit whitespace-nowrap">
@@ -94,7 +86,6 @@ export default function LinkedInConnectOptions({ connecting, connectError }: Pro
               ))}
             </ul>
             <div className="mt-4 w-full py-2.5 rounded-xl text-sm font-semibold text-center text-white bg-gradient-to-r from-blue-700 to-blue-900 flex items-center justify-center gap-2 min-h-[40px]">
-              {busyMethod === 'page' ? <Loader2 size={16} className="animate-spin" /> : null}
               Continue
             </div>
           </button>

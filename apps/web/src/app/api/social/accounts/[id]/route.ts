@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
+import { revokeLinkedInAccessToken } from '@/lib/linkedin/revoke-access-token';
 
 /** Apply connection-history migration if DB is missing columns (e.g. production never ran migrate deploy). */
 async function ensureConnectionHistoryMigration() {
@@ -26,6 +27,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const disconnectById = async (id: string, userId: string) => {
+    const existing = await prisma.socialAccount.findFirst({
+      where: { id, userId },
+      select: { platform: true, accessToken: true },
+    });
+    if (!existing) return { ok: false as const, notFound: true as const };
+
+    if (existing.platform === 'LINKEDIN' && existing.accessToken?.trim()) {
+      await revokeLinkedInAccessToken(existing.accessToken).catch(() => {});
+    }
+
     const updated = await prisma.socialAccount.updateMany({
       where: { id, userId },
       data: {
