@@ -1,7 +1,7 @@
 import { getSupabaseBrowser } from '@/lib/supabase/client';
 import type { LinkedInConnectMethod } from '@/lib/linkedin/oauth-scopes';
 
-export type LinkedInOAuthStartStep = 'consent';
+export type LinkedInOAuthStartStep = 'identify' | 'consent';
 
 export async function startLinkedInConnectAfterConsent(
   previewId: string,

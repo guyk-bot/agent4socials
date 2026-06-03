@@ -18,6 +18,7 @@ import {
 import {
   buildLinkedInOAuthAuthorizationUrl,
 } from '@/lib/linkedin/build-oauth-authorization-url';
+import { prepareLinkedInOAuthConnect } from '@/lib/linkedin/prepare-oauth-connect';
 import type { LinkedInConnectMethod } from '@/lib/linkedin/oauth-scopes';
 
 /** OAuth start must never be statically cached. */
@@ -284,6 +285,13 @@ export async function GET(
           },
           { status: 503 }
         );
+      }
+    }
+    if (plat === 'LINKEDIN') {
+      const linkedInStep =
+        step === 'identify' ? 'identify' : step === 'consent' ? 'consent' : 'connect';
+      if (linkedInStep === 'identify' || linkedInStep === 'consent') {
+        await prepareLinkedInOAuthConnect(oauthStateKey);
       }
     }
     const url = getOAuthUrl(plat, oauthStateKey, method, step);

@@ -3,7 +3,6 @@
 import React, { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { LinkedInOAuthConsentScreen } from '@/components/dashboard/LinkedInOAuthConsentScreen';
-import { LinkedInConsentSignInStep } from '@/components/dashboard/LinkedInConsentSignInStep';
 import { startLinkedInConnectAfterConsent } from '@/lib/linkedin/start-oauth';
 import { avatarDisplayUrl } from '@/lib/avatar-display-url';
 import api from '@/lib/api';
@@ -64,6 +63,12 @@ function LinkedInConsentContent() {
     router.replace(`/connect/linkedin/consent?method=${method}&returnTo=${returnToEnc}`);
   };
 
+  useEffect(() => {
+    if (!previewId) {
+      router.replace('/dashboard?connect=LINKEDIN');
+    }
+  }, [previewId, router]);
+
   const handleAllow = async () => {
     if (!previewId) return;
     setError(null);
@@ -78,8 +83,11 @@ function LinkedInConsentContent() {
   };
 
   if (!previewId) {
+    router.replace('/dashboard?connect=LINKEDIN');
     return (
-      <LinkedInConsentSignInStep method={method} returnTo={returnTo} onCancel={goBack} />
+      <div className="linkedin-oauth-consent-scope min-h-dvh w-full bg-[#f3f2ef] flex items-center justify-center">
+        <p className="text-sm text-neutral-600">Redirecting to LinkedIn connect…</p>
+      </div>
     );
   }
 
