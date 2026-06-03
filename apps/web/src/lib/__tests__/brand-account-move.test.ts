@@ -53,12 +53,33 @@ describe('resolvePostConnectBrandAction', () => {
   const brandMain = DEFAULT_BRAND_ID;
   const brandGuy = 'brand-guy';
 
-  it('assigns to active brand when the account has no explicit map entry', () => {
+  it('assigns to active brand on first connect when the account has no explicit map entry', () => {
     const action = resolvePostConnectBrandAction({}, 'ig-guy', brandGuy, [
       { id: 'ig-main', platform: 'INSTAGRAM' },
       { id: 'ig-guy', platform: 'INSTAGRAM' },
     ]);
     expect(action).toEqual({ type: 'assign_active' });
+  });
+
+  it('assigns TikTok on first connect without prompting', () => {
+    expect(
+      resolvePostConnectBrandAction({}, 'tt', brandGuy, [{ id: 'tt', platform: 'TIKTOK' }])
+    ).toEqual({ type: 'assign_active' });
+  });
+
+  it('prompts when TikTok is explicitly mapped to the other brand', () => {
+    const map = { tt: brandMain };
+    expect(
+      resolvePostConnectBrandAction(map, 'tt', brandGuy, [{ id: 'tt', platform: 'TIKTOK' }])
+    ).toEqual({ type: 'prompt_move', fromBrandId: brandMain });
+  });
+
+  it('prompts when TikTok is reconnecting from the default brand', () => {
+    expect(
+      resolvePostConnectBrandAction({}, 'tt', brandGuy, [{ id: 'tt', platform: 'TIKTOK' }], {
+        isReconnect: true,
+      })
+    ).toEqual({ type: 'prompt_move', fromBrandId: brandMain });
   });
 
   it('does not prompt when another Instagram is the visible one on the other brand', () => {
@@ -93,12 +114,6 @@ describe('resolvePostConnectBrandAction', () => {
     ])).toEqual({ type: 'prompt_move', fromBrandId: brandMain });
   });
 
-  it('auto-assigns TikTok to the active brand instead of prompting to move', () => {
-    const map = { tt: brandMain };
-    expect(
-      resolvePostConnectBrandAction(map, 'tt', brandGuy, [{ id: 'tt', platform: 'TIKTOK' }])
-    ).toEqual({ type: 'assign_active' });
-  });
 });
 
 describe('countAccountsForBrand', () => {

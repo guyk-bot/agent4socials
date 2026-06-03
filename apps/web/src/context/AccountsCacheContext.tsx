@@ -2,13 +2,13 @@
 
 import React, { useRef, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { BrandAccountMovePrompt } from '@/components/account/BrandAccountMoveModal';
-import { skipBrandMovePromptForPlatform, META_BRAND_SCOPED_PLATFORMS } from '@/lib/brand-platform-connect';
+import { skipBrandMovePromptForPlatform } from '@/lib/brand-platform-connect';
 import {
   ACCOUNT_BRAND_MAP_KEY,
   accountMappedBrandId,
   applyBrandMapUpdatesOnAccountsSync,
   buildNextBrandMapForMove,
-  isAccountMappedToOtherBrand,
+  enumerateKnownBrandIds,
   isAccountVisibleOnBrand,
   isBrandMoveResolvedFromUrl,
   isOAuthConnectingFromUrl,
@@ -17,6 +17,7 @@ import {
   readPostConnectAccountIdFromUrl,
   brandMapsEqual,
   repairCorruptedBrandMap,
+  resolveOtherBrandIdForMovePrompt,
   resolvePostConnectBrandAction,
   shouldPromptMoveFromOtherBrand,
   prepareBrandMoveNavigation,
@@ -390,11 +391,13 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       if (!shouldPromptMoveFromOtherBrand(allCachedAccounts, map, accountId, activeBrandId)) {
         return false;
       }
-      const mappedBrandId = accountMappedBrandId(map, accountId);
+      const fromBrandId =
+        resolveOtherBrandIdForMovePrompt(allCachedAccounts, map, accountId, activeBrandId) ??
+        accountMappedBrandId(map, accountId);
       const account = allCachedAccounts.find((a) => a.id === accountId);
       const platform = account?.platform ?? hint?.platform;
       if (!platform) return false;
-      const fromBrand = brands.find((b) => b.id === mappedBrandId);
+      const fromBrand = brands.find((b) => b.id === fromBrandId);
       prepareBrandMoveNavigation(options?.successRedirect);
       setBrandMovePrompt({
         accountId,
@@ -413,20 +416,20 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
     (platform: string, options?: { afterConnect?: boolean }): boolean => {
       if (skipBrandMovePromptForPlatform(platform)) return false;
       const norm = platform.toUpperCase();
-      // Move prompts only apply to Meta (multiple accounts per platform across brands).
-      if (!META_BRAND_SCOPED_PLATFORMS.has(norm)) return false;
       const matches = allCachedAccounts.filter((a) => a.platform === norm);
       if (matches.length === 0) return false;
       const map = { ...readAccountBrandMapFromStorage(), ...accountBrandMap };
-      const onActive = matches.filter(
-        (a) => accountMappedBrandId(map, a.id) === activeBrandId
+      const onActive = matches.filter((a) =>
+        isAccountVisibleOnBrand(allCachedAccounts, map, a.id, activeBrandId)
       );
       if (onActive.length > 0) return false;
-      const onOther = matches.filter(
-        (a) =>
-          isAccountMappedToOtherBrand(map, a.id, activeBrandId) &&
-          isAccountVisibleOnBrand(allCachedAccounts, map, a.id, accountMappedBrandId(map, a.id))
-      );
+      const onOther = matches.filter((a) => {
+        for (const brandId of enumerateKnownBrandIds(map)) {
+          if (brandId === activeBrandId) continue;
+          if (isAccountVisibleOnBrand(allCachedAccounts, map, a.id, brandId)) return true;
+        }
+        return false;
+      });
       if (onOther.length !== 1) return false;
       return maybePromptBrandMove(onOther[0].id);
     },
@@ -447,7 +450,16 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       if (!platform) return 'noop';
       const map = { ...readAccountBrandMapFromStorage(), ...accountBrandMap };
       const accountRefs = freshAccounts.map((a) => ({ id: a.id, platform: a.platform }));
-      const action = resolvePostConnectBrandAction(map, accountId, activeBrandId, accountRefs);
+      const isReconnect =
+        allCachedAccounts.some((a) => a.id === accountId) ||
+        allCachedAccounts.some((a) => a.platform === platform && a.id !== accountId);
+      const action = resolvePostConnectBrandAction(
+        map,
+        accountId,
+        activeBrandId,
+        accountRefs,
+        { isReconnect }
+      );
       if (action.type === 'prompt_move') {
         const fromBrand = brands.find((b) => b.id === action.fromBrandId);
         prepareBrandMoveNavigation(options?.successRedirect);
@@ -498,7 +510,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
     [allCachedAccounts, accountBrandMap, activeBrandId, brands]
   );
 
-  // After OAuth: Meta accounts may prompt to move; other platforms auto-assign on connect.
+  // After OAuth: prompt when the connected account is visible on another brand workspace.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {

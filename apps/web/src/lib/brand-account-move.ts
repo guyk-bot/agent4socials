@@ -166,6 +166,27 @@ export function isAccountVisibleOnBrand(
   return visible?.id === accountId;
 }
 
+export function enumerateKnownBrandIds(map: Record<string, string>): string[] {
+  return [...new Set([DEFAULT_BRAND_ID, ...Object.values(map)])];
+}
+
+/** Brand workspace where this account is shown in the sidebar, if any (excluding active). */
+export function resolveOtherBrandIdForMovePrompt(
+  accounts: BrandMapAccountRef[],
+  map: Record<string, string>,
+  accountId: string,
+  activeBrandId: string
+): string | null {
+  if (isAccountExplicitlyBrandMapped(map, accountId) && map[accountId] !== activeBrandId) {
+    return map[accountId];
+  }
+  for (const brandId of enumerateKnownBrandIds(map)) {
+    if (brandId === activeBrandId) continue;
+    if (isAccountVisibleOnBrand(accounts, map, accountId, brandId)) return brandId;
+  }
+  return null;
+}
+
 /**
  * Prompt to move only when this account is the one shown on the other brand.
  * Meta platforms may have multiple DB rows; hidden duplicates should not block connect.
@@ -176,14 +197,35 @@ export function shouldPromptMoveFromOtherBrand(
   accountId: string,
   activeBrandId: string
 ): boolean {
-  if (!isAccountExplicitlyBrandMapped(map, accountId)) return false;
-  const fromBrandId = map[accountId];
-  if (fromBrandId === activeBrandId) return false;
   const account = accounts.find((a) => a.id === accountId);
-  if (!account) return true;
-  const platform = account.platform.toUpperCase();
-  if (!META_BRAND_SCOPED_PLATFORMS.has(platform)) return true;
-  return isAccountVisibleOnBrand(accounts, map, accountId, fromBrandId);
+  if (!account) {
+    return (
+      isAccountExplicitlyBrandMapped(map, accountId) && map[accountId] !== activeBrandId
+    );
+  }
+
+  if (isAccountVisibleOnBrand(accounts, map, accountId, activeBrandId)) {
+    return false;
+  }
+
+  for (const brandId of enumerateKnownBrandIds(map)) {
+    if (brandId === activeBrandId) continue;
+    if (!isAccountVisibleOnBrand(accounts, map, accountId, brandId)) continue;
+    if (META_BRAND_SCOPED_PLATFORMS.has(account.platform.toUpperCase())) {
+      return true;
+    }
+    return true;
+  }
+
+  if (isAccountExplicitlyBrandMapped(map, accountId) && map[accountId] !== activeBrandId) {
+    const platform = account.platform.toUpperCase();
+    if (META_BRAND_SCOPED_PLATFORMS.has(platform)) {
+      return isAccountVisibleOnBrand(accounts, map, accountId, map[accountId]);
+    }
+    return true;
+  }
+
+  return false;
 }
 
 export type PostConnectBrandAction =
@@ -195,23 +237,33 @@ export function resolvePostConnectBrandAction(
   map: Record<string, string>,
   accountId: string,
   activeBrandId: string,
-  accounts: BrandMapAccountRef[]
+  accounts: BrandMapAccountRef[],
+  options?: { isReconnect?: boolean }
 ): PostConnectBrandAction {
-  if (!isAccountExplicitlyBrandMapped(map, accountId)) {
-    return { type: 'assign_active' };
+  const mappedBrandId = accountMappedBrandId(map, accountId);
+  if (
+    mappedBrandId === activeBrandId &&
+    isAccountVisibleOnBrand(accounts, map, accountId, activeBrandId)
+  ) {
+    return { type: 'noop' };
   }
-  const mappedBrandId = map[accountId];
-  if (mappedBrandId === activeBrandId) return { type: 'noop' };
+
   if (shouldPromptMoveFromOtherBrand(accounts, map, accountId, activeBrandId)) {
-    const account = accounts.find((a) => a.id === accountId);
-    const platform = account?.platform.toUpperCase() ?? '';
-    // Instagram/Facebook can differ per brand; ask before moving the visible account.
-    if (META_BRAND_SCOPED_PLATFORMS.has(platform)) {
-      return { type: 'prompt_move', fromBrandId: mappedBrandId };
+    const fromBrandId = resolveOtherBrandIdForMovePrompt(
+      accounts,
+      map,
+      accountId,
+      activeBrandId
+    );
+    if (fromBrandId) {
+      const explicitlyOnOther =
+        isAccountExplicitlyBrandMapped(map, accountId) && map[accountId] !== activeBrandId;
+      if (explicitlyOnOther || options?.isReconnect) {
+        return { type: 'prompt_move', fromBrandId };
+      }
     }
-    // TikTok, LinkedIn, etc.: one connected account per platform — connect on this brand moves it here.
-    return { type: 'assign_active' };
   }
+
   return { type: 'assign_active' };
 }
 
