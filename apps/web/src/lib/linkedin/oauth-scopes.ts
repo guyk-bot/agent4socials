@@ -4,6 +4,9 @@ export type LinkedInConnectMethod = 'personal' | 'page';
 
 const OPENID_BASE = 'openid profile email r_liteprofile';
 
+/** Step 1: sign in with LinkedIn so the in-app consent screen can show name and photo. */
+export const LINKEDIN_IDENTITY_OAUTH_SCOPES = 'openid profile email';
+
 /** Publish (Share on LinkedIn). */
 const MEMBER_PUBLISH = 'w_member_social';
 

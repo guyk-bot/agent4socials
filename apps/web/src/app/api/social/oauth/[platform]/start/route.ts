@@ -17,6 +17,7 @@ import {
 } from '@/lib/threads/threads-api';
 import {
   buildLinkedInOAuthScopeString,
+  LINKEDIN_IDENTITY_OAUTH_SCOPES,
   type LinkedInConnectMethod,
 } from '@/lib/linkedin/oauth-scopes';
 
@@ -25,13 +26,17 @@ export const dynamic = 'force-dynamic';
 
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'PINTEREST', 'THREADS'] as const;
 
-function getOAuthUrl(platform: Platform, userId: string, method?: string): string {
+function getOAuthUrl(platform: Platform, userId: string, method?: string, step?: string): string {
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
   const callbackUrl = `${baseUrl}/api/social/oauth/${platform.toLowerCase()}/callback`;
   const state =
     platform === 'INSTAGRAM' && method === 'instagram'
       ? `${userId}:instagram`
-      : platform === 'LINKEDIN' && method === 'page'
+      : platform === 'LINKEDIN' && step === 'identify' && method === 'page'
+        ? `${userId}:linkedin_identify:page`
+        : platform === 'LINKEDIN' && step === 'identify' && method === 'personal'
+          ? `${userId}:linkedin_identify:personal`
+          : platform === 'LINKEDIN' && method === 'page'
         ? `${userId}:linkedin_page`
         : platform === 'LINKEDIN' && method === 'personal'
           ? `${userId}:linkedin_personal`
@@ -109,7 +114,10 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string): strin
     case 'LINKEDIN': {
       const linkedInMethod =
         method === 'page' || method === 'personal' ? (method as LinkedInConnectMethod) : undefined;
-      const linkedInScopes = buildLinkedInOAuthScopeString(linkedInMethod);
+      const linkedInScopes =
+        step === 'identify'
+          ? LINKEDIN_IDENTITY_OAUTH_SCOPES
+          : buildLinkedInOAuthScopeString(linkedInMethod);
       const redirect = encodeURIComponent((process.env.LINKEDIN_REDIRECT_URI || callbackUrl).replace(/\/+$/, ''));
       const clientId = encodeURIComponent(process.env.LINKEDIN_CLIENT_ID || '');
       return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${redirect}&state=${encodeURIComponent(state)}&scope=${encodeURIComponent(linkedInScopes)}&enable_extended_login=true`;
@@ -161,6 +169,7 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid platform' }, { status: 400 });
     }
     const method = request.nextUrl.searchParams.get('method') ?? undefined;
+    const step = request.nextUrl.searchParams.get('step') ?? undefined;
 
     const authHeader = request.headers.get('authorization');
     let oauthStateKey: string;
@@ -277,7 +286,7 @@ export async function GET(
         );
       }
     }
-    const url = getOAuthUrl(plat, oauthStateKey, method);
+    const url = getOAuthUrl(plat, oauthStateKey, method, step);
     if (plat === 'THREADS') {
       const parsed = new URL(url);
       const clientId = parsed.searchParams.get('client_id')?.trim();

@@ -1,14 +1,19 @@
 import { getSupabaseBrowser } from '@/lib/supabase/client';
 import type { LinkedInConnectMethod } from '@/lib/linkedin/oauth-scopes';
 
+export type LinkedInOAuthStartStep = 'identify' | 'connect';
+
 export async function startLinkedInOAuth(
-  method: LinkedInConnectMethod
+  method: LinkedInConnectMethod,
+  options?: { step?: LinkedInOAuthStartStep }
 ): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
   try {
     const supabase = getSupabaseBrowser();
     const { data: sessionData } = await supabase.auth.getSession();
     const bearer = sessionData.session?.access_token ?? '';
-    const qs = `?method=${encodeURIComponent(method)}`;
+    const params = new URLSearchParams({ method });
+    if (options?.step === 'identify') params.set('step', 'identify');
+    const qs = `?${params.toString()}`;
     const startRes = await fetch(`/api/social/oauth/linkedin/start${qs}`, {
       headers: { Authorization: `Bearer ${bearer}` },
       credentials: 'include',

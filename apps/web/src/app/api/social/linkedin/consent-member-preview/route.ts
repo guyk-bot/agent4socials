@@ -52,16 +52,6 @@ export async function GET(request: NextRequest) {
 
   if (!avatarUrl) {
     for (const row of rows) {
-      const fromCreds = pictureFromCredentials(row.credentialsJson);
-      if (fromCreds) {
-        avatarUrl = fromCreds;
-        break;
-      }
-    }
-  }
-
-  if (!avatarUrl) {
-    for (const row of rows) {
       const token = row.accessToken?.trim();
       if (!token) continue;
       try {

@@ -729,12 +729,18 @@ export async function GET(
   }
 
   const isInstagramLogin = stateRaw.includes(':instagram');
+  const isLinkedInIdentifyPage = stateRaw.includes(':linkedin_identify:page');
+  const isLinkedInIdentifyPersonal = stateRaw.includes(':linkedin_identify:personal');
+  const isLinkedInIdentify = isLinkedInIdentifyPage || isLinkedInIdentifyPersonal;
+  const linkedInIdentifyMethod: 'personal' | 'page' = isLinkedInIdentifyPage ? 'page' : 'personal';
   const isLinkedInPage = stateRaw.includes(':linkedin_page');
   const isLinkedInPersonal = stateRaw.includes(':linkedin_personal');
   const isTikTokPersonal = stateRaw.includes(':tiktok_personal');
   const isTikTokBusiness = stateRaw.includes(':tiktok_business');
   const oauthStateBase = stateRaw
     .replace(/:instagram$/, '')
+    .replace(/:linkedin_identify:personal$/, '')
+    .replace(/:linkedin_identify:page$/, '')
     .replace(/:linkedin_page$/, '')
     .replace(/:linkedin_personal$/, '')
     .replace(/:tiktok_personal$/, '')
@@ -805,6 +811,36 @@ export async function GET(
     await ensureSocialAccountOAuthSchema();
   } catch (e) {
     console.warn('[Social OAuth] ensureSocialAccountOAuthSchema:', (e as Error)?.message ?? e);
+  }
+
+  if (plat === 'LINKEDIN' && isLinkedInIdentify) {
+    try {
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+      const pending = await prisma.pendingConnection.create({
+        data: {
+          userId,
+          platform: 'LINKEDIN',
+          payload: {
+            step: 'consent_preview',
+            method: linkedInIdentifyMethod,
+            memberName: tokenData.username ?? 'LinkedIn member',
+            memberPicture: tokenData.profilePicture ?? null,
+            linkedInSub: tokenData.platformUserId,
+          },
+          expiresAt,
+        },
+      });
+      const returnTo = encodeURIComponent('/dashboard?connect=LINKEDIN');
+      const consentUrl = `${baseUrl}/connect/linkedin/consent?previewId=${encodeURIComponent(pending.id)}&method=${linkedInIdentifyMethod}&returnTo=${returnTo}`;
+      return NextResponse.redirect(consentUrl);
+    } catch (e) {
+      console.error('[LinkedIn OAuth identify]', (e as Error)?.message ?? e);
+      return oauthErrorHtml(
+        baseUrl,
+        'Could not open the permissions screen after LinkedIn sign-in. Try again.',
+        500
+      );
+    }
   }
 
   if (plat === 'LINKEDIN' && isLinkedInPage && tokenData.accessToken) {

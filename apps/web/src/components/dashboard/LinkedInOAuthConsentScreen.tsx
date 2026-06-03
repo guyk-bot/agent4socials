@@ -16,8 +16,10 @@ import type { LinkedInConnectMethod } from '@/lib/linkedin/oauth-scopes';
 type Props = {
   method: LinkedInConnectMethod;
   memberAvatarUrl?: string;
+  memberName?: string | null;
   onCancel: () => void;
   onAllow: () => void;
+  onNotYou?: () => void;
   allowing?: boolean;
   errorMessage?: string | null;
 };
@@ -28,8 +30,10 @@ type Props = {
 export function LinkedInOAuthConsentScreen({
   method,
   memberAvatarUrl,
+  memberName,
   onCancel,
   onAllow,
+  onNotYou,
   allowing = false,
   errorMessage,
 }: Props) {
@@ -40,7 +44,7 @@ export function LinkedInOAuthConsentScreen({
       ? memberAvatarUrl
       : null;
 
-  React.useEffect(() => {
+  useEffect(() => {
     setAvatarBroken(false);
   }, [memberAvatarUrl]);
 
@@ -95,6 +99,11 @@ export function LinkedInOAuthConsentScreen({
                 </span>
               </div>
             </div>
+            {memberName ? (
+              <p className="mt-3 text-center text-sm font-medium text-neutral-800">
+                Signed in as {memberName}
+              </p>
+            ) : null}
           </div>
 
           <div className="px-6 sm:px-8 pb-4 text-left">
@@ -116,7 +125,7 @@ export function LinkedInOAuthConsentScreen({
               <button
                 type="button"
                 className="linkedin-oauth-consent-link text-sm hover:underline"
-                onClick={onCancel}
+                onClick={onNotYou ?? onCancel}
               >
                 Not you?
               </button>
