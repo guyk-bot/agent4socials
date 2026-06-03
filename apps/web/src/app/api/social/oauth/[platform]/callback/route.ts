@@ -1081,12 +1081,11 @@ export async function GET(
 
   const igPages = tokenData.pages ?? [];
   const igAccounts = tokenData.instagramAccounts ?? [];
-  const igMustPickPage =
-    igPages.length > 1 || igAccounts.length > 1 || (igPages.length >= 1 && igAccounts.length === 0);
+  const igMustPickAccount = igAccounts.length > 1;
 
-  if (plat === 'INSTAGRAM' && (igAccounts.length >= 1 || igPages.length >= 1)) {
-    // Same Facebook login can admin multiple Pages. Always let the user pick which Page (and IG) belongs on this brand.
-    if (igMustPickPage) {
+  if (plat === 'INSTAGRAM' && igAccounts.length >= 1) {
+    // Picker only when there are 2+ Instagram accounts. Facebook Pages without Instagram are not listed here.
+    if (igMustPickAccount) {
       try {
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
         const accountsJson = JSON.parse(JSON.stringify(igAccounts)) as object;
@@ -1102,7 +1101,7 @@ export async function GET(
           },
         });
         const selectUrl = `${baseUrl}/accounts/instagram/select?pendingId=${pending.id}`;
-        const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Choose Page</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Choose which Facebook Page to use for this brand.</p><script>window.location.href = ${JSON.stringify(selectUrl)};</script><p>Redirecting to <a href="${selectUrl}">Choose Page</a>…</p></body></html>`;
+        const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Choose Instagram account</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Choose which Instagram account to connect.</p><script>window.location.href = ${JSON.stringify(selectUrl)};</script><p>Redirecting to <a href="${selectUrl}">Choose account</a>…</p></body></html>`;
         return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
       } catch (e) {
         console.error('[Social OAuth] pending Instagram create error (page picker):', e);

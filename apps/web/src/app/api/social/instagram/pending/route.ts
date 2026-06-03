@@ -86,5 +86,6 @@ export async function GET(request: NextRequest) {
   const accounts = (payload?.accounts ?? []) as AccountItem[];
   const pages = (payload?.pages ?? []) as PageItem[];
   const choices = buildInstagramPageChoices(pages, accounts);
-  return NextResponse.json({ accounts, pages, choices });
+  const instagramChoices = choices.filter((c) => Boolean(c.instagramId));
+  return NextResponse.json({ accounts, pages, choices, instagramChoices });
 }
