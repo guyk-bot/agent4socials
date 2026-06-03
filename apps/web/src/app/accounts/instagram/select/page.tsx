@@ -64,7 +64,7 @@ function InstagramSelectContent() {
 
   if (error || accounts.length === 0) {
     return (
-      <div className="max-w-md mx-auto mt-16 card">
+      <div className="max-w-md mx-auto mt-16 card form-choice-scope">
         <p className="text-neutral-700">{error ?? 'No Instagram accounts found.'}</p>
         <Link href="/dashboard" className="mt-4 inline-block btn-primary">
           Back to Accounts
@@ -74,7 +74,7 @@ function InstagramSelectContent() {
   }
 
   return (
-    <div className="max-w-md mx-auto space-y-6">
+    <div className="max-w-md mx-auto space-y-6 form-choice-scope">
       <div>
         <h1 className="text-2xl font-bold text-neutral-900">Connect an Instagram account</h1>
         <p className="text-neutral-500 mt-1">Choose which Instagram account you want to connect to Agent4Socials.</p>
@@ -84,8 +84,8 @@ function InstagramSelectContent() {
           {accounts.map((account) => (
             <label
               key={account.id}
-              className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                selectedId === account.id ? 'border-[var(--primary)] bg-[var(--primary)]/10' : 'border-neutral-200 hover:bg-neutral-50'
+              className={`form-choice-row flex items-center gap-3 p-3 rounded-lg cursor-pointer ${
+                selectedId === account.id ? 'form-choice-row--selected' : ''
               }`}
             >
               <input
@@ -109,7 +109,10 @@ function InstagramSelectContent() {
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex gap-3 pt-2">
-          <Link href="/dashboard" className="flex-1 text-center py-2 rounded-lg border border-neutral-300 text-neutral-700 hover:bg-neutral-50">
+          <Link
+            href="/dashboard"
+            className="form-choice-cancel flex-1 text-center py-2 rounded-lg border border-neutral-300 text-neutral-700 hover:bg-neutral-50"
+          >
             Cancel
           </Link>
           <button type="submit" disabled={!selectedId || submitting} className="flex-1 btn-primary py-2 disabled:opacity-50">

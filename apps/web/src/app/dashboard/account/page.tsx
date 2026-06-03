@@ -392,7 +392,7 @@ export default function AccountPage() {
       aria-label="Cancel subscription"
     >
       <div
-        className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl p-6"
+        className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl p-6 form-choice-scope"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -417,8 +417,8 @@ export default function AccountPage() {
           {CANCEL_REASONS.map(({ id, label }) => (
             <label
               key={id}
-              className={`flex items-start gap-3 rounded-xl border px-3 py-2.5 cursor-pointer transition-colors hover:bg-neutral-50 ${
-                cancelReason === id ? 'border-neutral-400 bg-neutral-50/80' : 'border-neutral-200'
+              className={`form-choice-row flex items-start gap-3 rounded-xl px-3 py-2.5 cursor-pointer ${
+                cancelReason === id ? 'form-choice-row--selected' : ''
               }`}
             >
               <input

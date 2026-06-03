@@ -64,7 +64,7 @@ function FacebookSelectContent() {
 
   if (error || pages.length === 0) {
     return (
-      <div className="min-h-[80vh] flex flex-col items-center justify-center px-4">
+      <div className="min-h-[80vh] flex flex-col items-center justify-center px-4 form-choice-scope">
         <div className="max-w-md w-full card">
           <p className="text-neutral-700">{error ?? 'No Pages found.'}</p>
           <Link href="/dashboard" className="mt-4 inline-block btn-primary">
@@ -76,7 +76,7 @@ function FacebookSelectContent() {
   }
 
   return (
-    <div className="min-h-[80vh] flex flex-col items-center justify-center px-4">
+    <div className="min-h-[80vh] flex flex-col items-center justify-center px-4 form-choice-scope">
       <div className="w-full max-w-md space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Connect a Facebook Page</h1>
@@ -87,8 +87,8 @@ function FacebookSelectContent() {
             {pages.map((page) => (
               <label
                 key={page.id}
-                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                  selectedId === page.id ? 'border-[#1877F2] bg-[#E7F3FF]' : 'border-neutral-200 hover:bg-neutral-50'
+                className={`form-choice-row flex items-center gap-3 p-3 rounded-lg cursor-pointer ${
+                  selectedId === page.id ? 'form-choice-row--selected' : ''
                 }`}
               >
                 <input
@@ -112,7 +112,10 @@ function FacebookSelectContent() {
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex gap-3 pt-2">
-            <Link href="/dashboard" className="flex-1 text-center py-2 rounded-lg border border-neutral-300 text-neutral-700 hover:bg-neutral-50">
+            <Link
+              href="/dashboard"
+              className="form-choice-cancel flex-1 text-center py-2 rounded-lg border border-neutral-300 text-neutral-700 hover:bg-neutral-50"
+            >
               Cancel
             </Link>
             <button
