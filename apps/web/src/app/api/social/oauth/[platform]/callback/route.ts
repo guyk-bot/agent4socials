@@ -742,6 +742,10 @@ export async function GET(
   const isLinkedInIdentifyPersonal = stateRaw.includes(':linkedin_identify:personal');
   const isLinkedInIdentify = isLinkedInIdentifyPage || isLinkedInIdentifyPersonal;
   const linkedInIdentifyMethod: 'personal' | 'page' = isLinkedInIdentifyPage ? 'page' : 'personal';
+  const isLinkedInConsentPage = stateRaw.includes(':linkedin_consent:page');
+  const isLinkedInConsentPersonal = stateRaw.includes(':linkedin_consent:personal');
+  const isLinkedInConsentFirst = isLinkedInConsentPage || isLinkedInConsentPersonal;
+  const linkedInConsentMethod: 'personal' | 'page' = isLinkedInConsentPage ? 'page' : 'personal';
   const isLinkedInPage = stateRaw.includes(':linkedin_page');
   const isLinkedInPersonal = stateRaw.includes(':linkedin_personal');
   const isTikTokPersonal = stateRaw.includes(':tiktok_personal');
@@ -831,6 +835,40 @@ export async function GET(
         baseUrl,
         'LinkedIn connect session expired. Open Connect from Accounts and try again.',
         400
+      );
+    }
+  }
+
+  if (plat === 'LINKEDIN' && isLinkedInConsentFirst) {
+    try {
+      const expiresAtPending = new Date(Date.now() + 30 * 60 * 1000);
+      const pending = await prisma.pendingConnection.create({
+        data: {
+          userId,
+          platform: 'LINKEDIN',
+          payload: {
+            step: 'consent_preview',
+            method: linkedInConsentMethod,
+            memberName: tokenData.username ?? 'LinkedIn member',
+            memberPicture: tokenData.profilePicture ?? null,
+            linkedInSub: tokenData.platformUserId,
+            accessToken: tokenData.accessToken,
+            refreshToken: tokenData.refreshToken ?? null,
+            expiresAt: tokenData.expiresAt.toISOString(),
+            linkedinGrantedScope: tokenData.linkedinGrantedScope ?? null,
+          },
+          expiresAt: expiresAtPending,
+        },
+      });
+      const returnTo = encodeURIComponent('/dashboard?connect=LINKEDIN');
+      const consentUrl = `${baseUrl}/connect/linkedin/consent?previewId=${encodeURIComponent(pending.id)}&method=${linkedInConsentMethod}&returnTo=${returnTo}`;
+      return NextResponse.redirect(consentUrl);
+    } catch (e) {
+      console.error('[LinkedIn OAuth consent]', (e as Error)?.message ?? e);
+      return oauthErrorHtml(
+        baseUrl,
+        'Could not open the permissions screen after LinkedIn sign-in. Try again.',
+        500
       );
     }
   }

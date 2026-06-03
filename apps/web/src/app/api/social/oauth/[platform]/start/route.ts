@@ -118,7 +118,8 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string, step?:
       }
       return buildLinkedInOAuthAuthorizationUrl(userId, {
         method: linkedInMethod,
-        step: step === 'identify' ? 'identify' : 'connect',
+        step:
+          step === 'identify' ? 'identify' : step === 'consent' ? 'consent' : 'connect',
       });
     }
     case 'THREADS': {

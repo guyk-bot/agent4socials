@@ -70,7 +70,7 @@ function LinkedInConsentContent() {
     setAllowing(true);
     const result = await startLinkedInConnectAfterConsent(previewId, returnTo);
     if (result.ok) {
-      window.location.assign(result.url);
+      window.location.assign(result.redirect);
       return;
     }
     setAllowing(false);

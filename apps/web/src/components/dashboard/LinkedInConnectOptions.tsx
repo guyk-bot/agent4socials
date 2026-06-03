@@ -21,7 +21,7 @@ export default function LinkedInConnectOptions({ connecting, connectError }: Pro
   const startConnect = async (method: LinkedInConnectMethod) => {
     setLocalError(null);
     setBusyMethod(method);
-    const result = await startLinkedInOAuth(method, { step: 'identify' });
+    const result = await startLinkedInOAuth(method);
     if (result.ok) {
       window.location.href = result.url;
       return;
@@ -40,8 +40,8 @@ export default function LinkedInConnectOptions({ connecting, connectError }: Pro
             </div>
             <h1 className="text-2xl font-bold text-neutral-900">Connect LinkedIn</h1>
             <p className="text-neutral-500 mt-1 max-w-md mx-auto text-sm">
-              Choose personal profile or Company Page. You will sign in with LinkedIn first, then review
-              permissions with your name and photo, then connect the account.
+              Choose personal profile or Company Page. You will sign in once at LinkedIn, review
+              permissions in Agent4Socials, then connect the account.
             </p>
           </div>
           {connectError || localError ? (

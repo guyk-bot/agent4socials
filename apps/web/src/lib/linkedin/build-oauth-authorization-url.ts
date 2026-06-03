@@ -8,13 +8,16 @@ export function buildLinkedInOAuthStateKey(
   userId: string,
   options: {
     method: LinkedInConnectMethod;
-    step?: 'identify' | 'connect';
+    step?: 'identify' | 'consent' | 'connect';
     previewId?: string;
   }
 ): string {
   const { method, step, previewId } = options;
   if (step === 'identify') {
     return method === 'page' ? `${userId}:linkedin_identify:page` : `${userId}:linkedin_identify:personal`;
+  }
+  if (step === 'consent') {
+    return method === 'page' ? `${userId}:linkedin_consent:page` : `${userId}:linkedin_consent:personal`;
   }
   const base = method === 'page' ? `${userId}:linkedin_page` : `${userId}:linkedin_personal`;
   if (previewId) return `${base}:pv:${previewId}`;
@@ -35,6 +38,8 @@ export function parseLinkedInOAuthState(stateRaw: string): {
     .replace(/:instagram$/, '')
     .replace(/:linkedin_identify:personal$/, '')
     .replace(/:linkedin_identify:page$/, '')
+    .replace(/:linkedin_consent:personal$/, '')
+    .replace(/:linkedin_consent:page$/, '')
     .replace(/:linkedin_page$/, '')
     .replace(/:linkedin_personal$/, '')
     .replace(/:tiktok_personal$/, '')
@@ -46,7 +51,7 @@ export function buildLinkedInOAuthAuthorizationUrl(
   userId: string,
   options: {
     method: LinkedInConnectMethod;
-    step?: 'identify' | 'connect';
+    step?: 'identify' | 'consent' | 'connect';
     previewId?: string;
   }
 ): string {

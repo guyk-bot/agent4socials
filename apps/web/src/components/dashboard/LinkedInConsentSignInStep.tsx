@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import { LinkedinIcon } from '@/components/SocialPlatformIcons';
 import { startLinkedInOAuth } from '@/lib/linkedin/start-oauth';
-import { LINKEDIN_CONNECT_OPTIONS } from '@/lib/linkedin/connect-consent';
 import type { LinkedInConnectMethod } from '@/lib/linkedin/oauth-scopes';
 
 type Props = {
@@ -16,14 +15,13 @@ type Props = {
 
 /** Step 1: sign in with LinkedIn so the consent screen can show the member photo and name. */
 export function LinkedInConsentSignInStep({ method, returnTo, onCancel }: Props) {
-  const copy = LINKEDIN_CONNECT_OPTIONS[method];
   const [signingIn, setSigningIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSignIn = async () => {
     setError(null);
     setSigningIn(true);
-    const result = await startLinkedInOAuth(method, { step: 'identify' });
+    const result = await startLinkedInOAuth(method);
     if (result.ok) {
       window.location.href = result.url;
       return;
@@ -46,11 +44,8 @@ export function LinkedInConsentSignInStep({ method, returnTo, onCancel }: Props)
             Sign in with LinkedIn
           </h1>
           <p className="linkedin-oauth-consent-muted mt-2 text-sm leading-relaxed">
-            Before Agent4Socials can connect {copy.title.toLowerCase()}, sign in with LinkedIn so we can
-            show your profile on the permissions screen.
-          </p>
-          <p className="mt-3 text-xs text-neutral-500">
-            You will return here to review permissions, then connect the account to this app.
+            Sign in once at LinkedIn. You will return here to review permissions, then connect the
+            account to Agent4Socials.
           </p>
           <button
             type="button"
