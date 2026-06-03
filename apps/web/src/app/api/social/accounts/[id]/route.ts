@@ -26,23 +26,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const disconnectById = async (id: string, userId: string) => {
-    const now = new Date();
     const updated = await prisma.socialAccount.updateMany({
-      where: { id, userId, status: { not: 'disconnected' } },
+      where: { id, userId },
       data: {
         status: 'disconnected',
-        disconnectedAt: now,
+        disconnectedAt: new Date(),
         accessToken: '',
         refreshToken: null,
       },
     });
-    if (updated.count > 0) return { ok: true as const };
-
-    const account = await prisma.socialAccount.findFirst({
-      where: { id, userId },
-      select: { status: true },
-    });
-    if (!account) return { ok: false as const, notFound: true as const };
+    if (updated.count === 0) return { ok: false as const, notFound: true as const };
     return { ok: true as const };
   };
 

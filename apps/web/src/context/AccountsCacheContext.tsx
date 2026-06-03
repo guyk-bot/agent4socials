@@ -132,6 +132,8 @@ type AccountsCacheContextType = {
   /** All connected accounts across brands (for admin utilities and brand assignment). */
   allCachedAccounts: CachedAccount[];
   setCachedAccounts: React.Dispatch<React.SetStateAction<CachedAccount[]>>;
+  /** Remove one account from cache immediately (e.g. optimistic disconnect). */
+  removeConnectedAccountFromCache: (accountId: string) => void;
   accountsLoadError: string | null;
   setAccountsLoadError: React.Dispatch<React.SetStateAction<string | null>>;
   brands: BrandWorkspace[];
@@ -270,6 +272,18 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       return next;
     });
   }, [activeBrandId, brands]);
+
+  const removeConnectedAccountFromCache = useCallback((accountId: string) => {
+    if (!accountId) return;
+    setAllCachedAccountsState((prev) => prev.filter((a) => a.id !== accountId));
+    setAccountBrandMap((prev) => {
+      if (!(accountId in prev)) return prev;
+      const next = { ...prev };
+      delete next[accountId];
+      persistAccountBrandMapSync(next);
+      return next;
+    });
+  }, []);
 
   const setActiveBrandId = useCallback((id: string) => {
     if (!id) return;
@@ -481,6 +495,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       cachedAccounts,
       allCachedAccounts,
       setCachedAccounts,
+      removeConnectedAccountFromCache,
       accountsLoadError,
       setAccountsLoadError,
       brands,
@@ -504,6 +519,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       allCachedAccounts,
       accountsLoadError,
       setCachedAccounts,
+      removeConnectedAccountFromCache,
       setAccountsLoadError,
       brands,
       activeBrandId,

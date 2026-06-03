@@ -60,11 +60,13 @@ export function ConnectedAccountsPanel() {
   const {
     cachedAccounts,
     setCachedAccounts,
+    removeConnectedAccountFromCache,
     maybePromptBrandMoveForPlatform,
     finishPostConnectBrandAssignment,
   } = useAccountsCache() ?? {
     cachedAccounts: [],
     setCachedAccounts: () => {},
+    removeConnectedAccountFromCache: () => {},
     maybePromptBrandMoveForPlatform: () => false,
     finishPostConnectBrandAssignment: () => false,
   };
@@ -113,35 +115,43 @@ export function ConnectedAccountsPanel() {
     setDisconnectConfirmOpen(true);
   };
 
-  const handleDisconnectConfirm = async () => {
+  const handleDisconnectConfirm = () => {
     const acc = pendingDisconnectRef.current ?? accountToDisconnect;
     if (!acc) return;
 
     const accountIdToRemove = acc.id;
     const disconnectedAccountWasSelected = selectedAccountId === accountIdToRemove;
-    setDisconnectingId(accountIdToRemove);
-    try {
-      await api.delete(`/social/accounts/${accountIdToRemove}`);
-      const res = await api.get(`/social/accounts?_=${Date.now()}`);
-      const data = Array.isArray(res.data) ? res.data : [];
-      setCachedAccounts(data);
-      appData?.clearAccountData(accountIdToRemove);
-      if (disconnectedAccountWasSelected) {
-        setSelectedAccountId(null);
-      }
-      pendingDisconnectRef.current = null;
-      setAccountToDisconnect(null);
-      setDisconnectConfirmOpen(false);
-    } catch (e) {
-      const err = e as { response?: { data?: { message?: string }; status?: number } };
-      const msg = err?.response?.data?.message ?? (err?.response?.status === 401 ? 'Session expired. Sign out and sign back in, then try again.' : 'Could not disconnect. Try again.');
-      setAlertMessage(msg);
-      pendingDisconnectRef.current = null;
-      setAccountToDisconnect(null);
-      setDisconnectConfirmOpen(false);
-    } finally {
-      setDisconnectingId(null);
+
+    removeConnectedAccountFromCache(accountIdToRemove);
+    appData?.clearAccountData(accountIdToRemove);
+    if (disconnectedAccountWasSelected) {
+      setSelectedAccountId(null);
     }
+    pendingDisconnectRef.current = null;
+    setAccountToDisconnect(null);
+    setDisconnectConfirmOpen(false);
+    setDisconnectingId(null);
+
+    void (async () => {
+      try {
+        await api.delete(`/social/accounts/${accountIdToRemove}`);
+      } catch (e) {
+        const err = e as { response?: { data?: { message?: string }; status?: number } };
+        const msg =
+          err?.response?.data?.message ??
+          (err?.response?.status === 401
+            ? 'Session expired. Sign out and sign back in, then try again.'
+            : 'Could not disconnect. Try again.');
+        setAlertMessage(msg);
+        try {
+          const res = await api.get(`/social/accounts?_=${Date.now()}`);
+          const data = Array.isArray(res.data) ? res.data : [];
+          setCachedAccounts(data);
+        } catch {
+          /* keep optimistic state if refresh fails */
+        }
+      }
+    })();
   };
 
   // Build a lookup from platform id → connected account
@@ -314,11 +324,11 @@ export function ConnectedAccountsPanel() {
         message={accountToDisconnect ? `Disconnect @${accountToDisconnect.username || accountToDisconnect.platform}? Synced data will be removed. You can reconnect anytime.` : ''}
         confirmLabel="Disconnect"
         confirmLoadingLabel="Disconnecting..."
-        confirmLoading={Boolean(disconnectingId)}
+        confirmLoading={false}
         cancelLabel="Keep connected"
         variant="danger"
-        closeOnConfirm={false}
-        onConfirm={() => { void handleDisconnectConfirm(); }}
+        closeOnConfirm
+        onConfirm={handleDisconnectConfirm}
       />
     </div>
   );
