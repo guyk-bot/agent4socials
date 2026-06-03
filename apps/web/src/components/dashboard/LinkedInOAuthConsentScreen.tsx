@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
+import { Loader2, User } from 'lucide-react';
 import { LinkedinIcon } from '@/components/SocialPlatformIcons';
 import {
   LINKEDIN_OAUTH_APP_LOGO_URL,
@@ -15,6 +15,7 @@ import type { LinkedInConnectMethod } from '@/lib/linkedin/oauth-scopes';
 
 type Props = {
   method: LinkedInConnectMethod;
+  memberAvatarUrl?: string;
   onCancel: () => void;
   onAllow: () => void;
   allowing?: boolean;
@@ -26,12 +27,22 @@ type Props = {
  */
 export function LinkedInOAuthConsentScreen({
   method,
+  memberAvatarUrl,
   onCancel,
   onAllow,
   allowing = false,
   errorMessage,
 }: Props) {
   const permissions = LINKEDIN_OAUTH_CONSENT_PERMISSIONS[method];
+  const [avatarBroken, setAvatarBroken] = useState(false);
+  const resolvedAvatar =
+    !avatarBroken && memberAvatarUrl && memberAvatarUrl !== LINKEDIN_OAUTH_MEMBER_AVATAR_URL
+      ? memberAvatarUrl
+      : null;
+
+  React.useEffect(() => {
+    setAvatarBroken(false);
+  }, [memberAvatarUrl]);
 
   return (
     <div className="linkedin-oauth-consent-scope min-h-dvh w-full flex flex-col items-center px-4 py-8 sm:py-12">
@@ -64,15 +75,20 @@ export function LinkedInOAuthConsentScreen({
                 aria-hidden
               />
               <div className="relative shrink-0">
-                <div className="h-16 w-16 rounded-full bg-neutral-200 overflow-hidden border-2 border-white shadow-sm">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={LINKEDIN_OAUTH_MEMBER_AVATAR_URL}
-                    alt="LinkedIn member"
-                    width={64}
-                    height={64}
-                    className="h-full w-full object-cover"
-                  />
+                <div className="h-16 w-16 rounded-full bg-neutral-200 overflow-hidden border-2 border-white shadow-sm flex items-center justify-center">
+                  {resolvedAvatar ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={resolvedAvatar}
+                      alt="Your LinkedIn profile"
+                      width={64}
+                      height={64}
+                      className="h-full w-full object-cover"
+                      onError={() => setAvatarBroken(true)}
+                    />
+                  ) : (
+                    <User className="h-8 w-8 text-neutral-400" aria-hidden />
+                  )}
                 </div>
                 <span className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-white shadow">
                   <LinkedinIcon size={14} />
