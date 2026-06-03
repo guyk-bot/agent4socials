@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { bootstrapLinkedInAfterConnect } from '@/lib/linkedin/bootstrap-after-connect';
 import { resolveLinkedInAuthorUrn } from '@/lib/linkedin/rest-person';
@@ -98,7 +99,7 @@ export async function finalizeLinkedInPendingConnect(
       ? { ...(prev.credentialsJson as Record<string, unknown>) }
       : {};
 
-  let credentialsJson: Record<string, unknown>;
+  let credentialsJson: Prisma.InputJsonValue;
   if (method === 'page') {
     const orgUrn =
       typeof platformUserId === 'string' && platformUserId.startsWith('urn:li:organization:')
