@@ -1,50 +1,26 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
+import { useRouter } from 'next/navigation';
 import { Check, Star } from 'lucide-react';
 import { LinkedinIcon } from '@/components/SocialPlatformIcons';
 import { LINKEDIN_CONNECT_OPTIONS } from '@/lib/linkedin/connect-consent';
 import type { LinkedInConnectMethod } from '@/lib/linkedin/oauth-scopes';
-import { LinkedInOAuthConsentScreen } from '@/components/dashboard/LinkedInOAuthConsentScreen';
-import { useAuth } from '@/context/AuthContext';
 
 type Props = {
   connecting: boolean;
-  connectingMethod?: string;
   connectError?: string | null;
-  onConnect: (platform: string, method: LinkedInConnectMethod) => void;
 };
 
-export default function LinkedInConnectOptions({
-  connecting,
-  connectingMethod,
-  connectError,
-  onConnect,
-}: Props) {
-  const [pendingMethod, setPendingMethod] = useState<LinkedInConnectMethod | null>(null);
-  const { user } = useAuth();
+export default function LinkedInConnectOptions({ connecting, connectError }: Props) {
+  const router = useRouter();
   const personal = LINKEDIN_CONNECT_OPTIONS.personal;
   const page = LINKEDIN_CONNECT_OPTIONS.page;
 
-  if (pendingMethod) {
-    return (
-      <>
-        {connectError ? (
-          <div className="fixed top-4 left-1/2 z-[60] -translate-x-1/2 max-w-md w-[calc(100%-2rem)] rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 shadow-lg">
-            {connectError}
-          </div>
-        ) : null}
-        <LinkedInOAuthConsentScreen
-          method={pendingMethod}
-          userDisplayName={user?.name ?? user?.email}
-          userAvatarUrl={user?.avatarUrl}
-          allowing={connecting && connectingMethod === pendingMethod}
-          onCancel={() => setPendingMethod(null)}
-          onAllow={() => onConnect('linkedin', pendingMethod)}
-        />
-      </>
-    );
-  }
+  const openConsentPage = (method: LinkedInConnectMethod) => {
+    const returnTo = encodeURIComponent('/dashboard?connect=LINKEDIN');
+    router.push(`/connect/linkedin/consent?method=${method}&returnTo=${returnTo}`);
+  };
 
   return (
     <div className="connect-view-scope min-h-[calc(100vh-6rem)] flex items-start justify-center pt-16 sm:pt-20">
@@ -56,9 +32,8 @@ export default function LinkedInConnectOptions({
             </div>
             <h1 className="text-2xl font-bold text-neutral-900">Connect LinkedIn</h1>
             <p className="text-neutral-500 mt-1 max-w-md mx-auto text-sm">
-              Connect your personal profile to publish and schedule from Composer, or connect a Company Page for Page
-              analytics and inbox. You will see a permission screen like LinkedIn&apos;s official OAuth consent before
-              sign-in.
+              Choose personal profile or Company Page. Next you will see LinkedIn-style permissions on a separate
+              page, then LinkedIn sign-in.
             </p>
           </div>
           {connectError ? (
@@ -71,7 +46,7 @@ export default function LinkedInConnectOptions({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <button
             type="button"
-            onClick={() => setPendingMethod('personal')}
+            onClick={() => openConsentPage('personal')}
             disabled={connecting}
             className="connect-option text-left p-5 rounded-2xl border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50/30 transition-all flex flex-col bg-white"
           >
@@ -93,7 +68,7 @@ export default function LinkedInConnectOptions({
 
           <button
             type="button"
-            onClick={() => setPendingMethod('page')}
+            onClick={() => openConsentPage('page')}
             disabled={connecting}
             className="connect-option text-left p-5 rounded-2xl border-2 border-blue-300 hover:border-blue-500 hover:bg-blue-50/40 transition-all flex flex-col bg-white relative"
           >

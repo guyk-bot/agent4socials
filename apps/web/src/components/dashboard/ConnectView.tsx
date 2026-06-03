@@ -331,12 +331,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
   // ── LINKEDIN (personal vs Company Page + in-app consent) ─────────────────
   if (platform === 'LINKEDIN') {
     return (
-      <LinkedInConnectOptions
-        connecting={connecting}
-        connectingMethod={connectingMethod}
-        connectError={connectError}
-        onConnect={onConnect}
-      />
+      <LinkedInConnectOptions connecting={connecting} connectError={connectError} />
     );
   }
 
