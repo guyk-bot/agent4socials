@@ -136,7 +136,7 @@
   border-color: #1f1f1f !important;
 }
 [data-theme='dark'] .account-connect-card {
-  background: #323232 !important;
+  background: var(--card-bg) !important;
   border-color: #4b5563 !important;
 }
 [data-theme='dark'] .create-brand-hover-dark:hover {
@@ -695,6 +695,20 @@
 [data-theme='dark'] .hover\:bg-\[var\(--primary\)\]\/10:hover,
 [data-theme='dark'] .hover\:bg-\[var\(--primary\)\]\/15:hover {
   background-color: #323232 !important;
+}
+/* Connected-accounts grid: one card surface in dark (tinted bg-blue/pink/etc. must not win). */
+[data-theme='dark'] .account-connect-frame .account-connect-card {
+  background: var(--card-bg) !important;
+  border-color: #4b5563 !important;
+}
+[data-theme='dark'] .account-connect-frame .account-connect-card .text-neutral-800 {
+  color: var(--foreground) !important;
+}
+[data-theme='dark'] .account-connect-frame .account-connect-card .text-neutral-500 {
+  color: var(--muted) !important;
+}
+[data-theme='dark'] .account-connect-frame .account-connect-card .group-hover\:text-neutral-700:hover {
+  color: var(--muted) !important;
 }
 [data-theme='dark'] .border-orange-200 {
   border-color: var(--border) !important;

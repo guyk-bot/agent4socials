@@ -20,12 +20,12 @@ import {
 
 /** Same connect targets and styling as Summary dashboard empty state (compact grid on Account page). */
 const CONNECT_PLATFORM_CARDS: { id: string; name: string; slug: string; border: string; bg: string }[] = [
-  { id: 'FACEBOOK', name: 'Facebook', slug: 'facebook', border: 'border-blue-200', bg: 'bg-blue-50/50' },
+  { id: 'FACEBOOK', name: 'Facebook', slug: 'facebook', border: 'border-blue-200', bg: 'bg-neutral-100/80' },
   { id: 'INSTAGRAM', name: 'Instagram', slug: 'instagram', border: 'border-pink-200', bg: 'bg-pink-50/50' },
   { id: 'TIKTOK', name: 'TikTok', slug: 'tiktok', border: 'border-neutral-300', bg: 'bg-neutral-100/80' },
   { id: 'YOUTUBE', name: 'YouTube', slug: 'youtube', border: 'border-red-200', bg: 'bg-red-50/50' },
   { id: 'TWITTER', name: 'Twitter/X', slug: 'twitter', border: 'border-neutral-300', bg: 'bg-neutral-100/80' },
-  { id: 'LINKEDIN', name: 'LinkedIn', slug: 'linkedin', border: 'border-blue-200', bg: 'bg-blue-50/50' },
+  { id: 'LINKEDIN', name: 'LinkedIn', slug: 'linkedin', border: 'border-blue-200', bg: 'bg-neutral-100/80' },
   { id: 'PINTEREST', name: 'Pinterest', slug: 'pinterest', border: 'border-rose-200', bg: 'bg-rose-50/50' },
   { id: 'THREADS', name: 'Threads', slug: 'threads', border: 'border-neutral-300', bg: 'bg-neutral-100/80' },
 ];
@@ -266,7 +266,7 @@ export function ConnectedAccountsPanel() {
               <Link
                 key={id}
                 href={`/dashboard?connect=${slug}`}
-                className={`account-connect-card flex flex-col items-center justify-center gap-2 p-3 sm:p-4 rounded-xl border-2 ${border} ${bg} bg-white hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 group text-center`}
+                className={`account-connect-card flex flex-col items-center justify-center gap-2 p-3 sm:p-4 rounded-xl border-2 ${border} ${bg} hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 group text-center`}
               >
                 <div className="w-9 h-9 flex items-center justify-center shrink-0">{CONNECT_GRID_ICON[id]}</div>
                 <span className="text-xs sm:text-sm font-semibold text-neutral-800">{name}</span>
