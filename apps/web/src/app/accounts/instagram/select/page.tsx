@@ -25,7 +25,7 @@ function InstagramSelectContent() {
   const pendingId = searchParams.get('pendingId');
   const accountsCache = useAccountsCache();
   const setCachedAccounts = accountsCache?.setCachedAccounts;
-  const maybePromptBrandMove = accountsCache?.maybePromptBrandMove;
+  const finishPostConnectBrandAssignment = accountsCache?.finishPostConnectBrandAssignment;
   const [choices, setChoices] = useState<InstagramChoice[]>([]);
   const [selectedInstagramId, setSelectedInstagramId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,16 +68,31 @@ function InstagramSelectContent() {
         const redirect = res.data.redirect;
         const accountId = parseAccountIdFromDashboardRedirect(redirect);
         const username = selected.instagramUsername ?? 'Instagram';
-        if (accountId && setCachedAccounts && maybePromptBrandMove) {
-          setCachedAccounts((prev) =>
-            upsertOptimisticConnectedAccount(prev, {
-              id: accountId,
+        if (accountId && setCachedAccounts) {
+          let freshList: Array<{ id: string; platform: string; username?: string }> = [];
+          try {
+            const listRes = await api.get('/social/accounts');
+            freshList = Array.isArray(listRes.data) ? listRes.data : [];
+            setCachedAccounts(freshList);
+          } catch {
+            setCachedAccounts((prev) =>
+              upsertOptimisticConnectedAccount(prev, {
+                id: accountId,
+                platform: 'INSTAGRAM',
+                username,
+                profilePicture: selected.instagramPicture ?? null,
+              })
+            );
+            freshList = [];
+          }
+          const moved =
+            finishPostConnectBrandAssignment &&
+            freshList.length > 0 &&
+            finishPostConnectBrandAssignment(accountId, freshList, {
               platform: 'INSTAGRAM',
               username,
-              profilePicture: selected.instagramPicture ?? null,
-            })
-          );
-          if (maybePromptBrandMove(accountId, { platform: 'INSTAGRAM', username })) {
+            });
+          if (moved) {
             try {
               sessionStorage.setItem(PENDING_CONNECT_REDIRECT_KEY, redirect);
             } catch {

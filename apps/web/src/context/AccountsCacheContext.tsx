@@ -144,6 +144,15 @@ type AccountsCacheContextType = {
     accountId: string,
     hint?: { platform: string; username?: string }
   ) => boolean;
+  /**
+   * After OAuth with a fresh /social/accounts list (avoids stale React state).
+   * Assigns the account to the active brand when unassigned; prompts move when on another brand.
+   */
+  finishPostConnectBrandAssignment: (
+    accountId: string,
+    freshAccounts: CachedAccount[],
+    hint?: { platform: string; username?: string }
+  ) => boolean;
   /** If this platform is only connected on another brand, open the move prompt. Returns true when shown. */
   maybePromptBrandMoveForPlatform: (platform: string, options?: { afterConnect?: boolean }) => boolean;
   /** Connected on a different brand workspace (not shown in sidebar for the active brand). */
@@ -356,6 +365,41 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
     [allCachedAccounts, accountBrandMap, activeBrandId, maybePromptBrandMove]
   );
 
+  const finishPostConnectBrandAssignment = useCallback(
+    (
+      accountId: string,
+      freshAccounts: CachedAccount[],
+      hint?: { platform: string; username?: string }
+    ): boolean => {
+      const account = freshAccounts.find((a) => a.id === accountId);
+      if (!account) return false;
+      const platform = account.platform ?? hint?.platform;
+      if (!platform) return false;
+      const explicitBrandId = accountBrandMap[accountId];
+      if (explicitBrandId !== undefined && explicitBrandId !== activeBrandId) {
+        const fromBrand = brands.find((b) => b.id === explicitBrandId);
+        setBrandMovePrompt({
+          accountId,
+          platform,
+          username:
+            (typeof account.username === 'string' ? account.username : undefined) ?? hint?.username,
+          fromBrandName: fromBrand?.name ?? 'another brand',
+        });
+        return true;
+      }
+      if (explicitBrandId === undefined) {
+        setAccountBrandMap((prev) => {
+          if (prev[accountId] !== undefined) return prev;
+          const next = { ...prev, [accountId]: activeBrandId };
+          persistAccountBrandMapSync(next);
+          return next;
+        });
+      }
+      return false;
+    },
+    [accountBrandMap, activeBrandId, brands]
+  );
+
   const getOtherBrandPlatformAccount = useCallback(
     (platform: string) => {
       const norm = platform.toUpperCase();
@@ -395,17 +439,8 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       const account = allCachedAccounts.find((a) => a.id === accountId);
       if (!account) return;
       postConnectBrandCheckDoneRef.current = checkKey;
-      if (maybePromptBrandMove(accountId)) return;
+      if (finishPostConnectBrandAssignment(accountId, allCachedAccounts)) return;
       if (maybePromptBrandMoveForPlatform(account.platform, { afterConnect: true })) return;
-      const explicitBrandId = accountBrandMap[accountId];
-      if (explicitBrandId === undefined) {
-        setAccountBrandMap((prev) => {
-          if (prev[accountId] !== undefined) return prev;
-          const next = { ...prev, [accountId]: activeBrandId };
-          persistAccountBrandMapSync(next);
-          return next;
-        });
-      }
     } catch {
       // ignore
     }
@@ -416,6 +451,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
     brands,
     maybePromptBrandMove,
     maybePromptBrandMoveForPlatform,
+    finishPostConnectBrandAssignment,
   ]);
 
   const value = useMemo(
@@ -436,6 +472,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       assignAccountToActiveBrand,
       maybePromptBrandMove,
       maybePromptBrandMoveForPlatform,
+      finishPostConnectBrandAssignment,
       getOtherBrandPlatformAccount,
       brandMovePrompt,
       dismissBrandMovePrompt,
@@ -457,6 +494,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       assignAccountToActiveBrand,
       maybePromptBrandMove,
       maybePromptBrandMoveForPlatform,
+      finishPostConnectBrandAssignment,
       getOtherBrandPlatformAccount,
       brandMovePrompt,
       dismissBrandMovePrompt,

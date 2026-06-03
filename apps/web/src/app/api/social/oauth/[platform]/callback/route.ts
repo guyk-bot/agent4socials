@@ -1081,34 +1081,31 @@ export async function GET(
 
   const igPages = tokenData.pages ?? [];
   const igAccounts = tokenData.instagramAccounts ?? [];
-  const igMustPickAccount = igAccounts.length > 1;
 
   if (plat === 'INSTAGRAM' && igAccounts.length >= 1) {
-    // Picker only when there are 2+ Instagram accounts. Facebook Pages without Instagram are not listed here.
-    if (igMustPickAccount) {
-      try {
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-        const accountsJson = JSON.parse(JSON.stringify(igAccounts)) as object;
-        const pagesJson = JSON.parse(
-          JSON.stringify(igPages.map(({ access_token: _at, ...p }) => p))
-        ) as object;
-        const pending = await prisma.pendingConnection.create({
-          data: {
-            userId,
-            platform: 'INSTAGRAM',
-            payload: { accessToken: tokenData.accessToken, accounts: accountsJson, pages: pagesJson },
-            expiresAt,
-          },
-        });
-        const selectUrl = `${baseUrl}/accounts/instagram/select?pendingId=${pending.id}`;
-        const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Choose Instagram account</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Choose which Instagram account to connect.</p><script>window.location.href = ${JSON.stringify(selectUrl)};</script><p>Redirecting to <a href="${selectUrl}">Choose account</a>…</p></body></html>`;
-        return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
-      } catch (e) {
-        console.error('[Social OAuth] pending Instagram create error (page picker):', e);
-        // fall through to auto-connect first account below
-      }
+    // Always show the picker so the user confirms which Instagram account (and linked Page) to use.
+    try {
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      const accountsJson = JSON.parse(JSON.stringify(igAccounts)) as object;
+      const pagesJson = JSON.parse(
+        JSON.stringify(igPages.map(({ access_token: _at, ...p }) => p))
+      ) as object;
+      const pending = await prisma.pendingConnection.create({
+        data: {
+          userId,
+          platform: 'INSTAGRAM',
+          payload: { accessToken: tokenData.accessToken, accounts: accountsJson, pages: pagesJson },
+          expiresAt,
+        },
+      });
+      const selectUrl = `${baseUrl}/accounts/instagram/select?pendingId=${pending.id}`;
+      const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Choose Instagram account</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Choose which Instagram account to connect.</p><script>window.location.href = ${JSON.stringify(selectUrl)};</script><p>Redirecting to <a href="${selectUrl}">Choose account</a>…</p></body></html>`;
+      return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
+    } catch (e) {
+      console.error('[Social OAuth] pending Instagram create error (page picker):', e);
+      // fall through to auto-connect first account below
     }
-    // Auto-connect only when a single Page and at most one linked Instagram account.
+    // Fallback if pending session could not be created.
     try {
       // Auto-connect the first (or only) Instagram account.
       const first = tokenData.instagramAccounts![0];

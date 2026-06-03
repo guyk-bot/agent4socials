@@ -57,13 +57,17 @@ const CONNECT_LABEL_ICON: Record<string, React.ReactNode> = {
  * Rendered on `/dashboard/account` and legacy `/dashboard/accounts` redirects here.
  */
 export function ConnectedAccountsPanel() {
-  const { cachedAccounts, setCachedAccounts, maybePromptBrandMove, maybePromptBrandMoveForPlatform } =
-    useAccountsCache() ?? {
-      cachedAccounts: [],
-      setCachedAccounts: () => {},
-      maybePromptBrandMove: () => false,
-      maybePromptBrandMoveForPlatform: () => false,
-    };
+  const {
+    cachedAccounts,
+    setCachedAccounts,
+    maybePromptBrandMoveForPlatform,
+    finishPostConnectBrandAssignment,
+  } = useAccountsCache() ?? {
+    cachedAccounts: [],
+    setCachedAccounts: () => {},
+    maybePromptBrandMoveForPlatform: () => false,
+    finishPostConnectBrandAssignment: () => false,
+  };
   const appData = useAppData();
   const { selectedAccountId, setSelectedAccountId } = useSelectedAccount() ?? { selectedAccountId: null, setSelectedAccountId: () => {} };
 
@@ -83,15 +87,25 @@ export function ConnectedAccountsPanel() {
         const data = Array.isArray(res.data) ? res.data : [];
         setCachedAccounts(data);
         const { accountId, platform } = payload;
-        window.setTimeout(() => {
-          if (accountId && maybePromptBrandMove(accountId)) return;
-          if (platform) maybePromptBrandMoveForPlatform(platform, { afterConnect: true });
-        }, 0);
+        const connected = accountId ? data.find((a) => a.id === accountId) : undefined;
+        if (accountId && finishPostConnectBrandAssignment) {
+          const moved = finishPostConnectBrandAssignment(
+            accountId,
+            data,
+            connected
+              ? { platform: connected.platform, username: connected.username }
+              : platform
+                ? { platform, username: undefined }
+                : undefined
+          );
+          if (moved) return;
+        }
+        if (platform) maybePromptBrandMoveForPlatform(platform, { afterConnect: true });
       } catch {
         /* ignore */
       }
     });
-  }, [setCachedAccounts, maybePromptBrandMove, maybePromptBrandMoveForPlatform]);
+  }, [setCachedAccounts, finishPostConnectBrandAssignment, maybePromptBrandMoveForPlatform]);
 
   const handleDisconnectClick = (acc: SocialAccount) => {
     pendingDisconnectRef.current = acc;

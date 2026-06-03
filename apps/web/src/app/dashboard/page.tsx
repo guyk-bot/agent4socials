@@ -372,6 +372,7 @@ export default function DashboardPage() {
     setAccountsLoadError,
     maybePromptBrandMove,
     maybePromptBrandMoveForPlatform,
+    finishPostConnectBrandAssignment,
   } = useAccountsCache() ?? {
     cachedAccounts: [],
     setCachedAccounts: () => {},
@@ -379,6 +380,7 @@ export default function DashboardPage() {
     setAccountsLoadError: () => {},
     maybePromptBrandMove: () => false,
     maybePromptBrandMoveForPlatform: () => false,
+    finishPostConnectBrandAssignment: () => false,
   };
   const appData = useAppData();
   const shouldApplyVisibleChartUpdate = () =>
@@ -742,14 +744,17 @@ export default function DashboardPage() {
           }
         }
         delete postsCacheRef.current[accountIdFromUrl];
-        if (
-          accountIdFromUrl &&
-          !brandMovedParam &&
-          !brandKeptParam &&
-          !maybePromptBrandMove(accountIdFromUrl) &&
-          connected
-        ) {
-          maybePromptBrandMoveForPlatform(connected.platform, { afterConnect: true });
+        if (accountIdFromUrl && !brandMovedParam && !brandKeptParam) {
+          const moved = finishPostConnectBrandAssignment(
+            accountIdFromUrl,
+            list,
+            connected
+              ? { platform: connected.platform, username: connected.username }
+              : undefined
+          );
+          if (!moved && connected) {
+            maybePromptBrandMoveForPlatform(connected.platform, { afterConnect: true });
+          }
         }
         router.replace('/dashboard', { scroll: false });
       })
@@ -770,6 +775,7 @@ export default function DashboardPage() {
     router,
     maybePromptBrandMove,
     maybePromptBrandMoveForPlatform,
+    finishPostConnectBrandAssignment,
   ]);
 
   useEffect(() => {
@@ -799,17 +805,28 @@ export default function DashboardPage() {
               triggerInboxWarmClient(true);
             }
           }
-          window.setTimeout(() => {
-            if (maybePromptBrandMove(accountId)) return;
-          }, 0);
-        } else if (platform) {
-          window.setTimeout(() => {
+          const moved = finishPostConnectBrandAssignment(
+            accountId,
+            list,
+            connected
+              ? { platform: connected.platform, username: connected.username }
+              : { platform: platform ?? 'INSTAGRAM', username }
+          );
+          if (!moved && platform) {
             maybePromptBrandMoveForPlatform(platform, { afterConnect: true });
-          }, 0);
+          }
+        } else if (platform) {
+          maybePromptBrandMoveForPlatform(platform, { afterConnect: true });
         }
       });
     });
-  }, [fetchAccounts, setSelectedAccountId, setCachedAccounts, maybePromptBrandMove, maybePromptBrandMoveForPlatform]);
+  }, [
+    fetchAccounts,
+    setSelectedAccountId,
+    setCachedAccounts,
+    finishPostConnectBrandAssignment,
+    maybePromptBrandMoveForPlatform,
+  ]);
 
   useEffect(() => {
     if (connectingParam !== '1' || accountIdFromUrl) return;
