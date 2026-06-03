@@ -18,6 +18,7 @@ import { syncTikTokImportedVideos } from '@/lib/tiktok/sync-imported-videos';
 import { bootstrapLinkedInAfterConnect } from '@/lib/linkedin/bootstrap-after-connect';
 import { resolveLinkedInAuthorUrn } from '@/lib/linkedin/rest-person';
 import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
+import { parseLinkedInOAuthState } from '@/lib/linkedin/build-oauth-authorization-url';
 import { scheduleInboxWarmForUser } from '@/lib/inbox/schedule-inbox-warm';
 import { resolvePrismaUserIdFromOAuthState } from '@/lib/get-prisma-user';
 import { OAUTH_COMPLETE_MESSAGE } from '@/lib/oauth-connect';
@@ -714,7 +715,15 @@ export async function GET(
 
   // User clicked "Not now" or denied permission: redirect to dashboard instead of showing an error
   const oauthError = searchParams.get('error');
+  const stateForDeny = searchParams.get('state') ?? '';
+  const denyPreviewId = stateForDeny ? parseLinkedInOAuthState(stateForDeny).previewId : null;
   if (!code && (oauthError === 'access_denied' || oauthError === 'user_denied' || searchParams.has('error'))) {
+    if (denyPreviewId) {
+      const returnTo = encodeURIComponent('/dashboard?connect=LINKEDIN');
+      return NextResponse.redirect(
+        `${baseUrl}/connect/linkedin/consent?previewId=${encodeURIComponent(denyPreviewId)}&method=personal&returnTo=${returnTo}`
+      );
+    }
     return NextResponse.redirect(dashboardUrl);
   }
 
@@ -737,14 +746,7 @@ export async function GET(
   const isLinkedInPersonal = stateRaw.includes(':linkedin_personal');
   const isTikTokPersonal = stateRaw.includes(':tiktok_personal');
   const isTikTokBusiness = stateRaw.includes(':tiktok_business');
-  const oauthStateBase = stateRaw
-    .replace(/:instagram$/, '')
-    .replace(/:linkedin_identify:personal$/, '')
-    .replace(/:linkedin_identify:page$/, '')
-    .replace(/:linkedin_page$/, '')
-    .replace(/:linkedin_personal$/, '')
-    .replace(/:tiktok_personal$/, '')
-    .replace(/:tiktok_business$/, '');
+  const { userIdBase: oauthStateBase, previewId: linkedInConsentPreviewId } = parseLinkedInOAuthState(stateRaw);
   let userId: string;
   try {
     if (oauthStateBase.startsWith('sb:')) {
@@ -811,6 +813,26 @@ export async function GET(
     await ensureSocialAccountOAuthSchema();
   } catch (e) {
     console.warn('[Social OAuth] ensureSocialAccountOAuthSchema:', (e as Error)?.message ?? e);
+  }
+
+  if (plat === 'LINKEDIN' && linkedInConsentPreviewId && !isLinkedInIdentify) {
+    const consentPending = await prisma.pendingConnection.findUnique({
+      where: { id: linkedInConsentPreviewId },
+    });
+    const consentPayload = (consentPending?.payload ?? {}) as { consentApproved?: boolean; step?: string };
+    if (
+      !consentPending ||
+      consentPending.userId !== userId ||
+      consentPending.platform !== 'LINKEDIN' ||
+      consentPayload.step !== 'consent_preview' ||
+      consentPayload.consentApproved !== true
+    ) {
+      return oauthErrorHtml(
+        baseUrl,
+        'LinkedIn connect session expired. Open Connect from Accounts and try again.',
+        400
+      );
+    }
   }
 
   if (plat === 'LINKEDIN' && isLinkedInIdentify) {
@@ -1552,6 +1574,9 @@ export async function GET(
   }
   const genericConnectParams = buildConnectParams(plat, tokenData.username, tokenData.profilePicture ?? null);
   if (mainAccount?.id) {
+    if (plat === 'LINKEDIN' && linkedInConsentPreviewId) {
+      await prisma.pendingConnection.delete({ where: { id: linkedInConsentPreviewId } }).catch(() => {});
+    }
     return oauthSuccessHtml(baseUrl, mainAccount.id, extraQuery, genericConnectParams);
   }
   return NextResponse.redirect(`${baseUrl}/dashboard`);

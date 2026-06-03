@@ -16,10 +16,9 @@ import {
   threadsAppSecret,
 } from '@/lib/threads/threads-api';
 import {
-  buildLinkedInOAuthScopeString,
-  LINKEDIN_IDENTITY_OAUTH_SCOPES,
-  type LinkedInConnectMethod,
-} from '@/lib/linkedin/oauth-scopes';
+  buildLinkedInOAuthAuthorizationUrl,
+} from '@/lib/linkedin/build-oauth-authorization-url';
+import type { LinkedInConnectMethod } from '@/lib/linkedin/oauth-scopes';
 
 /** OAuth start must never be statically cached. */
 export const dynamic = 'force-dynamic';
@@ -114,13 +113,13 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string, step?:
     case 'LINKEDIN': {
       const linkedInMethod =
         method === 'page' || method === 'personal' ? (method as LinkedInConnectMethod) : undefined;
-      const linkedInScopes =
-        step === 'identify'
-          ? LINKEDIN_IDENTITY_OAUTH_SCOPES
-          : buildLinkedInOAuthScopeString(linkedInMethod);
-      const redirect = encodeURIComponent((process.env.LINKEDIN_REDIRECT_URI || callbackUrl).replace(/\/+$/, ''));
-      const clientId = encodeURIComponent(process.env.LINKEDIN_CLIENT_ID || '');
-      return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${clientId}&redirect_uri=${redirect}&state=${encodeURIComponent(state)}&scope=${encodeURIComponent(linkedInScopes)}&enable_extended_login=true`;
+      if (!linkedInMethod) {
+        throw new Error('LinkedIn connect requires method=personal or method=page');
+      }
+      return buildLinkedInOAuthAuthorizationUrl(userId, {
+        method: linkedInMethod,
+        step: step === 'identify' ? 'identify' : 'connect',
+      });
     }
     case 'THREADS': {
       const threadsRedirect = resolveThreadsRedirectUri();

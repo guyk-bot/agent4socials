@@ -4,7 +4,7 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { LinkedInOAuthConsentScreen } from '@/components/dashboard/LinkedInOAuthConsentScreen';
 import { LinkedInConsentSignInStep } from '@/components/dashboard/LinkedInConsentSignInStep';
-import { startLinkedInOAuth } from '@/lib/linkedin/start-oauth';
+import { startLinkedInConnectAfterConsent } from '@/lib/linkedin/start-oauth';
 import { avatarDisplayUrl } from '@/lib/avatar-display-url';
 import api from '@/lib/api';
 import type { LinkedInConnectMethod } from '@/lib/linkedin/oauth-scopes';
@@ -65,11 +65,12 @@ function LinkedInConsentContent() {
   };
 
   const handleAllow = async () => {
+    if (!previewId) return;
     setError(null);
     setAllowing(true);
-    const result = await startLinkedInOAuth(method);
+    const result = await startLinkedInConnectAfterConsent(previewId, returnTo);
     if (result.ok) {
-      window.location.href = result.url;
+      window.location.assign(result.url);
       return;
     }
     setAllowing(false);

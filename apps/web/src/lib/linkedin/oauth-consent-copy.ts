@@ -27,5 +27,5 @@ export const LINKEDIN_OAUTH_MEMBER_AVATAR_URL = '/linkedin-oauth-member-placehol
 /** App mark on black circle (vector for sharp display). */
 export const LINKEDIN_OAUTH_APP_LOGO_URL = '/logo-white.svg?v=13';
 
-/** Shown in footer copy (matches LinkedIn's consent screen wording). */
-export const LINKEDIN_OAUTH_REDIRECT_DISPLAY_URL = 'https://www.linkedin.com';
+/** Shown in footer copy after the user taps Allow on the in-app consent screen. */
+export const LINKEDIN_OAUTH_REDIRECT_DISPLAY_URL = 'Agent4Socials';
