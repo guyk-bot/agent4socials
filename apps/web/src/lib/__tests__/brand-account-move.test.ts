@@ -92,6 +92,13 @@ describe('resolvePostConnectBrandAction', () => {
       { id: 'ig-guy', platform: 'INSTAGRAM' },
     ])).toEqual({ type: 'prompt_move', fromBrandId: brandMain });
   });
+
+  it('auto-assigns TikTok to the active brand instead of prompting to move', () => {
+    const map = { tt: brandMain };
+    expect(
+      resolvePostConnectBrandAction(map, 'tt', brandGuy, [{ id: 'tt', platform: 'TIKTOK' }])
+    ).toEqual({ type: 'assign_active' });
+  });
 });
 
 describe('countAccountsForBrand', () => {

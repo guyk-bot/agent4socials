@@ -203,7 +203,14 @@ export function resolvePostConnectBrandAction(
   const mappedBrandId = map[accountId];
   if (mappedBrandId === activeBrandId) return { type: 'noop' };
   if (shouldPromptMoveFromOtherBrand(accounts, map, accountId, activeBrandId)) {
-    return { type: 'prompt_move', fromBrandId: mappedBrandId };
+    const account = accounts.find((a) => a.id === accountId);
+    const platform = account?.platform.toUpperCase() ?? '';
+    // Instagram/Facebook can differ per brand; ask before moving the visible account.
+    if (META_BRAND_SCOPED_PLATFORMS.has(platform)) {
+      return { type: 'prompt_move', fromBrandId: mappedBrandId };
+    }
+    // TikTok, LinkedIn, etc.: one connected account per platform — connect on this brand moves it here.
+    return { type: 'assign_active' };
   }
   return { type: 'assign_active' };
 }

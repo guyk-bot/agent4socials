@@ -2,7 +2,7 @@
 
 import React, { useRef, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { BrandAccountMovePrompt } from '@/components/account/BrandAccountMoveModal';
-import { skipBrandMovePromptForPlatform } from '@/lib/brand-platform-connect';
+import { skipBrandMovePromptForPlatform, META_BRAND_SCOPED_PLATFORMS } from '@/lib/brand-platform-connect';
 import {
   ACCOUNT_BRAND_MAP_KEY,
   accountMappedBrandId,
@@ -413,6 +413,8 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
     (platform: string, options?: { afterConnect?: boolean }): boolean => {
       if (skipBrandMovePromptForPlatform(platform)) return false;
       const norm = platform.toUpperCase();
+      // Move prompts only apply to Meta (multiple accounts per platform across brands).
+      if (!META_BRAND_SCOPED_PLATFORMS.has(norm)) return false;
       const matches = allCachedAccounts.filter((a) => a.platform === norm);
       if (matches.length === 0) return false;
       const map = { ...readAccountBrandMapFromStorage(), ...accountBrandMap };
@@ -496,7 +498,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
     [allCachedAccounts, accountBrandMap, activeBrandId, brands]
   );
 
-  // After OAuth: if account is explicitly on another brand, prompt to move (never auto-move).
+  // After OAuth: Meta accounts may prompt to move; other platforms auto-assign on connect.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
