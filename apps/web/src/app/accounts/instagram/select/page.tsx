@@ -6,12 +6,20 @@ import Link from 'next/link';
 import api from '@/lib/api';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 import { Instagram, Loader2 } from 'lucide-react';
+import { useAccountsCache, upsertOptimisticConnectedAccount } from '@/context/AccountsCacheContext';
+import {
+  PENDING_CONNECT_REDIRECT_KEY,
+  parseAccountIdFromDashboardRedirect,
+} from '@/lib/brand-account-move';
 
 type AccountItem = { id: string; username?: string; profilePicture?: string };
 
 function InstagramSelectContent() {
   const searchParams = useSearchParams();
   const pendingId = searchParams.get('pendingId');
+  const accountsCache = useAccountsCache();
+  const setCachedAccounts = accountsCache?.setCachedAccounts;
+  const maybePromptBrandMove = accountsCache?.maybePromptBrandMove;
   const [accounts, setAccounts] = useState<AccountItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,7 +54,34 @@ function InstagramSelectContent() {
         accountId: selectedId,
       });
       if (res.data?.redirect) {
-        window.location.href = res.data.redirect;
+        const redirect = res.data.redirect;
+        const accountId = parseAccountIdFromDashboardRedirect(redirect);
+        const selected = accounts.find((a) => a.id === selectedId);
+        if (accountId && setCachedAccounts && maybePromptBrandMove) {
+          setCachedAccounts((prev) =>
+            upsertOptimisticConnectedAccount(prev, {
+              id: accountId,
+              platform: 'INSTAGRAM',
+              username: selected?.username ?? 'Instagram',
+              profilePicture: selected?.profilePicture ?? null,
+            })
+          );
+          if (
+            maybePromptBrandMove(accountId, {
+              platform: 'INSTAGRAM',
+              username: selected?.username ?? 'Instagram',
+            })
+          ) {
+            try {
+              sessionStorage.setItem(PENDING_CONNECT_REDIRECT_KEY, redirect);
+            } catch {
+              // ignore
+            }
+            setSubmitting(false);
+            return;
+          }
+        }
+        window.location.href = redirect;
         return;
       }
       window.location.href = '/dashboard';

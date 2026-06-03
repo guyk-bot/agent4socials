@@ -3,6 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { BrandAccountMovePrompt } from '@/components/account/BrandAccountMoveModal';
 import { skipBrandMovePromptBeforeConnect } from '@/lib/brand-platform-connect';
+import { isOAuthConnectingFromUrl, readPostConnectAccountIdFromUrl } from '@/lib/brand-account-move';
 
 type CachedAccount = { id: string; platform: string; username?: string; profilePicture?: string | null; [key: string]: unknown };
 
@@ -148,9 +149,12 @@ type AccountsCacheContextType = {
   /** Assign a connected account to the active brand (local brand map only). */
   assignAccountToActiveBrand: (accountId: string) => void;
   /** If this account is mapped to another brand, open the move prompt. Returns true when shown. */
-  maybePromptBrandMove: (accountId: string) => boolean;
+  maybePromptBrandMove: (
+    accountId: string,
+    hint?: { platform: string; username?: string }
+  ) => boolean;
   /** If this platform is only connected on another brand, open the move prompt. Returns true when shown. */
-  maybePromptBrandMoveForPlatform: (platform: string) => boolean;
+  maybePromptBrandMoveForPlatform: (platform: string, options?: { afterConnect?: boolean }) => boolean;
   brandMovePrompt: BrandAccountMovePrompt | null;
   dismissBrandMovePrompt: () => void;
 };
@@ -182,38 +186,6 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
 
   const postConnectBrandCheckDoneRef = React.useRef<string | null>(null);
 
-  // After OAuth: if account is on another brand, prompt to move instead of silently hiding it.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('connecting') !== '1') return;
-      const accountId = params.get('accountId');
-      if (!accountId) return;
-      const checkKey = `${accountId}:${activeBrandId}:${allCachedAccounts.length}`;
-      if (postConnectBrandCheckDoneRef.current === checkKey) return;
-      const account = allCachedAccounts.find((a) => a.id === accountId);
-      if (!account) return;
-      postConnectBrandCheckDoneRef.current = checkKey;
-      const mappedBrandId = accountBrandMap[accountId] ?? DEFAULT_BRAND_ID;
-      if (mappedBrandId !== activeBrandId) {
-        const fromBrand = brands.find((b) => b.id === mappedBrandId);
-        setBrandMovePrompt({
-          accountId,
-          platform: account.platform,
-          username: typeof account.username === 'string' ? account.username : undefined,
-          fromBrandName: fromBrand?.name ?? 'another brand',
-        });
-        return;
-      }
-      setAccountBrandMap((prev) => {
-        if (prev[accountId] === activeBrandId) return prev;
-        return { ...prev, [accountId]: activeBrandId };
-      });
-    } catch {
-      // ignore
-    }
-  }, [activeBrandId, allCachedAccounts, accountBrandMap, brands]);
   useEffect(() => { persist(BRANDS_KEY, brands); }, [brands, persist]);
   useEffect(() => { persist(ACCOUNT_BRAND_MAP_KEY, accountBrandMap); }, [accountBrandMap, persist]);
   useEffect(() => { persist(ACTIVE_BRAND_KEY, activeBrandId); }, [activeBrandId, persist]);
@@ -254,13 +226,14 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
     setAllCachedAccountsState((prev) => {
       const next = typeof arg === 'function' ? arg(prev) : arg;
       const prevIds = new Set(prev.map((a) => a.id));
+      const deferBrandAssign = isOAuthConnectingFromUrl();
       setAccountBrandMap((prevMap) => {
         const map = { ...prevMap };
         for (const account of next) {
-          if (!map[account.id]) {
-            const isNewlyConnectedAccount = !prevIds.has(account.id);
-            map[account.id] = isNewlyConnectedAccount ? (activeBrandId || DEFAULT_BRAND_ID) : DEFAULT_BRAND_ID;
-          }
+          if (map[account.id] !== undefined) continue;
+          if (deferBrandAssign) continue;
+          const isNewlyConnectedAccount = !prevIds.has(account.id);
+          map[account.id] = isNewlyConnectedAccount ? (activeBrandId || DEFAULT_BRAND_ID) : DEFAULT_BRAND_ID;
         }
         for (const account of next) {
           if ((map[account.id] ?? DEFAULT_BRAND_ID) !== activeBrandId) continue;
@@ -353,16 +326,19 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
   );
 
   const maybePromptBrandMove = useCallback(
-    (accountId: string): boolean => {
+    (accountId: string, hint?: { platform: string; username?: string }): boolean => {
+      const explicitBrandId = accountBrandMap[accountId];
+      if (explicitBrandId === undefined || explicitBrandId === activeBrandId) return false;
       const account = allCachedAccounts.find((a) => a.id === accountId);
-      if (!account) return false;
-      const mappedBrandId = accountBrandMap[accountId] ?? DEFAULT_BRAND_ID;
-      if (mappedBrandId === activeBrandId) return false;
-      const fromBrand = brands.find((b) => b.id === mappedBrandId);
+      const platform = account?.platform ?? hint?.platform;
+      if (!platform) return false;
+      const fromBrand = brands.find((b) => b.id === explicitBrandId);
       setBrandMovePrompt({
         accountId,
-        platform: account.platform,
-        username: typeof account.username === 'string' ? account.username : undefined,
+        platform,
+        username:
+          (typeof account?.username === 'string' ? account.username : undefined) ??
+          hint?.username,
         fromBrandName: fromBrand?.name ?? 'another brand',
       });
       return true;
@@ -371,19 +347,54 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
   );
 
   const maybePromptBrandMoveForPlatform = useCallback(
-    (platform: string): boolean => {
-      if (skipBrandMovePromptBeforeConnect(platform)) return false;
+    (platform: string, options?: { afterConnect?: boolean }): boolean => {
+      if (!options?.afterConnect && skipBrandMovePromptBeforeConnect(platform)) return false;
       const norm = platform.toUpperCase();
       const matches = allCachedAccounts.filter((a) => a.platform === norm);
       if (matches.length === 0) return false;
-      const onActive = matches.filter((a) => (accountBrandMap[a.id] ?? DEFAULT_BRAND_ID) === activeBrandId);
+      const onActive = matches.filter((a) => accountBrandMap[a.id] === activeBrandId);
       if (onActive.length > 0) return false;
-      const onOther = matches.filter((a) => (accountBrandMap[a.id] ?? DEFAULT_BRAND_ID) !== activeBrandId);
+      const onOther = matches.filter((a) => {
+        const explicit = accountBrandMap[a.id];
+        return explicit !== undefined && explicit !== activeBrandId;
+      });
       if (onOther.length !== 1) return false;
       return maybePromptBrandMove(onOther[0].id);
     },
     [allCachedAccounts, accountBrandMap, activeBrandId, maybePromptBrandMove]
   );
+
+  // After OAuth: if account is explicitly on another brand, prompt to move (never auto-move).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const accountId = readPostConnectAccountIdFromUrl();
+      if (!accountId) return;
+      const checkKey = `${accountId}:${activeBrandId}:${allCachedAccounts.length}:${accountBrandMap[accountId] ?? ''}`;
+      if (postConnectBrandCheckDoneRef.current === checkKey) return;
+      const account = allCachedAccounts.find((a) => a.id === accountId);
+      if (!account) return;
+      postConnectBrandCheckDoneRef.current = checkKey;
+      if (maybePromptBrandMove(accountId)) return;
+      if (maybePromptBrandMoveForPlatform(account.platform, { afterConnect: true })) return;
+      const explicitBrandId = accountBrandMap[accountId];
+      if (explicitBrandId === undefined) {
+        setAccountBrandMap((prev) => {
+          if (prev[accountId] !== undefined) return prev;
+          return { ...prev, [accountId]: activeBrandId };
+        });
+      }
+    } catch {
+      // ignore
+    }
+  }, [
+    activeBrandId,
+    allCachedAccounts,
+    accountBrandMap,
+    brands,
+    maybePromptBrandMove,
+    maybePromptBrandMoveForPlatform,
+  ]);
 
   const value = useMemo(
     () => ({

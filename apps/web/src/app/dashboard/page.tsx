@@ -738,6 +738,9 @@ export default function DashboardPage() {
           }
         }
         delete postsCacheRef.current[accountIdFromUrl];
+        if (accountIdFromUrl && !maybePromptBrandMove(accountIdFromUrl) && connected) {
+          maybePromptBrandMoveForPlatform(connected.platform, { afterConnect: true });
+        }
         router.replace('/dashboard', { scroll: false });
       })
       .catch(() => {
@@ -748,7 +751,14 @@ export default function DashboardPage() {
       cancelled = true;
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [accountIdFromUrl, connectingParam, twitter1oaNext, router]);
+  }, [
+    accountIdFromUrl,
+    connectingParam,
+    twitter1oaNext,
+    router,
+    maybePromptBrandMove,
+    maybePromptBrandMoveForPlatform,
+  ]);
 
   useEffect(() => {
     return listenForOAuthComplete((payload) => {

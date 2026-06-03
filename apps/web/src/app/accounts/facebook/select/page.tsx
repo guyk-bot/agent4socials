@@ -6,12 +6,20 @@ import Link from 'next/link';
 import api from '@/lib/api';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 import { Facebook, Loader2 } from 'lucide-react';
+import { useAccountsCache, upsertOptimisticConnectedAccount } from '@/context/AccountsCacheContext';
+import {
+  PENDING_CONNECT_REDIRECT_KEY,
+  parseAccountIdFromDashboardRedirect,
+} from '@/lib/brand-account-move';
 
 type PageItem = { id: string; name?: string; picture?: string };
 
 function FacebookSelectContent() {
   const searchParams = useSearchParams();
   const pendingId = searchParams.get('pendingId');
+  const accountsCache = useAccountsCache();
+  const setCachedAccounts = accountsCache?.setCachedAccounts;
+  const maybePromptBrandMove = accountsCache?.maybePromptBrandMove;
   const [pages, setPages] = useState<PageItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,7 +54,34 @@ function FacebookSelectContent() {
         pageId: selectedId,
       });
       if (res.data?.redirect) {
-        window.location.href = res.data.redirect;
+        const redirect = res.data.redirect;
+        const accountId = parseAccountIdFromDashboardRedirect(redirect);
+        const selectedPage = pages.find((p) => p.id === selectedId);
+        if (accountId && setCachedAccounts && maybePromptBrandMove) {
+          setCachedAccounts((prev) =>
+            upsertOptimisticConnectedAccount(prev, {
+              id: accountId,
+              platform: 'FACEBOOK',
+              username: selectedPage?.name ?? 'Facebook Page',
+              profilePicture: selectedPage?.picture ?? null,
+            })
+          );
+          if (
+            maybePromptBrandMove(accountId, {
+              platform: 'FACEBOOK',
+              username: selectedPage?.name ?? 'Facebook Page',
+            })
+          ) {
+            try {
+              sessionStorage.setItem(PENDING_CONNECT_REDIRECT_KEY, redirect);
+            } catch {
+              // ignore
+            }
+            setSubmitting(false);
+            return;
+          }
+        }
+        window.location.href = redirect;
         return;
       }
       window.location.href = '/dashboard';
