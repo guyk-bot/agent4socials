@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import axios from 'axios';
 import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { scheduleInboxWarmForUser } from '@/lib/inbox/schedule-inbox-warm';
+import { buildPostConnectDashboardPath } from '@/lib/post-connect-dashboard-url';
 
 type PageItem = { id: string; name?: string; picture?: string; instagram_business_account_id?: string };
 
@@ -162,6 +163,30 @@ export async function POST(request: NextRequest) {
     });
   }
   await prisma.pendingConnection.delete({ where: { id: pendingId } }).catch(() => {});
+
+  const fbAccount = await prisma.socialAccount.findFirst({
+    where: { userId, platform: 'FACEBOOK', platformUserId: page.id },
+    select: { id: true, username: true, profilePicture: true },
+  });
+  const igAccount = instagramId
+    ? await prisma.socialAccount.findFirst({
+        where: { userId, platform: 'INSTAGRAM', platformUserId: instagramId },
+        select: { id: true, username: true, profilePicture: true },
+      })
+    : null;
+
   scheduleInboxWarmForUser(userId);
-  return NextResponse.json({ ok: true, redirect: '/dashboard' });
+
+  const preferIg = Boolean(igAccount?.id);
+  const connectAccount = preferIg ? igAccount : fbAccount;
+  const redirect = connectAccount?.id
+    ? buildPostConnectDashboardPath(
+        connectAccount.id,
+        preferIg ? 'INSTAGRAM' : 'FACEBOOK',
+        connectAccount.username,
+        connectAccount.profilePicture
+      )
+    : '/dashboard';
+
+  return NextResponse.json({ ok: true, redirect });
 }

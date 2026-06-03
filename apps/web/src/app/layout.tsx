@@ -7,6 +7,7 @@ import { AuthModalProvider } from "@/context/AuthModalContext";
 import { WhiteLabelProvider } from "@/context/WhiteLabelContext";
 import { AccountsCacheProvider } from "@/context/AccountsCacheContext";
 import { SelectedAccountProvider } from "@/context/SelectedAccountContext";
+import { BrandAccountMoveHost } from "@/components/account/BrandAccountMoveHost";
 import { AppDataProvider } from "@/context/AppDataContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import AuthModal from "@/components/auth/AuthModal";
@@ -115,6 +116,7 @@ export default function RootLayout({
           <ThemeProvider>
           <AccountsCacheProvider>
             <SelectedAccountProvider>
+            <BrandAccountMoveHost />
             <AppDataProvider>
             <AuthModalProvider>
               <WhiteLabelProvider>

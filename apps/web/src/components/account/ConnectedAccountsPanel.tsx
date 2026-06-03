@@ -57,7 +57,13 @@ const CONNECT_LABEL_ICON: Record<string, React.ReactNode> = {
  * Rendered on `/dashboard/account` and legacy `/dashboard/accounts` redirects here.
  */
 export function ConnectedAccountsPanel() {
-  const { cachedAccounts, setCachedAccounts } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {} };
+  const { cachedAccounts, setCachedAccounts, maybePromptBrandMove, maybePromptBrandMoveForPlatform } =
+    useAccountsCache() ?? {
+      cachedAccounts: [],
+      setCachedAccounts: () => {},
+      maybePromptBrandMove: () => false,
+      maybePromptBrandMoveForPlatform: () => false,
+    };
   const appData = useAppData();
   const { selectedAccountId, setSelectedAccountId } = useSelectedAccount() ?? { selectedAccountId: null, setSelectedAccountId: () => {} };
 
@@ -71,16 +77,21 @@ export function ConnectedAccountsPanel() {
   const accounts = (cachedAccounts as SocialAccount[]) ?? [];
 
   useEffect(() => {
-    return listenForOAuthComplete(async () => {
+    return listenForOAuthComplete(async (payload) => {
       try {
         const res = await api.get(`/social/accounts?_=${Date.now()}`);
         const data = Array.isArray(res.data) ? res.data : [];
         setCachedAccounts(data);
+        const { accountId, platform } = payload;
+        window.setTimeout(() => {
+          if (accountId && maybePromptBrandMove(accountId)) return;
+          if (platform) maybePromptBrandMoveForPlatform(platform);
+        }, 0);
       } catch {
         /* ignore */
       }
     });
-  }, [setCachedAccounts]);
+  }, [setCachedAccounts, maybePromptBrandMove, maybePromptBrandMoveForPlatform]);
 
   const handleDisconnectClick = (acc: SocialAccount) => {
     pendingDisconnectRef.current = acc;

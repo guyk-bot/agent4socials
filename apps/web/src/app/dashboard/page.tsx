@@ -365,7 +365,22 @@ export default function DashboardPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { openSignup } = useAuthModal();
-  const { cachedAccounts, setCachedAccounts, accountsLoadError, setAccountsLoadError } = useAccountsCache() ?? { cachedAccounts: [], setCachedAccounts: () => {}, accountsLoadError: null, setAccountsLoadError: () => {} };
+  const accountsCache = useAccountsCache();
+  const {
+    cachedAccounts,
+    setCachedAccounts,
+    accountsLoadError,
+    setAccountsLoadError,
+    maybePromptBrandMove,
+    maybePromptBrandMoveForPlatform,
+  } = accountsCache ?? {
+    cachedAccounts: [],
+    setCachedAccounts: () => {},
+    accountsLoadError: null,
+    setAccountsLoadError: () => {},
+    maybePromptBrandMove: () => false,
+    maybePromptBrandMoveForPlatform: () => false,
+  };
   const appData = useAppData();
   const shouldApplyVisibleChartUpdate = () =>
     typeof document === 'undefined' || document.visibilityState === 'visible';
@@ -639,6 +654,24 @@ export default function DashboardPage() {
     ? connectParam.toUpperCase()
     : null;
   const showConnectView = selectedPlatformForConnect || connectFromUrl;
+  const connectBrandCheckRef = React.useRef('');
+
+  useEffect(() => {
+    const platform = selectedPlatformForConnect || connectFromUrl;
+    if (!platform) return;
+    const key = `${platform}:${accountsCache?.activeBrandId ?? ''}`;
+    if (connectBrandCheckRef.current === key) return;
+    if (maybePromptBrandMoveForPlatform(platform)) {
+      connectBrandCheckRef.current = key;
+    }
+  }, [
+    showConnectView,
+    selectedPlatformForConnect,
+    connectFromUrl,
+    maybePromptBrandMoveForPlatform,
+    accountsCache?.activeBrandId,
+    accountsCache?.allCachedAccounts,
+  ]);
 
   const accountIdsKey = accounts.map((a) => a.id).sort().join(',');
 
@@ -763,10 +796,17 @@ export default function DashboardPage() {
               triggerInboxWarmClient(true);
             }
           }
+          window.setTimeout(() => {
+            if (maybePromptBrandMove(accountId)) return;
+          }, 0);
+        } else if (platform) {
+          window.setTimeout(() => {
+            maybePromptBrandMoveForPlatform(platform);
+          }, 0);
         }
       });
     });
-  }, [fetchAccounts, setSelectedAccountId, setCachedAccounts]);
+  }, [fetchAccounts, setSelectedAccountId, setCachedAccounts, maybePromptBrandMove, maybePromptBrandMoveForPlatform]);
 
   useEffect(() => {
     if (connectingParam !== '1' || accountIdFromUrl) return;
@@ -1783,6 +1823,9 @@ export default function DashboardPage() {
       return res?.data?.message ?? null;
     };
     setAlertMessage(null);
+    if (maybePromptBrandMoveForPlatform(platform)) {
+      return;
+    }
     const oauthPopup = prepareOAuthConnectPopup();
     setConnectingPlatform(platform);
     setConnectingMethod(method);
