@@ -62,14 +62,12 @@ export function ConnectedAccountsPanel() {
     setCachedAccounts,
     removeConnectedAccountFromCache,
     completePendingDisconnect,
-    maybePromptBrandMoveForPlatform,
     finishPostConnectBrandAssignment,
   } = useAccountsCache() ?? {
     cachedAccounts: [],
     setCachedAccounts: () => {},
     removeConnectedAccountFromCache: () => {},
     completePendingDisconnect: () => {},
-    maybePromptBrandMoveForPlatform: () => false,
     finishPostConnectBrandAssignment: () => 'noop' as const,
   };
   const appData = useAppData();
@@ -105,12 +103,11 @@ export function ConnectedAccountsPanel() {
           if (postConnectResult === 'prompt') return;
           if (postConnectResult !== 'noop') return;
         }
-        if (platform) maybePromptBrandMoveForPlatform(platform, { afterConnect: true });
       } catch {
         /* ignore */
       }
     });
-  }, [setCachedAccounts, finishPostConnectBrandAssignment, maybePromptBrandMoveForPlatform]);
+  }, [setCachedAccounts, finishPostConnectBrandAssignment]);
 
   const handleDisconnectClick = (acc: SocialAccount) => {
     pendingDisconnectRef.current = acc;

@@ -370,16 +370,12 @@ export default function DashboardPage() {
     setCachedAccounts,
     accountsLoadError,
     setAccountsLoadError,
-    maybePromptBrandMove,
-    maybePromptBrandMoveForPlatform,
     finishPostConnectBrandAssignment,
   } = useAccountsCache() ?? {
     cachedAccounts: [],
     setCachedAccounts: () => {},
     accountsLoadError: null,
     setAccountsLoadError: () => {},
-    maybePromptBrandMove: () => false,
-    maybePromptBrandMoveForPlatform: () => false,
     finishPostConnectBrandAssignment: () => 'noop' as const,
   };
   const appData = useAppData();
@@ -752,9 +748,7 @@ export default function DashboardPage() {
               ? { platform: connected.platform, username: connected.username }
               : undefined
           );
-          if (postConnectResult === 'noop' && connected) {
-            maybePromptBrandMoveForPlatform(connected.platform, { afterConnect: true });
-          }
+          if (postConnectResult === 'prompt') return;
         }
         router.replace('/dashboard', { scroll: false });
       })
@@ -773,8 +767,6 @@ export default function DashboardPage() {
     brandKeptParam,
     twitter1oaNext,
     router,
-    maybePromptBrandMove,
-    maybePromptBrandMoveForPlatform,
     finishPostConnectBrandAssignment,
   ]);
 
@@ -812,11 +804,7 @@ export default function DashboardPage() {
               ? { platform: connected.platform, username: connected.username }
               : { platform: platform ?? 'INSTAGRAM', username }
           );
-          if (postConnectResult === 'noop' && platform) {
-            maybePromptBrandMoveForPlatform(platform, { afterConnect: true });
-          }
-        } else if (platform) {
-          maybePromptBrandMoveForPlatform(platform, { afterConnect: true });
+          if (postConnectResult === 'prompt') return;
         }
       });
     });
@@ -825,7 +813,6 @@ export default function DashboardPage() {
     setSelectedAccountId,
     setCachedAccounts,
     finishPostConnectBrandAssignment,
-    maybePromptBrandMoveForPlatform,
   ]);
 
   useEffect(() => {

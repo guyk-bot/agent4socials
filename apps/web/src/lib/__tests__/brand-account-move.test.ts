@@ -2,6 +2,7 @@ import {
   DEFAULT_BRAND_ID,
   applyBrandMapUpdatesOnAccountsSync,
   countAccountsForBrand,
+  isNewDistinctPlatformConnectionOnOtherBrand,
   repairCorruptedBrandMap,
   resolvePostConnectBrandAction,
   shouldPromptMoveFromOtherBrand,
@@ -74,12 +75,40 @@ describe('resolvePostConnectBrandAction', () => {
     ).toEqual({ type: 'prompt_move', fromBrandId: brandMain });
   });
 
-  it('prompts when TikTok is reconnecting from the default brand', () => {
+  it('prompts when TikTok is reconnecting the same row from the default brand', () => {
     expect(
       resolvePostConnectBrandAction({}, 'tt', brandGuy, [{ id: 'tt', platform: 'TIKTOK' }], {
         isReconnect: true,
       })
     ).toEqual({ type: 'prompt_move', fromBrandId: brandMain });
+  });
+
+  it('assigns a new TikTok without prompting when another TikTok is on the other brand', () => {
+    const brandGuy = 'brand-guy';
+    const map = { 'tt-old': brandGuy };
+    expect(
+      resolvePostConnectBrandAction(
+        map,
+        'tt-new',
+        brandMain,
+        [
+          { id: 'tt-old', platform: 'TIKTOK', platformUserId: 'open-old' },
+          { id: 'tt-new', platform: 'TIKTOK', platformUserId: 'open-new' },
+        ],
+        { isReconnect: false }
+      )
+    ).toEqual({ type: 'assign_active' });
+    expect(
+      isNewDistinctPlatformConnectionOnOtherBrand(
+        { id: 'tt-new', platform: 'TIKTOK', platformUserId: 'open-new' },
+        [
+          { id: 'tt-old', platform: 'TIKTOK', platformUserId: 'open-old' },
+          { id: 'tt-new', platform: 'TIKTOK', platformUserId: 'open-new' },
+        ],
+        map,
+        brandMain
+      )
+    ).toBe(true);
   });
 
   it('does not prompt when another Instagram is the visible one on the other brand', () => {

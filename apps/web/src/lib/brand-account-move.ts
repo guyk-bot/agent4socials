@@ -136,7 +136,36 @@ export function isAccountExplicitlyBrandMapped(
   return Object.prototype.hasOwnProperty.call(map, accountId);
 }
 
-export type BrandMapAccountRef = { id: string; platform: string };
+export type BrandMapAccountRef = {
+  id: string;
+  platform: string;
+  platformUserId?: string;
+};
+
+export function toBrandMapAccountRef(account: {
+  id: string;
+  platform: string;
+  platformUserId?: unknown;
+}): BrandMapAccountRef {
+  return {
+    id: account.id,
+    platform: account.platform,
+    platformUserId:
+      typeof account.platformUserId === 'string' ? account.platformUserId : undefined,
+  };
+}
+
+export function mergeBrandMapAccountRefs(
+  ...groups: Array<Array<{ id: string; platform: string; platformUserId?: unknown }>>
+): BrandMapAccountRef[] {
+  const byId = new Map<string, BrandMapAccountRef>();
+  for (const group of groups) {
+    for (const account of group) {
+      byId.set(account.id, toBrandMapAccountRef(account));
+    }
+  }
+  return [...byId.values()];
+}
 
 /** Sidebar shows at most one row per platform; first matching account in list order wins. */
 export function getSidebarPlatformAccountForBrand(
@@ -171,6 +200,43 @@ export function enumerateKnownBrandIds(map: Record<string, string>): string[] {
 }
 
 /** Brand workspace where this account is shown in the sidebar, if any (excluding active). */
+/**
+ * True when the user just connected a different external account (e.g. another TikTok open_id)
+ * while another row of the same platform is already visible on a different brand workspace.
+ * In that case we assign the new row to the active brand without a move prompt.
+ */
+export function isNewDistinctPlatformConnectionOnOtherBrand(
+  connected: BrandMapAccountRef,
+  accounts: BrandMapAccountRef[],
+  map: Record<string, string>,
+  activeBrandId: string
+): boolean {
+  const norm = connected.platform.toUpperCase();
+  if (META_BRAND_SCOPED_PLATFORMS.has(norm)) return false;
+
+  const otherVisible = accounts.filter((a) => {
+    if (a.id === connected.id) return false;
+    if (a.platform.toUpperCase() !== norm) return false;
+    for (const brandId of enumerateKnownBrandIds(map)) {
+      if (brandId === activeBrandId) continue;
+      if (isAccountVisibleOnBrand(accounts, map, a.id, brandId)) return true;
+    }
+    return false;
+  });
+
+  if (otherVisible.length === 0) return false;
+
+  const connectedPuid = connected.platformUserId?.trim();
+  if (connectedPuid) {
+    return otherVisible.every((a) => {
+      const puid = a.platformUserId?.trim();
+      return Boolean(puid && puid !== connectedPuid);
+    });
+  }
+
+  return !accounts.some((a) => a.id === connected.id);
+}
+
 export function resolveOtherBrandIdForMovePrompt(
   accounts: BrandMapAccountRef[],
   map: Record<string, string>,
@@ -238,8 +304,16 @@ export function resolvePostConnectBrandAction(
   accountId: string,
   activeBrandId: string,
   accounts: BrandMapAccountRef[],
-  options?: { isReconnect?: boolean }
+  options?: { isReconnect?: boolean; isDistinctNewConnection?: boolean }
 ): PostConnectBrandAction {
+  const connected = accounts.find((a) => a.id === accountId);
+  if (
+    connected &&
+    isNewDistinctPlatformConnectionOnOtherBrand(connected, accounts, map, activeBrandId)
+  ) {
+    return { type: 'assign_active' };
+  }
+
   const mappedBrandId = accountMappedBrandId(map, accountId);
   if (
     mappedBrandId === activeBrandId &&
@@ -258,6 +332,7 @@ export function resolvePostConnectBrandAction(
     if (fromBrandId) {
       const explicitlyOnOther =
         isAccountExplicitlyBrandMapped(map, accountId) && map[accountId] !== activeBrandId;
+      // Only prompt when reconnecting this exact account row, not because another platform row exists.
       if (explicitlyOnOther || options?.isReconnect) {
         return { type: 'prompt_move', fromBrandId };
       }

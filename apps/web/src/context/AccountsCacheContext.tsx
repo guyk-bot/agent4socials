@@ -10,6 +10,7 @@ import {
   buildNextBrandMapForMove,
   enumerateKnownBrandIds,
   isAccountVisibleOnBrand,
+  mergeBrandMapAccountRefs,
   isBrandMoveResolvedFromUrl,
   isOAuthConnectingFromUrl,
   persistAccountBrandMapSync,
@@ -23,7 +24,14 @@ import {
   prepareBrandMoveNavigation,
 } from '@/lib/brand-account-move';
 
-type CachedAccount = { id: string; platform: string; username?: string; profilePicture?: string | null; [key: string]: unknown };
+type CachedAccount = {
+  id: string;
+  platform: string;
+  username?: string;
+  profilePicture?: string | null;
+  platformUserId?: string;
+  [key: string]: unknown;
+};
 
 /** Insert or refresh a just-connected account so the sidebar can render before /social/accounts returns. */
 export function upsertOptimisticConnectedAccount(
@@ -449,10 +457,8 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       const platform = account?.platform ?? hint?.platform;
       if (!platform) return 'noop';
       const map = { ...readAccountBrandMapFromStorage(), ...accountBrandMap };
-      const accountRefs = freshAccounts.map((a) => ({ id: a.id, platform: a.platform }));
-      const isReconnect =
-        allCachedAccounts.some((a) => a.id === accountId) ||
-        allCachedAccounts.some((a) => a.platform === platform && a.id !== accountId);
+      const accountRefs = mergeBrandMapAccountRefs(allCachedAccounts, freshAccounts);
+      const isReconnect = allCachedAccounts.some((a) => a.id === accountId);
       const action = resolvePostConnectBrandAction(
         map,
         accountId,
@@ -528,10 +534,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       const account = allCachedAccounts.find((a) => a.id === accountId);
       if (!account) return;
       postConnectBrandCheckDoneRef.current = checkKey;
-      const postConnectResult = finishPostConnectBrandAssignment(accountId, allCachedAccounts);
-      if (postConnectResult === 'prompt') return;
-      if (postConnectResult !== 'noop') return;
-      if (maybePromptBrandMoveForPlatform(account.platform, { afterConnect: true })) return;
+      finishPostConnectBrandAssignment(accountId, allCachedAccounts);
     } catch {
       // ignore
     }
