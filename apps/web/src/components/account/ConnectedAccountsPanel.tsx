@@ -61,12 +61,14 @@ export function ConnectedAccountsPanel() {
     cachedAccounts,
     setCachedAccounts,
     removeConnectedAccountFromCache,
+    completePendingDisconnect,
     maybePromptBrandMoveForPlatform,
     finishPostConnectBrandAssignment,
   } = useAccountsCache() ?? {
     cachedAccounts: [],
     setCachedAccounts: () => {},
     removeConnectedAccountFromCache: () => {},
+    completePendingDisconnect: () => {},
     maybePromptBrandMoveForPlatform: () => false,
     finishPostConnectBrandAssignment: () => 'noop' as const,
   };
@@ -136,7 +138,9 @@ export function ConnectedAccountsPanel() {
     void (async () => {
       try {
         await api.delete(`/social/accounts/${accountIdToRemove}`);
+        completePendingDisconnect(accountIdToRemove);
       } catch (e) {
+        completePendingDisconnect(accountIdToRemove);
         const err = e as { response?: { data?: { message?: string }; status?: number } };
         const msg =
           err?.response?.data?.message ??
@@ -258,16 +262,11 @@ export function ConnectedAccountsPanel() {
                                 ? 'personal'
                                 : undefined;
                           const reconnectMethod = liMethod ?? tiktokMethod;
-                          if (acc.platform === 'LINKEDIN' && reconnectMethod) {
-                            const returnTo = encodeURIComponent('/dashboard/account#connected-accounts');
-                            window.location.assign(
-                              `/connect/linkedin/consent?method=${encodeURIComponent(reconnectMethod)}&returnTo=${returnTo}`
-                            );
-                            return;
-                          }
                           const qs =
                             reconnectMethod != null
-                              ? `?method=${encodeURIComponent(reconnectMethod)}`
+                              ? acc.platform === 'LINKEDIN'
+                                ? `?method=${encodeURIComponent(reconnectMethod)}&step=consent`
+                                : `?method=${encodeURIComponent(reconnectMethod)}`
                               : '';
                           const res = await api.get(
                             `/social/oauth/${acc.platform.toLowerCase()}/start${qs}`

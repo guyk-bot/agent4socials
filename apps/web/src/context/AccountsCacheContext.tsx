@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { useRef, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { BrandAccountMovePrompt } from '@/components/account/BrandAccountMoveModal';
 import { skipBrandMovePromptForPlatform } from '@/lib/brand-platform-connect';
 import {
@@ -140,6 +140,8 @@ type AccountsCacheContextType = {
   setCachedAccounts: React.Dispatch<React.SetStateAction<CachedAccount[]>>;
   /** Remove one account from cache immediately (e.g. optimistic disconnect). */
   removeConnectedAccountFromCache: (accountId: string) => void;
+  /** Call after the disconnect API finishes so refetches can include the account again on failure. */
+  completePendingDisconnect: (accountId: string) => void;
   accountsLoadError: string | null;
   setAccountsLoadError: React.Dispatch<React.SetStateAction<string | null>>;
   brands: BrandWorkspace[];
@@ -182,6 +184,7 @@ const AccountsCacheContext = createContext<AccountsCacheContextType | undefined>
 
 export function AccountsCacheProvider({ children }: { children: React.ReactNode }) {
   const [allCachedAccounts, setAllCachedAccountsState] = useState<CachedAccount[]>(readAccountsFromStorage);
+  const pendingDisconnectAccountIdsRef = useRef(new Set<string>());
   const [accountsLoadError, setAccountsLoadError] = useState<string | null>(null);
   const [brands, setBrands] = useState<BrandWorkspace[]>(readBrandsFromStorage);
   const [accountBrandMap, setAccountBrandMap] = useState<Record<string, string>>(readAccountBrandMapFromStorage);
@@ -257,9 +260,16 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
     });
   }, [allCachedAccounts, accountBrandMap, activeBrandId]);
 
+  const filterPendingDisconnects = useCallback((accounts: CachedAccount[]) => {
+    const pending = pendingDisconnectAccountIdsRef.current;
+    if (pending.size === 0) return accounts;
+    return accounts.filter((a) => !pending.has(a.id));
+  }, []);
+
   const setCachedAccounts = useCallback((arg: React.SetStateAction<CachedAccount[]>) => {
     setAllCachedAccountsState((prev) => {
-      const next = typeof arg === 'function' ? arg(prev) : arg;
+      const rawNext = typeof arg === 'function' ? arg(prev) : arg;
+      const next = filterPendingDisconnects(rawNext);
       const prevIds = new Set(prev.map((a) => a.id));
       const deferBrandAssign = isOAuthConnectingFromUrl();
       setAccountBrandMap((prevMap) => {
@@ -279,10 +289,11 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       });
       return next;
     });
-  }, [activeBrandId, brands]);
+  }, [activeBrandId, brands, filterPendingDisconnects]);
 
   const removeConnectedAccountFromCache = useCallback((accountId: string) => {
     if (!accountId) return;
+    pendingDisconnectAccountIdsRef.current.add(accountId);
     setAllCachedAccountsState((prev) => prev.filter((a) => a.id !== accountId));
     setAccountBrandMap((prev) => {
       if (!(accountId in prev)) return prev;
@@ -291,6 +302,11 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       persistAccountBrandMapSync(next);
       return next;
     });
+  }, []);
+
+  const completePendingDisconnect = useCallback((accountId: string) => {
+    if (!accountId) return;
+    pendingDisconnectAccountIdsRef.current.delete(accountId);
   }, []);
 
   const setActiveBrandId = useCallback((id: string) => {
@@ -521,6 +537,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       allCachedAccounts,
       setCachedAccounts,
       removeConnectedAccountFromCache,
+      completePendingDisconnect,
       accountsLoadError,
       setAccountsLoadError,
       brands,
@@ -545,6 +562,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       accountsLoadError,
       setCachedAccounts,
       removeConnectedAccountFromCache,
+      completePendingDisconnect,
       setAccountsLoadError,
       brands,
       activeBrandId,

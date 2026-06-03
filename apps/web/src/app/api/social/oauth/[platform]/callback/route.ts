@@ -19,7 +19,6 @@ import { bootstrapLinkedInAfterConnect } from '@/lib/linkedin/bootstrap-after-co
 import { resolveLinkedInAuthorUrn } from '@/lib/linkedin/rest-person';
 import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 import { parseLinkedInOAuthState } from '@/lib/linkedin/build-oauth-authorization-url';
-import { finalizeLinkedInPendingConnect } from '@/lib/linkedin/finalize-pending-connect';
 import { scheduleInboxWarmForUser } from '@/lib/inbox/schedule-inbox-warm';
 import { resolvePrismaUserIdFromOAuthState } from '@/lib/get-prisma-user';
 import { OAUTH_COMPLETE_MESSAGE } from '@/lib/oauth-connect';
@@ -861,8 +860,9 @@ export async function GET(
           expiresAt: expiresAtPending,
         },
       });
-      const { redirect } = await finalizeLinkedInPendingConnect(userId, pending.id);
-      return NextResponse.redirect(`${baseUrl}${redirect}`);
+      const returnTo = encodeURIComponent('/dashboard?connect=LINKEDIN');
+      const consentUrl = `${baseUrl}/connect/linkedin/consent?previewId=${encodeURIComponent(pending.id)}&method=${linkedInConsentMethod}&returnTo=${returnTo}`;
+      return NextResponse.redirect(consentUrl);
     } catch (e) {
       console.error('[LinkedIn OAuth consent]', (e as Error)?.message ?? e);
       return oauthErrorHtml(
