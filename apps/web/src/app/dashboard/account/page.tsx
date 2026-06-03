@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import api from '@/lib/api';
+import { countAccountsForBrand } from '@/lib/brand-account-move';
 import { ConnectedAccountsPanel } from '@/components/account/ConnectedAccountsPanel';
 import {
   BrandTeamMembersSection,
@@ -1150,7 +1151,13 @@ export default function AccountPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               {brands.map((brand) => {
                 const isActive = brand.id === activeBrandId;
-                const mappedCount = allCachedAccounts.filter((a) => getAccountBrandId(a.id) === brand.id).length;
+                const mappedCount = countAccountsForBrand(
+                  allCachedAccounts.map((a) => ({ id: a.id, platform: a.platform })),
+                  Object.fromEntries(
+                    allCachedAccounts.map((a) => [a.id, getAccountBrandId(a.id)])
+                  ),
+                  brand.id
+                );
                 const memberCount = (teamMembersByBrand[brand.id] ?? []).length;
                 return (
                   <div

@@ -6,6 +6,7 @@ import { skipBrandMovePromptBeforeConnect } from '@/lib/brand-platform-connect';
 import {
   ACCOUNT_BRAND_MAP_KEY,
   accountMappedBrandId,
+  applyBrandMapUpdatesOnAccountsSync,
   buildNextBrandMapForMove,
   isAccountMappedToOtherBrand,
   isBrandMoveResolvedFromUrl,
@@ -13,6 +14,8 @@ import {
   persistAccountBrandMapSync,
   readAccountBrandMapFromStorage,
   readPostConnectAccountIdFromUrl,
+  brandMapsEqual,
+  repairCorruptedBrandMap,
 } from '@/lib/brand-account-move';
 
 type CachedAccount = { id: string; platform: string; username?: string; profilePicture?: string | null; [key: string]: unknown };
@@ -191,10 +194,26 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
   const dismissBrandMovePrompt = useCallback(() => setBrandMovePrompt(null), []);
 
   const postConnectBrandCheckDoneRef = React.useRef<string | null>(null);
+  const brandMapRepairDoneRef = React.useRef(false);
 
   useEffect(() => { persist(BRANDS_KEY, brands); }, [brands, persist]);
   useEffect(() => { persist(ACCOUNT_BRAND_MAP_KEY, accountBrandMap); }, [accountBrandMap, persist]);
   useEffect(() => { persist(ACTIVE_BRAND_KEY, activeBrandId); }, [activeBrandId, persist]);
+
+  useEffect(() => {
+    if (brandMapRepairDoneRef.current || allCachedAccounts.length === 0 || brands.length === 0) return;
+    brandMapRepairDoneRef.current = true;
+    setAccountBrandMap((prev) => {
+      const repaired = repairCorruptedBrandMap(
+        prev,
+        allCachedAccounts.map((a) => ({ id: a.id, platform: a.platform })),
+        brands.map((b) => b.id)
+      );
+      if (brandMapsEqual(repaired, prev)) return prev;
+      persistAccountBrandMapSync(repaired);
+      return repaired;
+    });
+  }, [allCachedAccounts, brands]);
   useEffect(() => {
     // If a brand has no image yet, default it from one of its connected account avatars.
     setBrands((prev) => {
@@ -234,28 +253,23 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       const prevIds = new Set(prev.map((a) => a.id));
       const deferBrandAssign = isOAuthConnectingFromUrl();
       setAccountBrandMap((prevMap) => {
-        const map = { ...prevMap };
-        for (const account of next) {
-          if (map[account.id] !== undefined) continue;
-          if (deferBrandAssign) continue;
-          const isNewlyConnectedAccount = !prevIds.has(account.id);
-          map[account.id] = isNewlyConnectedAccount ? (activeBrandId || DEFAULT_BRAND_ID) : DEFAULT_BRAND_ID;
+        const brandIds = brands.map((b) => b.id);
+        const synced = applyBrandMapUpdatesOnAccountsSync({
+          prevMap,
+          prevAccountIds: prevIds,
+          nextAccounts: next.map((a) => ({ id: a.id, platform: a.platform })),
+          activeBrandId: activeBrandId || DEFAULT_BRAND_ID,
+          deferBrandAssign,
+        });
+        const repaired = repairCorruptedBrandMap(synced, next, brandIds);
+        if (!brandMapsEqual(repaired, prevMap)) {
+          persistAccountBrandMapSync(repaired);
         }
-        for (const account of next) {
-          if ((map[account.id] ?? DEFAULT_BRAND_ID) !== activeBrandId) continue;
-          for (const [otherId, brandId] of Object.entries(map)) {
-            if (brandId !== activeBrandId || otherId === account.id) continue;
-            const other = next.find((a) => a.id === otherId);
-            if (other?.platform === account.platform) {
-              map[otherId] = DEFAULT_BRAND_ID;
-            }
-          }
-        }
-        return map;
+        return repaired;
       });
       return next;
     });
-  }, [activeBrandId]);
+  }, [activeBrandId, brands]);
 
   const setActiveBrandId = useCallback((id: string) => {
     if (!id) return;

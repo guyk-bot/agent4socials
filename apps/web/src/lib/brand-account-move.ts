@@ -22,6 +22,103 @@ export function isAccountMappedToOtherBrand(
   return accountMappedBrandId(map, accountId) !== activeBrandId;
 }
 
+export type BrandMapAccountRef = { id: string; platform: string };
+
+/**
+ * When /social/accounts is synced into cache, only brand-assign accounts that are
+ * genuinely new (new DB row). Never bulk-assign or bulk-demote on full list refresh.
+ */
+export function applyBrandMapUpdatesOnAccountsSync(params: {
+  prevMap: Record<string, string>;
+  prevAccountIds: Set<string>;
+  nextAccounts: BrandMapAccountRef[];
+  activeBrandId: string;
+  deferBrandAssign: boolean;
+}): Record<string, string> {
+  const map = { ...params.prevMap };
+  for (const account of params.nextAccounts) {
+    if (map[account.id] !== undefined) continue;
+    if (params.deferBrandAssign) continue;
+    // First bulk load with an empty cache must not assign every platform to the active brand.
+    if (params.prevAccountIds.size === 0) continue;
+    if (!params.prevAccountIds.has(account.id)) {
+      map[account.id] = params.activeBrandId || DEFAULT_BRAND_ID;
+    }
+  }
+  return map;
+}
+
+/** Count sidebar-visible accounts for a brand (one row per platform). */
+export function countAccountsForBrand(
+  accounts: BrandMapAccountRef[],
+  map: Record<string, string>,
+  brandId: string
+): number {
+  const seen = new Set<string>();
+  let n = 0;
+  for (const a of accounts) {
+    if (accountMappedBrandId(map, a.id) !== brandId) continue;
+    const platform = a.platform.toUpperCase();
+    if (seen.has(platform)) continue;
+    seen.add(platform);
+    n += 1;
+  }
+  return n;
+}
+
+/**
+ * Heal maps corrupted when a full account fetch ran with an empty cache while a
+ * secondary brand was active (every account was assigned to that brand).
+ */
+export function repairCorruptedBrandMap(
+  map: Record<string, string>,
+  accounts: BrandMapAccountRef[],
+  brandIds: string[]
+): Record<string, string> {
+  if (accounts.length === 0) return map;
+  const validBrandIds = new Set(brandIds);
+  const next: Record<string, string> = {};
+  for (const [id, brandId] of Object.entries(map)) {
+    if (validBrandIds.has(brandId)) next[id] = brandId;
+  }
+
+  const platformCount = new Set(accounts.map((a) => a.platform.toUpperCase())).size;
+
+  for (const brandId of brandIds) {
+    if (brandId === DEFAULT_BRAND_ID) continue;
+    const onBrand = accounts.filter((a) => accountMappedBrandId(next, a.id) === brandId);
+    if (onBrand.length < accounts.length - 1 || onBrand.length < Math.max(3, platformCount - 1)) {
+      continue;
+    }
+    for (const a of onBrand) {
+      delete next[a.id];
+    }
+  }
+
+  for (const brandId of brandIds) {
+    if (brandId === DEFAULT_BRAND_ID) continue;
+    const seenPlatform = new Set<string>();
+    for (const a of accounts) {
+      if (accountMappedBrandId(next, a.id) !== brandId) continue;
+      const p = a.platform.toUpperCase();
+      if (seenPlatform.has(p)) delete next[a.id];
+      else seenPlatform.add(p);
+    }
+  }
+
+  return next;
+}
+
+export function brandMapsEqual(a: Record<string, string>, b: Record<string, string>): boolean {
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  for (const k of keysA) {
+    if (a[k] !== b[k]) return false;
+  }
+  return true;
+}
+
 export function readAccountBrandMapFromStorage(): Record<string, string> {
   if (typeof window === 'undefined') return {};
   try {
