@@ -83,6 +83,7 @@ import {
     type LinkedInPostVisibility,
     type LinkedInPublishSettings,
 } from '@/lib/linkedin/publish-settings';
+import { LinkedInVisibilitySelect } from '@/components/composer/LinkedInVisibilitySelect';
 
 const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
 
@@ -4185,19 +4186,11 @@ export default function ComposerPage() {
                                         <label className="text-sm font-medium text-neutral-900" htmlFor="linkedin-visibility">
                                             LinkedIn visibility
                                         </label>
-                                        <select
+                                        <LinkedInVisibilitySelect
                                             id="linkedin-visibility"
                                             value={linkedInVisibility}
-                                            onChange={(e) =>
-                                                setLinkedInVisibility(
-                                                    normalizeLinkedInVisibility(e.target.value)
-                                                )
-                                            }
-                                            className="mt-2 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]"
-                                        >
-                                            <option value="PUBLIC">Anyone (public)</option>
-                                            <option value="CONNECTIONS">Connections only</option>
-                                        </select>
+                                            onChange={setLinkedInVisibility}
+                                        />
                                         <p className="mt-1.5 text-xs text-neutral-500">
                                             Applies when publishing to your LinkedIn personal profile or Company Page.
                                         </p>
