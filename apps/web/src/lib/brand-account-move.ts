@@ -1,3 +1,5 @@
+import { META_BRAND_SCOPED_PLATFORMS } from '@/lib/brand-platform-connect';
+
 /** Session key: full-page redirect after user resolves the brand-move modal (e.g. Facebook page picker). */
 export const PENDING_CONNECT_REDIRECT_KEY = 'agent4socials_pending_connect_redirect_v1';
 
@@ -22,7 +24,85 @@ export function isAccountMappedToOtherBrand(
   return accountMappedBrandId(map, accountId) !== activeBrandId;
 }
 
+/** True when the account has an explicit entry in the brand map (not inferred default brand). */
+export function isAccountExplicitlyBrandMapped(
+  map: Record<string, string>,
+  accountId: string
+): boolean {
+  return Object.prototype.hasOwnProperty.call(map, accountId);
+}
+
 export type BrandMapAccountRef = { id: string; platform: string };
+
+/** Sidebar shows at most one row per platform; first matching account in list order wins. */
+export function getSidebarPlatformAccountForBrand(
+  accounts: BrandMapAccountRef[],
+  map: Record<string, string>,
+  brandId: string,
+  platform: string
+): BrandMapAccountRef | null {
+  const norm = platform.toUpperCase();
+  for (const a of accounts) {
+    if (a.platform.toUpperCase() !== norm) continue;
+    if (accountMappedBrandId(map, a.id) !== brandId) continue;
+    return a;
+  }
+  return null;
+}
+
+export function isAccountVisibleOnBrand(
+  accounts: BrandMapAccountRef[],
+  map: Record<string, string>,
+  accountId: string,
+  brandId: string
+): boolean {
+  const account = accounts.find((a) => a.id === accountId);
+  if (!account) return false;
+  const visible = getSidebarPlatformAccountForBrand(accounts, map, brandId, account.platform);
+  return visible?.id === accountId;
+}
+
+/**
+ * Prompt to move only when this account is the one shown on the other brand.
+ * Meta platforms may have multiple DB rows; hidden duplicates should not block connect.
+ */
+export function shouldPromptMoveFromOtherBrand(
+  accounts: BrandMapAccountRef[],
+  map: Record<string, string>,
+  accountId: string,
+  activeBrandId: string
+): boolean {
+  if (!isAccountExplicitlyBrandMapped(map, accountId)) return false;
+  const fromBrandId = map[accountId];
+  if (fromBrandId === activeBrandId) return false;
+  const account = accounts.find((a) => a.id === accountId);
+  if (!account) return true;
+  const platform = account.platform.toUpperCase();
+  if (!META_BRAND_SCOPED_PLATFORMS.has(platform)) return true;
+  return isAccountVisibleOnBrand(accounts, map, accountId, fromBrandId);
+}
+
+export type PostConnectBrandAction =
+  | { type: 'noop' }
+  | { type: 'assign_active' }
+  | { type: 'prompt_move'; fromBrandId: string };
+
+export function resolvePostConnectBrandAction(
+  map: Record<string, string>,
+  accountId: string,
+  activeBrandId: string,
+  accounts: BrandMapAccountRef[]
+): PostConnectBrandAction {
+  if (!isAccountExplicitlyBrandMapped(map, accountId)) {
+    return { type: 'assign_active' };
+  }
+  const mappedBrandId = map[accountId];
+  if (mappedBrandId === activeBrandId) return { type: 'noop' };
+  if (shouldPromptMoveFromOtherBrand(accounts, map, accountId, activeBrandId)) {
+    return { type: 'prompt_move', fromBrandId: mappedBrandId };
+  }
+  return { type: 'assign_active' };
+}
 
 /**
  * When /social/accounts is synced into cache, only brand-assign accounts that are

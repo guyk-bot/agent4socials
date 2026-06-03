@@ -3,6 +3,8 @@ import {
   applyBrandMapUpdatesOnAccountsSync,
   countAccountsForBrand,
   repairCorruptedBrandMap,
+  resolvePostConnectBrandAction,
+  shouldPromptMoveFromOtherBrand,
 } from '../brand-account-move';
 
 const accounts = [
@@ -44,6 +46,51 @@ describe('repairCorruptedBrandMap', () => {
     for (const a of accounts) corrupted[a.id] = brandOther;
     const repaired = repairCorruptedBrandMap(corrupted, accounts, [DEFAULT_BRAND_ID, brandOther]);
     expect(repaired).toEqual({});
+  });
+});
+
+describe('resolvePostConnectBrandAction', () => {
+  const brandMain = DEFAULT_BRAND_ID;
+  const brandGuy = 'brand-guy';
+
+  it('assigns to active brand when the account has no explicit map entry', () => {
+    const action = resolvePostConnectBrandAction({}, 'ig-guy', brandGuy, [
+      { id: 'ig-main', platform: 'INSTAGRAM' },
+      { id: 'ig-guy', platform: 'INSTAGRAM' },
+    ]);
+    expect(action).toEqual({ type: 'assign_active' });
+  });
+
+  it('does not prompt when another Instagram is the visible one on the other brand', () => {
+    const map = {
+      'ig-main': brandMain,
+      'ig-guy': brandMain,
+    };
+    expect(
+      shouldPromptMoveFromOtherBrand(
+        [
+          { id: 'ig-main', platform: 'INSTAGRAM' },
+          { id: 'ig-guy', platform: 'INSTAGRAM' },
+        ],
+        map,
+        'ig-guy',
+        brandGuy
+      )
+    ).toBe(false);
+    expect(resolvePostConnectBrandAction(map, 'ig-guy', brandGuy, [
+      { id: 'ig-main', platform: 'INSTAGRAM' },
+      { id: 'ig-guy', platform: 'INSTAGRAM' },
+    ])).toEqual({ type: 'assign_active' });
+  });
+
+  it('prompts when this account is the visible Instagram on the other brand', () => {
+    const map = { 'ig-guy': brandMain };
+    expect(
+      shouldPromptMoveFromOtherBrand([{ id: 'ig-guy', platform: 'INSTAGRAM' }], map, 'ig-guy', brandGuy)
+    ).toBe(true);
+    expect(resolvePostConnectBrandAction(map, 'ig-guy', brandGuy, [
+      { id: 'ig-guy', platform: 'INSTAGRAM' },
+    ])).toEqual({ type: 'prompt_move', fromBrandId: brandMain });
   });
 });
 
