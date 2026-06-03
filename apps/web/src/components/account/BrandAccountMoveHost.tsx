@@ -4,15 +4,18 @@ import React from 'react';
 import { BrandAccountMoveModal } from '@/components/account/BrandAccountMoveModal';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
-import { PENDING_CONNECT_REDIRECT_KEY } from '@/lib/brand-account-move';
+import {
+  PENDING_CONNECT_REDIRECT_KEY,
+  sanitizePostConnectRedirect,
+} from '@/lib/brand-account-move';
 
-function finishPendingConnectRedirect() {
+function finishPendingConnectRedirect(outcome: 'moved' | 'kept') {
   if (typeof window === 'undefined') return;
   try {
     const redirect = sessionStorage.getItem(PENDING_CONNECT_REDIRECT_KEY);
     if (!redirect) return;
     sessionStorage.removeItem(PENDING_CONNECT_REDIRECT_KEY);
-    window.location.href = redirect;
+    window.location.href = sanitizePostConnectRedirect(redirect, outcome);
   } catch {
     // ignore
   }
@@ -41,14 +44,16 @@ export function BrandAccountMoveHost() {
       activeBrandName={activeBrandName}
       onMove={() => {
         if (!brandMovePrompt) return;
-        assignAccountToActiveBrand(brandMovePrompt.accountId);
+        assignAccountToActiveBrand(brandMovePrompt.accountId, {
+          platform: brandMovePrompt.platform,
+        });
         selected?.setSelectedAccountId(brandMovePrompt.accountId);
         dismissBrandMovePrompt();
-        finishPendingConnectRedirect();
+        finishPendingConnectRedirect('moved');
       }}
       onKeepOnOtherBrand={() => {
         dismissBrandMovePrompt();
-        finishPendingConnectRedirect();
+        finishPendingConnectRedirect('kept');
       }}
     />
   );

@@ -3,7 +3,13 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { BrandAccountMovePrompt } from '@/components/account/BrandAccountMoveModal';
 import { skipBrandMovePromptBeforeConnect } from '@/lib/brand-platform-connect';
-import { isOAuthConnectingFromUrl, readPostConnectAccountIdFromUrl } from '@/lib/brand-account-move';
+import {
+  buildNextBrandMapForMove,
+  isBrandMoveResolvedFromUrl,
+  isOAuthConnectingFromUrl,
+  persistAccountBrandMapSync,
+  readPostConnectAccountIdFromUrl,
+} from '@/lib/brand-account-move';
 
 type CachedAccount = { id: string; platform: string; username?: string; profilePicture?: string | null; [key: string]: unknown };
 
@@ -34,7 +40,6 @@ export type BrandWorkspace = {
 const STORAGE_KEY = 'agent4socials_cached_accounts_v2';
 const BRANDS_KEY = 'agent4socials_brands_v1';
 const ACTIVE_BRAND_KEY = 'agent4socials_active_brand_v1';
-const ACCOUNT_BRAND_MAP_KEY = 'agent4socials_account_brand_map_v1';
 const DEFAULT_BRAND_ID = 'brand-default';
 
 function readAccountsFromStorage(): CachedAccount[] {
@@ -113,22 +118,6 @@ function readActiveBrandIdFromStorage(brands: BrandWorkspace[]): string {
   }
 }
 
-function readAccountBrandMapFromStorage(): Record<string, string> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = localStorage.getItem(ACCOUNT_BRAND_MAP_KEY) || sessionStorage.getItem(ACCOUNT_BRAND_MAP_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-    const out: Record<string, string> = {};
-    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-      if (typeof k === 'string' && typeof v === 'string' && k && v) out[k] = v;
-    }
-    return out;
-  } catch {
-    return {};
-  }
-}
 
 type AccountsCacheContextType = {
   /** Accounts visible for the currently active brand only. */
@@ -147,7 +136,7 @@ type AccountsCacheContextType = {
   setBrandImage: (brandId: string, imageUrl: string | null) => void;
   getAccountBrandId: (accountId: string) => string;
   /** Assign a connected account to the active brand (local brand map only). */
-  assignAccountToActiveBrand: (accountId: string) => void;
+  assignAccountToActiveBrand: (accountId: string, options?: { platform?: string }) => void;
   /** If this account is mapped to another brand, open the move prompt. Returns true when shown. */
   maybePromptBrandMove: (
     accountId: string,
@@ -306,19 +295,16 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
   }, [accountBrandMap]);
 
   const assignAccountToActiveBrand = useCallback(
-    (accountId: string) => {
+    (accountId: string, options?: { platform?: string }) => {
       if (!accountId || !activeBrandId) return;
       const account = allCachedAccounts.find((a) => a.id === accountId);
-      if (!account) return;
+      const platform = options?.platform ?? account?.platform;
       setAccountBrandMap((prev) => {
-        const next = { ...prev, [accountId]: activeBrandId };
-        for (const [id, brandId] of Object.entries(next)) {
-          if (brandId !== activeBrandId || id === accountId) continue;
-          const other = allCachedAccounts.find((a) => a.id === id);
-          if (other?.platform === account.platform) {
-            next[id] = DEFAULT_BRAND_ID;
-          }
-        }
+        const next = buildNextBrandMapForMove(prev, accountId, activeBrandId, {
+          platform,
+          allAccounts: allCachedAccounts.map((a) => ({ id: a.id, platform: a.platform })),
+        });
+        persistAccountBrandMapSync(next);
         return next;
       });
     },
@@ -368,6 +354,13 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
+      if (isBrandMoveResolvedFromUrl()) {
+        const accountId = readPostConnectAccountIdFromUrl();
+        if (accountId) {
+          postConnectBrandCheckDoneRef.current = `resolved:${accountId}:${activeBrandId}`;
+        }
+        return;
+      }
       const accountId = readPostConnectAccountIdFromUrl();
       if (!accountId) return;
       const checkKey = `${accountId}:${activeBrandId}:${allCachedAccounts.length}:${accountBrandMap[accountId] ?? ''}`;
@@ -381,7 +374,9 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       if (explicitBrandId === undefined) {
         setAccountBrandMap((prev) => {
           if (prev[accountId] !== undefined) return prev;
-          return { ...prev, [accountId]: activeBrandId };
+          const next = { ...prev, [accountId]: activeBrandId };
+          persistAccountBrandMapSync(next);
+          return next;
         });
       }
     } catch {

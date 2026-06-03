@@ -411,6 +411,9 @@ export default function DashboardPage() {
   const accounts = (cachedAccounts as SocialAccount[]) ?? [];
   const accountIdFromUrl = searchParams.get('accountId');
   const connectingParam = searchParams.get('connecting');
+  const brandMovedParam = searchParams.get('brandMoved') === '1';
+  const brandKeptParam = searchParams.get('brandKept') === '1';
+  const postConnectReturn = connectingParam === '1' || brandMovedParam || brandKeptParam;
   /** Resolved account for analytics; stub from OAuth URL until accounts API returns. */
   const analyticsAccount = useMemo((): SocialAccount | null => {
     if (selectedAccount) return selectedAccount;
@@ -418,7 +421,7 @@ export default function DashboardPage() {
     const fromList = accounts.find((a) => a.id === selectedAccountId);
     if (fromList) return fromList as SocialAccount;
     const platformParam = searchParams.get('newPlatform');
-    if (connectingParam === '1' && platformParam) {
+    if (postConnectReturn && platformParam) {
       return {
         id: selectedAccountId,
         platform: platformParam.toUpperCase(),
@@ -427,7 +430,7 @@ export default function DashboardPage() {
       };
     }
     return null;
-  }, [selectedAccount, selectedAccountId, accounts, connectingParam, searchParams]);
+  }, [selectedAccount, selectedAccountId, accounts, postConnectReturn, searchParams]);
   selectedAccountRef.current = analyticsAccount;
   const [justConnected, setJustConnected] = useState(false);
 
@@ -686,7 +689,7 @@ export default function DashboardPage() {
   useLayoutEffect(() => {
     if (!accountIdFromUrl || twitter1oaNext === '1') return;
     setSelectedAccountId(accountIdFromUrl);
-    if (connectingParam === '1') {
+    if (postConnectReturn) {
       clearConnectLoadDone(accountIdFromUrl);
       setJustConnected(true);
       const cachedInsights = readInsightsFromLocalStorage(accountIdFromUrl, 7 * 24 * 60 * 60 * 1000);
@@ -702,14 +705,14 @@ export default function DashboardPage() {
         setImportedPostsLoading(false);
       }
     }
-  }, [accountIdFromUrl, connectingParam, twitter1oaNext, setSelectedAccountId]);
+  }, [accountIdFromUrl, postConnectReturn, twitter1oaNext, setSelectedAccountId]);
 
   // When accountId is in URL: clean URL; after connect refresh cache and clear stale per-account data.
   useEffect(() => {
     if (!accountIdFromUrl || twitter1oaNext === '1') return;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     let cancelled = false;
-    const oauthJustConnected = connectingParam === '1';
+    const oauthJustConnected = connectingParam === '1' || brandMovedParam || brandKeptParam;
 
     if (!oauthJustConnected) {
       router.replace('/dashboard', { scroll: false });
@@ -738,7 +741,13 @@ export default function DashboardPage() {
           }
         }
         delete postsCacheRef.current[accountIdFromUrl];
-        if (accountIdFromUrl && !maybePromptBrandMove(accountIdFromUrl) && connected) {
+        if (
+          accountIdFromUrl &&
+          !brandMovedParam &&
+          !brandKeptParam &&
+          !maybePromptBrandMove(accountIdFromUrl) &&
+          connected
+        ) {
           maybePromptBrandMoveForPlatform(connected.platform, { afterConnect: true });
         }
         router.replace('/dashboard', { scroll: false });
@@ -754,6 +763,8 @@ export default function DashboardPage() {
   }, [
     accountIdFromUrl,
     connectingParam,
+    brandMovedParam,
+    brandKeptParam,
     twitter1oaNext,
     router,
     maybePromptBrandMove,
