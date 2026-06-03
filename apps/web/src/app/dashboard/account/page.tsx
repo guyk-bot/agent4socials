@@ -1223,11 +1223,11 @@ export default function AccountPage() {
                             onClick={() => {
                               setActiveBrandId(brand.id);
                               clearSelection();
-                              router.push('/dashboard/console');
                             }}
+                            aria-label={`Open ${brand.name}`}
                             className="brand-open-dashboard-btn rounded-lg border px-2.5 py-1.5 text-xs font-medium"
                           >
-                            Open dashboard
+                            Open {brand.name}
                           </button>
                           {brandImageTargetId === brand.id ? (
                             <span className="text-xs text-neutral-500">Uploading...</span>
