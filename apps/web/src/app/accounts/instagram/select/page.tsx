@@ -137,10 +137,7 @@ function InstagramSelectContent() {
     <div className="max-w-md mx-auto space-y-6 form-choice-scope">
       <div>
         <h1 className="text-2xl font-bold text-neutral-900">Connect an Instagram account</h1>
-        <p className="text-neutral-500 mt-1">
-          Choose which Instagram account to add to this brand. We only list accounts linked to your Facebook login
-          (required by Meta for publishing and analytics).
-        </p>
+        <p className="text-neutral-500 mt-1">Choose the account you want to connect.</p>
       </div>
       <form onSubmit={handleSubmit} className="card space-y-4">
         <div className="space-y-3">
