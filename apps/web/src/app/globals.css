@@ -434,6 +434,47 @@
   border-color: #171717 !important;
 }
 
+/* LinkedIn OAuth consent (always light, matches linkedin.com/oauth layout). */
+.linkedin-oauth-consent-scope {
+  background: #f3f2ef !important;
+}
+.linkedin-oauth-consent-card {
+  background: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.linkedin-oauth-consent-title {
+  color: #191919 !important;
+}
+.linkedin-oauth-consent-list {
+  color: #666666 !important;
+}
+.linkedin-oauth-consent-muted {
+  color: #666666 !important;
+}
+.linkedin-oauth-consent-link {
+  color: #0a66c2 !important;
+}
+.linkedin-oauth-consent-cancel {
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.6) !important;
+  color: rgba(0, 0, 0, 0.6) !important;
+}
+.linkedin-oauth-consent-cancel:hover:not(:disabled) {
+  background: #f3f2ef !important;
+}
+.linkedin-oauth-consent-allow {
+  background: #0a66c2 !important;
+  color: #ffffff !important;
+}
+.linkedin-oauth-consent-allow:hover:not(:disabled) {
+  background: #004182 !important;
+}
+.linkedin-oauth-consent-footer {
+  color: #666666 !important;
+}
+.linkedin-oauth-consent-footer-link {
+  color: #0a66c2 !important;
+}
 /* Radio / card pickers (OAuth page selection, cancel flows, settings). */
 .form-choice-row {
   border: 1px solid var(--border);
