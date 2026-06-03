@@ -380,7 +380,7 @@ export default function DashboardPage() {
     setAccountsLoadError: () => {},
     maybePromptBrandMove: () => false,
     maybePromptBrandMoveForPlatform: () => false,
-    finishPostConnectBrandAssignment: () => false,
+    finishPostConnectBrandAssignment: () => 'noop' as const,
   };
   const appData = useAppData();
   const shouldApplyVisibleChartUpdate = () =>
@@ -745,14 +745,14 @@ export default function DashboardPage() {
         }
         delete postsCacheRef.current[accountIdFromUrl];
         if (accountIdFromUrl && !brandMovedParam && !brandKeptParam) {
-          const moved = finishPostConnectBrandAssignment(
+          const postConnectResult = finishPostConnectBrandAssignment(
             accountIdFromUrl,
             list,
             connected
               ? { platform: connected.platform, username: connected.username }
               : undefined
           );
-          if (!moved && connected) {
+          if (postConnectResult === 'noop' && connected) {
             maybePromptBrandMoveForPlatform(connected.platform, { afterConnect: true });
           }
         }
@@ -805,14 +805,14 @@ export default function DashboardPage() {
               triggerInboxWarmClient(true);
             }
           }
-          const moved = finishPostConnectBrandAssignment(
+          const postConnectResult = finishPostConnectBrandAssignment(
             accountId,
             list,
             connected
               ? { platform: connected.platform, username: connected.username }
               : { platform: platform ?? 'INSTAGRAM', username }
           );
-          if (!moved && platform) {
+          if (postConnectResult === 'noop' && platform) {
             maybePromptBrandMoveForPlatform(platform, { afterConnect: true });
           }
         } else if (platform) {

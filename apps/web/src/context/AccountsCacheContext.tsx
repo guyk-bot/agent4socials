@@ -2,7 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { BrandAccountMovePrompt } from '@/components/account/BrandAccountMoveModal';
-import { skipBrandMovePromptBeforeConnect } from '@/lib/brand-platform-connect';
+import { skipBrandMovePromptForPlatform } from '@/lib/brand-platform-connect';
 import {
   ACCOUNT_BRAND_MAP_KEY,
   accountMappedBrandId,
@@ -130,6 +130,8 @@ function readActiveBrandIdFromStorage(brands: BrandWorkspace[]): string {
 }
 
 
+export type FinishPostConnectBrandResult = 'prompt' | 'assigned' | 'noop';
+
 type AccountsCacheContextType = {
   /** Accounts visible for the currently active brand only. */
   cachedAccounts: CachedAccount[];
@@ -165,7 +167,7 @@ type AccountsCacheContextType = {
     freshAccounts: CachedAccount[],
     hint?: { platform: string; username?: string },
     options?: { successRedirect?: string }
-  ) => boolean;
+  ) => FinishPostConnectBrandResult;
   /** If this platform is only connected on another brand, open the move prompt. Returns true when shown. */
   maybePromptBrandMoveForPlatform: (platform: string, options?: { afterConnect?: boolean }) => boolean;
   /** Connected on a different brand workspace (not shown in sidebar for the active brand). */
@@ -393,7 +395,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
 
   const maybePromptBrandMoveForPlatform = useCallback(
     (platform: string, options?: { afterConnect?: boolean }): boolean => {
-      if (!options?.afterConnect && skipBrandMovePromptBeforeConnect(platform)) return false;
+      if (skipBrandMovePromptForPlatform(platform)) return false;
       const norm = platform.toUpperCase();
       const matches = allCachedAccounts.filter((a) => a.platform === norm);
       if (matches.length === 0) return false;
@@ -419,12 +421,12 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       freshAccounts: CachedAccount[],
       hint?: { platform: string; username?: string },
       options?: { successRedirect?: string }
-    ): boolean => {
+    ): FinishPostConnectBrandResult => {
       const account =
         freshAccounts.find((a) => a.id === accountId) ??
         allCachedAccounts.find((a) => a.id === accountId);
       const platform = account?.platform ?? hint?.platform;
-      if (!platform) return false;
+      if (!platform) return 'noop';
       const map = { ...readAccountBrandMapFromStorage(), ...accountBrandMap };
       const accountRefs = freshAccounts.map((a) => ({ id: a.id, platform: a.platform }));
       const action = resolvePostConnectBrandAction(map, accountId, activeBrandId, accountRefs);
@@ -439,20 +441,20 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
             hint?.username,
           fromBrandName: fromBrand?.name ?? 'another brand',
         });
-        return true;
+        return 'prompt';
       }
       if (action.type === 'assign_active') {
-        setAccountBrandMap((prev) => {
-          const next = buildNextBrandMapForMove(prev, accountId, activeBrandId, {
-            platform,
-            allAccounts: accountRefs,
-          });
-          if (brandMapsEqual(next, prev)) return prev;
-          persistAccountBrandMapSync(next);
-          return next;
+        const next = buildNextBrandMapForMove(map, accountId, activeBrandId, {
+          platform,
+          allAccounts: accountRefs,
         });
+        if (!brandMapsEqual(next, map)) {
+          persistAccountBrandMapSync(next);
+          setAccountBrandMap(next);
+        }
+        return 'assigned';
       }
-      return false;
+      return 'noop';
     },
     [accountBrandMap, activeBrandId, allCachedAccounts, brands]
   );
@@ -496,7 +498,9 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       const account = allCachedAccounts.find((a) => a.id === accountId);
       if (!account) return;
       postConnectBrandCheckDoneRef.current = checkKey;
-      if (finishPostConnectBrandAssignment(accountId, allCachedAccounts)) return;
+      const postConnectResult = finishPostConnectBrandAssignment(accountId, allCachedAccounts);
+      if (postConnectResult === 'prompt') return;
+      if (postConnectResult !== 'noop') return;
       if (maybePromptBrandMoveForPlatform(account.platform, { afterConnect: true })) return;
     } catch {
       // ignore

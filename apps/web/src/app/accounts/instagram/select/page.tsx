@@ -88,12 +88,12 @@ function InstagramSelectContent() {
             optimisticRow
           );
           setCachedAccounts((prev) => upsertOptimisticConnectedAccount(prev, optimisticRow));
-          const moved =
+          const postConnectResult =
             finishPostConnectBrandAssignment?.(accountId, withOptimistic, {
               platform: 'INSTAGRAM',
               username,
-            }, { successRedirect: redirect }) ?? false;
-          if (moved) {
+            }, { successRedirect: redirect }) ?? 'noop';
+          if (postConnectResult === 'prompt') {
             setSubmitting(false);
             return;
           }

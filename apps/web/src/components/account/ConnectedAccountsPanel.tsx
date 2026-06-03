@@ -68,7 +68,7 @@ export function ConnectedAccountsPanel() {
     setCachedAccounts: () => {},
     removeConnectedAccountFromCache: () => {},
     maybePromptBrandMoveForPlatform: () => false,
-    finishPostConnectBrandAssignment: () => false,
+    finishPostConnectBrandAssignment: () => 'noop' as const,
   };
   const appData = useAppData();
   const { selectedAccountId, setSelectedAccountId } = useSelectedAccount() ?? { selectedAccountId: null, setSelectedAccountId: () => {} };
@@ -91,7 +91,7 @@ export function ConnectedAccountsPanel() {
         const { accountId, platform } = payload;
         const connected = accountId ? data.find((a) => a.id === accountId) : undefined;
         if (accountId && finishPostConnectBrandAssignment) {
-          const moved = finishPostConnectBrandAssignment(
+          const postConnectResult = finishPostConnectBrandAssignment(
             accountId,
             data,
             connected
@@ -100,7 +100,8 @@ export function ConnectedAccountsPanel() {
                 ? { platform, username: undefined }
                 : undefined
           );
-          if (moved) return;
+          if (postConnectResult === 'prompt') return;
+          if (postConnectResult !== 'noop') return;
         }
         if (platform) maybePromptBrandMoveForPlatform(platform, { afterConnect: true });
       } catch {
