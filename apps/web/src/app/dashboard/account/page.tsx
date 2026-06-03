@@ -1218,17 +1218,19 @@ export default function AccountPage() {
                         <p className="mt-0.5 text-xs text-neutral-500">{mappedCount} connected accounts</p>
                         <p className="mt-0.5 text-xs text-neutral-500">{memberCount} team members</p>
                         <div className="mt-3 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setActiveBrandId(brand.id);
-                              clearSelection();
-                            }}
-                            aria-label={`Open ${brand.name}`}
-                            className="brand-open-dashboard-btn rounded-lg border px-2.5 py-1.5 text-xs font-medium"
-                          >
-                            Open {brand.name}
-                          </button>
+                          {!isActive ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveBrandId(brand.id);
+                                clearSelection();
+                              }}
+                              aria-label={`Open ${brand.name}`}
+                              className="brand-open-dashboard-btn rounded-lg border px-2.5 py-1.5 text-xs font-medium"
+                            >
+                              Open {brand.name}
+                            </button>
+                          ) : null}
                           {brandImageTargetId === brand.id ? (
                             <span className="text-xs text-neutral-500">Uploading...</span>
                           ) : null}
