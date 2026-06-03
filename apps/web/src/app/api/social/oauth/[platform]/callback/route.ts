@@ -239,6 +239,7 @@ async function exchangeCode(
       let profilePicture: string | null = null;
       let platformUserId = 'instagram-' + (accessToken?.slice(-8) || 'id');
       const instagramAccounts: Array<{ id: string; username?: string; profilePicture?: string; pageId?: string; pageName?: string; pagePicture?: string; pageAccessToken?: string }> = [];
+      const pagesForSelect: NonNullable<TokenResult['pages']> = [];
       let linkedPage: { id: string; name: string; picture: string | null } | undefined;
       try {
         const pagesRes = await axios.get<{
@@ -255,6 +256,17 @@ async function exchangeCode(
         );
         const pages = pagesRes.data?.data || [];
         for (const page of pages) {
+          const picUrl = page.picture?.data?.url;
+          const igId = page.instagram_business_account?.id;
+          if (page?.id) {
+            pagesForSelect.push({
+              id: page.id,
+              name: page.name ?? undefined,
+              picture: picUrl,
+              instagram_business_account_id: igId,
+              access_token: page.access_token,
+            });
+          }
           const igAccountId = page.instagram_business_account?.id;
           if (!igAccountId) continue;
           const pagePicture = page.picture?.data?.url ?? undefined;
@@ -300,6 +312,7 @@ async function exchangeCode(
         profilePicture,
       };
       if (linkedPage) result.linkedPage = linkedPage;
+      if (pagesForSelect.length > 0) result.pages = pagesForSelect;
       if (instagramAccounts.length >= 1) {
         result.instagramAccounts = instagramAccounts;
       }
@@ -1066,30 +1079,37 @@ export async function GET(
     }
   }
 
-  if (plat === 'INSTAGRAM' && tokenData.instagramAccounts && tokenData.instagramAccounts.length >= 1) {
-    // When there is exactly 1 account (the most common case), skip the select page and connect immediately.
-    // Only show the select page if the user has 2+ Instagram Business accounts linked to their Facebook.
-    if (tokenData.instagramAccounts.length > 1) {
+  const igPages = tokenData.pages ?? [];
+  const igAccounts = tokenData.instagramAccounts ?? [];
+  const igMustPickPage =
+    igPages.length > 1 || igAccounts.length > 1 || (igPages.length >= 1 && igAccounts.length === 0);
+
+  if (plat === 'INSTAGRAM' && (igAccounts.length >= 1 || igPages.length >= 1)) {
+    // Same Facebook login can admin multiple Pages. Always let the user pick which Page (and IG) belongs on this brand.
+    if (igMustPickPage) {
       try {
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-        const accountsJson = JSON.parse(JSON.stringify(tokenData.instagramAccounts)) as object;
+        const accountsJson = JSON.parse(JSON.stringify(igAccounts)) as object;
+        const pagesJson = JSON.parse(
+          JSON.stringify(igPages.map(({ access_token: _at, ...p }) => p))
+        ) as object;
         const pending = await prisma.pendingConnection.create({
           data: {
             userId,
             platform: 'INSTAGRAM',
-            payload: { accessToken: tokenData.accessToken, accounts: accountsJson },
+            payload: { accessToken: tokenData.accessToken, accounts: accountsJson, pages: pagesJson },
             expiresAt,
           },
         });
         const selectUrl = `${baseUrl}/accounts/instagram/select?pendingId=${pending.id}`;
-        const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Choose Instagram account</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Choose one Instagram account to connect.</p><script>window.location.href = ${JSON.stringify(selectUrl)};</script><p>Redirecting to <a href="${selectUrl}">Choose account</a>…</p></body></html>`;
+        const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Choose Page</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Choose which Facebook Page to use for this brand.</p><script>window.location.href = ${JSON.stringify(selectUrl)};</script><p>Redirecting to <a href="${selectUrl}">Choose Page</a>…</p></body></html>`;
         return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
       } catch (e) {
-        console.error('[Social OAuth] pending Instagram create error (multi-account):', e);
+        console.error('[Social OAuth] pending Instagram create error (page picker):', e);
         // fall through to auto-connect first account below
       }
     }
-    // Auto-connect: either there is only 1 account, or the pending connection create failed.
+    // Auto-connect only when a single Page and at most one linked Instagram account.
     try {
       // Auto-connect the first (or only) Instagram account.
       const first = tokenData.instagramAccounts![0];

@@ -29,15 +29,15 @@ export async function POST(request: NextRequest) {
   if (!userId) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
-  let body: { pendingId?: string; accountId?: string };
+  let body: { pendingId?: string; accountId?: string; pageId?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ message: 'Invalid JSON' }, { status: 400 });
   }
-  const { pendingId, accountId } = body;
-  if (!pendingId || !accountId) {
-    return NextResponse.json({ message: 'Missing pendingId or accountId' }, { status: 400 });
+  const { pendingId, accountId, pageId } = body;
+  if (!pendingId || (!accountId && !pageId)) {
+    return NextResponse.json({ message: 'Missing pendingId or accountId/pageId' }, { status: 400 });
   }
   const pending = await prisma.pendingConnection.findUnique({
     where: { id: pendingId },
@@ -45,24 +45,38 @@ export async function POST(request: NextRequest) {
   if (!pending || pending.userId !== userId || pending.platform !== 'INSTAGRAM') {
     return NextResponse.json({ message: 'Not found or expired' }, { status: 404 });
   }
-  const payload = pending.payload as { accounts?: AccountItem[]; accessToken?: string };
+  const payload = pending.payload as {
+    accounts?: AccountItem[];
+    pages?: Array<{ id: string; name?: string; picture?: string; instagram_business_account_id?: string }>;
+    accessToken?: string;
+  };
   if (pending.expiresAt && new Date() > pending.expiresAt) {
     await prisma.pendingConnection.delete({ where: { id: pendingId } }).catch(() => {});
     return NextResponse.json({ message: 'Expired' }, { status: 410 });
   }
   const accounts = (payload?.accounts ?? []) as AccountItem[];
-  const account = accounts.find((a) => a.id === accountId);
-  if (!account) {
-    return NextResponse.json({ message: 'Invalid account' }, { status: 400 });
+  const pages = (payload?.pages ?? []) as Array<{
+    id: string;
+    name?: string;
+    picture?: string;
+    instagram_business_account_id?: string;
+  }>;
+  const account = accountId ? accounts.find((a) => a.id === accountId) : undefined;
+  const pageFromPayload = pageId ? pages.find((p) => p.id === pageId) : undefined;
+  if (!account && !pageFromPayload) {
+    return NextResponse.json({ message: 'Invalid account or page' }, { status: 400 });
   }
+
+  const connectInstagramId = account?.id ?? pageFromPayload?.instagram_business_account_id ?? null;
+  const connectPageId = account?.pageId ?? pageFromPayload?.id ?? pageId ?? null;
 
   // Get the PAGE access token from me/accounts. Insights, posts, and inbox require it.
   let pageAccessToken: string | null = null;
-  let pageId = account.pageId ?? null;
-  let pageName = account.pageName ?? 'Facebook Page';
-  let pagePicture: string | null = account.pagePicture ?? null;
-  let igUsername = account.username ?? 'Instagram';
-  let igPicture: string | null = account.profilePicture ?? null;
+  let resolvedPageId = connectPageId;
+  let pageName = account?.pageName ?? pageFromPayload?.name ?? 'Facebook Page';
+  let pagePicture: string | null = account?.pagePicture ?? pageFromPayload?.picture ?? null;
+  let igUsername = account?.username ?? 'Instagram';
+  let igPicture: string | null = account?.profilePicture ?? null;
 
   try {
     const pagesRes = await axios.get<{
@@ -80,12 +94,14 @@ export async function POST(request: NextRequest) {
       },
     });
     const pagesFromApi = pagesRes.data?.data ?? [];
-    const linkedPage = pageId
-      ? pagesFromApi.find((p) => p.id === pageId)
-      : pagesFromApi.find((p) => p.instagram_business_account?.id === accountId);
+    const linkedPage = resolvedPageId
+      ? pagesFromApi.find((p) => p.id === resolvedPageId)
+      : connectInstagramId
+        ? pagesFromApi.find((p) => p.instagram_business_account?.id === connectInstagramId)
+        : undefined;
     if (linkedPage?.access_token) {
       pageAccessToken = linkedPage.access_token;
-      pageId = linkedPage.id;
+      resolvedPageId = linkedPage.id;
       if (linkedPage.name) pageName = linkedPage.name;
       if (linkedPage.picture?.data?.url) pagePicture = linkedPage.picture.data.url;
     }
@@ -103,63 +119,63 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Refresh IG profile with Page token
-  try {
-    const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
-      `${facebookGraphBaseUrl}/${accountId}`,
-      { params: { fields: 'username,profile_picture_url', access_token: pageAccessToken } }
-    );
-    if (igRes.data?.username) igUsername = igRes.data.username;
-    if (igRes.data?.profile_picture_url) igPicture = igRes.data.profile_picture_url;
-  } catch (_) {}
+  const igIdToConnect = connectInstagramId ?? null;
+  if (igIdToConnect) {
+    try {
+      const igRes = await axios.get<{ username?: string; profile_picture_url?: string }>(
+        `${facebookGraphBaseUrl}/${igIdToConnect}`,
+        { params: { fields: 'username,profile_picture_url', access_token: pageAccessToken } }
+      );
+      if (igRes.data?.username) igUsername = igRes.data.username;
+      if (igRes.data?.profile_picture_url) igPicture = igRes.data.profile_picture_url;
+    } catch (_) {}
+  }
 
   const expiresAt = new Date(Date.now() + 3600 * 1000);
 
-  // This path is the Facebook Login select flow — the Page access token is stored as the main
-  // accessToken. Do NOT mark as instagram_business (which uses graph.instagram.com IG User tokens);
-  // instead this is the standard Facebook Login path that uses graph.facebook.com Page tokens.
   const igCredentials = {
     loginMethod: 'facebook_login' as const,
-    linkedPageId: pageId ?? null,
+    linkedPageId: resolvedPageId ?? null,
   };
 
-  // Upsert first so reconnecting the same account updates in place and keeps posts/data
-  await prisma.socialAccount.upsert({
-    where: {
-      userId_platform_platformUserId: {
+  if (igIdToConnect) {
+    await prisma.socialAccount.upsert({
+      where: {
+        userId_platform_platformUserId: {
+          userId,
+          platform: 'INSTAGRAM',
+          platformUserId: igIdToConnect,
+        },
+      },
+      update: {
+        accessToken: pageAccessToken,
+        username: igUsername,
+        profilePicture: igPicture,
+        expiresAt,
+        status: 'connected',
+        credentialsJson: igCredentials,
+      },
+      create: {
         userId,
         platform: 'INSTAGRAM',
-        platformUserId: accountId,
+        platformUserId: igIdToConnect,
+        username: igUsername,
+        profilePicture: igPicture,
+        accessToken: pageAccessToken,
+        refreshToken: null,
+        expiresAt,
+        status: 'connected',
+        credentialsJson: igCredentials,
       },
-    },
-    update: {
-      accessToken: pageAccessToken,
-      username: igUsername,
-      profilePicture: igPicture,
-      expiresAt,
-      status: 'connected',
-      credentialsJson: igCredentials,
-    },
-    create: {
-      userId,
-      platform: 'INSTAGRAM',
-      platformUserId: accountId,
-      username: igUsername,
-      profilePicture: igPicture,
-      accessToken: pageAccessToken,
-      refreshToken: null,
-      expiresAt,
-      status: 'connected',
-      credentialsJson: igCredentials,
-    },
-  });
-  if (pageId) {
+    });
+  }
+  if (resolvedPageId) {
     await prisma.socialAccount.upsert({
       where: {
         userId_platform_platformUserId: {
           userId,
           platform: 'FACEBOOK',
-          platformUserId: pageId,
+          platformUserId: resolvedPageId,
         },
       },
       update: {
@@ -172,7 +188,7 @@ export async function POST(request: NextRequest) {
       create: {
         userId,
         platform: 'FACEBOOK',
-        platformUserId: pageId,
+        platformUserId: resolvedPageId,
         username: pageName,
         profilePicture: pagePicture,
         accessToken: pageAccessToken,
@@ -185,16 +201,26 @@ export async function POST(request: NextRequest) {
 
   await prisma.pendingConnection.delete({ where: { id: pendingId } }).catch(() => {});
 
-  const igAccount = await prisma.socialAccount.findFirst({
-    where: { userId, platform: 'INSTAGRAM', platformUserId: accountId },
-    select: { id: true, username: true, profilePicture: true },
-  });
+  const igAccount = igIdToConnect
+    ? await prisma.socialAccount.findFirst({
+        where: { userId, platform: 'INSTAGRAM', platformUserId: igIdToConnect },
+        select: { id: true, username: true, profilePicture: true },
+      })
+    : null;
+  const fbAccount = resolvedPageId
+    ? await prisma.socialAccount.findFirst({
+        where: { userId, platform: 'FACEBOOK', platformUserId: resolvedPageId },
+        select: { id: true, username: true, profilePicture: true },
+      })
+    : null;
 
   scheduleInboxWarmForUser(userId);
 
   const redirect = igAccount?.id
     ? buildPostConnectDashboardPath(igAccount.id, 'INSTAGRAM', igUsername, igPicture)
-    : '/dashboard';
+    : fbAccount?.id
+      ? buildPostConnectDashboardPath(fbAccount.id, 'FACEBOOK', pageName, pagePicture)
+      : '/dashboard';
 
   return NextResponse.json({ ok: true, redirect });
 }
