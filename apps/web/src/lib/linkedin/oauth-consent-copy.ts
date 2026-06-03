@@ -24,5 +24,8 @@ export const LINKEDIN_OAUTH_APP_NAME = 'Agent4Socials';
 /** Generic member avatar before LinkedIn OAuth (no profile photo yet). */
 export const LINKEDIN_OAUTH_MEMBER_AVATAR_URL = '/linkedin-oauth-member-placeholder.svg';
 
+/** App mark on black circle (vector for sharp display). */
+export const LINKEDIN_OAUTH_APP_LOGO_URL = '/logo-white.svg?v=13';
+
 /** Shown in footer copy (matches LinkedIn's consent screen wording). */
 export const LINKEDIN_OAUTH_REDIRECT_DISPLAY_URL = 'https://www.linkedin.com';

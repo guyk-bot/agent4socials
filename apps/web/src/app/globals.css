@@ -475,6 +475,10 @@
 .linkedin-oauth-consent-footer-link {
   color: #0a66c2 !important;
 }
+.linkedin-oauth-consent-scope .linkedin-oauth-app-icon {
+  background: #000000 !important;
+  border: none !important;
+}
 /* Radio / card pickers (OAuth page selection, cancel flows, settings). */
 .form-choice-row {
   border: 1px solid var(--border);

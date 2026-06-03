@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import { LinkedinIcon } from '@/components/SocialPlatformIcons';
 import {
+  LINKEDIN_OAUTH_APP_LOGO_URL,
   LINKEDIN_OAUTH_APP_NAME,
   LINKEDIN_OAUTH_CONSENT_PERMISSIONS,
   LINKEDIN_OAUTH_MEMBER_AVATAR_URL,
@@ -19,42 +20,6 @@ type Props = {
   allowing?: boolean;
   errorMessage?: string | null;
 };
-
-function AvatarBubble({
-  src,
-  alt,
-  fallbackLetter,
-  badge,
-  square,
-}: {
-  src?: string | null;
-  alt: string;
-  fallbackLetter: string;
-  badge?: React.ReactNode;
-  square?: boolean;
-}) {
-  return (
-    <div className="relative shrink-0">
-      <div
-        className={`h-14 w-14 sm:h-16 sm:w-16 border-2 border-white overflow-hidden shadow-sm flex items-center justify-center ${
-          square ? 'rounded-md bg-[#e8f4fc]' : 'rounded-full bg-neutral-200'
-        }`}
-      >
-        {src ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={src} alt={alt} className="h-full w-full object-cover" />
-        ) : (
-          <span className="text-xl font-semibold text-neutral-600">{fallbackLetter}</span>
-        )}
-      </div>
-      {badge ? (
-        <span className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-white shadow">
-          {badge}
-        </span>
-      ) : null}
-    </div>
-  );
-}
 
 /**
  * Full-page LinkedIn-style OAuth permission dialog (Cancel / Allow).
@@ -81,22 +46,38 @@ export function LinkedInOAuthConsentScreen({
           <div className="px-6 sm:px-8 pt-7 sm:pt-8 pb-2 flex flex-col items-center">
             <LinkedinIcon size={34} />
             <div className="mt-5 flex items-center justify-center gap-3 w-full">
-              <AvatarBubble
-                src={LINKEDIN_OAUTH_MEMBER_AVATAR_URL}
-                alt="LinkedIn member"
-                fallbackLetter="?"
-                badge={<LinkedinIcon size={14} />}
-              />
+              <div
+                className="linkedin-oauth-app-icon h-16 w-16 shrink-0 rounded-full bg-black overflow-hidden flex items-center justify-center shadow-sm"
+                aria-hidden
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={LINKEDIN_OAUTH_APP_LOGO_URL}
+                  alt=""
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 object-contain"
+                />
+              </div>
               <div
                 className="flex-1 max-w-[64px] h-px border-t-2 border-dashed border-neutral-300"
                 aria-hidden
               />
-              <AvatarBubble
-                src="/logo-48.png"
-                alt={LINKEDIN_OAUTH_APP_NAME}
-                fallbackLetter="A"
-                square
-              />
+              <div className="relative shrink-0">
+                <div className="h-16 w-16 rounded-full bg-neutral-200 overflow-hidden border-2 border-white shadow-sm">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={LINKEDIN_OAUTH_MEMBER_AVATAR_URL}
+                    alt="LinkedIn member"
+                    width={64}
+                    height={64}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <span className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-white shadow">
+                  <LinkedinIcon size={14} />
+                </span>
+              </div>
             </div>
           </div>
 
