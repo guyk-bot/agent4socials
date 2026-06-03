@@ -10,8 +10,18 @@ export function defaultTwitterOAuthScopes(): string {
   if (typeof process.env.TWITTER_OAUTH_SCOPES === 'string' && process.env.TWITTER_OAUTH_SCOPES.trim()) {
     return process.env.TWITTER_OAUTH_SCOPES.trim();
   }
-  return 'tweet.read tweet.write users.read media.write dm.read dm.write offline.access';
+  const base = 'tweet.read tweet.write users.read media.write offline.access';
+  const includeDm =
+    process.env.TWITTER_OAUTH_INCLUDE_DM === 'true' ||
+    process.env.TWITTER_OAUTH_INCLUDE_DM === '1';
+  if (includeDm) {
+    return `${base} dm.read dm.write`;
+  }
+  return base;
 }
+
+/** X OAuth authorize host (must match where users log in; x.com, not legacy twitter.com). */
+export const TWITTER_OAUTH_AUTHORIZE_ORIGIN = 'https://x.com';
 
 export function resolveTwitterOAuthCallbackUrl(baseUrl: string): string {
   const callbackUrl = `${baseUrl.replace(/\/+$/, '')}/api/social/oauth/twitter/callback`;
@@ -33,5 +43,5 @@ export function buildTwitterOAuth2AuthorizeUrl(params: {
     code_challenge: params.codeChallenge,
     code_challenge_method: 'S256',
   });
-  return `https://twitter.com/i/oauth2/authorize?${qs.toString()}`;
+  return `${TWITTER_OAUTH_AUTHORIZE_ORIGIN}/i/oauth2/authorize?${qs.toString()}`;
 }

@@ -188,7 +188,7 @@ If you use the same app for both flows, you can leave these unset and use `META_
 2. Click **Projects & Apps** -> **Add App**.
 3. Name: "Agent4Socials".
 4. Once created, click **"Set up"** under **User authentication settings**.
-   - App permissions: **Read and Write**.
+    - App permissions: **Read and write** (minimum). For Inbox DMs, use **Read, write, and Direct message** and set `TWITTER_OAUTH_INCLUDE_DM=true` in Vercel.
    - Type of App: **Web App, Automated App or Bot**.
    - **Callback URI / Redirect URL**: `https://agent4socials.com/api/social/oauth/twitter/callback`.
    - **Website URL**: `https://agent4socials.com`

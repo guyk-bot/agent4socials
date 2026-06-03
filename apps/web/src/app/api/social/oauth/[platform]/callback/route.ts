@@ -492,18 +492,36 @@ async function exchangeCode(
       if (!codeVerifier) {
         throw new Error('X sign-in session expired. Close this tab, return to Agent4Socials, and click Connect X again.');
       }
-      const r = await axios.post('https://api.twitter.com/2/oauth2/token', new URLSearchParams({
-        code,
-        grant_type: 'authorization_code',
-        redirect_uri: callbackUrl,
-        code_verifier: codeVerifier,
-      }).toString(), {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        auth: {
-          username: process.env.TWITTER_CLIENT_ID || '',
-          password: process.env.TWITTER_CLIENT_SECRET || '',
-        },
-      });
+      const r = await axios.post(
+        'https://api.twitter.com/2/oauth2/token',
+        new URLSearchParams({
+          code,
+          grant_type: 'authorization_code',
+          redirect_uri: callbackUrl,
+          code_verifier: codeVerifier,
+        }).toString(),
+        {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          auth: {
+            username: process.env.TWITTER_CLIENT_ID || '',
+            password: process.env.TWITTER_CLIENT_SECRET || '',
+          },
+          validateStatus: () => true,
+        }
+      );
+      if (r.status !== 200) {
+        const errBody =
+          typeof r.data === 'object' && r.data !== null
+            ? JSON.stringify(r.data)
+            : String(r.data ?? '');
+        console.error('[Twitter OAuth2] token exchange failed', r.status, errBody);
+        if (r.status === 400 && /redirect_uri|invalid_request/i.test(errBody)) {
+          throw new Error(
+            `X callback URL mismatch. In the X Developer Portal, set Callback URI exactly to: ${callbackUrl}`
+          );
+        }
+        throw new Error(`X token exchange failed (HTTP ${r.status}). Try Connect again from Agent4Socials.`);
+      }
       const accessToken = r.data.access_token;
       const grantedScope: string = typeof r.data.scope === 'string' ? r.data.scope : (Array.isArray(r.data.scope) ? r.data.scope.join(' ') : '');
       console.log('[Twitter OAuth2] granted scope:', grantedScope || '(none returned)');

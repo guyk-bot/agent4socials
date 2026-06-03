@@ -22,6 +22,8 @@ import { prepareLinkedInOAuthConnect } from '@/lib/linkedin/prepare-oauth-connec
 import {
   buildTwitterOAuth2AuthorizeUrl,
   createTwitterOAuthPkce,
+  defaultTwitterOAuthScopes,
+  resolveTwitterOAuthCallbackUrl,
 } from '@/lib/twitter/oauth-pkce';
 import type { LinkedInConnectMethod } from '@/lib/linkedin/oauth-scopes';
 
@@ -242,7 +244,12 @@ export async function GET(
           codeChallenge: challenge,
           baseUrl,
         });
-        return NextResponse.json({ url });
+        const redirectUri = resolveTwitterOAuthCallbackUrl(baseUrl);
+        return NextResponse.json({
+          url,
+          redirectUri,
+          scopes: defaultTwitterOAuthScopes(),
+        });
       } else if (apiKey && apiSecret) {
         // Fallback: OAuth 1.0a when only API Key/Secret are set.
         const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
