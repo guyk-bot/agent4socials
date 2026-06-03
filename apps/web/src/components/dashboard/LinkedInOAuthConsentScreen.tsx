@@ -1,20 +1,19 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import { LinkedinIcon } from '@/components/SocialPlatformIcons';
 import {
   LINKEDIN_OAUTH_APP_NAME,
   LINKEDIN_OAUTH_CONSENT_PERMISSIONS,
-  linkedInOAuthRedirectDisplayUrl,
+  LINKEDIN_OAUTH_MEMBER_AVATAR_URL,
+  LINKEDIN_OAUTH_REDIRECT_DISPLAY_URL,
 } from '@/lib/linkedin/oauth-consent-copy';
 import type { LinkedInConnectMethod } from '@/lib/linkedin/oauth-scopes';
 
 type Props = {
   method: LinkedInConnectMethod;
-  userDisplayName?: string;
-  userAvatarUrl?: string | null;
   onCancel: () => void;
   onAllow: () => void;
   allowing?: boolean;
@@ -62,16 +61,12 @@ function AvatarBubble({
  */
 export function LinkedInOAuthConsentScreen({
   method,
-  userDisplayName,
-  userAvatarUrl,
   onCancel,
   onAllow,
   allowing = false,
   errorMessage,
 }: Props) {
   const permissions = LINKEDIN_OAUTH_CONSENT_PERMISSIONS[method];
-  const redirectUrl = useMemo(() => linkedInOAuthRedirectDisplayUrl(), []);
-  const memberLabel = userDisplayName?.trim() || 'You';
 
   return (
     <div className="linkedin-oauth-consent-scope min-h-dvh w-full flex flex-col items-center px-4 py-8 sm:py-12">
@@ -87,9 +82,9 @@ export function LinkedInOAuthConsentScreen({
             <LinkedinIcon size={34} />
             <div className="mt-5 flex items-center justify-center gap-3 w-full">
               <AvatarBubble
-                src={userAvatarUrl}
-                alt={memberLabel}
-                fallbackLetter={memberLabel.charAt(0).toUpperCase()}
+                src={LINKEDIN_OAUTH_MEMBER_AVATAR_URL}
+                alt="LinkedIn member"
+                fallbackLetter="?"
                 badge={<LinkedinIcon size={14} />}
               />
               <div
@@ -153,7 +148,8 @@ export function LinkedInOAuthConsentScreen({
 
           <div className="linkedin-oauth-consent-footer px-6 sm:px-8 pb-6 text-center text-xs leading-relaxed border-t border-neutral-100">
             <p>
-              You will be redirected to <span className="break-all">{redirectUrl}</span>
+              You will be redirected to{' '}
+              <span className="break-all">{LINKEDIN_OAUTH_REDIRECT_DISPLAY_URL}</span>
             </p>
             <p className="mt-2">
               <Link href="/privacy" className="linkedin-oauth-consent-footer-link hover:underline">

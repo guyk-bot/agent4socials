@@ -21,15 +21,8 @@ export const LINKEDIN_OAUTH_CONSENT_PERMISSIONS: Record<LinkedInConnectMethod, s
 
 export const LINKEDIN_OAUTH_APP_NAME = 'Agent4Socials';
 
-export function linkedInOAuthRedirectDisplayUrl(): string {
-  if (typeof window !== 'undefined') {
-    const origin = window.location.origin.replace(/\/+$/, '');
-    return `${origin}/api/social/oauth/linkedin/callback`;
-  }
-  const base = (
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    'https://agent4socials.com'
-  ).replace(/\/+$/, '');
-  return `${base}/api/social/oauth/linkedin/callback`;
-}
+/** Generic member avatar before LinkedIn OAuth (no profile photo yet). */
+export const LINKEDIN_OAUTH_MEMBER_AVATAR_URL = '/linkedin-oauth-member-placeholder.svg';
+
+/** Shown in footer copy (matches LinkedIn's consent screen wording). */
+export const LINKEDIN_OAUTH_REDIRECT_DISPLAY_URL = 'https://www.linkedin.com';

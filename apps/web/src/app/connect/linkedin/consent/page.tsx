@@ -3,7 +3,6 @@
 import React, { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { LinkedInOAuthConsentScreen } from '@/components/dashboard/LinkedInOAuthConsentScreen';
-import { useAuth } from '@/context/AuthContext';
 import { startLinkedInOAuth } from '@/lib/linkedin/start-oauth';
 import type { LinkedInConnectMethod } from '@/lib/linkedin/oauth-scopes';
 
@@ -14,7 +13,6 @@ function LinkedInConsentContent() {
     searchParams.get('method') === 'personal' ? 'personal' : 'page'
   ) as LinkedInConnectMethod;
   const returnTo = searchParams.get('returnTo') ?? '/dashboard?connect=LINKEDIN';
-  const { user } = useAuth();
   const [allowing, setAllowing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,8 +35,6 @@ function LinkedInConsentContent() {
   return (
     <LinkedInOAuthConsentScreen
       method={method}
-      userDisplayName={user?.name ?? user?.email}
-      userAvatarUrl={user?.avatarUrl}
       allowing={allowing}
       errorMessage={error}
       onCancel={goBack}
