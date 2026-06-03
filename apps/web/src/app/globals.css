@@ -882,6 +882,16 @@
   box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.3);
 }
 
+/* Post History pills: global dark bg-*-100 overrides are too dark for status/platform badges. */
+[data-theme='dark'] .analytics-dark-scope .post-history-pill--posting {
+  background-color: #737373 !important;
+  color: #e0f2fe !important;
+}
+[data-theme='dark'] .analytics-dark-scope .post-history-pill--neutral {
+  background-color: #737373 !important;
+  color: #fafafa !important;
+}
+
 /* Analytics dark-mode hardening for remaining inline light styles. */
 [data-theme='dark'] .analytics-dark-scope .ring-white {
   --tw-ring-color: var(--border) !important;

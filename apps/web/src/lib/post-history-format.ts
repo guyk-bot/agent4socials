@@ -186,3 +186,45 @@ export const POST_HISTORY_FORMAT_FILTER_OPTIONS: { value: PostHistoryFormatFilte
   { value: 'video', label: 'Video' },
   { value: 'text', label: 'Text' },
 ];
+
+type PostHistoryPillKind = 'posted' | 'failed' | 'posting' | 'scheduled' | 'partial' | 'neutral';
+
+const POST_HISTORY_PILL_LIGHT: Record<PostHistoryPillKind, string> = {
+  posted: 'bg-green-100 text-green-800',
+  failed: 'bg-red-100 text-red-800',
+  posting: 'bg-blue-100 text-blue-800 post-history-pill--posting',
+  scheduled: 'bg-neutral-200 text-neutral-700 post-history-pill--neutral',
+  partial: 'bg-amber-100 text-amber-800',
+  neutral: 'bg-neutral-100 text-neutral-700 post-history-pill--neutral',
+};
+
+function postHistoryPillKindFromStatus(status: string, postStatus?: string): PostHistoryPillKind {
+  const s = status.toUpperCase();
+  if (s === 'POSTED') return 'posted';
+  if (s === 'FAILED') return 'failed';
+  if (s === 'POSTING' || (postStatus ?? '').toUpperCase() === 'POSTING') return 'posting';
+  if (s === 'SCHEDULED') return 'scheduled';
+  return 'neutral';
+}
+
+/** Platform column pills in Post History (light Tailwind + dark scoped overrides). */
+export function postHistoryTargetBadgeClass(targetStatus?: string, postStatus?: string): string {
+  const kind = postHistoryPillKindFromStatus((targetStatus ?? '').toString(), postStatus);
+  return POST_HISTORY_PILL_LIGHT[kind];
+}
+
+/** Status column pills in Post History (light Tailwind + dark scoped overrides). */
+export function postHistoryStatusBadgeClass(display: {
+  label: string;
+  isPosting: boolean;
+  isFailed: boolean;
+  isPartial: boolean;
+}): string {
+  let kind: PostHistoryPillKind = 'neutral';
+  if (display.isPartial) kind = 'partial';
+  else if (display.isPosting) kind = 'posting';
+  else if (display.label === 'POSTED') kind = 'posted';
+  else if (display.isFailed) kind = 'failed';
+  else if (display.label === 'SCHEDULED') kind = 'scheduled';
+  return POST_HISTORY_PILL_LIGHT[kind];
+}

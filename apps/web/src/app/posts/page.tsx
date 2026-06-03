@@ -34,6 +34,8 @@ import { isPendingHistoryPostId } from '@/lib/composer-pending-snapshot';
 import {
     getPostHistoryFormat,
     isPostHistoryVerticalThumb,
+    postHistoryStatusBadgeClass,
+    postHistoryTargetBadgeClass,
     POST_HISTORY_FORMAT_FILTER_OPTIONS,
     type PostHistoryFormat,
     type PostHistoryFormatFilterValue,
@@ -838,15 +840,10 @@ export default function PostsPage() {
                                                                       .join(' · ')
                                                                 : String(t.platform || t)
                                                         }
-                                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
-                                                            (t.status || post.status) === 'POSTED'
-                                                                ? 'bg-green-100 text-green-800'
-                                                                : (t.status || post.status) === 'FAILED'
-                                                                  ? 'bg-red-100 text-red-800'
-                                                                  : (t.status || post.status) === 'POSTING' || post.status === 'POSTING'
-                                                                    ? 'bg-blue-100 text-blue-800'
-                                                                    : 'bg-gray-100 text-gray-700'
-                                                        }`}
+                                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${postHistoryTargetBadgeClass(
+                                                            t.status || post.status,
+                                                            post.status
+                                                        )}`}
                                                     >
                                                         {t.platform === 'INSTAGRAM' && <InstagramIcon size={14} />}
                                                         {t.platform === 'YOUTUBE' && <YoutubeIcon size={14} />}
@@ -869,17 +866,7 @@ export default function PostsPage() {
                                         {(() => {
                                             const display = postHistoryRowDisplay(post);
                                             const label = display.label;
-                                            const cls = display.isPartial
-                                                ? 'bg-amber-100 text-amber-800'
-                                                : display.isPosting
-                                                  ? 'bg-blue-100 text-blue-800'
-                                                  : label === 'POSTED'
-                                                    ? 'bg-green-100 text-green-800'
-                                                    : display.isFailed
-                                                      ? 'bg-red-100 text-red-800'
-                                                      : label === 'SCHEDULED'
-                                                        ? 'bg-neutral-200 text-neutral-700'
-                                                        : 'bg-neutral-100 text-neutral-700';
+                                            const cls = postHistoryStatusBadgeClass(display);
                                             const failedErrors = (Array.isArray(post.targets) ? post.targets : [])
                                                 .filter((t: { status?: string; error?: string }) => {
                                                     const st = (t.status ?? '').toString().toUpperCase();
