@@ -2468,7 +2468,13 @@ export default function ComposerPage() {
                         : undefined;
                 setTiktokPostPublishFollowUp({ open: true, detail });
             } else if (anyPosted) {
-                let successMsg = 'Published.';
+                const postedPlatforms = targets.filter((t) => t.status === 'POSTED').map((t) => t.platform);
+                const linkedInOnlyPosted =
+                    postedPlatforms.length === 1 &&
+                    String(postedPlatforms[0] ?? '').toUpperCase() === 'LINKEDIN';
+                let successMsg = linkedInOnlyPosted
+                    ? 'Published to LinkedIn. Your post is live.'
+                    : 'Published.';
                 const failedPlatforms = targets.filter((t) => t.status === 'FAILED').map((t) => t.platform);
                 if (failedPlatforms.length > 0) {
                     successMsg = `Published on some platforms. Failed: ${failedPlatforms.filter(Boolean).join(', ')}.`;
@@ -2922,13 +2928,17 @@ export default function ComposerPage() {
             if (isPostNowCommit) {
                 await ensurePublishUiPrep();
                 const platformLabelsEarly = platforms.map((p) => PLATFORM_LABELS[p] ?? p).join(', ');
+                const linkedInOnly =
+                    platforms.length === 1 && platforms[0] === 'LINKEDIN';
                 setPublishModal({
                     open: true,
                     kind: 'queued',
                     postId: updateExisting && persistedEditPostId ? persistedEditPostId : '',
-                    message: updateExisting
-                        ? `Updating and publishing to ${platformLabelsEarly}. Check History for status.`
-                        : `Publishing to ${platformLabelsEarly}. Check History for status.`,
+                    message: linkedInOnly
+                        ? 'Publishing to LinkedIn. Stay on Composer for a Published confirmation when it finishes, or open History to watch status at the top of the list.'
+                        : updateExisting
+                          ? `Updating and publishing to ${platformLabelsEarly}. Check History for status.`
+                          : `Publishing to ${platformLabelsEarly}. Check History for status.`,
                 });
                 if (updateExisting && persistedEditPostId) {
                     upsertPostInHistoryClient({
@@ -3288,7 +3298,13 @@ export default function ComposerPage() {
             <ConfirmModal
                 open={publishModal.open && publishModal.kind === 'queued'}
                 onClose={() => setPublishModal({ open: false })}
-                title="Request sent"
+                title={
+                    publishModal.open &&
+                    publishModal.kind === 'queued' &&
+                    publishModal.message.toLowerCase().includes('linkedin')
+                        ? 'Publishing to LinkedIn'
+                        : 'Request sent'
+                }
                 variant="info"
                 stack="high"
                 confirmLabel="History"
@@ -3297,7 +3313,11 @@ export default function ComposerPage() {
                 onConfirm={() => {
                     const id = publishModal.open && publishModal.kind === 'queued' ? publishModal.postId : '';
                     setPublishModal({ open: false });
-                    router.push(id ? `/posts?highlight=${encodeURIComponent(id)}` : '/posts');
+                    router.push(
+                        id
+                            ? `/posts?highlight=${encodeURIComponent(id)}&from_publish=1`
+                            : '/posts'
+                    );
                 }}
             />
             <ConfirmModal

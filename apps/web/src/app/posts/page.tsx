@@ -525,17 +525,20 @@ export default function PostsPage() {
         return () => window.removeEventListener('agent4socials:posts-history-refresh', onRefresh);
     }, [pathname, applyHistoryList, applyHistoryPost]);
 
+    const fromPublish = searchParams.get('from_publish') === '1';
+    const [showPublishTrackBanner, setShowPublishTrackBanner] = useState(false);
+
     useEffect(() => {
-        if (!highlightId || loading || posts.length === 0) return;
-        const scrollToHighlight = () => {
-            const el = document.getElementById(`post-row-${highlightId}`);
-            if (el) {
-                el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
-        };
-        const t = requestAnimationFrame(() => requestAnimationFrame(scrollToHighlight));
-        return () => cancelAnimationFrame(t);
-    }, [highlightId, loading, posts.length, router]);
+        if (pathname !== '/posts' || !highlightId) return;
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }, [pathname, highlightId]);
+
+    useEffect(() => {
+        if (!fromPublish || !highlightId) return;
+        setShowPublishTrackBanner(true);
+        const keep = `?highlight=${encodeURIComponent(highlightId)}`;
+        router.replace(`/posts${keep}`, { scroll: false });
+    }, [fromPublish, highlightId, router]);
 
     useEffect(() => {
         if (pathname !== '/posts' || posts.length === 0) return;
@@ -588,6 +591,25 @@ export default function PostsPage() {
 
     const [showPublishedBanner, setShowPublishedBanner] = useState(false);
     const [showPartialBanner, setShowPartialBanner] = useState(false);
+
+    const highlightedPost = useMemo(
+        () => (highlightId ? posts.find((p) => p?.id === highlightId) : undefined),
+        [highlightId, posts]
+    );
+    const publishTrackBannerText = useMemo(() => {
+        if (!highlightId) return null;
+        const status = String(highlightedPost?.status ?? '').toUpperCase();
+        if (status === 'POSTED') {
+            return 'Published successfully. Your post is highlighted at the top of History.';
+        }
+        if (status === 'POSTING') {
+            return 'Publishing in progress. This row updates automatically when LinkedIn finishes.';
+        }
+        if (status === 'FAILED') {
+            return 'Publishing did not complete. Open in Composer to retry.';
+        }
+        return 'Your post is highlighted at the top of History.';
+    }, [highlightId, highlightedPost?.status]);
     useEffect(() => {
         if (published) {
             setShowPublishedBanner(true);
@@ -618,8 +640,28 @@ export default function PostsPage() {
             )}
             {showPublishedBanner && (
                 <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 flex items-center justify-between">
-                    <span>Post published. Find it in History below.</span>
+                    <span>Post published. Your post is highlighted at the top of the list.</span>
                     <button type="button" onClick={() => setShowPublishedBanner(false)} className="text-green-600 hover:text-green-800 font-medium">Dismiss</button>
+                </div>
+            )}
+            {showPublishTrackBanner && publishTrackBannerText && (
+                <div
+                    className={`rounded-xl px-4 py-3 text-sm flex items-center justify-between ${
+                        highlightedPost?.status === 'POSTED'
+                            ? 'border border-green-200 bg-green-50 text-green-800'
+                            : highlightedPost?.status === 'FAILED'
+                              ? 'border border-red-200 bg-red-50 text-red-800'
+                              : 'border border-blue-200 bg-blue-50 text-blue-900'
+                    }`}
+                >
+                    <span>{publishTrackBannerText}</span>
+                    <button
+                        type="button"
+                        onClick={() => setShowPublishTrackBanner(false)}
+                        className="font-medium opacity-80 hover:opacity-100 shrink-0 ml-3"
+                    >
+                        Dismiss
+                    </button>
                 </div>
             )}
             {showPartialBanner && (
