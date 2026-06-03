@@ -1,6 +1,7 @@
-/** Platforms where one user can connect multiple accounts (e.g. several Facebook Pages). */
-export const MULTI_CONNECT_PLATFORMS = new Set(['FACEBOOK', 'INSTAGRAM']);
+/** Meta platforms that may live on different brands (e.g. Facebook on brand A, Instagram on brand B). */
+export const META_BRAND_SCOPED_PLATFORMS = new Set(['FACEBOOK', 'INSTAGRAM']);
 
-export function platformAllowsMultipleConnects(platform: string): boolean {
-  return MULTI_CONNECT_PLATFORMS.has(platform.toUpperCase());
+/** Do not block the Connect flow when another brand already has this platform. */
+export function skipBrandMovePromptBeforeConnect(platform: string): boolean {
+  return META_BRAND_SCOPED_PLATFORMS.has(platform.toUpperCase());
 }

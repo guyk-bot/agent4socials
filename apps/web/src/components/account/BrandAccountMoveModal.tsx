@@ -44,7 +44,11 @@ export function BrandAccountMoveModal({
       open
       variant="info"
       title="Account connected on another brand"
-      message={`${platformLabel} (${accountLabel}) is already connected under "${prompt.fromBrandName}". Move it to "${activeBrandName}" so it shows in this brand's sidebar and analytics?`}
+      message={
+        prompt.platform === 'INSTAGRAM'
+          ? `${platformLabel} (${accountLabel}) is already connected under "${prompt.fromBrandName}". Move it to "${activeBrandName}"? Your Facebook Page on the other brand is not changed.`
+          : `${platformLabel} (${accountLabel}) is already connected under "${prompt.fromBrandName}". Move it to "${activeBrandName}" so it shows in this brand's sidebar and analytics?`
+      }
       confirmLabel="Move to this brand"
       cancelLabel="Keep on other brand"
       onConfirm={onMove}
