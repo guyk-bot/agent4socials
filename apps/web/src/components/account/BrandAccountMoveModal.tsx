@@ -24,8 +24,8 @@ export type BrandAccountMovePrompt = {
 type BrandAccountMoveModalProps = {
   prompt: BrandAccountMovePrompt | null;
   activeBrandName: string;
-  onMove: () => void;
-  onKeepOnOtherBrand: () => void;
+  onMove: () => void | Promise<void>;
+  onKeepOnOtherBrand: () => void | Promise<void>;
 };
 
 export function BrandAccountMoveModal({
@@ -53,7 +53,7 @@ export function BrandAccountMoveModal({
       cancelLabel="Keep on other brand"
       onConfirm={onMove}
       onClose={onKeepOnOtherBrand}
-      closeOnConfirm
+      closeOnConfirm={false}
     />
   );
 }

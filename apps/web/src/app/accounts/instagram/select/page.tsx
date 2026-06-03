@@ -8,9 +8,9 @@ import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 import { Instagram, Loader2 } from 'lucide-react';
 import { useAccountsCache, upsertOptimisticConnectedAccount } from '@/context/AccountsCacheContext';
 import {
-  PENDING_CONNECT_REDIRECT_KEY,
   parseAccountIdFromDashboardRedirect,
 } from '@/lib/brand-account-move';
+import { dismissPendingConnect } from '@/lib/dismiss-pending-connect';
 
 type InstagramChoice = {
   pageId: string;
@@ -92,17 +92,13 @@ function InstagramSelectContent() {
             finishPostConnectBrandAssignment?.(accountId, withOptimistic, {
               platform: 'INSTAGRAM',
               username,
-            }) ?? false;
+            }, { successRedirect: redirect }) ?? false;
           if (moved) {
-            try {
-              sessionStorage.setItem(PENDING_CONNECT_REDIRECT_KEY, redirect);
-            } catch {
-              // ignore
-            }
             setSubmitting(false);
             return;
           }
         }
+        await dismissPendingConnect(pendingId ?? undefined);
         window.location.href = redirect;
         return;
       }

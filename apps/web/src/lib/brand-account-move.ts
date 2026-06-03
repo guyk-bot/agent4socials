@@ -3,6 +3,110 @@ import { META_BRAND_SCOPED_PLATFORMS } from '@/lib/brand-platform-connect';
 /** Session key: full-page redirect after user resolves the brand-move modal (e.g. Facebook page picker). */
 export const PENDING_CONNECT_REDIRECT_KEY = 'agent4socials_pending_connect_redirect_v1';
 
+/** Where to return on "Keep on other brand" vs success redirect on "Move to this brand". */
+export const PENDING_CONNECT_NAV_KEY = 'agent4socials_pending_connect_nav_v1';
+
+export type PendingConnectNav = {
+  successRedirect: string;
+  returnUrl: string;
+  pendingId?: string;
+};
+
+const DEFAULT_CONNECT_RETURN_URL = '/dashboard/account#connected-accounts';
+
+export function resolveBrandMoveReturnUrl(): string {
+  if (typeof window === 'undefined') return DEFAULT_CONNECT_RETURN_URL;
+  const path = window.location.pathname;
+  if (path.includes('/accounts/') && path.includes('/select')) {
+    return `${path}${window.location.search}`;
+  }
+  return DEFAULT_CONNECT_RETURN_URL;
+}
+
+export function readPendingIdFromLocation(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  try {
+    return new URLSearchParams(window.location.search).get('pendingId') ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function readPendingConnectNav(): PendingConnectNav | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw =
+      sessionStorage.getItem(PENDING_CONNECT_NAV_KEY) ||
+      (() => {
+        const legacy = sessionStorage.getItem(PENDING_CONNECT_REDIRECT_KEY);
+        if (!legacy) return null;
+        return JSON.stringify({
+          successRedirect: legacy,
+          returnUrl: resolveBrandMoveReturnUrl(),
+          pendingId: readPendingIdFromLocation(),
+        } satisfies PendingConnectNav);
+      })();
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PendingConnectNav;
+    if (!parsed?.successRedirect || !parsed?.returnUrl) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function storePendingConnectNav(nav: PendingConnectNav): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(PENDING_CONNECT_NAV_KEY, JSON.stringify(nav));
+    sessionStorage.setItem(PENDING_CONNECT_REDIRECT_KEY, nav.successRedirect);
+  } catch {
+    // ignore
+  }
+}
+
+export function clearPendingConnectNav(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(PENDING_CONNECT_NAV_KEY);
+    sessionStorage.removeItem(PENDING_CONNECT_REDIRECT_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+export function prepareBrandMoveNavigation(successRedirect?: string): void {
+  const existing = readPendingConnectNav();
+  if (successRedirect) {
+    storePendingConnectNav({
+      successRedirect,
+      returnUrl: existing?.returnUrl ?? resolveBrandMoveReturnUrl(),
+      pendingId: existing?.pendingId ?? readPendingIdFromLocation(),
+    });
+    return;
+  }
+  if (existing) return;
+  storePendingConnectNav({
+    successRedirect: DEFAULT_CONNECT_RETURN_URL,
+    returnUrl: resolveBrandMoveReturnUrl(),
+    pendingId: readPendingIdFromLocation(),
+  });
+}
+
+export function finishPendingConnectNavigation(outcome: 'moved' | 'kept'): void {
+  if (typeof window === 'undefined') return;
+  const nav = readPendingConnectNav();
+  clearPendingConnectNav();
+  if (outcome === 'kept') {
+    window.location.href = nav?.returnUrl ?? DEFAULT_CONNECT_RETURN_URL;
+    return;
+  }
+  const redirect = nav?.successRedirect;
+  if (redirect) {
+    window.location.href = sanitizePostConnectRedirect(redirect, 'moved');
+  }
+}
+
 /** Must match AccountsCacheContext ACCOUNT_BRAND_MAP_KEY. */
 export const ACCOUNT_BRAND_MAP_KEY = 'agent4socials_account_brand_map_v1';
 

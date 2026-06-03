@@ -155,7 +155,6 @@ export async function POST(request: NextRequest) {
       },
     });
   }
-  await prisma.pendingConnection.delete({ where: { id: pendingId } }).catch(() => {});
 
   const fbAccount = await prisma.socialAccount.findFirst({
     where: { userId, platform: 'FACEBOOK', platformUserId: page.id },

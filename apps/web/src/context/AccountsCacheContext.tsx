@@ -19,6 +19,7 @@ import {
   repairCorruptedBrandMap,
   resolvePostConnectBrandAction,
   shouldPromptMoveFromOtherBrand,
+  prepareBrandMoveNavigation,
 } from '@/lib/brand-account-move';
 
 type CachedAccount = { id: string; platform: string; username?: string; profilePicture?: string | null; [key: string]: unknown };
@@ -152,7 +153,8 @@ type AccountsCacheContextType = {
   /** If this account is mapped to another brand, open the move prompt. Returns true when shown. */
   maybePromptBrandMove: (
     accountId: string,
-    hint?: { platform: string; username?: string }
+    hint?: { platform: string; username?: string },
+    options?: { successRedirect?: string }
   ) => boolean;
   /**
    * After OAuth with a fresh /social/accounts list (avoids stale React state).
@@ -161,7 +163,8 @@ type AccountsCacheContextType = {
   finishPostConnectBrandAssignment: (
     accountId: string,
     freshAccounts: CachedAccount[],
-    hint?: { platform: string; username?: string }
+    hint?: { platform: string; username?: string },
+    options?: { successRedirect?: string }
   ) => boolean;
   /** If this platform is only connected on another brand, open the move prompt. Returns true when shown. */
   maybePromptBrandMoveForPlatform: (platform: string, options?: { afterConnect?: boolean }) => boolean;
@@ -360,7 +363,11 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
   );
 
   const maybePromptBrandMove = useCallback(
-    (accountId: string, hint?: { platform: string; username?: string }): boolean => {
+    (
+      accountId: string,
+      hint?: { platform: string; username?: string },
+      options?: { successRedirect?: string }
+    ): boolean => {
       const map = { ...readAccountBrandMapFromStorage(), ...accountBrandMap };
       if (!shouldPromptMoveFromOtherBrand(allCachedAccounts, map, accountId, activeBrandId)) {
         return false;
@@ -370,6 +377,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       const platform = account?.platform ?? hint?.platform;
       if (!platform) return false;
       const fromBrand = brands.find((b) => b.id === mappedBrandId);
+      prepareBrandMoveNavigation(options?.successRedirect);
       setBrandMovePrompt({
         accountId,
         platform,
@@ -409,7 +417,8 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
     (
       accountId: string,
       freshAccounts: CachedAccount[],
-      hint?: { platform: string; username?: string }
+      hint?: { platform: string; username?: string },
+      options?: { successRedirect?: string }
     ): boolean => {
       const account =
         freshAccounts.find((a) => a.id === accountId) ??
@@ -421,6 +430,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       const action = resolvePostConnectBrandAction(map, accountId, activeBrandId, accountRefs);
       if (action.type === 'prompt_move') {
         const fromBrand = brands.find((b) => b.id === action.fromBrandId);
+        prepareBrandMoveNavigation(options?.successRedirect);
         setBrandMovePrompt({
           accountId,
           platform,

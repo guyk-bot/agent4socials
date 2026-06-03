@@ -4,22 +4,12 @@ import React from 'react';
 import { BrandAccountMoveModal } from '@/components/account/BrandAccountMoveModal';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
+import api from '@/lib/api';
 import {
-  PENDING_CONNECT_REDIRECT_KEY,
-  sanitizePostConnectRedirect,
+  finishPendingConnectNavigation,
+  readPendingConnectNav,
 } from '@/lib/brand-account-move';
-
-function finishPendingConnectRedirect(outcome: 'moved' | 'kept') {
-  if (typeof window === 'undefined') return;
-  try {
-    const redirect = sessionStorage.getItem(PENDING_CONNECT_REDIRECT_KEY);
-    if (!redirect) return;
-    sessionStorage.removeItem(PENDING_CONNECT_REDIRECT_KEY);
-    window.location.href = sanitizePostConnectRedirect(redirect, outcome);
-  } catch {
-    // ignore
-  }
-}
+import { dismissPendingConnect } from '@/lib/dismiss-pending-connect';
 
 /** Renders brand move prompt inside SelectedAccountProvider (layout). */
 export function BrandAccountMoveHost() {
@@ -34,26 +24,40 @@ export function BrandAccountMoveHost() {
     brands,
     assignAccountToActiveBrand,
     dismissBrandMovePrompt,
+    setCachedAccounts,
   } = cache;
 
   const activeBrandName = brands.find((b) => b.id === activeBrandId)?.name ?? 'this brand';
+
+  const refreshAccounts = async () => {
+    try {
+      const res = await api.get(`/social/accounts?_=${Date.now()}`);
+      const data = Array.isArray(res.data) ? res.data : [];
+      setCachedAccounts(data);
+    } catch {
+      // ignore
+    }
+  };
 
   return (
     <BrandAccountMoveModal
       prompt={brandMovePrompt}
       activeBrandName={activeBrandName}
-      onMove={() => {
+      onMove={async () => {
         if (!brandMovePrompt) return;
         assignAccountToActiveBrand(brandMovePrompt.accountId, {
           platform: brandMovePrompt.platform,
         });
         selected?.setSelectedAccountId(brandMovePrompt.accountId);
         dismissBrandMovePrompt();
-        finishPendingConnectRedirect('moved');
+        const pendingId = readPendingConnectNav()?.pendingId;
+        await dismissPendingConnect(pendingId);
+        finishPendingConnectNavigation('moved');
       }}
-      onKeepOnOtherBrand={() => {
+      onKeepOnOtherBrand={async () => {
         dismissBrandMovePrompt();
-        finishPendingConnectRedirect('kept');
+        await refreshAccounts();
+        finishPendingConnectNavigation('kept');
       }}
     />
   );

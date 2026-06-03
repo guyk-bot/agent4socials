@@ -210,8 +210,6 @@ export async function POST(request: NextRequest) {
       : Promise.resolve(),
   ]);
 
-  await prisma.pendingConnection.delete({ where: { id: pendingId } }).catch(() => {});
-
   const igAccount = igIdToConnect
     ? await prisma.socialAccount.findFirst({
         where: { userId, platform: 'INSTAGRAM', platformUserId: igIdToConnect },
