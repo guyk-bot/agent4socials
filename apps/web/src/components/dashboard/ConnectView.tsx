@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { Check, Star, Loader2, BookOpen, Send, Calendar, BarChart2, MessageCircle, TrendingUp } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, YoutubeIcon, LinkedinIcon, TikTokIcon, XTwitterIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
 import LinkedInConnectOptions from '@/components/dashboard/LinkedInConnectOptions';
-import TikTokConnectOptions from '@/components/dashboard/TikTokConnectOptions';
 
 const BULLET_ICONS = [Send, Calendar, BarChart2, MessageCircle, TrendingUp];
 
@@ -336,15 +335,49 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
     );
   }
 
-  // ── TIKTOK (personal vs business, same layout pattern as LinkedIn) ────────
+  // ── TIKTOK (personal vs business) ─────────────────────────────────────────
   if (platform === 'TIKTOK') {
     return (
-      <TikTokConnectOptions
-        connecting={connecting}
-        connectingMethod={connectingMethod}
-        connectError={connectError}
-        onConnect={onConnect}
-      />
+      <div className="connect-view-scope min-h-[calc(100vh-6rem)] flex items-start justify-center pt-16 sm:pt-20">
+        <div className="max-w-lg mx-auto px-4 w-full">
+          <div
+            className={`connect-surface rounded-2xl border-2 p-6 sm:p-8 ${info.accentBorder} bg-gradient-to-b from-white to-neutral-100/80 shadow-sm`}
+          >
+            <div className="text-center pt-2 pb-4">
+              <div className="inline-flex mb-3">{info.headerIcon}</div>
+              <h1 className="text-2xl font-bold text-neutral-900">Connect TikTok</h1>
+              <p className="text-neutral-500 mt-1 text-sm">{info.description}</p>
+            </div>
+
+            <ConnectPageSections functionalities={info.functionalities} helpAnchor={info.helpAnchor} />
+
+            {connectError ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 mt-4">
+                {connectError}
+              </div>
+            ) : null}
+            <div className="space-y-3 mt-6">
+              {[
+                { method: 'personal', label: 'Personal Account' },
+                { method: 'business', label: 'Business Account' },
+              ].map(({ method, label }) => (
+                <button
+                  key={method}
+                  type="button"
+                  onClick={() => onConnect('tiktok', method)}
+                  disabled={connecting}
+                  className="connect-tiktok-btn w-full flex items-center justify-center gap-2.5 py-3 px-5 rounded-xl border-2 border-black bg-black text-white font-semibold text-sm transition-all hover:bg-neutral-900 hover:border-neutral-900 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {connecting && connectingMethod === method ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : null}
+                  Connect {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
