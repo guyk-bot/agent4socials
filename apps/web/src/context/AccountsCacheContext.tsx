@@ -146,6 +146,10 @@ type AccountsCacheContextType = {
   ) => boolean;
   /** If this platform is only connected on another brand, open the move prompt. Returns true when shown. */
   maybePromptBrandMoveForPlatform: (platform: string, options?: { afterConnect?: boolean }) => boolean;
+  /** Connected on a different brand workspace (not shown in sidebar for the active brand). */
+  getOtherBrandPlatformAccount: (
+    platform: string
+  ) => { account: CachedAccount; brandId: string; brandName: string } | null;
   brandMovePrompt: BrandAccountMovePrompt | null;
   dismissBrandMovePrompt: () => void;
 };
@@ -352,6 +356,27 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
     [allCachedAccounts, accountBrandMap, activeBrandId, maybePromptBrandMove]
   );
 
+  const getOtherBrandPlatformAccount = useCallback(
+    (platform: string) => {
+      const norm = platform.toUpperCase();
+      const onActive = allCachedAccounts.some(
+        (a) => a.platform === norm && (accountBrandMap[a.id] ?? DEFAULT_BRAND_ID) === activeBrandId
+      );
+      if (onActive) return null;
+      const candidates = allCachedAccounts.filter((a) => a.platform === norm);
+      const onOther = candidates.find((a) => (accountBrandMap[a.id] ?? DEFAULT_BRAND_ID) !== activeBrandId);
+      if (!onOther) return null;
+      const brandId = accountBrandMap[onOther.id] ?? DEFAULT_BRAND_ID;
+      const brand = brands.find((b) => b.id === brandId);
+      return {
+        account: onOther,
+        brandId,
+        brandName: brand?.name ?? 'another brand',
+      };
+    },
+    [allCachedAccounts, accountBrandMap, activeBrandId, brands]
+  );
+
   // After OAuth: if account is explicitly on another brand, prompt to move (never auto-move).
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -411,6 +436,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       assignAccountToActiveBrand,
       maybePromptBrandMove,
       maybePromptBrandMoveForPlatform,
+      getOtherBrandPlatformAccount,
       brandMovePrompt,
       dismissBrandMovePrompt,
     }),
@@ -431,6 +457,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       assignAccountToActiveBrand,
       maybePromptBrandMove,
       maybePromptBrandMoveForPlatform,
+      getOtherBrandPlatformAccount,
       brandMovePrompt,
       dismissBrandMovePrompt,
     ]

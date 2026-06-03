@@ -414,6 +414,13 @@ export default function DashboardPage() {
   const brandMovedParam = searchParams.get('brandMoved') === '1';
   const brandKeptParam = searchParams.get('brandKept') === '1';
   const postConnectReturn = connectingParam === '1' || brandMovedParam || brandKeptParam;
+
+  useEffect(() => {
+    if (!brandKeptParam) return;
+    setAlertMessage(
+      'That account is still on your other brand. In the sidebar, click Use on this brand for Instagram or Facebook, or reconnect and choose Move to this brand.'
+    );
+  }, [brandKeptParam]);
   /** Resolved account for analytics; stub from OAuth URL until accounts API returns. */
   const analyticsAccount = useMemo((): SocialAccount | null => {
     if (selectedAccount) return selectedAccount;
@@ -803,7 +810,7 @@ export default function DashboardPage() {
           }, 0);
         } else if (platform) {
           window.setTimeout(() => {
-            maybePromptBrandMoveForPlatform(platform);
+            maybePromptBrandMoveForPlatform(platform, { afterConnect: true });
           }, 0);
         }
       });

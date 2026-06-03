@@ -85,7 +85,7 @@ export function ConnectedAccountsPanel() {
         const { accountId, platform } = payload;
         window.setTimeout(() => {
           if (accountId && maybePromptBrandMove(accountId)) return;
-          if (platform) maybePromptBrandMoveForPlatform(platform);
+          if (platform) maybePromptBrandMoveForPlatform(platform, { afterConnect: true });
         }, 0);
       } catch {
         /* ignore */
