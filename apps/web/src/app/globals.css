@@ -626,8 +626,13 @@
 [data-theme='dark'] .bg-gray-50,
 [data-theme='dark'] .bg-zinc-50,
 [data-theme='dark'] .bg-stone-50,
-[data-theme='dark'] .bg-orange-50\/80 {
+[data-theme='dark'] .bg-orange-50\/80,
+[data-theme='dark'] .bg-orange-50,
+[data-theme='dark'] .bg-orange-100 {
   background-color: var(--card-bg) !important;
+}
+[data-theme='dark'] .border-orange-200 {
+  border-color: var(--border) !important;
 }
 [data-theme='dark'] .bg-neutral-100,
 [data-theme='dark'] .bg-neutral-200\/80,

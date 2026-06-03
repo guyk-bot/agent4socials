@@ -710,12 +710,12 @@ function MessagesConversationList({
         const rowCls = [
           'inbox-conversation-row group w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/30',
           selectMode && isSelected
-            ? 'bg-orange-50 border border-orange-200'
+            ? 'bg-neutral-100 border border-neutral-300 dark:bg-neutral-800 dark:border-neutral-600'
             : isActiveConv
               ? 'sidebar-item-selected'
               : isUnread
-                ? 'bg-orange-50/80 hover:bg-orange-100/80 dark:bg-neutral-900 dark:hover:bg-neutral-700'
-                : 'hover:bg-neutral-50 dark:hover:bg-neutral-700',
+                ? 'bg-neutral-100/90 hover:bg-neutral-200/90 dark:bg-neutral-900 dark:hover:bg-neutral-800'
+                : 'hover:bg-neutral-50 dark:hover:bg-neutral-800',
         ].join(' ');
         const checkboxCls = isSelected
           ? 'w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 bg-[var(--button)] border-[var(--button)]'
@@ -1253,6 +1253,40 @@ function InboxPage() {
     () => getPendingUnreadConversationIds(user?.id ?? ''),
     [user?.id, inboxReadStateVersion]
   );
+
+  const selectUnreadConversations = useCallback(() => {
+    if (!user?.id) {
+      setSelectedConversationIds(new Set(unreadConversationIds));
+      return;
+    }
+    const readSet = getReadConversationIds(user.id);
+    const lastRead = getConversationLastReadCounts(user.id);
+    const lastSeen = getConversationLastSeenUpdated(user.id);
+    const initialized = getInboxInitializedAccountIdsForConversations(user.id);
+    const ids = conversations
+      .filter((c) => {
+        const platform = (c as Conversation & { platform?: string }).platform;
+        return (
+          isConversationUnread(
+            {
+              id: c.id,
+              messageCount: c.messageCount,
+              messageAccountId: (c as Conversation & { messageAccountId?: string }).messageAccountId,
+              updatedTime: c.updatedTime,
+              platform,
+            },
+            readSet,
+            lastRead,
+            lastSeen,
+            initialized
+          ) ||
+          unreadConversationIds.has(c.id) ||
+          pendingUnreadConversationIds.has(c.id)
+        );
+      })
+      .map((c) => c.id);
+    setSelectedConversationIds(new Set(ids));
+  }, [conversations, user?.id, unreadConversationIds, pendingUnreadConversationIds]);
 
   const markInboxCommentRead = useCallback(
     (commentId: string) => {
@@ -2214,7 +2248,7 @@ function InboxPage() {
         hint:
           cachedRows.length > 0
             ? null
-            : 'Showing saved comments when available. Tap Refresh comments for a live sync.',
+            : 'Showing saved comments when available.',
       });
       if (threadsAccounts.length > 0) {
         setThreadsCommentsSync({
@@ -2223,7 +2257,7 @@ function InboxPage() {
           hint:
             cachedRows.some((c) => c.platform === 'THREADS')
               ? null
-              : 'Showing saved Threads comments. Tap Refresh comments to sync live.',
+              : 'Showing saved Threads comments.',
           meta: null,
         });
       }
@@ -2312,7 +2346,7 @@ function InboxPage() {
       loading: false,
       hint:
         skippedCooldown > 0 && refreshedLive === 0 && cachedRows.length > 0
-          ? 'Some platforms are on a refresh cooldown. Showing saved comments. Tap Refresh comments to force sync.'
+          ? 'Some platforms are on a cooldown. Showing saved comments.'
           : refreshedLive === 0 && !hasAnyComments
             ? 'Sync posts from Dashboard if YouTube, X, LinkedIn, TikTok, or Pinterest comments are missing. Refresh can take up to about a minute for all platforms.'
             : null,
@@ -3228,17 +3262,9 @@ function InboxPage() {
             </p>
             <p className="text-xs text-neutral-400 mt-1">
               {threadsSelected
-                ? 'Replies on your threads and mentions of your handle appear here. Private Threads messages stay in the Threads app.'
-                : 'Comments from your connected platforms appear here after a refresh. Sync posts on Dashboard first if a platform looks empty.'}
+                ? 'Thread comments appear here when your account has activity.'
+                : 'Comments from your connected platforms appear here. Sync posts on Dashboard first if a platform looks empty.'}
             </p>
-            <button
-              type="button"
-              onClick={() => void refreshAllPlatformCommentsRef.current({ manual: true })}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-orange-500 px-3 py-2 text-sm font-medium text-white hover:bg-orange-600"
-            >
-              <RefreshCw size={14} />
-              Refresh comments
-            </button>
           </div>
         );
       }
@@ -3260,17 +3286,6 @@ function InboxPage() {
                     : commentsFilter === 'replied'
                       ? hasRepliedByParent.has(c.commentId)
                       : !hasRepliedByParent.has(c.commentId);
-                })
-                .filter((c) => {
-                  if (c.platform !== 'THREADS') return true;
-                  if (threadsInboxKind === 'mentions' && !isThreadsMentionComment(c)) return false;
-                  if (
-                    threadsInboxKind === 'replies' &&
-                    isThreadsMentionComment(c)
-                  ) {
-                    return false;
-                  }
-                  return true;
                 })
                 .filter((c) => {
                   if (!searchQuery) return true;
@@ -3327,12 +3342,13 @@ function InboxPage() {
                       }
                     }}
                     className={`w-full px-3 py-3 text-left transition-colors flex items-center gap-2 cursor-pointer ${
-                      isSelected ? 'sidebar-item-selected border-l-2 border-l-slate-400 dark:bg-neutral-700' :
-                      selectedComment?.commentId === c.commentId
-                        ? 'sidebar-item-selected border-l-2 border-l-slate-400 dark:bg-neutral-700'
-                        : isUnread
-                          ? 'bg-orange-50/80 hover:bg-orange-100/80 dark:bg-neutral-900 dark:hover:bg-neutral-700'
-                          : 'hover:bg-neutral-50 dark:hover:bg-neutral-700'
+                      isSelected
+                        ? 'bg-neutral-100 border-l-2 border-l-neutral-400 dark:bg-neutral-800 dark:border-l-neutral-500'
+                        : selectedComment?.commentId === c.commentId
+                          ? 'sidebar-item-selected border-l-2 border-l-slate-400 dark:bg-neutral-800'
+                          : isUnread
+                            ? 'bg-neutral-100/90 hover:bg-neutral-200/90 dark:bg-neutral-900 dark:hover:bg-neutral-800'
+                            : 'hover:bg-neutral-50 dark:hover:bg-neutral-800'
                     }`}
                   >
                     {selectMode ? (
@@ -3349,7 +3365,7 @@ function InboxPage() {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-medium text-neutral-900 truncate">{c.authorName}</p>
+                            <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">{c.authorName}</p>
                             <PlatformSourcePill platformId={c.platform} />
                             {isOpenOnPlatform ? (
                               <span className="text-[10px] font-semibold uppercase tracking-wide rounded-full bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200 px-2 py-0.5">
@@ -3752,95 +3768,18 @@ function InboxPage() {
         </div>
 
 
-        {inboxMode === 'comments' && commentsLiveSync.loading ? (
-          <div className="mx-2 mt-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
-            Syncing comments from your connected platforms (usually under a minute)...
-          </div>
-        ) : null}
-
-        {inboxMode === 'comments' && !commentsLiveSync.loading && commentsLiveSync.hint ? (
-          <div className="mx-2 mt-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-100">
-            {commentsLiveSync.hint}
-          </div>
-        ) : null}
-
-        {inboxMode === 'comments' && connectedPlatformIds.includes('THREADS') ? (
-          threadsCommentsSync.loading ? (
-            <div className="mx-2 mt-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
-              Syncing Threads replies and @mentions...
-            </div>
-          ) : threadsCommentsSync.error ? (
-            <div className="mx-2 mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
-              <p className="font-medium">Threads comments could not load</p>
-              <p className="mt-0.5">{threadsCommentsSync.error}</p>
-              <div className="mt-2 flex flex-wrap items-center gap-3">
-                <a
-                  href="/dashboard/account"
-                  className="font-semibold text-amber-800 underline hover:text-amber-950 dark:text-amber-300"
-                >
-                  Reconnect Threads
-                </a>
-                <button
-                  type="button"
-                  onClick={() => void refreshAllPlatformCommentsRef.current({ manual: true })}
-                  className="font-semibold text-amber-800 underline hover:text-amber-950 dark:text-amber-300"
-                >
-                  Refresh comments
-                </button>
-              </div>
-            </div>
-          ) : !hasThreadsCommentsInList ? (
-            <div className="mx-2 mt-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-900 dark:border-orange-900/50 dark:bg-orange-950/40 dark:text-orange-100">
-              <p className="font-medium">Threads comments</p>
-              <p className="mt-0.5">
-                {threadsCommentsSync.hint ??
-                  'Replies on your threads and @mentions appear in this list. Private Threads messages stay in the Threads app.'}
-              </p>
-              {threadsCommentsSync.meta?.sourcesTried != null ? (
-                <p className="mt-1 text-orange-800/80 dark:text-orange-200/80">
-                  Checked {threadsCommentsSync.meta.sourcesTried} thread
-                  {threadsCommentsSync.meta.sourcesTried === 1 ? '' : 's'}
-                  {typeof threadsCommentsSync.meta.repliesFound === 'number'
-                    ? `, ${threadsCommentsSync.meta.repliesFound} incoming repl${threadsCommentsSync.meta.repliesFound === 1 ? 'y' : 'ies'}`
-                    : ''}
-                  {typeof threadsCommentsSync.meta.mentionsFound === 'number' && threadsCommentsSync.meta.mentionsFound > 0
-                    ? `, ${threadsCommentsSync.meta.mentionsFound} @mention${threadsCommentsSync.meta.mentionsFound === 1 ? '' : 's'}`
-                    : ''}
-                  {typeof threadsCommentsSync.meta.skippedOwn === 'number' && threadsCommentsSync.meta.skippedOwn > 0
-                    ? ` (${threadsCommentsSync.meta.skippedOwn} from your account hidden)`
-                    : ''}
-                  .
-                </p>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => void refreshAllPlatformCommentsRef.current({ manual: true })}
-                className="mt-2 font-semibold text-orange-700 underline hover:text-orange-900 dark:text-orange-300"
-              >
-                Refresh comments
-              </button>
-            </div>
-          ) : null
-        ) : null}
-
-        {inboxMode === 'messages' &&
+        {inboxMode === 'comments' &&
         connectedPlatformIds.includes('THREADS') &&
-        threadsInboxUnreadCount > 0 ? (
-          <div className="mx-2 mt-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-900 dark:border-orange-900/50 dark:bg-orange-950/40 dark:text-orange-100">
-            <p className="font-medium">Threads activity is in Comments</p>
-            <p className="mt-0.5 text-orange-800/90 dark:text-orange-200/90">
-              Threads does not support private DMs here. Replies on your threads and @mentions appear under the Comments tab.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setInboxMode('comments');
-                setSelectedPlatforms((prev) => (prev.includes('THREADS') ? prev : [...prev, 'THREADS']));
-              }}
-              className="mt-2 font-semibold text-orange-700 underline hover:text-orange-900 dark:text-orange-300"
+        threadsCommentsSync.error ? (
+          <div className="mx-2 mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100">
+            <p className="font-medium">Threads comments could not load</p>
+            <p className="mt-0.5">{threadsCommentsSync.error}</p>
+            <a
+              href="/dashboard/account"
+              className="mt-2 inline-block font-semibold text-amber-800 underline hover:text-amber-950 dark:text-amber-300"
             >
-              View {threadsInboxUnreadCount} Threads notification{threadsInboxUnreadCount === 1 ? '' : 's'}
-            </button>
+              Reconnect Threads
+            </a>
           </div>
         ) : null}
 
@@ -3874,7 +3813,7 @@ function InboxPage() {
               <button
                 type="button"
                 onClick={toggleSelectMode}
-                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${selectMode ? 'bg-orange-100 text-orange-700' : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100'}`}
+                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${selectMode ? 'bg-neutral-200 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-100' : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800'}`}
               >
                 {selectMode ? <CheckSquare size={13} /> : <Square size={13} />}
                 {selectMode ? 'Cancel' : 'Select'}
@@ -3883,27 +3822,10 @@ function InboxPage() {
                 <>
                   <button
                     type="button"
-                    onClick={() => {
-                      const filtered = conversations.filter((c) => {
-                        if (inboxFilter === 'all') return true;
-                        if (inboxFilter === 'read') return !unreadConversationIds.has(c.id);
-                        if (inboxFilter === 'unread') return unreadConversationIds.has(c.id);
-                        return true;
-                      });
-                      const allIds = new Set(filtered.map((c) => c.id));
-                      setSelectedConversationIds((prev) => prev.size === allIds.size ? new Set() : allIds);
-                    }}
-                    className="text-xs text-neutral-600 hover:text-neutral-900 underline"
+                    onClick={selectUnreadConversations}
+                    className="text-xs text-neutral-600 hover:text-neutral-900 underline dark:text-neutral-400 dark:hover:text-neutral-100"
                   >
-                    {(() => {
-                      const filtered = conversations.filter((c) => {
-                        if (inboxFilter === 'all') return true;
-                        if (inboxFilter === 'read') return !unreadConversationIds.has(c.id);
-                        if (inboxFilter === 'unread') return unreadConversationIds.has(c.id);
-                        return true;
-                      });
-                      return selectedConversationIds.size === filtered.length ? 'Deselect all' : 'Select all';
-                    })()}
+                    Select unread
                   </button>
                   {selectedConversationIds.size > 0 && (
                     <button
@@ -3972,36 +3894,13 @@ function InboxPage() {
               <button
                 type="button"
                 onClick={toggleSelectMode}
-                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${selectMode ? 'bg-orange-100 text-orange-700' : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100'}`}
+                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${selectMode ? 'bg-neutral-200 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-100' : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800'}`}
               >
                 {selectMode ? <CheckSquare size={13} /> : <Square size={13} />}
                 {selectMode ? 'Cancel' : 'Select'}
               </button>
               {selectMode && (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const topLevel = comments.filter((c) => !c.parentCommentId);
-                      const hasRepliedByParent = new Set(
-                        comments.filter((r) => r.isFromMe && r.parentCommentId).map((r) => r.parentCommentId)
-                      );
-                      const filtered = topLevel.filter((c) => {
-                        if (isOpenOnPlatformInboxComment(c)) {
-                          return commentsFilter === 'all' || commentsFilter === 'didnt_reply';
-                        }
-                        return commentsFilter === 'all'
-                          ? true
-                          : commentsFilter === 'replied'
-                            ? hasRepliedByParent.has(c.commentId)
-                            : !hasRepliedByParent.has(c.commentId);
-                      });
-                      setSelectedCommentIds(new Set(filtered.map((c) => c.commentId)));
-                    }}
-                    className="text-xs text-neutral-600 hover:text-neutral-900 underline dark:text-neutral-400 dark:hover:text-neutral-100"
-                  >
-                    Select all
-                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -4016,7 +3915,7 @@ function InboxPage() {
                     }}
                     className="text-xs text-neutral-600 hover:text-neutral-900 underline dark:text-neutral-400 dark:hover:text-neutral-100"
                   >
-                    Select unreplied
+                    Select all unreplied
                   </button>
                   {selectedCommentIds.size > 0 && (
                     <button
@@ -4101,8 +4000,8 @@ function InboxPage() {
             });
             return (
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                <div className="p-4 border-b border-neutral-200 bg-white">
-                  <h2 className="text-lg font-semibold text-neutral-900">Reply to {selectedComments.length} comment{selectedComments.length !== 1 ? 's' : ''}</h2>
+                <div className="p-4 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
+                  <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Reply to {selectedComments.length} comment{selectedComments.length !== 1 ? 's' : ''}</h2>
                   {replyable.length < selectedComments.length && (
                     <p className="text-sm text-amber-700 mt-1">
                       TikTok and Pinterest open in their apps. Only Instagram, Facebook, X, YouTube, LinkedIn, and Threads
@@ -4316,8 +4215,8 @@ function InboxPage() {
           /* Batch reply to selected conversations: each conversation gets its own reply area */
           messageFetchPlatformIds.some((p) => DM_THREAD_PLATFORM_IDS.has(p)) ? (
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-              <div className="p-4 border-b border-neutral-200 bg-white">
-                <h2 className="text-lg font-semibold text-neutral-900">Reply to {selectedConversationIds.size} conversation{selectedConversationIds.size !== 1 ? 's' : ''}</h2>
+              <div className="p-4 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950">
+                <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Reply to {selectedConversationIds.size} conversation{selectedConversationIds.size !== 1 ? 's' : ''}</h2>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {!canUseInboxMessageAi && inboxExamplesLoaded && (
@@ -4348,11 +4247,11 @@ function InboxPage() {
                       const value = batchDmTexts[c.id] ?? '';
                       const batchWindowClosed = batchConversationWindowClosed[c.id] === true;
                       return (
-                        <div key={c.id} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm space-y-3">
+                        <div key={c.id} className="rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-4 shadow-sm space-y-3">
                           <div className="flex items-center gap-3">
                             <InboxAvatar pictureUrl={pictureUrl} label={name} />
                             <div className="min-w-0 flex-1">
-                              <p className="font-medium text-neutral-900 truncate">{name}</p>
+                              <p className="font-medium text-neutral-900 dark:text-neutral-100 truncate">{name}</p>
                               <div className="flex items-center gap-2 mt-0.5">
                                 {Icon && <Icon size={14} className="opacity-70" />}
                                 <span className="text-xs text-neutral-500">
@@ -4361,8 +4260,8 @@ function InboxPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="pt-2 border-t border-neutral-100">
-                            <p className="text-sm text-neutral-700 mb-2 rounded-lg bg-neutral-50 px-3 py-2 border border-neutral-100 min-h-[2.5rem]">
+                          <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                            <p className="text-sm text-neutral-700 dark:text-neutral-300 mb-2 rounded-lg bg-neutral-50 dark:bg-neutral-800 px-3 py-2 border border-neutral-100 dark:border-neutral-700 min-h-[2.5rem]">
                               {batchConversationLastMessage[c.id] !== undefined
                                 ? (batchConversationLastMessage[c.id] || 'No message preview')
                                 : 'Loading...'}
@@ -4733,9 +4632,9 @@ function InboxPage() {
                 ) : selectedComment.platform === 'LINKEDIN' &&
                   (!selectedComment.linkedInObjectUrn || !selectedComment.commentId.startsWith('urn:li:comment:')) ? (
                   <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                    <p className="font-medium">Refresh comments to reply on LinkedIn.</p>
+                    <p className="font-medium">Re-open this comment to reply on LinkedIn.</p>
                     <p className="mt-1 text-xs text-amber-700">
-                      Close this thread and open the Comments tab again so thread metadata loads. You need Community Management
+                      Close this thread and open it again from the list so thread metadata loads. You need Community Management
                       scopes (e.g. w_organization_social / w_member_social) for replies.
                     </p>
                   </div>
