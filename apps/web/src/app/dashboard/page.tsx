@@ -415,12 +415,6 @@ export default function DashboardPage() {
   const brandKeptParam = searchParams.get('brandKept') === '1';
   const postConnectReturn = connectingParam === '1' || brandMovedParam || brandKeptParam;
 
-  useEffect(() => {
-    if (!brandKeptParam) return;
-    setAlertMessage(
-      'That account is still on your other brand. In the sidebar, click Use on this brand for Instagram or Facebook, or reconnect and choose Move to this brand.'
-    );
-  }, [brandKeptParam]);
   /** Resolved account for analytics; stub from OAuth URL until accounts API returns. */
   const analyticsAccount = useMemo((): SocialAccount | null => {
     if (selectedAccount) return selectedAccount;
@@ -1849,9 +1843,15 @@ export default function DashboardPage() {
         cache: 'no-store',
         signal: AbortSignal.timeout(60_000),
       });
-      const data = await startRes.json().catch(() => ({}));
+      const data = (await startRes.json().catch(() => ({}))) as { url?: string; message?: string; error?: string };
       if (!startRes.ok) {
-        throw { response: { status: startRes.status, data } };
+        const serverMsg =
+          typeof data?.message === 'string' && data.message.trim()
+            ? data.message.trim()
+            : typeof data?.error === 'string' && data.error.trim()
+              ? data.error.trim()
+              : `Connect failed (HTTP ${startRes.status}).`;
+        throw { response: { status: startRes.status, data: { message: serverMsg } } };
       }
       const url = data?.url;
       if (url && typeof url === 'string') {
@@ -1892,7 +1892,12 @@ export default function DashboardPage() {
             setAlertMessage(msg);
           }
         } else {
-          setAlertMessage('Failed to start OAuth. Check Vercel → Logs.');
+          const errMsg = err instanceof Error ? err.message : '';
+          setAlertMessage(
+            errMsg.trim()
+              ? `Could not start connect: ${errMsg.slice(0, 160)}`
+              : 'Could not start connect. Sign out and back in, or try again in a moment.'
+          );
         }
       }
     } finally {

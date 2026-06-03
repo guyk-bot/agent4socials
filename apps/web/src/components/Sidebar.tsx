@@ -63,19 +63,10 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const pathname = usePathname();
   const { textColor } = useWhiteLabel();
   const { theme } = useTheme();
-  const accountsCache = useAccountsCache();
-  const {
-    cachedAccounts,
-    setCachedAccounts,
-    setAccountsLoadError,
-    maybePromptBrandMove,
-    getOtherBrandPlatformAccount,
-  } = accountsCache ?? {
+  const { cachedAccounts, setCachedAccounts, setAccountsLoadError } = useAccountsCache() ?? {
     cachedAccounts: [],
     setCachedAccounts: () => {},
     setAccountsLoadError: () => {},
-    maybePromptBrandMove: () => false,
-    getOtherBrandPlatformAccount: () => null,
   };
   const ctx = useSelectedAccount();
   const selectedAccountId = ctx?.selectedAccountId ?? null;
@@ -234,46 +225,12 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         </Link>
       </div>
 
-      <div className="shrink-0 px-2 space-y-1">
+      <div className="flex-1 min-h-0 overflow-y-auto px-2 space-y-1">
         {PLATFORM_ORDER.map((platform) => {
           const accounts = accountsByPlatform[platform] ?? [];
           const isPlatformSelected = selectedPlatformForConnect === platform;
 
           if (accounts.length === 0) {
-            const onOtherBrand = getOtherBrandPlatformAccount(platform);
-            if (onOtherBrand) {
-              const label = onOtherBrand.account.username?.trim() || PLATFORM_LABELS[platform];
-              return (
-                <div
-                  key={platform}
-                  className="rounded-lg border border-amber-200/80 bg-amber-50/40 dark:border-amber-900/60 dark:bg-amber-950/30 px-2 py-2 space-y-2"
-                >
-                  <div className="flex items-center gap-3 px-1 min-w-0">
-                    <div className="w-10 h-10 flex items-center justify-center shrink-0">
-                      {PLATFORM_ICON[platform]}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <span className="block text-sm font-medium truncate">{label}</span>
-                      <span className="block text-xs text-neutral-500 truncate">
-                        On brand: {onOtherBrand.brandName}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="w-full text-xs font-medium py-1.5 rounded-md bg-[var(--primary)] text-white hover:opacity-90"
-                    onClick={() =>
-                      maybePromptBrandMove(onOtherBrand.account.id, {
-                        platform,
-                        username: onOtherBrand.account.username,
-                      })
-                    }
-                  >
-                    Use on this brand
-                  </button>
-                </div>
-              );
-            }
             const connectParam = platform.toLowerCase();
             const needsUpgrade = UPGRADE_TO_CONNECT_PLATFORMS.includes(platform);
             /** Connect URL per platform; optional gem styling when platform is in UPGRADE_TO_CONNECT_PLATFORMS. */
