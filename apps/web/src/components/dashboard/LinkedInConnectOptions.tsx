@@ -40,8 +40,7 @@ export default function LinkedInConnectOptions({ connecting, connectError }: Pro
             </div>
             <h1 className="text-2xl font-bold text-neutral-900">Connect LinkedIn</h1>
             <p className="text-neutral-500 mt-1 max-w-md mx-auto text-sm">
-              Choose personal profile or Company Page. You will sign in once at LinkedIn, review
-              permissions in Agent4Socials, then connect the account.
+              Choose personal profile or Company Page, then sign in once at LinkedIn to connect.
             </p>
           </div>
           {connectError || localError ? (
