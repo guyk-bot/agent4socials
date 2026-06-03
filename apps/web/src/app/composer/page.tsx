@@ -2565,6 +2565,18 @@ export default function ComposerPage() {
                             });
                             return;
                         }
+                        try {
+                            const full = await api.get<Record<string, unknown>>(`/posts/${postId}`, {
+                                timeout: 30_000,
+                            });
+                            if (full.data && typeof full.data === 'object' && full.data.id) {
+                                upsertPostInHistoryClient(full.data);
+                            } else {
+                                upsertPostInHistoryClient({ id: postId, ...settled });
+                            }
+                        } catch {
+                            upsertPostInHistoryClient({ id: postId, ...settled });
+                        }
                         showPublishOutcomeFromPost(postId, settled, includesTikTok);
                     } else {
                         const results = publishRes.data?.results;
@@ -2575,17 +2587,26 @@ export default function ComposerPage() {
                         ) {
                             return;
                         }
-                        showPublishOutcomeFromPost(
-                            postId,
-                            {
-                                status: publishRes.data?.ok ? 'POSTED' : 'FAILED',
-                                targets: results?.map((r) => ({
-                                    platform: r.platform,
-                                    status: r.ok ? 'POSTED' : 'FAILED',
-                                })),
-                            },
-                            includesTikTok
-                        );
+                        const inlineOutcome = {
+                            status: publishRes.data?.ok ? 'POSTED' : 'FAILED',
+                            targets: results?.map((r) => ({
+                                platform: r.platform,
+                                status: r.ok ? 'POSTED' : 'FAILED',
+                            })),
+                        };
+                        try {
+                            const full = await api.get<Record<string, unknown>>(`/posts/${postId}`, {
+                                timeout: 30_000,
+                            });
+                            if (full.data && typeof full.data === 'object' && full.data.id) {
+                                upsertPostInHistoryClient(full.data);
+                            } else {
+                                upsertPostInHistoryClient({ id: postId, ...inlineOutcome });
+                            }
+                        } catch {
+                            upsertPostInHistoryClient({ id: postId, ...inlineOutcome });
+                        }
+                        showPublishOutcomeFromPost(postId, inlineOutcome, includesTikTok);
                     }
                     void api
                         .get('/posts')

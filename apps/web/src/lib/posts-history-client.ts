@@ -1,4 +1,5 @@
 import {
+  mergePostHistoryRecord,
   mergePostsHistoryLists,
   upsertPostInHistoryList,
   type PostHistoryRow,
@@ -57,11 +58,11 @@ export function buildOptimisticPostingRow(input: {
 
 export function replacePostIdInHistoryClient(tempId: string, post: PostHistoryRow): PostHistoryRow[] {
   return pushPostsHistoryClientUpdate((prev) => {
-    const idx = prev.findIndex((p) => postIdKey(p) === tempId);
-    if (idx < 0) return upsertPostInHistoryList(prev, post);
-    const next = [...prev];
-    next[idx] = { ...post };
-    return next;
+    const tempIdx = prev.findIndex((p) => postIdKey(p) === tempId);
+    const withoutTemp = prev.filter((p) => postIdKey(p) !== tempId);
+    const merged =
+      tempIdx >= 0 ? mergePostHistoryRecord(prev[tempIdx], post) : post;
+    return upsertPostInHistoryList(withoutTemp, merged);
   });
 }
 

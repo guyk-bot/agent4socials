@@ -33,6 +33,84 @@ const STATUS_RANK: Record<string, number> = {
   FAILED: 3,
 };
 
+/** Same caption + platforms within this window are treated as one publish attempt (orphan pending/POSTING rows). */
+const POST_HISTORY_DEDUPE_WINDOW_MS = 20 * 60 * 1000;
+
+function postHistoryPlatformKey(post: PostHistoryRow): string {
+  const targets = Array.isArray(post.targets) ? post.targets : [];
+  const fromTargets = targets
+    .map((t) => (t && typeof t === 'object' && 'platform' in t ? String((t as { platform: string }).platform) : ''))
+    .filter(Boolean);
+  const fromList = Array.isArray(post.targetPlatforms)
+    ? (post.targetPlatforms as string[]).filter((p) => typeof p === 'string')
+    : [];
+  const platforms = [...new Set([...fromList, ...fromTargets])].map((p) => p.toUpperCase()).sort();
+  return platforms.join(',');
+}
+
+function postHistoryContentKey(post: PostHistoryRow): string {
+  return String(post.title ?? post.content ?? '')
+    .trim()
+    .toLowerCase()
+    .slice(0, 200);
+}
+
+function postHistoryDedupeFingerprint(post: PostHistoryRow): string | null {
+  const content = postHistoryContentKey(post);
+  const platforms = postHistoryPlatformKey(post);
+  if (!content || !platforms) return null;
+  return `${platforms}|${content}`;
+}
+
+function canonicalPostHistoryRowScore(post: PostHistoryRow): number {
+  let score = statusRank(post.status) * 100;
+  const id = postIdKey(post);
+  if (id && !id.startsWith('pending-')) score += 50;
+  if (post._optimistic === true) score -= 40;
+  if (id?.startsWith('pending-')) score -= 60;
+  score += postHistorySortTime(post) / 1_000_000_000_000;
+  return score;
+}
+
+/** Drop duplicate History rows (pending-* ghost + stale POSTING) for the same in-flight publish. */
+export function pruneDuplicatePostHistoryRows(list: PostHistoryRow[]): PostHistoryRow[] {
+  if (list.length < 2) return list;
+
+  const groups = new Map<string, PostHistoryRow[]>();
+  const ungrouped: PostHistoryRow[] = [];
+
+  for (const post of list) {
+    const fp = postHistoryDedupeFingerprint(post);
+    if (!fp) {
+      ungrouped.push(post);
+      continue;
+    }
+    const g = groups.get(fp) ?? [];
+    g.push(post);
+    groups.set(fp, g);
+  }
+
+  const kept: PostHistoryRow[] = [...ungrouped];
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      kept.push(group[0]);
+      continue;
+    }
+    const times = group.map(postHistorySortTime).filter((t) => t > 0);
+    const span = times.length >= 2 ? Math.max(...times) - Math.min(...times) : 0;
+    if (span > POST_HISTORY_DEDUPE_WINDOW_MS) {
+      kept.push(...group);
+      continue;
+    }
+    const canonical = group.reduce((best, cur) =>
+      canonicalPostHistoryRowScore(cur) > canonicalPostHistoryRowScore(best) ? cur : best
+    );
+    kept.push(canonical);
+  }
+
+  return sortPostsHistoryByNewest(kept);
+}
+
 function statusRank(status: unknown): number {
   if (typeof status !== 'string') return 0;
   return STATUS_RANK[status] ?? 1;
@@ -131,7 +209,7 @@ export function mergePostsHistoryLists(previous: PostHistoryRow[], incoming: Pos
     }
   }
 
-  return sortPostsHistoryByNewest(ordered);
+  return pruneDuplicatePostHistoryRows(sortPostsHistoryByNewest(ordered));
 }
 
 /** Apply a single post update from GET /posts/:id without reshuffling the whole list. */
@@ -142,7 +220,7 @@ export function upsertPostInHistoryList(list: PostHistoryRow[], post: PostHistor
   if (idx < 0) return mergePostsHistoryLists(list, [post]);
   const next = [...list];
   next[idx] = mergePostHistoryRecord(next[idx], post);
-  return sortPostsHistoryByNewest(next);
+  return pruneDuplicatePostHistoryRows(sortPostsHistoryByNewest(next));
 }
 
 /** Skip React re-render when visible id/status/errors are unchanged. */
