@@ -329,10 +329,13 @@ export function resolvePostConnectBrandAction(
       accountId,
       activeBrandId
     );
-    if (fromBrandId) {
+    if (fromBrandId && connected) {
+      // Only prompt when this exact row is the one shown on the source brand.
+      if (!isAccountVisibleOnBrand(accounts, map, accountId, fromBrandId)) {
+        return { type: 'assign_active' };
+      }
       const explicitlyOnOther =
         isAccountExplicitlyBrandMapped(map, accountId) && map[accountId] !== activeBrandId;
-      // Only prompt when reconnecting this exact account row, not because another platform row exists.
       if (explicitlyOnOther || options?.isReconnect) {
         return { type: 'prompt_move', fromBrandId };
       }
@@ -473,9 +476,12 @@ export function buildNextBrandMapForMove(
   options?: {
     platform?: string;
     allAccounts?: Array<{ id: string; platform: string }>;
+    /** When true, only assign this account. Never demote other platform rows. */
+    assignOnly?: boolean;
   }
 ): Record<string, string> {
   const next = { ...prev, [accountId]: activeBrandId };
+  if (options?.assignOnly) return next;
   const platform =
     options?.platform?.toUpperCase() ??
     options?.allAccounts?.find((a) => a.id === accountId)?.platform?.toUpperCase();
@@ -483,7 +489,12 @@ export function buildNextBrandMapForMove(
   for (const [id, brandId] of Object.entries(next)) {
     if (brandId !== activeBrandId || id === accountId) continue;
     const other = options.allAccounts.find((a) => a.id === id);
-    if (other?.platform === platform) next[id] = DEFAULT_BRAND_ID;
+    if (other?.platform.toUpperCase() !== platform) continue;
+    // Keep rows explicitly owned by another brand workspace.
+    if (Object.prototype.hasOwnProperty.call(prev, id) && prev[id] !== activeBrandId) {
+      continue;
+    }
+    next[id] = DEFAULT_BRAND_ID;
   }
   return next;
 }
@@ -544,6 +555,58 @@ export function readPostConnectAccountIdFromUrl(search?: string): string | null 
     return params.get('accountId');
   } catch {
     return null;
+  }
+}
+
+export type PostConnectOAuthUrlParams = {
+  accountId: string;
+  platform: string | null;
+};
+
+/** OAuth return params from the dashboard URL (connecting=1). */
+export function readPostConnectOAuthFromUrl(search?: string): PostConnectOAuthUrlParams | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const params = new URLSearchParams(search ?? window.location.search);
+    if (params.get('connecting') !== '1') return null;
+    const accountId = params.get('accountId');
+    if (!accountId) return null;
+    const platform = params.get('newPlatform');
+    return { accountId, platform: platform ? platform.toUpperCase() : null };
+  } catch {
+    return null;
+  }
+}
+
+/** True when URL post-connect params match the account row we just connected. */
+export function postConnectUrlMatchesAccount(
+  urlParams: PostConnectOAuthUrlParams | null,
+  account: { id: string; platform: string }
+): boolean {
+  if (!urlParams) return false;
+  if (urlParams.accountId !== account.id) return false;
+  if (urlParams.platform && urlParams.platform !== account.platform.toUpperCase()) return false;
+  return true;
+}
+
+/** Strip OAuth post-connect query params so stale accountId cannot re-trigger brand logic. */
+export function clearPostConnectOAuthUrlParams(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const url = new URL(window.location.href);
+    const hadOAuthParams =
+      url.searchParams.get('connecting') === '1' ||
+      url.searchParams.has('accountId') ||
+      url.searchParams.has('newPlatform');
+    if (!hadOAuthParams) return;
+    url.searchParams.delete('connecting');
+    url.searchParams.delete('accountId');
+    url.searchParams.delete('newPlatform');
+    url.searchParams.delete('newUsername');
+    url.searchParams.delete('newPic');
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  } catch {
+    // ignore
   }
 }
 

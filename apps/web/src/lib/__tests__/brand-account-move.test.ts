@@ -1,6 +1,7 @@
 import {
   DEFAULT_BRAND_ID,
   applyBrandMapUpdatesOnAccountsSync,
+  buildNextBrandMapForMove,
   countAccountsForBrand,
   isNewDistinctPlatformConnectionOnOtherBrand,
   repairCorruptedBrandMap,
@@ -143,6 +144,20 @@ describe('resolvePostConnectBrandAction', () => {
     ])).toEqual({ type: 'prompt_move', fromBrandId: brandMain });
   });
 
+  it('does not demote a TikTok explicitly owned by another brand when assignOnly', () => {
+    const brandGuy = 'brand-guy';
+    const map = { 'tt-old': brandGuy, 'tt-new': DEFAULT_BRAND_ID };
+    const next = buildNextBrandMapForMove(map, 'tt-new', DEFAULT_BRAND_ID, {
+      platform: 'TIKTOK',
+      allAccounts: [
+        { id: 'tt-old', platform: 'TIKTOK' },
+        { id: 'tt-new', platform: 'TIKTOK' },
+      ],
+      assignOnly: true,
+    });
+    expect(next['tt-old']).toBe(brandGuy);
+    expect(next['tt-new']).toBe(DEFAULT_BRAND_ID);
+  });
 });
 
 describe('countAccountsForBrand', () => {

@@ -21,6 +21,8 @@ type ConfirmModalProps = {
   confirmLoading?: boolean;
   /** Label while `confirmLoading` is true (defaults to confirmLabel). */
   confirmLoadingLabel?: string;
+  /** When false, backdrop click and Escape do not call onClose. Default true. */
+  dismissible?: boolean;
 };
 
 export function ConfirmModal({
@@ -36,6 +38,7 @@ export function ConfirmModal({
   closeOnConfirm = true,
   confirmLoading = false,
   confirmLoadingLabel,
+  dismissible = true,
 }: ConfirmModalProps) {
   const isAlert = variant === 'alert';
   const isDanger = variant === 'danger';
@@ -47,7 +50,7 @@ export function ConfirmModal({
   useEffect(() => {
     if (!open) return;
     const handleEscape = (e: KeyboardEvent) => {
-      if (confirmLoading) return;
+      if (confirmLoading || !dismissible) return;
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', handleEscape);
@@ -56,7 +59,7 @@ export function ConfirmModal({
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = '';
     };
-  }, [open, onClose, confirmLoading]);
+  }, [open, onClose, confirmLoading, dismissible]);
 
   if (!open || !mounted) return null;
 
@@ -91,7 +94,7 @@ export function ConfirmModal({
           backdropFilter: 'blur(4px)',
         }}
         onClick={() => {
-          if (!confirmLoading) onClose();
+          if (!confirmLoading && dismissible) onClose();
         }}
         aria-hidden="true"
       />

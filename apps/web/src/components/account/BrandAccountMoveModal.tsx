@@ -54,6 +54,7 @@ export function BrandAccountMoveModal({
       onConfirm={onMove}
       onClose={onKeepOnOtherBrand}
       closeOnConfirm={false}
+      dismissible={false}
     />
   );
 }

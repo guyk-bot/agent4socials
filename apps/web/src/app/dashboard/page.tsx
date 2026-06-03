@@ -22,6 +22,11 @@ import {
 } from '@/lib/dashboard-insights-session-cache';
 import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
 import { markInboxAccountRecentlyConnected } from '@/lib/inbox/inbox-recent-connect';
+import {
+  clearPostConnectOAuthUrlParams,
+  postConnectUrlMatchesAccount,
+  readPostConnectOAuthFromUrl,
+} from '@/lib/brand-account-move';
 import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
 
 const CONNECT_LOAD_DONE_KEY = (accountId: string) => `a4s_connect_load_done_${accountId}`;
@@ -741,14 +746,23 @@ export default function DashboardPage() {
         }
         delete postsCacheRef.current[accountIdFromUrl];
         if (accountIdFromUrl && !brandMovedParam && !brandKeptParam) {
-          const postConnectResult = finishPostConnectBrandAssignment(
-            accountIdFromUrl,
-            list,
-            connected
-              ? { platform: connected.platform, username: connected.username }
-              : undefined
-          );
-          if (postConnectResult === 'prompt') return;
+          const urlOAuth = readPostConnectOAuthFromUrl();
+          if (
+            connected &&
+            urlOAuth &&
+            !postConnectUrlMatchesAccount(urlOAuth, connected)
+          ) {
+            clearPostConnectOAuthUrlParams();
+          } else {
+            const postConnectResult = finishPostConnectBrandAssignment(
+              accountIdFromUrl,
+              list,
+              connected
+                ? { platform: connected.platform, username: connected.username }
+                : undefined
+            );
+            if (postConnectResult === 'prompt') return;
+          }
         }
         router.replace('/dashboard', { scroll: false });
       })
