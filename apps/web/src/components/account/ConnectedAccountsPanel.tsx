@@ -11,7 +11,12 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { avatarDisplayUrl } from '@/lib/avatar-display-url';
-import { listenForOAuthComplete, openOAuthConnectUrl } from '@/lib/oauth-connect';
+import {
+  closeOAuthConnectPopup,
+  listenForOAuthComplete,
+  navigateOAuthConnect,
+  prepareOAuthConnectPopup,
+} from '@/lib/oauth-connect';
 
 /** Same connect targets and styling as Summary dashboard empty state (compact grid on Account page). */
 const CONNECT_PLATFORM_CARDS: { id: string; name: string; slug: string; border: string; bg: string }[] = [
@@ -195,6 +200,7 @@ export function ConnectedAccountsPanel() {
                       type="button"
                       onClick={async () => {
                         if (reconnectingId) return;
+                        const oauthPopup = prepareOAuthConnectPopup();
                         setReconnectingId(acc.id);
                         try {
                           const liMethod =
@@ -225,12 +231,16 @@ export function ConnectedAccountsPanel() {
                           );
                           const url = res?.data?.url;
                           if (url && typeof url === 'string') {
-                            const opened = openOAuthConnectUrl(url);
-                            if (opened.blocked) {
-                              alert('Allow pop-ups for agent4socials.com, then try Reconnect again.');
+                            const opened = navigateOAuthConnect(url, oauthPopup);
+                            if (!opened.opened) {
+                              alert('Could not open sign-in. Allow pop-ups for agent4socials.com or try Reconnect again.');
                             }
+                          } else {
+                            closeOAuthConnectPopup(oauthPopup);
                           }
-                        } catch (_) {}
+                        } catch (_) {
+                          closeOAuthConnectPopup(oauthPopup);
+                        }
                         setReconnectingId(null);
                       }}
                       disabled={reconnectingId === acc.id || isDisconnecting}

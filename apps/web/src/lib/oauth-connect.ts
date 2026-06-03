@@ -11,20 +11,67 @@ export type OAuthCompletePayload = {
 export type OpenOAuthConnectResult = { opened: boolean; blocked: boolean };
 
 /**
- * Open platform OAuth in a new tab. Keeps opener so the callback can postMessage back.
+ * Open a blank tab synchronously on the user's click (before any await).
+ * Pass the returned window to `navigateOAuthConnect` once the OAuth URL is ready.
+ */
+export function prepareOAuthConnectPopup(): Window | null {
+  try {
+    return window.open('about:blank', '_blank');
+  } catch {
+    return null;
+  }
+}
+
+export function closeOAuthConnectPopup(popup: Window | null | undefined): void {
+  if (!popup || popup.closed) return;
+  try {
+    popup.close();
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Send the user to platform OAuth. Prefer navigating a popup opened via `prepareOAuthConnectPopup`.
+ * Falls back to this tab when the popup was blocked or is unavailable.
+ */
+export function navigateOAuthConnect(url: string, popup: Window | null): OpenOAuthConnectResult {
+  if (popup && !popup.closed) {
+    try {
+      popup.location.replace(url);
+      try {
+        popup.focus();
+      } catch {
+        /* ignore */
+      }
+      return { opened: true, blocked: false };
+    } catch {
+      closeOAuthConnectPopup(popup);
+    }
+  }
+  try {
+    window.location.assign(url);
+    return { opened: true, blocked: false };
+  } catch {
+    return { opened: false, blocked: true };
+  }
+}
+
+/**
+ * Open platform OAuth in a new tab when the URL is already known (same turn as the click).
  * Do not use noopener here: it breaks window.opener and leaves two dashboard tabs open.
  */
 export function openOAuthConnectUrl(url: string): OpenOAuthConnectResult {
   const popup = window.open(url, '_blank');
-  if (!popup) {
-    return { opened: false, blocked: true };
+  if (popup) {
+    try {
+      popup.focus();
+    } catch {
+      /* ignore */
+    }
+    return { opened: true, blocked: false };
   }
-  try {
-    popup.focus();
-  } catch {
-    /* ignore */
-  }
-  return { opened: true, blocked: false };
+  return navigateOAuthConnect(url, null);
 }
 
 /** Listen for OAuth completion from a popup tab. Returns cleanup. */

@@ -59,7 +59,10 @@ function isOAuthConnectSyncActive(accountId: string | undefined | null, justConn
 import {
   listenForOAuthComplete,
   notifyOAuthOpenerAndClose,
+  closeOAuthConnectPopup,
+  navigateOAuthConnect,
   openOAuthConnectUrl,
+  prepareOAuthConnectPopup,
 } from '@/lib/oauth-connect';
 import {
   localCalendarDateFromIso,
@@ -1780,6 +1783,7 @@ export default function DashboardPage() {
       return res?.data?.message ?? null;
     };
     setAlertMessage(null);
+    const oauthPopup = prepareOAuthConnectPopup();
     setConnectingPlatform(platform);
     setConnectingMethod(method);
     try {
@@ -1802,17 +1806,18 @@ export default function DashboardPage() {
       }
       const url = data?.url;
       if (url && typeof url === 'string') {
-        const opened = openOAuthConnectUrl(url);
-        if (opened.blocked) {
+        const opened = navigateOAuthConnect(url, oauthPopup);
+        if (!opened.opened) {
           setAlertMessage(
-            'Your browser blocked the sign-in tab. Allow pop-ups for agent4socials.com, then click Connect again.'
+            'Could not open sign-in. Allow pop-ups for agent4socials.com or click Connect again.'
           );
-          return;
         }
         return;
       }
+      closeOAuthConnectPopup(oauthPopup);
       setAlertMessage('Invalid response from server. Check server logs.');
     } catch (err: unknown) {
+      closeOAuthConnectPopup(oauthPopup);
       const aborted =
         (err instanceof DOMException && err.name === 'AbortError') ||
         (typeof err === 'object' && err !== null && 'name' in err && (err as { name?: string }).name === 'AbortError');
