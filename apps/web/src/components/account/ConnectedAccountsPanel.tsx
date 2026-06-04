@@ -259,12 +259,15 @@ export function ConnectedAccountsPanel() {
                                 ? 'personal'
                                 : undefined;
                           const reconnectMethod = liMethod ?? tiktokMethod;
-                          const qs =
-                            reconnectMethod != null
-                              ? acc.platform === 'LINKEDIN'
-                                ? `?method=${encodeURIComponent(reconnectMethod)}&step=consent`
-                                : `?method=${encodeURIComponent(reconnectMethod)}`
-                              : '';
+                          const startParams = new URLSearchParams();
+                          if (reconnectMethod != null) {
+                            startParams.set('method', reconnectMethod);
+                          }
+                          if (acc.platform === 'LINKEDIN') {
+                            startParams.set('step', 'consent');
+                            startParams.set('reconnect_account_id', acc.id);
+                          }
+                          const qs = startParams.toString() ? `?${startParams.toString()}` : '';
                           const res = await api.get(
                             `/social/oauth/${acc.platform.toLowerCase()}/start${qs}`
                           );

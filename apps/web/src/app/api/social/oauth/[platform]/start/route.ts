@@ -327,7 +327,9 @@ export async function GET(
       const linkedInStep =
         step === 'identify' ? 'identify' : step === 'consent' ? 'consent' : 'connect';
       if (linkedInStep === 'identify' || linkedInStep === 'consent') {
-        await prepareLinkedInOAuthConnect(oauthStateKey);
+        const reconnectAccountId =
+          request.nextUrl.searchParams.get('reconnect_account_id')?.trim() || undefined;
+        await prepareLinkedInOAuthConnect(oauthStateKey, { reconnectAccountId });
       }
     }
     const threadsSwitchAccount =

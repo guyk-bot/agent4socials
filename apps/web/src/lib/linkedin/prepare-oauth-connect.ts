@@ -5,17 +5,26 @@ type PendingPayload = {
   accessToken?: string;
 };
 
+export type PrepareLinkedInOAuthConnectOptions = {
+  /** When reconnecting one row from Accounts, revoke only that token. */
+  reconnectAccountId?: string;
+};
+
 /**
- * Revoke stored LinkedIn tokens and clear pending sessions so the next OAuth
- * shows linkedin.com instead of silently reusing an existing grant.
+ * Clear stale LinkedIn pending sessions before OAuth.
+ * Never revokes every stored SocialAccount token: other brand workspaces keep working.
  */
-export async function prepareLinkedInOAuthConnect(userId: string): Promise<void> {
-  const accounts = await prisma.socialAccount.findMany({
-    where: { userId, platform: 'LINKEDIN', accessToken: { not: '' } },
-    select: { accessToken: true },
-  });
-  for (const account of accounts) {
-    if (account.accessToken?.trim()) {
+export async function prepareLinkedInOAuthConnect(
+  userId: string,
+  options?: PrepareLinkedInOAuthConnectOptions
+): Promise<void> {
+  const reconnectAccountId = options?.reconnectAccountId?.trim();
+  if (reconnectAccountId) {
+    const account = await prisma.socialAccount.findFirst({
+      where: { userId, id: reconnectAccountId, platform: 'LINKEDIN' },
+      select: { accessToken: true },
+    });
+    if (account?.accessToken?.trim()) {
       await revokeLinkedInAccessToken(account.accessToken).catch(() => {});
     }
   }

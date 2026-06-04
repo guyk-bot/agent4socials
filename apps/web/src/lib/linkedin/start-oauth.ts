@@ -44,13 +44,16 @@ export async function startLinkedInConnectAfterConsent(
 
 export async function startLinkedInOAuth(
   method: LinkedInConnectMethod,
-  options?: { step?: LinkedInOAuthStartStep }
+  options?: { step?: LinkedInOAuthStartStep; reconnectAccountId?: string }
 ): Promise<{ ok: true; url: string } | { ok: false; message: string }> {
   try {
     const supabase = getSupabaseBrowser();
     const { data: sessionData } = await supabase.auth.getSession();
     const bearer = sessionData.session?.access_token ?? '';
     const params = new URLSearchParams({ method, step: options?.step ?? 'consent' });
+    if (options?.reconnectAccountId?.trim()) {
+      params.set('reconnect_account_id', options.reconnectAccountId.trim());
+    }
     const qs = `?${params.toString()}`;
     const startRes = await fetch(`/api/social/oauth/linkedin/start${qs}`, {
       headers: { Authorization: `Bearer ${bearer}` },
