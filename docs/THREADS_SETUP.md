@@ -64,6 +64,15 @@ After adding `threads_share_to_instagram`, reconnect Threads from Account so the
 
 **Dashboard → Account → Connect** or `?connect=THREADS` on the dashboard URL.
 
+### Multiple Threads profiles (different brands)
+
+Threads OAuth reuses the Meta session in your browser. If you see **Continue As agent4socials** but you want a personal profile on another brand:
+
+1. On the Connect Threads screen, click **Use a different Threads account** (sends `auth_type=reauthenticate`), or
+2. Sign out of [threads.net](https://www.threads.net) / Instagram in this browser, then connect again.
+
+Each Threads profile is a separate connection in the database (`platformUserId`). You can keep official on one brand and personal on another, like TikTok.
+
 ## Inbox (replies and mentions)
 
 Threads **direct messages** are not available on the official Threads Graph API for third-party apps. In Agent4Socials, Threads appears in **Inbox → Comments** (not Messages):

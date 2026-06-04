@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { randomBytes } from 'crypto';
 
 export const THREADS_GRAPH_BASE = 'https://graph.threads.net/v1.0';
 
@@ -70,6 +71,28 @@ export function defaultThreadsOAuthScopes(): string {
     'threads_manage_mentions',
     'threads_share_to_instagram',
   ].join(',');
+}
+
+/**
+ * Threads OAuth authorize URL. Meta reuses the browser session, so users often see
+ * "Continue As …" for whoever is already logged in on threads.net.
+ * Pass switchAccount to request auth_type=reauthenticate and allow signing in as someone else.
+ */
+export function buildThreadsOAuthAuthorizeUrl(params: {
+  state: string;
+  switchAccount?: boolean;
+}): string {
+  const url = new URL('https://www.threads.net/oauth/authorize');
+  url.searchParams.set('client_id', threadsAppId());
+  url.searchParams.set('redirect_uri', resolveThreadsRedirectUri());
+  url.searchParams.set('scope', defaultThreadsOAuthScopes());
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('state', params.state);
+  if (params.switchAccount) {
+    url.searchParams.set('auth_type', 'reauthenticate');
+    url.searchParams.set('auth_nonce', randomBytes(16).toString('hex'));
+  }
+  return url.toString();
 }
 
 export function threadsApiHeaders(accessToken: string): Record<string, string> {

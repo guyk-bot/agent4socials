@@ -10,8 +10,7 @@ import axios from 'axios';
 import { Platform } from '@prisma/client';
 import { META_GRAPH_FACEBOOK_API_VERSION } from '@/lib/meta-graph-insights';
 import {
-  defaultThreadsOAuthScopes,
-  resolveThreadsRedirectUri,
+  buildThreadsOAuthAuthorizeUrl,
   threadsAppId,
   threadsAppSecret,
 } from '@/lib/threads/threads-api';
@@ -32,7 +31,13 @@ export const dynamic = 'force-dynamic';
 
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'PINTEREST', 'THREADS'] as const;
 
-function getOAuthUrl(platform: Platform, userId: string, method?: string, step?: string): string {
+function getOAuthUrl(
+  platform: Platform,
+  userId: string,
+  method?: string,
+  step?: string,
+  options?: { threadsSwitchAccount?: boolean }
+): string {
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
   const callbackUrl = `${baseUrl}/api/social/oauth/${platform.toLowerCase()}/callback`;
   const state =
@@ -130,10 +135,10 @@ function getOAuthUrl(platform: Platform, userId: string, method?: string, step?:
       });
     }
     case 'THREADS': {
-      const threadsRedirect = resolveThreadsRedirectUri();
-      const appId = threadsAppId();
-      const scopes = encodeURIComponent(defaultThreadsOAuthScopes());
-      return `https://www.threads.net/oauth/authorize?client_id=${encodeURIComponent(appId)}&redirect_uri=${encodeURIComponent(threadsRedirect)}&scope=${scopes}&response_type=code&state=${encodeURIComponent(state)}`;
+      return buildThreadsOAuthAuthorizeUrl({
+        state,
+        switchAccount: options?.threadsSwitchAccount,
+      });
     }
     case 'PINTEREST': {
       const pinRedirect = (process.env.PINTEREST_REDIRECT_URI || callbackUrl).replace(/\/+$/, '');
@@ -325,7 +330,9 @@ export async function GET(
         await prepareLinkedInOAuthConnect(oauthStateKey);
       }
     }
-    const url = getOAuthUrl(plat, oauthStateKey, method, step);
+    const threadsSwitchAccount =
+      plat === 'THREADS' && request.nextUrl.searchParams.get('switch_account') === '1';
+    const url = getOAuthUrl(plat, oauthStateKey, method, step, { threadsSwitchAccount });
     if (plat === 'THREADS') {
       const parsed = new URL(url);
       const clientId = parsed.searchParams.get('client_id')?.trim();

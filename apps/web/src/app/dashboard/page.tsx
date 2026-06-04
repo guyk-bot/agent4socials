@@ -1837,7 +1837,11 @@ export default function DashboardPage() {
     }
   }, [analyticsAccount?.id, analyticsAccount?.platform]);
 
-  const handleConnect = async (platform: string, method?: string) => {
+  const handleConnect = async (
+    platform: string,
+    method?: string,
+    options?: { switchAccount?: boolean }
+  ) => {
     const getMessage = (err: unknown): string | null => {
       if (!err || typeof err !== 'object' || !('response' in err)) return null;
       const res = (err as { response?: { data?: { message?: string } } }).response;
@@ -1854,7 +1858,12 @@ export default function DashboardPage() {
       // Do not call `api.get` here: the shared axios client queues behind MAX_CONCURRENT (6). When the
       // dashboard has several slow/hung API calls, the queue never reaches this request and Connect
       // appears to spin forever. OAuth start uses same-origin fetch below (no queue).
-      const qs = method ? `?method=${encodeURIComponent(method)}` : '';
+      const startParams = new URLSearchParams();
+      if (method && method !== 'switch') startParams.set('method', method);
+      if (options?.switchAccount && platform.toLowerCase() === 'threads') {
+        startParams.set('switch_account', '1');
+      }
+      const qs = startParams.toString() ? `?${startParams.toString()}` : '';
       const startRes = await fetch(`/api/social/oauth/${encodeURIComponent(platform)}/start${qs}`, {
         headers: { Authorization: `Bearer ${bearer}` },
         credentials: 'include',

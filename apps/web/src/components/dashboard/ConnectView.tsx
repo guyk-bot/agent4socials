@@ -168,7 +168,11 @@ const PLATFORM_INFO: Record<string, {
 
 type ConnectViewProps = {
   platform: string;
-  onConnect: (platform: string, method?: string) => void;
+  onConnect: (
+    platform: string,
+    method?: string,
+    options?: { switchAccount?: boolean }
+  ) => void;
   connecting: boolean;
   connectingMethod?: string;
   connectError?: string | null;
@@ -307,6 +311,11 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
 
             <ConnectPageSections functionalities={info.functionalities} helpAnchor={info.helpAnchor} />
 
+            <p className="mt-4 text-xs text-neutral-500 leading-relaxed">
+              Threads uses whoever is already signed in on threads.net in this browser. To connect a
+              personal profile on another brand, use the button below or sign out of Threads first.
+            </p>
+
             {connectError && (
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 mt-4">
                 {connectError}
@@ -319,8 +328,21 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
               disabled={connecting}
               className={`mt-6 w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-sm font-semibold text-white bg-gradient-to-r ${info.buttonGradient} ${info.buttonHover} transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed`}
             >
-              {connecting ? <Loader2 size={18} className="animate-spin" /> : null}
+              {connecting && connectingMethod !== 'switch' ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : null}
               Connect {info.buttonLabel ?? info.name}
+            </button>
+            <button
+              type="button"
+              onClick={() => onConnect(platformLower, 'switch', { switchAccount: true })}
+              disabled={connecting}
+              className="mt-3 w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-sm font-semibold text-neutral-800 border border-neutral-300 bg-white hover:bg-neutral-50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {connecting && connectingMethod === 'switch' ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : null}
+              Use a different Threads account
             </button>
           </div>
         </div>
