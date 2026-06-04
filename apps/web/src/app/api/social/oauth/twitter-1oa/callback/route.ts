@@ -3,6 +3,17 @@ import { prisma } from '@/lib/db';
 import { getTwitterOAuth1, signTwitterRequest } from '@/lib/twitter-oauth1';
 import axios from 'axios';
 
+function buildTwitterConnectParams(username: string | null | undefined): string {
+  let params = '&newPlatform=TWITTER';
+  if (username) params += `&newUsername=${encodeURIComponent(username)}`;
+  return params;
+}
+
+function twitter1oaDashboardRedirect(accountId: string, username: string | null | undefined): string {
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+  return `${baseUrl}/dashboard?accountId=${encodeURIComponent(accountId)}&connecting=1${buildTwitterConnectParams(username)}`;
+}
+
 export async function GET(request: NextRequest) {
   const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
   const dashboardUrl = `${baseUrl}/dashboard`;
@@ -122,7 +133,7 @@ export async function GET(request: NextRequest) {
         disconnectedAt: null,
       },
     });
-    return NextResponse.redirect(`${dashboardUrl}?accountId=${encodeURIComponent(existing.id)}&connecting=1`);
+    return NextResponse.redirect(twitter1oaDashboardRedirect(existing.id, username ?? platformUserId ?? ''));
   }
 
   // No prior row for this platformUserId (rare: OAuth1 flow ran before OAuth2).
@@ -149,7 +160,7 @@ export async function GET(request: NextRequest) {
         disconnectedAt: null,
       },
     });
-    return NextResponse.redirect(`${dashboardUrl}?accountId=${encodeURIComponent(anyExisting.id)}&connecting=1`);
+    return NextResponse.redirect(twitter1oaDashboardRedirect(anyExisting.id, username ?? platformUserId ?? ''));
   }
 
   const created = await prisma.socialAccount.create({
@@ -163,5 +174,5 @@ export async function GET(request: NextRequest) {
     },
     select: { id: true },
   });
-  return NextResponse.redirect(`${dashboardUrl}?accountId=${encodeURIComponent(created.id)}&connecting=1`);
+  return NextResponse.redirect(twitter1oaDashboardRedirect(created.id, username ?? platformUserId ?? ''));
 }

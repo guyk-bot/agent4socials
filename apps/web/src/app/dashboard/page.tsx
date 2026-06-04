@@ -23,9 +23,9 @@ import {
 import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
 import { markInboxAccountRecentlyConnected } from '@/lib/inbox/inbox-recent-connect';
 import {
+  buildDashboardSuccessRedirect,
   clearPostConnectOAuthUrlParams,
-  postConnectUrlMatchesAccount,
-  readPostConnectOAuthFromUrl,
+  storePendingConnectNav,
 } from '@/lib/brand-account-move';
 import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
 
@@ -372,12 +372,14 @@ export default function DashboardPage() {
   const { openSignup } = useAuthModal();
   const {
     cachedAccounts,
+    allCachedAccounts,
     setCachedAccounts,
     accountsLoadError,
     setAccountsLoadError,
     finishPostConnectBrandAssignment,
   } = useAccountsCache() ?? {
     cachedAccounts: [],
+    allCachedAccounts: [],
     setCachedAccounts: () => {},
     accountsLoadError: null,
     setAccountsLoadError: () => {},
@@ -424,6 +426,8 @@ export default function DashboardPage() {
     if (!selectedAccountId) return null;
     const fromList = accounts.find((a) => a.id === selectedAccountId);
     if (fromList) return fromList as SocialAccount;
+    const fromAll = allCachedAccounts.find((a) => a.id === selectedAccountId);
+    if (fromAll) return fromAll as SocialAccount;
     const platformParam = searchParams.get('newPlatform');
     if (postConnectReturn && platformParam) {
       return {
@@ -434,7 +438,7 @@ export default function DashboardPage() {
       };
     }
     return null;
-  }, [selectedAccount, selectedAccountId, accounts, postConnectReturn, searchParams]);
+  }, [selectedAccount, selectedAccountId, accounts, allCachedAccounts, postConnectReturn, searchParams]);
   selectedAccountRef.current = analyticsAccount;
   const [justConnected, setJustConnected] = useState(false);
 
@@ -737,34 +741,39 @@ export default function DashboardPage() {
     fetchAccounts()
       .then((list) => {
         if (cancelled) return;
+        setCachedAccounts(list);
         const connected = list.find((a) => a.id === accountIdFromUrl);
         if (connected) {
+          setSelectedAccountId(accountIdFromUrl);
           markInboxAccountRecentlyConnected(connected.id, connected.platform);
           if (connected.platform === 'INSTAGRAM' || connected.platform === 'FACEBOOK') {
             triggerInboxWarmClient(true);
           }
         }
         delete postsCacheRef.current[accountIdFromUrl];
-        if (accountIdFromUrl && !brandMovedParam && !brandKeptParam) {
-          const urlOAuth = readPostConnectOAuthFromUrl();
-          if (
-            connected &&
-            urlOAuth &&
-            !postConnectUrlMatchesAccount(urlOAuth, connected)
-          ) {
-            clearPostConnectOAuthUrlParams();
-          } else {
-            const postConnectResult = finishPostConnectBrandAssignment(
-              accountIdFromUrl,
-              list,
-              connected
-                ? { platform: connected.platform, username: connected.username }
-                : undefined
-            );
-            if (postConnectResult === 'prompt') return;
-          }
+        if (accountIdFromUrl && !brandMovedParam && !brandKeptParam && connected) {
+          const postConnectResult = finishPostConnectBrandAssignment(
+            accountIdFromUrl,
+            list,
+            { platform: connected.platform, username: connected.username },
+            {
+              successRedirect: buildDashboardSuccessRedirect(
+                accountIdFromUrl,
+                connected.platform
+              ),
+            }
+          );
+          if (postConnectResult === 'prompt') return;
         }
-        router.replace('/dashboard', { scroll: false });
+        if (accountIdFromUrl) {
+          setSelectedAccountId(accountIdFromUrl);
+        }
+        router.replace(
+          accountIdFromUrl
+            ? buildDashboardSuccessRedirect(accountIdFromUrl, connected?.platform)
+            : '/dashboard',
+          { scroll: false }
+        );
       })
       .catch(() => {
         if (!cancelled) router.replace('/dashboard', { scroll: false });
@@ -781,6 +790,9 @@ export default function DashboardPage() {
     brandKeptParam,
     twitter1oaNext,
     router,
+    fetchAccounts,
+    setCachedAccounts,
+    setSelectedAccountId,
     finishPostConnectBrandAssignment,
   ]);
 
@@ -802,24 +814,29 @@ export default function DashboardPage() {
         setJustConnected(true);
       }
       void fetchAccounts().then((list) => {
-        if (accountId) {
-          setSelectedAccountId(accountId);
-          const connected = list.find((a) => a.id === accountId);
-          if (connected) {
-            markInboxAccountRecentlyConnected(connected.id, connected.platform);
-            if (connected.platform === 'INSTAGRAM' || connected.platform === 'FACEBOOK') {
-              triggerInboxWarmClient(true);
-            }
+        if (!accountId) return;
+        setCachedAccounts(list);
+        setSelectedAccountId(accountId);
+        const connected = list.find((a) => a.id === accountId);
+        if (connected) {
+          markInboxAccountRecentlyConnected(connected.id, connected.platform);
+          if (connected.platform === 'INSTAGRAM' || connected.platform === 'FACEBOOK') {
+            triggerInboxWarmClient(true);
           }
-          const postConnectResult = finishPostConnectBrandAssignment(
-            accountId,
-            list,
-            connected
-              ? { platform: connected.platform, username: connected.username }
-              : { platform: platform ?? 'INSTAGRAM', username }
-          );
-          if (postConnectResult === 'prompt') return;
         }
+        const plat = connected?.platform ?? platform ?? 'INSTAGRAM';
+        const postConnectResult = finishPostConnectBrandAssignment(
+          accountId,
+          list,
+          connected
+            ? { platform: connected.platform, username: connected.username }
+            : { platform: plat, username },
+          {
+            successRedirect: buildDashboardSuccessRedirect(accountId, plat),
+          }
+        );
+        if (postConnectResult === 'prompt') return;
+        router.replace(buildDashboardSuccessRedirect(accountId, plat), { scroll: false });
       });
     });
   }, [
@@ -827,6 +844,7 @@ export default function DashboardPage() {
     setSelectedAccountId,
     setCachedAccounts,
     finishPostConnectBrandAssignment,
+    router,
   ]);
 
   useEffect(() => {
@@ -1851,6 +1869,12 @@ export default function DashboardPage() {
     const oauthPopup = prepareOAuthConnectPopup();
     setConnectingPlatform(platform);
     setConnectingMethod(method);
+    if (typeof window !== 'undefined') {
+      storePendingConnectNav({
+        successRedirect: buildDashboardSuccessRedirect(),
+        returnUrl: `${window.location.pathname}${window.location.search}`,
+      });
+    }
     try {
       const supabase = getSupabaseBrowser();
       const { data: sessionData } = await supabase.auth.getSession();

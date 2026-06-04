@@ -4,6 +4,7 @@ import {
   buildNextBrandMapForMove,
   countAccountsForBrand,
   isNewDistinctPlatformConnectionOnOtherBrand,
+  isPostConnectReconnect,
   repairCorruptedBrandMap,
   resolvePostConnectBrandAction,
   shouldPromptMoveFromOtherBrand,
@@ -169,6 +170,17 @@ describe('resolvePostConnectBrandAction', () => {
     });
     expect(next['tt-old']).toBe(brandGuy);
     expect(next['tt-new']).toBe(DEFAULT_BRAND_ID);
+  });
+});
+
+describe('isPostConnectReconnect', () => {
+  it('detects the same account row already visible on another brand', () => {
+    const brandGuy = 'brand-guy';
+    const map = { tw: brandGuy };
+    const accounts = [{ id: 'tw', platform: 'TWITTER', platformUserId: 'u1' }];
+    expect(
+      isPostConnectReconnect('tw', 'TWITTER', accounts, map, DEFAULT_BRAND_ID)
+    ).toBe(true);
   });
 });
 

@@ -12,7 +12,9 @@ import {
   isAccountVisibleOnBrand,
   mergeBrandMapAccountRefs,
   isOAuthConnectingFromUrl,
+  buildDashboardSuccessRedirect,
   clearPostConnectOAuthUrlParams,
+  isPostConnectReconnect,
   persistAccountBrandMapSync,
   readAccountBrandMapFromStorage,
   brandMapsEqual,
@@ -454,7 +456,16 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       if (!platform) return 'noop';
       const map = { ...readAccountBrandMapFromStorage(), ...accountBrandMap };
       const accountRefs = mergeBrandMapAccountRefs(allCachedAccounts, freshAccounts);
-      const isReconnect = allCachedAccounts.some((a) => a.id === accountId);
+      const isReconnect = isPostConnectReconnect(
+        accountId,
+        platform,
+        accountRefs,
+        map,
+        activeBrandId
+      );
+      const successRedirect =
+        options?.successRedirect ??
+        buildDashboardSuccessRedirect(accountId, platform);
       const action = resolvePostConnectBrandAction(
         map,
         accountId,
@@ -464,7 +475,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       );
       if (action.type === 'prompt_move') {
         const fromBrand = brands.find((b) => b.id === action.fromBrandId);
-        prepareBrandMoveNavigation(options?.successRedirect);
+        prepareBrandMoveNavigation(successRedirect);
         setBrandMovePrompt({
           accountId,
           platform,
@@ -473,7 +484,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
             hint?.username,
           fromBrandName: fromBrand?.name ?? 'another brand',
         });
-        clearPostConnectOAuthUrlParams();
+        clearPostConnectOAuthUrlParams({ dropConnectingOnly: true });
         return 'prompt';
       }
       if (action.type === 'assign_active') {

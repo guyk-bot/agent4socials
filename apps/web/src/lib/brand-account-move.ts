@@ -12,7 +12,20 @@ export type PendingConnectNav = {
   pendingId?: string;
 };
 
-const DEFAULT_CONNECT_RETURN_URL = '/dashboard/account#connected-accounts';
+const DEFAULT_CONNECT_RETURN_URL = '/dashboard';
+
+export function buildDashboardSuccessRedirect(
+  accountId?: string,
+  platform?: string
+): string {
+  if (typeof window === 'undefined' && !accountId) return DEFAULT_CONNECT_RETURN_URL;
+  const origin =
+    typeof window !== 'undefined' ? window.location.origin : 'https://agent4socials.com';
+  const url = new URL('/dashboard', origin);
+  if (accountId) url.searchParams.set('accountId', accountId);
+  if (platform) url.searchParams.set('newPlatform', platform.toUpperCase());
+  return `${url.pathname}${url.search}`;
+}
 
 export function resolveBrandMoveReturnUrl(): string {
   if (typeof window === 'undefined') return DEFAULT_CONNECT_RETURN_URL;
@@ -20,7 +33,33 @@ export function resolveBrandMoveReturnUrl(): string {
   if (path.includes('/accounts/') && path.includes('/select')) {
     return `${path}${window.location.search}`;
   }
+  // After connect, always land on the dashboard (not Account settings).
+  if (path.startsWith('/dashboard/account')) {
+    return buildDashboardSuccessRedirect();
+  }
+  if (path.startsWith('/dashboard')) {
+    return `${path}${window.location.search}`;
+  }
   return DEFAULT_CONNECT_RETURN_URL;
+}
+
+/** True when this account row was already tied to another brand before this OAuth return. */
+export function isPostConnectReconnect(
+  accountId: string,
+  platform: string,
+  accounts: BrandMapAccountRef[],
+  map: Record<string, string>,
+  activeBrandId: string
+): boolean {
+  if (accounts.some((a) => a.id === accountId)) return true;
+  if (isAccountExplicitlyBrandMapped(map, accountId) && map[accountId] !== activeBrandId) {
+    return true;
+  }
+  for (const brandId of enumerateKnownBrandIds(map)) {
+    if (brandId === activeBrandId) continue;
+    if (isAccountVisibleOnBrand(accounts, map, accountId, brandId)) return true;
+  }
+  return false;
 }
 
 export function readPendingIdFromLocation(): string | undefined {
@@ -592,8 +631,11 @@ export function postConnectUrlMatchesAccount(
   return true;
 }
 
-/** Strip OAuth post-connect query params so stale accountId cannot re-trigger brand logic. */
-export function clearPostConnectOAuthUrlParams(): void {
+/**
+ * Strip OAuth post-connect query params.
+ * Use dropConnectingOnly while the brand-move modal is open so accountId stays in the URL.
+ */
+export function clearPostConnectOAuthUrlParams(options?: { dropConnectingOnly?: boolean }): void {
   if (typeof window === 'undefined') return;
   try {
     const url = new URL(window.location.href);
@@ -603,10 +645,12 @@ export function clearPostConnectOAuthUrlParams(): void {
       url.searchParams.has('newPlatform');
     if (!hadOAuthParams) return;
     url.searchParams.delete('connecting');
-    url.searchParams.delete('accountId');
-    url.searchParams.delete('newPlatform');
-    url.searchParams.delete('newUsername');
-    url.searchParams.delete('newPic');
+    if (!options?.dropConnectingOnly) {
+      url.searchParams.delete('accountId');
+      url.searchParams.delete('newPlatform');
+      url.searchParams.delete('newUsername');
+      url.searchParams.delete('newPic');
+    }
     window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
   } catch {
     // ignore
