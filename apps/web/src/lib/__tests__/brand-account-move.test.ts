@@ -39,6 +39,18 @@ describe('applyBrandMapUpdatesOnAccountsSync', () => {
     expect(map.tt).toBe('brand-other');
     expect(map.fb).toBe(DEFAULT_BRAND_ID);
   });
+
+  it('drops brand map entries for accounts removed from the server list', () => {
+    const map = applyBrandMapUpdatesOnAccountsSync({
+      prevMap: { 'tt-old': 'brand-guy', fb: DEFAULT_BRAND_ID },
+      prevAccountIds: new Set(['tt-old', 'fb']),
+      nextAccounts: [{ id: 'fb', platform: 'FACEBOOK' }],
+      activeBrandId: 'brand-guy',
+      deferBrandAssign: false,
+    });
+    expect(map['tt-old']).toBeUndefined();
+    expect(map.fb).toBe(DEFAULT_BRAND_ID);
+  });
 });
 
 describe('repairCorruptedBrandMap', () => {

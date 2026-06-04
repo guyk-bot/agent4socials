@@ -12,7 +12,6 @@ import {
   isAccountVisibleOnBrand,
   mergeBrandMapAccountRefs,
   isOAuthConnectingFromUrl,
-  isNewDistinctPlatformConnectionOnOtherBrand,
   clearPostConnectOAuthUrlParams,
   persistAccountBrandMapSync,
   readAccountBrandMapFromStorage,
@@ -478,19 +477,11 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
         return 'prompt';
       }
       if (action.type === 'assign_active') {
-        const connectedRef = accountRefs.find((a) => a.id === accountId);
-        const assignOnly =
-          connectedRef != null &&
-          isNewDistinctPlatformConnectionOnOtherBrand(
-            connectedRef,
-            accountRefs,
-            map,
-            activeBrandId
-          );
+        // Never re-home other platform rows on connect; "Move to this brand" uses assignAccountToActiveBrand.
         const next = buildNextBrandMapForMove(map, accountId, activeBrandId, {
           platform,
           allAccounts: accountRefs,
-          assignOnly,
+          assignOnly: true,
         });
         if (!brandMapsEqual(next, map)) {
           persistAccountBrandMapSync(next);

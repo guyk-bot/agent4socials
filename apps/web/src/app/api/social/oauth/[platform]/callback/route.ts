@@ -1477,11 +1477,8 @@ export async function GET(
         ...(credentialsJsonToSet && { credentialsJson: credentialsJsonToSet }),
       },
     });
-    if (plat !== 'FACEBOOK' && plat !== 'INSTAGRAM') {
-      await prisma.socialAccount.deleteMany({
-        where: { userId, platform: plat, platformUserId: { not: tokenData.platformUserId } },
-      });
-    }
+    // Do not delete other rows for the same platform (e.g. a second TikTok or YouTube on another brand).
+    // Meta (Facebook/Instagram) may have multiple rows; other platforms use unique platformUserId per row.
     // Auto-connect linked account: Instagram via Facebook → also create Facebook Page; Facebook → also create linked Instagram
     if (plat === 'INSTAGRAM' && tokenData.linkedPage) {
       await prisma.socialAccount.upsert({

@@ -356,7 +356,11 @@ export function applyBrandMapUpdatesOnAccountsSync(params: {
   activeBrandId: string;
   deferBrandAssign: boolean;
 }): Record<string, string> {
-  const map = { ...params.prevMap };
+  const nextIds = new Set(params.nextAccounts.map((a) => a.id));
+  const map: Record<string, string> = {};
+  for (const [id, brandId] of Object.entries(params.prevMap)) {
+    if (nextIds.has(id)) map[id] = brandId;
+  }
   for (const account of params.nextAccounts) {
     if (map[account.id] !== undefined) continue;
     if (params.deferBrandAssign) continue;
@@ -490,10 +494,9 @@ export function buildNextBrandMapForMove(
     if (brandId !== activeBrandId || id === accountId) continue;
     const other = options.allAccounts.find((a) => a.id === id);
     if (other?.platform.toUpperCase() !== platform) continue;
-    // Keep rows explicitly owned by another brand workspace.
-    if (Object.prototype.hasOwnProperty.call(prev, id) && prev[id] !== activeBrandId) {
-      continue;
-    }
+    // Keep any row that was already mapped to another brand workspace.
+    const prevBrand = prev[id] ?? DEFAULT_BRAND_ID;
+    if (prevBrand !== activeBrandId) continue;
     next[id] = DEFAULT_BRAND_ID;
   }
   return next;
