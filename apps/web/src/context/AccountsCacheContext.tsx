@@ -176,7 +176,7 @@ type AccountsCacheContextType = {
     accountId: string,
     freshAccounts: CachedAccount[],
     hint?: { platform: string; username?: string },
-    options?: { successRedirect?: string }
+    options?: { successRedirect?: string; prevAccountIds?: Set<string> }
   ) => FinishPostConnectBrandResult;
   /** If this platform is only connected on another brand, open the move prompt. Returns true when shown. */
   maybePromptBrandMoveForPlatform: (platform: string, options?: { afterConnect?: boolean }) => boolean;
@@ -447,13 +447,15 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       accountId: string,
       freshAccounts: CachedAccount[],
       hint?: { platform: string; username?: string },
-      options?: { successRedirect?: string }
+      options?: { successRedirect?: string; prevAccountIds?: Set<string> }
     ): FinishPostConnectBrandResult => {
       const account =
         freshAccounts.find((a) => a.id === accountId) ??
         allCachedAccounts.find((a) => a.id === accountId);
       const platform = account?.platform ?? hint?.platform;
       if (!platform) return 'noop';
+      const prevAccountIds =
+        options?.prevAccountIds ?? new Set(allCachedAccounts.map((a) => a.id));
       const map = { ...readAccountBrandMapFromStorage(), ...accountBrandMap };
       const accountRefs = mergeBrandMapAccountRefs(allCachedAccounts, freshAccounts);
       const isReconnect = isPostConnectReconnect(
@@ -461,7 +463,8 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
         platform,
         accountRefs,
         map,
-        activeBrandId
+        activeBrandId,
+        prevAccountIds
       );
       const successRedirect =
         options?.successRedirect ??
@@ -471,7 +474,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
         accountId,
         activeBrandId,
         accountRefs,
-        { isReconnect }
+        { isReconnect, prevAccountIds }
       );
       if (action.type === 'prompt_move') {
         const fromBrand = brands.find((b) => b.id === action.fromBrandId);

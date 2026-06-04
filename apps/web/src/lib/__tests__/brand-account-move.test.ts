@@ -78,7 +78,9 @@ describe('resolvePostConnectBrandAction', () => {
 
   it('assigns TikTok on first connect without prompting', () => {
     expect(
-      resolvePostConnectBrandAction({}, 'tt', brandGuy, [{ id: 'tt', platform: 'TIKTOK' }])
+      resolvePostConnectBrandAction({}, 'tt', brandGuy, [{ id: 'tt', platform: 'TIKTOK' }], {
+        prevAccountIds: new Set<string>(),
+      })
     ).toEqual({ type: 'assign_active' });
   });
 
@@ -174,6 +176,13 @@ describe('resolvePostConnectBrandAction', () => {
 });
 
 describe('isPostConnectReconnect', () => {
+  it('detects reconnect when the account id was already in cache', () => {
+    const prev = new Set(['tw']);
+    expect(
+      isPostConnectReconnect('tw', 'TWITTER', [], {}, 'brand-guy', prev)
+    ).toBe(true);
+  });
+
   it('detects the same account row already visible on another brand', () => {
     const brandGuy = 'brand-guy';
     const map = { tw: brandGuy };
@@ -181,6 +190,31 @@ describe('isPostConnectReconnect', () => {
     expect(
       isPostConnectReconnect('tw', 'TWITTER', accounts, map, DEFAULT_BRAND_ID)
     ).toBe(true);
+  });
+});
+
+describe('Twitter cross-brand reconnect', () => {
+  const brandGuy = 'brand-guy';
+  const brandMain = DEFAULT_BRAND_ID;
+
+  it('prompts to move when the same X row was on the default brand and user connects from Guy kogen', () => {
+    const map = { tw: brandMain };
+    const accounts = [{ id: 'tw', platform: 'TWITTER', platformUserId: 'agent4socials' }];
+    const prev = new Set(['tw']);
+    expect(
+      resolvePostConnectBrandAction(map, 'tw', brandGuy, accounts, {
+        prevAccountIds: prev,
+      })
+    ).toEqual({ type: 'prompt_move', fromBrandId: brandMain });
+  });
+
+  it('assigns without prompting on first connect of a new X row', () => {
+    const accounts = [{ id: 'tw-new', platform: 'TWITTER', platformUserId: 'new-user' }];
+    expect(
+      resolvePostConnectBrandAction({}, 'tw-new', brandGuy, accounts, {
+        prevAccountIds: new Set<string>(),
+      })
+    ).toEqual({ type: 'assign_active' });
   });
 });
 

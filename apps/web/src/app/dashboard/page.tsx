@@ -738,19 +738,12 @@ export default function DashboardPage() {
       return;
     }
 
+    const prevAccountIds = new Set(allCachedAccounts.map((a) => a.id));
+
     fetchAccounts()
       .then((list) => {
         if (cancelled) return;
-        setCachedAccounts(list);
         const connected = list.find((a) => a.id === accountIdFromUrl);
-        if (connected) {
-          setSelectedAccountId(accountIdFromUrl);
-          markInboxAccountRecentlyConnected(connected.id, connected.platform);
-          if (connected.platform === 'INSTAGRAM' || connected.platform === 'FACEBOOK') {
-            triggerInboxWarmClient(true);
-          }
-        }
-        delete postsCacheRef.current[accountIdFromUrl];
         if (accountIdFromUrl && !brandMovedParam && !brandKeptParam && connected) {
           const postConnectResult = finishPostConnectBrandAssignment(
             accountIdFromUrl,
@@ -761,10 +754,24 @@ export default function DashboardPage() {
                 accountIdFromUrl,
                 connected.platform
               ),
+              prevAccountIds,
             }
           );
-          if (postConnectResult === 'prompt') return;
+          if (postConnectResult === 'prompt') {
+            setCachedAccounts(list);
+            setSelectedAccountId(accountIdFromUrl);
+            return;
+          }
         }
+        setCachedAccounts(list);
+        if (connected) {
+          setSelectedAccountId(accountIdFromUrl);
+          markInboxAccountRecentlyConnected(connected.id, connected.platform);
+          if (connected.platform === 'INSTAGRAM' || connected.platform === 'FACEBOOK') {
+            triggerInboxWarmClient(true);
+          }
+        }
+        delete postsCacheRef.current[accountIdFromUrl];
         if (accountIdFromUrl) {
           setSelectedAccountId(accountIdFromUrl);
         }
@@ -794,6 +801,7 @@ export default function DashboardPage() {
     setCachedAccounts,
     setSelectedAccountId,
     finishPostConnectBrandAssignment,
+    allCachedAccounts,
   ]);
 
   useEffect(() => {
@@ -813,17 +821,10 @@ export default function DashboardPage() {
         clearConnectLoadDone(accountId);
         setJustConnected(true);
       }
+      const prevAccountIds = new Set(allCachedAccounts.map((a) => a.id));
       void fetchAccounts().then((list) => {
         if (!accountId) return;
-        setCachedAccounts(list);
-        setSelectedAccountId(accountId);
         const connected = list.find((a) => a.id === accountId);
-        if (connected) {
-          markInboxAccountRecentlyConnected(connected.id, connected.platform);
-          if (connected.platform === 'INSTAGRAM' || connected.platform === 'FACEBOOK') {
-            triggerInboxWarmClient(true);
-          }
-        }
         const plat = connected?.platform ?? platform ?? 'INSTAGRAM';
         const postConnectResult = finishPostConnectBrandAssignment(
           accountId,
@@ -833,9 +834,22 @@ export default function DashboardPage() {
             : { platform: plat, username },
           {
             successRedirect: buildDashboardSuccessRedirect(accountId, plat),
+            prevAccountIds,
           }
         );
-        if (postConnectResult === 'prompt') return;
+        if (postConnectResult === 'prompt') {
+          setCachedAccounts(list);
+          setSelectedAccountId(accountId);
+          return;
+        }
+        setCachedAccounts(list);
+        setSelectedAccountId(accountId);
+        if (connected) {
+          markInboxAccountRecentlyConnected(connected.id, connected.platform);
+          if (connected.platform === 'INSTAGRAM' || connected.platform === 'FACEBOOK') {
+            triggerInboxWarmClient(true);
+          }
+        }
         router.replace(buildDashboardSuccessRedirect(accountId, plat), { scroll: false });
       });
     });
@@ -844,6 +858,7 @@ export default function DashboardPage() {
     setSelectedAccountId,
     setCachedAccounts,
     finishPostConnectBrandAssignment,
+    allCachedAccounts,
     router,
   ]);
 

@@ -43,15 +43,16 @@ export function resolveBrandMoveReturnUrl(): string {
   return DEFAULT_CONNECT_RETURN_URL;
 }
 
-/** True when this account row was already tied to another brand before this OAuth return. */
+/** True when this account row existed before the OAuth return (not a brand-new DB row). */
 export function isPostConnectReconnect(
   accountId: string,
-  platform: string,
+  _platform: string,
   accounts: BrandMapAccountRef[],
   map: Record<string, string>,
-  activeBrandId: string
+  activeBrandId: string,
+  prevAccountIds?: Set<string>
 ): boolean {
-  if (accounts.some((a) => a.id === accountId)) return true;
+  if (prevAccountIds?.has(accountId)) return true;
   if (isAccountExplicitlyBrandMapped(map, accountId) && map[accountId] !== activeBrandId) {
     return true;
   }
@@ -300,8 +301,13 @@ export function shouldPromptMoveFromOtherBrand(
   accounts: BrandMapAccountRef[],
   map: Record<string, string>,
   accountId: string,
-  activeBrandId: string
+  activeBrandId: string,
+  prevAccountIds?: Set<string>
 ): boolean {
+  // First-time connect: new row id was not in cache before OAuth.
+  if (prevAccountIds !== undefined && !prevAccountIds.has(accountId)) {
+    return false;
+  }
   const account = accounts.find((a) => a.id === accountId);
   if (!account) {
     return (
@@ -343,7 +349,11 @@ export function resolvePostConnectBrandAction(
   accountId: string,
   activeBrandId: string,
   accounts: BrandMapAccountRef[],
-  options?: { isReconnect?: boolean; isDistinctNewConnection?: boolean }
+  options?: {
+    isReconnect?: boolean;
+    isDistinctNewConnection?: boolean;
+    prevAccountIds?: Set<string>;
+  }
 ): PostConnectBrandAction {
   const connected = accounts.find((a) => a.id === accountId);
   if (
@@ -361,7 +371,15 @@ export function resolvePostConnectBrandAction(
     return { type: 'noop' };
   }
 
-  if (shouldPromptMoveFromOtherBrand(accounts, map, accountId, activeBrandId)) {
+  if (
+    shouldPromptMoveFromOtherBrand(
+      accounts,
+      map,
+      accountId,
+      activeBrandId,
+      options?.prevAccountIds
+    )
+  ) {
     const fromBrandId = resolveOtherBrandIdForMovePrompt(
       accounts,
       map,
@@ -373,11 +391,7 @@ export function resolvePostConnectBrandAction(
       if (!isAccountVisibleOnBrand(accounts, map, accountId, fromBrandId)) {
         return { type: 'assign_active' };
       }
-      const explicitlyOnOther =
-        isAccountExplicitlyBrandMapped(map, accountId) && map[accountId] !== activeBrandId;
-      if (explicitlyOnOther || options?.isReconnect) {
-        return { type: 'prompt_move', fromBrandId };
-      }
+      return { type: 'prompt_move', fromBrandId };
     }
   }
 
