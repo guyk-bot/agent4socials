@@ -35,7 +35,7 @@ const organizationJsonLd = {
   url: siteUrl,
   logo: {
     "@type": "ImageObject",
-    url: `${siteUrl.replace(/\/+$/, "")}/logo-192.png?v=26`,
+    url: `${siteUrl.replace(/\/+$/, "")}/logo-192.png?v=28`,
     width: 192,
     height: 192,
   },
@@ -58,20 +58,20 @@ export const metadata: Metadata = {
     siteName: "Agent4Socials",
     title: "Agent4Socials | Schedule Posts & Analytics for All Major Social Platforms",
     description: "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. Try for free.",
-    images: [{ url: "/logo-192.png?v=26", width: 192, height: 192, alt: "Agent4Socials" }],
+    images: [{ url: "/logo-192.png?v=28", width: 192, height: 192, alt: "Agent4Socials" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Agent4Socials | Schedule Posts & Analytics",
     description: "One dashboard for scheduling and analytics. Try for free.",
-    images: ["/logo-192.png?v=26"],
+    images: ["/logo-192.png?v=28"],
   },
   robots: {
     index: true,
     follow: true,
     googleBot: { index: true, follow: true },
   },
-  // Tab favicon: squircle PNGs / ICO / SVG (see SITE_TAB_FAVICON_V). Google / OG logo: logo-192 only (v=26, circular file).
+  // Tab favicon: squircle PNGs / ICO / SVG (see SITE_TAB_FAVICON_V). Google / OG logo: logo-192 only (v=28, circular file).
   icons: siteTabIcons,
   manifest: "/manifest.json",
   appleWebApp: {

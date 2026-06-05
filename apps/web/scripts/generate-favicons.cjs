@@ -16,9 +16,9 @@ const markCachePath = path.join(publicDir, "brand-tab-mark.png");
 
 /** Google / JSON-LD circle exports: keep white outside the clip for predictable SERP cropping. */
 const whiteBg = { background: { r: 255, g: 255, b: 255 } };
-/** Tab squircle: match the dark mark so letterboxing and flatten() never produce a light halo on dark browser chrome. */
-const tabBgHex = "#111111";
-const tabFlattenBg = { background: { r: 17, g: 17, b: 17 } };
+/** Tab squircle: match the mark background so letterboxing and flatten() never produce a halo on browser chrome. */
+const tabBgHex = "#ffffff";
+const tabFlattenBg = { background: { r: 255, g: 255, b: 255 } };
 
 const MARK_RASTER_MAX = 480;
 
