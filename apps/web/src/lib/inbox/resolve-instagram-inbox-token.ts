@@ -72,7 +72,7 @@ export async function verifyInstagramLinkedToPage(
       return {
         ok: false,
         message:
-          'The Facebook Page you connected is linked to a different Instagram profile than the one in izop. Reconnect via Facebook and choose the Page tied to this Instagram account.',
+          'The Facebook Page you connected is linked to a different Instagram profile than the one in iZop. Reconnect via Facebook and choose the Page tied to this Instagram account.',
       };
     }
     return { ok: true };

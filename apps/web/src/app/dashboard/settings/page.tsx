@@ -88,7 +88,7 @@ export default function SettingsPage() {
             type="text"
             value={appName}
             onChange={(e) => setAppName(e.target.value)}
-            placeholder="izop"
+            placeholder="iZop"
             className="mt-2 block w-full max-w-sm rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
         </div>

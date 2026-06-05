@@ -14,7 +14,7 @@ export default async function DataDeletionPage({ searchParams }: Props) {
       <SiteHeader />
       <main className="mx-auto max-w-3xl px-4 pt-24 pb-20 sm:px-6">
         <h1 className="text-3xl font-bold sm:text-4xl">Data deletion</h1>
-        <p className="mt-4 text-slate-400">How to request deletion of your data from izop</p>
+        <p className="mt-4 text-slate-400">How to request deletion of your data from iZop</p>
 
         {confirmationCode && (
           <div className="mt-6 rounded-xl border border-emerald-500/40 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-100">
@@ -24,7 +24,7 @@ export default async function DataDeletionPage({ searchParams }: Props) {
               {platform ? ` (${platform})` : null}
             </p>
             <p className="mt-2 text-emerald-100/90">
-              We removed your connected social account data for this platform from izop. To delete your full
+              We removed your connected social account data for this platform from iZop. To delete your full
               app account, use Account settings or email support@agent4socials.com.
             </p>
           </div>
@@ -33,11 +33,11 @@ export default async function DataDeletionPage({ searchParams }: Props) {
         <div className="mt-10 space-y-6 text-slate-300">
           <section>
             <p className="leading-relaxed">
-              To request deletion of your data from izop, you can do either of the following:
+              To request deletion of your data from iZop, you can do either of the following:
             </p>
             <ul className="mt-4 list-disc list-inside space-y-2 leading-relaxed">
               <li>
-                <strong className="text-white">From the app:</strong> Log in to izop, go to Account or
+                <strong className="text-white">From the app:</strong> Log in to iZop, go to Account or
                 Settings, and use &quot;Delete my account&quot; (or the equivalent option). This will remove your
                 account and associated data.
               </li>

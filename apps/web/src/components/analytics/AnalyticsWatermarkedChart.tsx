@@ -7,11 +7,11 @@ export interface AnalyticsWatermarkedChartProps {
   title?: string;
   height?: number;
   className?: string;
-  /** When false, the izop watermark is hidden (e.g. for upgraded users or ranges ≤30 days). */
+  /** When false, the iZop watermark is hidden (e.g. for upgraded users or ranges ≤30 days). */
   showWatermark?: boolean;
 }
 
-/** Wraps a chart with a subtle izop watermark in the background. */
+/** Wraps a chart with a subtle iZop watermark in the background. */
 export function AnalyticsWatermarkedChart({
   children,
   title,
@@ -39,7 +39,7 @@ export function AnalyticsWatermarkedChart({
             style={{ opacity: 0.04 }}
             aria-hidden
           >
-            <span className="text-[#111827] font-semibold text-2xl tracking-tight">izop</span>
+            <span className="text-[#111827] font-semibold text-2xl tracking-tight">iZop</span>
           </div>
         )}
         <div className="relative z-10" style={{ height }}>

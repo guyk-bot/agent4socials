@@ -4,7 +4,7 @@
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
 @theme {
-  /* izop light theme: cyan + magenta + purple (sampled from logo). */
+  /* iZop light theme: cyan + magenta + purple (sampled from logo). */
   --color-primary: #1C9CFB;
   --color-primary-hover: #0B87E8;
   --color-accent-orange-light: #53BEFA;
@@ -606,7 +606,7 @@
   --shadow-glow-soft: 0 0 10px rgba(28, 156, 251, 0.3);
   --surface-soft: #f8fafc;
   --chart-grid: rgba(15, 23, 42, 0.08);
-  /* izop light theme: remap Tailwind orange scale to logo cyan + magenta. */
+  /* iZop light theme: remap Tailwind orange scale to logo cyan + magenta. */
   --color-orange-50: #E8F4FF;
   --color-orange-100: #F3EDFF;
   --color-orange-200: #C8E4FF;

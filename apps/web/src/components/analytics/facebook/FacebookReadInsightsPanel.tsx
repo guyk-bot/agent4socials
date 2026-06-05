@@ -84,7 +84,7 @@ export function FacebookReadInsightsPanel({
           <p className="mt-2 text-sm text-neutral-600 max-w-3xl leading-relaxed">
             This block shows metrics loaded with Meta&apos;s{' '}
             <strong className="font-semibold text-neutral-800">read_insights</strong> permission on your Page (Facebook
-            Page Insights API). We use them only to display <strong>your</strong> Page analytics inside izop,
+            Page Insights API). We use them only to display <strong>your</strong> Page analytics inside iZop,
             consistent with Meta&apos;s allowed use for your own analytics tools.
           </p>
           <p className="mt-2 text-xs text-neutral-500">

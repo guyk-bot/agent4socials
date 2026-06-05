@@ -6,7 +6,7 @@ const testimonials = [
     name: 'Sarah Jenkins',
     role: 'Lifestyle Creator',
     handle: '@sarahstyle',
-    content: "izop completely changed my workflow. I used to spend hours every Sunday scheduling posts. Now it takes me 20 minutes.",
+    content: "iZop completely changed my workflow. I used to spend hours every Sunday scheduling posts. Now it takes me 20 minutes.",
     avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150&h=150',
   },
   {
@@ -43,7 +43,7 @@ export default function Testimonials() {
             Loved by creators and businesses
           </h2>
           <p className="mt-6 text-lg leading-8 text-[#5d5768]">
-            Join thousands who trust izop to manage their online presence.
+            Join thousands who trust iZop to manage their online presence.
           </p>
         </div>
         

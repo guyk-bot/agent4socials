@@ -14,7 +14,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-xl font-semibold text-white">1. Introduction</h2>
             <p className="mt-3 leading-relaxed">
-              izop (&quot;we,&quot; &quot;us,&quot; &quot;our&quot;) respects your privacy. This Privacy Policy describes what data we collect, how we use it, with whom we share it, and your choices and rights. By using our website and service (the &quot;Service&quot;), you agree to this policy.
+              iZop (&quot;we,&quot; &quot;us,&quot; &quot;our&quot;) respects your privacy. This Privacy Policy describes what data we collect, how we use it, with whom we share it, and your choices and rights. By using our website and service (the &quot;Service&quot;), you agree to this policy.
             </p>
             <p className="mt-3 leading-relaxed">
               Our Service integrates with Meta (Facebook and Instagram), TikTok, Google (YouTube), X (Twitter), and LinkedIn. When you connect an account, we access and process data in accordance with each platform&apos;s policies and your authorizations. This policy is intended to satisfy disclosure requirements for app verification and review by those platforms.

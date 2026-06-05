@@ -2,8 +2,8 @@ import { Resend } from 'resend';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-const DEFAULT_FROM = 'izop <guyk@agent4socials.com>';
-const DEFAULT_SCHEDULED_FROM = 'izop <noreply@agent4socials.com>';
+const DEFAULT_FROM = 'iZop <guyk@agent4socials.com>';
+const DEFAULT_SCHEDULED_FROM = 'iZop <noreply@agent4socials.com>';
 
 function getGeneralFrom(): string {
   return process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM || DEFAULT_FROM;
@@ -31,13 +31,13 @@ export async function sendWelcomeEmail(to: string, name: string | null): Promise
     const { error } = await resend.emails.send({
       from,
       to: [to],
-      subject: 'Welcome to izop',
+      subject: 'Welcome to iZop',
       html: `
-        <h1>Welcome to izop</h1>
+        <h1>Welcome to iZop</h1>
         <p>Hi ${displayName},</p>
         <p>Thanks for signing up. You're all set to start scheduling and managing your social posts.</p>
         <p>If you have any questions, just reply to this email.</p>
-        <p>Cheers,<br>The izop team</p>
+        <p>Cheers,<br>The iZop team</p>
       `,
     });
     if (error) {
@@ -64,12 +64,12 @@ export async function sendTestEmail(to: string): Promise<{ ok: boolean; error?: 
     const { error } = await resend.emails.send({
       from,
       to: [to],
-      subject: 'Test: izop email is working',
+      subject: 'Test: iZop email is working',
       html: `
         <p>If you received this, Resend is configured correctly and scheduled post emails will work.</p>
         <p><a href="${baseUrl}/calendar" style="color:#4f46e5;font-weight:600">Open Calendar</a></p>
         <p>Real scheduled post emails will have a different subject (&quot;Your scheduled post is ready&quot;) and link directly to your post.</p>
-        <p>Cheers,<br>The izop team</p>
+        <p>Cheers,<br>The iZop team</p>
       `,
     });
     if (error) {
@@ -108,7 +108,7 @@ export async function sendScheduledPostLinksEmail(to: string, openLink: string):
           <li><strong>Open in X / LinkedIn</strong> – Opens the app with the caption only (no images). You can then add images manually after downloading them from the page.</li>
         </ul>
         <p>This link is valid for 7 days. If you didn't schedule a post, you can ignore this email.</p>
-        <p>Cheers,<br>The izop team</p>
+        <p>Cheers,<br>The iZop team</p>
       `,
     });
     if (error) {
@@ -241,12 +241,12 @@ export async function sendBrandFriendInviteEmail(params: {
       subject: `${params.inviterName} invited you to ${params.brandName}`,
       html: `
         <p>${greeting}</p>
-        <p><strong>${params.inviterName}</strong> invited you to join the <strong>${params.brandName}</strong> workspace on izop.</p>
+        <p><strong>${params.inviterName}</strong> invited you to join the <strong>${params.brandName}</strong> workspace on iZop.</p>
         <p>Your role: <strong>${params.role}</strong></p>
         <p><a href="${inviteUrl}" style="color:#1C9CFB;font-weight:600">Accept invitation and create account</a></p>
         <p>If you already have an account, log in with this same email address.</p>
         <p>If you cannot find this invitation, check your spam folder.</p>
-        <p>Cheers,<br>The izop team</p>
+        <p>Cheers,<br>The iZop team</p>
       `,
     });
     if (error) {
@@ -277,7 +277,7 @@ export async function sendSupportTicketEmail(
   }
   const from = getGeneralFrom();
   const displayName = senderName || senderEmail;
-  const safeSubject = subject.slice(0, 200).trim() || 'Support request | izop';
+  const safeSubject = subject.slice(0, 200).trim() || 'Support request | iZop';
   const safeMessage = message.slice(0, 10000).replace(/\n/g, '<br>');
   try {
     const { error } = await resend.emails.send({
@@ -291,7 +291,7 @@ export async function sendSupportTicketEmail(
         <hr style="border:0;border-top:1px solid #eee;margin:1em 0"/>
         <div>${safeMessage}</div>
         <hr style="border:0;border-top:1px solid #eee;margin:1em 0"/>
-        <p style="color:#666;font-size:12px">Sent via izop Help → Support ticket form.</p>
+        <p style="color:#666;font-size:12px">Sent via iZop Help → Support ticket form.</p>
       `,
     });
     if (error) {

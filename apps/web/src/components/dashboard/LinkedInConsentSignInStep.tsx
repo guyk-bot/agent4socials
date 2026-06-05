@@ -45,7 +45,7 @@ export function LinkedInConsentSignInStep({ method, returnTo, onCancel }: Props)
           </h1>
           <p className="linkedin-oauth-consent-muted mt-2 text-sm leading-relaxed">
             Sign in once at LinkedIn. You will return here to review permissions, then connect the
-            account to izop.
+            account to iZop.
           </p>
           <button
             type="button"

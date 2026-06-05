@@ -1392,7 +1392,7 @@ export async function publishTarget(
         try {
           const createBoardRes = await axiosInstance.post(
             `${pinterestApiBase}/boards`,
-            { name: 'izop Posts' },
+            { name: 'iZop Posts' },
             {
               headers: {
                 Authorization: `Bearer ${token}`,

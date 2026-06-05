@@ -22,7 +22,7 @@ export default function RolesPermissionsPage() {
           <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Roles and Permissions</h1>
         </div>
         <p className="mt-3 text-sm text-neutral-600">
-          This guide explains exactly what each workspace role can do in izop.
+          This guide explains exactly what each workspace role can do in iZop.
         </p>
 
         <div className="mt-6 space-y-4">

@@ -476,7 +476,7 @@ export function LinkPageRenderer({
               if (isPreview) e.preventDefault();
             }}
           >
-            Made with izop
+            Made with iZop
           </a>
         </div>
       </div>

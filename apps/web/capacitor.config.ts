@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.agent4socials.app',
-  appName: 'izop',
+  appName: 'iZop',
   webDir: 'out',
   server: {
     url: 'https://agent4socials.com',

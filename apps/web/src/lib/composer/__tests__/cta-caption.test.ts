@@ -1,7 +1,7 @@
 import { captionContainsCta, dedupeTrailingParagraphs, mergeCaptionWithCta } from '../cta-caption';
 
 describe('mergeCaptionWithCta', () => {
-  const cta = 'Try izop for free today! Comment AI and I will send you the link.';
+  const cta = 'Try iZop for free today! Comment AI and I will send you the link.';
 
   it('does not append when CTA is already the last paragraph', () => {
     const body = `Main post text.\n\n${cta}`;
@@ -25,7 +25,7 @@ describe('mergeCaptionWithCta', () => {
 
   it('treats quoted keyword CTA as the same line', () => {
     const quoted =
-      "Try izop for free today! Comment 'AI' and I will send you the link.";
+      "Try iZop for free today! Comment 'AI' and I will send you the link.";
     const body = `Hook line.\n\n${quoted}\n\n${cta}`;
     expect(mergeCaptionWithCta(body, cta)).toBe(`Hook line.\n\n${cta}`);
   });

@@ -1,5 +1,5 @@
 /**
- * PDF report generator for izop.
+ * PDF report generator for iZop.
  * Uses jsPDF (Helvetica only). All user text is sanitized; no emoji icons in PDF.
  */
 import type { UnifiedSummaryResponse, UnifiedHistoryPost } from '@/lib/analytics/unified-metrics-types';
@@ -767,7 +767,7 @@ function drawRecommendations(ctx: Ctx, summary: UnifiedSummaryResponse, rollups:
   } else {
     recs.push('Follower growth is flat. Try a collab post or a simple giveaway to restart discovery.');
   }
-  recs.push('Post consistently (3x per week minimum) and queue ahead with izop Scheduler.');
+  recs.push('Post consistently (3x per week minimum) and queue ahead with iZop Scheduler.');
 
   recs.slice(0, 5).forEach((rec, i) => {
     const lines = pdf.splitTextToSize(sanitizePdfText(rec, 300), pageW - margin * 2 - 44);
@@ -803,7 +803,7 @@ function drawFooter(ctx: Ctx, pageNum: number) {
   setTxtColor(pdf, C.gray500);
   pdf.setFontSize(6.5);
   pdf.setFont('helvetica', 'normal');
-  pdf.text('izop Analytics Report  |  agent4socials.com', 40, pageH - 8);
+  pdf.text('iZop Analytics Report  |  agent4socials.com', 40, pageH - 8);
   pdf.text(`Page ${pageNum}`, pageW - 40, pageH - 8, { align: 'right' });
 }
 

@@ -7,7 +7,7 @@ const FROM =
   process.env.RESEND_WELCOME_FROM_EMAIL ||
   process.env.RESEND_FROM_EMAIL ||
   process.env.RESEND_FROM ||
-  'izop <guyk@agent4socials.com>';
+  'iZop <guyk@agent4socials.com>';
 
 function randomOtp(): string {
   return String(Math.floor(100000 + Math.random() * 900000));
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
   const { error: emailError } = await resend.emails.send({
     from: FROM,
     to: [email],
-    subject: 'Verify your izop account',
+    subject: 'Verify your iZop account',
     html: `
       <h1>Your verification code</h1>
       <p>Hi${full_name ? ` ${full_name}` : ''},</p>

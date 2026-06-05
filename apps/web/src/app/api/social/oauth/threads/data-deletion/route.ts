@@ -65,6 +65,6 @@ export async function GET(request: NextRequest) {
     confirmation_code: code,
     status: 'completed',
     message:
-      'Your Threads connection data in izop has been removed. For full account deletion, use Account settings in the app or email support@agent4socials.com.',
+      'Your Threads connection data in iZop has been removed. For full account deletion, use Account settings in the app or email support@agent4socials.com.',
   });
 }

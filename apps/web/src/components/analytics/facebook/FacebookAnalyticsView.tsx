@@ -1763,11 +1763,11 @@ export function InsightChartCard({
       ) : null}
       <div className={`${hideHeader ? '' : 'mt-3 '}pb-5 relative`} style={{ height: chartHeightPx }}>
         <div className="pointer-events-none absolute inset-0 z-20" aria-hidden>
-          <span className="absolute left-[16%] top-[20%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>izop</span>
-          <span className="absolute right-[16%] top-[20%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>izop</span>
-          <span className="absolute left-1/2 top-[44%] -translate-x-1/2 -translate-y-1/2 text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>izop</span>
-          <span className="absolute left-[16%] bottom-[30%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>izop</span>
-          <span className="absolute right-[16%] bottom-[30%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>izop</span>
+          <span className="absolute left-[16%] top-[20%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>iZop</span>
+          <span className="absolute right-[16%] top-[20%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>iZop</span>
+          <span className="absolute left-1/2 top-[44%] -translate-x-1/2 -translate-y-1/2 text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>iZop</span>
+          <span className="absolute left-[16%] bottom-[30%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>iZop</span>
+          <span className="absolute right-[16%] bottom-[30%] text-[15px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.24)' }}>iZop</span>
         </div>
         <div className="relative z-10 h-full">{children}</div>
       </div>
@@ -3488,7 +3488,7 @@ export function FacebookAnalyticsView({
     if (linkedInReconnectHint?.trim()) return linkedInReconnectHint.trim();
     if (insights?.insightsHint?.trim()) return insights.insightsHint.trim();
     if (linkedInSyncReady === false || (linkedInExtras?.posts?.totalSynced ?? 0) === 0) {
-      return 'LinkedIn is connected for posting. To see posts and metrics here, LinkedIn must approve read access on the izop app, then you reconnect your personal profile.';
+      return 'LinkedIn is connected for posting. To see posts and metrics here, LinkedIn must approve read access on the iZop app, then you reconnect your personal profile.';
     }
     return null;
   }, [
