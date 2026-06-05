@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { SITE_LOGO_SRC } from '@/lib/site-brand-assets';
+import { SITE_LOGO_PATH } from '@/lib/site-brand-assets';
 import { useAuthModal } from '@/context/AuthModalContext';
 
 export default function SiteFooter() {
@@ -12,7 +12,7 @@ export default function SiteFooter() {
       <div className="mx-auto max-w-6xl px-4 py-10 sm:py-14 sm:px-6">
         <div className="flex flex-col gap-8 sm:gap-10 md:flex-row md:items-start md:justify-between">
           <div className="flex items-center gap-2.5">
-            <Image src={SITE_LOGO_SRC} alt="Agent4Socials" width={28} height={28} className="h-6 w-6 sm:h-7 sm:w-7 object-contain [background:transparent]" />
+            <Image src={SITE_LOGO_PATH} alt="Agent4Socials" width={28} height={28} className="h-6 w-6 sm:h-7 sm:w-7 object-contain [background:transparent]" />
             <span className="font-semibold text-white text-sm sm:text-base">Agent4Socials</span>
           </div>
           <div className="grid gap-6 sm:gap-8 sm:grid-cols-3">
