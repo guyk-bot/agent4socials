@@ -17,7 +17,7 @@ export default function PricingBillingToggle({ interval, onIntervalChange, dark 
           className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
             interval === 'monthly'
               ? 'gradient-cta-pro text-white shadow'
-              : 'text-[#5d5768] hover:text-[#c2410c]'
+              : 'text-[#5d5768] hover:text-[#5A28D4]'
           }`}
         >
           Monthly
@@ -28,14 +28,14 @@ export default function PricingBillingToggle({ interval, onIntervalChange, dark 
           className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
             interval === 'yearly'
               ? 'gradient-cta-pro text-white shadow'
-              : 'text-[#5d5768] hover:text-[#c2410c]'
+              : 'text-[#5d5768] hover:text-[#5A28D4]'
           }`}
         >
-          Yearly <span className={interval === 'yearly' ? 'text-white/90' : 'text-[#ea580c]'}>(Save 20%)</span>
+          Yearly <span className={interval === 'yearly' ? 'text-white/90' : 'text-[#6E33EF]'}>(Save 20%)</span>
         </button>
       </div>
       <p className="text-sm font-medium text-[#2f9e44]">
-        <span className="mr-1 text-[#ff3d00]" aria-hidden>🔥</span>
+        <span className="mr-1 text-[#6E33EF]" aria-hidden>🔥</span>
         2 months free with annual billing
       </p>
     </div>

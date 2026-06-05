@@ -4,20 +4,30 @@
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
 @theme {
-  /* Futuristic Neon Glass SaaS design system */
-  --color-primary: #ff7a00;
-  --color-primary-hover: #ff5a00;
-  /* Softer orange for secondary actions (not upgrade CTA #ff4d00 / #ff7a00). */
-  --color-accent-orange-light: #ffb86b;
-  --color-secondary: #ffb000;
-  --color-secondary-hover: #ff9800;
-  --color-tertiary: #ff5a00;
+  /* Newt light theme: vibrant teal + deep purple (Colour Palette #2). */
+  --color-primary: #3ee2a7;
+  --color-primary-hover: #2bc492;
+  --color-accent-orange-light: #7aebc4;
+  --color-secondary: #6e33ef;
+  --color-secondary-hover: #5a28d4;
+  --color-tertiary: #6e33ef;
+  --color-orange-50: #f5f4ff;
+  --color-orange-100: #e4e3ff;
+  --color-orange-200: #d4d2ff;
+  --color-orange-300: #7aebc4;
+  --color-orange-400: #3ee2a7;
+  --color-orange-500: #3ee2a7;
+  --color-orange-600: #2bc492;
+  --color-orange-700: #5a28d4;
+  --color-orange-800: #5a28d4;
+  --color-orange-900: #4a1fb0;
+  --color-orange-950: #3d1890;
   --color-dark: #0b0f1a;
   --color-surface: #111827;
   --color-text-primary: #ffffff;
   --color-text-secondary: #9ca3af;
-  --glow-purple: 0 0 20px rgba(255, 122, 0, 0.5);
-  --glow-soft: 0 0 10px rgba(255, 122, 0, 0.35);
+  --glow-purple: 0 0 20px rgba(110, 51, 239, 0.45);
+  --glow-soft: 0 0 10px rgba(62, 226, 167, 0.35);
   --glass-bg: rgba(255, 255, 255, 0.05);
   --glass-border: rgba(255, 255, 255, 0.08);
   --animate-fade-in: fade-in 0.5s ease-out forwards;
@@ -84,9 +94,9 @@
   --animate-scale-in: scale-in 0.3s ease-out both;
 }
 
-/* CTA gradient: amber → vivid orange (matches funnel artwork palette). */
+/* CTA gradient: teal → deep purple (Newt funnel palette). */
 .gradient-cta-pro {
-  background: linear-gradient(135deg, #ffb000 0%, #ff4d00 100%);
+  background: linear-gradient(135deg, #3ee2a7 0%, #6e33ef 100%);
 }
 .gradient-cta-pro:hover {
   filter: brightness(1.07);
@@ -176,9 +186,9 @@
   border-color: #52525b !important;
   color: #fafafa !important;
 }
-/* Light orange accents on Account (Add brand +, team invite, brand picker scroll). */
+/* Light teal accents on Account (Add brand +, team invite, brand picker scroll). */
 .brand-add-plus-icon {
-  background: rgba(255, 184, 107, 0.18) !important;
+  background: rgba(62, 226, 167, 0.18) !important;
   color: var(--color-accent-orange-light) !important;
 }
 .brand-add-plus-icon svg {
@@ -194,14 +204,14 @@
   stroke: #ffb86b !important;
 }
 .accent-orange-light-btn {
-  border-color: rgba(255, 184, 107, 0.5) !important;
+  border-color: rgba(62, 226, 167, 0.5) !important;
   color: var(--color-accent-orange-light) !important;
-  background: rgba(255, 184, 107, 0.1) !important;
+  background: rgba(62, 226, 167, 0.1) !important;
 }
 .accent-orange-light-btn:hover:not(:disabled) {
-  background: rgba(255, 184, 107, 0.2) !important;
-  border-color: rgba(255, 184, 107, 0.7) !important;
-  color: #ffc78a !important;
+  background: rgba(62, 226, 167, 0.2) !important;
+  border-color: rgba(62, 226, 167, 0.7) !important;
+  color: #b8f5dc !important;
 }
 .accent-orange-light-btn svg {
   color: var(--color-accent-orange-light) !important;
@@ -215,8 +225,8 @@
 /* Inbox / comment composer: light-orange AI outline + deep orange Send (matches app buttons). */
 .inbox-reply-ai-btn {
   color: var(--color-accent-orange-light) !important;
-  background: rgba(255, 184, 107, 0.12) !important;
-  border: 1px solid rgba(255, 184, 107, 0.55) !important;
+  background: rgba(62, 226, 167, 0.12) !important;
+  border: 1px solid rgba(62, 226, 167, 0.55) !important;
   box-shadow: none;
   transition:
     background 0.15s ease,
@@ -225,27 +235,27 @@
     opacity 0.15s ease;
 }
 .inbox-reply-ai-btn:hover:not(:disabled) {
-  background: rgba(255, 184, 107, 0.24) !important;
-  border-color: rgba(255, 184, 107, 0.85) !important;
-  color: #ffc78a !important;
+  background: rgba(62, 226, 167, 0.24) !important;
+  border-color: rgba(62, 226, 167, 0.85) !important;
+  color: #b8f5dc !important;
 }
 .inbox-reply-ai-btn:active:not(:disabled) {
-  background: rgba(255, 184, 107, 0.18) !important;
+  background: rgba(62, 226, 167, 0.18) !important;
 }
 .inbox-reply-ai-btn svg {
   color: var(--color-accent-orange-light) !important;
   stroke: var(--color-accent-orange-light) !important;
 }
 .inbox-reply-ai-btn:hover:not(:disabled) svg {
-  color: #ffc78a !important;
-  stroke: #ffc78a !important;
+  color: #b8f5dc !important;
+  stroke: #b8f5dc !important;
 }
 
 .inbox-reply-send-btn {
   color: #fff !important;
   background: var(--button) !important;
   border: 1px solid var(--button) !important;
-  box-shadow: 0 1px 3px rgba(255, 122, 0, 0.35);
+  box-shadow: 0 1px 3px rgba(62, 226, 167, 0.35);
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
@@ -253,14 +263,14 @@
     opacity 0.15s ease;
 }
 .inbox-reply-send-btn:hover:not(:disabled) {
-  background: #ff9220 !important;
-  border-color: #ff9220 !important;
-  box-shadow: 0 2px 10px rgba(255, 146, 32, 0.55);
+  background: #2bc492 !important;
+  border-color: #2bc492 !important;
+  box-shadow: 0 2px 10px rgba(43, 196, 146, 0.55);
   filter: brightness(1.08);
 }
 .inbox-reply-send-btn:active:not(:disabled) {
   filter: brightness(0.98);
-  box-shadow: 0 1px 2px rgba(255, 122, 0, 0.3);
+  box-shadow: 0 1px 2px rgba(62, 226, 167, 0.3);
 }
 .inbox-reply-send-btn svg {
   color: #fff !important;
@@ -311,7 +321,7 @@
   color: #171717 !important;
 }
 [data-theme='light'] .inbox-sent-bubble {
-  background-color: rgba(255, 184, 107, 0.38) !important;
+  background-color: rgba(62, 226, 167, 0.32) !important;
   color: #171717 !important;
 }
 
@@ -333,14 +343,14 @@
   border-radius: 999px;
 }
 .brand-select-menu::-webkit-scrollbar-thumb:hover {
-  background: #ffc78a;
+  background: #b8f5dc;
 }
 .brand-select-option {
   color: inherit;
 }
 .brand-select-option:hover,
 .brand-select-option[aria-selected='true'] {
-  background: rgba(255, 184, 107, 0.22) !important;
+  background: rgba(62, 226, 167, 0.22) !important;
   color: var(--color-accent-orange-light) !important;
 }
 [data-theme='dark'] .brand-select-panel {
@@ -388,14 +398,14 @@
   border-radius: 999px;
 }
 .composer-schedule-scope .composer-schedule-scroll-list::-webkit-scrollbar-thumb:hover {
-  background: #ffc78a;
+  background: #b8f5dc;
 }
 .composer-schedule-scope .composer-schedule-scroll-item.is-selected {
-  background: rgba(255, 184, 107, 0.28) !important;
+  background: rgba(62, 226, 167, 0.28) !important;
   color: var(--color-accent-orange-light) !important;
 }
 .composer-schedule-scope .composer-schedule-scroll-item:hover:not(.is-selected) {
-  background: rgba(255, 184, 107, 0.14) !important;
+  background: rgba(62, 226, 167, 0.14) !important;
 }
 [data-theme='dark'] .create-brand-modal-scope input[type='text'],
 [data-theme='dark'] .create-brand-modal-scope input[type='email'],
@@ -520,7 +530,7 @@
 }
 
 .upgrade-badge-warm {
-  color: #ff7a00;
+  color: #3ee2a7;
 }
 
 .brand-card-selected {
@@ -543,6 +553,13 @@
 }
 
 /* Branded loading logo (SVG stroke draw + sparkle), replaces legacy MP4 loader. */
+.a4s-logo-loading__sparkle-stop-1 { stop-color: #7aebc4; }
+.a4s-logo-loading__sparkle-stop-2 { stop-color: #3ee2a7; }
+.a4s-logo-loading__sparkle-stop-3 { stop-color: #5a28d4; }
+[data-theme='dark'] .a4s-logo-loading__sparkle-stop-1 { stop-color: #ff7a3a; }
+[data-theme='dark'] .a4s-logo-loading__sparkle-stop-2 { stop-color: #ff3d00; }
+[data-theme='dark'] .a4s-logo-loading__sparkle-stop-3 { stop-color: #b22200; }
+
 .a4s-logo-loading__stage {
   width: min(36vw, 200px);
   aspect-ratio: 1 / 1;
@@ -661,15 +678,15 @@
 
 :root {
   font-size: 110%;
-  --primary: #ff7a00;
-  --primary-hover: #ff5a00;
-  --secondary: #ffb000;
-  --secondary-hover: #ff9800;
-  --tertiary: #ff5a00;
+  --primary: #3ee2a7;
+  --primary-hover: #2bc492;
+  --secondary: #6e33ef;
+  --secondary-hover: #5a28d4;
+  --tertiary: #6e33ef;
   --dark: #0b0f1a;
   --surface: #111827;
-  --button: #ff7a00;
-  --button-hover: #ff5a00;
+  --button: #3ee2a7;
+  --button-hover: #2bc492;
   --background: #f8fafc;
   --card-bg: #ffffff;
   --foreground: #0f172a;
@@ -679,16 +696,48 @@
   --radius-glass: 20px;
   --font-main: var(--font-inter), ui-sans-serif, sans-serif;
   --font-heading: var(--font-outfit), ui-sans-serif, sans-serif;
-  --gradient-primary: linear-gradient(135deg, #ffb000, #ff7a00, #ff4d00);
-  --gradient-glow: radial-gradient(circle, rgba(255, 122, 0, 0.35), transparent);
-  --shadow-glow: 0 0 20px rgba(255, 122, 0, 0.45);
-  --shadow-glow-soft: 0 0 10px rgba(255, 122, 0, 0.3);
+  --gradient-primary: linear-gradient(135deg, #3ee2a7, #6e33ef);
+  --gradient-glow: radial-gradient(circle, rgba(62, 226, 167, 0.35), transparent);
+  --shadow-glow: 0 0 20px rgba(62, 226, 167, 0.45);
+  --shadow-glow-soft: 0 0 10px rgba(62, 226, 167, 0.3);
   --surface-soft: #f8fafc;
   --chart-grid: rgba(15, 23, 42, 0.08);
+  /* Newt light theme: remap Tailwind orange scale to teal + purple brand. */
+  --color-orange-50: #f5f4ff;
+  --color-orange-100: #e4e3ff;
+  --color-orange-200: #d4d2ff;
+  --color-orange-300: #7aebc4;
+  --color-orange-400: #3ee2a7;
+  --color-orange-500: #3ee2a7;
+  --color-orange-600: #2bc492;
+  --color-orange-700: #5a28d4;
+  --color-orange-800: #5a28d4;
+  --color-orange-900: #4a1fb0;
+  --color-orange-950: #3d1890;
 }
 
 
 [data-theme='dark'] {
+  /* Preserve legacy orange brand in dark mode. */
+  --color-primary: #ff7a00;
+  --color-primary-hover: #ff5a00;
+  --color-accent-orange-light: #ffb86b;
+  --color-secondary: #ffb000;
+  --color-secondary-hover: #ff9800;
+  --color-tertiary: #ff5a00;
+  --primary: #ff7a00;
+  --primary-hover: #ff5a00;
+  --secondary: #ffb000;
+  --secondary-hover: #ff9800;
+  --tertiary: #ff5a00;
+  --button: #ff7a00;
+  --button-hover: #ff5a00;
+  --gradient-primary: linear-gradient(135deg, #ffb000, #ff7a00, #ff4d00);
+  --gradient-glow: radial-gradient(circle, rgba(255, 122, 0, 0.35), transparent);
+  --shadow-glow: 0 0 20px rgba(255, 122, 0, 0.45);
+  --shadow-glow-soft: 0 0 10px rgba(255, 122, 0, 0.3);
+  --glow-purple: 0 0 20px rgba(255, 122, 0, 0.5);
+  --glow-soft: 0 0 10px rgba(255, 122, 0, 0.35);
   --background: #000000;
   --card-bg: #171717;
   --foreground: #fafafa;
@@ -699,6 +748,26 @@
   --wl-sidebar-bg: #000000;
   --dark: #000000;
   color-scheme: dark;
+  /* Restore legacy Tailwind orange scale in dark mode. */
+  --color-orange-50: #fff7ed;
+  --color-orange-100: #ffedd5;
+  --color-orange-200: #fed7aa;
+  --color-orange-300: #fdba74;
+  --color-orange-400: #fb923c;
+  --color-orange-500: #f97316;
+  --color-orange-600: #ea580c;
+  --color-orange-700: #c2410c;
+  --color-orange-800: #9a3412;
+  --color-orange-900: #7c2d12;
+  --color-orange-950: #431407;
+}
+
+[data-theme='dark'] .gradient-cta-pro {
+  background: linear-gradient(135deg, #ffb000 0%, #ff4d00 100%);
+}
+
+[data-theme='dark'] .upgrade-badge-warm {
+  color: #ff7a00;
 }
 
 /* Dark mode: override common Tailwind backgrounds and borders so dashboard/cards flip */

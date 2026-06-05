@@ -4853,7 +4853,7 @@ function PostPreview({
             className={`rounded-xl overflow-hidden bg-white shadow-sm ${reelPreview ? '' : 'border border-neutral-200'} ${compact ? 'max-w-[260px]' : 'w-full max-w-none mx-auto shadow-lg'}`}
         >
             {mediaType === 'story' && (
-                <div className="bg-gradient-to-r from-orange-500 via-pink-500 to-orange-400 text-white text-[10px] font-semibold text-center py-1 tracking-wide">
+                <div className="bg-gradient-to-r from-[#E1306C] via-[#F77737] to-[#FCAF45] text-white text-[10px] font-semibold text-center py-1 tracking-wide">
                     Story preview
                 </div>
             )}

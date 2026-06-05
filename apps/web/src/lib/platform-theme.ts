@@ -25,8 +25,8 @@ export interface PlatformTheme {
 
 export const PLATFORM_THEMES: Record<string, PlatformTheme> = {
   INSTAGRAM: {
-    gradient: 'from-pink-500 via-orange-500 to-orange-600',
-    solidBg: 'bg-gradient-to-r from-pink-500 to-orange-600',
+    gradient: 'from-[#E1306C] via-[#F77737] to-[#FCAF45]',
+    solidBg: 'bg-gradient-to-r from-[#E1306C] to-[#FCAF45]',
     textColor: 'text-pink-600',
     borderColor: 'border-pink-300',
     lightBg: 'bg-pink-50',
@@ -97,12 +97,12 @@ export const PLATFORM_THEMES: Record<string, PlatformTheme> = {
     label: 'Threads',
   },
   DEFAULT: {
-    gradient: 'from-orange-500 to-orange-600',
-    solidBg: 'bg-orange-600',
-    textColor: 'text-orange-600',
-    borderColor: 'border-orange-300',
-    lightBg: 'bg-orange-50',
-    hex: '#FF7A00',
+    gradient: 'from-[#3EE2A7] to-[#6E33EF]',
+    solidBg: 'bg-[#3EE2A7]',
+    textColor: 'text-[#2BC492]',
+    borderColor: 'border-[#7AEBC4]',
+    lightBg: 'bg-[#F5F4FF]',
+    hex: '#3EE2A7',
     label: 'Social',
   },
 };

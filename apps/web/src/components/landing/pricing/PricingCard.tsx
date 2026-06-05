@@ -62,8 +62,8 @@ export default function PricingCard({
     <div
       className={`relative flex flex-col rounded-2xl border-2 p-6 sm:p-8 transition-all duration-200 ${
         highlighted
-          ? 'border-[#ffb87a] bg-[#fffaf2] shadow-lg shadow-[#ff8a3d]/20'
-          : 'border-[#f2e4d4] bg-white shadow-sm hover:border-[#f5c79a] hover:shadow-md'
+          ? 'border-[#7AEBC4] bg-[#F5F4FF] shadow-lg shadow-[#6E33EF]/20'
+          : 'border-[#E4E3FF] bg-white shadow-sm hover:border-[#D4D2FF] hover:shadow-md'
       }`}
     >
       {badge && (
@@ -75,7 +75,7 @@ export default function PricingCard({
         {plan === 'free' ? 'Free' : plan === 'starter' ? 'Standard' : 'Pro'}
       </h2>
       {bestValueLabel && (
-        <p className="mt-1 text-sm font-medium text-[#c2410c]">{bestValueLabel}</p>
+        <p className="mt-1 text-sm font-medium text-[#5A28D4]">{bestValueLabel}</p>
       )}
       <p className="mt-1 text-sm text-[#5d5768]">{description}</p>
       <div className="mt-6">
@@ -107,7 +107,7 @@ export default function PricingCard({
                 </>
               ) : null}
               {savePerYear != null && savePerYear > 0 ? (
-                <span className="text-[#c2410c]"> · Save ${savePerYear}/year</span>
+                <span className="text-[#5A28D4]"> · Save ${savePerYear}/year</span>
               ) : null}
             </p>
           </>
@@ -122,8 +122,8 @@ export default function PricingCard({
         ))}
       </ul>
       {!isFree && (additionalBrandsMonthly != null || additionalBrandsYearly != null) && (
-        <div className="mt-4 pt-4 border-t border-[#f3e3d2]">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#b45309] mb-1">Add-ons</p>
+        <div className="mt-4 pt-4 border-t border-[#E4E3FF]">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#5A28D4] mb-1">Add-ons</p>
           <p className="text-sm text-[#5d5768]">
             {billingInterval === 'monthly'
               ? `+$${additionalBrandsMonthly} / ${additionalAddonUnitLabel} monthly`
@@ -138,8 +138,8 @@ export default function PricingCard({
           highlighted
             ? 'gradient-cta-pro text-white shadow hover:opacity-95 active:scale-[0.98]'
             : isFree
-              ? 'border border-[#f2c38d] bg-white text-[#c2410c] hover:border-[#ea580c] hover:bg-[#fff7ed]'
-              : 'bg-[#ea580c] text-white shadow hover:bg-[#c2410c] active:scale-[0.98]'
+              ? 'border border-[#D4D2FF] bg-white text-[#5A28D4] hover:border-[#6E33EF] hover:bg-[#F5F4FF]'
+              : 'bg-[#6E33EF] text-white shadow hover:bg-[#5A28D4] active:scale-[0.98]'
         }`}
       >
         {ctaText}

@@ -91,12 +91,12 @@ const COLOR = {
   text: 'var(--foreground)',
   textSecondary: 'var(--muted)',
   textMuted: 'var(--muted)',
-  violet: '#ff7a00',
+  violet: '#3EE2A7',
   mint: '#31c48d',
   amber: '#f5b942',
   coral: '#ff8b7b',
   magenta: '#d946ef',
-  cyan: '#ff7a00',
+  cyan: '#3EE2A7',
 } as const;
 
 const CONSOLE_ENGAGEMENT_ACCENT = '#f59e0b';
@@ -107,7 +107,7 @@ const CONSOLE_VIEWS_ACCENT = '#9333ea';
 const CONSOLE_PLATFORM_COLOR: Record<string, string> = {
   ...PLATFORM_COLOR,
   Instagram: '#f356ff',
-  Pinterest: '#f97316',
+  Pinterest: '#E60023',
 };
 
 /** LinkedIn is hidden on Console until full analytics are ready. */
@@ -1187,7 +1187,7 @@ function HistoryTable({ rows }: { rows: UnifiedHistoryPost[] }) {
             {visible.length === 0 ? (
               <tr><td colSpan={9} className="py-8 text-center text-sm" style={{ color: COLOR.textMuted }}>No posts in this period</td></tr>
             ) : visible.map((row) => {
-              const c = PLATFORM_COLOR[row.platform] ?? '#ff7a00';
+              const c = PLATFORM_COLOR[row.platform] ?? '#3EE2A7';
               return (
                 <tr key={row.id} style={{ borderBottom: `1px solid ${COLOR.border}` }}>
                   <td className="py-2.5 px-3 whitespace-nowrap"><span className="flex items-center gap-1.5"><PlatformIcon platform={row.platform} size={13} /><span className="text-xs font-medium" style={{ color: c }}>{row.platform}</span></span></td>

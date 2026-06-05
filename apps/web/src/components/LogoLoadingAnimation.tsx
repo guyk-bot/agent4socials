@@ -20,9 +20,9 @@ export function LogoLoadingAnimation({ className, 'aria-label': ariaLabel }: Log
       <svg className="a4s-logo-loading__svg" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg" aria-label={ariaLabel ?? 'Loading'} role="img">
         <defs>
           <radialGradient id={gradId} cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#ff7a3a" />
-            <stop offset="45%" stopColor="#ff3d00" />
-            <stop offset="100%" stopColor="#b22200" />
+            <stop className="a4s-logo-loading__sparkle-stop-1" offset="0%" />
+            <stop className="a4s-logo-loading__sparkle-stop-2" offset="45%" />
+            <stop className="a4s-logo-loading__sparkle-stop-3" offset="100%" />
           </radialGradient>
         </defs>
 

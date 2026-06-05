@@ -25,8 +25,8 @@ const PLATFORM_INFO: Record<string, {
     name: 'Instagram',
     description: 'Connect your Instagram account to schedule posts, track performance, and manage conversations from one place.',
     headerIcon: <InstagramIcon size={40} />,
-    buttonGradient: 'from-pink-500 to-orange-600',
-    buttonHover: 'hover:from-pink-600 hover:to-orange-700',
+    buttonGradient: 'from-[#E1306C] to-[#FCAF45]',
+    buttonHover: 'hover:from-[#C13584] hover:to-[#F77737]',
     accentBorder: 'border-pink-200',
     accentHover: 'hover:border-pink-400 hover:bg-pink-50/40',
     functionalities: [

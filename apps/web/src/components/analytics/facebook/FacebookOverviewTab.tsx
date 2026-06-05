@@ -208,7 +208,7 @@ export function FacebookOverviewTab({
                   yAxisId="right"
                   dataKey="posts"
                   name="Posts"
-                  fill="#ff7a00"
+                  fill="#3EE2A7"
                   radius={[4, 4, 0, 0]}
                   barSize={28}
                   isAnimationActive

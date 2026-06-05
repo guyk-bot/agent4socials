@@ -18,26 +18,26 @@ export default function SiteFooter() {
             <div>
               <h4 className="text-xs font-semibold uppercase tracking-wider text-white/50">Product</h4>
               <ul className="mt-4 space-y-3">
-                <li><Link href="/#features" className="hover:text-[#ff8a00] transition-colors">Features</Link></li>
-                <li><Link href="/pricing" className="hover:text-[#ff8a00] transition-colors">Pricing</Link></li>
-                <li><Link href="/#product" className="hover:text-[#ff8a00] transition-colors">Product</Link></li>
-                <li><Link href="/#how-it-works" className="hover:text-[#ff8a00] transition-colors">How it works</Link></li>
-                <li><Link href="/#faq" className="hover:text-[#ff8a00] transition-colors">FAQ</Link></li>
+                <li><Link href="/#features" className="hover:text-[#7AEBC4] transition-colors">Features</Link></li>
+                <li><Link href="/pricing" className="hover:text-[#7AEBC4] transition-colors">Pricing</Link></li>
+                <li><Link href="/#product" className="hover:text-[#7AEBC4] transition-colors">Product</Link></li>
+                <li><Link href="/#how-it-works" className="hover:text-[#7AEBC4] transition-colors">How it works</Link></li>
+                <li><Link href="/#faq" className="hover:text-[#7AEBC4] transition-colors">FAQ</Link></li>
               </ul>
             </div>
             <div>
               <h4 className="text-xs font-semibold uppercase tracking-wider text-white/50">Company</h4>
               <ul className="mt-4 space-y-3">
-                <li><button type="button" onClick={openSignup} className="hover:text-[#ff8a00] transition-colors">Sign up</button></li>
-                <li><button type="button" onClick={openLogin} className="hover:text-[#ff8a00] transition-colors">Log in</button></li>
+                <li><button type="button" onClick={openSignup} className="hover:text-[#7AEBC4] transition-colors">Sign up</button></li>
+                <li><button type="button" onClick={openLogin} className="hover:text-[#7AEBC4] transition-colors">Log in</button></li>
               </ul>
             </div>
             <div>
               <h4 className="text-xs font-semibold uppercase tracking-wider text-white/50">Legal</h4>
               <ul className="mt-4 space-y-3">
-                <li><Link href="/privacy" className="hover:text-[#ff8a00] transition-colors">Privacy</Link></li>
-                <li><Link href="/terms" className="hover:text-[#ff8a00] transition-colors">Terms</Link></li>
-                <li><Link href="/data-deletion" className="hover:text-[#ff8a00] transition-colors">Data deletion</Link></li>
+                <li><Link href="/privacy" className="hover:text-[#7AEBC4] transition-colors">Privacy</Link></li>
+                <li><Link href="/terms" className="hover:text-[#7AEBC4] transition-colors">Terms</Link></li>
+                <li><Link href="/data-deletion" className="hover:text-[#7AEBC4] transition-colors">Data deletion</Link></li>
               </ul>
             </div>
           </div>

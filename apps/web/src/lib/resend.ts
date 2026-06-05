@@ -156,7 +156,7 @@ export async function sendScheduleConfirmationEmail(
       html: `
         <p>Your post was scheduled successfully for <strong>${whenLabel}</strong>.</p>
         <p>${modeText}</p>
-        <p><a href="${baseUrl}/posts" style="color:#ff7a00;font-weight:600">Open Post History</a></p>
+        <p><a href="${baseUrl}/posts" style="color:#3EE2A7;font-weight:600">Open Post History</a></p>
       `,
     });
     if (error) {
@@ -200,8 +200,8 @@ export async function sendScheduledPublishFailureEmail(
         <p><strong>Status:</strong> Failed</p>
         <p><strong>Reason:</strong> ${reason || 'Unknown error'}</p>
         <p>
-          <a href="${baseUrl}/posts" style="color:#ff7a00;font-weight:600">Open Post History</a><br/>
-          <a href="${baseUrl}/help/support" style="color:#ff7a00;font-weight:600">Contact support</a>
+          <a href="${baseUrl}/posts" style="color:#3EE2A7;font-weight:600">Open Post History</a><br/>
+          <a href="${baseUrl}/help/support" style="color:#3EE2A7;font-weight:600">Contact support</a>
         </p>
       `,
     });
@@ -243,7 +243,7 @@ export async function sendBrandFriendInviteEmail(params: {
         <p>${greeting}</p>
         <p><strong>${params.inviterName}</strong> invited you to join the <strong>${params.brandName}</strong> workspace on Agent4Socials.</p>
         <p>Your role: <strong>${params.role}</strong></p>
-        <p><a href="${inviteUrl}" style="color:#ff7a00;font-weight:600">Accept invitation and create account</a></p>
+        <p><a href="${inviteUrl}" style="color:#3EE2A7;font-weight:600">Accept invitation and create account</a></p>
         <p>If you already have an account, log in with this same email address.</p>
         <p>If you cannot find this invitation, check your spam folder.</p>
         <p>Cheers,<br>The Agent4Socials team</p>

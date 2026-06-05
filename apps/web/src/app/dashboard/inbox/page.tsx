@@ -3243,7 +3243,7 @@ function InboxPage() {
                       if (url) openOAuthConnectUrl(url);
                     } catch { /* ignore */ }
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-medium hover:opacity-90"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-[#E1306C] to-[#FCAF45] text-white text-sm font-medium hover:opacity-90"
                 >
                   Reconnect Instagram
                 </button>
@@ -3487,7 +3487,7 @@ function InboxPage() {
                           if (url && typeof url === 'string') openOAuthConnectUrl(url);
                         } catch (_) {}
                       }}
-                      className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-500 to-pink-500 text-white text-sm font-medium hover:opacity-90"
+                      className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#E1306C] to-[#FCAF45] text-white text-sm font-medium hover:opacity-90"
                     >
                       Reconnect via Facebook
                     </button>

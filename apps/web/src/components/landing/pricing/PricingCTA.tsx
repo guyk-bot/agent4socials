@@ -11,7 +11,7 @@ export default function PricingCTA({ onStartFree, onGetPro, dark }: PricingCTAPr
   return (
     <section className="py-16 sm:py-20">
       <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
-        <div className="rounded-3xl border border-[#f4d9bf] bg-gradient-to-b from-[#fff7ed] to-white p-8 shadow-sm sm:p-12">
+        <div className="rounded-3xl border border-[#D4D2FF] bg-gradient-to-b from-[#F5F4FF] to-white p-8 shadow-sm sm:p-12">
           <h2 className="text-2xl font-bold text-[#1a161f] sm:text-3xl">
             Start managing your social media smarter today
           </h2>
@@ -22,7 +22,7 @@ export default function PricingCTA({ onStartFree, onGetPro, dark }: PricingCTAPr
             <button
               type="button"
               onClick={onStartFree}
-              className="w-full rounded-xl border border-[#f2c38d] bg-white px-8 py-3.5 font-semibold text-[#c2410c] transition-all hover:border-[#ea580c] hover:bg-[#fff7ed] sm:w-auto"
+              className="w-full rounded-xl border border-[#D4D2FF] bg-white px-8 py-3.5 font-semibold text-[#5A28D4] transition-all hover:border-[#6E33EF] hover:bg-[#F5F4FF] sm:w-auto"
             >
               Start Free
             </button>
