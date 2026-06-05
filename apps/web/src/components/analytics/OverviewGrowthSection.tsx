@@ -23,7 +23,7 @@ import {
   ReferenceLine,
 } from 'recharts';
 
-// —— Izop logo chart system (aligned with --color-primary) ——
+// —— izop logo chart system (aligned with --color-primary) ——
 const BRAND = {
   primary: '#1C9CFB',
   strong: '#A58DF6',

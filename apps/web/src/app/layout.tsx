@@ -31,7 +31,7 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://agent4socials.com";
 const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
-  name: "Izop",
+  name: "izop",
   url: siteUrl,
   logo: {
     "@type": "ImageObject",
@@ -44,25 +44,25 @@ const organizationJsonLd = {
 export const metadata: Metadata = {
   metadataBase: getMetadataBase(),
   title: {
-    default: "Izop | Schedule Posts & Analytics for Instagram, YouTube, TikTok, Facebook, Twitter & LinkedIn",
-    template: "%s | Izop",
+    default: "izop | Schedule Posts & Analytics for Instagram, YouTube, TikTok, Facebook, Twitter & LinkedIn",
+    template: "%s | izop",
   },
   description: "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. Try for free. From $29/mo.",
   keywords: ["social media scheduler", "schedule Instagram posts", "schedule TikTok", "social media analytics", "post scheduler", "Instagram analytics", "TikTok scheduler", "Facebook scheduler", "LinkedIn scheduler"],
-  authors: [{ name: "Izop" }],
-  creator: "Izop",
+  authors: [{ name: "izop" }],
+  creator: "izop",
   openGraph: {
     type: "website",
     locale: "en_US",
     url: siteUrl,
-    siteName: "Izop",
-    title: "Izop | Schedule Posts & Analytics for All Major Social Platforms",
+    siteName: "izop",
+    title: "izop | Schedule Posts & Analytics for All Major Social Platforms",
     description: "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. Try for free.",
-    images: [{ url: "/logo-192.png?v=30", width: 192, height: 192, alt: "Izop" }],
+    images: [{ url: "/logo-192.png?v=30", width: 192, height: 192, alt: "izop" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Izop | Schedule Posts & Analytics",
+    title: "izop | Schedule Posts & Analytics",
     description: "One dashboard for scheduling and analytics. Try for free.",
     images: ["/logo-192.png?v=30"],
   },
@@ -77,7 +77,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Izop",
+    title: "izop",
   },
 };
 

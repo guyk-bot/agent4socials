@@ -1,5 +1,5 @@
 /** User-facing product name (funnel, app shell, emails, metadata). */
-export const BRAND_NAME = 'Izop';
+export const BRAND_NAME = 'izop';
 
 /** Bumped when shared logo mark assets change (cache bust for browsers and CDNs). */
 export const SITE_LOGO_V = '30';

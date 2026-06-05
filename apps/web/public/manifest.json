@@ -1,6 +1,6 @@
 {
-  "name": "Izop",
-  "short_name": "Izop",
+  "name": "izop",
+  "short_name": "izop",
   "description": "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn.",
   "start_url": "/",
   "display": "standalone",

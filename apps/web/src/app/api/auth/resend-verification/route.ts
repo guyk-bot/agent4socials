@@ -7,7 +7,7 @@ const FROM =
   process.env.RESEND_WELCOME_FROM_EMAIL ||
   process.env.RESEND_FROM_EMAIL ||
   process.env.RESEND_FROM ||
-  'Izop <guyk@agent4socials.com>';
+  'izop <guyk@agent4socials.com>';
 
 const RESEND_COOLDOWN_MS = 30_000;
 const MAX_RESENDS_BEFORE_LOCKOUT = 5;
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
   const { error: emailError } = await resend.emails.send({
     from: FROM,
     to: [email],
-    subject: 'Your Izop verification code',
+    subject: 'Your izop verification code',
     html: `
       <h1>Your verification code</h1>
       <p>Hi${fullName ? ` ${fullName}` : ''},</p>

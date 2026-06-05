@@ -9,7 +9,7 @@ const brandXFont = Bebas_Neue({ weight: '400', subsets: ['latin'] });
 const xSpanClass = `${brandXFont.className} text-red-500 uppercase inline-block align-middle mx-[0.04em] text-[1.22em] leading-none translate-y-[0.06em]`;
 
 type BrandWordmarkProps = {
-  /** Display name; default is plain Izop (no Twitter X in the logo). */
+  /** Display name; default is plain lowercase izop (no Twitter X in the logo). */
   name: string;
   className?: string;
 };
@@ -31,7 +31,7 @@ function isDefaultBrandName(name: string): boolean {
 }
 
 /**
- * Header wordmark: plain Izop (no red X in the logo).
+ * Header wordmark: plain izop (no red X in the logo).
  */
 export function BrandWordmark({ name, className }: BrandWordmarkProps) {
   const n = name.trim();

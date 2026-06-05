@@ -744,7 +744,7 @@ export async function GET(
         fromCache: true,
         stale: true,
         emptyHint:
-          'Showing your saved conversation list while Izop spaces out Meta calls. Tap Retry for a live refresh.',
+          'Showing your saved conversation list while izop spaces out Meta calls. Tap Retry for a live refresh.',
       });
     }
     return NextResponse.json({

@@ -111,7 +111,7 @@ function FacebookSelectContent() {
       <div className="w-full max-w-md space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Connect a Facebook Page</h1>
-          <p className="text-neutral-500 mt-1">Choose which Page you want to connect to Izop.</p>
+          <p className="text-neutral-500 mt-1">Choose which Page you want to connect to izop.</p>
         </div>
         <form onSubmit={handleSubmit} className="card space-y-4">
           <div className="space-y-3">

@@ -20,7 +20,7 @@ export const LINKEDIN_OAUTH_CONSENT_PERMISSIONS: Record<LinkedInConnectMethod, s
   ],
 };
 
-export const LINKEDIN_OAUTH_APP_NAME = 'Izop';
+export const LINKEDIN_OAUTH_APP_NAME = 'izop';
 
 /** Generic member avatar before LinkedIn OAuth (no profile photo yet). */
 export const LINKEDIN_OAUTH_MEMBER_AVATAR_URL = '/linkedin-oauth-member-placeholder.svg';
@@ -29,4 +29,4 @@ export const LINKEDIN_OAUTH_MEMBER_AVATAR_URL = '/linkedin-oauth-member-placehol
 export const LINKEDIN_OAUTH_APP_LOGO_URL = SITE_LOGO_SRC;
 
 /** Shown in footer copy after the user taps Allow on the in-app consent screen. */
-export const LINKEDIN_OAUTH_REDIRECT_DISPLAY_URL = 'Izop';
+export const LINKEDIN_OAUTH_REDIRECT_DISPLAY_URL = 'izop';

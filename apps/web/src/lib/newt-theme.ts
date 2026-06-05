@@ -1,5 +1,5 @@
 /**
- * Izop light-theme brand palette (sampled from logo artwork).
+ * izop light-theme brand palette (sampled from logo artwork).
  * Dark mode keeps legacy orange via globals.css [data-theme='dark'] overrides.
  */
 export const NEWT_CYAN = '#1C9CFB';

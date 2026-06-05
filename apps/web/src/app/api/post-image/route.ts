@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
   try {
     const imgRes = await fetch(freshImageUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; Izop/1.0)',
+        'User-Agent': 'Mozilla/5.0 (compatible; izop/1.0)',
         Accept: 'image/*,*/*',
       },
       cache: 'no-store',
