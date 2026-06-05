@@ -46,7 +46,7 @@ const CANCEL_REASONS: { id: CancelReasonId; label: string }[] = [
 ];
 
 const SHARE_URL = 'https://agent4socials.com';
-const SHARE_TEXT = 'Check out Agent4Socials: schedule posts and analytics for Instagram, YouTube, TikTok, Facebook and more.';
+const SHARE_TEXT = 'Check out Izop: schedule posts and analytics for Instagram, YouTube, TikTok, Facebook and more.';
 const USER_AVATAR_STORAGE_KEY = 'agent4socials-user-avatar-v1';
 const ROLE_GUIDE_URL = '/help/roles-permissions';
 
@@ -80,7 +80,7 @@ const sharePlatforms = [
   },
   {
     name: 'Email',
-    href: () => `mailto:?subject=${encodeURIComponent('Agent4Socials')}&body=${encodeURIComponent(SHARE_TEXT + '\n\n' + SHARE_URL)}`,
+    href: () => `mailto:?subject=${encodeURIComponent('Izop')}&body=${encodeURIComponent(SHARE_TEXT + '\n\n' + SHARE_URL)}`,
     icon: () => (
       <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
@@ -337,7 +337,7 @@ export default function AccountPage() {
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
-          title: 'Agent4Socials',
+          title: 'Izop',
           text: SHARE_TEXT,
           url: SHARE_URL,
         });
@@ -1314,7 +1314,7 @@ export default function AccountPage() {
           </div>
           <div>
             <h2 className="font-semibold text-neutral-900">Share with a friend</h2>
-            <p className="text-sm text-neutral-500">Share Agent4Socials on your favorite app, one tap to share the link.</p>
+            <p className="text-sm text-neutral-500">Share Izop on your favorite app, one tap to share the link.</p>
           </div>
         </div>
         <div className="relative">

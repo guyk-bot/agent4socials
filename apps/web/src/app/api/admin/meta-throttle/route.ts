@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     throttledUntil: until > 0 ? new Date(until).toISOString() : null,
     remainingMs: until > 0 ? Math.max(0, until - Date.now()) : 0,
     remainingMinutes: getMetaThrottleRemainingMinutes(),
-    note: 'This is Agent4Socials app backoff, not the Meta Developer Dashboard rate limit percentage.',
+    note: 'This is Izop app backoff, not the Meta Developer Dashboard rate limit percentage.',
   });
 }
 

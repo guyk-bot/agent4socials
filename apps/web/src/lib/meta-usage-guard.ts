@@ -1,7 +1,7 @@
 /**
  * Meta Graph API throttle guard — global across all Vercel Lambda instances.
  *
- * This is Agent4Socials' own backoff layer. It is NOT the same as the "Rate Limit"
+ * This is Izop' own backoff layer. It is NOT the same as the "Rate Limit"
  * percentages in Meta Developer Dashboard (those can show 10% while we still pause).
  *
  * Target: keep Meta app dashboard usage under ~50%. We react to x-app-usage headers
@@ -45,7 +45,7 @@ let _tableEnsured = false;
 
 /** Shown in Inbox when our backoff blocks a fetch (not when Meta dashboard is at 10%). */
 export const META_APP_BACKOFF_INBOX_MESSAGE =
-  'Agent4Socials paused extra Meta calls for a few minutes after heavy inbox traffic. Your Meta app dashboard can still show plenty of headroom. Tap Retry in a minute or two.';
+  'Izop paused extra Meta calls for a few minutes after heavy inbox traffic. Your Meta app dashboard can still show plenty of headroom. Tap Retry in a minute or two.';
 
 function toNumber(v: unknown): number {
   const n = typeof v === 'number' ? v : Number(v);

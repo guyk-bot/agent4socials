@@ -588,7 +588,7 @@ export default function Home() {
           </div>
           <div className="relative mx-auto max-w-2xl px-4 text-center sm:px-6">
             <h2 className="text-[28px] sm:text-4xl md:text-5xl font-bold tracking-[-0.02em] text-[#1a161f]">Ready to grow your socials?</h2>
-            <p className="mt-5 text-lg text-[#5d5768]">Join creators and businesses who schedule smarter with Agent4Socials.</p>
+            <p className="mt-5 text-lg text-[#5d5768]">Join creators and businesses who schedule smarter with Izop.</p>
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
               <button
                 type="button"

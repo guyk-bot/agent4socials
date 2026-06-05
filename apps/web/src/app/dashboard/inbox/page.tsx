@@ -934,7 +934,7 @@ function InboxPage() {
   // (which would cause infinite re-run loops whenever context state updates).
   const appDataRef = useRef(appData);
   /** Next X (Twitter) inbox fetch for these account IDs should send `manualInboxSync=1` (15m server cooldown). */
-  /** Next conversations fetch sends fresh=1 to clear Agent4Socials Meta backoff (not Meta dashboard limits). */
+  /** Next conversations fetch sends fresh=1 to clear Izop Meta backoff (not Meta dashboard limits). */
   /** Completed warm keys: `${accountId}:${conversationId}` */
   const prefetchedConversationMessagesRef = useRef<Set<string>>(new Set());
   /** In-flight warm promises keyed by `${accountId}:${conversationId}` */

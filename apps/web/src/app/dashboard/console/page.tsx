@@ -2134,11 +2134,11 @@ export default function UnifiedSummaryPage() {
             {performanceMode !== 'growth' && platformDistributionPieData.length > 0 && (
               <div className="relative mt-4 rounded-[16px] border p-4 overflow-hidden" style={{ borderColor: COLOR.border, background: COLOR.card }}>
                 <div className="pointer-events-none absolute inset-0 z-20" aria-hidden>
-                  <span className="absolute left-[16%] top-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
-                  <span className="absolute right-[16%] top-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
-                  <span className="absolute left-1/2 top-[48%] -translate-x-1/2 -translate-y-1/2 text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
-                  <span className="absolute left-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
-                  <span className="absolute right-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
+                  <span className="absolute left-[16%] top-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Izop</span>
+                  <span className="absolute right-[16%] top-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Izop</span>
+                  <span className="absolute left-1/2 top-[48%] -translate-x-1/2 -translate-y-1/2 text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Izop</span>
+                  <span className="absolute left-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Izop</span>
+                  <span className="absolute right-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Izop</span>
                 </div>
                 <div className="relative z-10 flex flex-col">
                 <h4 className="text-sm font-semibold mb-3" style={{ color: COLOR.text }}>
@@ -2335,11 +2335,11 @@ export default function UnifiedSummaryPage() {
             {postsPresetPlatformPieData.length > 0 && (
               <div className="relative mt-4 rounded-[16px] border p-4 overflow-hidden" style={{ borderColor: COLOR.border, background: COLOR.card }}>
                 <div className="pointer-events-none absolute inset-0 z-20" aria-hidden>
-                  <span className="absolute left-[16%] top-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
-                  <span className="absolute right-[16%] top-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
-                  <span className="absolute left-1/2 top-[48%] -translate-x-1/2 -translate-y-1/2 text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
-                  <span className="absolute left-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
-                  <span className="absolute right-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Agent4Socials</span>
+                  <span className="absolute left-[16%] top-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Izop</span>
+                  <span className="absolute right-[16%] top-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Izop</span>
+                  <span className="absolute left-1/2 top-[48%] -translate-x-1/2 -translate-y-1/2 text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Izop</span>
+                  <span className="absolute left-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Izop</span>
+                  <span className="absolute right-[16%] bottom-[18%] text-[14px] font-semibold tracking-wide" style={{ color: 'rgba(102,112,133,0.22)' }}>Izop</span>
                 </div>
                 <div className="relative z-10 flex flex-col">
                   <h4 className="text-sm font-semibold mb-3" style={{ color: COLOR.text }}>

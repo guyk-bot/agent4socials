@@ -14,9 +14,9 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   if (!t?.trim()) return {};
   const data = await getPostForOpen(id, t);
   if (!data) return {};
-  const desc = data.bestDescription || data.content || 'Scheduled post from Agent4Socials';
+  const desc = data.bestDescription || data.content || 'Scheduled post from Izop';
   const title = desc.slice(0, 60) + (desc.length > 60 ? '…' : '') || 'Your post';
-  const ogDescription = desc.slice(0, 300) || 'Scheduled post from Agent4Socials';
+  const ogDescription = desc.slice(0, 300) || 'Scheduled post from Izop';
   const images = data.allImageUrls.length > 0
     ? data.allImageUrls.map((url) => ({ url }))
     : data.firstImageUrl ? [{ url: data.firstImageUrl }] : [];
@@ -42,7 +42,7 @@ function ExpiredLink() {
     <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
       <div className="card max-w-md w-full text-center">
         <p className="text-neutral-600">Link expired or invalid</p>
-        <Link href="/" className="mt-4 inline-block text-[var(--primary)] font-medium">Go to Agent4Socials</Link>
+        <Link href="/" className="mt-4 inline-block text-[var(--primary)] font-medium">Go to Izop</Link>
       </div>
     </div>
   );

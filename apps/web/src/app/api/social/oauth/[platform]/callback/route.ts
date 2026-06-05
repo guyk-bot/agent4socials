@@ -46,7 +46,7 @@ const OAUTH_HEAD = '<meta charset="utf-8"><meta name="robots" content="noindex, 
 
 function oauthErrorHtml(baseUrl: string, message: string, status: number): NextResponse {
   const dashboardUrl = `${baseUrl.replace(/\/+$/, '')}/dashboard`;
-  const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Connection failed</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;">
+  const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Izop – Connection failed</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;">
 <h2 style="color:#b91c1c;">Connection failed</h2>
 <p>${message.replace(/</g, '&lt;')}</p>
 <p><a href="${dashboardUrl}">Back to Dashboard</a></p>
@@ -85,9 +85,9 @@ function oauthSuccessHtml(
   const safePlatform = JSON.stringify(conn.platform);
   const safeUsername = JSON.stringify(conn.username);
   const safeProfilePicture = JSON.stringify(conn.profilePicture);
-  const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Connected</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;">
+  const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Izop – Connected</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;">
 <h2 style="color:#15803d;">Account connected</h2>
-<p>You can close this tab and return to Agent4Socials.</p>
+<p>You can close this tab and return to Izop.</p>
 <script>
 (function () {
   var dashboardUrl = ${safeUrl};
@@ -490,7 +490,7 @@ async function exchangeCode(
     case 'TWITTER': {
       const codeVerifier = options?.twitterCodeVerifier?.trim();
       if (!codeVerifier) {
-        throw new Error('X sign-in session expired. Close this tab, return to Agent4Socials, and click Connect X again.');
+        throw new Error('X sign-in session expired. Close this tab, return to Izop, and click Connect X again.');
       }
       const r = await axios.post(
         'https://api.twitter.com/2/oauth2/token',
@@ -520,7 +520,7 @@ async function exchangeCode(
             `X callback URL mismatch. In the X Developer Portal, set Callback URI exactly to: ${callbackUrl}`
           );
         }
-        throw new Error(`X token exchange failed (HTTP ${r.status}). Try Connect again from Agent4Socials.`);
+        throw new Error(`X token exchange failed (HTTP ${r.status}). Try Connect again from Izop.`);
       }
       const accessToken = r.data.access_token;
       const grantedScope: string = typeof r.data.scope === 'string' ? r.data.scope : (Array.isArray(r.data.scope) ? r.data.scope.join(' ') : '');
@@ -781,7 +781,7 @@ export async function GET(
       if (!resolved) {
         return oauthErrorHtml(
           baseUrl,
-          'Could not find your Agent4Socials account. Sign out and sign in again, then connect Threads.',
+          'Could not find your Izop account. Sign out and sign in again, then connect Threads.',
           400
         );
       }
@@ -1106,7 +1106,7 @@ export async function GET(
         },
       });
       const selectUrl = `${baseUrl}/accounts/facebook/select?pendingId=${pending.id}`;
-      const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Choose Page</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Choose one Page to connect.</p><script>window.location.href = ${JSON.stringify(selectUrl)};</script><p>Redirecting to <a href="${selectUrl}">Choose Page</a>…</p></body></html>`;
+      const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Izop – Choose Page</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Izop</strong> – Choose one Page to connect.</p><script>window.location.href = ${JSON.stringify(selectUrl)};</script><p>Redirecting to <a href="${selectUrl}">Choose Page</a>…</p></body></html>`;
       return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
     } catch (e) {
       console.error('[Social OAuth] pending Facebook create error:', e);
@@ -1230,7 +1230,7 @@ export async function GET(
         },
       });
       const selectUrl = `${baseUrl}/accounts/instagram/select?pendingId=${pending.id}`;
-      const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Agent4Socials – Choose Instagram account</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Agent4Socials</strong> – Choose which Instagram account to connect.</p><script>window.location.href = ${JSON.stringify(selectUrl)};</script><p>Redirecting to <a href="${selectUrl}">Choose account</a>…</p></body></html>`;
+      const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>Izop – Choose Instagram account</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;"><p><strong>Izop</strong> – Choose which Instagram account to connect.</p><script>window.location.href = ${JSON.stringify(selectUrl)};</script><p>Redirecting to <a href="${selectUrl}">Choose account</a>…</p></body></html>`;
       return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
     } catch (e) {
       console.error('[Social OAuth] pending Instagram create error (page picker):', e);

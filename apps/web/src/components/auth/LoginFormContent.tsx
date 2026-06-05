@@ -63,7 +63,7 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold tracking-tight text-[#1a161f]">Welcome back</h2>
-        <p className="mt-1 text-sm text-[#5d5768]">Log in to your Agent4Socials account</p>
+        <p className="mt-1 text-sm text-[#5d5768]">Log in to your Izop account</p>
       </div>
 
       {(profileFailedMessage || profileErrorDetail) && (

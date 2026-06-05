@@ -2,13 +2,14 @@
 
 /** Marketing / funnel header only (e.g. `SiteHeader`). Dashboard uses plain text in `AppHeader`. */
 import { Bebas_Neue } from 'next/font/google';
+import { BRAND_NAME } from '@/lib/site-brand-assets';
 
 const brandXFont = Bebas_Neue({ weight: '400', subsets: ['latin'] });
 
 const xSpanClass = `${brandXFont.className} text-red-500 uppercase inline-block align-middle mx-[0.04em] text-[1.22em] leading-none translate-y-[0.06em]`;
 
 type BrandWordmarkProps = {
-  /** Display name; default is plain Agent4Socials (no Twitter X in the logo). */
+  /** Display name; default is plain Izop (no Twitter X in the logo). */
   name: string;
   className?: string;
 };
@@ -24,15 +25,19 @@ export function BrandMarkX({ className, 'aria-label': ariaLabel }: { className?:
   );
 }
 
+function isDefaultBrandName(name: string): boolean {
+  const n = name.trim().toLowerCase();
+  return !n || n === 'izop' || n === 'agent4socials';
+}
+
 /**
- * Header wordmark: plain Agent4Socials (no red X in the logo).
+ * Header wordmark: plain Izop (no red X in the logo).
  */
 export function BrandWordmark({ name, className }: BrandWordmarkProps) {
   const n = name.trim();
-  const isDefault = !n || n.toLowerCase() === 'agent4socials';
 
-  if (isDefault) {
-    return <span className={className}>Agent4Socials</span>;
+  if (isDefaultBrandName(n)) {
+    return <span className={className}>{BRAND_NAME}</span>;
   }
 
   const parts = n.split(/(X)/);

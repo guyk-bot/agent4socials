@@ -2172,7 +2172,7 @@ export async function GET(
               : undefined,
         },
         permissionHint: !isOrgPage
-          ? 'Share on LinkedIn (w_member_social): publish and comment/reply actions. Listing posts and comments in Agent4Socials uses r_member_social (read), which LinkedIn documents separately and may not be on your app yet. Post impressions use r_member_postAnalytics when available. OpenID alone is basic profile only.'
+          ? 'Share on LinkedIn (w_member_social): publish and comment/reply actions. Listing posts and comments in Izop uses r_member_social (read), which LinkedIn documents separately and may not be on your app yet. Post impressions use r_member_postAnalytics when available. OpenID alone is basic profile only.'
           : 'Community Management (organization Page): r_organization_social for posts and organizationalEntityShareStatistics; w_organization_social for publishing; organizationalEntityFollowerStatistics for follower demographics (see LinkedIn docs for required admin/follower scopes). Reconnect after each product is approved.',
       };
 

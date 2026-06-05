@@ -14,14 +14,14 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-white">1. Acceptance of terms</h2>
             <p className="mt-3 leading-relaxed">
-              By accessing or using Agent4Socials (&quot;Service&quot;, &quot;we,&quot; &quot;us&quot;), you agree to be bound by these Terms of Service and our <Link href="/privacy" className="text-[var(--primary)] hover:opacity-90 underline">Privacy Policy</Link>. If you do not agree, do not use the Service. We may update these terms from time to time; we will post the updated version on this page and update the &quot;Last updated&quot; date. Continued use after changes constitutes acceptance.
+              By accessing or using Izop (&quot;Service&quot;, &quot;we,&quot; &quot;us&quot;), you agree to be bound by these Terms of Service and our <Link href="/privacy" className="text-[var(--primary)] hover:opacity-90 underline">Privacy Policy</Link>. If you do not agree, do not use the Service. We may update these terms from time to time; we will post the updated version on this page and update the &quot;Last updated&quot; date. Continued use after changes constitutes acceptance.
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold text-white">2. Description of service</h2>
             <p className="mt-3 leading-relaxed">
-              Agent4Socials provides a platform that allows you to:
+              Izop provides a platform that allows you to:
             </p>
             <ul className="mt-3 list-disc list-inside space-y-2 leading-relaxed">
               <li>Connect your social media accounts (Instagram, YouTube, TikTok, Facebook, X/Twitter, LinkedIn) via each platform&apos;s official authorization (OAuth).</li>
@@ -104,7 +104,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-white">9. Limitation of liability</h2>
             <p className="mt-3 leading-relaxed">
-              To the maximum extent permitted by law, Agent4Socials and its affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or for loss of data, revenue, or profits. Our total liability for any claim arising from your use of the Service shall not exceed the amount you paid us in the twelve months before the claim.
+              To the maximum extent permitted by law, Izop and its affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or for loss of data, revenue, or profits. Our total liability for any claim arising from your use of the Service shall not exceed the amount you paid us in the twelve months before the claim.
             </p>
           </section>
 

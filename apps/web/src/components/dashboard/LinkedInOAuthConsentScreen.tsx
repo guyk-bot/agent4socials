@@ -17,7 +17,7 @@ type Props = {
   method: LinkedInConnectMethod;
   memberAvatarUrl?: string;
   memberName?: string | null;
-  /** Footer line: where the user goes after Allow (default: Agent4Socials). */
+  /** Footer line: where the user goes after Allow (default: Izop). */
   redirectDisplayUrl?: string;
   onCancel: () => void;
   onAllow: () => void;

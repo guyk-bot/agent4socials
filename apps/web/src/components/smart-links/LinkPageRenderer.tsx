@@ -476,7 +476,7 @@ export function LinkPageRenderer({
               if (isPreview) e.preventDefault();
             }}
           >
-            Made with Agent4Socials
+            Made with Izop
           </a>
         </div>
       </div>

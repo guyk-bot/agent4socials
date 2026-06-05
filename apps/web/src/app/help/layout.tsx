@@ -2,10 +2,10 @@ import type { Metadata } from 'next';
 import AuthenticatedShell from '@/components/AuthenticatedShell';
 
 export const metadata: Metadata = {
-  title: 'Help & Knowledge Base | Agent4Socials',
+  title: 'Help & Knowledge Base | Izop',
   description: 'Connect Facebook, Instagram, TikTok, YouTube, X (Twitter), and LinkedIn. Learn analytics limitations, inbox rules, Reel Analyzer, Composer, and get support.',
   openGraph: {
-    title: 'Help & Knowledge Base | Agent4Socials',
+    title: 'Help & Knowledge Base | Izop',
     description: 'Guides for connecting accounts, platform limitations, analytics, inbox, and support.',
   },
 };

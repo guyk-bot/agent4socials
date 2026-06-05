@@ -41,7 +41,7 @@ export default function LinkedInConnectOptions({ connecting, connectError }: Pro
             <h1 className="text-2xl font-bold text-neutral-900">Connect LinkedIn</h1>
             <p className="text-neutral-500 mt-1 max-w-md mx-auto text-sm">
               Choose personal profile or Company Page. You will sign in at LinkedIn first, review
-              permissions here, then finish connecting in Agent4Socials.
+              permissions here, then finish connecting in Izop.
             </p>
           </div>
           {connectError || localError ? (

@@ -40,7 +40,7 @@ const PLATFORM_INFO: Record<string, {
   },
   FACEBOOK: {
     name: 'Facebook Page',
-    description: 'Connect your Facebook Page to publish posts, manage conversations, and track performance without leaving Agent4Socials.',
+    description: 'Connect your Facebook Page to publish posts, manage conversations, and track performance without leaving Izop.',
     headerIcon: <FacebookIcon size={40} />,
     buttonGradient: 'from-blue-500 to-blue-700',
     buttonHover: 'hover:from-blue-600 hover:to-blue-800',
@@ -57,7 +57,7 @@ const PLATFORM_INFO: Record<string, {
   },
   TIKTOK: {
     name: 'TikTok',
-    description: 'Connect your TikTok account to publish videos, track performance, and manage your content strategy directly from Agent4Socials.',
+    description: 'Connect your TikTok account to publish videos, track performance, and manage your content strategy directly from Izop.',
     headerIcon: <TikTokIcon size={40} />,
     buttonGradient: 'from-black to-neutral-900',
     buttonHover: 'hover:from-neutral-900 hover:to-black',
@@ -92,7 +92,7 @@ const PLATFORM_INFO: Record<string, {
   },
   TWITTER: {
     name: 'X (Twitter)',
-    description: 'Connect your X account to publish posts, schedule content, and monitor performance from Agent4Socials.',
+    description: 'Connect your X account to publish posts, schedule content, and monitor performance from Izop.',
     headerIcon: <XTwitterIcon size={40} className="text-neutral-900" />,
     buttonGradient: 'from-neutral-600 to-neutral-800',
     buttonHover: 'hover:from-neutral-700 hover:to-neutral-900',
@@ -148,7 +148,7 @@ const PLATFORM_INFO: Record<string, {
   THREADS: {
     name: 'Threads',
     description:
-      'Connect your Threads profile to publish posts, schedule content, and view insights from Agent4Socials.',
+      'Connect your Threads profile to publish posts, schedule content, and view insights from Izop.',
     headerIcon: <ThreadsIcon size={40} />,
     buttonGradient: 'from-neutral-800 to-black',
     buttonHover: 'hover:from-neutral-900 hover:to-black',

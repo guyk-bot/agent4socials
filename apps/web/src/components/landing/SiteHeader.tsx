@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { BrandWordmark } from '@/components/BrandWordmark';
-import { SITE_LOGO_PATH } from '@/lib/site-brand-assets';
+import { BRAND_NAME, SITE_LOGO_PATH } from '@/lib/site-brand-assets';
 
 const navLinks = [
   { href: '/#features', label: 'Features' },
@@ -26,12 +26,12 @@ export default function SiteHeader() {
         <Link href="/" className="flex items-center gap-2 sm:gap-2.5 transition-opacity hover:opacity-90 min-w-0">
           <Image
             src={SITE_LOGO_PATH}
-            alt="Agent4Socials"
+            alt={BRAND_NAME}
             width={36}
             height={36}
             className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 object-contain [background:transparent]"
           />
-          <BrandWordmark name="Agent4Socials" className="text-lg sm:text-xl font-semibold tracking-tight text-white truncate" />
+          <BrandWordmark name={BRAND_NAME} className="text-lg sm:text-xl font-semibold tracking-tight text-white truncate" />
         </Link>
         <nav className="hidden items-center gap-6 lg:gap-8 md:flex">
           {navLinks.map((link) => (

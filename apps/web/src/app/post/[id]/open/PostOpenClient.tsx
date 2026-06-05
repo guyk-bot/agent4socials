@@ -357,7 +357,7 @@ export default function PostOpenClient({
           );
         })}
         <p className="text-center text-sm text-neutral-500">
-          <Link href="/" className="text-orange-600 hover:underline">Back to Agent4Socials</Link>
+          <Link href="/" className="text-orange-600 hover:underline">Back to Izop</Link>
         </p>
       </div>
     </div>

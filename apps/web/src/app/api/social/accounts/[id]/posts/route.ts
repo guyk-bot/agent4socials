@@ -269,7 +269,7 @@ async function fetchOpenGraphThumbnail(permalinkUrl: string): Promise<string | n
     const res = await fetch(permalinkUrl, {
       method: 'GET',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; Agent4SocialsBot/1.0; +https://agent4socials.com)',
+        'User-Agent': 'Mozilla/5.0 (compatible; IzopBot/1.0; +https://agent4socials.com)',
         Accept: 'text/html,application/xhtml+xml',
       },
       signal: AbortSignal.timeout(10_000),

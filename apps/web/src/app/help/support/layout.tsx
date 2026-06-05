@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Support ticket | Agent4Socials',
+  title: 'Support ticket | Izop',
   description: 'Submit a support ticket. We\'ll get back to you at your account email.',
 };
 
