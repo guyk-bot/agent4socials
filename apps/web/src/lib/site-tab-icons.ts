@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 /** Bumped when tab favicon assets change (cache bust for browsers and CDNs). */
-export const SITE_TAB_FAVICON_V = "29";
+export const SITE_TAB_FAVICON_V = "30";
 
 /** Tab / PWA icons. Shared so routes with their own `generateMetadata` still emit the same favicon links. */
 export const siteTabIcons: NonNullable<Metadata["icons"]> = {
