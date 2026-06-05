@@ -41,7 +41,7 @@ const FAQ_ITEMS: { question: string; answer: string }[] = [
 function FaqItem({ question, answer, isOpen, onToggle, dark }: { question: string; answer: string; isOpen: boolean; onToggle: () => void; dark?: boolean }) {
   void dark;
   return (
-    <div className="rounded-2xl border border-[#E4E3FF] bg-white overflow-hidden transition-all duration-200 hover:border-[#D4D2FF]">
+    <div className="rounded-2xl border border-[#F3EDFF] bg-white overflow-hidden transition-all duration-200 hover:border-[#C8E4FF]">
       <button
         type="button"
         onClick={onToggle}
@@ -50,9 +50,9 @@ function FaqItem({ question, answer, isOpen, onToggle, dark }: { question: strin
       >
         <span className="font-semibold text-[#1a161f] pr-4">{question}</span>
         {isOpen ? (
-          <ChevronUp className="h-5 w-5 shrink-0 text-[#5A28D4]" aria-hidden />
+          <ChevronUp className="h-5 w-5 shrink-0 text-[#E878C8]" aria-hidden />
         ) : (
-          <ChevronDown className="h-5 w-5 shrink-0 text-[#5A28D4]" aria-hidden />
+          <ChevronDown className="h-5 w-5 shrink-0 text-[#E878C8]" aria-hidden />
         )}
       </button>
       <div
@@ -60,7 +60,7 @@ function FaqItem({ question, answer, isOpen, onToggle, dark }: { question: strin
           isOpen ? 'max-h-[20rem] opacity-100' : 'max-h-0 opacity-0'
         }`}
       >
-        <div className="border-t border-[#E4E3FF] px-5 pb-5 pt-0 sm:px-6 sm:pb-6 sm:pt-0">
+        <div className="border-t border-[#F3EDFF] px-5 pb-5 pt-0 sm:px-6 sm:pb-6 sm:pt-0">
           <p className="text-[#5d5768] text-sm sm:text-base leading-relaxed">{answer}</p>
         </div>
       </div>
@@ -72,7 +72,7 @@ export default function PricingFAQ({ dark }: { dark?: boolean }) {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <section className="border-t border-[#E4E3FF] py-16 sm:py-20">
+    <section className="border-t border-[#F3EDFF] py-16 sm:py-20">
       <div className="mx-auto max-w-3xl px-4 sm:px-6">
         <h2 className="text-2xl font-bold sm:text-3xl text-center text-[#1a161f]">
           Frequently Asked Questions

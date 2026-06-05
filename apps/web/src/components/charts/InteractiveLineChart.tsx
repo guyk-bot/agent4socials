@@ -35,7 +35,7 @@ type InteractiveLineChartProps = {
   tooltipStyle?: 'light' | 'dark';
 };
 
-const defaultColor = '#3EE2A7';
+const defaultColor = '#1C9CFB';
 
 function formatDate(dateStr: string): string {
   try {
@@ -52,7 +52,7 @@ export function InteractiveLineChart({
   height = 200,
   valueLabel = 'Value',
   secondaryData,
-  secondaryColor = '#6E33EF',
+  secondaryColor = '#FA8DDF',
   secondaryLabel,
   className = '',
   crosshair = true,

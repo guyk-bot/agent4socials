@@ -97,12 +97,12 @@ export const PLATFORM_THEMES: Record<string, PlatformTheme> = {
     label: 'Threads',
   },
   DEFAULT: {
-    gradient: 'from-[#3EE2A7] to-[#6E33EF]',
-    solidBg: 'bg-[#3EE2A7]',
-    textColor: 'text-[#2BC492]',
-    borderColor: 'border-[#7AEBC4]',
-    lightBg: 'bg-[#F5F4FF]',
-    hex: '#3EE2A7',
+    gradient: 'from-[#1C9CFB] to-[#FA8DDF]',
+    solidBg: 'bg-[#1C9CFB]',
+    textColor: 'text-[#0B87E8]',
+    borderColor: 'border-[#53BEFA]',
+    lightBg: 'bg-[#E8F4FF]',
+    hex: '#1C9CFB',
     label: 'Social',
   },
 };

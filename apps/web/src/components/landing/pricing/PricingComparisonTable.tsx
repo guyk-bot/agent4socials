@@ -124,15 +124,15 @@ export default function PricingComparisonTable({ dark }: { dark?: boolean }) {
   const CellComponent = dark ? CellDark : Cell;
   void dark;
   return (
-    <section className="py-16 sm:py-20 border-t border-[#E4E3FF]">
+    <section className="py-16 sm:py-20 border-t border-[#F3EDFF]">
       <div className="mx-auto max-w-5xl px-4 sm:px-6">
         <h2 className="text-center text-2xl font-bold text-[#1a161f] sm:text-3xl">
           Compare plans
         </h2>
-        <div className="mt-10 overflow-x-auto rounded-2xl border border-[#E4E3FF] bg-white shadow-sm">
+        <div className="mt-10 overflow-x-auto rounded-2xl border border-[#F3EDFF] bg-white shadow-sm">
           <table className="w-full min-w-[640px] border-collapse text-left">
             <thead>
-              <tr className="border-b border-[#E4E3FF] bg-[#F5F4FF]">
+              <tr className="border-b border-[#F3EDFF] bg-[#E8F4FF]">
                 <th className="py-4 pl-6 pr-4 text-sm font-semibold text-[#1a161f]">Feature</th>
                 <th className="py-4 px-4 text-sm font-semibold text-[#1a161f] text-center">Free</th>
                 <th className="py-4 px-4 text-sm font-semibold text-[#1a161f] text-center">Standard</th>
@@ -142,13 +142,13 @@ export default function PricingComparisonTable({ dark }: { dark?: boolean }) {
             <tbody>
               {SECTIONS.map((section) => (
                 <React.Fragment key={section.title}>
-                  <tr className="border-b border-[#E4E3FF] bg-[#F5F4FF]">
-                    <td colSpan={4} className="py-3 pl-6 pr-4 text-sm font-semibold uppercase tracking-wider text-[#5A28D4]">
+                  <tr className="border-b border-[#F3EDFF] bg-[#E8F4FF]">
+                    <td colSpan={4} className="py-3 pl-6 pr-4 text-sm font-semibold uppercase tracking-wider text-[#E878C8]">
                       {section.title}
                     </td>
                   </tr>
                   {section.rows.map((row) => (
-                    <tr key={row.feature} className="border-b border-[#F5F4FF] hover:bg-[#F5F4FF] transition-colors">
+                    <tr key={row.feature} className="border-b border-[#E8F4FF] hover:bg-[#E8F4FF] transition-colors">
                       <td className="py-3 pl-6 pr-4 text-sm text-[#473f55]">{row.feature}</td>
                       <td className="py-3 px-4 text-center"><Cell value={row.free} /></td>
                       <td className="py-3 px-4 text-center"><Cell value={row.starter} /></td>
@@ -156,7 +156,7 @@ export default function PricingComparisonTable({ dark }: { dark?: boolean }) {
                     </tr>
                   ))}
                   {section.note && (
-                    <tr className="border-b border-[#D4D2FF] bg-[#F5F4FF]">
+                    <tr className="border-b border-[#C8E4FF] bg-[#E8F4FF]">
                       <td colSpan={4} className="py-2 pl-6 pr-4 text-xs text-[#c44536]">
                         {section.note}
                       </td>

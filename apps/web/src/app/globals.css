@@ -4,30 +4,30 @@
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
 @theme {
-  /* Newt light theme: vibrant teal + deep purple (Colour Palette #2). */
-  --color-primary: #3ee2a7;
-  --color-primary-hover: #2bc492;
-  --color-accent-orange-light: #7aebc4;
-  --color-secondary: #6e33ef;
-  --color-secondary-hover: #5a28d4;
-  --color-tertiary: #6e33ef;
-  --color-orange-50: #f5f4ff;
-  --color-orange-100: #e4e3ff;
-  --color-orange-200: #d4d2ff;
-  --color-orange-300: #7aebc4;
-  --color-orange-400: #3ee2a7;
-  --color-orange-500: #3ee2a7;
-  --color-orange-600: #2bc492;
-  --color-orange-700: #5a28d4;
-  --color-orange-800: #5a28d4;
-  --color-orange-900: #4a1fb0;
-  --color-orange-950: #3d1890;
+  /* Izop light theme: cyan + magenta + purple (sampled from logo). */
+  --color-primary: #1C9CFB;
+  --color-primary-hover: #0B87E8;
+  --color-accent-orange-light: #53BEFA;
+  --color-secondary: #FA8DDF;
+  --color-secondary-hover: #E878C8;
+  --color-tertiary: #FA8DDF;
+  --color-orange-50: #E8F4FF;
+  --color-orange-100: #F3EDFF;
+  --color-orange-200: #C8E4FF;
+  --color-orange-300: #53BEFA;
+  --color-orange-400: #1C9CFB;
+  --color-orange-500: #1C9CFB;
+  --color-orange-600: #0B87E8;
+  --color-orange-700: #E878C8;
+  --color-orange-800: #E878C8;
+  --color-orange-900: #8B6EF0;
+  --color-orange-950: #6B4FD9;
   --color-dark: #0b0f1a;
   --color-surface: #111827;
   --color-text-primary: #ffffff;
   --color-text-secondary: #9ca3af;
-  --glow-purple: 0 0 20px rgba(110, 51, 239, 0.45);
-  --glow-soft: 0 0 10px rgba(62, 226, 167, 0.35);
+  --glow-purple: 0 0 20px rgba(250, 141, 223, 0.45);
+  --glow-soft: 0 0 10px rgba(28, 156, 251, 0.35);
   --glass-bg: rgba(255, 255, 255, 0.05);
   --glass-border: rgba(255, 255, 255, 0.08);
   --animate-fade-in: fade-in 0.5s ease-out forwards;
@@ -94,9 +94,9 @@
   --animate-scale-in: scale-in 0.3s ease-out both;
 }
 
-/* CTA gradient: teal → deep purple (Newt funnel palette). */
+/* CTA gradient: logo cyan → magenta. */
 .gradient-cta-pro {
-  background: linear-gradient(135deg, #3ee2a7 0%, #6e33ef 100%);
+  background: linear-gradient(135deg, #1C9CFB 0%, #FA8DDF 100%);
 }
 .gradient-cta-pro:hover {
   filter: brightness(1.07);
@@ -188,7 +188,7 @@
 }
 /* Light teal accents on Account (Add brand +, team invite, brand picker scroll). */
 .brand-add-plus-icon {
-  background: rgba(62, 226, 167, 0.18) !important;
+  background: rgba(28, 156, 251, 0.18) !important;
   color: var(--color-accent-orange-light) !important;
 }
 .brand-add-plus-icon svg {
@@ -204,14 +204,14 @@
   stroke: #ffb86b !important;
 }
 .accent-orange-light-btn {
-  border-color: rgba(62, 226, 167, 0.5) !important;
+  border-color: rgba(28, 156, 251, 0.5) !important;
   color: var(--color-accent-orange-light) !important;
-  background: rgba(62, 226, 167, 0.1) !important;
+  background: rgba(28, 156, 251, 0.1) !important;
 }
 .accent-orange-light-btn:hover:not(:disabled) {
-  background: rgba(62, 226, 167, 0.2) !important;
-  border-color: rgba(62, 226, 167, 0.7) !important;
-  color: #b8f5dc !important;
+  background: rgba(28, 156, 251, 0.2) !important;
+  border-color: rgba(28, 156, 251, 0.7) !important;
+  color: #B8E4FF !important;
 }
 .accent-orange-light-btn svg {
   color: var(--color-accent-orange-light) !important;
@@ -225,8 +225,8 @@
 /* Inbox / comment composer: light-orange AI outline + deep orange Send (matches app buttons). */
 .inbox-reply-ai-btn {
   color: var(--color-accent-orange-light) !important;
-  background: rgba(62, 226, 167, 0.12) !important;
-  border: 1px solid rgba(62, 226, 167, 0.55) !important;
+  background: rgba(28, 156, 251, 0.12) !important;
+  border: 1px solid rgba(28, 156, 251, 0.55) !important;
   box-shadow: none;
   transition:
     background 0.15s ease,
@@ -235,27 +235,27 @@
     opacity 0.15s ease;
 }
 .inbox-reply-ai-btn:hover:not(:disabled) {
-  background: rgba(62, 226, 167, 0.24) !important;
-  border-color: rgba(62, 226, 167, 0.85) !important;
-  color: #b8f5dc !important;
+  background: rgba(28, 156, 251, 0.24) !important;
+  border-color: rgba(28, 156, 251, 0.85) !important;
+  color: #B8E4FF !important;
 }
 .inbox-reply-ai-btn:active:not(:disabled) {
-  background: rgba(62, 226, 167, 0.18) !important;
+  background: rgba(28, 156, 251, 0.18) !important;
 }
 .inbox-reply-ai-btn svg {
   color: var(--color-accent-orange-light) !important;
   stroke: var(--color-accent-orange-light) !important;
 }
 .inbox-reply-ai-btn:hover:not(:disabled) svg {
-  color: #b8f5dc !important;
-  stroke: #b8f5dc !important;
+  color: #B8E4FF !important;
+  stroke: #B8E4FF !important;
 }
 
 .inbox-reply-send-btn {
   color: #fff !important;
   background: var(--button) !important;
   border: 1px solid var(--button) !important;
-  box-shadow: 0 1px 3px rgba(62, 226, 167, 0.35);
+  box-shadow: 0 1px 3px rgba(28, 156, 251, 0.35);
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
@@ -263,14 +263,14 @@
     opacity 0.15s ease;
 }
 .inbox-reply-send-btn:hover:not(:disabled) {
-  background: #2bc492 !important;
-  border-color: #2bc492 !important;
-  box-shadow: 0 2px 10px rgba(43, 196, 146, 0.55);
+  background: #0B87E8 !important;
+  border-color: #0B87E8 !important;
+  box-shadow: 0 2px 10px rgba(11, 135, 232, 0.55);
   filter: brightness(1.08);
 }
 .inbox-reply-send-btn:active:not(:disabled) {
   filter: brightness(0.98);
-  box-shadow: 0 1px 2px rgba(62, 226, 167, 0.3);
+  box-shadow: 0 1px 2px rgba(28, 156, 251, 0.3);
 }
 .inbox-reply-send-btn svg {
   color: #fff !important;
@@ -321,7 +321,7 @@
   color: #171717 !important;
 }
 [data-theme='light'] .inbox-sent-bubble {
-  background-color: rgba(62, 226, 167, 0.32) !important;
+  background-color: rgba(28, 156, 251, 0.32) !important;
   color: #171717 !important;
 }
 
@@ -343,14 +343,14 @@
   border-radius: 999px;
 }
 .brand-select-menu::-webkit-scrollbar-thumb:hover {
-  background: #b8f5dc;
+  background: #B8E4FF;
 }
 .brand-select-option {
   color: inherit;
 }
 .brand-select-option:hover,
 .brand-select-option[aria-selected='true'] {
-  background: rgba(62, 226, 167, 0.22) !important;
+  background: rgba(28, 156, 251, 0.22) !important;
   color: var(--color-accent-orange-light) !important;
 }
 [data-theme='dark'] .brand-select-panel {
@@ -398,14 +398,14 @@
   border-radius: 999px;
 }
 .composer-schedule-scope .composer-schedule-scroll-list::-webkit-scrollbar-thumb:hover {
-  background: #b8f5dc;
+  background: #B8E4FF;
 }
 .composer-schedule-scope .composer-schedule-scroll-item.is-selected {
-  background: rgba(62, 226, 167, 0.28) !important;
+  background: rgba(28, 156, 251, 0.28) !important;
   color: var(--color-accent-orange-light) !important;
 }
 .composer-schedule-scope .composer-schedule-scroll-item:hover:not(.is-selected) {
-  background: rgba(62, 226, 167, 0.14) !important;
+  background: rgba(28, 156, 251, 0.14) !important;
 }
 [data-theme='dark'] .create-brand-modal-scope input[type='text'],
 [data-theme='dark'] .create-brand-modal-scope input[type='email'],
@@ -530,7 +530,7 @@
 }
 
 .upgrade-badge-warm {
-  color: #3ee2a7;
+  color: #1C9CFB;
 }
 
 .brand-card-selected {
@@ -582,15 +582,15 @@
 
 :root {
   font-size: 110%;
-  --primary: #3ee2a7;
-  --primary-hover: #2bc492;
-  --secondary: #6e33ef;
-  --secondary-hover: #5a28d4;
-  --tertiary: #6e33ef;
+  --primary: #1C9CFB;
+  --primary-hover: #0B87E8;
+  --secondary: #FA8DDF;
+  --secondary-hover: #E878C8;
+  --tertiary: #FA8DDF;
   --dark: #0b0f1a;
   --surface: #111827;
-  --button: #3ee2a7;
-  --button-hover: #2bc492;
+  --button: #1C9CFB;
+  --button-hover: #0B87E8;
   --background: #f8fafc;
   --card-bg: #ffffff;
   --foreground: #0f172a;
@@ -600,24 +600,24 @@
   --radius-glass: 20px;
   --font-main: var(--font-inter), ui-sans-serif, sans-serif;
   --font-heading: var(--font-outfit), ui-sans-serif, sans-serif;
-  --gradient-primary: linear-gradient(135deg, #3ee2a7, #6e33ef);
-  --gradient-glow: radial-gradient(circle, rgba(62, 226, 167, 0.35), transparent);
-  --shadow-glow: 0 0 20px rgba(62, 226, 167, 0.45);
-  --shadow-glow-soft: 0 0 10px rgba(62, 226, 167, 0.3);
+  --gradient-primary: linear-gradient(135deg, #1C9CFB, #FA8DDF);
+  --gradient-glow: radial-gradient(circle, rgba(28, 156, 251, 0.35), transparent);
+  --shadow-glow: 0 0 20px rgba(28, 156, 251, 0.45);
+  --shadow-glow-soft: 0 0 10px rgba(28, 156, 251, 0.3);
   --surface-soft: #f8fafc;
   --chart-grid: rgba(15, 23, 42, 0.08);
-  /* Newt light theme: remap Tailwind orange scale to teal + purple brand. */
-  --color-orange-50: #f5f4ff;
-  --color-orange-100: #e4e3ff;
-  --color-orange-200: #d4d2ff;
-  --color-orange-300: #7aebc4;
-  --color-orange-400: #3ee2a7;
-  --color-orange-500: #3ee2a7;
-  --color-orange-600: #2bc492;
-  --color-orange-700: #5a28d4;
-  --color-orange-800: #5a28d4;
-  --color-orange-900: #4a1fb0;
-  --color-orange-950: #3d1890;
+  /* Izop light theme: remap Tailwind orange scale to logo cyan + magenta. */
+  --color-orange-50: #E8F4FF;
+  --color-orange-100: #F3EDFF;
+  --color-orange-200: #C8E4FF;
+  --color-orange-300: #53BEFA;
+  --color-orange-400: #1C9CFB;
+  --color-orange-500: #1C9CFB;
+  --color-orange-600: #0B87E8;
+  --color-orange-700: #E878C8;
+  --color-orange-800: #E878C8;
+  --color-orange-900: #8B6EF0;
+  --color-orange-950: #6B4FD9;
 }
 
 

@@ -147,7 +147,7 @@ function DataSyncBanner({
     THREADS: <ThreadsIcon size={29} />,
   };
   /** Same violet → fuchsia → rose gradient on every platform (matches Upgrade / Get Pro CTA). */
-  const grad = 'from-[#3EE2A7] via-[#3EE2A7] to-[#6E33EF]';
+  const grad = 'from-[#1C9CFB] via-[#1C9CFB] to-[#FA8DDF]';
   const icon = platform ? platformIcons[platform] : null;
   const analyticsStep = dataReady ? 'done' : insightsLoading ? 'loading' : 'pending';
   const postsStep = postsLoading ? 'loading' : 'done';

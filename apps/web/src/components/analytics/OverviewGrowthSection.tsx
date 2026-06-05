@@ -23,13 +23,13 @@ import {
   ReferenceLine,
 } from 'recharts';
 
-// —— Newt brand chart system (aligned with --color-primary) ——
+// —— Izop logo chart system (aligned with --color-primary) ——
 const BRAND = {
-  primary: '#3EE2A7',
-  strong: '#6E33EF',
-  soft: '#7AEBC4',
-  muted: 'rgba(62, 226, 167, 0.45)',
-  bg: 'rgba(62, 226, 167, 0.08)',
+  primary: '#1C9CFB',
+  strong: '#A58DF6',
+  soft: '#53BEFA',
+  muted: 'rgba(28, 156, 251, 0.45)',
+  bg: 'rgba(28, 156, 251, 0.08)',
   grid: 'rgba(0, 0, 0, 0.018)',
 } as const;
 
@@ -137,7 +137,7 @@ function KpiCard({
   const displayValue = useCountUp(value);
   // Distinct solid background per tint; selected = ring + darker border
   const tintStyles: Record<NonNullable<typeof tint>, { bg: string; border: string; borderSelected: string; text: string; trendPositive: string }> = {
-    violet: { bg: 'bg-[#F5F4FF]', border: 'border-[#D4D2FF]', borderSelected: 'border-[#3EE2A7] ring-2 ring-[#3EE2A7]/50', text: 'text-[#0E0E0E]', trendPositive: 'text-[#2BC492]' },
+    violet: { bg: 'bg-[#E8F4FF]', border: 'border-[#C8E4FF]', borderSelected: 'border-[#1C9CFB] ring-2 ring-[#1C9CFB]/50', text: 'text-[#0E0E0E]', trendPositive: 'text-[#0B87E8]' },
     blue: { bg: 'bg-blue-50', border: 'border-blue-200', borderSelected: 'border-blue-500 ring-2 ring-blue-400/50', text: 'text-blue-900', trendPositive: 'text-blue-600' },
     emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', borderSelected: 'border-emerald-500 ring-2 ring-emerald-400/50', text: 'text-emerald-900', trendPositive: 'text-emerald-600' },
     slate: { bg: 'bg-amber-50', border: 'border-amber-200', borderSelected: 'border-amber-500 ring-2 ring-amber-400/50', text: 'text-amber-900', trendPositive: 'text-amber-600' },
@@ -198,7 +198,7 @@ const METRIC_COLORS: Record<LineMetricId, { stroke: string; fill: string }> = {
   visits: { stroke: '#059669', fill: '#6ee7b7' },
   following: { stroke: '#059669', fill: '#6ee7b7' }, // emerald to match Following card
 };
-const POSTS_CHART_COLOR = { stroke: '#6E33EF', fill: '#E4E3FF' };
+const POSTS_CHART_COLOR = { stroke: '#A58DF6', fill: '#F3EDFF' };
 
 function formatYAxisValue(v: number): string {
   if (!Number.isFinite(v)) return '0';
@@ -603,7 +603,7 @@ function ContentActivityChart({
                     <p className="text-neutral-500 text-xs font-medium">{formatDate(labelStr)}</p>
                     <p className="mt-0.5 text-sm">
                       <span className="text-neutral-500">Posts: </span>
-                      <span className="font-semibold text-[#6E33EF] tabular-nums">{postsVal}</span>
+                      <span className="font-semibold text-[#A58DF6] tabular-nums">{postsVal}</span>
                     </p>
                     <p className="mt-0.5 text-sm text-neutral-600">
                       <span className="text-neutral-500">Followers: </span>
@@ -858,7 +858,7 @@ export function OverviewGrowthSection({
                 type="date"
                 value={dateRange.start}
                 onChange={(e) => onDateRangeChange({ ...dateRange, start: e.target.value })}
-                className="text-sm border border-neutral-200 rounded-lg px-3 py-2 text-neutral-700 bg-white focus:ring-2 focus:ring-[#3EE2A7]/20 focus:border-[#3EE2A7]"
+                className="text-sm border border-neutral-200 rounded-lg px-3 py-2 text-neutral-700 bg-white focus:ring-2 focus:ring-[#1C9CFB]/20 focus:border-[#1C9CFB]"
               />
             )}
             {onExport && (

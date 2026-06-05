@@ -72,7 +72,7 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
             <div className="rounded-xl border border-[#d9efdc] bg-[#f2fbf4] px-4 py-3 text-sm text-[#2f9e44]">{profileFailedMessage}</div>
           )}
           {profileErrorDetail && (
-            <div className="rounded-xl border border-[#E4E3FF] bg-[#F5F4FF] px-4 py-2 font-mono text-xs text-[#5d5768]">Detail: {profileErrorDetail}</div>
+            <div className="rounded-xl border border-[#F3EDFF] bg-[#E8F4FF] px-4 py-2 font-mono text-xs text-[#5d5768]">Detail: {profileErrorDetail}</div>
           )}
         </div>
       )}
@@ -82,7 +82,7 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
         type="button"
         onClick={handleGoogle}
         disabled={loading}
-        className="w-full flex items-center justify-center gap-3 rounded-xl border border-[#E4E3FF] bg-white px-4 py-3 text-[#1a161f] transition-colors hover:bg-[#F5F4FF] disabled:opacity-50"
+        className="w-full flex items-center justify-center gap-3 rounded-xl border border-[#F3EDFF] bg-white px-4 py-3 text-[#1a161f] transition-colors hover:bg-[#E8F4FF] disabled:opacity-50"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
           <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -94,8 +94,8 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
       </button>
 
       <div className="relative">
-        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[#E4E3FF]" /></div>
-        <div className="relative flex justify-center text-sm"><span className="bg-[#F5F4FF] px-2 text-[#5d5768]">or log in with email</span></div>
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[#F3EDFF]" /></div>
+        <div className="relative flex justify-center text-sm"><span className="bg-[#E8F4FF] px-2 text-[#5d5768]">or log in with email</span></div>
       </div>
 
       <form className="space-y-4" onSubmit={handleSubmit}>
@@ -103,7 +103,7 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
           <label className="text-sm font-medium text-[#5d5768]">Email address</label>
           <div className="mt-1 relative">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-[#5d5768] pointer-events-none"><Mail size={18} /></div>
-            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="block w-full rounded-xl border border-[#E4E3FF] bg-white py-2.5 pl-10 pr-3 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#6E33EF]/50 focus:outline-none focus:ring-2 focus:ring-[#6E33EF]/25" placeholder="name@example.com" />
+            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="block w-full rounded-xl border border-[#F3EDFF] bg-white py-2.5 pl-10 pr-3 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#FA8DDF]/50 focus:outline-none focus:ring-2 focus:ring-[#FA8DDF]/25" placeholder="name@example.com" />
           </div>
         </div>
         <div>
@@ -115,7 +115,7 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="block w-full rounded-xl border border-[#E4E3FF] bg-white py-2.5 pl-10 pr-10 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#6E33EF]/50 focus:outline-none focus:ring-2 focus:ring-[#6E33EF]/25"
+              className="block w-full rounded-xl border border-[#F3EDFF] bg-white py-2.5 pl-10 pr-10 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#FA8DDF]/50 focus:outline-none focus:ring-2 focus:ring-[#FA8DDF]/25"
               placeholder="••••••••"
               autoComplete="current-password"
             />
@@ -137,7 +137,7 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
 
       <p className="text-center text-sm text-[#5d5768]">
         Don&apos;t have an account?{' '}
-        <button type="button" onClick={openSignup} className="font-semibold text-[#5A28D4] transition-colors hover:text-[#9a3412]">
+        <button type="button" onClick={openSignup} className="font-semibold text-[#E878C8] transition-colors hover:text-[#C85098]">
           Sign up for free
         </button>
       </p>

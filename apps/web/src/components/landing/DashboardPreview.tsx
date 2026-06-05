@@ -8,7 +8,7 @@ export default function DashboardPreview() {
         <div className="absolute top-0 left-0 right-0 h-12 rounded-t-2xl bg-[#fcf8ff] border-b border-[#efe7f7] flex items-center px-4 gap-2">
           <div className="flex gap-2">
             <div className="h-3 w-3 rounded-full bg-[#d7263d]/15 border border-[#d7263d]/50" />
-            <div className="h-3 w-3 rounded-full bg-[#6E33EF]/15 border border-[#6E33EF]/50" />
+            <div className="h-3 w-3 rounded-full bg-[#FA8DDF]/15 border border-[#FA8DDF]/50" />
             <div className="h-3 w-3 rounded-full bg-[#2f9e44]/15 border border-[#2f9e44]/50" />
           </div>
           <div className="mx-auto w-1/2 h-6 rounded-md bg-white border border-[#efe7f7] text-[10px] text-[#8f7ca9] flex items-center justify-center font-mono">

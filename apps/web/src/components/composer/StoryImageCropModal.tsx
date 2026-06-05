@@ -202,7 +202,7 @@ export function StoryImageCropModal({
             type="button"
             onClick={() => void exportCrop()}
             disabled={exporting || !natural.w}
-            className="flex-1 py-2.5 rounded-xl bg-[#3EE2A7] hover:bg-[#2BC492] text-white text-sm font-medium disabled:opacity-50 inline-flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 rounded-xl bg-[#1C9CFB] hover:bg-[#0B87E8] text-white text-sm font-medium disabled:opacity-50 inline-flex items-center justify-center gap-2"
           >
             {exporting ? <Loader2 size={16} className="animate-spin" /> : null}
             {exporting ? 'Saving…' : 'Save'}

@@ -127,7 +127,7 @@ export function FacebookPageViewsTab({
                 <InteractiveLineChart
                   data={primarySeries}
                   valueLabel={primaryLabel}
-                  color="#3EE2A7"
+                  color="#1C9CFB"
                   secondaryData={secondarySeries}
                   secondaryColor="#10b981"
                   secondaryLabel={secondaryLabel}
