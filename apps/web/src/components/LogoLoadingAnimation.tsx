@@ -1,6 +1,6 @@
 'use client';
 
-import { useId } from 'react';
+import { SITE_LOGO_SRC } from '@/lib/site-brand-assets';
 
 type LogoLoadingAnimationProps = {
   className?: string;
@@ -8,43 +8,19 @@ type LogoLoadingAnimationProps = {
 };
 
 /**
- * Inline SVG logo loop used for full-page and overlay loading states.
+ * Inline branded logo loop used for full-page and overlay loading states.
  * Animation CSS lives in `globals.css` under `.a4s-logo-loading`.
  */
 export function LogoLoadingAnimation({ className, 'aria-label': ariaLabel }: LogoLoadingAnimationProps) {
-  const rawId = useId().replace(/[^a-zA-Z0-9_-]/g, '');
-  const gradId = `a4s-sparkle-grad-${rawId}`;
-
   return (
     <div className={`a4s-logo-loading__stage ${className ?? ''}`}>
-      <svg className="a4s-logo-loading__svg" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg" aria-label={ariaLabel ?? 'Loading'} role="img">
-        <defs>
-          <radialGradient id={gradId} cx="50%" cy="50%" r="50%">
-            <stop className="a4s-logo-loading__sparkle-stop-1" offset="0%" />
-            <stop className="a4s-logo-loading__sparkle-stop-2" offset="45%" />
-            <stop className="a4s-logo-loading__sparkle-stop-3" offset="100%" />
-          </radialGradient>
-        </defs>
-
-        <path
-          className="a4s-logo-loading__a-side a4s-logo-loading__a-left"
-          d="M 250,15 L 284,74 L 103,390 L 170,390 L 250,251 L 284,310 L 205,448 L 2,448 Z"
-        />
-
-        <path
-          className="a4s-logo-loading__a-side a4s-logo-loading__a-right"
-          d="M 386,276 L 498,470 L 430,470 L 352,335 Z"
-        />
-
-        <g className="a4s-logo-loading__sparkle" transform="translate(317 196)">
-          <g className="a4s-logo-loading__sparkle-inner">
-            <path
-              d="M 0,-80 C 8,-40 40,-8 80,0 C 40,8 8,40 0,80 C -8,40 -40,8 -80,0 C -40,-8 -8,-40 0,-80 Z"
-              fill={`url(#${gradId})`}
-            />
-          </g>
-        </g>
-      </svg>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={SITE_LOGO_SRC}
+        alt={ariaLabel ?? 'Loading'}
+        className="a4s-logo-loading__mark"
+        draggable={false}
+      />
     </div>
   );
 }

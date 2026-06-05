@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { MessageCircle, PlusSquare, Calendar, Menu, PanelLeft, PanelLeftClose, Link2, Sun, Moon } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
+import { SITE_LOGO_SRC } from '@/lib/site-brand-assets';
 import { useTheme } from '@/context/ThemeContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAuth } from '@/context/AuthContext';
@@ -74,7 +75,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
           {logoUrl ? (
             <img src={logoUrl} alt="" className="h-7 w-7 sm:h-8 sm:w-8 object-contain" />
           ) : (
-            <img src="/logo-white.svg?v=13" alt="Agent4Socials" className="h-7 w-7 sm:h-8 sm:w-8 object-contain block bg-transparent" />
+            <img src={SITE_LOGO_SRC} alt="Agent4Socials" className="h-7 w-7 sm:h-8 sm:w-8 object-contain block bg-transparent" />
           )}
           <span className="font-semibold text-white hidden sm:inline truncate">{appName || 'Agent4Socials'}</span>
         </Link>

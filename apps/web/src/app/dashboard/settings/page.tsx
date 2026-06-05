@@ -3,9 +3,10 @@
 import React, { useRef } from 'react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { Upload, Type, RotateCcw } from 'lucide-react';
+import { SITE_LOGO_SRC } from '@/lib/site-brand-assets';
 
-/** Shown when no custom upload is saved (same asset as dashboard header on dark chrome). */
-const OFFICIAL_LOGO_SRC = '/logo-white.svg?v=13';
+/** Shown when no custom upload is saved (same asset as dashboard header). */
+const OFFICIAL_LOGO_SRC = SITE_LOGO_SRC;
 
 export default function SettingsPage() {
   const {

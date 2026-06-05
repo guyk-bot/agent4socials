@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { BrandWordmark } from '@/components/BrandWordmark';
+import { SITE_LOGO_SRC } from '@/lib/site-brand-assets';
 
 const navLinks = [
   { href: '/#features', label: 'Features' },
@@ -24,7 +25,7 @@ export default function SiteHeader() {
       <div className="mx-auto flex h-14 sm:h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2 sm:gap-2.5 transition-opacity hover:opacity-90 min-w-0">
           <Image
-            src="/logo-white.svg?v=13"
+            src={SITE_LOGO_SRC}
             alt="Agent4Socials"
             width={36}
             height={36}

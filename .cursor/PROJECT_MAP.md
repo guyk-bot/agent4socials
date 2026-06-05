@@ -257,7 +257,7 @@ Layouts worth knowing: `composer/layout.tsx` uses `AuthenticatedShell`.
 | What | Where |
 |------|--------|
 | Next config | `apps/web/next.config.ts` |
-| Public assets | `apps/web/public/` (`logo.svg`, `favicon.svg`, `manifest.json`) |
+| Public assets / brand logo URLs | `apps/web/public/` (`logo-mark.png`, `logo.svg`, favicons); `apps/web/src/lib/site-brand-assets.ts` (`SITE_LOGO_SRC`) |
 | Platform icons | `apps/web/src/components/SocialPlatformIcons.tsx` |
 | Favicon doc | `docs/FAVICON.md` |
 

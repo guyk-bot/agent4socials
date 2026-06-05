@@ -20,6 +20,9 @@ const nextConfig: NextConfig = {
       { source: "/favicon-48.png", headers: faviconCache },
       { source: "/logo-48.png", headers: faviconCache },
       { source: "/logo-192.png", headers: faviconCache },
+      { source: "/logo-mark.png", headers: faviconCache },
+      { source: "/logo.svg", headers: faviconCache },
+      { source: "/logo-white.svg", headers: faviconCache },
     ];
   },
 };

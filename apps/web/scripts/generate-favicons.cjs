@@ -21,6 +21,11 @@ const tabBgHex = "#ffffff";
 const tabFlattenBg = { background: { r: 255, g: 255, b: 255 } };
 
 const MARK_RASTER_MAX = 480;
+/** In-app header / loader logo (transparent background). */
+const UI_LOGO_MAX = 512;
+const logoMarkPngPath = path.join(publicDir, "logo-mark.png");
+const logoSvgOutPath = path.join(publicDir, "logo.svg");
+const logoWhiteSvgOutPath = path.join(publicDir, "logo-white.svg");
 
 const CANVAS = 512;
 const CENTER = CANVAS / 2;
@@ -103,12 +108,66 @@ async function loadGoogleLogoPngBuffer() {
   return loadTabMarkPngBuffer();
 }
 
+function knockOutNearWhite(data, threshold = 248) {
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const min = Math.min(r, g, b);
+    if (min >= threshold) {
+      data[i + 3] = 0;
+    } else if (min >= threshold - 24) {
+      const t = (min - (threshold - 24)) / 24;
+      data[i + 3] = Math.round(data[i + 3] * (1 - t));
+    }
+  }
+}
+
+async function buildUiLogoMarkPngBuffer(filePath) {
+  const { data, info } = await sharp(filePath)
+    .resize(UI_LOGO_MAX, UI_LOGO_MAX, {
+      fit: "inside",
+      withoutEnlargement: true,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  knockOutNearWhite(data);
+  return sharp(data, {
+    raw: { width: info.width, height: info.height, channels: 4 },
+  })
+    .png()
+    .toBuffer();
+}
+
+function buildFlatLogoSvg(pngBuffer, width, height) {
+  const b64 = pngBuffer.toString("base64");
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <image width="${width}" height="${height}" href="data:image/png;base64,${b64}" xlink:href="data:image/png;base64,${b64}"/>
+</svg>`;
+}
+
 (async () => {
   const { default: pngToIco } = await import("png-to-ico");
 
   const tabMarkPng = await loadTabMarkPngBuffer();
   const googleMarkPng = await loadGoogleLogoPngBuffer();
+  const uiLogoSourcePath = fs.existsSync(markSourcePngPath)
+    ? markSourcePngPath
+    : fs.existsSync(googleSearchLogoPath)
+      ? googleSearchLogoPath
+      : null;
+  if (!uiLogoSourcePath) {
+    throw new Error("Add public/favicon-source-mark.png to build UI logo assets.");
+  }
+  const uiLogoMarkPng = await buildUiLogoMarkPngBuffer(uiLogoSourcePath);
+  const uiMeta = await sharp(uiLogoMarkPng).metadata();
+  const uiLogoSvg = buildFlatLogoSvg(uiLogoMarkPng, uiMeta.width, uiMeta.height);
 
+  fs.writeFileSync(logoMarkPngPath, uiLogoMarkPng);
+  fs.writeFileSync(logoSvgOutPath, uiLogoSvg);
+  fs.writeFileSync(logoWhiteSvgOutPath, uiLogoSvg);
   fs.writeFileSync(markCachePath, tabMarkPng);
 
   const svgSquircle = Buffer.from(buildSquircleSvg(tabMarkPng));
@@ -135,7 +194,9 @@ async function loadGoogleLogoPngBuffer() {
 
   const g = fs.existsSync(googleSearchLogoPath) ? "google-search-logo-source.png" : "favicon mark (fallback)";
   const t = fs.existsSync(markSourcePngPath) ? "favicon-source-mark.png" : "logo.svg";
-  console.log(`Wrote tab favicons (squircle) from ${t}; logo-48/192 (circle) from ${g}`);
+  console.log(
+    `Wrote tab favicons (squircle) from ${t}; logo-48/192 (circle) from ${g}; logo-mark.png + logo.svg from ${uiLogoSourcePath}`,
+  );
 })().catch((e) => {
   console.error(e);
   process.exit(1);
