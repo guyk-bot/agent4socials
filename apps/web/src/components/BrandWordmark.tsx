@@ -2,7 +2,7 @@
 
 /** Marketing / funnel header only (e.g. `SiteHeader`). Dashboard uses plain text in `AppHeader`. */
 import { Bebas_Neue } from 'next/font/google';
-import { BRAND_NAME } from '@/lib/site-brand-assets';
+import { BRAND_NAME, isLegacyProductBrandName } from '@/lib/site-brand-assets';
 
 const brandXFont = Bebas_Neue({ weight: '400', subsets: ['latin'] });
 
@@ -25,18 +25,13 @@ export function BrandMarkX({ className, 'aria-label': ariaLabel }: { className?:
   );
 }
 
-function isDefaultBrandName(name: string): boolean {
-  const n = name.trim().toLowerCase();
-  return !n || n === 'izop' || n === 'agent4socials';
-}
-
 /**
- * Header wordmark: plain lowercase iZop (no red X in the logo).
+ * Header wordmark: iZop (no red X in the logo).
  */
 export function BrandWordmark({ name, className }: BrandWordmarkProps) {
   const n = name.trim();
 
-  if (isDefaultBrandName(n)) {
+  if (!n || isLegacyProductBrandName(n)) {
     return <span className={className}>{BRAND_NAME}</span>;
   }
 

@@ -1,6 +1,17 @@
 /** User-facing product name (funnel, app shell, emails, metadata). */
 export const BRAND_NAME = 'iZop';
 
+/** Prior product names that should display as {@link BRAND_NAME}. */
+export function isLegacyProductBrandName(name: string): boolean {
+  const n = name.trim().toLowerCase();
+  return n === 'agent4socials' || n === 'izop';
+}
+
+/** Map stored legacy names (Agent4socials, Izop, izop, etc.) to {@link BRAND_NAME}. */
+export function normalizeLegacyBrandName(name: string): string {
+  return isLegacyProductBrandName(name) ? BRAND_NAME : name.trim();
+}
+
 /** Bumped when shared logo mark assets change (cache bust for browsers and CDNs). */
 export const SITE_LOGO_V = '30';
 

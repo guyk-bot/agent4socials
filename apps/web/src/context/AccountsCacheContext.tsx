@@ -24,6 +24,7 @@ import {
   resolvePostConnectBrandAction,
   prepareBrandMoveNavigation,
 } from '@/lib/brand-account-move';
+import { BRAND_NAME, normalizeLegacyBrandName } from '@/lib/site-brand-assets';
 
 type CachedAccount = {
   id: string;
@@ -103,7 +104,7 @@ function readAccountsFromStorage(): CachedAccount[] {
 }
 
 function defaultBrands(): BrandWorkspace[] {
-  return [{ id: DEFAULT_BRAND_ID, name: 'Agent4socials', imageUrl: null, createdAt: new Date().toISOString() }];
+  return [{ id: DEFAULT_BRAND_ID, name: BRAND_NAME, imageUrl: null, createdAt: new Date().toISOString() }];
 }
 
 function readBrandsFromStorage(): BrandWorkspace[] {
@@ -117,7 +118,7 @@ function readBrandsFromStorage(): BrandWorkspace[] {
       .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
       .map((x) => ({
         id: String(x.id ?? ''),
-        name: String(x.name ?? 'Untitled brand'),
+        name: normalizeLegacyBrandName(String(x.name ?? 'Untitled brand')),
         imageUrl: typeof x.imageUrl === 'string' ? x.imageUrl : null,
         createdAt: String(x.createdAt ?? new Date().toISOString()),
       }))

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { MessageCircle, PlusSquare, Calendar, Menu, PanelLeft, PanelLeftClose, Link2, Sun, Moon } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
-import { BRAND_NAME, SITE_LOGO_SRC } from '@/lib/site-brand-assets';
+import { BRAND_NAME, SITE_LOGO_SRC, normalizeLegacyBrandName } from '@/lib/site-brand-assets';
 import { useTheme } from '@/context/ThemeContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAuth } from '@/context/AuthContext';
@@ -52,6 +52,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
   }, [topNavOpen]);
 
   const isAccountPage = pathname === '/dashboard/account';
+  const displayAppName = normalizeLegacyBrandName(appName || BRAND_NAME);
 
   const navLinkClass = (active: boolean) =>
     `relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-0 ${
@@ -77,7 +78,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
           ) : (
             <img src={SITE_LOGO_SRC} alt={BRAND_NAME} className="h-7 w-7 sm:h-8 sm:w-8 object-contain block bg-transparent" />
           )}
-          <span className="font-semibold text-white hidden sm:inline truncate">{appName || BRAND_NAME}</span>
+          <span className="font-semibold text-white hidden sm:inline truncate">{displayAppName}</span>
         </Link>
         <nav className="hidden md:flex items-center gap-1">
           {topNavItems.map((item) => {

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { BRAND_NAME } from '@/lib/site-brand-assets';
+import { BRAND_NAME, normalizeLegacyBrandName } from '@/lib/site-brand-assets';
 
 type WhiteLabelState = {
   logoUrl: string | null;
@@ -58,8 +58,7 @@ export function WhiteLabelProvider({ children }: { children: React.ReactNode }) 
         if (parsed.backgroundColor) setBackgroundColorState(parsed.backgroundColor);
         if (parsed.textColor) setTextColorState(parsed.textColor);
         if (parsed.appName != null && parsed.appName !== '') {
-          const legacy = parsed.appName.trim().toLowerCase() === 'agent4socials';
-          setAppNameState(legacy ? BRAND_NAME : parsed.appName);
+          setAppNameState(normalizeLegacyBrandName(parsed.appName));
         }
       }
     } catch (_) {}
