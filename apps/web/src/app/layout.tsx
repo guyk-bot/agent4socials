@@ -71,7 +71,7 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true },
   },
-  // Tab favicon: squircle PNGs / ICO / SVG (see SITE_TAB_FAVICON_V). Google / OG logo: logo-192 only (v=28, circular file).
+  // Tab favicon: transparent PNGs / ICO / SVG (see SITE_TAB_FAVICON_V). Google / OG logo: logo-192 only (v=30, circular file).
   icons: siteTabIcons,
   manifest: "/manifest.json",
   appleWebApp: {
