@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { useRef, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import type { BrandAccountMovePrompt } from '@/components/account/BrandAccountMoveModal';
 import { skipBrandMovePromptForPlatform } from '@/lib/brand-platform-connect';
 import {
@@ -13,8 +13,10 @@ import {
   mergeBrandMapAccountRefs,
   isOAuthConnectingFromUrl,
   buildDashboardSuccessRedirect,
+  clearPendingConnectActiveBrand,
   clearPostConnectOAuthUrlParams,
   isPostConnectReconnect,
+  readPendingConnectActiveBrand,
   persistAccountBrandMapSync,
   readAccountBrandMapFromStorage,
   brandMapsEqual,
@@ -176,7 +178,11 @@ type AccountsCacheContextType = {
     accountId: string,
     freshAccounts: CachedAccount[],
     hint?: { platform: string; username?: string },
-    options?: { successRedirect?: string; prevAccountIds?: Set<string> }
+    options?: {
+      successRedirect?: string;
+      prevAccountIds?: Set<string>;
+      activeBrandIdOverride?: string;
+    }
   ) => FinishPostConnectBrandResult;
   /** If this platform is only connected on another brand, open the move prompt. Returns true when shown. */
   maybePromptBrandMoveForPlatform: (platform: string, options?: { afterConnect?: boolean }) => boolean;
@@ -196,8 +202,24 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
   const [accountsLoadError, setAccountsLoadError] = useState<string | null>(null);
   const [brands, setBrands] = useState<BrandWorkspace[]>(readBrandsFromStorage);
   const [accountBrandMap, setAccountBrandMap] = useState<Record<string, string>>(readAccountBrandMapFromStorage);
-  const [activeBrandId, setActiveBrandIdState] = useState<string>(() => readActiveBrandIdFromStorage(readBrandsFromStorage()));
+  const [activeBrandId, setActiveBrandIdState] = useState<string>(() => {
+    const brandsList = readBrandsFromStorage();
+    if (typeof window !== 'undefined' && isOAuthConnectingFromUrl()) {
+      const pendingBrand = readPendingConnectActiveBrand();
+      if (pendingBrand && brandsList.some((b) => b.id === pendingBrand)) {
+        return pendingBrand;
+      }
+    }
+    return readActiveBrandIdFromStorage(brandsList);
+  });
   const [brandMovePrompt, setBrandMovePrompt] = useState<BrandAccountMovePrompt | null>(null);
+
+  useLayoutEffect(() => {
+    if (!isOAuthConnectingFromUrl()) return;
+    const pendingBrand = readPendingConnectActiveBrand();
+    if (!pendingBrand) return;
+    setActiveBrandIdState((current) => (current === pendingBrand ? current : pendingBrand));
+  }, []);
 
   const persist = useCallback((key: string, value: unknown) => {
     if (typeof window === 'undefined') return;
@@ -447,13 +469,22 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       accountId: string,
       freshAccounts: CachedAccount[],
       hint?: { platform: string; username?: string },
-      options?: { successRedirect?: string; prevAccountIds?: Set<string> }
+      options?: {
+        successRedirect?: string;
+        prevAccountIds?: Set<string>;
+        activeBrandIdOverride?: string;
+      }
     ): FinishPostConnectBrandResult => {
       const account =
         freshAccounts.find((a) => a.id === accountId) ??
         allCachedAccounts.find((a) => a.id === accountId);
       const platform = account?.platform ?? hint?.platform;
       if (!platform) return 'noop';
+      const brandForDecision =
+        options?.activeBrandIdOverride &&
+        brands.some((b) => b.id === options.activeBrandIdOverride)
+          ? options.activeBrandIdOverride
+          : activeBrandId;
       const prevAccountIds =
         options?.prevAccountIds ?? new Set(allCachedAccounts.map((a) => a.id));
       const map = { ...readAccountBrandMapFromStorage(), ...accountBrandMap };
@@ -463,7 +494,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
         platform,
         accountRefs,
         map,
-        activeBrandId,
+        brandForDecision,
         prevAccountIds
       );
       const successRedirect =
@@ -472,7 +503,7 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
       const action = resolvePostConnectBrandAction(
         map,
         accountId,
-        activeBrandId,
+        brandForDecision,
         accountRefs,
         { isReconnect, prevAccountIds }
       );
@@ -488,11 +519,12 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
           fromBrandName: fromBrand?.name ?? 'another brand',
         });
         clearPostConnectOAuthUrlParams({ dropConnectingOnly: true });
+        clearPendingConnectActiveBrand();
         return 'prompt';
       }
       if (action.type === 'assign_active') {
         // Never re-home other platform rows on connect; "Move to this brand" uses assignAccountToActiveBrand.
-        const next = buildNextBrandMapForMove(map, accountId, activeBrandId, {
+        const next = buildNextBrandMapForMove(map, accountId, brandForDecision, {
           platform,
           allAccounts: accountRefs,
           assignOnly: true,
@@ -502,9 +534,11 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
           setAccountBrandMap(next);
         }
         clearPostConnectOAuthUrlParams();
+        clearPendingConnectActiveBrand();
         return 'assigned';
       }
       clearPostConnectOAuthUrlParams();
+      clearPendingConnectActiveBrand();
       return 'noop';
     },
     [accountBrandMap, activeBrandId, allCachedAccounts, brands]

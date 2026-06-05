@@ -25,6 +25,8 @@ import { markInboxAccountRecentlyConnected } from '@/lib/inbox/inbox-recent-conn
 import {
   buildDashboardSuccessRedirect,
   clearPostConnectOAuthUrlParams,
+  readCachedAccountIdsFromStorage,
+  readPendingConnectActiveBrand,
   storePendingConnectNav,
 } from '@/lib/brand-account-move';
 import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
@@ -373,6 +375,7 @@ export default function DashboardPage() {
   const {
     cachedAccounts,
     allCachedAccounts,
+    activeBrandId,
     setCachedAccounts,
     accountsLoadError,
     setAccountsLoadError,
@@ -380,6 +383,7 @@ export default function DashboardPage() {
   } = useAccountsCache() ?? {
     cachedAccounts: [],
     allCachedAccounts: [],
+    activeBrandId: 'brand-default',
     setCachedAccounts: () => {},
     accountsLoadError: null,
     setAccountsLoadError: () => {},
@@ -405,7 +409,8 @@ export default function DashboardPage() {
       syncError: string | null | undefined
     ) => void
   >(() => {});
-  const { selectedAccountId, selectedPlatformForConnect, clearSelection, setSelectedAccountId, setSelectedPlatformForConnect } = useSelectedAccount() ?? {
+  const { selectedAccountId, selectedPlatformForConnect, clearSelection, setSelectedAccountId, setSelectedPlatformForConnect } =
+    useSelectedAccount() ?? {
     selectedAccountId: null,
     selectedPlatformForConnect: null,
     clearSelection: () => {},
@@ -693,26 +698,15 @@ export default function DashboardPage() {
     }
   }, [connectParam, router, setSelectedPlatformForConnect]);
 
-  // OAuth return: select the new account before paint so analytics skeleton shows immediately (not "All connected accounts").
+  // OAuth return: defer account selection until brand assignment runs (avoids wrong-brand analytics flash).
   useLayoutEffect(() => {
     if (!accountIdFromUrl || twitter1oaNext === '1') return;
-    setSelectedAccountId(accountIdFromUrl);
     if (postConnectReturn) {
       clearConnectLoadDone(accountIdFromUrl);
       setJustConnected(true);
-      const cachedInsights = readInsightsFromLocalStorage(accountIdFromUrl, 7 * 24 * 60 * 60 * 1000);
-      if (cachedInsights && typeof cachedInsights === 'object') {
-        const row = cachedInsights as Record<string, unknown>;
-        lastInsightsByAccountIdRef.current[accountIdFromUrl] = row;
-        setInsights(row as NonNullable<Parameters<typeof setInsights>[0]>);
-        setInsightsLoading(false);
-      }
-      const cachedPosts = postsCacheRef.current[accountIdFromUrl] ?? appDataRef.current?.getPosts(accountIdFromUrl);
-      if (Array.isArray(cachedPosts) && cachedPosts.length > 0) {
-        setImportedPosts(cachedPosts);
-        setImportedPostsLoading(false);
-      }
+      return;
     }
+    setSelectedAccountId(accountIdFromUrl);
   }, [accountIdFromUrl, postConnectReturn, twitter1oaNext, setSelectedAccountId]);
 
   // When accountId is in URL: clean URL; after connect refresh cache and clear stale per-account data.
@@ -738,52 +732,65 @@ export default function DashboardPage() {
       return;
     }
 
-    const prevAccountIds = new Set(allCachedAccounts.map((a) => a.id));
+    const prevAccountIds = readCachedAccountIdsFromStorage();
+    const pendingBrandId = readPendingConnectActiveBrand() ?? activeBrandId;
+    const urlPlatform = searchParams.get('newPlatform')?.toUpperCase();
+    const urlUsername = searchParams.get('newUsername') ?? undefined;
+
+    const runPostConnect = (list: SocialAccount[]) => {
+      if (!accountIdFromUrl || brandMovedParam || brandKeptParam) return 'skip' as const;
+      const connected = list.find((a) => a.id === accountIdFromUrl);
+      const platform = connected?.platform ?? urlPlatform;
+      if (!platform) return 'skip' as const;
+      return finishPostConnectBrandAssignment(
+        accountIdFromUrl,
+        list,
+        {
+          platform,
+          username: connected?.username ?? urlUsername,
+        },
+        {
+          successRedirect: buildDashboardSuccessRedirect(accountIdFromUrl, platform),
+          prevAccountIds,
+          activeBrandIdOverride: pendingBrandId,
+        }
+      );
+    };
 
     fetchAccounts()
       .then((list) => {
         if (cancelled) return;
         const connected = list.find((a) => a.id === accountIdFromUrl);
-        if (accountIdFromUrl && !brandMovedParam && !brandKeptParam && connected) {
-          const postConnectResult = finishPostConnectBrandAssignment(
-            accountIdFromUrl,
-            list,
-            { platform: connected.platform, username: connected.username },
-            {
-              successRedirect: buildDashboardSuccessRedirect(
-                accountIdFromUrl,
-                connected.platform
-              ),
-              prevAccountIds,
-            }
-          );
-          if (postConnectResult === 'prompt') {
-            setCachedAccounts(list);
-            setSelectedAccountId(accountIdFromUrl);
-            return;
-          }
+        const postConnectResult = runPostConnect(list);
+        if (postConnectResult === 'prompt') {
+          setCachedAccounts(list);
+          clearSelection();
+          router.replace(buildDashboardSuccessRedirect(), { scroll: false });
+          return;
         }
         setCachedAccounts(list);
-        if (connected) {
+        delete postsCacheRef.current[accountIdFromUrl];
+        if (connected && postConnectResult !== 'skip') {
           setSelectedAccountId(accountIdFromUrl);
           markInboxAccountRecentlyConnected(connected.id, connected.platform);
           if (connected.platform === 'INSTAGRAM' || connected.platform === 'FACEBOOK') {
             triggerInboxWarmClient(true);
           }
+          router.replace(
+            buildDashboardSuccessRedirect(accountIdFromUrl, connected.platform),
+            { scroll: false }
+          );
+          return;
         }
-        delete postsCacheRef.current[accountIdFromUrl];
-        if (accountIdFromUrl) {
-          setSelectedAccountId(accountIdFromUrl);
-        }
-        router.replace(
-          accountIdFromUrl
-            ? buildDashboardSuccessRedirect(accountIdFromUrl, connected?.platform)
-            : '/dashboard',
-          { scroll: false }
-        );
+        clearSelection();
+        router.replace('/dashboard', { scroll: false });
       })
       .catch(() => {
-        if (!cancelled) router.replace('/dashboard', { scroll: false });
+        if (cancelled) return;
+        runPostConnect([]);
+        clearPostConnectOAuthUrlParams();
+        clearSelection();
+        router.replace('/dashboard', { scroll: false });
       });
 
     return () => {
@@ -802,6 +809,9 @@ export default function DashboardPage() {
     setSelectedAccountId,
     finishPostConnectBrandAssignment,
     allCachedAccounts,
+    activeBrandId,
+    clearSelection,
+    searchParams,
   ]);
 
   useEffect(() => {
@@ -821,7 +831,8 @@ export default function DashboardPage() {
         clearConnectLoadDone(accountId);
         setJustConnected(true);
       }
-      const prevAccountIds = new Set(allCachedAccounts.map((a) => a.id));
+      const prevAccountIds = readCachedAccountIdsFromStorage();
+      const pendingBrandId = readPendingConnectActiveBrand() ?? activeBrandId;
       void fetchAccounts().then((list) => {
         if (!accountId) return;
         const connected = list.find((a) => a.id === accountId);
@@ -835,11 +846,13 @@ export default function DashboardPage() {
           {
             successRedirect: buildDashboardSuccessRedirect(accountId, plat),
             prevAccountIds,
+            activeBrandIdOverride: pendingBrandId,
           }
         );
         if (postConnectResult === 'prompt') {
           setCachedAccounts(list);
-          setSelectedAccountId(accountId);
+          clearSelection();
+          router.replace(buildDashboardSuccessRedirect(), { scroll: false });
           return;
         }
         setCachedAccounts(list);
@@ -859,6 +872,8 @@ export default function DashboardPage() {
     setCachedAccounts,
     finishPostConnectBrandAssignment,
     allCachedAccounts,
+    activeBrandId,
+    clearSelection,
     router,
   ]);
 
@@ -1888,6 +1903,7 @@ export default function DashboardPage() {
       storePendingConnectNav({
         successRedirect: buildDashboardSuccessRedirect(),
         returnUrl: `${window.location.pathname}${window.location.search}`,
+        activeBrandId,
       });
     }
     try {

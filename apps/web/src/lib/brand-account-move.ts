@@ -6,11 +6,63 @@ export const PENDING_CONNECT_REDIRECT_KEY = 'agent4socials_pending_connect_redir
 /** Where to return on "Keep on other brand" vs success redirect on "Move to this brand". */
 export const PENDING_CONNECT_NAV_KEY = 'agent4socials_pending_connect_nav_v1';
 
+/** Brand workspace active when OAuth started (full-page Twitter redirect loses React state). */
+export const PENDING_CONNECT_ACTIVE_BRAND_KEY = 'agent4socials_pending_connect_active_brand_v1';
+
+/** Must match AccountsCacheContext STORAGE_KEY. */
+export const CACHED_ACCOUNTS_STORAGE_KEY = 'agent4socials_cached_accounts_v2';
+
 export type PendingConnectNav = {
   successRedirect: string;
   returnUrl: string;
   pendingId?: string;
+  activeBrandId?: string;
 };
+
+export function storePendingConnectActiveBrand(brandId: string): void {
+  if (typeof window === 'undefined' || !brandId) return;
+  try {
+    sessionStorage.setItem(PENDING_CONNECT_ACTIVE_BRAND_KEY, brandId);
+  } catch {
+    // ignore
+  }
+}
+
+export function readPendingConnectActiveBrand(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return sessionStorage.getItem(PENDING_CONNECT_ACTIVE_BRAND_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingConnectActiveBrand(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(PENDING_CONNECT_ACTIVE_BRAND_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+/** Account ids persisted before OAuth (excludes URL optimistic inject on return). */
+export function readCachedAccountIdsFromStorage(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const raw =
+      localStorage.getItem(CACHED_ACCOUNTS_STORAGE_KEY) ||
+      sessionStorage.getItem(CACHED_ACCOUNTS_STORAGE_KEY);
+    const stored: unknown = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(stored)) return new Set();
+    const ids = stored
+      .filter((a): a is { id: string } => !!a && typeof a === 'object' && typeof (a as { id?: unknown }).id === 'string')
+      .map((a) => a.id);
+    return new Set(ids);
+  } catch {
+    return new Set();
+  }
+}
 
 const DEFAULT_CONNECT_RETURN_URL = '/dashboard';
 
@@ -100,6 +152,9 @@ export function storePendingConnectNav(nav: PendingConnectNav): void {
   try {
     sessionStorage.setItem(PENDING_CONNECT_NAV_KEY, JSON.stringify(nav));
     sessionStorage.setItem(PENDING_CONNECT_REDIRECT_KEY, nav.successRedirect);
+    if (nav.activeBrandId) {
+      storePendingConnectActiveBrand(nav.activeBrandId);
+    }
   } catch {
     // ignore
   }
@@ -110,6 +165,7 @@ export function clearPendingConnectNav(): void {
   try {
     sessionStorage.removeItem(PENDING_CONNECT_NAV_KEY);
     sessionStorage.removeItem(PENDING_CONNECT_REDIRECT_KEY);
+    clearPendingConnectActiveBrand();
   } catch {
     // ignore
   }
