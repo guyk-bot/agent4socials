@@ -3,8 +3,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { LogoLoadingAnimation } from '@/components/LogoLoadingAnimation';
 
-/** Show loader immediately when loading starts so the default spinner is not shown. */
-const DELAY_MS = 0;
+/** Only show the branded loader if loading lasts longer than this (avoids flash on fast/cached loads). */
+const DELAY_MS = 2000;
 
 type Props = {
   /** When true, we consider "loading". After loading has been true for DELAY_MS, the video overlay is shown. */
@@ -17,8 +17,8 @@ type Props = {
 };
 
 /**
- * Shows the logo loading animation when loading starts (after a short delay if DELAY_MS > 0).
- * If loading finishes before the delay (e.g. cached data), the overlay never appears.
+ * Shows the logo loading animation only after loading has lasted DELAY_MS (2s by default).
+ * If loading finishes sooner (e.g. cached data), the overlay never appears.
  */
 export default function LoadingVideoOverlay({ loading, contained = false }: Props) {
   const [showLoader, setShowLoader] = useState(false);
