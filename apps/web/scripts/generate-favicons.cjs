@@ -31,10 +31,12 @@ const CANVAS = 512;
 const CENTER = CANVAS / 2;
 const RX = Math.round(CANVAS * 0.22);
 const CLIP_R = CENTER;
-/** Tab squircle: large mark (full width when source is square). */
-const TAB_LOGO_FRAC = 1;
+/** Tab squircle: fill most of the canvas so the mark stays legible at 16–32px. */
+const TAB_LOGO_FRAC = 1.08;
 /** Circle (Google): slightly smaller so padded artwork stays inside the inscribed circle. */
-const GOOGLE_LOGO_FRAC = 0.78;
+const GOOGLE_LOGO_FRAC = 0.88;
+/** Tight-crop mark fills this fraction of the raster square before compositing. */
+const TAB_MARK_FILL = 0.94;
 
 function imageAttrs(b64, logoFrac, preserveAR) {
   const L = Math.round(CANVAS * logoFrac);
@@ -51,7 +53,7 @@ function buildSquircleSvg(pngBuffer) {
   <rect width="${CANVAS}" height="${CANVAS}" fill="${tabBgHex}"/>
   <g clip-path="url(#tab-squircle)">
     <rect width="${CANVAS}" height="${CANVAS}" fill="${tabBgHex}"/>
-    ${imageAttrs(b64, TAB_LOGO_FRAC, "xMidYMin meet")}
+    ${imageAttrs(b64, TAB_LOGO_FRAC, "xMidYMid slice")}
   </g>
 </svg>`;
 }
@@ -73,11 +75,40 @@ function rasterize(svgBuffer, size, outPath, flattenBg) {
   return sharp(svgBuffer).resize(size, size).flatten(flattenBg).png().toFile(outPath);
 }
 
-async function rasterizeSourceToMarkBuffer(filePath) {
-  return sharp(filePath)
+async function rasterizeSourceToMarkBuffer(filePath, fillFrac = TAB_MARK_FILL) {
+  const { data, info } = await sharp(filePath)
     .resize(MARK_RASTER_MAX, MARK_RASTER_MAX, {
       fit: "inside",
       withoutEnlargement: true,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  knockOutNearWhite(data);
+  let trimmed = await sharp(data, {
+    raw: { width: info.width, height: info.height, channels: 4 },
+  })
+    .png()
+    .trim({ threshold: 12 })
+    .toBuffer();
+  const trimmedMeta = await sharp(trimmed).metadata();
+  const maxDim = Math.max(trimmedMeta.width || 1, trimmedMeta.height || 1);
+  const targetSize = Math.round(MARK_RASTER_MAX * fillFrac);
+  const scale = targetSize / maxDim;
+  const newW = Math.max(1, Math.round((trimmedMeta.width || 1) * scale));
+  const newH = Math.max(1, Math.round((trimmedMeta.height || 1) * scale));
+  const padLeft = Math.floor((MARK_RASTER_MAX - newW) / 2);
+  const padRight = MARK_RASTER_MAX - newW - padLeft;
+  const padTop = Math.floor((MARK_RASTER_MAX - newH) / 2);
+  const padBottom = MARK_RASTER_MAX - newH - padTop;
+  return sharp(trimmed)
+    .resize(newW, newH, { fit: "fill" })
+    .extend({
+      top: padTop,
+      bottom: padBottom,
+      left: padLeft,
+      right: padRight,
       background: { r: 0, g: 0, b: 0, alpha: 0 },
     })
     .png()
@@ -103,7 +134,7 @@ async function loadTabMarkPngBuffer() {
 
 async function loadGoogleLogoPngBuffer() {
   if (fs.existsSync(googleSearchLogoPath)) {
-    return rasterizeSourceToMarkBuffer(googleSearchLogoPath);
+    return rasterizeSourceToMarkBuffer(googleSearchLogoPath, 0.9);
   }
   return loadTabMarkPngBuffer();
 }
