@@ -36,6 +36,18 @@ import { attachMentionsToInsightsExtra } from '@/lib/analytics/mentions-time-ser
 
 export const maxDuration = 60;
 
+async function resolveInsightsRequestUserId(request: NextRequest): Promise<string | null> {
+  const internalUserId = request.headers.get('X-Internal-Prisma-User-Id')?.trim();
+  const cronSecret =
+    request.headers.get('X-Cron-Secret') ||
+    request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
+  if (internalUserId && process.env.CRON_SECRET && cronSecret === process.env.CRON_SECRET) {
+    const row = await prisma.user.findUnique({ where: { id: internalUserId }, select: { id: true } });
+    return row?.id ?? null;
+  }
+  return getPrismaUserIdFromRequest(request.headers.get('authorization'));
+}
+
 const fbBaseUrl = facebookGraphBaseUrl;
 /** graph.instagram.com — use Instagram host version (see meta-graph-insights), not Facebook Graph version. */
 const igBaseUrl = instagramGraphHostBaseUrl;
@@ -180,7 +192,7 @@ export async function GET(
     impressionsTimeSeries: [] as Array<{ date: string; value: number }>,
     insightsHint: 'Could not load insights. Try reconnecting from the sidebar.',
   });
-  const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
+  const userId = await resolveInsightsRequestUserId(request);
   if (!userId) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }

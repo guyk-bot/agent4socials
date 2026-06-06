@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Bot, Loader2, Send, Sparkles, ExternalLink } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { AysopAnalyticsReportCard, type ReportSnapshotArtifact } from '@/components/aysop/AysopAnalyticsReportCard';
 
 type ChatMessage = {
   id: string;
@@ -16,7 +17,7 @@ type ChatMessage = {
 
 type AysopArtifact =
   | { type: 'accounts'; accounts: Array<{ id: string; platform: string; username: string | null }> }
-  | { type: 'analytics'; accountId: string; platform: string; username: string | null; summary: Record<string, unknown> }
+  | ReportSnapshotArtifact
   | { type: 'posts'; accountId: string; posts: Array<Record<string, unknown>> }
   | { type: 'comments'; accountId: string; postPreview: string; comments: Array<Record<string, unknown>> }
   | { type: 'automation'; keywordSteps: unknown[]; dmWelcomeEnabled: boolean }
@@ -26,10 +27,10 @@ type AysopArtifact =
 const STORAGE_KEY = 'agent4socials_aysop_chat_v1';
 
 const STARTERS = [
+  'Instagram analytics report for the last 30 days',
   'How is my latest post performing?',
-  'How many comments did my last post get?',
   'Summarize analytics across all my platforms',
-  'Draft a carousel caption for my brand',
+  'Show me a chart of TikTok views this month',
   'Set up keyword automation for "LINK"',
 ];
 
@@ -53,24 +54,8 @@ function ArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }) {
             </div>
           );
         }
-        if (a.type === 'analytics') {
-          const s = a.summary;
-          return (
-            <div key={i} className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-sm">
-              <p className="font-medium text-neutral-800">
-                {a.platform} {a.username ? `@${a.username}` : ''}
-              </p>
-              <p className="text-neutral-600 mt-1">
-                Followers: {s.followers != null ? String(s.followers) : 'n/a'} · Posts synced:{' '}
-                {String(s.postsSynced ?? 0)}
-              </p>
-              {s.last30PostsTotals && typeof s.last30PostsTotals === 'object' ? (
-                <p className="text-neutral-500 text-xs mt-1">
-                  Recent totals: {JSON.stringify(s.last30PostsTotals)}
-                </p>
-              ) : null}
-            </div>
-          );
+        if (a.type === 'report_snapshot') {
+          return <AysopAnalyticsReportCard key={i} report={a} />;
         }
         if (a.type === 'composer_link') {
           return (
@@ -225,7 +210,7 @@ export default function AysopChatPanel() {
               className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap ${
+                className={`max-w-[95%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap ${
                   m.role === 'user'
                     ? 'bg-[var(--primary)] text-chrome-text rounded-br-md'
                     : 'bg-white border border-neutral-200 text-neutral-800 rounded-bl-md shadow-sm'

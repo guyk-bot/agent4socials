@@ -4,6 +4,14 @@
 import type { Platform } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getInboxCommentsFromDb, type InboxCommentRow } from '@/lib/inbox/inbox-db-cache';
+import {
+  buildAllAccountsDashboardReports,
+  buildDashboardAnalyticsReport,
+  buildCrossPlatformKpiSummary,
+  resolveDashboardDateRange,
+  type DashboardAnalyticsReport,
+} from '@/lib/ai/dashboard-analytics';
+import { getDefaultAnalyticsDateRange } from '@/lib/calendar-date';
 
 export type AysopToolContext = {
   userId: string;
@@ -11,7 +19,27 @@ export type AysopToolContext = {
 
 export type AysopArtifact =
   | { type: 'accounts'; accounts: Array<{ id: string; platform: string; username: string | null }> }
-  | { type: 'analytics'; accountId: string; platform: string; username: string | null; summary: Record<string, unknown> }
+  | {
+      type: 'report_snapshot';
+      accountId: string;
+      platform: string;
+      platformLabel: string;
+      username: string | null;
+      dateRange: { start: string; end: string };
+      kpis: {
+        followers: number;
+        newFollowers: number;
+        views: number;
+        engagement: number;
+        posts: number;
+      };
+      chartSeries: {
+        followers: Array<{ date: string; value: number }>;
+        views: Array<{ date: string; value: number }>;
+        engagement: Array<{ date: string; value: number }>;
+      };
+      insightsHint?: string;
+    }
   | { type: 'posts'; accountId: string; posts: Array<Record<string, unknown>> }
   | { type: 'comments'; accountId: string; postPreview: string; comments: Array<Record<string, unknown>> }
   | { type: 'automation'; keywordSteps: unknown[]; dmWelcomeEnabled: boolean }
@@ -94,44 +122,45 @@ async function resolveAccountId(
   return null;
 }
 
-async function latestFollowers(accountId: string): Promise<number | null> {
-  const snap = await prisma.accountMetricSnapshot.findFirst({
-    where: { socialAccountId: accountId },
-    orderBy: { metricTimestamp: 'desc' },
-    select: { followersCount: true, fansCount: true },
-  });
-  if (!snap) return null;
-  return snap.followersCount ?? snap.fansCount ?? null;
+function resolveDateRangeFromArgs(args: Record<string, unknown>) {
+  const daysRaw = Number(args.days);
+  const days = [7, 30, 90].includes(daysRaw) ? daysRaw : undefined;
+  const since = typeof args.since === 'string' ? args.since : undefined;
+  const until = typeof args.until === 'string' ? args.until : undefined;
+  if (!days && !since && !until) {
+    return getDefaultAnalyticsDateRange();
+  }
+  return resolveDashboardDateRange({ days, since, until });
 }
 
-async function buildAnalyticsSummary(accountId: string) {
-  const posts = await prisma.importedPost.findMany({
-    where: { socialAccountId: accountId },
-    orderBy: { publishedAt: 'desc' },
-    take: 30,
-    select: {
-      impressions: true,
-      interactions: true,
-      likeCount: true,
-      commentsCount: true,
-      sharesCount: true,
-      repostsCount: true,
-    },
-  });
-  const totals = posts.reduce(
-    (acc, p) => ({
-      impressions: acc.impressions + (p.impressions ?? 0),
-      interactions: acc.interactions + (p.interactions ?? 0),
-      likes: acc.likes + (p.likeCount ?? 0),
-      comments: acc.comments + (p.commentsCount ?? 0),
-      shares: acc.shares + (p.sharesCount ?? 0) + (p.repostsCount ?? 0),
-    }),
-    { impressions: 0, interactions: 0, likes: 0, comments: 0, shares: 0 }
-  );
+function reportToArtifact(report: DashboardAnalyticsReport): AysopArtifact {
   return {
-    followers: await latestFollowers(accountId),
-    postsSynced: posts.length,
-    last30PostsTotals: totals,
+    type: 'report_snapshot',
+    accountId: report.accountId,
+    platform: report.platform,
+    platformLabel: report.platformLabel,
+    username: report.username,
+    dateRange: report.dateRange,
+    kpis: {
+      followers: report.kpis.followers,
+      newFollowers: report.kpis.newFollowers,
+      views: report.kpis.views,
+      engagement: report.kpis.engagement,
+      posts: report.kpis.posts,
+    },
+    chartSeries: report.chartSeries,
+    insightsHint: report.insightsHint,
+  };
+}
+
+function reportToToolResult(report: DashboardAnalyticsReport) {
+  return {
+    platform: report.platformLabel,
+    username: report.username,
+    dateRange: report.dateRange,
+    kpis: report.kpis,
+    source: report.source,
+    insightsHint: report.insightsHint,
   };
 }
 
@@ -189,6 +218,12 @@ const platformParam = {
     'Platform inferred from the user message: Instagram, TikTok, Facebook, YouTube, X/Twitter, LinkedIn, Pinterest, or Threads.',
 };
 
+const dateRangeParams = {
+  days: { type: 'number', description: 'Reporting window: 7, 30, or 90 days. Default 30 when user says "last month" or "last 30 days".' },
+  since: { type: 'string', description: 'Start date YYYY-MM-DD (optional)' },
+  until: { type: 'string', description: 'End date YYYY-MM-DD (optional)' },
+};
+
 export const AYSOP_TOOL_DEFINITIONS = [
   {
     type: 'function' as const,
@@ -203,8 +238,12 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'get_analytics_all_accounts',
       description:
-        'Get analytics summaries for every connected account. Use when the user asks about all platforms, overall performance, or does not name a specific platform.',
-      parameters: { type: 'object', properties: {}, additionalProperties: false },
+        'Dashboard analytics for every connected account in a date range. Same data as the analytics Dashboard. Returns KPIs and chart series for report snapshots.',
+      parameters: {
+        type: 'object',
+        properties: { ...dateRangeParams },
+        additionalProperties: false,
+      },
     },
   },
   {
@@ -212,13 +251,33 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'get_analytics_summary',
       description:
-        'Get analytics for one connected account. Infer platform from the user message (e.g. TikTok, Instagram).',
+        'Dashboard analytics for one platform (required). Must match the platform the user named (Instagram request → platform Instagram). Same numbers as the Dashboard overview.',
       parameters: {
         type: 'object',
         properties: {
           platform: platformParam,
           accountId: { type: 'string', description: 'Optional internal id from connected accounts list' },
+          ...dateRangeParams,
         },
+        required: ['platform'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'get_analytics_report_snapshot',
+      description:
+        'Same as get_analytics_summary but use when the user asks for a report, graph, chart, or visual snapshot. Always returns chart-ready series.',
+      parameters: {
+        type: 'object',
+        properties: {
+          platform: platformParam,
+          accountId: { type: 'string' },
+          ...dateRangeParams,
+        },
+        required: ['platform'],
         additionalProperties: false,
       },
     },
@@ -346,51 +405,34 @@ export async function runAysopTool(
     }
 
     case 'get_analytics_all_accounts': {
-      const accounts = await prisma.socialAccount.findMany({
-        where: { userId: ctx.userId },
-        select: { id: true, platform: true, username: true },
-        orderBy: { createdAt: 'asc' },
-      });
-      const rows = await Promise.all(
-        accounts.map(async (account) => {
-          const summary = await buildAnalyticsSummary(account.id);
-          return { account, summary };
-        })
-      );
+      const dateRange = resolveDateRangeFromArgs(args);
+      const reports = await buildAllAccountsDashboardReports(ctx.userId, dateRange);
+      const cross = await buildCrossPlatformKpiSummary(ctx.userId, dateRange);
       return {
         result: {
-          accounts: rows.map(({ account, summary }) => ({
-            accountId: account.id,
-            platform: account.platform,
-            username: account.username,
-            ...summary,
-          })),
+          dateRange,
+          crossPlatformKpi: cross.kpi,
+          accounts: reports.map(reportToToolResult),
         },
-        artifacts: rows.map(({ account, summary }) => ({
-          type: 'analytics' as const,
-          accountId: account.id,
-          platform: account.platform,
-          username: account.username,
-          summary,
-        })),
+        artifacts: reports.map(reportToArtifact),
       };
     }
 
-    case 'get_analytics_summary': {
+    case 'get_analytics_summary':
+    case 'get_analytics_report_snapshot': {
       const accountId = await resolveAccountId(ctx.userId, args, { required: true });
       const account = await assertAccount(ctx.userId, accountId!);
-      const summary = await buildAnalyticsSummary(accountId!);
+      const requestedPlatform = normalizePlatformArg(args.platform as string | undefined);
+      if (requestedPlatform && account.platform !== requestedPlatform) {
+        throw new Error(
+          `Platform mismatch: user asked about ${requestedPlatform} but resolved account is ${account.platform}. Pass the correct platform from the user message.`
+        );
+      }
+      const dateRange = resolveDateRangeFromArgs(args);
+      const report = await buildDashboardAnalyticsReport(ctx.userId, accountId!, dateRange);
       return {
-        result: { platform: account.platform, username: account.username, ...summary },
-        artifacts: [
-          {
-            type: 'analytics',
-            accountId: accountId!,
-            platform: account.platform,
-            username: account.username,
-            summary,
-          },
-        ],
+        result: reportToToolResult(report),
+        artifacts: [reportToArtifact(report)],
       };
     }
 
