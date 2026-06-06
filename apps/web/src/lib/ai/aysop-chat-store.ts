@@ -201,7 +201,7 @@ export async function updateAysopChatSession(
 
   const explicitTitle =
     typeof body.title === 'string' && body.title.trim() ? body.title.trim().slice(0, 120) : undefined;
-  const messages = body.messages ? normalizeStoredMessages(body.messages).slice(-80) : undefined;
+  const messages = body.messages ? normalizeStoredMessages(body.messages) : undefined;
 
   if (explicitTitle && !messages) {
     try {

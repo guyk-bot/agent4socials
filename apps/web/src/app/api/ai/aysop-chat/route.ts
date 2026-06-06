@@ -5,10 +5,7 @@ import { runAysopChat } from '@/lib/ai/aysop-chat-core';
 import { isAysopLlmConfigured } from '@/lib/ai/llm-config';
 import { trackUsage } from '@/lib/usage-tracking';
 import { normalizeChatAttachments } from '@/lib/ai/aysop-attachments';
-import {
-  AYSOP_CHAT_MAX_STORED_MESSAGES,
-  trimMessagesForLlmContext,
-} from '@/lib/ai/aysop-chat-context-window';
+import { trimMessagesForLlmContext } from '@/lib/ai/aysop-chat-context-window';
 
 export const maxDuration = 60;
 
@@ -62,15 +59,6 @@ export async function POST(request: NextRequest) {
 
   if (messages.length === 0 || messages[messages.length - 1].role !== 'user') {
     return NextResponse.json({ message: 'Send at least one user message.' }, { status: 400 });
-  }
-
-  if (messages.length > AYSOP_CHAT_MAX_STORED_MESSAGES) {
-    return NextResponse.json(
-      {
-        message: `This chat has reached the maximum length (${AYSOP_CHAT_MAX_STORED_MESSAGES} messages). Start a new chat to continue.`,
-      },
-      { status: 400 }
-    );
   }
 
   const { messages: llmMessages, omittedCount } = trimMessagesForLlmContext(messages);
