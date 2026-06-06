@@ -54,17 +54,24 @@ export default function AysopChatSidebar({
         : 'text-neutral-700 dark:text-neutral-300 hover:bg-white/80 dark:hover:bg-neutral-900/80'
     }`;
 
+  const brandContextButtonClass = (active: boolean) =>
+    `block w-full rounded-lg px-3 py-2.5 text-sm font-semibold text-center transition-colors shadow-sm ${
+      active
+        ? 'bg-[var(--button)] text-chrome-text border border-transparent hover:bg-[var(--button-hover)]'
+        : 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-800'
+    }`;
+
   return (
     <aside
       className={`w-[260px] shrink-0 flex flex-col ${borderClass} bg-neutral-50/80 dark:bg-neutral-950 h-full`}
     >
-      <div className="shrink-0 border-b border-neutral-200 dark:border-neutral-800 p-2 space-y-1">
+      <div className="shrink-0 border-b border-neutral-200 dark:border-neutral-800 px-2 pt-4 pb-3 space-y-2">
         {navActive === 'brand-context' && returnChatHref ? (
-          <Link href={returnChatHref} className={navItemClass(true)}>
+          <Link href={returnChatHref} className={brandContextButtonClass(true)}>
             Brand Context
           </Link>
         ) : (
-          <Link href={brandContextHref} className={navItemClass(navActive === 'brand-context')}>
+          <Link href={brandContextHref} className={brandContextButtonClass(navActive === 'brand-context')}>
             Brand Context
           </Link>
         )}

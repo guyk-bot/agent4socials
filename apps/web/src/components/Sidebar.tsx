@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
     BarChart3,
     FileText,
+    History,
     ChevronRight,
     Plus,
     Link2,
@@ -201,7 +202,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const isMainAnalyticsView = pathname === '/dashboard' || pathname === '/dashboard/console';
   const isPostsPage = pathname === '/posts';
   const isSmartLinksPage = pathname?.startsWith('/dashboard/smart-links');
-  const isAysopAiPage = pathname?.startsWith('/dashboard/aysop-ai');
   const isReportsPage = pathname === '/dashboard/reports';
   const isHelpPage = pathname === '/help';
 
@@ -332,34 +332,32 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
       </div>
 
       <div className="mt-6 pt-2 p-3 space-y-0.5 border-t border-neutral-200 shrink-0">
-        {!isAysopAiPage ? (
-          SMART_LINKS_ENABLED ? (
-            <Link
-              href="/dashboard/smart-links"
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isSmartLinksPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
-            >
-              <Link2 size={18} className="shrink-0" />
-              <span>Links</span>
-            </Link>
-          ) : (
-            <span
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-400 cursor-not-allowed select-none"
-              aria-disabled="true"
-              title={SMART_LINKS_COMING_SOON_LABEL}
-            >
-              <Link2 size={18} className="shrink-0" />
-              <span>Links</span>
-              <span className="ml-auto rounded-full border border-[#FA8DDF]/60 bg-[#FA8DDF]/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#e878c8] leading-none">
-                {SMART_LINKS_COMING_SOON_LABEL}
-              </span>
+        {SMART_LINKS_ENABLED ? (
+          <Link
+            href="/dashboard/smart-links"
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isSmartLinksPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
+          >
+            <Link2 size={18} className="shrink-0" />
+            <span>Links</span>
+          </Link>
+        ) : (
+          <span
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-neutral-400 cursor-not-allowed select-none"
+            aria-disabled="true"
+            title={SMART_LINKS_COMING_SOON_LABEL}
+          >
+            <Link2 size={18} className="shrink-0" />
+            <span>Links</span>
+            <span className="rounded-full border border-[#FA8DDF]/60 bg-[#FA8DDF]/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#e878c8] leading-none">
+              {SMART_LINKS_COMING_SOON_LABEL}
             </span>
-          )
-        ) : null}
+          </span>
+        )}
         <Link
           href="/posts"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isPostsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
         >
-          <FileText size={18} className="shrink-0" />
+          <History size={18} className="shrink-0" />
           <span>History</span>
         </Link>
         <Link
@@ -389,12 +387,13 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
       style={{ backgroundColor: 'var(--wl-sidebar-bg, #ffffff)', color: text }}
     >
       {onSidebarToggle && (
-        <div className="md:hidden flex justify-end p-2 border-b border-neutral-200 shrink-0">
+        <div className="flex justify-end p-2 border-b border-neutral-200 shrink-0">
           <button
             type="button"
             onClick={onSidebarToggle}
-            className="p-2 rounded-lg text-neutral-500 hover:bg-neutral-100"
-            aria-label="Hide sidebar"
+            className="p-2 rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            aria-label="Close sidebar"
+            title="Close sidebar"
           >
             <PanelLeftClose size={20} />
           </button>
