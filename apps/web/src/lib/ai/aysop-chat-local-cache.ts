@@ -16,6 +16,29 @@ function listKey(userId: string) {
   return `izop_aysop_chat_list_${userId}`;
 }
 
+function lastActiveKey(userId: string) {
+  return `izop_aysop_chat_last_${userId}`;
+}
+
+export function readLastActiveChatId(userId: string | undefined): string | null {
+  if (!userId) return null;
+  try {
+    const raw = localStorage.getItem(lastActiveKey(userId));
+    return raw?.trim() ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeLastActiveChatId(userId: string | undefined, sessionId: string): void {
+  if (!userId || !sessionId.trim()) return;
+  try {
+    localStorage.setItem(lastActiveKey(userId), sessionId);
+  } catch {
+    /* quota */
+  }
+}
+
 export function readCachedMessages(userId: string | undefined, sessionId: string): CachedChatMessage[] | null {
   if (!userId) return null;
   try {
