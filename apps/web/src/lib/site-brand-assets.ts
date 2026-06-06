@@ -13,7 +13,7 @@ export function normalizeLegacyBrandName(name: string): string {
 }
 
 /** Bumped when shared logo mark assets change (cache bust for browsers and CDNs). */
-export const SITE_LOGO_V = '30';
+export const SITE_LOGO_V = '31';
 
 /** Static path for next/image (no query string; see next.config images.localPatterns). */
 export const SITE_LOGO_PATH = '/logo-mark.png';

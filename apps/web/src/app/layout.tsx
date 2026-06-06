@@ -35,7 +35,7 @@ const organizationJsonLd = {
   url: siteUrl,
   logo: {
     "@type": "ImageObject",
-    url: `${siteUrl.replace(/\/+$/, "")}/logo-192.png?v=30`,
+    url: `${siteUrl.replace(/\/+$/, "")}/logo-192.png?v=31`,
     width: 192,
     height: 192,
   },
@@ -58,20 +58,20 @@ export const metadata: Metadata = {
     siteName: "iZop",
     title: "iZop | Schedule Posts & Analytics for All Major Social Platforms",
     description: "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. Try for free.",
-    images: [{ url: "/logo-192.png?v=30", width: 192, height: 192, alt: "iZop" }],
+    images: [{ url: "/logo-192.png?v=31", width: 192, height: 192, alt: "iZop" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "iZop | Schedule Posts & Analytics",
     description: "One dashboard for scheduling and analytics. Try for free.",
-    images: ["/logo-192.png?v=30"],
+    images: ["/logo-192.png?v=31"],
   },
   robots: {
     index: true,
     follow: true,
     googleBot: { index: true, follow: true },
   },
-  // Tab favicon: transparent PNGs / ICO / SVG (see SITE_TAB_FAVICON_V). Google / OG logo: logo-192 only (v=30, circular file).
+  // Tab favicon: PNGs / ICO / SVG (see SITE_TAB_FAVICON_V). Google / OG logo: logo-192 (v=31, circular file).
   icons: siteTabIcons,
   manifest: "/manifest.json",
   appleWebApp: {

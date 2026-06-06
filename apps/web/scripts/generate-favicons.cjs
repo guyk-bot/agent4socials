@@ -3,7 +3,9 @@ const fs = require("fs");
 const path = require("path");
 
 const publicDir = path.join(__dirname, "..", "public");
-/** Tab / browser favicon (squircle). */
+/** Finished square app icon (purple bg + mark). Preferred when present. */
+const squareIconSourcePath = path.join(publicDir, "brand-app-icon-source.png");
+/** Tab / browser favicon (squircle). Legacy transparent mark extraction. */
 const markSourcePngPath = path.join(publicDir, "favicon-source-mark.png");
 /** Structured data + SERP logo only (circle export). Optional; falls back to tab mark. */
 const googleSearchLogoPath = path.join(publicDir, "google-search-logo-source.png");
@@ -113,7 +115,17 @@ async function rasterizeSourceToMarkBuffer(filePath, fillFrac = TAB_MARK_FILL) {
     .toBuffer();
 }
 
+async function loadSquareIconBuffer(filePath, size = MARK_RASTER_MAX) {
+  return sharp(filePath)
+    .resize(size, size, { fit: "cover", position: "center" })
+    .png()
+    .toBuffer();
+}
+
 async function loadTabMarkPngBuffer() {
+  if (fs.existsSync(squareIconSourcePath)) {
+    return loadSquareIconBuffer(squareIconSourcePath);
+  }
   if (fs.existsSync(markSourcePngPath)) {
     return rasterizeSourceToMarkBuffer(markSourcePngPath);
   }
@@ -131,6 +143,9 @@ async function loadTabMarkPngBuffer() {
 }
 
 async function loadGoogleLogoPngBuffer() {
+  if (fs.existsSync(squareIconSourcePath)) {
+    return loadSquareIconBuffer(squareIconSourcePath);
+  }
   if (fs.existsSync(googleSearchLogoPath)) {
     return rasterizeSourceToMarkBuffer(googleSearchLogoPath, 0.9);
   }
@@ -199,15 +214,19 @@ function buildFlatLogoSvg(pngBuffer, width, height) {
 
   const tabMarkPng = await loadTabMarkPngBuffer();
   const googleMarkPng = await loadGoogleLogoPngBuffer();
-  const uiLogoSourcePath = fs.existsSync(markSourcePngPath)
-    ? markSourcePngPath
-    : fs.existsSync(googleSearchLogoPath)
-      ? googleSearchLogoPath
-      : null;
+  const uiLogoSourcePath = fs.existsSync(squareIconSourcePath)
+    ? squareIconSourcePath
+    : fs.existsSync(markSourcePngPath)
+      ? markSourcePngPath
+      : fs.existsSync(googleSearchLogoPath)
+        ? googleSearchLogoPath
+        : null;
   if (!uiLogoSourcePath) {
-    throw new Error("Add public/favicon-source-mark.png to build UI logo assets.");
+    throw new Error("Add public/brand-app-icon-source.png or public/favicon-source-mark.png to build UI logo assets.");
   }
-  const uiLogoMarkPng = await buildUiLogoMarkPngBuffer(uiLogoSourcePath);
+  const uiLogoMarkPng = fs.existsSync(squareIconSourcePath)
+    ? await loadSquareIconBuffer(squareIconSourcePath, UI_LOGO_MAX)
+    : await buildUiLogoMarkPngBuffer(uiLogoSourcePath);
   const uiMeta = await sharp(uiLogoMarkPng).metadata();
   const uiLogoSvg = buildFlatLogoSvg(uiLogoMarkPng, uiMeta.width, uiMeta.height);
 
@@ -238,10 +257,18 @@ function buildFlatLogoSvg(pngBuffer, width, height) {
   const icoBuffer = await pngToIco([png16, png32, png48, png64]);
   fs.writeFileSync(path.join(publicDir, "favicon.ico"), icoBuffer);
 
-  const g = fs.existsSync(googleSearchLogoPath) ? "google-search-logo-source.png" : "favicon mark (fallback)";
-  const t = fs.existsSync(markSourcePngPath) ? "favicon-source-mark.png" : "logo.svg";
+  const g = fs.existsSync(squareIconSourcePath)
+    ? "brand-app-icon-source.png"
+    : fs.existsSync(googleSearchLogoPath)
+      ? "google-search-logo-source.png"
+      : "favicon mark (fallback)";
+  const t = fs.existsSync(squareIconSourcePath)
+    ? "brand-app-icon-source.png"
+    : fs.existsSync(markSourcePngPath)
+      ? "favicon-source-mark.png"
+      : "logo.svg";
   console.log(
-    `Wrote transparent tab favicons from ${t}; logo-48/192 (circle) from ${g}; logo-mark.png + logo.svg from ${uiLogoSourcePath}`,
+    `Wrote tab favicons from ${t}; logo-48/192 (circle) from ${g}; logo-mark.png + logo.svg from ${uiLogoSourcePath}`,
   );
 })().catch((e) => {
   console.error(e);
