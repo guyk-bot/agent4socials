@@ -21,7 +21,7 @@ export default function SiteHeader() {
   const { openLogin, openSignup } = useAuthModal();
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-[#0f0f14]/95 backdrop-blur-[18px]">
+    <header className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-[var(--dark)]/95 backdrop-blur-[18px]">
       <div className="mx-auto flex h-14 sm:h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2 sm:gap-2.5 transition-opacity hover:opacity-90 min-w-0">
           <Image
@@ -69,7 +69,7 @@ export default function SiteHeader() {
         </div>
       </div>
       {mobileOpen && (
-        <nav className="md:hidden border-t border-white/10 bg-[#0f0f14]/98 backdrop-blur-[18px] px-4 py-4 flex flex-col gap-1">
+        <nav className="md:hidden border-t border-white/10 bg-[var(--dark)]/98 backdrop-blur-[18px] px-4 py-4 flex flex-col gap-1">
           {navLinks.map((link) => (
             <Link
               key={link.href}

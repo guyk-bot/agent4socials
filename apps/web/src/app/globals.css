@@ -22,7 +22,7 @@
   --color-orange-800: #E878C8;
   --color-orange-900: #8B6EF0;
   --color-orange-950: #6B4FD9;
-  --color-dark: #0b0f1a;
+  --color-dark: #170027;
   --color-surface: #111827;
   --color-text-primary: #ffffff;
   --color-text-secondary: #9ca3af;
@@ -587,7 +587,7 @@
   --secondary: #FA8DDF;
   --secondary-hover: #E878C8;
   --tertiary: #FA8DDF;
-  --dark: #0b0f1a;
+  --dark: #170027;
   --surface: #111827;
   --button: #1C9CFB;
   --button-hover: #0B87E8;
@@ -650,7 +650,7 @@
   --surface-soft: #1f1f1f;
   --chart-grid: rgba(212, 212, 216, 0.18);
   --wl-sidebar-bg: #000000;
-  --dark: #000000;
+  --dark: #170027;
   color-scheme: dark;
   /* Restore legacy Tailwind orange scale in dark mode. */
   --color-orange-50: #fff7ed;
