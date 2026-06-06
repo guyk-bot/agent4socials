@@ -28,7 +28,7 @@ export const topNavItems = [
   { icon: MessageCircle, label: 'Inbox', href: '/dashboard/inbox', badgeKey: 'inbox' as const },
   { icon: PlusSquare, label: 'Composer', href: '/composer' },
   { icon: Calendar, label: 'Calendar', href: '/calendar' },
-  { icon: Link2, label: 'Smart Links', href: '/dashboard/smart-links', comingSoon: true as const },
+  { icon: Link2, label: 'Links', href: '/dashboard/smart-links', comingSoon: true as const },
   { icon: Brain, label: `${BRAND_NAME} AI`, href: '/dashboard/aysop-ai' },
 ];
 
@@ -77,8 +77,18 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
     }`;
 
   const comingSoonBadge = (
-    <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-chrome-text/70">
+    <span className="rounded-full border border-[#FA8DDF]/60 bg-[#FA8DDF]/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#ffc8ef] leading-none">
       {SMART_LINKS_COMING_SOON_LABEL}
+    </span>
+  );
+
+  const renderComingSoonNav = (item: (typeof topNavItems)[number]) => (
+    <span className="flex flex-col items-center gap-0.5">
+      {comingSoonBadge}
+      <span className="flex items-center gap-2">
+        <item.icon size={18} />
+        {item.label}
+      </span>
     </span>
   );
 
@@ -126,7 +136,6 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
               <>
                 <item.icon size={18} />
                 {item.label}
-                {'comingSoon' in item && item.comingSoon ? comingSoonBadge : null}
                 {badge > 0 && (
                   <span
                     title={inboxBadgeTitle}
@@ -141,11 +150,11 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
               return (
                 <span
                   key={item.href}
-                  className={navLinkClass(false, true)}
+                  className={`${navLinkClass(false, true)} py-1.5`}
                   aria-disabled="true"
                   title={SMART_LINKS_COMING_SOON_LABEL}
                 >
-                  {content}
+                  {renderComingSoonNav(item)}
                 </span>
               );
             }
@@ -242,13 +251,15 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
                 return (
                   <span
                     key={item.href}
-                    className={mobileLinkClass}
+                    className={`${mobileLinkClass} flex-col items-start gap-1 py-3`}
                     aria-disabled="true"
                     title={SMART_LINKS_COMING_SOON_LABEL}
                   >
-                    <item.icon size={18} className="shrink-0" />
-                    <span className="flex-1">{item.label}</span>
                     {comingSoonBadge}
+                    <span className="flex items-center gap-3">
+                      <item.icon size={18} className="shrink-0" />
+                      <span>{item.label}</span>
+                    </span>
                   </span>
                 );
               }
