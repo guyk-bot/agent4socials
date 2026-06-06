@@ -8,7 +8,7 @@ export const maxDuration = 60;
 
 /**
  * POST /api/ai/aysop-chat
- * Body: { messages: { role: 'user'|'assistant', content: string }[], accountId?: string }
+ * Body: { messages: { role: 'user'|'assistant', content: string }[] }
  */
 export async function POST(request: NextRequest) {
   if (!process.env.OPENAI_API_KEY?.trim()) {
@@ -25,7 +25,6 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json()) as {
     messages?: Array<{ role?: string; content?: string }>;
-    accountId?: string | null;
   };
 
   const messages = (body.messages ?? [])
@@ -44,7 +43,7 @@ export async function POST(request: NextRequest) {
   try {
     const { reply, artifacts } = await runAysopChat({
       messages,
-      ctx: { userId, accountId: body.accountId ?? null },
+      ctx: { userId },
     });
     void trackUsage(userId, 'ai_generation', 1);
     return NextResponse.json({ reply, artifacts });

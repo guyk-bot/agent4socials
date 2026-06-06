@@ -12,7 +12,6 @@ import {
     Zap,
     Sparkles,
     Gem,
-    Bot,
     PanelLeftClose,
     HelpCircle,
 } from 'lucide-react';
@@ -205,7 +204,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const isAutomationPage = pathname === '/dashboard/automation';
   const isHashtagPoolPage = pathname === '/dashboard/hashtag-pool';
   const isAiAssistantPage = pathname === '/dashboard/ai-assistant';
-  const isAysopAiPage = pathname === '/dashboard/aysop-ai';
   const isReportsPage = pathname === '/dashboard/reports';
   const isHelpPage = pathname === '/help';
 
@@ -356,13 +354,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         >
           <Hash size={18} className="shrink-0" />
           <span>Hashtag Pool</span>
-        </Link>
-        <Link
-          href="/dashboard/aysop-ai"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isAysopAiPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
-        >
-          <Bot size={18} className="shrink-0" />
-          <span>{BRAND_NAME} AI</span>
         </Link>
         <Link
           href="/dashboard/ai-assistant"

@@ -13,26 +13,43 @@ import { prisma } from '@/lib/db';
 
 const MAX_TOOL_ROUNDS = 6;
 
-function buildSystemPrompt(accountHint: string | null): string {
+function formatAccountCatalog(
+  accounts: Array<{ id: string; platform: string; username: string | null }>
+): string {
+  if (!accounts.length) return 'Connected accounts: none yet. User should connect platforms in Console.';
+  const lines = accounts.map(
+    (a) => `- ${a.platform}${a.username ? ` @${a.username}` : ''} (id: ${a.id})`
+  );
+  return ['Connected accounts (use platform name in tools; never ask user to pick an account):', ...lines].join(
+    '\n'
+  );
+}
+
+function buildSystemPrompt(accountCatalog: string): string {
   return [
     `You are ${BRAND_NAME} AI, the social media copilot inside the ${BRAND_NAME} dashboard.`,
-    'You help creators manage connected platforms: analytics, comments, keyword automations, captions, and publishing.',
+    'You help creators manage all connected platforms: analytics, comments, keyword automations, captions, and publishing.',
+    '',
+    accountCatalog,
+    '',
+    'Platform routing (critical):',
+    '- Infer which platform the user means from their message (TikTok, Instagram, Facebook, YouTube, X/Twitter, LinkedIn, Pinterest, Threads).',
+    '- When they ask generally ("my analytics", "all platforms", "summarize everything"), call get_analytics_all_accounts.',
+    '- When they name a platform or content type clearly tied to one (e.g. "TikTok video", "IG reel"), pass that platform to single-account tools.',
+    '- For "latest post" without a platform, call get_latest_post_comment_stats with no platform to search across all accounts.',
+    '- Never ask the user to select an account or platform from a dropdown. You already know all connected accounts.',
     '',
     'Capabilities (use tools):',
-    '- Pull analytics summaries and recent post performance from synced data.',
-    '- Check how many comments a post received; ask before listing full comment text.',
+    '- Pull analytics for one platform or all platforms from synced data.',
+    '- Check comment counts; ask before listing full comment text.',
     '- Show comments only after the user confirms (e.g. "yes", "show me").',
-    '- Offer to draft replies or set up keyword automations; confirm before saving automation or sending replies.',
-    '- Draft captions and open Composer for images, videos, carousels, or reels (user uploads media in Composer).',
+    '- Offer keyword automations; confirm before saving.',
+    '- Draft captions and open Composer for images, videos, carousels, or reels.',
     '',
     'Conversation style:',
     '- Be concise, friendly, and proactive.',
     '- Example: if latest post has 10 comments, say "Your latest post has 10 comments. Want me to show them?" and wait.',
-    '- If user agrees, call fetch_post_comments.',
-    '- After showing comments, offer to draft replies or set keyword automation.',
-    '',
-    accountHint ? `Default account context: ${accountHint}` : 'No account selected; ask which connected account to use if needed.',
-    'Do not invent metrics or comments; always use tools for live data.',
+    '- Do not invent metrics or comments; always use tools for live data.',
     'Plain text only in replies (no markdown bold). No em dashes.',
   ].join('\n');
 }
@@ -43,17 +60,14 @@ export async function runAysopChat(args: {
   messages: AysopChatInputMessage[];
   ctx: AysopToolContext;
 }): Promise<{ reply: string; artifacts: AysopArtifact[] }> {
-  let accountHint: string | null = null;
-  if (args.ctx.accountId) {
-    const acc = await prisma.socialAccount.findFirst({
-      where: { id: args.ctx.accountId, userId: args.ctx.userId },
-      select: { platform: true, username: true },
-    });
-    if (acc) accountHint = `${acc.platform} @${acc.username} (${args.ctx.accountId})`;
-  }
+  const accounts = await prisma.socialAccount.findMany({
+    where: { userId: args.ctx.userId },
+    select: { id: true, platform: true, username: true },
+    orderBy: { createdAt: 'asc' },
+  });
 
   const thread: OpenAIChatMessageWithTools[] = [
-    { role: 'system', content: buildSystemPrompt(accountHint) },
+    { role: 'system', content: buildSystemPrompt(formatAccountCatalog(accounts)) },
     ...args.messages.map((m) => ({ role: m.role, content: m.content })),
   ];
 

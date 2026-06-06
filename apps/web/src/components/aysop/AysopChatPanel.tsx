@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { Bot, Loader2, Send, Sparkles, ExternalLink } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
-import { useAccountsCache } from '@/context/AccountsCacheContext';
 
 type ChatMessage = {
   id: string;
@@ -29,9 +28,9 @@ const STORAGE_KEY = 'agent4socials_aysop_chat_v1';
 const STARTERS = [
   'How is my latest post performing?',
   'How many comments did my last post get?',
+  'Summarize analytics across all my platforms',
   'Draft a carousel caption for my brand',
   'Set up keyword automation for "LINK"',
-  'Summarize my account analytics',
 ];
 
 function ArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }) {
@@ -105,9 +104,6 @@ function ArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }) {
 
 export default function AysopChatPanel() {
   const { user } = useAuth();
-  const cache = useAccountsCache();
-  const accounts = cache?.cachedAccounts ?? [];
-  const [accountId, setAccountId] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -140,11 +136,6 @@ export default function AysopChatPanel() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  useEffect(() => {
-    if (accountId || !accounts.length) return;
-    setAccountId(accounts[0].id);
-  }, [accounts, accountId]);
-
   const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
@@ -159,7 +150,7 @@ export default function AysopChatPanel() {
         const payload = next.map((m) => ({ role: m.role, content: m.content }));
         const res = await api.post<{ reply: string; artifacts?: AysopArtifact[] }>(
           '/ai/aysop-chat',
-          { messages: payload, accountId: accountId || null },
+          { messages: payload },
           { timeout: 90_000 }
         );
         setMessages((prev) => [
@@ -180,7 +171,7 @@ export default function AysopChatPanel() {
         setLoading(false);
       }
     },
-    [accountId, loading, messages]
+    [loading, messages]
   );
 
   const clearChat = () => {
@@ -192,26 +183,10 @@ export default function AysopChatPanel() {
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)] max-h-[820px] rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
       <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-neutral-100 bg-[var(--dark)] text-chrome-text">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-1">
           <Bot size={22} className="text-[#53BEFA]" />
           <span className="font-semibold">{BRAND_NAME} AI</span>
         </div>
-        <select
-          value={accountId}
-          onChange={(e) => setAccountId(e.target.value)}
-          className="ml-auto text-sm rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-chrome-text max-w-[220px]"
-          aria-label="Account context"
-        >
-          {accounts.length === 0 ? (
-            <option value="">No accounts connected</option>
-          ) : (
-            accounts.map((a) => (
-              <option key={a.id} value={a.id} className="text-neutral-900">
-                {a.platform} {a.username ? `@${a.username}` : ''}
-              </option>
-            ))
-          )}
-        </select>
         <button
           type="button"
           onClick={clearChat}
@@ -227,8 +202,8 @@ export default function AysopChatPanel() {
             <Sparkles className="mx-auto text-[var(--primary)] mb-3" size={32} />
             <p className="text-neutral-700 font-medium">Your social copilot</p>
             <p className="text-sm text-neutral-500 mt-1 max-w-md mx-auto">
-              Ask about analytics, comments, automations, or draft posts for images, video, and carousels.
-              Upload media in Composer when ready to publish.
+              Ask about any connected platform or all of them at once. Analytics, comments, automations,
+              and captions for images, video, and carousels. Upload media in Composer when ready to publish.
             </p>
             <div className="flex flex-wrap justify-center gap-2 mt-6">
               {STARTERS.map((s) => (
