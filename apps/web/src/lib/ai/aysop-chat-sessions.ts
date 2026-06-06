@@ -55,6 +55,19 @@ const GROUP_ORDER: ChatDateGroup[] = [
   'Older',
 ];
 
+/** Chats with messages or a custom title; always include the active chat. */
+export function visibleChatSessions(
+  sessions: AysopChatSessionSummary[],
+  activeId: string | null
+): AysopChatSessionSummary[] {
+  return sessions.filter(
+    (s) =>
+      s.id === activeId ||
+      Boolean(s.preview?.trim()) ||
+      (s.title.trim() !== '' && s.title !== 'New chat')
+  );
+}
+
 export function groupChatSessions(
   sessions: AysopChatSessionSummary[]
 ): Array<{ label: ChatDateGroup; sessions: AysopChatSessionSummary[] }> {

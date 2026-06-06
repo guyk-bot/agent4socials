@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
-import { previewFromMessages, type StoredAysopMessage } from '@/lib/ai/aysop-chat-sessions';
-
-function parseMessages(raw: unknown): StoredAysopMessage[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.filter(
-    (m) =>
-      m &&
-      typeof m === 'object' &&
-      (m.role === 'user' || m.role === 'assistant') &&
-      typeof m.content === 'string'
-  ) as StoredAysopMessage[];
-}
+import { previewFromMessages } from '@/lib/ai/aysop-chat-sessions';
+import { normalizeStoredMessages } from '@/lib/ai/aysop-chat-persist';
+import { ensureAysopChatTable } from '@/lib/ai/ensure-aysop-chat-table';
 
 function toSummary(row: {
   id: string;
@@ -21,7 +12,7 @@ function toSummary(row: {
   createdAt: Date;
   messages: unknown;
 }) {
-  const messages = parseMessages(row.messages);
+  const messages = normalizeStoredMessages(row.messages);
   return {
     id: row.id,
     title: row.title,
@@ -37,6 +28,7 @@ export async function GET(request: NextRequest) {
   if (!userId) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
   try {
+    await ensureAysopChatTable();
     const rows = await prisma.aysopChatSession.findMany({
       where: { userId },
       orderBy: { updatedAt: 'desc' },
@@ -55,6 +47,7 @@ export async function POST(request: NextRequest) {
   if (!userId) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
   try {
+    await ensureAysopChatTable();
     const row = await prisma.aysopChatSession.create({
       data: { userId, title: 'New chat', messages: [] },
       select: { id: true, title: true, updatedAt: true, createdAt: true, messages: true },
