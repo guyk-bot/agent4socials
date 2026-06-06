@@ -19,6 +19,7 @@ import {
   AysopMessageAttachments,
   AysopPendingAttachments,
 } from '@/components/aysop/AysopMessageAttachments';
+import { AysopChatMessageContent } from '@/components/aysop/AysopChatMessageContent';
 
 export type ChatMessage = {
   id: string;
@@ -263,7 +264,7 @@ export default function AysopChatPanel({
                     : 'bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-bl-md shadow-sm'
                 }`}
               >
-                {m.content ? m.content : null}
+                {m.content ? <AysopChatMessageContent content={m.content} variant={m.role} /> : null}
                 {m.attachments?.length ? (
                   <AysopMessageAttachments attachments={m.attachments} variant={m.role} />
                 ) : null}

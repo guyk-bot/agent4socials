@@ -20,6 +20,7 @@ import { formatMetricNumber } from '@/lib/metric-format';
 import type { AysopArtifact, AppViewId } from '@/lib/ai/aysop-artifacts';
 import { AysopAnalyticsReportCard } from '@/components/aysop/AysopAnalyticsReportCard';
 import { AysopComposerPostDraftCard } from '@/components/aysop/AysopComposerPostDraftCard';
+import { PostContentPreviewThumb } from '@/components/PostContentPreviewThumb';
 
 const VIEW_ICONS: Partial<Record<AppViewId, React.ReactNode>> = {
   dashboard: <BarChart2 size={18} className="text-[var(--primary)]" />,
@@ -195,16 +196,44 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
             <div key={key} className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 text-sm">
               <p className="font-medium text-neutral-800 dark:text-neutral-200 mb-2">Recent posts</p>
               <ul className="space-y-2 max-h-52 overflow-y-auto">
-                {a.posts.map((p, j) => (
-                  <li key={j} className="border-l-2 border-[var(--primary)] pl-2">
-                    <p className="text-neutral-800 dark:text-neutral-200 line-clamp-2">{String(p.preview ?? 'Post')}</p>
-                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
-                      {p.likes != null ? `${p.likes} likes` : ''}
-                      {p.commentsCount != null ? ` · ${p.commentsCount} comments` : ''}
-                      {p.impressions != null ? ` · ${p.impressions} views` : ''}
-                    </p>
-                  </li>
-                ))}
+                {a.posts.map((p, j) => {
+                  const permalink = typeof p.permalinkUrl === 'string' ? p.permalinkUrl.trim() : '';
+                  const row = (
+                    <div className="flex gap-2.5 min-w-0">
+                      <PostContentPreviewThumb
+                        platform={a.platform ?? null}
+                        mediaType={typeof p.mediaType === 'string' ? p.mediaType : null}
+                        thumbnailUrl={typeof p.thumbnailUrl === 'string' ? p.thumbnailUrl : null}
+                        className="w-12 h-12"
+                        imgClassName="w-12 h-12 rounded-lg object-cover shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-neutral-800 dark:text-neutral-200 line-clamp-2">{String(p.preview ?? 'Post')}</p>
+                        <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                          {p.likes != null ? `${p.likes} likes` : ''}
+                          {p.commentsCount != null ? ` · ${p.commentsCount} comments` : ''}
+                          {p.impressions != null ? ` · ${p.impressions} views` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                  return (
+                    <li key={j} className="border-l-2 border-[var(--primary)] pl-2">
+                      {permalink ? (
+                        <a
+                          href={permalink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800/60 -mx-1 px-1 py-0.5 transition-colors"
+                        >
+                          {row}
+                        </a>
+                      ) : (
+                        row
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
               <OpenLink href="/dashboard" label="Open Dashboard posts" />
             </div>

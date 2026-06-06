@@ -659,7 +659,7 @@ export async function runAysopTool(
 
     case 'get_recent_posts': {
       const accountId = await resolveAccountId(ctx.userId, args, { required: true });
-      await assertAccount(ctx.userId, accountId!);
+      const account = await assertAccount(ctx.userId, accountId!);
       const limit = Math.min(Math.max(Number(args.limit) || 5, 1), 10);
       const posts = await prisma.importedPost.findMany({
         where: { socialAccountId: accountId! },
@@ -685,11 +685,12 @@ export async function runAysopTool(
         likes: p.likeCount,
         commentsCount: p.commentsCount,
         mediaType: p.mediaType,
+        thumbnailUrl: p.thumbnailUrl,
         permalinkUrl: p.permalinkUrl,
       }));
       return {
         result: { posts: mapped },
-        artifacts: [{ type: 'posts', accountId: accountId!, posts: mapped }],
+        artifacts: [{ type: 'posts', accountId: accountId!, platform: account.platform, posts: mapped }],
       };
     }
 

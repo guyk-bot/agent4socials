@@ -13,7 +13,11 @@ import {
   TooltipProps,
 } from 'recharts';
 import { formatMetricNumber } from '@/lib/metric-format';
-import { sparseMonthTickFormatterFromRows } from '@/lib/analytics/chart-axis-date';
+import {
+  buildKeyDateTicks,
+  sparseMonthTickFormatter,
+  sparseMonthTickFormatterFromRows,
+} from '@/lib/analytics/chart-axis-date';
 
 export type TimeSeriesPoint = { date: string; value: number };
 
@@ -73,10 +77,16 @@ export function InteractiveLineChart({
     return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
   }, [data, secondaryData]);
 
-  const axisTickFormatter = useMemo(
-    () => sparseMonthTickFormatterFromRows(chartData),
-    [chartData]
-  );
+  const axisTicks = useMemo(() => {
+    if (chartData.length <= 12) return undefined;
+    const maxTicks = chartData.length > 45 ? 8 : chartData.length > 30 ? 10 : 12;
+    return buildKeyDateTicks(chartData, (row) => row.value > 0 || (row.value2 ?? 0) > 0, maxTicks);
+  }, [chartData]);
+
+  const axisTickFormatter = useMemo(() => {
+    if (axisTicks?.length) return sparseMonthTickFormatter(axisTicks);
+    return sparseMonthTickFormatterFromRows(chartData);
+  }, [axisTicks, chartData]);
 
   const CustomTooltip = useCallback(
     (rawProps: TooltipProps<number, string>) => {
@@ -121,7 +131,7 @@ export function InteractiveLineChart({
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
           data={chartData}
-          margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+          margin={{ top: 8, right: 8, left: 0, bottom: axisTicks?.length ? 8 : 0 }}
           onMouseMove={(e) => {
             const idx = e?.activeTooltipIndex;
             setHoveredIndex(typeof idx === 'number' ? idx : null);
@@ -131,8 +141,11 @@ export function InteractiveLineChart({
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
           <XAxis
             dataKey="date"
+            ticks={axisTicks}
             tickFormatter={axisTickFormatter}
             tick={{ fontSize: 11, fill: '#6b7280' }}
+            dy={axisTicks?.length ? 8 : 0}
+            minTickGap={axisTicks?.length ? 18 : 8}
             axisLine={false}
             tickLine={false}
           />

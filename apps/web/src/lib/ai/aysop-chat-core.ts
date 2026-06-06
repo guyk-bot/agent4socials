@@ -114,7 +114,9 @@ function buildSystemPrompt(
     '- Be concise, friendly, and proactive.',
     '- Example: if latest post has 10 comments, say "Your latest post has 10 comments. Want me to show them?" and wait.',
     '- Do not invent metrics or comments; always use tools for live data.',
-    'Plain text only in replies (no markdown bold). No em dashes.',
+    'Plain text only in replies (no markdown bold, no markdown images). URLs you share are auto-linked in chat.',
+    'For post previews or images, call get_recent_posts so the UI shows thumbnails. Do not use ![image](url) markdown.',
+    'No em dashes.',
   ].join('\n');
 }
 
