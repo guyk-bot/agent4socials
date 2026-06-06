@@ -47,14 +47,14 @@ async function runMigration(): Promise<void> {
 }
 
 /** Best-effort: create aysop_chat_sessions if migrations have not run yet. */
-export async function ensureAysopChatTable(): Promise<void> {
+export async function ensureAysopChatTable(): Promise<boolean> {
   if (ensured || process.env.SKIP_TABLE_ENSURE === '1') {
     ensured = true;
-    return;
+    return true;
   }
   if (inFlight) {
     await inFlight;
-    return;
+    return ensured;
   }
   inFlight = (async () => {
     try {
@@ -72,4 +72,9 @@ export async function ensureAysopChatTable(): Promise<void> {
     }
   })();
   await inFlight;
+  return ensured;
+}
+
+export function resetAysopChatTableEnsure(): void {
+  ensured = false;
 }

@@ -1,26 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
-import { prisma } from '@/lib/db';
-import { previewFromMessages } from '@/lib/ai/aysop-chat-sessions';
-import { normalizeStoredMessages } from '@/lib/ai/aysop-chat-persist';
-import { ensureAysopChatTable } from '@/lib/ai/ensure-aysop-chat-table';
-
-function toSummary(row: {
-  id: string;
-  title: string;
-  updatedAt: Date;
-  createdAt: Date;
-  messages: unknown;
-}) {
-  const messages = normalizeStoredMessages(row.messages);
-  return {
-    id: row.id,
-    title: row.title,
-    updatedAt: row.updatedAt.toISOString(),
-    createdAt: row.createdAt.toISOString(),
-    preview: previewFromMessages(messages),
-  };
-}
+import {
+  createAysopChatSession,
+  listAysopChatSessions,
+} from '@/lib/ai/aysop-chat-store';
 
 /** GET list · POST create */
 export async function GET(request: NextRequest) {
@@ -28,14 +11,8 @@ export async function GET(request: NextRequest) {
   if (!userId) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
   try {
-    await ensureAysopChatTable();
-    const rows = await prisma.aysopChatSession.findMany({
-      where: { userId },
-      orderBy: { updatedAt: 'desc' },
-      take: 100,
-      select: { id: true, title: true, updatedAt: true, createdAt: true, messages: true },
-    });
-    return NextResponse.json({ sessions: rows.map(toSummary) });
+    const sessions = await listAysopChatSessions(userId);
+    return NextResponse.json({ sessions });
   } catch (e) {
     console.error('[aysop-chats GET]', (e as Error).message?.slice(0, 200));
     return NextResponse.json({ sessions: [], warning: 'Chat history unavailable' });
@@ -46,13 +23,19 @@ export async function POST(request: NextRequest) {
   const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
   if (!userId) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
+  let title = 'New chat';
   try {
-    await ensureAysopChatTable();
-    const row = await prisma.aysopChatSession.create({
-      data: { userId, title: 'New chat', messages: [] },
-      select: { id: true, title: true, updatedAt: true, createdAt: true, messages: true },
-    });
-    return NextResponse.json({ session: { ...toSummary(row), messages: [] } });
+    const body = (await request.json()) as { title?: string };
+    if (typeof body?.title === 'string' && body.title.trim()) {
+      title = body.title.trim().slice(0, 120);
+    }
+  } catch {
+    /* empty body is fine */
+  }
+
+  try {
+    const session = await createAysopChatSession(userId, title);
+    return NextResponse.json({ session });
   } catch (e) {
     console.error('[aysop-chats POST]', (e as Error).message?.slice(0, 200));
     return NextResponse.json({ message: 'Could not create chat' }, { status: 500 });

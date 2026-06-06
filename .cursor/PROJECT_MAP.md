@@ -31,7 +31,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | OAuth connect, accounts CRUD | `apps/web/src/app/api/social/oauth/`, `apps/web/src/app/api/social/accounts/`, `ConnectView.tsx` |
 | Inbox | `apps/web/src/app/dashboard/inbox/page.tsx`, `api/inbox/bootstrap/route.ts`, `api/inbox/instagram-dms/route.ts` (IG DMs only), `lib/inbox/instagram-dm-conversations.ts`, `api/social/accounts/[id]/conversations/`, `comments/`, `lib/inbox/inbox-comment-platforms.ts`, `lib/inbox/external-platform-comments.ts` (TikTok/Pinterest open in app), `lib/inbox/inbox-client-cache.ts`, `lib/inbox/enrich-conversations-from-messages.ts` |
 | Auth, shell layout | `AuthContext.tsx`, `AuthenticatedShell.tsx`, `middleware.ts`, `app/api/auth/` |
-| iZop AI chat | `app/dashboard/aysop-ai/page.tsx`, `components/aysop/*`, `app/api/ai/aysop-chat/route.ts`, `app/api/ai/aysop-chats/`, `lib/ai/aysop-tools.ts`, `lib/ai/aysop-attachments.ts`, `lib/ai/aysop-show-app.ts`, `lib/ai/aysop-artifacts.ts`, `lib/ai/aysop-chat-core.ts` |
+| iZop AI chat | `app/dashboard/aysop-ai/page.tsx`, `components/aysop/*`, `app/api/ai/aysop-chats/`, `lib/ai/aysop-chat-store.ts`, `lib/ai/aysop-tools.ts`, `lib/ai/aysop-attachments.ts`, `lib/ai/aysop-show-app.ts`, `lib/ai/aysop-artifacts.ts`, `lib/ai/aysop-chat-core.ts` |
 | Media upload / proxy (R2) | `apps/web/src/app/api/media/`, `instagram-media-r2.ts` |
 | Prisma DB access | `apps/web/prisma/schema.prisma`, `apps/web/src/lib/db.ts` |
 | Cron | `apps/web/src/app/api/cron/` (includes `fast-tick` for one 5-minute job: scheduled posts + comment automation) |

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import AysopChatSidebar from '@/components/aysop/AysopChatSidebar';
+import AysopChatTitleBar from '@/components/aysop/AysopChatTitleBar';
 import AysopChatPanel, { type ChatMessage } from '@/components/aysop/AysopChatPanel';
 import {
   visibleChatSessions,
@@ -15,6 +16,18 @@ type SessionDetail = AysopChatSessionSummary & { messages: ChatMessage[] };
 
 function localBackupKey(userId: string, sessionId: string) {
   return `izop_aysop_chat_${userId}_${sessionId}`;
+}
+
+function makeOfflineSession(): SessionDetail {
+  const now = new Date().toISOString();
+  return {
+    id: `offline-${Date.now()}`,
+    title: 'New chat',
+    updatedAt: now,
+    createdAt: now,
+    preview: null,
+    messages: [],
+  };
 }
 
 export default function AysopAiWorkspace() {
@@ -89,14 +102,19 @@ export default function AysopAiWorkspace() {
 
   const createSession = useCallback(async (): Promise<SessionDetail | null> => {
     try {
-      const res = await api.post<{ session: SessionDetail }>('/ai/aysop-chats');
+      const res = await api.post<{ session: SessionDetail }>('/ai/aysop-chats', {});
       const s = res.data.session;
       setSessions((prev) => [s, ...prev]);
       setSaveError(null);
       return s;
-    } catch {
-      setSaveError('Could not create a new chat. Try again in a moment.');
-      return null;
+    } catch (e) {
+      const msg =
+        (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Could not create a new chat. Using a temporary chat until save works.';
+      const offline = makeOfflineSession();
+      setSessions((prev) => [offline, ...prev]);
+      setSaveError(msg);
+      return offline;
     }
   }, []);
 
@@ -110,8 +128,36 @@ export default function AysopAiWorkspace() {
         }
       }
 
+      let targetId = id;
+      if (id.startsWith('offline-')) {
+        try {
+          const created = await api.post<{ session: SessionDetail }>('/ai/aysop-chats', {});
+          targetId = created.data.session.id;
+          setSessions((prev) => {
+            const offline = prev.find((s) => s.id === id);
+            const summary: AysopChatSessionSummary = {
+              id: targetId,
+              title: offline?.title ?? 'New chat',
+              updatedAt: created.data.session.updatedAt,
+              createdAt: created.data.session.createdAt,
+              preview: null,
+            };
+            return [summary, ...prev.filter((s) => s.id !== id)];
+          });
+          if (activeIdRef.current === id) {
+            setActiveId(targetId);
+            router.replace(`/dashboard/aysop-ai?c=${encodeURIComponent(targetId)}`, { scroll: false });
+            activeIdRef.current = targetId;
+          }
+          setSaveError(null);
+        } catch {
+          setSaveError('Could not save this chat. Your messages are kept locally until save works.');
+          return false;
+        }
+      }
+
       try {
-        const res = await api.patch<{ session: SessionDetail }>(`/ai/aysop-chats/${id}`, {
+        const res = await api.patch<{ session: SessionDetail }>(`/ai/aysop-chats/${targetId}`, {
           messages: nextMessages,
         });
         const updated = res.data.session;
@@ -123,7 +169,7 @@ export default function AysopAiWorkspace() {
             createdAt: updated.createdAt,
             preview: updated.preview ?? null,
           };
-          const rest = prev.filter((s) => s.id !== id);
+          const rest = prev.filter((s) => s.id !== updated.id);
           return [summary, ...rest];
         });
         setSaveError(null);
@@ -133,7 +179,40 @@ export default function AysopAiWorkspace() {
         return false;
       }
     },
-    [user?.id]
+    [user?.id, router]
+  );
+
+  const renameSession = useCallback(
+    async (id: string, title: string) => {
+      const trimmed = title.trim().slice(0, 120);
+      if (!trimmed) return;
+
+      if (id.startsWith('offline-')) {
+        setSessions((prev) =>
+          prev.map((s) => (s.id === id ? { ...s, title: trimmed, updatedAt: new Date().toISOString() } : s))
+        );
+        return;
+      }
+
+      try {
+        const res = await api.patch<{ session: SessionDetail }>(`/ai/aysop-chats/${id}`, { title: trimmed });
+        const updated = res.data.session;
+        setSessions((prev) => {
+          const summary: AysopChatSessionSummary = {
+            id: updated.id,
+            title: updated.title,
+            updatedAt: updated.updatedAt,
+            createdAt: updated.createdAt,
+            preview: updated.preview ?? null,
+          };
+          return [summary, ...prev.filter((s) => s.id !== id)];
+        });
+        setSaveError(null);
+      } catch {
+        setSaveError('Could not rename this chat.');
+      }
+    },
+    []
   );
 
   const flushActiveSession = useCallback(async (): Promise<boolean> => {
@@ -265,7 +344,7 @@ export default function AysopAiWorkspace() {
     [persistSession]
   );
 
-  const activeTitle = sessions.find((s) => s.id === activeId)?.title;
+  const activeTitle = sessions.find((s) => s.id === activeId)?.title ?? 'New chat';
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-white dark:bg-neutral-950">
@@ -277,10 +356,12 @@ export default function AysopAiWorkspace() {
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <div className="flex-1 min-w-0 flex flex-col">
-          {activeTitle && activeTitle !== 'New chat' ? (
-            <div className="shrink-0 border-b border-neutral-100 dark:border-neutral-800 px-4 py-2.5 bg-white dark:bg-neutral-950">
-              <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100 truncate">{activeTitle}</p>
-            </div>
+          {activeId ? (
+            <AysopChatTitleBar
+              title={activeTitle}
+              disabled={switching || sessionLoading}
+              onRename={(title) => renameSession(activeId, title)}
+            />
           ) : null}
           <AysopChatPanel
             key={activeId ?? 'none'}
@@ -297,6 +378,7 @@ export default function AysopAiWorkspace() {
           onSelect={(id) => void handleSelect(id)}
           onNewChat={() => void handleNewChat()}
           onDelete={(id) => void handleDelete(id)}
+          onRename={(id, title) => void renameSession(id, title)}
           side="right"
         />
       </div>
