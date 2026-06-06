@@ -19,6 +19,7 @@ import {
 import { formatMetricNumber } from '@/lib/metric-format';
 import type { AysopArtifact, AppViewId } from '@/lib/ai/aysop-artifacts';
 import { AysopAnalyticsReportCard } from '@/components/aysop/AysopAnalyticsReportCard';
+import { AysopComposerPostDraftCard } from '@/components/aysop/AysopComposerPostDraftCard';
 
 const VIEW_ICONS: Partial<Record<AppViewId, React.ReactNode>> = {
   dashboard: <BarChart2 size={18} className="text-[var(--primary)]" />,
@@ -313,11 +314,18 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
           );
         }
 
+        if (a.type === 'composer_post_draft') {
+          rendered.add(key);
+          return <AysopComposerPostDraftCard key={key} draft={a} />;
+        }
+
         if (a.type === 'composer_link') {
           rendered.add(key);
           return (
             <div key={key} className="rounded-xl border border-[var(--primary)]/30 bg-[#E8F4FF]/50 dark:bg-[var(--primary)]/10 p-3 text-sm">
-              <p className="font-medium text-neutral-800 dark:text-neutral-200 mb-1">Draft ready for Composer</p>
+              <p className="font-medium text-neutral-800 dark:text-neutral-200 mb-1">
+                {a.platform ? `Draft for ${a.platform}` : 'Draft ready for Composer'}
+              </p>
               {a.caption ? <p className="text-neutral-600 dark:text-neutral-400 whitespace-pre-wrap mb-2">{a.caption}</p> : null}
               <OpenLink href={a.url} label="Open Composer" />
             </div>

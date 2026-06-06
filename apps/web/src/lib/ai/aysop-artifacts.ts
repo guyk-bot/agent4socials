@@ -43,7 +43,20 @@ export type AysopArtifact =
       dmWelcomeEnabled: boolean;
       href: string;
     }
-  | { type: 'composer_link'; url: string; caption?: string; postType?: string }
+  | {
+      type: 'composer_post_draft';
+      platform: string;
+      platformLabel: string;
+      username: string | null;
+      profilePicture?: string | null;
+      accountId: string;
+      caption: string;
+      mediaType: 'text' | 'photo' | 'video' | 'reel' | 'carousel' | 'story';
+      textOnlySupported: boolean;
+      canPublishFromChat: boolean;
+      composerUrl: string;
+    }
+  | { type: 'composer_link'; url: string; caption?: string; postType?: string; platform?: string }
   | { type: 'action_result'; action: string; ok: boolean; detail: string }
   | {
       type: 'app_view';

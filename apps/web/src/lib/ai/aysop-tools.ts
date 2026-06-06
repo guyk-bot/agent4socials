@@ -19,6 +19,15 @@ import type {
 } from '@/lib/ai/aysop-workspace-snapshot';
 import { summarizeWorkspaceAccounts } from '@/lib/ai/aysop-workspace-snapshot';
 import { runShowAppInChat } from '@/lib/ai/aysop-show-app';
+import {
+  mediaRequiredPlatformsSummary,
+  platformLabel,
+  platformRequiresMedia,
+  platformSupportsTextOnly,
+  MEDIA_REQUIRED_COMPOSER_PLATFORMS,
+  TEXT_ONLY_COMPOSER_PLATFORMS,
+  textOnlyPlatformsSummary,
+} from '@/lib/composer/platform-capabilities';
 
 export type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 
@@ -70,7 +79,7 @@ function normalizePlatformArg(input: string | undefined): Platform | null {
 async function assertAccount(userId: string, accountId: string) {
   const account = await prisma.socialAccount.findFirst({
     where: { id: accountId, userId },
-    select: { id: true, platform: true, username: true },
+    select: { id: true, platform: true, username: true, profilePicture: true },
   });
   if (!account) throw new Error('Account not found or not connected to your workspace.');
   return account;
@@ -191,6 +200,77 @@ function commentToPublic(row: InboxCommentRow) {
     postPreview: row.postPreview,
     platformPostId: row.platformPostId,
     isFromMe: row.isFromMe ?? false,
+  };
+}
+
+function mapPostTypeToMediaType(postType: string): 'text' | 'photo' | 'video' | 'reel' | 'carousel' | 'story' {
+  const t = postType.toLowerCase();
+  if (t === 'text' || t === 'feed') return 'text';
+  if (t === 'reel') return 'reel';
+  if (t === 'story') return 'story';
+  if (t === 'carousel') return 'carousel';
+  if (t === 'video') return 'video';
+  return 'photo';
+}
+
+async function buildComposerPostDraft(
+  userId: string,
+  args: Record<string, unknown>
+): Promise<{ artifact: Extract<AysopArtifact, { type: 'composer_post_draft' }>; result: Record<string, unknown> }> {
+  const caption = String(args.caption ?? '').trim();
+  if (!caption) throw new Error('caption is required');
+
+  const postType = String(args.postType ?? 'text');
+  const mediaType = mapPostTypeToMediaType(postType);
+  const platformArg = normalizePlatformArg(args.platform as string | undefined);
+  const accountId = await resolveAccountId(
+    userId,
+    { ...args, platform: platformArg ?? args.platform },
+    { required: true }
+  );
+  const account = await assertAccount(userId, accountId!);
+  const platformUpper = account.platform;
+  const textOnlySupported = platformSupportsTextOnly(platformUpper);
+  const canPublishFromChat = textOnlySupported && mediaType === 'text';
+
+  if (mediaType === 'text' && platformRequiresMedia(platformUpper)) {
+    throw new Error(
+      `${platformLabel(platformUpper)} requires an image or video. Use Composer for media posts on that platform.`
+    );
+  }
+
+  const params = new URLSearchParams({
+    draft: '1',
+    caption: caption.slice(0, 2000),
+    type: mediaType === 'text' ? 'text' : postType,
+  });
+  params.set('accountId', accountId!);
+  if (platformArg) params.set('platform', platformArg);
+
+  const artifact: Extract<AysopArtifact, { type: 'composer_post_draft' }> = {
+    type: 'composer_post_draft',
+    platform: platformUpper,
+    platformLabel: platformLabel(platformUpper),
+    username: account.username,
+    profilePicture: account.profilePicture ?? null,
+    accountId: accountId!,
+    caption,
+    mediaType,
+    textOnlySupported,
+    canPublishFromChat,
+    composerUrl: `/composer?${params.toString()}`,
+  };
+
+  return {
+    artifact,
+    result: {
+      platform: platformUpper,
+      platformLabel: artifact.platformLabel,
+      username: artifact.username,
+      textOnlySupported,
+      canPublishFromChat,
+      composerUrl: artifact.composerUrl,
+    },
   };
 }
 
@@ -392,21 +472,63 @@ export const AYSOP_TOOL_DEFINITIONS = [
   {
     type: 'function' as const,
     function: {
+      name: 'get_posting_capabilities',
+      description:
+        'List which connected platforms support text-only posts vs require media. Call before multi-platform caption variations.',
+      parameters: { type: 'object', properties: {}, additionalProperties: false },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'prepare_platform_post_drafts',
+      description:
+        'Create one or more platform-specific post drafts with preview cards in chat. Always pass platform per draft. Text-only drafts can be published from chat; media platforms open in Composer.',
+      parameters: {
+        type: 'object',
+        properties: {
+          drafts: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                platform: platformParam,
+                caption: { type: 'string' },
+                postType: {
+                  type: 'string',
+                  enum: ['text', 'feed', 'photo', 'video', 'reel', 'carousel', 'story'],
+                },
+              },
+              required: ['platform', 'caption'],
+            },
+            minItems: 1,
+            maxItems: 8,
+          },
+        },
+        required: ['drafts'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
       name: 'open_composer_draft',
       description:
-        'Prepare a Composer link with a generated caption. User uploads media in Composer.',
+        'Prepare a single platform post draft. Always pass platform. For caption-only posts use postType text on X, Facebook, LinkedIn, or Threads.',
       parameters: {
         type: 'object',
         properties: {
           caption: { type: 'string' },
           platform: platformParam,
+          accountId: { type: 'string' },
           postType: {
             type: 'string',
-            enum: ['feed', 'carousel', 'reel', 'story'],
-            description: 'Hint for media type',
+            enum: ['text', 'feed', 'photo', 'video', 'reel', 'carousel', 'story'],
+            description: 'Use text for caption-only posts',
           },
         },
-        required: ['caption'],
+        required: ['caption', 'platform'],
         additionalProperties: false,
       },
     },
@@ -715,17 +837,62 @@ export async function runAysopTool(
         }
       );
 
-    case 'open_composer_draft': {
-      const caption = String(args.caption ?? '').trim();
-      if (!caption) throw new Error('caption is required');
-      const postType = (args.postType as string) || 'feed';
-      const params = new URLSearchParams({ draft: '1', caption: caption.slice(0, 2000), type: postType });
-      const accountId = await resolveAccountId(ctx.userId, args);
-      if (accountId) params.set('accountId', accountId);
-      const url = `/composer?${params.toString()}`;
+    case 'get_posting_capabilities': {
+      const accounts = await prisma.socialAccount.findMany({
+        where: { userId: ctx.userId },
+        select: { id: true, platform: true, username: true },
+        orderBy: { createdAt: 'asc' },
+      });
+      const textOnly = accounts.filter((a) => platformSupportsTextOnly(a.platform));
+      const mediaRequired = accounts.filter((a) => platformRequiresMedia(a.platform));
       return {
-        result: { url, postType },
-        artifacts: [{ type: 'composer_link', url, caption }],
+        result: {
+          textOnlyPlatforms: TEXT_ONLY_COMPOSER_PLATFORMS,
+          mediaRequiredPlatforms: [...MEDIA_REQUIRED_COMPOSER_PLATFORMS],
+          textOnlyAccounts: textOnly.map((a) => ({
+            platform: a.platform,
+            platformLabel: platformLabel(a.platform),
+            username: a.username,
+            id: a.id,
+          })),
+          mediaRequiredAccounts: mediaRequired.map((a) => ({
+            platform: a.platform,
+            platformLabel: platformLabel(a.platform),
+            username: a.username,
+            id: a.id,
+          })),
+        },
+        artifacts: [
+          {
+            type: 'text_block' as const,
+            title: 'Text-only posting from chat',
+            body: `You can publish caption-only posts from chat to: ${textOnlyPlatformsSummary()}.\n\nThese platforms need media in Composer: ${mediaRequiredPlatformsSummary()}.`,
+          },
+        ],
+      };
+    }
+
+    case 'prepare_platform_post_drafts': {
+      const drafts = Array.isArray(args.drafts) ? args.drafts : [];
+      if (!drafts.length) throw new Error('At least one draft is required.');
+      const artifacts: AysopArtifact[] = [];
+      const results: Record<string, unknown>[] = [];
+      for (const raw of drafts.slice(0, 8)) {
+        if (!raw || typeof raw !== 'object') continue;
+        const row = raw as Record<string, unknown>;
+        const built = await buildComposerPostDraft(ctx.userId, row);
+        artifacts.push(built.artifact);
+        results.push(built.result);
+      }
+      if (!artifacts.length) throw new Error('No valid drafts.');
+      return { result: { drafts: results }, artifacts };
+    }
+
+    case 'open_composer_draft': {
+      const built = await buildComposerPostDraft(ctx.userId, args);
+      return {
+        result: built.result,
+        artifacts: [built.artifact],
       };
     }
 

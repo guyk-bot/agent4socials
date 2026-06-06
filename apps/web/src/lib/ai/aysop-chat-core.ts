@@ -17,6 +17,7 @@ import {
   threadHasImages,
   type AysopChatInputMessage,
 } from '@/lib/ai/aysop-openai-messages';
+import { postingCapabilitiesPromptBlock } from '@/lib/composer/platform-capabilities';
 import { getAysopOpenRouterApiKey, toOpenRouterModel } from '@/lib/ai/llm-config';
 import type {
   AysopActiveBrandSnapshot,
@@ -95,7 +96,12 @@ function buildSystemPrompt(
     '- Pull dashboard analytics and render report snapshots with charts.',
     '- Check comment counts; ask before listing full comment text.',
     '- Offer keyword automations; confirm before saving.',
-    '- Draft captions and open Composer for images, videos, carousels, or reels.',
+    '- Draft captions with prepare_platform_post_drafts (one card per platform, with preview).',
+    '- get_posting_capabilities before multi-platform variations without media.',
+    '- Text-only posts: user can click Post now on draft cards for X, Facebook, LinkedIn, Threads.',
+    '- Instagram, TikTok, YouTube, Pinterest need media: prepare drafts then user finishes in Composer.',
+    '',
+    postingCapabilitiesPromptBlock(),
     '',
     'Attachments:',
     '- Users can attach images, videos, and files. You can see image content directly.',
