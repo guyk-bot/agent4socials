@@ -187,12 +187,13 @@ export default function AysopChatPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-[#fafafa] dark:bg-neutral-950 min-h-0">
-        {sessionLoading ? (
-          <div className="flex items-center justify-center gap-2 text-neutral-500 dark:text-neutral-400 text-sm py-12">
-            <Loader2 size={18} className="animate-spin" />
+        {sessionLoading && messages.length === 0 ? (
+          <div className="flex items-center justify-center gap-2 text-neutral-500 dark:text-neutral-400 text-xs py-2">
+            <Loader2 size={14} className="animate-spin" />
             Loading chat…
           </div>
-        ) : messages.length === 0 ? (
+        ) : null}
+        {messages.length === 0 ? (
           <div className="text-center py-8 px-4">
             <Sparkles className="mx-auto text-[var(--primary)] mb-3" size={32} />
             <p className="text-neutral-700 dark:text-neutral-200 font-medium">Your social copilot</p>

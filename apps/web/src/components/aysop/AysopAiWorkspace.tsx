@@ -30,6 +30,8 @@ function makeOfflineSession(): SessionDetail {
   };
 }
 
+const LIST_FETCH_TIMEOUT_MS = 8_000;
+
 export default function AysopAiWorkspace() {
   const { user } = useAuth();
   const router = useRouter();
@@ -44,7 +46,7 @@ export default function AysopAiWorkspace() {
   const [switching, setSwitching] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const bootstrappedRef = useRef(false);
+  const initRef = useRef(false);
   const messagesRef = useRef<ChatMessage[]>([]);
   const activeIdRef = useRef<string | null>(null);
   const persistInFlightRef = useRef<Promise<boolean> | null>(null);
@@ -74,7 +76,9 @@ export default function AysopAiWorkspace() {
     async (id: string) => {
       setSessionLoading(true);
       try {
-        const res = await api.get<{ session: SessionDetail }>(`/ai/aysop-chats/${id}`);
+        const res = await api.get<{ session: SessionDetail }>(`/ai/aysop-chats/${id}`, {
+          timeout: LIST_FETCH_TIMEOUT_MS,
+        });
         setMessages(res.data.session.messages ?? []);
         setSaveError(null);
       } catch {
@@ -100,11 +104,13 @@ export default function AysopAiWorkspace() {
     [user?.id]
   );
 
-  const createSession = useCallback(async (): Promise<SessionDetail | null> => {
+  const createSession = useCallback(async (): Promise<SessionDetail> => {
     try {
-      const res = await api.post<{ session: SessionDetail }>('/ai/aysop-chats', {});
+      const res = await api.post<{ session: SessionDetail }>('/ai/aysop-chats', {}, {
+        timeout: LIST_FETCH_TIMEOUT_MS,
+      });
       const s = res.data.session;
-      setSessions((prev) => [s, ...prev]);
+      setSessions((prev) => [s, ...prev.filter((x) => x.id !== s.id)]);
       setSaveError(null);
       return s;
     } catch (e) {
@@ -112,7 +118,7 @@ export default function AysopAiWorkspace() {
         (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         'Could not create a new chat. Using a temporary chat until save works.';
       const offline = makeOfflineSession();
-      setSessions((prev) => [offline, ...prev]);
+      setSessions((prev) => [offline, ...prev.filter((x) => !x.id.startsWith('offline-'))]);
       setSaveError(msg);
       return offline;
     }
@@ -231,43 +237,77 @@ export default function AysopAiWorkspace() {
     }
   }, [persistSession]);
 
-  useEffect(() => {
-    if (!user?.id) return;
-    setListLoading(true);
-    bootstrappedRef.current = false;
-    void api
-      .get<{ sessions: AysopChatSessionSummary[]; warning?: string }>('/ai/aysop-chats')
-      .then((res) => {
-        setSessions(res.data.sessions ?? []);
-        if (res.data.warning) setSaveError(res.data.warning);
-      })
-      .catch(() => setSessions([]))
-      .finally(() => setListLoading(false));
-  }, [user?.id]);
+  const mergeSessions = useCallback(
+    (serverSessions: AysopChatSessionSummary[], keepId: string | null) => {
+      setSessions((prev) => {
+        const map = new Map<string, AysopChatSessionSummary>();
+        for (const s of serverSessions) map.set(s.id, s);
+        for (const s of prev) {
+          if (!map.has(s.id)) map.set(s.id, s);
+        }
+        const merged = [...map.values()].sort(
+          (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
+        if (keepId && !merged.some((s) => s.id === keepId)) {
+          const local = prev.find((s) => s.id === keepId);
+          if (local) merged.unshift(local);
+        }
+        return merged;
+      });
+    },
+    []
+  );
 
   useEffect(() => {
-    if (!user?.id || listLoading || bootstrappedRef.current) return;
-    bootstrappedRef.current = true;
+    if (!user?.id || initRef.current) return;
+    initRef.current = true;
 
     void (async () => {
+      const listPromise = api
+        .get<{ sessions: AysopChatSessionSummary[]; warning?: string }>('/ai/aysop-chats', {
+          timeout: LIST_FETCH_TIMEOUT_MS,
+        })
+        .catch(() => ({ data: { sessions: [] as AysopChatSessionSummary[] } }));
+
       if (chatParam) {
         setActiveId(chatParam);
-        await loadSession(chatParam);
+        activeIdRef.current = chatParam;
+        setListLoading(false);
+        const [listRes] = await Promise.all([listPromise, loadSession(chatParam)]);
+        mergeSessions(listRes.data.sessions ?? [], chatParam);
+        if (listRes.data.warning) setSaveError(listRes.data.warning);
         return;
       }
-      const initial = visibleChatSessions(sessions, null);
-      if (initial.length > 0) {
-        setActiveChat(initial[0].id);
-        await loadSession(initial[0].id);
-        return;
-      }
+
+      const quick = makeOfflineSession();
+      setSessions([quick]);
+      setActiveChat(quick.id);
+      activeIdRef.current = quick.id;
+      setMessages([]);
+      setListLoading(false);
+
       const created = await createSession();
-      if (created) {
+      if (created.id !== quick.id) {
+        setSessions((prev) => [created, ...prev.filter((s) => s.id !== quick.id && s.id !== created.id)]);
         setActiveChat(created.id);
+        activeIdRef.current = created.id;
         setMessages([]);
       }
+
+      const listRes = await listPromise;
+      mergeSessions(listRes.data.sessions ?? [], activeIdRef.current);
+      if (listRes.data.warning) setSaveError(listRes.data.warning);
     })();
-  }, [user?.id, listLoading, chatParam, sessions, setActiveChat, loadSession, createSession]);
+  }, [user?.id, chatParam, createSession, loadSession, mergeSessions, setActiveChat]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      initRef.current = false;
+      setListLoading(true);
+      setActiveId(null);
+      activeIdRef.current = null;
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (!chatParam || chatParam === activeId || switching) return;
@@ -359,7 +399,7 @@ export default function AysopAiWorkspace() {
           {activeId ? (
             <AysopChatTitleBar
               title={activeTitle}
-              disabled={switching || sessionLoading}
+              disabled={switching}
               onRename={(title) => renameSession(activeId, title)}
             />
           ) : null}
@@ -367,8 +407,8 @@ export default function AysopAiWorkspace() {
             key={activeId ?? 'none'}
             messages={messages}
             onMessagesChange={handleMessagesChange}
-            sessionLoading={sessionLoading || switching}
-            disabled={!activeId || switching}
+            sessionLoading={sessionLoading}
+            disabled={switching}
           />
         </div>
         <AysopChatSidebar
