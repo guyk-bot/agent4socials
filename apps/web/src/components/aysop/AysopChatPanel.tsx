@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { BRAND_NAME } from '@/lib/site-brand-assets';
 import { Bot, Loader2, Paperclip, Send, Sparkles } from 'lucide-react';
 import api from '@/lib/api';
@@ -76,12 +76,29 @@ export default function AysopChatPanel({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingAttachments, setPendingAttachments] = useState<AysopChatAttachment[]>([]);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const initialScrollRef = useRef(true);
+  const prevMessageCountRef = useRef(0);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading, pendingAttachments]);
+  useLayoutEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    if (initialScrollRef.current) {
+      initialScrollRef.current = false;
+      container.scrollTop = container.scrollHeight;
+      prevMessageCountRef.current = messages.length;
+      return;
+    }
+
+    const messageCountGrew = messages.length > prevMessageCountRef.current;
+    prevMessageCountRef.current = messages.length;
+
+    if (messageCountGrew || loading) {
+      container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+    }
+  }, [messages, loading]);
 
   const handleFilePick = async (files: FileList | null) => {
     if (!files?.length || disabled || loading || uploading) return;
@@ -199,7 +216,10 @@ export default function AysopChatPanel({
         <span className="font-semibold text-sm">{BRAND_NAME} AI</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-[#fafafa] dark:bg-neutral-950 min-h-0">
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-[#fafafa] dark:bg-neutral-950 min-h-0"
+      >
         {messages.length === 0 ? (
           <div className="text-center py-8 px-4">
             <Sparkles className="mx-auto text-[var(--primary)] mb-3" size={32} />
@@ -248,7 +268,6 @@ export default function AysopChatPanel({
             {BRAND_NAME} is thinking…
           </div>
         ) : null}
-        <div ref={bottomRef} />
       </div>
 
       {error ? (
