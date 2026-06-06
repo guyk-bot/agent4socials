@@ -1,18 +1,30 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
+import { normalizeInAppChatHref } from '@/lib/app-base-url';
 
 const URL_RE = /https?:\/\/[^\s<>[\]()]+/g;
 const MD_IMAGE_RE = /^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/;
+const RELATIVE_APP_PATH_RE = /^(\/(?:composer|dashboard|calendar|posts|connect|help|signup|login)(?:\/[^\s]*)?)/;
 
 type Segment =
   | { kind: 'text'; value: string }
-  | { kind: 'link'; href: string; label: string }
-  | { kind: 'image-link'; href: string; alt: string };
+  | { kind: 'link'; href: string; label: string; internal?: boolean }
+  | { kind: 'image-link'; href: string; alt: string; internal?: boolean };
 
 function trimTrailingUrlPunctuation(url: string): string {
   return url.replace(/[.,;:!?)]+$/, '');
+}
+
+function resolveHref(rawHref: string): { href: string; label: string; internal: boolean } {
+  const origin = typeof window !== 'undefined' ? window.location.origin : undefined;
+  const internal = normalizeInAppChatHref(rawHref, origin);
+  if (internal) {
+    return { href: internal, label: internal, internal: true };
+  }
+  return { href: rawHref, label: rawHref, internal: false };
 }
 
 function parseChatContent(content: string): Segment[] {
@@ -23,21 +35,38 @@ function parseChatContent(content: string): Segment[] {
     const rest = content.slice(i);
     const mdMatch = rest.match(MD_IMAGE_RE);
     if (mdMatch) {
-      segments.push({ kind: 'image-link', href: mdMatch[2]!, alt: mdMatch[1] || 'Open post' });
+      const href = mdMatch[2]!;
+      const resolved = resolveHref(href);
+      segments.push({
+        kind: 'image-link',
+        href: resolved.href,
+        alt: mdMatch[1] || 'Open post',
+        internal: resolved.internal,
+      });
       i += mdMatch[0]!.length;
+      continue;
+    }
+
+    const relMatch = rest.match(RELATIVE_APP_PATH_RE);
+    if (relMatch && relMatch.index === 0) {
+      const href = trimTrailingUrlPunctuation(relMatch[1]!);
+      segments.push({ kind: 'link', href, label: href, internal: true });
+      i += relMatch[0]!.length;
       continue;
     }
 
     URL_RE.lastIndex = 0;
     const urlMatch = URL_RE.exec(rest);
     if (urlMatch && urlMatch.index === 0) {
-      const href = trimTrailingUrlPunctuation(urlMatch[0]!);
-      segments.push({ kind: 'link', href, label: href });
+      const raw = trimTrailingUrlPunctuation(urlMatch[0]!);
+      const resolved = resolveHref(raw);
+      segments.push({ kind: 'link', href: resolved.href, label: resolved.label, internal: resolved.internal });
       i += urlMatch[0]!.length;
       continue;
     }
 
     const nextMd = rest.indexOf('![', 1);
+    const nextRel = rest.search(RELATIVE_APP_PATH_RE);
     URL_RE.lastIndex = 0;
     let nextUrl = -1;
     const urlLater = URL_RE.exec(rest);
@@ -45,9 +74,8 @@ function parseChatContent(content: string): Segment[] {
       nextUrl = urlLater.index;
     }
 
-    let nextSpecial = -1;
-    if (nextMd >= 0 && nextUrl >= 0) nextSpecial = Math.min(nextMd, nextUrl);
-    else nextSpecial = Math.max(nextMd, nextUrl);
+    const candidates = [nextMd, nextRel, nextUrl].filter((n) => n >= 0);
+    const nextSpecial = candidates.length ? Math.min(...candidates) : -1;
 
     if (nextSpecial < 0) {
       segments.push({ kind: 'text', value: rest });
@@ -68,6 +96,31 @@ function linkClassName(variant: 'user' | 'assistant'): string {
   return 'text-[var(--primary)] underline underline-offset-2 hover:opacity-90 break-all';
 }
 
+function ChatLink({
+  href,
+  label,
+  internal,
+  className,
+}: {
+  href: string;
+  label: string;
+  internal: boolean;
+  className: string;
+}) {
+  if (internal) {
+    return (
+      <Link href={href} className={className}>
+        {label}
+      </Link>
+    );
+  }
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
+      {label}
+    </a>
+  );
+}
+
 export function AysopChatMessageContent({
   content,
   variant,
@@ -86,28 +139,22 @@ export function AysopChatMessageContent({
         }
         if (seg.kind === 'image-link') {
           return (
-            <a
-              key={i}
-              href={seg.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`inline-flex items-center gap-1 ${linkClass}`}
-            >
-              {seg.alt || 'Open post'}
-              <ExternalLink size={12} className="shrink-0 opacity-80" aria-hidden />
-            </a>
+            <span key={i} className="inline-flex items-center gap-1">
+              <ChatLink
+                href={seg.href}
+                label={seg.alt || 'Open post'}
+                internal={seg.internal ?? false}
+                className={`inline-flex items-center gap-1 ${linkClass}`}
+              />
+              {!seg.internal ? <ExternalLink size={12} className="shrink-0 opacity-80" aria-hidden /> : null}
+            </span>
           );
         }
         return (
-          <a
-            key={i}
-            href={seg.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={linkClass}
-          >
-            {seg.label}
-          </a>
+          <span key={i} className="inline-flex items-center gap-1">
+            <ChatLink href={seg.href} label={seg.label} internal={seg.internal ?? false} className={linkClass} />
+            {!seg.internal ? <ExternalLink size={12} className="shrink-0 opacity-80" aria-hidden /> : null}
+          </span>
         );
       })}
     </>

@@ -18,6 +18,7 @@ import {
   type AysopChatInputMessage,
 } from '@/lib/ai/aysop-openai-messages';
 import { postingCapabilitiesPromptBlock } from '@/lib/composer/platform-capabilities';
+import { appLinkRulesForPrompt } from '@/lib/app-base-url';
 import { getAysopOpenRouterApiKey, toOpenRouterModel } from '@/lib/ai/llm-config';
 import type {
   AysopActiveBrandSnapshot,
@@ -99,8 +100,11 @@ function buildSystemPrompt(
     '- Draft captions with prepare_platform_post_drafts (preview cards only; nothing publishes until the user approves).',
     '- get_posting_capabilities before multi-platform variations without media.',
     '- After prepare_platform_post_drafts, tell the user to review each preview and click Approve & publish. Never claim you already published.',
-    '- open_composer_draft when the user asks to open Composer: pass caption and all discussed platforms in platforms array; Composer opens with them selected and caption filled.',
+    '- open_composer_draft when the user asks to open Composer or see drafts: pass caption and platforms; do not paste a URL.',
+    '- show_app_in_chat with view composer when they ask where to find drafts or how to open Composer.',
     '- Instagram, TikTok, YouTube, Pinterest need media: do not create Composer drafts unless the user asks.',
+    '',
+    appLinkRulesForPrompt(),
     '',
     postingCapabilitiesPromptBlock(),
     '',
