@@ -638,9 +638,8 @@ export default function AysopAiWorkspace() {
   );
 
   const brandContextHref = useMemo(() => {
-    const chatId = activeIdRef.current;
-    if (chatId && !chatId.startsWith('offline-')) {
-      return `/dashboard/aysop-ai/brand-context?c=${encodeURIComponent(chatId)}`;
+    if (activeId) {
+      return `/dashboard/aysop-ai/brand-context?c=${encodeURIComponent(activeId)}`;
     }
     return '/dashboard/aysop-ai/brand-context';
   }, [activeId]);

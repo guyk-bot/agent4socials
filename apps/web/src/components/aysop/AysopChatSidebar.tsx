@@ -21,6 +21,8 @@ type Props = {
   side?: 'left' | 'right';
   navActive?: AysopSidebarNavActive;
   brandContextHref: string;
+  /** When on Brand Context, clicking the tab again returns to this chat URL. */
+  returnChatHref?: string;
   onNewChat: () => void;
 };
 
@@ -34,6 +36,7 @@ export default function AysopChatSidebar({
   side = 'left',
   navActive = 'chats',
   brandContextHref,
+  returnChatHref,
   onNewChat,
 }: Props) {
   const groups = groupChatSessions(sessions);
@@ -56,9 +59,15 @@ export default function AysopChatSidebar({
       className={`w-[260px] shrink-0 flex flex-col ${borderClass} bg-neutral-50/80 dark:bg-neutral-950 h-full`}
     >
       <div className="shrink-0 border-b border-neutral-200 dark:border-neutral-800 p-2 space-y-1">
-        <Link href={brandContextHref} className={navItemClass(navActive === 'brand-context')}>
-          Brand Context
-        </Link>
+        {navActive === 'brand-context' && returnChatHref ? (
+          <Link href={returnChatHref} className={navItemClass(true)}>
+            Brand Context
+          </Link>
+        ) : (
+          <Link href={brandContextHref} className={navItemClass(navActive === 'brand-context')}>
+            Brand Context
+          </Link>
+        )}
 
         <button type="button" onClick={onNewChat} className={navItemClass(false)}>
           <span className="inline-flex items-center gap-2">

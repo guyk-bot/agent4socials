@@ -11,8 +11,10 @@ import {
   readCachedSessionList,
   readLastActiveChatId,
   writeCachedSessionList,
+  writeLastActiveChatId,
 } from '@/lib/ai/aysop-chat-local-cache';
 import type { AysopChatSessionSummary } from '@/lib/ai/aysop-chat-sessions';
+import { visibleChatSessions } from '@/lib/ai/aysop-chat-sessions';
 
 const FETCH_TIMEOUT_MS = 8_000;
 
@@ -27,6 +29,11 @@ function BrandContextContent() {
     user?.id ? readCachedSessionList(user.id) ?? [] : []
   );
   const [listLoading, setListLoading] = useState(sessions.length === 0);
+
+  useEffect(() => {
+    if (!user?.id || !returnChat || returnChat.startsWith('offline-')) return;
+    writeLastActiveChatId(user.id, returnChat);
+  }, [user?.id, returnChat]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -56,6 +63,18 @@ function BrandContextContent() {
     }
     return '/dashboard/aysop-ai/brand-context';
   }, [returnChat]);
+
+  const returnChatHref = useMemo(() => {
+    if (returnChat) {
+      return `/dashboard/aysop-ai?c=${encodeURIComponent(returnChat)}`;
+    }
+    return '/dashboard/aysop-ai';
+  }, [returnChat]);
+
+  const visibleSessions = useMemo(
+    () => visibleChatSessions(sessions, returnChat),
+    [sessions, returnChat]
+  );
 
   const handleSelect = useCallback(
     (id: string) => {
@@ -89,18 +108,19 @@ function BrandContextContent() {
     <div className="flex h-full min-h-0 bg-white dark:bg-neutral-950">
       <div className="flex flex-1 min-w-0 flex-col overflow-y-auto">
         <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-8 sm:py-8">
-          <BrandContextForm variant="full" />
+          <BrandContextForm variant="page" />
         </div>
       </div>
       <AysopChatSidebar
-        sessions={sessions}
+        sessions={visibleSessions}
         activeId={returnChat}
-        loading={listLoading && sessions.length === 0}
+        loading={listLoading && visibleSessions.length === 0}
         onSelect={handleSelect}
         onDelete={(id) => void handleDelete(id)}
         side="right"
         navActive="brand-context"
         brandContextHref={brandContextHref}
+        returnChatHref={returnChatHref}
         onNewChat={handleNewChat}
       />
     </div>
