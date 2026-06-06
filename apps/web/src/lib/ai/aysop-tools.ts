@@ -14,10 +14,9 @@ import {
 import { getDefaultAnalyticsDateRange } from '@/lib/calendar-date';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 import type { AysopWorkspaceSnapshot } from '@/lib/ai/aysop-workspace-snapshot';
+import { runShowAppInChat } from '@/lib/ai/aysop-show-app';
 
 export type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
-
-import type { AysopWorkspaceSnapshot } from '@/lib/ai/aysop-workspace-snapshot';
 
 export type AysopToolContext = {
   userId: string;
