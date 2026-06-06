@@ -13,6 +13,12 @@ Whenever the user asks for **any** code, UI, config, or copy change in this proj
 4. **Commit**: clear imperative subject, complete sentences in body if needed. Use the repo’s configured author so deploy hooks (e.g. Vercel) behave as expected.
 5. **Push**: `git push` to the current branch (usually `main`).
 
+6. **Verify Vercel Production** (same turn, do not ask the user to paste logs first):
+   - From `apps/web`, run `npx vercel ls` and find the latest **Production** deploy for the commit you just pushed.
+   - If status is **Building**, wait ~90s and check again (up to 3 times).
+   - If status is **Error**, run `npx vercel inspect <deployment-url> --logs`, fix the code, commit, push, and repeat until **Ready** or you report an env/dashboard blocker (e.g. bad `DATABASE_DIRECT_URL`).
+   - Before push, prefer `cd apps/web && SKIP_PRISMA_MIGRATE_ON_VERCEL=1 npm run build` or `npx tsc --noEmit` to catch TypeScript errors locally.
+
 If there is nothing to commit after edits, still confirm the branch is clean and pushed.
 
 Use `git_write` and `network` permissions when running git commands.
