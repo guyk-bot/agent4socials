@@ -124,6 +124,7 @@ function buildSystemPrompt(
 export async function runAysopChat(args: {
   messages: AysopChatInputMessage[];
   ctx: AysopToolContext;
+  contextOmittedCount?: number;
 }): Promise<{ reply: string; artifacts: AysopArtifact[] }> {
   const [accounts, userRow] = await Promise.all([
     prisma.socialAccount.findMany({
@@ -138,15 +139,20 @@ export async function runAysopChat(args: {
   ]);
 
   const brandBlock = formatBrandContextForPrompt(userRow?.brandContext ?? null);
+  const contextNote =
+    (args.contextOmittedCount ?? 0) > 0
+      ? `\nNote: ${args.contextOmittedCount} older messages from this chat are not in context. Use tools for fresh analytics or posts; the user still sees full history in the UI.`
+      : '';
 
   const thread: OpenAIChatMessageWithTools[] = [
     {
       role: 'system',
-      content: buildSystemPrompt(
-        formatAccountCatalog(accounts),
-        brandBlock,
-        formatWorkspaceCatalog(args.ctx.workspaces, args.ctx.activeBrand ?? null)
-      ),
+      content:
+        buildSystemPrompt(
+          formatAccountCatalog(accounts),
+          brandBlock,
+          formatWorkspaceCatalog(args.ctx.workspaces, args.ctx.activeBrand ?? null)
+        ) + contextNote,
     },
     ...args.messages.map((m) => {
       if (m.role === 'assistant') return { role: 'assistant' as const, content: m.content };

@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
-import { FileText, Film } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import type { AysopChatAttachment } from '@/lib/ai/aysop-attachments';
+import { AysopChatVideoPreview } from '@/components/aysop/AysopChatVideoPreview';
 
 type Props = {
   attachments: AysopChatAttachment[];
@@ -15,7 +16,7 @@ export function AysopMessageAttachments({ attachments, variant = 'user' }: Props
   const onDark = variant === 'user';
 
   return (
-    <div className={`mt-2 space-y-2 ${attachments.length > 1 ? '' : ''}`}>
+    <div className="mt-2 space-y-2">
       {attachments.map((att) => {
         if (att.kind === 'image') {
           return (
@@ -37,12 +38,11 @@ export function AysopMessageAttachments({ attachments, variant = 'user' }: Props
         }
         if (att.kind === 'video') {
           return (
-            <video
+            <AysopChatVideoPreview
               key={att.fileUrl}
               src={att.fileUrl}
-              controls
-              className="max-h-48 max-w-full rounded-lg border border-white/20"
-              preload="metadata"
+              fileName={att.fileName}
+              className={onDark ? 'border-white/25' : 'border-neutral-200 dark:border-neutral-700'}
             />
           );
         }
@@ -53,7 +53,9 @@ export function AysopMessageAttachments({ attachments, variant = 'user' }: Props
             target="_blank"
             rel="noopener noreferrer"
             className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${
-              onDark ? 'bg-white/15 hover:bg-white/25' : 'bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-700'
+              onDark
+                ? 'bg-white/15 hover:bg-white/25'
+                : 'bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-700'
             }`}
           >
             <FileText size={14} className="shrink-0" />
@@ -79,17 +81,17 @@ export function AysopPendingAttachments({ attachments, onRemove, uploading }: Pe
       {attachments.map((att, i) => (
         <div
           key={`${att.fileUrl}-${i}`}
-          className="relative group flex items-center gap-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-xs max-w-[200px]"
+          className="relative group flex items-center gap-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-xs max-w-[240px]"
         >
           {att.kind === 'image' ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={att.fileUrl} alt="" className="h-8 w-8 rounded object-cover shrink-0" />
+            <img src={att.fileUrl} alt="" className="h-12 w-12 rounded object-cover shrink-0" />
           ) : att.kind === 'video' ? (
-            <Film size={16} className="text-neutral-500 dark:text-neutral-400 shrink-0" />
+            <AysopChatVideoPreview src={att.fileUrl} fileName={att.fileName} compact />
           ) : (
             <FileText size={16} className="text-neutral-500 dark:text-neutral-400 shrink-0" />
           )}
-          <span className="truncate text-neutral-700 dark:text-neutral-200">{att.fileName}</span>
+          <span className="truncate text-neutral-700 dark:text-neutral-200 min-w-0">{att.fileName}</span>
           {!uploading ? (
             <button
               type="button"

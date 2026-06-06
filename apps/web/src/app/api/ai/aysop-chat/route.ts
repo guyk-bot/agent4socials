@@ -5,6 +5,10 @@ import { runAysopChat } from '@/lib/ai/aysop-chat-core';
 import { isAysopLlmConfigured } from '@/lib/ai/llm-config';
 import { trackUsage } from '@/lib/usage-tracking';
 import { normalizeChatAttachments } from '@/lib/ai/aysop-attachments';
+import {
+  AYSOP_CHAT_MAX_STORED_MESSAGES,
+  trimMessagesForLlmContext,
+} from '@/lib/ai/aysop-chat-context-window';
 
 export const maxDuration = 60;
 
@@ -60,16 +64,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Send at least one user message.' }, { status: 400 });
   }
 
-  if (messages.length > 40) {
-    return NextResponse.json({ message: 'Conversation too long. Start a new chat.' }, { status: 400 });
+  if (messages.length > AYSOP_CHAT_MAX_STORED_MESSAGES) {
+    return NextResponse.json(
+      {
+        message: `This chat has reached the maximum length (${AYSOP_CHAT_MAX_STORED_MESSAGES} messages). Start a new chat to continue.`,
+      },
+      { status: 400 }
+    );
   }
+
+  const { messages: llmMessages, omittedCount } = trimMessagesForLlmContext(messages);
 
   try {
     const started = Date.now();
     const { reply, artifacts } = await Promise.race([
       runAysopChat({
-        messages,
+        messages: llmMessages,
         ctx: { userId, workspaces: body.workspaces, activeBrand: body.activeBrand ?? null },
+        contextOmittedCount: omittedCount,
       }),
       new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error('Chat request timed out. Try a simpler question.')), CHAT_WALL_BUDGET_MS);
