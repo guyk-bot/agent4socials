@@ -11,7 +11,7 @@ export type OpenAIContentPart =
   | { type: 'image_url'; image_url: { url: string; detail?: 'low' | 'high' | 'auto' } };
 
 export interface OpenAIChatMessage {
-  role: 'system' | 'assistant';
+  role: 'system' | 'user' | 'assistant';
   content: string;
 }
 

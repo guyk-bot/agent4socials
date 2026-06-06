@@ -47,7 +47,7 @@ function buildSystemPrompt(accountCatalog: string, brandContextBlock: string | n
     '- Infer which platform the user means from their message (TikTok, Instagram, Facebook, YouTube, X/Twitter, LinkedIn, Pinterest, Threads).',
     '- If the user names Instagram, you MUST call get_analytics_summary or get_analytics_report_snapshot with platform "Instagram". Never substitute another platform.',
     '- When they ask generally ("my analytics", "all platforms", "summarize everything"), call get_analytics_all_accounts.',
-    '- For "last 30 days" pass days: 30. Default to 30 days when no range is given.',
+    '- For "last week" or "past 7 days" pass days: 7. For "last 30 days" pass days: 30. Default to 30 days when no range is given.',
     '- When they ask for a graph, chart, report, or snapshot, call get_analytics_report_snapshot (includes chart data shown in chat).',
     '- Never ask the user to select an account or platform from a dropdown. You already know all connected accounts.',
     '- Quote only numbers returned by dashboard analytics tools. Do not invent metrics.',

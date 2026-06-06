@@ -35,7 +35,7 @@ export type DashboardAnalyticsReport = {
     engagement: Array<{ date: string; value: number }>;
   };
   insightsHint?: string;
-  source: 'dashboard_insights';
+  source: 'dashboard_insights' | 'synced_db';
 };
 
 function sumSeries(series: Array<{ date: string; value: number }>): number {
@@ -258,6 +258,139 @@ export async function buildDashboardAnalyticsReport(
     insightsHint: typeof insights.insightsHint === 'string' ? insights.insightsHint : undefined,
     source: 'dashboard_insights',
   };
+}
+
+export async function buildLightweightDashboardReport(
+  userId: string,
+  accountId: string,
+  dateRange?: DashboardDateRange
+): Promise<DashboardAnalyticsReport> {
+  const range = dateRange ?? getDefaultAnalyticsDateRange();
+  const account = await prisma.socialAccount.findFirst({
+    where: { id: accountId, userId },
+    select: { id: true, platform: true, username: true },
+  });
+  if (!account) throw new Error('Account not found or not connected to your workspace.');
+
+  const rangeStart = new Date(`${range.start}T00:00:00`);
+  const rangeEnd = new Date(`${range.end}T23:59:59.999`);
+
+  const [posts, latestSnapshot, startSnapshot] = await Promise.all([
+    prisma.importedPost.findMany({
+      where: { socialAccountId: accountId, publishedAt: { gte: rangeStart, lte: rangeEnd } },
+      select: {
+        publishedAt: true,
+        impressions: true,
+        interactions: true,
+        likeCount: true,
+        commentsCount: true,
+        sharesCount: true,
+        repostsCount: true,
+      },
+    }),
+    prisma.accountMetricSnapshot.findFirst({
+      where: { socialAccountId: accountId },
+      orderBy: { metricDate: 'desc' },
+      select: { followersCount: true, fansCount: true, metricDate: true },
+    }),
+    prisma.accountMetricSnapshot.findFirst({
+      where: { socialAccountId: accountId, metricDate: { lte: range.start } },
+      orderBy: { metricDate: 'desc' },
+      select: { followersCount: true, fansCount: true },
+    }),
+  ]);
+
+  const followers = latestSnapshot?.followersCount ?? latestSnapshot?.fansCount ?? 0;
+  const startFollowers = startSnapshot?.followersCount ?? startSnapshot?.fansCount ?? followers;
+  const newFollowers = Math.max(0, followers - startFollowers);
+
+  const views = posts.reduce((s, p) => s + (p.impressions ?? 0), 0);
+  const engagement = posts.reduce((s, p) => s + sumEngagementFromPost(p), 0);
+  const engagementSeries = fillDateRangeSeries(engagementSeriesFromPosts(posts), range);
+  const viewsSeries = fillDateRangeSeries(
+    posts.reduce(
+      (acc, p) => {
+        const d = p.publishedAt.toISOString().slice(0, 10);
+        const row = acc.find((x) => x.date === d);
+        const v = p.impressions ?? 0;
+        if (row) row.value += v;
+        else acc.push({ date: d, value: v });
+        return acc;
+      },
+      [] as Array<{ date: string; value: number }>
+    ),
+    range
+  );
+
+  const platformLabel = PLATFORM_LABEL[account.platform] ?? account.platform;
+
+  return {
+    accountId: account.id,
+    platform: account.platform,
+    platformLabel,
+    username: account.username,
+    dateRange: range,
+    kpis: {
+      followers,
+      newFollowers,
+      views,
+      engagement,
+      posts: posts.length,
+      impressions: views,
+    },
+    chartSeries: {
+      followers: fillDateRangeSeries(
+        latestSnapshot
+          ? [
+              { date: range.start, value: startFollowers },
+              { date: range.end, value: followers },
+            ]
+          : [],
+        range
+      ),
+      views: viewsSeries,
+      engagement: engagementSeries,
+    },
+    insightsHint: 'Totals from synced posts and follower snapshots in your workspace (fast path).',
+    source: 'synced_db',
+  };
+}
+
+const INSIGHTS_BUDGET_MS = Number(process.env.AYSOP_INSIGHTS_BUDGET_MS) || 35_000;
+
+/** Full dashboard insights with timeout; falls back to synced DB metrics. */
+export async function buildDashboardAnalyticsReportSafe(
+  userId: string,
+  accountId: string,
+  dateRange?: DashboardDateRange
+): Promise<DashboardAnalyticsReport> {
+  try {
+    return await Promise.race([
+      buildDashboardAnalyticsReport(userId, accountId, dateRange),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('insights_timeout')), INSIGHTS_BUDGET_MS);
+      }),
+    ]);
+  } catch {
+    return buildLightweightDashboardReport(userId, accountId, dateRange);
+  }
+}
+
+/** Fast cross-platform summary from DB (no live platform API calls). */
+export async function buildFastAllAccountsDashboardReports(
+  userId: string,
+  dateRange?: DashboardDateRange
+): Promise<DashboardAnalyticsReport[]> {
+  const range = dateRange ?? getDefaultAnalyticsDateRange();
+  const accounts = await prisma.socialAccount.findMany({
+    where: { userId },
+    select: { id: true },
+    orderBy: { createdAt: 'asc' },
+  });
+  if (!accounts.length) return [];
+  return Promise.all(
+    accounts.map((acc) => buildLightweightDashboardReport(userId, acc.id, range))
+  );
 }
 
 export async function buildAllAccountsDashboardReports(

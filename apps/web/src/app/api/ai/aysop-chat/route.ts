@@ -7,6 +7,9 @@ import { normalizeChatAttachments } from '@/lib/ai/aysop-attachments';
 
 export const maxDuration = 60;
 
+/** Wall-clock budget for tool rounds so we return before Vercel kills the function. */
+const CHAT_WALL_BUDGET_MS = Number(process.env.AYSOP_CHAT_WALL_BUDGET_MS) || 52_000;
+
 function messageHasBody(m: { content?: string; attachments?: unknown }): boolean {
   const text = typeof m.content === 'string' ? m.content.trim() : '';
   const attachments = normalizeChatAttachments(m.attachments);
@@ -52,12 +55,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { reply, artifacts } = await runAysopChat({
-      messages,
-      ctx: { userId },
-    });
+    const started = Date.now();
+    const { reply, artifacts } = await Promise.race([
+      runAysopChat({ messages, ctx: { userId } }),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Chat request timed out. Try a simpler question.')), CHAT_WALL_BUDGET_MS);
+      }),
+    ]);
     void trackUsage(userId, 'ai_generation', 1);
-    return NextResponse.json({ reply, artifacts });
+    return NextResponse.json({ reply, artifacts, elapsedMs: Date.now() - started });
   } catch (e) {
     console.error('[aysop-chat]', (e as Error).message?.slice(0, 300));
     return NextResponse.json(

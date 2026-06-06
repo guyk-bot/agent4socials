@@ -5,9 +5,9 @@ import type { Platform } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getInboxCommentsFromDb, type InboxCommentRow } from '@/lib/inbox/inbox-db-cache';
 import {
-  buildAllAccountsDashboardReports,
-  buildDashboardAnalyticsReport,
   buildCrossPlatformKpiSummary,
+  buildDashboardAnalyticsReportSafe,
+  buildFastAllAccountsDashboardReports,
   resolveDashboardDateRange,
   type DashboardAnalyticsReport,
 } from '@/lib/ai/dashboard-analytics';
@@ -194,7 +194,7 @@ const platformParam = {
 };
 
 const dateRangeParams = {
-  days: { type: 'number', description: 'Reporting window: 7, 30, or 90 days. Default 30 when user says "last month" or "last 30 days".' },
+  days: { type: 'number', description: 'Reporting window: 7, 30, or 90 days. Use 7 for "last week", 30 for "last month". Default 30.' },
   since: { type: 'string', description: 'Start date YYYY-MM-DD (optional)' },
   until: { type: 'string', description: 'End date YYYY-MM-DD (optional)' },
 };
@@ -213,7 +213,7 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'get_analytics_all_accounts',
       description:
-        'Dashboard analytics for every connected account in a date range. Same data as the analytics Dashboard. Returns KPIs and chart series for report snapshots.',
+        'Cross-platform analytics for every connected account in a date range. Uses synced workspace data (fast). For post counts pass days: 7 for last week, 30 for last month.',
       parameters: {
         type: 'object',
         properties: { ...dateRangeParams },
@@ -416,13 +416,16 @@ export async function runAysopTool(
 
     case 'get_analytics_all_accounts': {
       const dateRange = resolveDateRangeFromArgs(args);
-      const reports = await buildAllAccountsDashboardReports(ctx.userId, dateRange);
-      const cross = await buildCrossPlatformKpiSummary(ctx.userId, dateRange);
+      const [reports, cross] = await Promise.all([
+        buildFastAllAccountsDashboardReports(ctx.userId, dateRange),
+        buildCrossPlatformKpiSummary(ctx.userId, dateRange),
+      ]);
       return {
         result: {
           dateRange,
           crossPlatformKpi: cross.kpi,
           accounts: reports.map(reportToToolResult),
+          dataSource: 'synced_db',
         },
         artifacts: reports.map(reportToArtifact),
       };
@@ -439,7 +442,7 @@ export async function runAysopTool(
         );
       }
       const dateRange = resolveDateRangeFromArgs(args);
-      const report = await buildDashboardAnalyticsReport(ctx.userId, accountId!, dateRange);
+      const report = await buildDashboardAnalyticsReportSafe(ctx.userId, accountId!, dateRange);
       return {
         result: reportToToolResult(report),
         artifacts: [reportToArtifact(report)],

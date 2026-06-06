@@ -157,9 +157,17 @@ export default function AysopChatPanel({
         ];
         onMessagesChange(withAssistant);
       } catch (e) {
-        const msg =
-          (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-          'Something went wrong. Try again.';
+        const axiosErr = e as {
+          response?: { status?: number; data?: { message?: string } };
+          code?: string;
+        };
+        const status = axiosErr.response?.status;
+        const serverMsg = axiosErr.response?.data?.message;
+        let msg = serverMsg ?? 'Something went wrong. Try again.';
+        if (status === 504 || axiosErr.code === 'ECONNABORTED' || /timed out/i.test(String(serverMsg ?? ''))) {
+          msg =
+            'That took too long. Try a shorter question (one platform) or ask again in a moment.';
+        }
         setError(msg);
         onMessagesChange(next);
       } finally {
