@@ -1,10 +1,10 @@
 /**
- * OpenAI Chat Completions client for server-side use.
- * Set OPENAI_API_KEY in env (and optionally OPENAI_CHAT_MODEL, default gpt-4.1-nano).
+ * Chat Completions client (OpenAI or OpenRouter for iZop AI).
+ * Default: OPENAI_API_KEY + api.openai.com
+ * iZop AI: Izop_AI / OPENROUTER_API_KEY + openrouter.ai (model openai/gpt-4.1-mini)
  */
 
-const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
-const DEFAULT_MODEL = 'gpt-4.1-nano';
+import { resolveLlmConfig, type ResolvedLlmConfig } from '@/lib/ai/llm-config';
 
 export type OpenAIContentPart =
   | { type: 'text'; text: string }
@@ -23,8 +23,9 @@ export type OpenAIUserMessage = {
 export interface OpenAIChatOptions {
   max_tokens?: number;
   response_format?: { type: 'json_object' } | { type: 'text' };
-  /** Override OPENAI_CHAT_MODEL for this request (e.g. faster inbox batch). */
   model?: string;
+  /** Use OpenRouter for iZop AI when Izop_AI is set. Default uses OpenAI directly. */
+  providerScope?: 'default' | 'aysop';
 }
 
 export interface OpenAIChatResult {
@@ -59,19 +60,37 @@ export interface OpenAIChatWithToolsResult {
   finish_reason: string | null;
 }
 
+async function postChatCompletions(
+  config: ResolvedLlmConfig,
+  body: Record<string, unknown>
+): Promise<Response> {
+  return fetch(config.chatCompletionsUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${config.apiKey}`,
+      ...config.extraHeaders,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function providerLabel(config: ResolvedLlmConfig): string {
+  return config.provider === 'openrouter' ? 'OpenRouter' : 'OpenAI';
+}
+
 /**
- * Call OpenAI Chat Completions with optional tools.
+ * Call Chat Completions with optional tools.
  */
 export async function openAiChatWithTools(
   messages: OpenAIChatMessageWithTools[],
   tools: OpenAIToolDefinition[],
   options: OpenAIChatOptions = {}
 ): Promise<OpenAIChatWithToolsResult> {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  if (!apiKey) {
-    throw new Error('OPENAI_API_KEY is not set');
-  }
-  const model = options.model?.trim() || process.env.OPENAI_CHAT_MODEL?.trim() || DEFAULT_MODEL;
+  const scope = options.providerScope ?? 'default';
+  const config = resolveLlmConfig(scope, options.model);
+  const model = config.model;
+
   const body: Record<string, unknown> = {
     model,
     messages,
@@ -82,18 +101,13 @@ export async function openAiChatWithTools(
   if (options.response_format) {
     body.response_format = options.response_format;
   }
-  const res = await fetch(OPENAI_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
+
+  const res = await postChatCompletions(config, body);
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`OpenAI API error: ${res.status} ${errText}`);
+    throw new Error(`${providerLabel(config)} API error: ${res.status} ${errText}`);
   }
+
   const data = (await res.json()) as {
     choices?: Array<{
       message?: { role: 'assistant'; content?: string | null; tool_calls?: OpenAIToolCall[] };
@@ -119,17 +133,16 @@ export async function openAiChatWithTools(
 }
 
 /**
- * Call OpenAI Chat Completions. Throws on error or missing key.
+ * Call Chat Completions. Throws on error or missing key.
  */
 export async function openAiChat(
   messages: OpenAIChatMessage[],
   options: OpenAIChatOptions = {}
 ): Promise<OpenAIChatResult> {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  if (!apiKey) {
-    throw new Error('OPENAI_API_KEY is not set');
-  }
-  const model = options.model?.trim() || process.env.OPENAI_CHAT_MODEL?.trim() || DEFAULT_MODEL;
+  const scope = options.providerScope ?? 'default';
+  const config = resolveLlmConfig(scope, options.model);
+  const model = config.model;
+
   const body: Record<string, unknown> = {
     model,
     messages,
@@ -138,18 +151,13 @@ export async function openAiChat(
   if (options.response_format) {
     body.response_format = options.response_format;
   }
-  const res = await fetch(OPENAI_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
+
+  const res = await postChatCompletions(config, body);
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`OpenAI API error: ${res.status} ${errText}`);
+    throw new Error(`${providerLabel(config)} API error: ${res.status} ${errText}`);
   }
+
   const data = (await res.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
     model?: string;

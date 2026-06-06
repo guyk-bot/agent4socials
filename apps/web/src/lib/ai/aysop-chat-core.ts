@@ -17,6 +17,7 @@ import {
   threadHasImages,
   type AysopChatInputMessage,
 } from '@/lib/ai/aysop-openai-messages';
+import { getAysopOpenRouterApiKey, toOpenRouterModel } from '@/lib/ai/llm-config';
 
 export type { AysopChatInputMessage };
 
@@ -104,13 +105,15 @@ export async function runAysopChat(args: {
   ];
 
   const artifacts: AysopArtifact[] = [];
-  const visionModel =
+  const visionModelRaw =
+    process.env.IZOP_AI_VISION_MODEL?.trim() ||
     process.env.OPENAI_VISION_MODEL?.trim() ||
     process.env.OPENAI_CHAT_VISION_MODEL?.trim() ||
     'gpt-4.1-mini';
+  const visionModel = getAysopOpenRouterApiKey() ? toOpenRouterModel(visionModelRaw) : visionModelRaw;
   const chatOptions = threadHasImages(args.messages)
-    ? { max_tokens: 900, model: visionModel }
-    : { max_tokens: 900 };
+    ? { max_tokens: 900, model: visionModel, providerScope: 'aysop' as const }
+    : { max_tokens: 900, providerScope: 'aysop' as const };
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const res = await openAiChatWithTools(thread, AYSOP_TOOL_DEFINITIONS, chatOptions);

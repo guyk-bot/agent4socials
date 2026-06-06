@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { BRAND_NAME } from '@/lib/site-brand-assets';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { runAysopChat } from '@/lib/ai/aysop-chat-core';
+import { isAysopLlmConfigured } from '@/lib/ai/llm-config';
 import { trackUsage } from '@/lib/usage-tracking';
 import { normalizeChatAttachments } from '@/lib/ai/aysop-attachments';
 
@@ -21,9 +22,11 @@ function messageHasBody(m: { content?: string; attachments?: unknown }): boolean
  * Body: { messages: { role, content, attachments? }[] }
  */
 export async function POST(request: NextRequest) {
-  if (!process.env.OPENAI_API_KEY?.trim()) {
+  if (!isAysopLlmConfigured()) {
     return NextResponse.json(
-      { message: `${BRAND_NAME} AI is not configured (OPENAI_API_KEY missing).` },
+      {
+        message: `${BRAND_NAME} AI is not configured. Add Izop_AI (OpenRouter) or OPENAI_API_KEY in Vercel.`,
+      },
       { status: 503 }
     );
   }
