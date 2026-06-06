@@ -10,6 +10,7 @@ import {
   type AysopToolContext,
 } from '@/lib/ai/aysop-tools';
 import { prisma } from '@/lib/db';
+import { formatBrandContextForPrompt } from '@/lib/ai/brand-context-prompt';
 
 const MAX_TOOL_ROUNDS = 6;
 
@@ -25,12 +26,14 @@ function formatAccountCatalog(
   );
 }
 
-function buildSystemPrompt(accountCatalog: string): string {
+function buildSystemPrompt(accountCatalog: string, brandContextBlock: string | null): string {
   return [
     `You are ${BRAND_NAME} AI, the social media copilot inside the ${BRAND_NAME} dashboard.`,
     'You help creators manage all connected platforms: analytics, comments, keyword automations, captions, and publishing.',
     '',
     accountCatalog,
+    '',
+    brandContextBlock ?? 'Brand context: not set yet. If the user asks about their brand voice or product, suggest they fill in AI Assistant under Brand context.',
     '',
     'Platform routing (critical):',
     '- Infer which platform the user means from their message (TikTok, Instagram, Facebook, YouTube, X/Twitter, LinkedIn, Pinterest, Threads).',
@@ -63,14 +66,22 @@ export async function runAysopChat(args: {
   messages: AysopChatInputMessage[];
   ctx: AysopToolContext;
 }): Promise<{ reply: string; artifacts: AysopArtifact[] }> {
-  const accounts = await prisma.socialAccount.findMany({
-    where: { userId: args.ctx.userId },
-    select: { id: true, platform: true, username: true },
-    orderBy: { createdAt: 'asc' },
-  });
+  const [accounts, userRow] = await Promise.all([
+    prisma.socialAccount.findMany({
+      where: { userId: args.ctx.userId },
+      select: { id: true, platform: true, username: true },
+      orderBy: { createdAt: 'asc' },
+    }),
+    prisma.user.findUnique({
+      where: { id: args.ctx.userId },
+      select: { brandContext: true },
+    }),
+  ]);
+
+  const brandBlock = formatBrandContextForPrompt(userRow?.brandContext ?? null);
 
   const thread: OpenAIChatMessageWithTools[] = [
-    { role: 'system', content: buildSystemPrompt(formatAccountCatalog(accounts)) },
+    { role: 'system', content: buildSystemPrompt(formatAccountCatalog(accounts), brandBlock) },
     ...args.messages.map((m) => ({ role: m.role, content: m.content })),
   ];
 

@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS "aysop_chat_sessions" (
+  "id" TEXT NOT NULL,
+  "userId" TEXT NOT NULL,
+  "title" TEXT NOT NULL DEFAULT 'New chat',
+  "messages" JSONB NOT NULL DEFAULT '[]',
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "aysop_chat_sessions_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX IF NOT EXISTS "aysop_chat_sessions_userId_updatedAt_idx"
+  ON "aysop_chat_sessions"("userId", "updatedAt" DESC);
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'aysop_chat_sessions_userId_fkey'
+  ) THEN
+    ALTER TABLE "aysop_chat_sessions"
+      ADD CONSTRAINT "aysop_chat_sessions_userId_fkey"
+      FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;

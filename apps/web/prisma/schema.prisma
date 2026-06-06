@@ -30,6 +30,7 @@ model User {
   automationFollowerWelcomes AutomationFollowerWelcome[]
   dmFirstWelcomeSent       DmFirstWelcomeSent[]
   linkPage               LinkPage?
+  aysopChatSessions      AysopChatSession[]
 }
 
 enum Platform {
@@ -503,4 +504,18 @@ model AppKv {
   updatedAt DateTime @updatedAt
 
   @@map("app_kv")
+}
+
+/// Persisted iZop AI chat threads (ChatGPT-style history).
+model AysopChatSession {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String   @default("New chat")
+  messages  Json     @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, updatedAt(sort: Desc)])
+  @@map("aysop_chat_sessions")
 }

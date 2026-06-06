@@ -33,6 +33,7 @@ function isPriorityApiPath(url?: string): boolean {
   if (!url) return false;
   return (
     url.includes('/ai/aysop-chat') ||
+    url.includes('/ai/aysop-chats') ||
     url.includes('/ai/brand-context') ||
     url.includes('/ai/generate-description') ||
     url.includes('/ai/generate-composer-dm') ||

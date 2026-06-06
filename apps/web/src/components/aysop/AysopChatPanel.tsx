@@ -5,10 +5,9 @@ import { BRAND_NAME } from '@/lib/site-brand-assets';
 import Link from 'next/link';
 import { Bot, Loader2, Send, Sparkles, ExternalLink } from 'lucide-react';
 import api from '@/lib/api';
-import { useAuth } from '@/context/AuthContext';
 import { AysopAnalyticsReportCard, type ReportSnapshotArtifact } from '@/components/aysop/AysopAnalyticsReportCard';
 
-type ChatMessage = {
+export type ChatMessage = {
   id: string;
   role: 'user' | 'assistant';
   content: string;
@@ -24,14 +23,12 @@ type AysopArtifact =
   | { type: 'composer_link'; url: string; caption?: string }
   | { type: 'action_result'; action: string; ok: boolean; detail: string };
 
-const STORAGE_KEY = 'agent4socials_aysop_chat_v1';
-
 const STARTERS = [
+  'What is my brand about?',
   'Instagram analytics report for the last 30 days',
-  'How is my latest post performing?',
   'Summarize analytics across all my platforms',
   'Show me a chart of TikTok views this month',
-  'Set up keyword automation for "LINK"',
+  'Draft a carousel caption for my brand',
 ];
 
 function ArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }) {
@@ -87,48 +84,36 @@ function ArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }) {
   );
 }
 
-export default function AysopChatPanel() {
-  const { user } = useAuth();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+type Props = {
+  messages: ChatMessage[];
+  onMessagesChange: (messages: ChatMessage[]) => void;
+  sessionLoading?: boolean;
+  disabled?: boolean;
+};
+
+export default function AysopChatPanel({
+  messages,
+  onMessagesChange,
+  sessionLoading,
+  disabled,
+}: Props) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!user?.id) return;
-    try {
-      const raw = sessionStorage.getItem(`${STORAGE_KEY}:${user.id}`);
-      if (raw) {
-        const parsed = JSON.parse(raw) as ChatMessage[];
-        if (Array.isArray(parsed)) setMessages(parsed);
-      }
-    } catch {
-      /* ignore */
-    }
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    try {
-      sessionStorage.setItem(`${STORAGE_KEY}:${user.id}`, JSON.stringify(messages.slice(-30)));
-    } catch {
-      /* ignore */
-    }
-  }, [messages, user?.id]);
-
-  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
+  }, [messages, loading, sessionLoading]);
 
   const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || loading) return;
+      if (!trimmed || loading || disabled) return;
       setError(null);
       const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', content: trimmed };
       const next = [...messages, userMsg];
-      setMessages(next);
+      onMessagesChange(next);
       setInput('');
       setLoading(true);
       try {
@@ -138,65 +123,57 @@ export default function AysopChatPanel() {
           { messages: payload },
           { timeout: 90_000 }
         );
-        setMessages((prev) => [
-          ...prev,
+        const withAssistant: ChatMessage[] = [
+          ...next,
           {
             id: `a-${Date.now()}`,
             role: 'assistant',
             content: res.data.reply,
             artifacts: res.data.artifacts,
           },
-        ]);
+        ];
+        onMessagesChange(withAssistant);
       } catch (e) {
         const msg =
           (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
           'Something went wrong. Try again.';
         setError(msg);
+        onMessagesChange(next);
       } finally {
         setLoading(false);
       }
     },
-    [loading, messages]
+    [disabled, loading, messages, onMessagesChange]
   );
 
-  const clearChat = () => {
-    setMessages([]);
-    setError(null);
-    if (user?.id) sessionStorage.removeItem(`${STORAGE_KEY}:${user.id}`);
-  };
-
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] max-h-[820px] rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
-      <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-neutral-100 bg-[var(--dark)] text-chrome-text">
-        <div className="flex items-center gap-2 flex-1">
-          <Bot size={22} className="text-[#53BEFA]" />
-          <span className="font-semibold">{BRAND_NAME} AI</span>
-        </div>
-        <button
-          type="button"
-          onClick={clearChat}
-          className="text-xs text-chrome-text/70 hover:text-chrome-text underline"
-        >
-          New chat
-        </button>
+    <div className="flex flex-col h-full min-h-0">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-neutral-100 bg-[var(--dark)] text-chrome-text shrink-0">
+        <Bot size={20} className="text-[#53BEFA]" />
+        <span className="font-semibold text-sm">{BRAND_NAME} AI</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-[#fafafa]">
-        {messages.length === 0 ? (
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-[#fafafa] min-h-0">
+        {sessionLoading ? (
+          <div className="flex items-center justify-center gap-2 text-neutral-500 text-sm py-12">
+            <Loader2 size={18} className="animate-spin" />
+            Loading chat…
+          </div>
+        ) : messages.length === 0 ? (
           <div className="text-center py-8 px-4">
             <Sparkles className="mx-auto text-[var(--primary)] mb-3" size={32} />
             <p className="text-neutral-700 font-medium">Your social copilot</p>
             <p className="text-sm text-neutral-500 mt-1 max-w-md mx-auto">
-              Ask about any connected platform or all of them at once. Analytics, comments, automations,
-              and captions for images, video, and carousels. Upload media in Composer when ready to publish.
+              Uses your AI Assistant brand context, all connected platforms, and saved chat history.
             </p>
             <div className="flex flex-wrap justify-center gap-2 mt-6">
               {STARTERS.map((s) => (
                 <button
                   key={s}
                   type="button"
-                  onClick={() => send(s)}
-                  className="text-xs px-3 py-2 rounded-full border border-neutral-200 bg-white hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
+                  onClick={() => void send(s)}
+                  disabled={disabled || loading}
+                  className="text-xs px-3 py-2 rounded-full border border-neutral-200 bg-white hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors disabled:opacity-50"
                 >
                   {s}
                 </button>
@@ -205,10 +182,7 @@ export default function AysopChatPanel() {
           </div>
         ) : (
           messages.map((m) => (
-            <div
-              key={m.id}
-              className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
+            <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div
                 className={`max-w-[95%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap ${
                   m.role === 'user'
@@ -234,11 +208,11 @@ export default function AysopChatPanel() {
       </div>
 
       {error ? (
-        <p className="px-4 py-2 text-sm text-red-600 bg-red-50 border-t border-red-100">{error}</p>
+        <p className="px-4 py-2 text-sm text-red-600 bg-red-50 border-t border-red-100 shrink-0">{error}</p>
       ) : null}
 
       <form
-        className="p-3 border-t border-neutral-100 flex gap-2 bg-white"
+        className="p-3 border-t border-neutral-100 flex gap-2 bg-white shrink-0"
         onSubmit={(e) => {
           e.preventDefault();
           void send(input);
@@ -248,13 +222,13 @@ export default function AysopChatPanel() {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about posts, comments, analytics, automations…"
+          placeholder="Ask about posts, comments, analytics, your brand…"
           className="flex-1 rounded-xl border border-neutral-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40"
-          disabled={loading}
+          disabled={loading || disabled}
         />
         <button
           type="submit"
-          disabled={loading || !input.trim()}
+          disabled={loading || disabled || !input.trim()}
           className="shrink-0 rounded-xl bg-[var(--dark)] text-chrome-text px-4 py-3 hover:opacity-90 disabled:opacity-40 transition-opacity"
           aria-label="Send"
         >
