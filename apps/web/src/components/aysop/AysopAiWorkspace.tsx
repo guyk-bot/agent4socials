@@ -59,8 +59,10 @@ function pickRestoreChatId(
   const lastId = readLastActiveChatId(userId);
   const byId = new Map(sessions.map((s) => [s.id, s]));
 
-  if (lastId && byId.has(lastId) && !isEphemeralOfflineSession(lastId, userId)) {
-    return lastId;
+  if (lastId && !isEphemeralOfflineSession(lastId, userId)) {
+    if (byId.has(lastId)) return lastId;
+    const cached = readCachedMessages(userId, lastId);
+    if (cached?.length) return lastId;
   }
 
   const real = sessions.filter((s) => !s.id.startsWith('offline-'));
@@ -74,23 +76,58 @@ function pickRestoreChatId(
   return null;
 }
 
+function chatParamFromWindow(): string | null {
+  if (typeof window === 'undefined') return null;
+  return new URLSearchParams(window.location.search).get('c');
+}
+
+function resolveInstantChatState(
+  userId: string | undefined,
+  chatParam: string | null
+): {
+  sessions: AysopChatSessionSummary[];
+  activeId: string | null;
+  messages: ChatMessage[];
+} {
+  if (!userId) {
+    return { sessions: [], activeId: null, messages: [] };
+  }
+  const sessions = readCachedSessionList(userId) ?? [];
+  let activeId: string | null = null;
+
+  if (chatParam && !isEphemeralOfflineSession(chatParam, userId)) {
+    activeId = chatParam;
+  } else if (chatParam) {
+    activeId = pickRestoreChatId(userId, sessions) ?? chatParam;
+  } else {
+    activeId = pickRestoreChatId(userId, sessions);
+  }
+
+  const messages =
+    activeId && userId ? ((readCachedMessages(userId, activeId) ?? []) as ChatMessage[]) : [];
+
+  return { sessions, activeId, messages };
+}
+
 export default function AysopAiWorkspace() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const chatParam = searchParams.get('c');
 
-  const [sessions, setSessions] = useState<AysopChatSessionSummary[]>(() => {
-    if (user?.id) return readCachedSessionList(user.id) ?? [];
-    return [];
-  });
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [listLoading, setListLoading] = useState(true);
+  const instantBoot = useMemo(
+    () => resolveInstantChatState(user?.id, chatParam ?? chatParamFromWindow()),
+    [user?.id, chatParam]
+  );
+
+  const [sessions, setSessions] = useState<AysopChatSessionSummary[]>(instantBoot.sessions);
+  const [activeId, setActiveId] = useState<string | null>(instantBoot.activeId);
+  const [messages, setMessages] = useState<ChatMessage[]>(instantBoot.messages);
+  const [listLoading, setListLoading] = useState(instantBoot.sessions.length === 0);
 
   const initRef = useRef(false);
-  const messagesRef = useRef<ChatMessage[]>([]);
-  const activeIdRef = useRef<string | null>(null);
+  const messagesRef = useRef<ChatMessage[]>(instantBoot.messages);
+  const activeIdRef = useRef<string | null>(instantBoot.activeId);
   const persistInFlightRef = useRef<Promise<boolean> | null>(null);
   const persistDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPersistRef = useRef<{ id: string; messages: ChatMessage[] } | null>(null);
@@ -326,10 +363,30 @@ export default function AysopAiWorkspace() {
     if (!user?.id || initRef.current) return;
     initRef.current = true;
 
-    const cachedList = readCachedSessionList(user.id);
-    if (cachedList?.length) {
+    const cachedList = readCachedSessionList(user.id) ?? [];
+    if (cachedList.length) {
       setSessions(cachedList);
       setListLoading(false);
+    }
+
+    const instantId =
+      chatParam && !isEphemeralOfflineSession(chatParam, user.id)
+        ? chatParam
+        : pickRestoreChatId(user.id, cachedList);
+
+    if (instantId) {
+      setActiveId(instantId);
+      activeIdRef.current = instantId;
+      const cachedMsgs = (readCachedMessages(user.id, instantId) ?? []) as ChatMessage[];
+      setMessages(cachedMsgs);
+      messagesRef.current = cachedMsgs;
+      if (!instantId.startsWith('offline-')) {
+        writeLastActiveChatId(user.id, instantId);
+      }
+      if (!chatParam || chatParam !== instantId) {
+        router.replace(`/dashboard/aysop-ai?c=${encodeURIComponent(instantId)}`, { scroll: false });
+      }
+      void loadSession(instantId, { background: true });
     }
 
     void (async () => {
@@ -339,12 +396,13 @@ export default function AysopAiWorkspace() {
         })
         .catch(() => ({ data: { sessions: [] as AysopChatSessionSummary[] } }));
 
+      const listRes = await listPromise;
+      const serverSessions = listRes.data.sessions ?? [];
+
       if (chatParam) {
-        const listRes = await listPromise;
-        const serverSessions = listRes.data.sessions ?? [];
         const mergedForPick = (() => {
           const map = new Map<string, AysopChatSessionSummary>();
-          for (const s of cachedList ?? []) map.set(s.id, s);
+          for (const s of cachedList) map.set(s.id, s);
           for (const s of serverSessions) map.set(s.id, s);
           return [...map.values()].sort(
             (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
@@ -355,27 +413,19 @@ export default function AysopAiWorkspace() {
           ? pickRestoreChatId(user.id, mergedForPick) ?? chatParam
           : chatParam;
 
-        if (restoreId !== chatParam) {
+        if (restoreId !== activeIdRef.current) {
           setActiveChat(restoreId);
-        } else {
-          setActiveId(restoreId);
-          activeIdRef.current = restoreId;
-          if (!restoreId.startsWith('offline-')) {
-            writeLastActiveChatId(user.id, restoreId);
-          }
+          hydrateMessages(restoreId);
+          void loadSession(restoreId, { background: true });
         }
-        hydrateMessages(restoreId);
-        setListLoading(false);
-        void loadSession(restoreId, { background: true });
         mergeSessions(serverSessions, restoreId);
+        setListLoading(false);
         return;
       }
 
-      const listRes = await listPromise;
-      const serverSessions = listRes.data.sessions ?? [];
       const mergedLocal = (() => {
         const map = new Map<string, AysopChatSessionSummary>();
-        for (const s of cachedList ?? []) map.set(s.id, s);
+        for (const s of cachedList) map.set(s.id, s);
         for (const s of serverSessions) map.set(s.id, s);
         return [...map.values()].sort(
           (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
@@ -386,10 +436,19 @@ export default function AysopAiWorkspace() {
       if (restoreId) {
         setSessions(mergedLocal);
         cacheSessionList(mergedLocal);
-        setActiveChat(restoreId);
-        hydrateMessages(restoreId);
+        if (restoreId !== activeIdRef.current) {
+          setActiveChat(restoreId);
+          hydrateMessages(restoreId);
+          void loadSession(restoreId, { background: true });
+        }
+        mergeSessions(serverSessions, restoreId);
         setListLoading(false);
-        void loadSession(restoreId, { background: true });
+        return;
+      }
+
+      if (activeIdRef.current) {
+        mergeSessions(serverSessions, activeIdRef.current);
+        setListLoading(false);
         return;
       }
 
@@ -438,6 +497,7 @@ export default function AysopAiWorkspace() {
     setActiveChat,
     hydrateMessages,
     cacheSessionList,
+    router,
   ]);
 
   useEffect(() => {

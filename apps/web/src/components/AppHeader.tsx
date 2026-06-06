@@ -11,6 +11,17 @@ import { useAppData } from '@/context/AppDataContext';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { formatInboxBadgeTitle } from '@/lib/inbox/unread-count';
+import { readLastActiveChatId } from '@/lib/ai/aysop-chat-local-cache';
+
+function topNavHref(item: (typeof topNavItems)[number], userId?: string | null): string {
+  if (item.href === '/dashboard/aysop-ai' && userId) {
+    const last = readLastActiveChatId(userId);
+    if (last && !last.startsWith('offline-')) {
+      return `/dashboard/aysop-ai?c=${encodeURIComponent(last)}`;
+    }
+  }
+  return item.href;
+}
 
 export const topNavItems = [
   { icon: MessageCircle, label: 'Inbox', href: '/dashboard/inbox', badgeKey: 'inbox' as const },
@@ -116,7 +127,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={topNavHref(item, user?.id)}
                 prefetch={item.href === '/composer'}
                 className={navLinkClass(isActive)}
                 title={item.badgeKey === 'inbox' ? inboxBadgeTitle : undefined}
@@ -201,7 +212,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
               return (
                 <Link
                   key={item.href}
-                  href={item.href}
+                  href={topNavHref(item, user?.id)}
                   prefetch={item.href === '/composer'}
                   onClick={() => setTopNavOpen(false)}
                   className={mobileLinkClass}
