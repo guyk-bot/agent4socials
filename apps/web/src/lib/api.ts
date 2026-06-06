@@ -32,6 +32,7 @@ const _queue: Array<{ resolve: () => void }> = [];
 function isPriorityApiPath(url?: string): boolean {
   if (!url) return false;
   return (
+    url.includes('/ai/aysop-chat') ||
     url.includes('/ai/brand-context') ||
     url.includes('/ai/generate-description') ||
     url.includes('/ai/generate-composer-dm') ||
