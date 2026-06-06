@@ -15,6 +15,7 @@ type Props = {
   onSelect: (id: string) => void;
   onNewChat: () => void;
   onDelete: (id: string) => void;
+  side?: 'left' | 'right';
 };
 
 export default function AysopChatSidebar({
@@ -24,11 +25,13 @@ export default function AysopChatSidebar({
   onSelect,
   onNewChat,
   onDelete,
+  side = 'left',
 }: Props) {
   const groups = groupChatSessions(sessions);
+  const borderClass = side === 'right' ? 'border-l border-neutral-200' : 'border-r border-neutral-200';
 
   return (
-    <aside className="w-[260px] shrink-0 flex flex-col border-r border-neutral-200 bg-neutral-50/80 h-full">
+    <aside className={`w-[260px] shrink-0 flex flex-col ${borderClass} bg-neutral-50/80 h-full`}>
       <div className="p-3 border-b border-neutral-200">
         <button
           type="button"
