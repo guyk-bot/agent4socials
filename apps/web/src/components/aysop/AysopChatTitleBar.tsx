@@ -22,14 +22,14 @@ export default function AysopChatTitleBar({ title, disabled, onRename }: Props) 
     if (editing) inputRef.current?.focus();
   }, [editing]);
 
-  const save = async () => {
+  const save = () => {
     const trimmed = draft.trim();
     if (!trimmed) {
       setDraft(title);
       setEditing(false);
       return;
     }
-    if (trimmed !== title) await onRename(trimmed);
+    if (trimmed !== title) onRename(trimmed);
     setEditing(false);
   };
 
@@ -40,11 +40,11 @@ export default function AysopChatTitleBar({ title, disabled, onRename }: Props) 
           ref={inputRef}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onBlur={() => void save()}
+          onBlur={() => save()}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
-              void save();
+              save();
             }
             if (e.key === 'Escape') {
               setDraft(title);

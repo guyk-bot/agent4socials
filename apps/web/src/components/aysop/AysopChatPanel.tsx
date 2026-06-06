@@ -37,7 +37,7 @@ const STARTERS = [
 type Props = {
   messages: ChatMessage[];
   onMessagesChange: (messages: ChatMessage[]) => void;
-  sessionLoading?: boolean;
+  sessionSyncing?: boolean;
   disabled?: boolean;
 };
 
@@ -64,7 +64,7 @@ async function uploadChatFile(file: File): Promise<AysopChatAttachment> {
 export default function AysopChatPanel({
   messages,
   onMessagesChange,
-  sessionLoading,
+  sessionSyncing,
   disabled,
 }: Props) {
   const [input, setInput] = useState('');
@@ -77,7 +77,7 @@ export default function AysopChatPanel({
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading, sessionLoading, pendingAttachments]);
+  }, [messages, loading, pendingAttachments]);
 
   const handleFilePick = async (files: FileList | null) => {
     if (!files?.length || disabled || loading || uploading) return;
@@ -187,12 +187,6 @@ export default function AysopChatPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-[#fafafa] dark:bg-neutral-950 min-h-0">
-        {sessionLoading && messages.length === 0 ? (
-          <div className="flex items-center justify-center gap-2 text-neutral-500 dark:text-neutral-400 text-xs py-2">
-            <Loader2 size={14} className="animate-spin" />
-            Loading chat…
-          </div>
-        ) : null}
         {messages.length === 0 ? (
           <div className="text-center py-8 px-4">
             <Sparkles className="mx-auto text-[var(--primary)] mb-3" size={32} />
@@ -240,6 +234,9 @@ export default function AysopChatPanel({
             <Loader2 size={16} className="animate-spin" />
             {BRAND_NAME} is thinking…
           </div>
+        ) : null}
+        {sessionSyncing && messages.length > 0 ? (
+          <p className="text-[10px] text-neutral-400 dark:text-neutral-500 text-center">Syncing…</p>
         ) : null}
         <div ref={bottomRef} />
       </div>

@@ -1,0 +1,67 @@
+import type { AysopChatSessionSummary } from '@/lib/ai/aysop-chat-sessions';
+
+export type CachedChatMessage = {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  artifacts?: unknown[];
+  attachments?: unknown[];
+};
+
+function messagesKey(userId: string, sessionId: string) {
+  return `izop_aysop_chat_${userId}_${sessionId}`;
+}
+
+function listKey(userId: string) {
+  return `izop_aysop_chat_list_${userId}`;
+}
+
+export function readCachedMessages(userId: string | undefined, sessionId: string): CachedChatMessage[] | null {
+  if (!userId) return null;
+  try {
+    const raw = localStorage.getItem(messagesKey(userId, sessionId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CachedChatMessage[];
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeCachedMessages(
+  userId: string | undefined,
+  sessionId: string,
+  messages: CachedChatMessage[]
+): void {
+  if (!userId) return;
+  try {
+    if (messages.length === 0) {
+      localStorage.removeItem(messagesKey(userId, sessionId));
+      return;
+    }
+    localStorage.setItem(messagesKey(userId, sessionId), JSON.stringify(messages));
+  } catch {
+    /* quota */
+  }
+}
+
+export function readCachedSessionList(userId: string | undefined): AysopChatSessionSummary[] | null {
+  if (!userId) return null;
+  try {
+    const raw = localStorage.getItem(listKey(userId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AysopChatSessionSummary[];
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeCachedSessionList(userId: string | undefined, sessions: AysopChatSessionSummary[]): void {
+  if (!userId) return;
+  try {
+    localStorage.setItem(listKey(userId), JSON.stringify(sessions.slice(0, 100)));
+  } catch {
+    /* quota */
+  }
+}

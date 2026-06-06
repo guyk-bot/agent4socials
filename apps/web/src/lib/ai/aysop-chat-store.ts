@@ -199,12 +199,31 @@ export async function updateAysopChatSession(
 ): Promise<AysopChatSessionRow | null> {
   await ensureAysopChatTable();
 
-  const existing = await getAysopChatSession(userId, id);
-  if (!existing) return null;
-
   const explicitTitle =
     typeof body.title === 'string' && body.title.trim() ? body.title.trim().slice(0, 120) : undefined;
   const messages = body.messages ? normalizeStoredMessages(body.messages).slice(-80) : undefined;
+
+  if (explicitTitle && !messages) {
+    try {
+      if (prismaHasAysopModel()) {
+        const row = await prisma.aysopChatSession.updateMany({
+          where: { id, userId },
+          data: { title: explicitTitle },
+        });
+        if (row.count === 0) return null;
+        return getAysopChatSession(userId, id);
+      }
+    } catch (e) {
+      if (!isMissingTableError(e)) throw e;
+      resetAysopChatTableEnsure();
+      await ensureAysopChatTable();
+    }
+    const row = await updateSessionRaw(userId, id, { title: explicitTitle });
+    return row ? rowToSession(row) : null;
+  }
+
+  const existing = await getAysopChatSession(userId, id);
+  if (!existing) return null;
 
   let nextTitle = existing.title;
   if (explicitTitle) {
