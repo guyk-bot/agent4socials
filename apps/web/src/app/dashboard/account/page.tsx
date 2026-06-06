@@ -110,7 +110,7 @@ const sharePlatforms = [
 
 export default function AccountPage() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const {
     brands,
     activeBrandId,
@@ -142,6 +142,12 @@ export default function AccountPage() {
   const [cancelSuccess, setCancelSuccess] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [emailPassword, setEmailPassword] = useState('');
+  const [emailChangeError, setEmailChangeError] = useState('');
+  const [emailChangeSuccess, setEmailChangeSuccess] = useState('');
+  const [emailChangeSaving, setEmailChangeSaving] = useState(false);
   const [brandImageTargetId, setBrandImageTargetId] = useState<string | null>(null);
   const [createBrandModalOpen, setCreateBrandModalOpen] = useState(false);
   const [newBrandName, setNewBrandName] = useState('');
@@ -226,6 +232,45 @@ export default function AccountPage() {
     navigator.clipboard.writeText(userId);
     setCopiedId(true);
     setTimeout(() => setCopiedId(false), 2000);
+  };
+
+  const resetEmailEdit = () => {
+    setEditingEmail(false);
+    setNewEmail('');
+    setEmailPassword('');
+    setEmailChangeError('');
+  };
+
+  const handleSaveEmail = async () => {
+    setEmailChangeError('');
+    setEmailChangeSuccess('');
+    const trimmed = newEmail.trim().toLowerCase();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setEmailChangeError('Enter a valid email address.');
+      return;
+    }
+    if (trimmed === (user?.email ?? '').trim().toLowerCase()) {
+      setEmailChangeError('That is already your email address.');
+      return;
+    }
+    setEmailChangeSaving(true);
+    try {
+      const res = await api.post<{ email: string; message: string }>('/auth/change-email', {
+        newEmail: trimmed,
+        password: emailPassword || undefined,
+      });
+      await refreshUser();
+      setEmailChangeSuccess(res.data.message || 'Email updated successfully.');
+      resetEmailEdit();
+      window.setTimeout(() => setEmailChangeSuccess(''), 4000);
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { message?: string } }; message?: string };
+      setEmailChangeError(
+        err.response?.data?.message || err.message || 'Could not update email. Try again.'
+      );
+    } finally {
+      setEmailChangeSaving(false);
+    }
   };
 
   const handleUserAvatarUpload = (file?: File | null) => {
@@ -1125,6 +1170,78 @@ export default function AccountPage() {
                 </span>
               </div>
               <p className="text-sm text-neutral-500 truncate">{user?.email}</p>
+              {emailChangeSuccess ? (
+                <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-2.5 py-1.5">
+                  {emailChangeSuccess}
+                </p>
+              ) : null}
+              {!editingEmail ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingEmail(true);
+                    setNewEmail(user?.email ?? '');
+                    setEmailChangeError('');
+                    setEmailChangeSuccess('');
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-orange-700 hover:text-orange-800 hover:underline"
+                >
+                  <PencilLine size={13} />
+                  Change email
+                </button>
+              ) : (
+                <div className="mt-2 space-y-2 rounded-xl border border-neutral-200 bg-neutral-50 p-3 max-w-md">
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                    New email
+                  </label>
+                  <input
+                    type="email"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    autoComplete="email"
+                    className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                    placeholder="you@example.com"
+                  />
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                    Current password
+                  </label>
+                  <input
+                    type="password"
+                    value={emailPassword}
+                    onChange={(e) => setEmailPassword(e.target.value)}
+                    autoComplete="current-password"
+                    className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                    placeholder="Required for email/password sign-in"
+                  />
+                  <p className="text-[11px] text-neutral-500 leading-relaxed">
+                    Google sign-in accounts can leave password blank. Email/password accounts must enter their current
+                    password.
+                  </p>
+                  {emailChangeError ? (
+                    <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5">
+                      {emailChangeError}
+                    </p>
+                  ) : null}
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => void handleSaveEmail()}
+                      disabled={emailChangeSaving}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 py-2 text-xs font-semibold text-chrome-text hover:bg-[var(--button-hover)] disabled:opacity-50"
+                    >
+                      {emailChangeSaving ? 'Saving…' : 'Save email'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetEmailEdit}
+                      disabled={emailChangeSaving}
+                      className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-100 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
               {userId ? (
                 <div className="flex flex-wrap items-center gap-1.5 pt-2 text-xs text-neutral-600">
                   <span className="text-neutral-500">User ID:</span>

@@ -25,6 +25,7 @@ interface AuthContextType {
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -192,8 +193,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     router.push('/');
   };
 
+  const refreshUser = async () => {
+    const supabase = getSupabaseBrowser();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      await supabase.auth.refreshSession();
+      const refreshed = await supabase.auth.getSession();
+      const active = refreshed.data.session ?? session;
+      await syncUserFromApi(active.access_token, {
+        id: active.user.id,
+        email: active.user.email ?? '',
+        name: active.user.user_metadata?.full_name ?? active.user.user_metadata?.name ?? undefined,
+        avatarUrl: (active.user.user_metadata?.avatar_url || active.user.user_metadata?.picture) ?? undefined,
+      });
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signUpWithEmail, signInWithEmail, signInWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, loading, signUpWithEmail, signInWithEmail, signInWithGoogle, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
