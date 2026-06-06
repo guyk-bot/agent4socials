@@ -305,19 +305,9 @@ export default function AysopChatPanel({
           ))
         )}
         {loading ? (
-          <div className="flex items-center justify-between gap-3 text-neutral-500 dark:text-neutral-400 text-sm">
-            <div className="flex items-center gap-2 min-w-0">
-              <Loader2 size={16} className="animate-spin shrink-0" />
-              <span>{BRAND_NAME} is thinking…</span>
-            </div>
-            <button
-              type="button"
-              onClick={stopGeneration}
-              className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-2.5 py-1 text-xs font-medium text-neutral-700 dark:text-neutral-200 hover:border-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors"
-            >
-              <Square size={12} className="fill-current" />
-              Stop
-            </button>
+          <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400 text-sm">
+            <Loader2 size={16} className="animate-spin shrink-0" />
+            <span>{BRAND_NAME} is thinking…</span>
           </div>
         ) : null}
       </div>
@@ -369,7 +359,7 @@ export default function AysopChatPanel({
           <button
             type="button"
             onClick={stopGeneration}
-            className="shrink-0 rounded-xl bg-red-600 text-white px-4 py-3 hover:bg-red-700 transition-colors"
+            className="shrink-0 rounded-xl bg-[var(--dark)] text-chrome-text px-4 py-3 hover:opacity-90 transition-opacity"
             aria-label="Stop generating"
             title="Stop"
           >
