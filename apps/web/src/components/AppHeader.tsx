@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { MessageCircle, PlusSquare, Calendar, Menu, PanelLeft, PanelLeftClose, Link2, Sun, Moon, Brain } from 'lucide-react';
+import { MessageCircle, PlusSquare, Calendar, Menu, PanelLeft, PanelLeftClose, Sun, Moon, Brain } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { BRAND_NAME, SITE_LOGO_SRC, normalizeLegacyBrandName } from '@/lib/site-brand-assets';
 import { useTheme } from '@/context/ThemeContext';
@@ -12,7 +12,6 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { formatInboxBadgeTitle } from '@/lib/inbox/unread-count';
 import { readLastActiveChatId } from '@/lib/ai/aysop-chat-local-cache';
-import { SMART_LINKS_COMING_SOON_LABEL } from '@/lib/smart-links/feature-flag';
 
 function topNavHref(item: (typeof topNavItems)[number], userId?: string | null): string {
   if (item.href === '/dashboard/aysop-ai' && userId) {
@@ -28,7 +27,6 @@ export const topNavItems = [
   { icon: MessageCircle, label: 'Inbox', href: '/dashboard/inbox', badgeKey: 'inbox' as const },
   { icon: PlusSquare, label: 'Composer', href: '/composer' },
   { icon: Calendar, label: 'Calendar', href: '/calendar' },
-  { icon: Link2, label: 'Links', href: '/dashboard/smart-links', comingSoon: true as const },
   { icon: Brain, label: `${BRAND_NAME} AI`, href: '/dashboard/aysop-ai' },
 ];
 
@@ -67,30 +65,12 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
   const isAccountPage = pathname === '/dashboard/account';
   const displayAppName = normalizeLegacyBrandName(appName || BRAND_NAME);
 
-  const navLinkClass = (active: boolean, disabled?: boolean) =>
+  const navLinkClass = (active: boolean) =>
     `relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-0 ${
-      disabled
-        ? 'text-chrome-text/45 cursor-not-allowed select-none'
-        : active
-          ? 'bg-white/15 text-chrome-text'
-          : 'text-chrome-text/70 hover:text-chrome-text hover:bg-white/10'
+      active
+        ? 'bg-white/15 text-chrome-text'
+        : 'text-chrome-text/70 hover:text-chrome-text hover:bg-white/10'
     }`;
-
-  const comingSoonBadge = (
-    <span className="rounded-full border border-[#FA8DDF]/60 bg-[#FA8DDF]/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#ffc8ef] leading-none">
-      {SMART_LINKS_COMING_SOON_LABEL}
-    </span>
-  );
-
-  const renderComingSoonNav = (item: (typeof topNavItems)[number]) => (
-    <span className="flex flex-col items-center gap-0.5">
-      {comingSoonBadge}
-      <span className="flex items-center gap-2">
-        <item.icon size={18} />
-        {item.label}
-      </span>
-    </span>
-  );
 
   return (
     <header className="h-full w-full flex items-center justify-between px-4 sm:px-6 bg-[var(--dark)] text-chrome-text border-b border-white/10 pointer-events-auto">
@@ -146,18 +126,6 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
                 )}
               </>
             );
-            if ('comingSoon' in item && item.comingSoon) {
-              return (
-                <span
-                  key={item.href}
-                  className={`${navLinkClass(false, true)} py-1.5`}
-                  aria-disabled="true"
-                  title={SMART_LINKS_COMING_SOON_LABEL}
-                >
-                  {renderComingSoonNav(item)}
-                </span>
-              );
-            }
             return (
               <Link
                 key={item.href}
@@ -241,28 +209,10 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
                     ? `${badge} unread`
                     : undefined;
               const mobileLinkClass = `flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${
-                'comingSoon' in item && item.comingSoon
-                  ? 'text-chrome-text/45 cursor-not-allowed select-none'
-                  : isActive
-                    ? 'bg-white/15 text-chrome-text'
-                    : 'text-chrome-text/70 hover:text-chrome-text hover:bg-white/10'
+                isActive
+                  ? 'bg-white/15 text-chrome-text'
+                  : 'text-chrome-text/70 hover:text-chrome-text hover:bg-white/10'
               }`;
-              if ('comingSoon' in item && item.comingSoon) {
-                return (
-                  <span
-                    key={item.href}
-                    className={`${mobileLinkClass} flex-col items-start gap-1 py-3`}
-                    aria-disabled="true"
-                    title={SMART_LINKS_COMING_SOON_LABEL}
-                  >
-                    {comingSoonBadge}
-                    <span className="flex items-center gap-3">
-                      <item.icon size={18} className="shrink-0" />
-                      <span>{item.label}</span>
-                    </span>
-                  </span>
-                );
-              }
               return (
                 <Link
                   key={item.href}
