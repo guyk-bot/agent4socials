@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import AysopChatSidebar from '@/components/aysop/AysopChatSidebar';
-import AysopChatTitleBar from '@/components/aysop/AysopChatTitleBar';
 import AysopChatPanel, { type ChatMessage } from '@/components/aysop/AysopChatPanel';
 import {
   readCachedMessages,
@@ -58,7 +57,6 @@ export default function AysopAiWorkspace() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [listLoading, setListLoading] = useState(true);
-  const [sessionSyncing, setSessionSyncing] = useState(false);
 
   const initRef = useRef(false);
   const messagesRef = useRef<ChatMessage[]>([]);
@@ -127,7 +125,6 @@ export default function AysopAiWorkspace() {
       if (!opts?.background) {
         hydrateMessages(id);
       }
-      setSessionSyncing(true);
       try {
         const res = await api.get<{ session: SessionDetail }>(`/ai/aysop-chats/${id}`, {
           timeout: FETCH_TIMEOUT_MS,
@@ -141,8 +138,6 @@ export default function AysopAiWorkspace() {
         upsertSessionSummary(sessionSummaryFromDetail(res.data.session));
       } catch {
         /* keep cached messages */
-      } finally {
-        if (activeIdRef.current === id) setSessionSyncing(false);
       }
     },
     [hydrateMessages, upsertSessionSummary, user?.id]
@@ -479,23 +474,14 @@ export default function AysopAiWorkspace() {
     [schedulePersist]
   );
 
-  const activeTitle = sessions.find((s) => s.id === activeId)?.title ?? 'New chat';
-
   return (
     <div className="flex flex-col h-full min-h-0 bg-white dark:bg-neutral-950">
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <div className="flex-1 min-w-0 flex flex-col">
-          {activeId ? (
-            <AysopChatTitleBar
-              title={activeTitle}
-              onRename={(title) => renameSession(activeId, title)}
-            />
-          ) : null}
           <AysopChatPanel
             key={activeId ?? 'none'}
             messages={messages}
             onMessagesChange={handleMessagesChange}
-            sessionSyncing={sessionSyncing}
           />
         </div>
         <AysopChatSidebar

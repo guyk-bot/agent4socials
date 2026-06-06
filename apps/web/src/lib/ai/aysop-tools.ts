@@ -13,12 +13,15 @@ import {
 } from '@/lib/ai/dashboard-analytics';
 import { getDefaultAnalyticsDateRange } from '@/lib/calendar-date';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
-import { runShowAppInChat } from '@/lib/ai/aysop-show-app';
+import type { AysopWorkspaceSnapshot } from '@/lib/ai/aysop-workspace-snapshot';
 
 export type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 
+import type { AysopWorkspaceSnapshot } from '@/lib/ai/aysop-workspace-snapshot';
+
 export type AysopToolContext = {
   userId: string;
+  workspaces?: AysopWorkspaceSnapshot[];
 };
 
 const PLATFORM_ALIASES: Record<string, Platform> = {
@@ -203,8 +206,18 @@ export const AYSOP_TOOL_DEFINITIONS = [
   {
     type: 'function' as const,
     function: {
+      name: 'list_brand_workspaces',
+      description:
+        'List brand workspaces (Account > Brands). Use when the user asks about brands, workspaces, or how many brands they have. Not for analytics.',
+      parameters: { type: 'object', properties: {}, additionalProperties: false },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
       name: 'list_connected_accounts',
-      description: 'List all social accounts the user has connected.',
+      description:
+        'List every connected social account (Instagram, TikTok, etc.) across all brands. Use for platforms/accounts questions, not brand workspace counts.',
       parameters: { type: 'object', properties: {}, additionalProperties: false },
     },
   },
@@ -402,6 +415,60 @@ export async function runAysopTool(
   ctx: AysopToolContext
 ): Promise<{ result: unknown; artifacts?: AysopArtifact[] }> {
   switch (name) {
+    case 'list_brand_workspaces': {
+      const workspaces = ctx.workspaces?.length
+        ? ctx.workspaces
+        : await (async () => {
+            const accounts = await prisma.socialAccount.findMany({
+              where: { userId: ctx.userId },
+              select: { id: true, platform: true, username: true },
+              orderBy: { createdAt: 'asc' },
+            });
+            return [
+              {
+                id: 'default',
+                name: 'Default brand',
+                connectedAccountCount: accounts.length,
+                accounts: accounts.map((a) => ({
+                  id: a.id,
+                  platform: a.platform,
+                  username: a.username,
+                })),
+              },
+            ] satisfies AysopWorkspaceSnapshot[];
+          })();
+
+      return {
+        result: {
+          totalBrands: workspaces.length,
+          workspaces: workspaces.map((w) => ({
+            id: w.id,
+            name: w.name,
+            connectedAccountCount: w.connectedAccountCount,
+            accounts: w.accounts.map((a) => ({
+              platform: a.platform,
+              username: a.username,
+            })),
+          })),
+        },
+        artifacts: [
+          {
+            type: 'brand_workspaces' as const,
+            workspaces: workspaces.map((w) => ({
+              id: w.id,
+              name: w.name,
+              connectedAccountCount: w.connectedAccountCount,
+              accounts: w.accounts.map((a) => ({
+                platform: a.platform,
+                username: a.username,
+              })),
+            })),
+            href: '/dashboard/account',
+          },
+        ],
+      };
+    }
+
     case 'list_connected_accounts': {
       const accounts = await prisma.socialAccount.findMany({
         where: { userId: ctx.userId },

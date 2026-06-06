@@ -24,6 +24,16 @@ export type ReportSnapshotArtifact = {
 
 export type AysopArtifact =
   | { type: 'accounts'; accounts: Array<{ id: string; platform: string; username: string | null }> }
+  | {
+      type: 'brand_workspaces';
+      workspaces: Array<{
+        id: string;
+        name: string;
+        connectedAccountCount: number;
+        accounts: Array<{ platform: string; username: string | null }>;
+      }>;
+      href: string;
+    }
   | ReportSnapshotArtifact
   | { type: 'posts'; accountId: string; platform?: string; posts: Array<Record<string, unknown>> }
   | { type: 'comments'; accountId: string; postPreview: string; comments: Array<Record<string, unknown>> }

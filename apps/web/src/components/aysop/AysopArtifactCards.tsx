@@ -136,6 +136,37 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
           );
         }
 
+        if (a.type === 'brand_workspaces') {
+          rendered.add(key);
+          return (
+            <div key={key} className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/80 p-3 text-sm space-y-3">
+              <p className="font-medium text-neutral-800 dark:text-neutral-200">Brand workspaces</p>
+              {a.workspaces.map((w) => (
+                <div key={w.id} className="rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 p-3">
+                  <p className="font-semibold text-neutral-900 dark:text-neutral-100">{w.name}</p>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                    {w.connectedAccountCount} connected account{w.connectedAccountCount === 1 ? '' : 's'}
+                  </p>
+                  {w.accounts.length ? (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {w.accounts.map((acc, j) => (
+                        <span
+                          key={`${w.id}-${acc.platform}-${j}`}
+                          className="text-xs px-2 py-1 rounded-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300"
+                        >
+                          {acc.platform}
+                          {acc.username ? ` @${acc.username}` : ''}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+              <OpenLink href={a.href} label="Manage brands" />
+            </div>
+          );
+        }
+
         if (a.type === 'accounts') {
           rendered.add(key);
           return (

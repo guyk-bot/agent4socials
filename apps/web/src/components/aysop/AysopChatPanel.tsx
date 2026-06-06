@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { BRAND_NAME } from '@/lib/site-brand-assets';
 import { Bot, Loader2, Paperclip, Send, Sparkles } from 'lucide-react';
 import api from '@/lib/api';
+import { useAccountsCache } from '@/context/AccountsCacheContext';
+import { buildAysopWorkspaceSnapshot } from '@/lib/ai/aysop-workspace-snapshot';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 import {
   AYSOP_CHAT_FILE_ACCEPT,
@@ -37,7 +39,6 @@ const STARTERS = [
 type Props = {
   messages: ChatMessage[];
   onMessagesChange: (messages: ChatMessage[]) => void;
-  sessionSyncing?: boolean;
   disabled?: boolean;
 };
 
@@ -64,9 +65,12 @@ async function uploadChatFile(file: File): Promise<AysopChatAttachment> {
 export default function AysopChatPanel({
   messages,
   onMessagesChange,
-  sessionSyncing,
   disabled,
 }: Props) {
+  const accountsCache = useAccountsCache();
+  const brands = accountsCache?.brands ?? [];
+  const allCachedAccounts = accountsCache?.allCachedAccounts ?? [];
+  const getAccountBrandId = accountsCache?.getAccountBrandId;
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -143,7 +147,16 @@ export default function AysopChatPanel({
         }));
         const res = await api.post<{ reply: string; artifacts?: AysopArtifact[] }>(
           '/ai/aysop-chat',
-          { messages: payload },
+          {
+            messages: payload,
+            workspaces: buildAysopWorkspaceSnapshot(
+              brands,
+              allCachedAccounts,
+              Object.fromEntries(
+                allCachedAccounts.map((a) => [a.id, getAccountBrandId?.(a.id) ?? 'brand-default'])
+              )
+            ),
+          },
           { timeout: 90_000 }
         );
         const withAssistant: ChatMessage[] = [
@@ -174,7 +187,7 @@ export default function AysopChatPanel({
         setLoading(false);
       }
     },
-    [disabled, loading, messages, onMessagesChange, uploading]
+    [allCachedAccounts, brands, disabled, getAccountBrandId, loading, messages, onMessagesChange, uploading]
   );
 
   const canSend = (input.trim().length > 0 || pendingAttachments.length > 0) && !loading && !disabled && !uploading;
@@ -234,9 +247,6 @@ export default function AysopChatPanel({
             <Loader2 size={16} className="animate-spin" />
             {BRAND_NAME} is thinking…
           </div>
-        ) : null}
-        {sessionSyncing && messages.length > 0 ? (
-          <p className="text-[10px] text-neutral-400 dark:text-neutral-500 text-center">Syncing…</p>
         ) : null}
         <div ref={bottomRef} />
       </div>

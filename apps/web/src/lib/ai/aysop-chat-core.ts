@@ -18,10 +18,22 @@ import {
   type AysopChatInputMessage,
 } from '@/lib/ai/aysop-openai-messages';
 import { getAysopOpenRouterApiKey, toOpenRouterModel } from '@/lib/ai/llm-config';
+import type { AysopWorkspaceSnapshot } from '@/lib/ai/aysop-workspace-snapshot';
 
 export type { AysopChatInputMessage };
 
 const MAX_TOOL_ROUNDS = 6;
+
+function formatWorkspaceCatalog(workspaces: AysopWorkspaceSnapshot[] | undefined): string {
+  if (!workspaces?.length) {
+    return 'Brand workspaces: unknown (call list_brand_workspaces when the user asks about brands).';
+  }
+  const lines = workspaces.map(
+    (w) =>
+      `- ${w.name} (${w.connectedAccountCount} connected account${w.connectedAccountCount === 1 ? '' : 's'})`
+  );
+  return [`Brand workspaces (${workspaces.length} total):`, ...lines].join('\n');
+}
 
 function formatAccountCatalog(
   accounts: Array<{ id: string; platform: string; username: string | null }>
@@ -35,14 +47,26 @@ function formatAccountCatalog(
   );
 }
 
-function buildSystemPrompt(accountCatalog: string, brandContextBlock: string | null): string {
+function buildSystemPrompt(
+  accountCatalog: string,
+  brandContextBlock: string | null,
+  workspaceCatalog: string
+): string {
   return [
     `You are ${BRAND_NAME} AI, the social media copilot inside the ${BRAND_NAME} dashboard.`,
     'You help creators manage all connected platforms: analytics, comments, keyword automations, captions, and publishing.',
     '',
+    workspaceCatalog,
+    '',
     accountCatalog,
     '',
     brandContextBlock ?? 'Brand context: not set yet. If the user asks about their brand voice or product, suggest they fill in AI Assistant under Brand context.',
+    '',
+    'Brand workspaces vs platforms (critical):',
+    '- A brand workspace is a grouping on Account > Brands (e.g. iZop, Guy kogen). Users may have multiple brand workspaces.',
+    '- A platform is Instagram, TikTok, Facebook, etc. Multiple platform accounts can sit under one brand workspace.',
+    '- When the user asks about brands, workspaces, or "how many brands", call list_brand_workspaces. Do NOT call get_analytics_all_accounts for that.',
+    '- When they ask what platforms or social accounts are connected, call list_connected_accounts or list_brand_workspaces depending on wording.',
     '',
     'Platform routing (critical):',
     '- Infer which platform the user means from their message (TikTok, Instagram, Facebook, YouTube, X/Twitter, LinkedIn, Pinterest, Threads).',
@@ -96,7 +120,14 @@ export async function runAysopChat(args: {
   const brandBlock = formatBrandContextForPrompt(userRow?.brandContext ?? null);
 
   const thread: OpenAIChatMessageWithTools[] = [
-    { role: 'system', content: buildSystemPrompt(formatAccountCatalog(accounts), brandBlock) },
+    {
+      role: 'system',
+      content: buildSystemPrompt(
+        formatAccountCatalog(accounts),
+        brandBlock,
+        formatWorkspaceCatalog(args.ctx.workspaces)
+      ),
+    },
     ...args.messages.map((m) => {
       if (m.role === 'assistant') return { role: 'assistant' as const, content: m.content };
       const content = buildOpenAiUserContent(m);
