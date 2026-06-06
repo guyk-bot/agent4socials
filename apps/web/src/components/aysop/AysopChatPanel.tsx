@@ -2,7 +2,7 @@
 
 import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { BRAND_NAME } from '@/lib/site-brand-assets';
-import { Bot, Loader2, Paperclip, Send, Sparkles } from 'lucide-react';
+import { Bot, Loader2, Paperclip, Send, Sparkles, Square } from 'lucide-react';
 import api from '@/lib/api';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { resolveChatBrandContext } from '@/lib/ai/aysop-workspace-snapshot';
@@ -63,6 +63,12 @@ async function uploadChatFile(file: File): Promise<AysopChatAttachment> {
   };
 }
 
+function isAbortError(e: unknown): boolean {
+  if (!e || typeof e !== 'object') return false;
+  const err = e as { code?: string; name?: string };
+  return err.code === 'ERR_CANCELED' || err.name === 'CanceledError' || err.name === 'AbortError';
+}
+
 export default function AysopChatPanel({
   messages,
   onMessagesChange,
@@ -81,6 +87,14 @@ export default function AysopChatPanel({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const initialScrollRef = useRef(true);
   const prevMessageCountRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+  const requestGenRef = useRef(0);
+
+  useLayoutEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   useLayoutEffect(() => {
     const container = scrollContainerRef.current;
@@ -139,11 +153,19 @@ export default function AysopChatPanel({
     }
   };
 
+  const stopGeneration = useCallback(() => {
+    requestGenRef.current += 1;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLoading(false);
+  }, []);
+
   const send = useCallback(
     async (text: string, attachments: AysopChatAttachment[] = []) => {
       const trimmed = text.trim();
       const hasAttachments = attachments.length > 0;
-      if ((!trimmed && !hasAttachments) || loading || disabled || uploading) return;
+      if ((!trimmed && !hasAttachments) || disabled || uploading) return;
+      if (loading) return;
 
       setError(null);
       const userMsg: ChatMessage = {
@@ -156,6 +178,12 @@ export default function AysopChatPanel({
       onMessagesChange(next);
       setInput('');
       setPendingAttachments([]);
+
+      abortRef.current?.abort();
+      const gen = requestGenRef.current + 1;
+      requestGenRef.current = gen;
+      const ac = new AbortController();
+      abortRef.current = ac;
       setLoading(true);
       try {
         const payload = next.map((m) => ({
@@ -170,7 +198,8 @@ export default function AysopChatPanel({
           activeBrandId: accountsCache?.activeBrandId,
           fetchAccounts: async () => {
             const res = await api.get<Array<{ id: string; platform: string; username?: string | null }>>(
-              '/social/accounts'
+              '/social/accounts',
+              { signal: ac.signal }
             );
             const rows = Array.isArray(res.data) ? res.data : [];
             return rows.map((a) => ({
@@ -180,6 +209,8 @@ export default function AysopChatPanel({
             }));
           },
         });
+        if (gen !== requestGenRef.current || ac.signal.aborted) return;
+
         const res = await api.post<{ reply: string; artifacts?: AysopArtifact[] }>(
           '/ai/aysop-chat',
           {
@@ -187,8 +218,10 @@ export default function AysopChatPanel({
             workspaces: brandContext.workspaces,
             activeBrand: brandContext.activeBrand,
           },
-          { timeout: 90_000 }
+          { timeout: 90_000, signal: ac.signal }
         );
+        if (gen !== requestGenRef.current || ac.signal.aborted) return;
+
         const withAssistant: ChatMessage[] = [
           ...next,
           {
@@ -200,6 +233,9 @@ export default function AysopChatPanel({
         ];
         onMessagesChange(withAssistant);
       } catch (e) {
+        if (isAbortError(e)) return;
+        if (gen !== requestGenRef.current) return;
+
         const axiosErr = e as {
           response?: { status?: number; data?: { message?: string } };
           code?: string;
@@ -214,7 +250,10 @@ export default function AysopChatPanel({
         setError(msg);
         onMessagesChange(next);
       } finally {
-        setLoading(false);
+        if (gen === requestGenRef.current) {
+          setLoading(false);
+          if (abortRef.current === ac) abortRef.current = null;
+        }
       }
     },
     [accountsCache?.activeBrandId, allCachedAccounts, brands, disabled, getAccountBrandId, loading, messages, onMessagesChange, uploading]
@@ -276,9 +315,19 @@ export default function AysopChatPanel({
           ))
         )}
         {loading ? (
-          <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400 text-sm">
-            <Loader2 size={16} className="animate-spin" />
-            {BRAND_NAME} is thinking…
+          <div className="flex items-center justify-between gap-3 text-neutral-500 dark:text-neutral-400 text-sm">
+            <div className="flex items-center gap-2 min-w-0">
+              <Loader2 size={16} className="animate-spin shrink-0" />
+              <span>{BRAND_NAME} is thinking…</span>
+            </div>
+            <button
+              type="button"
+              onClick={stopGeneration}
+              className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-2.5 py-1 text-xs font-medium text-neutral-700 dark:text-neutral-200 hover:border-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors"
+            >
+              <Square size={12} className="fill-current" />
+              Stop
+            </button>
           </div>
         ) : null}
       </div>
@@ -322,18 +371,30 @@ export default function AysopChatPanel({
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask anything or attach media…"
+          placeholder={loading ? 'Type your next message…' : 'Ask anything or attach media…'}
           className="flex-1 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40"
-          disabled={loading || disabled || uploading}
+          disabled={disabled || uploading}
         />
-        <button
-          type="submit"
-          disabled={!canSend}
-          className="shrink-0 rounded-xl bg-[var(--dark)] text-chrome-text px-4 py-3 hover:opacity-90 disabled:opacity-40 transition-opacity"
-          aria-label="Send"
-        >
-          <Send size={18} />
-        </button>
+        {loading ? (
+          <button
+            type="button"
+            onClick={stopGeneration}
+            className="shrink-0 rounded-xl bg-red-600 text-white px-4 py-3 hover:bg-red-700 transition-colors"
+            aria-label="Stop generating"
+            title="Stop"
+          >
+            <Square size={18} className="fill-current" />
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={!canSend}
+            className="shrink-0 rounded-xl bg-[var(--dark)] text-chrome-text px-4 py-3 hover:opacity-90 disabled:opacity-40 transition-opacity"
+            aria-label="Send"
+          >
+            <Send size={18} />
+          </button>
+        )}
       </form>
     </div>
   );
