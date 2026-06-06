@@ -340,6 +340,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           <FileText size={18} className="shrink-0" />
           <span>History</span>
         </Link>
+        {!isAysopAiPage ? (
         <Link
           href="/dashboard/hashtag-pool"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isHashtagPoolPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
@@ -347,6 +348,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           <Hash size={18} className="shrink-0" />
           <span>Hashtag Pool</span>
         </Link>
+        ) : null}
         {!isAysopAiPage ? (
         <Link
           href="/dashboard/ai-assistant"

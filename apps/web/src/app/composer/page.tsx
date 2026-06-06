@@ -69,6 +69,7 @@ import {
   writeBrandContextCache,
   writeComposerBrandReadyCache,
 } from '@/lib/brand-context-utils';
+import { HASHTAG_POOL_KEY } from '@/lib/hashtag-pool';
 import { resolveComposerMediaType } from '@/lib/composer-media-type';
 import { mergeCaptionWithCta } from '@/lib/composer/cta-caption';
 import {
@@ -519,7 +520,6 @@ function optionalLinkedInConnectionKind(acc: unknown): { linkedinConnectionKind?
 const TWITTER_AI_MAX_CHARS = 230;
 const TWITTER_POST_LIMIT = 280;
 
-const HASHTAG_POOL_KEY = 'agent4socials_hashtag_pool';
 const MAX_HASHTAGS_PER_POST = 5;
 
 type MediaTypeChoice = 'text' | 'photo' | 'video' | 'reel' | 'carousel' | 'story';

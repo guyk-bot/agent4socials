@@ -14,6 +14,7 @@ import {
   writeComposerBrandReadyCache,
   type BrandContextRecord,
 } from '@/lib/brand-context-utils';
+import HashtagPoolSection from '@/components/brand-context/HashtagPoolSection';
 
 const MAX_LENGTH = {
   targetAudience: 500,
@@ -230,8 +231,8 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
         </p>
       ) : (
         <p className={bodyTextClass(variant)}>
-          Teach the AI about your brand voice, audience, and reply style. Saved context applies to iZop AI, Composer, and
-          Inbox drafts.
+          Teach the AI about your brand voice, audience, reply style, and saved hashtags. Brand and reply settings apply to
+          iZop AI, Composer, and Inbox drafts.
         </p>
       )}
 
@@ -469,6 +470,8 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
           </button>
         </div>
       </div>
+
+      <HashtagPoolSection variant={variant} />
     </div>
   );
 }
