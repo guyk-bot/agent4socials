@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ExternalLink, Loader2, Send } from 'lucide-react';
+import { CheckCircle2, ExternalLink, Loader2, Send } from 'lucide-react';
 import api from '@/lib/api';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 
@@ -20,7 +20,9 @@ const PLATFORM_ACCENT: Record<string, string> = {
 };
 
 export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
+  const [confirming, setConfirming] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [published, setPublished] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,7 +30,7 @@ export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
   const handle = draft.username ? `@${draft.username.replace(/^@/, '')}` : 'Your account';
 
   const handlePublish = async () => {
-    if (!draft.canPublishFromChat || publishing) return;
+    if (!draft.canPublishFromChat || publishing || published) return;
     setPublishing(true);
     setError(null);
     setStatus(null);
@@ -41,6 +43,8 @@ export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
       });
       const postId = createRes.data.id;
       await api.post(`/posts/${postId}/publish`, {});
+      setPublished(true);
+      setConfirming(false);
       setStatus('Publishing started. Check History for live status.');
     } catch (e) {
       const msg =
@@ -92,26 +96,59 @@ export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
 
       <div className="p-3 flex flex-wrap items-center gap-2">
         {draft.canPublishFromChat ? (
-          <button
-            type="button"
-            onClick={() => void handlePublish()}
-            disabled={publishing}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--dark)] text-chrome-text px-3 py-2 text-xs font-medium hover:opacity-90 disabled:opacity-50"
-          >
-            {publishing ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-            Post now
-          </button>
+          published ? (
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+              <CheckCircle2 size={14} />
+              Approved and publishing
+            </span>
+          ) : confirming ? (
+            <div className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 p-2.5 space-y-2">
+              <p className="text-xs text-neutral-700 dark:text-neutral-300">
+                Publish this post to {draft.platformLabel}?
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handlePublish()}
+                  disabled={publishing}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--dark)] text-chrome-text px-3 py-1.5 text-xs font-medium hover:opacity-90 disabled:opacity-50"
+                >
+                  {publishing ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                  Yes, publish
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirming(false)}
+                  disabled={publishing}
+                  className="rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirming(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--dark)] text-chrome-text px-3 py-2 text-xs font-medium hover:opacity-90"
+            >
+              <Send size={14} />
+              Approve & publish
+            </button>
+          )
         ) : (
           <p className="text-xs text-amber-700 dark:text-amber-300">
-            {draft.platformLabel} needs media. Finish in Composer.
+            {draft.platformLabel} needs media before you can publish.
           </p>
         )}
-        <Link
-          href={draft.composerUrl}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--primary)] hover:underline"
-        >
-          Open Composer <ExternalLink size={13} />
-        </Link>
+        {!draft.canPublishFromChat || draft.mediaType !== 'text' ? (
+          <Link
+            href={draft.composerUrl}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--primary)] hover:underline"
+          >
+            Open Composer <ExternalLink size={13} />
+          </Link>
+        ) : null}
       </div>
 
       {status ? (

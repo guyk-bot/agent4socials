@@ -344,8 +344,22 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
         }
 
         if (a.type === 'composer_post_draft') {
-          rendered.add(key);
-          return <AysopComposerPostDraftCard key={key} draft={a} />;
+          const prevIsDraft = i > 0 && artifacts[i - 1]?.type === 'composer_post_draft';
+          if (prevIsDraft) return null;
+
+          const draftRun = artifacts.slice(i).filter((item): item is Extract<AysopArtifact, { type: 'composer_post_draft' }> => item.type === 'composer_post_draft');
+          draftRun.forEach((_, j) => rendered.add(`composer_post_draft-${i + j}`));
+
+          return (
+            <div key={key} className="space-y-2">
+              <div className="rounded-lg border border-amber-200 dark:border-amber-800/80 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+                Review each preview below. Nothing is published until you click Approve & publish.
+              </div>
+              {draftRun.map((draft, j) => (
+                <AysopComposerPostDraftCard key={`${key}-${j}`} draft={draft} />
+              ))}
+            </div>
+          );
         }
 
         if (a.type === 'composer_link') {

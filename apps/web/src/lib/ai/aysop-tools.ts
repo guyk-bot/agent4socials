@@ -215,7 +215,8 @@ function mapPostTypeToMediaType(postType: string): 'text' | 'photo' | 'video' | 
 
 async function buildComposerPostDraft(
   userId: string,
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
+  opts?: { allowComposerOnly?: boolean }
 ): Promise<{ artifact: Extract<AysopArtifact, { type: 'composer_post_draft' }>; result: Record<string, unknown> }> {
   const caption = String(args.caption ?? '').trim();
   if (!caption) throw new Error('caption is required');
@@ -233,9 +234,9 @@ async function buildComposerPostDraft(
   const textOnlySupported = platformSupportsTextOnly(platformUpper);
   const canPublishFromChat = textOnlySupported && mediaType === 'text';
 
-  if (mediaType === 'text' && platformRequiresMedia(platformUpper)) {
+  if (mediaType === 'text' && platformRequiresMedia(platformUpper) && !opts?.allowComposerOnly) {
     throw new Error(
-      `${platformLabel(platformUpper)} requires an image or video. Use Composer for media posts on that platform.`
+      `${platformLabel(platformUpper)} requires an image or video. Mention it in your reply and offer Composer; do not create a draft unless the user asks.`
     );
   }
 
@@ -483,10 +484,15 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'prepare_platform_post_drafts',
       description:
-        'Create one or more platform-specific post drafts with preview cards in chat. Always pass platform per draft. Text-only drafts can be published from chat; media platforms open in Composer.',
+        'Show platform-specific post preview cards in chat. Nothing is published until the user clicks Approve & publish on a card. Use for text-only platforms (X, Facebook, LinkedIn, Threads) when posting without media. Skip media-required platforms unless allowComposerDrafts is true and the user asked for Composer.',
       parameters: {
         type: 'object',
         properties: {
+          allowComposerDrafts: {
+            type: 'boolean',
+            description:
+              'Set true only when the user explicitly asked to create Composer drafts for Instagram, TikTok, YouTube, or Pinterest. Default false.',
+          },
           drafts: {
             type: 'array',
             items: {
@@ -515,7 +521,7 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'open_composer_draft',
       description:
-        'Prepare a single platform post draft. Always pass platform. For caption-only posts use postType text on X, Facebook, LinkedIn, or Threads.',
+        'Open a single Composer draft preview card. Call ONLY when the user explicitly asks for Composer or a draft there. For caption-only chat posts on X, Facebook, LinkedIn, or Threads use prepare_platform_post_drafts instead.',
       parameters: {
         type: 'object',
         properties: {
@@ -866,8 +872,8 @@ export async function runAysopTool(
         artifacts: [
           {
             type: 'text_block' as const,
-            title: 'Text-only posting from chat',
-            body: `You can publish caption-only posts from chat to: ${textOnlyPlatformsSummary()}.\n\nThese platforms need media in Composer: ${mediaRequiredPlatformsSummary()}.`,
+            title: 'Posting from chat',
+            body: `Caption-only previews can be approved and published from chat on: ${textOnlyPlatformsSummary()}.\n\nThese platforms need media before posting: ${mediaRequiredPlatformsSummary()}. Suggest Composer; create Composer drafts only if the user asks.`,
           },
         ],
       };
@@ -876,21 +882,40 @@ export async function runAysopTool(
     case 'prepare_platform_post_drafts': {
       const drafts = Array.isArray(args.drafts) ? args.drafts : [];
       if (!drafts.length) throw new Error('At least one draft is required.');
+      const allowComposerDrafts = args.allowComposerDrafts === true;
       const artifacts: AysopArtifact[] = [];
       const results: Record<string, unknown>[] = [];
+      const skipped: Array<{ platform?: unknown; reason: string }> = [];
       for (const raw of drafts.slice(0, 8)) {
         if (!raw || typeof raw !== 'object') continue;
         const row = raw as Record<string, unknown>;
-        const built = await buildComposerPostDraft(ctx.userId, row);
-        artifacts.push(built.artifact);
-        results.push(built.result);
+        try {
+          const built = await buildComposerPostDraft(ctx.userId, row, {
+            allowComposerOnly: allowComposerDrafts,
+          });
+          artifacts.push(built.artifact);
+          results.push(built.result);
+        } catch (e) {
+          skipped.push({
+            platform: row.platform,
+            reason: e instanceof Error ? e.message : 'Could not prepare draft',
+          });
+        }
       }
-      if (!artifacts.length) throw new Error('No valid drafts.');
-      return { result: { drafts: results }, artifacts };
+      if (!artifacts.length && !skipped.length) throw new Error('No valid drafts.');
+      return {
+        result: {
+          drafts: results,
+          skippedPlatforms: skipped,
+          requiresUserApproval: true,
+          note: 'Previews only. User must click Approve & publish on each card; you cannot publish from tools.',
+        },
+        artifacts,
+      };
     }
 
     case 'open_composer_draft': {
-      const built = await buildComposerPostDraft(ctx.userId, args);
+      const built = await buildComposerPostDraft(ctx.userId, args, { allowComposerOnly: true });
       return {
         result: built.result,
         artifacts: [built.artifact],

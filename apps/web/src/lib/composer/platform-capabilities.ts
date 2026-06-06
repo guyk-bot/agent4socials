@@ -51,10 +51,14 @@ export function mediaRequiredPlatformsSummary(): string {
 export function postingCapabilitiesPromptBlock(): string {
   return [
     'Posting capabilities (critical):',
-    `- Text-only (caption, no media) can be published from chat or Composer on: ${textOnlyPlatformsSummary()}.`,
-    `- Media required (image or video in Composer): ${mediaRequiredPlatformsSummary()}.`,
-    '- When the user asks for variations without attaching media, only prepare text drafts for text-only platforms.',
-    '- Say clearly which platforms need media and that those drafts must be finished in Composer.',
+    `- Text-only (caption, no media) preview + publish from chat: ${textOnlyPlatformsSummary()}.`,
+    `- Media required (image or video): ${mediaRequiredPlatformsSummary()}.`,
+    '- When the user asks to post on all platforms without media, call prepare_platform_post_drafts for text-only platforms only.',
+    '- Do NOT call open_composer_draft or set allowComposerDrafts unless the user explicitly asks for Composer or a draft there.',
+    '- For media platforms, explain they need media and offer Composer as an option. Wait for the user to accept before creating Composer drafts.',
+    '- You cannot publish posts yourself. Previews appear as cards; the user must click Approve & publish on each card.',
+    '- Never say a post was published, sent, or posted unless the user already approved via the preview card (you have no publish tool).',
+    '- If the user says "do it", "yes", or "publish" after previews are shown, tell them to review the preview cards and click Approve & publish. Do not claim you published.',
     '- Always pass platform on each draft so the UI shows the target platform.',
   ].join('\n');
 }
