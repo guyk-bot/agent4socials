@@ -4,27 +4,9 @@ import React, { useMemo, useState } from 'react';
 import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
 import { formatMetricNumber } from '@/lib/metric-format';
 
-export type ReportSnapshotArtifact = {
-  type: 'report_snapshot';
-  accountId: string;
-  platform: string;
-  platformLabel: string;
-  username: string | null;
-  dateRange: { start: string; end: string };
-  kpis: {
-    followers: number;
-    newFollowers: number;
-    views: number;
-    engagement: number;
-    posts: number;
-  };
-  chartSeries: {
-    followers: Array<{ date: string; value: number }>;
-    views: Array<{ date: string; value: number }>;
-    engagement: Array<{ date: string; value: number }>;
-  };
-  insightsHint?: string;
-};
+import type { ReportSnapshotArtifact } from '@/lib/ai/aysop-artifacts';
+
+export type { ReportSnapshotArtifact };
 
 type MetricKey = 'followers' | 'views' | 'engagement';
 

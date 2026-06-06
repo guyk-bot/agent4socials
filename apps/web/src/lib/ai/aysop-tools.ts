@@ -12,39 +12,14 @@ import {
   type DashboardAnalyticsReport,
 } from '@/lib/ai/dashboard-analytics';
 import { getDefaultAnalyticsDateRange } from '@/lib/calendar-date';
+import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
+import { runShowAppInChat } from '@/lib/ai/aysop-show-app';
+
+export type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 
 export type AysopToolContext = {
   userId: string;
 };
-
-export type AysopArtifact =
-  | { type: 'accounts'; accounts: Array<{ id: string; platform: string; username: string | null }> }
-  | {
-      type: 'report_snapshot';
-      accountId: string;
-      platform: string;
-      platformLabel: string;
-      username: string | null;
-      dateRange: { start: string; end: string };
-      kpis: {
-        followers: number;
-        newFollowers: number;
-        views: number;
-        engagement: number;
-        posts: number;
-      };
-      chartSeries: {
-        followers: Array<{ date: string; value: number }>;
-        views: Array<{ date: string; value: number }>;
-        engagement: Array<{ date: string; value: number }>;
-      };
-      insightsHint?: string;
-    }
-  | { type: 'posts'; accountId: string; posts: Array<Record<string, unknown>> }
-  | { type: 'comments'; accountId: string; postPreview: string; comments: Array<Record<string, unknown>> }
-  | { type: 'automation'; keywordSteps: unknown[]; dmWelcomeEnabled: boolean }
-  | { type: 'composer_link'; url: string; caption?: string }
-  | { type: 'action_result'; action: string; ok: boolean; detail: string };
 
 const PLATFORM_ALIASES: Record<string, Platform> = {
   instagram: 'INSTAGRAM',
@@ -365,6 +340,41 @@ export const AYSOP_TOOL_DEFINITIONS = [
   {
     type: 'function' as const,
     function: {
+      name: 'show_app_in_chat',
+      description:
+        'Show any app screen inline in chat with previews and an open link. Views: dashboard, console, inbox, composer, calendar, posts_history, automation, reports, smart_links, hashtag_pool, ai_assistant, account. Use when the user asks to open, see, or show any page, graph, feature, or tool in the app.',
+      parameters: {
+        type: 'object',
+        properties: {
+          view: {
+            type: 'string',
+            enum: [
+              'dashboard',
+              'console',
+              'inbox',
+              'composer',
+              'calendar',
+              'posts_history',
+              'automation',
+              'reports',
+              'smart_links',
+              'hashtag_pool',
+              'ai_assistant',
+              'account',
+            ],
+          },
+          platform: platformParam,
+          accountId: { type: 'string' },
+          ...dateRangeParams,
+        },
+        required: ['view'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
       name: 'open_composer_draft',
       description:
         'Prepare a Composer link with a generated caption. User uploads media in Composer.',
@@ -559,7 +569,7 @@ export async function runAysopTool(
       const dmWelcomeEnabled = raw.dmWelcomeEnabled === true;
       return {
         result: { keywordSteps: steps, dmWelcomeEnabled },
-        artifacts: [{ type: 'automation', keywordSteps: steps, dmWelcomeEnabled }],
+        artifacts: [{ type: 'automation', keywordSteps: steps, dmWelcomeEnabled, href: '/dashboard/automation' }],
       };
     }
 
@@ -598,6 +608,23 @@ export async function runAysopTool(
         ],
       };
     }
+
+    case 'show_app_in_chat':
+      return runShowAppInChat(
+        ctx.userId,
+        {
+          view: String(args.view ?? ''),
+          platform: args.platform as string | undefined,
+          days: Number(args.days) || undefined,
+          since: args.since as string | undefined,
+          until: args.until as string | undefined,
+          accountId: args.accountId as string | undefined,
+        },
+        {
+          resolveAccountId: (a, opts) => resolveAccountId(ctx.userId, a, opts),
+          normalizePlatform: normalizePlatformArg,
+        }
+      );
 
     case 'open_composer_draft': {
       const caption = String(args.caption ?? '').trim();

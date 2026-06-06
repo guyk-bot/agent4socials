@@ -2,10 +2,10 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { BRAND_NAME } from '@/lib/site-brand-assets';
-import Link from 'next/link';
-import { Bot, Loader2, Send, Sparkles, ExternalLink } from 'lucide-react';
+import { Bot, Loader2, Send, Sparkles } from 'lucide-react';
 import api from '@/lib/api';
-import { AysopAnalyticsReportCard, type ReportSnapshotArtifact } from '@/components/aysop/AysopAnalyticsReportCard';
+import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
+import { AysopArtifactCards } from '@/components/aysop/AysopArtifactCards';
 
 export type ChatMessage = {
   id: string;
@@ -14,75 +14,13 @@ export type ChatMessage = {
   artifacts?: AysopArtifact[];
 };
 
-type AysopArtifact =
-  | { type: 'accounts'; accounts: Array<{ id: string; platform: string; username: string | null }> }
-  | ReportSnapshotArtifact
-  | { type: 'posts'; accountId: string; posts: Array<Record<string, unknown>> }
-  | { type: 'comments'; accountId: string; postPreview: string; comments: Array<Record<string, unknown>> }
-  | { type: 'automation'; keywordSteps: unknown[]; dmWelcomeEnabled: boolean }
-  | { type: 'composer_link'; url: string; caption?: string }
-  | { type: 'action_result'; action: string; ok: boolean; detail: string };
-
 const STARTERS = [
-  'What is my brand about?',
-  'Instagram analytics report for the last 30 days',
-  'Summarize analytics across all my platforms',
-  'Show me a chart of TikTok views this month',
-  'Draft a carousel caption for my brand',
+  'Show my Console analytics',
+  'Open my brand context from AI Assistant',
+  'What is scheduled on my calendar?',
+  'Show Instagram analytics with a chart',
+  'Open my automation rules',
 ];
-
-function ArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }) {
-  if (!artifacts.length) return null;
-  return (
-    <div className="mt-3 space-y-2">
-      {artifacts.map((a, i) => {
-        if (a.type === 'comments') {
-          return (
-            <div key={i} className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-sm">
-              <p className="font-medium text-neutral-800 mb-2">Comments on: {a.postPreview}</p>
-              <ul className="space-y-2 max-h-48 overflow-y-auto">
-                {a.comments.map((c, j) => (
-                  <li key={j} className="border-l-2 border-[var(--primary)] pl-2">
-                    <span className="font-medium text-neutral-700">{String(c.authorName ?? 'User')}</span>
-                    <p className="text-neutral-600">{String(c.text ?? '')}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        }
-        if (a.type === 'report_snapshot') {
-          return <AysopAnalyticsReportCard key={i} report={a} />;
-        }
-        if (a.type === 'composer_link') {
-          return (
-            <div key={i} className="rounded-xl border border-[var(--primary)]/30 bg-[#E8F4FF]/50 p-3 text-sm">
-              <p className="font-medium text-neutral-800 mb-1">Draft ready for Composer</p>
-              {a.caption ? <p className="text-neutral-600 whitespace-pre-wrap mb-2">{a.caption}</p> : null}
-              <Link
-                href={a.url}
-                className="inline-flex items-center gap-1 text-[var(--primary)] font-medium hover:underline"
-              >
-                Open Composer <ExternalLink size={14} />
-              </Link>
-            </div>
-          );
-        }
-        if (a.type === 'action_result') {
-          return (
-            <div
-              key={i}
-              className={`rounded-xl border p-3 text-sm ${a.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-red-200 bg-red-50'}`}
-            >
-              {a.detail}
-            </div>
-          );
-        }
-        return null;
-      })}
-    </div>
-  );
-}
 
 type Props = {
   messages: ChatMessage[];
@@ -164,7 +102,7 @@ export default function AysopChatPanel({
             <Sparkles className="mx-auto text-[var(--primary)] mb-3" size={32} />
             <p className="text-neutral-700 font-medium">Your social copilot</p>
             <p className="text-sm text-neutral-500 mt-1 max-w-md mx-auto">
-              Uses your AI Assistant brand context, all connected platforms, and saved chat history.
+              Ask to open Dashboard, Console, Inbox, Calendar, Automation, Smart Links, brand context, or analytics charts, all inline in chat.
             </p>
             <div className="flex flex-wrap justify-center gap-2 mt-6">
               {STARTERS.map((s) => (
@@ -191,8 +129,8 @@ export default function AysopChatPanel({
                 }`}
               >
                 {m.content}
-                {m.role === 'assistant' && m.artifacts ? (
-                  <ArtifactCards artifacts={m.artifacts} />
+                {m.role === 'assistant' && m.artifacts?.length ? (
+                  <AysopArtifactCards artifacts={m.artifacts} />
                 ) : null}
               </div>
             </div>
@@ -222,7 +160,7 @@ export default function AysopChatPanel({
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about posts, comments, analytics, your brand…"
+          placeholder="Ask to open analytics, inbox, calendar, brand context…"
           className="flex-1 rounded-xl border border-neutral-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40"
           disabled={loading || disabled}
         />

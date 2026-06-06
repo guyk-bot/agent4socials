@@ -11,6 +11,7 @@ import {
 } from '@/lib/ai/aysop-tools';
 import { prisma } from '@/lib/db';
 import { formatBrandContextForPrompt } from '@/lib/ai/brand-context-prompt';
+import { formatAppSurfaceCatalog } from '@/lib/ai/aysop-artifacts';
 
 const MAX_TOOL_ROUNDS = 6;
 
@@ -45,12 +46,15 @@ function buildSystemPrompt(accountCatalog: string, brandContextBlock: string | n
     '- Quote only numbers returned by dashboard analytics tools. Do not invent metrics.',
     '',
     'Capabilities (use tools):',
-    '- Pull dashboard analytics (same source as the Dashboard overview) for one platform or all platforms.',
-    '- Render report snapshots with charts when the user wants a visual report.',
+    '- show_app_in_chat: open ANY app screen inline (dashboard, console, inbox, composer, calendar, automation, reports, smart links, AI Assistant brand context, accounts, post history) with previews + link.',
+    'App screens available:',
+    formatAppSurfaceCatalog(),
+    '- Pull dashboard analytics and render report snapshots with charts.',
     '- Check comment counts; ask before listing full comment text.',
-    '- Show comments only after the user confirms (e.g. "yes", "show me").',
     '- Offer keyword automations; confirm before saving.',
     '- Draft captions and open Composer for images, videos, carousels, or reels.',
+    '',
+    'When the user asks to see, open, or show anything in the app, call show_app_in_chat with the matching view. Combine with get_analytics_report_snapshot for platform-specific charts on dashboard/console.',
     '',
     'Conversation style:',
     '- Be concise, friendly, and proactive.',
