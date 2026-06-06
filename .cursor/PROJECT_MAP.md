@@ -31,7 +31,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | OAuth connect, accounts CRUD | `apps/web/src/app/api/social/oauth/`, `apps/web/src/app/api/social/accounts/`, `ConnectView.tsx` |
 | Inbox | `apps/web/src/app/dashboard/inbox/page.tsx`, `api/inbox/bootstrap/route.ts`, `api/inbox/instagram-dms/route.ts` (IG DMs only), `lib/inbox/instagram-dm-conversations.ts`, `api/social/accounts/[id]/conversations/`, `comments/`, `lib/inbox/inbox-comment-platforms.ts`, `lib/inbox/external-platform-comments.ts` (TikTok/Pinterest open in app), `lib/inbox/inbox-client-cache.ts`, `lib/inbox/enrich-conversations-from-messages.ts` |
 | Auth, shell layout | `AuthContext.tsx`, `AuthenticatedShell.tsx`, `middleware.ts`, `app/api/auth/` |
-| Aysop AI chat | `app/dashboard/aysop-ai/page.tsx`, `components/aysop/AysopChatPanel.tsx`, `app/api/ai/aysop-chat/route.ts`, `lib/ai/aysop-tools.ts`, `lib/ai/aysop-chat-core.ts` |
+| iZop AI chat | `app/dashboard/aysop-ai/page.tsx`, `components/aysop/AysopChatPanel.tsx`, `app/api/ai/aysop-chat/route.ts`, `lib/ai/aysop-tools.ts`, `lib/ai/aysop-chat-core.ts` |
 | Media upload / proxy (R2) | `apps/web/src/app/api/media/`, `instagram-media-r2.ts` |
 | Prisma DB access | `apps/web/prisma/schema.prisma`, `apps/web/src/lib/db.ts` |
 | Cron | `apps/web/src/app/api/cron/` (includes `fast-tick` for one 5-minute job: scheduled posts + comment automation) |
@@ -81,7 +81,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | `/dashboard/console` (Console: unified KPIs, Growth / Engagement / Views charts, `AnalyticsDateRangePicker`, cache `lib/dashboard-unified-summary-cache.ts`) | `dashboard/console/page.tsx` |
 | `/dashboard/summary` | Redirects to `/dashboard/console` (same query string) |
 | `/dashboard/ai-assistant` | `dashboard/ai-assistant/page.tsx` |
-| `/dashboard/aysop-ai` | `dashboard/aysop-ai/page.tsx` (Aysop AI chat) |
+| `/dashboard/aysop-ai` | `dashboard/aysop-ai/page.tsx` (iZop AI chat) |
 | `/dashboard/hashtag-pool` | `dashboard/hashtag-pool/page.tsx` |
 | `/dashboard/team-members` | Redirects to `/dashboard/account#team-members`; team UI is `components/account/BrandTeamMembersSection.tsx` on Account |
 | `/dashboard/analytics` | `dashboard/analytics/page.tsx` |

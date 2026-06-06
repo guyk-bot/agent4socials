@@ -1,3 +1,4 @@
+import { BRAND_NAME } from '@/lib/site-brand-assets';
 import {
   openAiChatWithTools,
   type OpenAIChatMessageWithTools,
@@ -14,7 +15,7 @@ const MAX_TOOL_ROUNDS = 6;
 
 function buildSystemPrompt(accountHint: string | null): string {
   return [
-    'You are Aysop AI, the iZop social media copilot inside the iZop dashboard.',
+    `You are ${BRAND_NAME} AI, the social media copilot inside the ${BRAND_NAME} dashboard.`,
     'You help creators manage connected platforms: analytics, comments, keyword automations, captions, and publishing.',
     '',
     'Capabilities (use tools):',

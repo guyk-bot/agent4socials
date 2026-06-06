@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { BRAND_NAME } from '@/lib/site-brand-assets';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { runAysopChat } from '@/lib/ai/aysop-chat-core';
 import { trackUsage } from '@/lib/usage-tracking';
@@ -12,7 +13,7 @@ export const maxDuration = 60;
 export async function POST(request: NextRequest) {
   if (!process.env.OPENAI_API_KEY?.trim()) {
     return NextResponse.json(
-      { message: 'Aysop AI is not configured (OPENAI_API_KEY missing).' },
+      { message: `${BRAND_NAME} AI is not configured (OPENAI_API_KEY missing).` },
       { status: 503 }
     );
   }
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
   } catch (e) {
     console.error('[aysop-chat]', (e as Error).message?.slice(0, 300));
     return NextResponse.json(
-      { message: (e as Error).message || 'Aysop AI request failed.' },
+      { message: (e as Error).message || `${BRAND_NAME} AI request failed.` },
       { status: 500 }
     );
   }

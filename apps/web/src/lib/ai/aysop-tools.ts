@@ -1,5 +1,5 @@
 /**
- * Server-side tools for Aysop AI chat (analytics, comments, automations, content).
+ * Server-side tools for iZop AI chat (analytics, comments, automations, content).
  */
 import { prisma } from '@/lib/db';
 import { getInboxCommentsFromDb, type InboxCommentRow } from '@/lib/inbox/inbox-db-cache';

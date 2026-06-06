@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { BRAND_NAME } from '@/lib/site-brand-assets';
 import Link from 'next/link';
 import { Bot, Loader2, Send, Sparkles, ExternalLink } from 'lucide-react';
 import api from '@/lib/api';
@@ -193,7 +194,7 @@ export default function AysopChatPanel() {
       <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-neutral-100 bg-[var(--dark)] text-chrome-text">
         <div className="flex items-center gap-2">
           <Bot size={22} className="text-[#53BEFA]" />
-          <span className="font-semibold">Aysop AI</span>
+          <span className="font-semibold">{BRAND_NAME} AI</span>
         </div>
         <select
           value={accountId}
@@ -266,7 +267,7 @@ export default function AysopChatPanel() {
         {loading ? (
           <div className="flex items-center gap-2 text-neutral-500 text-sm">
             <Loader2 size={16} className="animate-spin" />
-            Aysop is thinking…
+            {BRAND_NAME} is thinking…
           </div>
         ) : null}
         <div ref={bottomRef} />

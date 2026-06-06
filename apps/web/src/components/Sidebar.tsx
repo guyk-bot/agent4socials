@@ -24,6 +24,7 @@ import { useTheme } from '@/context/ThemeContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
 import { avatarDisplayUrl } from '@/lib/avatar-display-url';
+import { BRAND_NAME } from '@/lib/site-brand-assets';
 
 const PLATFORM_LABELS: Record<string, string> = {
   INSTAGRAM: 'Instagram',
@@ -361,7 +362,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isAysopAiPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
         >
           <Bot size={18} className="shrink-0" />
-          <span>Aysop AI</span>
+          <span>{BRAND_NAME} AI</span>
         </Link>
         <Link
           href="/dashboard/ai-assistant"
