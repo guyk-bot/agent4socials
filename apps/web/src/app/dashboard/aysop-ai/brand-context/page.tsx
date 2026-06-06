@@ -6,7 +6,6 @@ import { Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 import BrandContextForm from '@/components/brand-context/BrandContextForm';
 import AysopChatSidebar from '@/components/aysop/AysopChatSidebar';
-import AysopChatSidebarToggle from '@/components/aysop/AysopChatSidebarToggle';
 import { useAuth } from '@/context/AuthContext';
 import {
   readCachedSessionList,
@@ -28,7 +27,6 @@ function BrandContextContent() {
     user?.id ? readCachedSessionList(user.id) ?? [] : []
   );
   const [listLoading, setListLoading] = useState(sessions.length === 0);
-  const [chatSidebarOpen, setChatSidebarOpen] = useState(true);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -89,31 +87,22 @@ function BrandContextContent() {
 
   return (
     <div className="flex h-full min-h-0 bg-white dark:bg-neutral-950">
-      <div className="relative flex flex-1 min-w-0 flex-col overflow-y-auto">
-        {!chatSidebarOpen ? (
-          <AysopChatSidebarToggle
-            onOpen={() => setChatSidebarOpen(true)}
-            className="absolute left-3 top-3 z-10"
-          />
-        ) : null}
+      <div className="flex flex-1 min-w-0 flex-col overflow-y-auto">
         <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-8 sm:py-8">
           <BrandContextForm variant="full" />
         </div>
       </div>
-      {chatSidebarOpen ? (
-        <AysopChatSidebar
-          sessions={sessions}
-          activeId={returnChat}
-          loading={listLoading && sessions.length === 0}
-          onSelect={handleSelect}
-          onDelete={(id) => void handleDelete(id)}
-          side="right"
-          navActive="brand-context"
-          brandContextHref={brandContextHref}
-          onNewChat={handleNewChat}
-          onClose={() => setChatSidebarOpen(false)}
-        />
-      ) : null}
+      <AysopChatSidebar
+        sessions={sessions}
+        activeId={returnChat}
+        loading={listLoading && sessions.length === 0}
+        onSelect={handleSelect}
+        onDelete={(id) => void handleDelete(id)}
+        side="right"
+        navActive="brand-context"
+        brandContextHref={brandContextHref}
+        onNewChat={handleNewChat}
+      />
     </div>
   );
 }

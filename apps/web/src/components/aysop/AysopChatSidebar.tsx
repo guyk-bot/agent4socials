@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { MessageSquarePlus, PanelLeftClose, Pencil, Trash2 } from 'lucide-react';
+import { MessageSquarePlus, Pencil, Trash2 } from 'lucide-react';
 import { BRAND_NAME } from '@/lib/site-brand-assets';
 import {
   groupChatSessions,
@@ -22,7 +22,6 @@ type Props = {
   navActive?: AysopSidebarNavActive;
   brandContextHref: string;
   onNewChat: () => void;
-  onClose: () => void;
 };
 
 export default function AysopChatSidebar({
@@ -36,7 +35,6 @@ export default function AysopChatSidebar({
   navActive = 'chats',
   brandContextHref,
   onNewChat,
-  onClose,
 }: Props) {
   const groups = groupChatSessions(sessions);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -58,18 +56,6 @@ export default function AysopChatSidebar({
       className={`w-[260px] shrink-0 flex flex-col ${borderClass} bg-neutral-50/80 dark:bg-neutral-950 h-full`}
     >
       <div className="shrink-0 border-b border-neutral-200 dark:border-neutral-800 p-2 space-y-1">
-        <div className="flex items-center px-1 pb-0.5">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200/80 dark:hover:bg-neutral-800 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
-            aria-label="Close sidebar"
-            title="Close sidebar"
-          >
-            <PanelLeftClose size={18} />
-          </button>
-        </div>
-
         <Link href={brandContextHref} className={navItemClass(navActive === 'brand-context')}>
           Brand Context
         </Link>

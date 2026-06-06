@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import api, { API_AYSOP_SESSION_PERSIST_TIMEOUT_MS } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import AysopChatSidebar from '@/components/aysop/AysopChatSidebar';
-import AysopChatSidebarToggle from '@/components/aysop/AysopChatSidebarToggle';
 import AysopChatPanel, { type ChatMessage } from '@/components/aysop/AysopChatPanel';
 import {
   readCachedMessages,
@@ -127,7 +126,6 @@ export default function AysopAiWorkspace() {
   const [activeId, setActiveId] = useState<string | null>(instantBoot.activeId);
   const [messages, setMessages] = useState<ChatMessage[]>(instantBoot.messages);
   const [listLoading, setListLoading] = useState(instantBoot.sessions.length === 0);
-  const [chatSidebarOpen, setChatSidebarOpen] = useState(true);
 
   const initRef = useRef(false);
   const messagesRef = useRef<ChatMessage[]>(instantBoot.messages);
@@ -649,34 +647,25 @@ export default function AysopAiWorkspace() {
 
   return (
     <div className="flex h-full min-h-0 bg-white dark:bg-neutral-950">
-      <div className="relative flex flex-1 min-w-0 flex-col">
-        {!chatSidebarOpen ? (
-          <AysopChatSidebarToggle
-            onOpen={() => setChatSidebarOpen(true)}
-            className="absolute left-3 top-3 z-10"
-          />
-        ) : null}
+      <div className="flex flex-1 min-w-0 flex-col">
         <AysopChatPanel
           key={activeId ?? 'none'}
           messages={messages}
           onMessagesChange={handleMessagesChange}
         />
       </div>
-      {chatSidebarOpen ? (
-        <AysopChatSidebar
-          sessions={visibleSessions}
-          activeId={activeId}
-          loading={listLoading && visibleSessions.length === 0}
-          onSelect={handleSelect}
-          onDelete={(id) => void handleDelete(id)}
-          onRename={renameSession}
-          side="right"
-          navActive="chats"
-          brandContextHref={brandContextHref}
-          onNewChat={handleNewChat}
-          onClose={() => setChatSidebarOpen(false)}
-        />
-      ) : null}
+      <AysopChatSidebar
+        sessions={visibleSessions}
+        activeId={activeId}
+        loading={listLoading && visibleSessions.length === 0}
+        onSelect={handleSelect}
+        onDelete={(id) => void handleDelete(id)}
+        onRename={renameSession}
+        side="right"
+        navActive="chats"
+        brandContextHref={brandContextHref}
+        onNewChat={handleNewChat}
+      />
     </div>
   );
 }
