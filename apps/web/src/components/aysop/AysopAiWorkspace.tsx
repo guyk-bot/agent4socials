@@ -5,9 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import api, { API_AYSOP_SESSION_PERSIST_TIMEOUT_MS } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import AysopChatSidebar from '@/components/aysop/AysopChatSidebar';
-import AysopChatHeader from '@/components/aysop/AysopChatHeader';
+import AysopChatSidebarToggle from '@/components/aysop/AysopChatSidebarToggle';
 import AysopChatPanel, { type ChatMessage } from '@/components/aysop/AysopChatPanel';
-import { ConfirmModal } from '@/components/ConfirmModal';
 import {
   readCachedMessages,
   readCachedSessionList,
@@ -15,7 +14,6 @@ import {
   writeCachedMessages,
   writeCachedSessionList,
   writeLastActiveChatId,
-  clearCachedMessagesForSessions,
 } from '@/lib/ai/aysop-chat-local-cache';
 import {
   visibleChatSessions,
@@ -129,9 +127,7 @@ export default function AysopAiWorkspace() {
   const [activeId, setActiveId] = useState<string | null>(instantBoot.activeId);
   const [messages, setMessages] = useState<ChatMessage[]>(instantBoot.messages);
   const [listLoading, setListLoading] = useState(instantBoot.sessions.length === 0);
-  const [clearHistoryOpen, setClearHistoryOpen] = useState(false);
-  const [clearingHistory, setClearingHistory] = useState(false);
-  const [settingsToast, setSettingsToast] = useState<string | null>(null);
+  const [chatSidebarOpen, setChatSidebarOpen] = useState(true);
 
   const initRef = useRef(false);
   const messagesRef = useRef<ChatMessage[]>(instantBoot.messages);
@@ -643,62 +639,30 @@ export default function AysopAiWorkspace() {
     [schedulePersist]
   );
 
-  const handleClearHistory = async () => {
-    setClearingHistory(true);
-    try {
-      await flushPersist();
-      const ids = sessions.map((s) => s.id);
-      await Promise.allSettled(
-        ids.filter((id) => !id.startsWith('offline-')).map((id) => api.delete(`/ai/aysop-chats/${id}`))
-      );
-      clearCachedMessagesForSessions(user?.id, ids);
-      writeCachedSessionList(user?.id, []);
-      setSessions([]);
-      setMessages([]);
-      messagesRef.current = [];
-      setActiveId(null);
-      activeIdRef.current = null;
-      setClearHistoryOpen(false);
-      handleNewChat();
-    } finally {
-      setClearingHistory(false);
+  const brandContextHref = useMemo(() => {
+    const chatId = activeIdRef.current;
+    if (chatId && !chatId.startsWith('offline-')) {
+      return `/dashboard/aysop-ai/brand-context?c=${encodeURIComponent(chatId)}`;
     }
-  };
-
-  useEffect(() => {
-    if (!settingsToast) return;
-    const t = window.setTimeout(() => setSettingsToast(null), 2500);
-    return () => window.clearTimeout(t);
-  }, [settingsToast]);
+    return '/dashboard/aysop-ai/brand-context';
+  }, [activeId]);
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-white dark:bg-neutral-950">
-      <AysopChatHeader
-        onNewChat={handleNewChat}
-        onOpenBrandContext={() => {
-          const chatId = activeIdRef.current;
-          const suffix =
-            chatId && !chatId.startsWith('offline-')
-              ? `?c=${encodeURIComponent(chatId)}`
-              : '';
-          router.push(`/dashboard/aysop-ai/brand-context${suffix}`);
-        }}
-        onOpenSettings={() => setSettingsToast('Settings coming soon.')}
-        onClearHistory={() => setClearHistoryOpen(true)}
-      />
-      {settingsToast ? (
-        <div className="shrink-0 px-4 py-2 text-xs text-neutral-600 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800">
-          {settingsToast}
-        </div>
-      ) : null}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        <div className="flex-1 min-w-0 flex flex-col">
-          <AysopChatPanel
-            key={activeId ?? 'none'}
-            messages={messages}
-            onMessagesChange={handleMessagesChange}
+    <div className="flex h-full min-h-0 bg-white dark:bg-neutral-950">
+      <div className="relative flex flex-1 min-w-0 flex-col">
+        {!chatSidebarOpen ? (
+          <AysopChatSidebarToggle
+            onOpen={() => setChatSidebarOpen(true)}
+            className="absolute left-3 top-3 z-10"
           />
-        </div>
+        ) : null}
+        <AysopChatPanel
+          key={activeId ?? 'none'}
+          messages={messages}
+          onMessagesChange={handleMessagesChange}
+        />
+      </div>
+      {chatSidebarOpen ? (
         <AysopChatSidebar
           sessions={visibleSessions}
           activeId={activeId}
@@ -707,23 +671,12 @@ export default function AysopAiWorkspace() {
           onDelete={(id) => void handleDelete(id)}
           onRename={renameSession}
           side="right"
+          navActive="chats"
+          brandContextHref={brandContextHref}
+          onNewChat={handleNewChat}
+          onClose={() => setChatSidebarOpen(false)}
         />
-      </div>
-      <ConfirmModal
-        open={clearHistoryOpen}
-        onClose={() => {
-          if (!clearingHistory) setClearHistoryOpen(false);
-        }}
-        title="Clear chat history?"
-        message="This will delete all iZop AI conversations. This cannot be undone."
-        confirmLabel="Clear history"
-        cancelLabel="Cancel"
-        variant="danger"
-        confirmLoading={clearingHistory}
-        confirmLoadingLabel="Clearing…"
-        dismissible={!clearingHistory}
-        onConfirm={() => void handleClearHistory()}
-      />
+      ) : null}
     </div>
   );
 }
