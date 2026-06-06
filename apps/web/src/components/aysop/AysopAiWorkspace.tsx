@@ -18,6 +18,7 @@ import {
   visibleChatSessions,
   type AysopChatSessionSummary,
 } from '@/lib/ai/aysop-chat-sessions';
+import { pickBestStoredMessages } from '@/lib/ai/aysop-chat-persist';
 
 type SessionDetail = AysopChatSessionSummary & { messages: ChatMessage[] };
 
@@ -34,6 +35,7 @@ function makeOfflineSession(): SessionDetail {
 }
 
 const FETCH_TIMEOUT_MS = 8_000;
+const LOAD_SESSION_TIMEOUT_MS = 45_000;
 const PERSIST_DEBOUNCE_MS = 1_500;
 
 function sessionSummaryFromDetail(s: SessionDetail): AysopChatSessionSummary {
@@ -194,29 +196,6 @@ export default function AysopAiWorkspace() {
     [user?.id]
   );
 
-  const loadSession = useCallback(
-    async (id: string, opts?: { background?: boolean }) => {
-      if (!opts?.background) {
-        hydrateMessages(id);
-      }
-      try {
-        const res = await api.get<{ session: SessionDetail }>(`/ai/aysop-chats/${id}`, {
-          timeout: FETCH_TIMEOUT_MS,
-        });
-        const serverMessages = res.data.session.messages ?? [];
-        if (activeIdRef.current === id) {
-          setMessages(serverMessages);
-          messagesRef.current = serverMessages;
-        }
-        writeCachedMessages(user?.id, id, serverMessages);
-        upsertSessionSummary(sessionSummaryFromDetail(res.data.session));
-      } catch {
-        /* keep cached messages */
-      }
-    },
-    [hydrateMessages, upsertSessionSummary, user?.id]
-  );
-
   const createSession = useCallback(async (): Promise<SessionDetail> => {
     try {
       const res = await api.post<{ session: SessionDetail }>('/ai/aysop-chats', {}, {
@@ -232,6 +211,10 @@ export default function AysopAiWorkspace() {
 
   const persistSessionNow = useCallback(
     async (id: string, nextMessages: ChatMessage[]): Promise<boolean> => {
+      if (nextMessages.length === 0 && !id.startsWith('offline-')) {
+        return true;
+      }
+
       writeCachedMessages(user?.id, id, nextMessages);
 
       let targetId = id;
@@ -313,6 +296,39 @@ export default function AysopAiWorkspace() {
       if (persistInFlightRef.current === task) persistInFlightRef.current = null;
     }
   }, [persistSessionNow]);
+
+  const loadSession = useCallback(
+    async (id: string, opts?: { background?: boolean }) => {
+      const cached = (readCachedMessages(user?.id, id) ?? []) as ChatMessage[];
+      if (!opts?.background) {
+        setMessages(cached);
+        messagesRef.current = cached;
+      }
+      try {
+        const res = await api.get<{ session: SessionDetail }>(`/ai/aysop-chats/${id}`, {
+          timeout: LOAD_SESSION_TIMEOUT_MS,
+        });
+        const serverMessages = (res.data.session.messages ?? []) as ChatMessage[];
+        const best = pickBestStoredMessages(cached, serverMessages) as ChatMessage[];
+        if (activeIdRef.current === id) {
+          setMessages(best);
+          messagesRef.current = best;
+        }
+        writeCachedMessages(user?.id, id, best);
+        upsertSessionSummary(sessionSummaryFromDetail({ ...res.data.session, messages: best }));
+
+        if (cached.length > serverMessages.length && best.length > 0 && !id.startsWith('offline-')) {
+          void persistSessionNow(id, best);
+        }
+      } catch {
+        if (!opts?.background && cached.length) {
+          setMessages(cached);
+          messagesRef.current = cached;
+        }
+      }
+    },
+    [persistSessionNow, upsertSessionSummary, user?.id]
+  );
 
   const renameSession = useCallback(
     (id: string, title: string) => {

@@ -225,11 +225,20 @@ export async function updateAysopChatSession(
   const existing = await getAysopChatSession(userId, id);
   if (!existing) return null;
 
+  let nextMessages = messages;
+  if (
+    nextMessages &&
+    nextMessages.length === 0 &&
+    hasConversation(existing.messages)
+  ) {
+    nextMessages = existing.messages;
+  }
+
   let nextTitle = existing.title;
   if (explicitTitle) {
     nextTitle = explicitTitle;
   } else if (messages) {
-    const auto = titleFromMessages(messages);
+    const auto = titleFromMessages(nextMessages ?? messages);
     if ((existing.title === 'New chat' || !existing.title.trim()) && auto !== 'New chat') {
       nextTitle = auto;
     }
@@ -240,7 +249,7 @@ export async function updateAysopChatSession(
       const row = await prisma.aysopChatSession.update({
         where: { id },
         data: {
-          ...(messages ? { messages: messages as object[] } : {}),
+          ...(messages !== undefined && nextMessages ? { messages: nextMessages as object[] } : {}),
           title: nextTitle,
         },
         select: { id: true, title: true, updatedAt: true, createdAt: true, messages: true },
@@ -255,7 +264,7 @@ export async function updateAysopChatSession(
 
   const row = await updateSessionRaw(userId, id, {
     title: nextTitle,
-    messages: messages ?? existing.messages,
+    ...(messages !== undefined && nextMessages ? { messages: nextMessages } : {}),
   });
   return row ? rowToSession(row) : null;
 }

@@ -27,3 +27,24 @@ export function hasConversation(messages: StoredAysopMessage[]): boolean {
     (m) => m.content.trim().length > 0 || (m.attachments?.length ?? 0) > 0
   );
 }
+
+/** Prefer the richer copy when local cache and server history disagree. */
+export function pickBestStoredMessages<T extends { content?: string; attachments?: unknown[] }>(
+  local: T[],
+  server: T[]
+): T[] {
+  if (server.length > local.length) return server;
+  if (local.length > server.length) return local;
+  if (local.length === 0) return server;
+
+  const weight = (rows: T[]) =>
+    rows.reduce(
+      (sum, row) =>
+        sum +
+        String(row.content ?? '').length +
+        (Array.isArray(row.attachments) ? row.attachments.length * 200 : 0),
+      0
+    );
+
+  return weight(server) >= weight(local) ? server : local;
+}
