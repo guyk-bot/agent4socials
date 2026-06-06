@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { MessageSquarePlus, Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { BRAND_NAME } from '@/lib/site-brand-assets';
 import {
   groupChatSessions,
@@ -13,7 +13,6 @@ type Props = {
   activeId: string | null;
   loading?: boolean;
   onSelect: (id: string) => void;
-  onNewChat: () => void;
   onDelete: (id: string) => void;
   onRename?: (id: string, title: string) => void;
   side?: 'left' | 'right';
@@ -24,7 +23,6 @@ export default function AysopChatSidebar({
   activeId,
   loading,
   onSelect,
-  onNewChat,
   onDelete,
   onRename,
   side = 'left',
@@ -41,18 +39,7 @@ export default function AysopChatSidebar({
     <aside
       className={`w-[260px] shrink-0 flex flex-col ${borderClass} bg-neutral-50/80 dark:bg-neutral-950 h-full`}
     >
-      <div className="p-3 border-b border-neutral-200 dark:border-neutral-800">
-        <button
-          type="button"
-          onClick={onNewChat}
-          className="w-full flex items-center justify-center gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2.5 text-sm font-medium text-neutral-800 dark:text-neutral-100 hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors"
-        >
-          <MessageSquarePlus size={18} />
-          New chat
-        </button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-2 space-y-4">
+      <div className="flex-1 overflow-y-auto p-2 pt-3 space-y-4">
         {loading && sessions.length === 0 ? (
           <p className="text-xs text-neutral-400 dark:text-neutral-500 px-2 py-4">Loading chats…</p>
         ) : null}

@@ -202,6 +202,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
   const isPostsPage = pathname === '/posts';
   const isHashtagPoolPage = pathname === '/dashboard/hashtag-pool';
   const isAiAssistantPage = pathname === '/dashboard/ai-assistant';
+  const isAysopAiPage = pathname?.startsWith('/dashboard/aysop-ai');
   const isReportsPage = pathname === '/dashboard/reports';
   const isHelpPage = pathname === '/help';
 
@@ -346,6 +347,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           <Hash size={18} className="shrink-0" />
           <span>Hashtag Pool</span>
         </Link>
+        {!isAysopAiPage ? (
         <Link
           href="/dashboard/ai-assistant"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isAiAssistantPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
@@ -353,6 +355,7 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
           <Sparkles size={18} className="shrink-0" />
           <span>AI Assistant</span>
         </Link>
+        ) : null}
         <Link
           href="/dashboard/reports"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isReportsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}

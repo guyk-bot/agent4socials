@@ -88,3 +88,19 @@ export function writeCachedSessionList(userId: string | undefined, sessions: Ays
     /* quota */
   }
 }
+
+/** Remove cached messages for each session id (e.g. before clearing all chat history). */
+export function clearCachedMessagesForSessions(
+  userId: string | undefined,
+  sessionIds: string[]
+): void {
+  if (!userId) return;
+  for (const id of sessionIds) {
+    writeCachedMessages(userId, id, []);
+  }
+  try {
+    localStorage.removeItem(lastActiveKey(userId));
+  } catch {
+    /* quota */
+  }
+}
