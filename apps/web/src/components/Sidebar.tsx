@@ -214,12 +214,12 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
             // Avoid redundant navigation when the user is already on Console.
             if (pathname === '/dashboard/console') e.preventDefault();
           }}
-          className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+          className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold transition-colors ${
             isMainAnalyticsView ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 border border-transparent dark:hover:border-neutral-700'
           }`}
         >
           <BarChart3 size={18} className="shrink-0" />
-          Console
+          <span>Console</span>
           {isMainAnalyticsView && <ChevronRight size={14} className="ml-auto opacity-70" />}
         </Link>
       </div>
@@ -332,13 +332,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
       </div>
 
       <div className="mt-6 pt-2 p-3 space-y-0.5 border-t border-neutral-200 shrink-0">
-        <Link
-          href="/posts"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isPostsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
-        >
-          <FileText size={18} className="shrink-0" />
-          <span>History</span>
-        </Link>
         {!isAysopAiPage ? (
           SMART_LINKS_ENABLED ? (
             <Link
@@ -350,20 +343,25 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
             </Link>
           ) : (
             <span
-              className="flex flex-col gap-1 px-3 py-2 rounded-lg text-sm font-medium text-neutral-400 cursor-not-allowed select-none"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-neutral-400 cursor-not-allowed select-none"
               aria-disabled="true"
               title={SMART_LINKS_COMING_SOON_LABEL}
             >
-              <span className="self-start rounded-full border border-[#FA8DDF]/60 bg-[#FA8DDF]/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#e878c8] leading-none">
+              <Link2 size={18} className="shrink-0" />
+              <span>Links</span>
+              <span className="ml-auto rounded-full border border-[#FA8DDF]/60 bg-[#FA8DDF]/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#e878c8] leading-none">
                 {SMART_LINKS_COMING_SOON_LABEL}
-              </span>
-              <span className="flex items-center gap-2">
-                <Link2 size={18} className="shrink-0" />
-                <span>Links</span>
               </span>
             </span>
           )
         ) : null}
+        <Link
+          href="/posts"
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isPostsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
+        >
+          <FileText size={18} className="shrink-0" />
+          <span>History</span>
+        </Link>
         <Link
           href="/dashboard/reports"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isReportsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
