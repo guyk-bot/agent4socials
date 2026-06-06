@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
       connectedAccountCount: number;
       accounts: Array<{ id: string; platform: string; username: string | null }>;
     }>;
+    activeBrand?: { id: string; name: string } | null;
   };
 
   const messages = (body.messages ?? [])
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
     const { reply, artifacts } = await Promise.race([
       runAysopChat({
         messages,
-        ctx: { userId, workspaces: body.workspaces },
+        ctx: { userId, workspaces: body.workspaces, activeBrand: body.activeBrand ?? null },
       }),
       new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error('Chat request timed out. Try a simpler question.')), CHAT_WALL_BUDGET_MS);

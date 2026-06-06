@@ -13,7 +13,11 @@ import {
 } from '@/lib/ai/dashboard-analytics';
 import { getDefaultAnalyticsDateRange } from '@/lib/calendar-date';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
-import type { AysopWorkspaceSnapshot } from '@/lib/ai/aysop-workspace-snapshot';
+import type {
+  AysopActiveBrandSnapshot,
+  AysopWorkspaceSnapshot,
+} from '@/lib/ai/aysop-workspace-snapshot';
+import { summarizeWorkspaceAccounts } from '@/lib/ai/aysop-workspace-snapshot';
 import { runShowAppInChat } from '@/lib/ai/aysop-show-app';
 
 export type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
@@ -21,6 +25,7 @@ export type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 export type AysopToolContext = {
   userId: string;
   workspaces?: AysopWorkspaceSnapshot[];
+  activeBrand?: AysopActiveBrandSnapshot;
 };
 
 const PLATFORM_ALIASES: Record<string, Platform> = {
@@ -423,10 +428,23 @@ export async function runAysopTool(
               select: { id: true, platform: true, username: true },
               orderBy: { createdAt: 'asc' },
             });
+            const handles = [
+              ...new Set(
+                accounts
+                  .map((a) => a.username?.trim())
+                  .filter((u): u is string => Boolean(u))
+              ),
+            ];
+            const label =
+              handles.length === 1
+                ? handles[0]!
+                : handles.length > 1
+                  ? handles.slice(0, 3).join(', ')
+                  : 'Your workspace';
             return [
               {
-                id: 'default',
-                name: 'Default brand',
+                id: 'unassigned',
+                name: label,
                 connectedAccountCount: accounts.length,
                 accounts: accounts.map((a) => ({
                   id: a.id,
@@ -440,10 +458,12 @@ export async function runAysopTool(
       return {
         result: {
           totalBrands: workspaces.length,
+          activeBrand: ctx.activeBrand ?? null,
           workspaces: workspaces.map((w) => ({
             id: w.id,
             name: w.name,
             connectedAccountCount: w.connectedAccountCount,
+            accountSummary: summarizeWorkspaceAccounts(w),
             accounts: w.accounts.map((a) => ({
               platform: a.platform,
               username: a.username,

@@ -18,21 +18,31 @@ import {
   type AysopChatInputMessage,
 } from '@/lib/ai/aysop-openai-messages';
 import { getAysopOpenRouterApiKey, toOpenRouterModel } from '@/lib/ai/llm-config';
-import type { AysopWorkspaceSnapshot } from '@/lib/ai/aysop-workspace-snapshot';
+import type {
+  AysopActiveBrandSnapshot,
+  AysopWorkspaceSnapshot,
+} from '@/lib/ai/aysop-workspace-snapshot';
+import { summarizeWorkspaceAccounts } from '@/lib/ai/aysop-workspace-snapshot';
 
 export type { AysopChatInputMessage };
 
 const MAX_TOOL_ROUNDS = 6;
 
-function formatWorkspaceCatalog(workspaces: AysopWorkspaceSnapshot[] | undefined): string {
+function formatWorkspaceCatalog(
+  workspaces: AysopWorkspaceSnapshot[] | undefined,
+  activeBrand: AysopActiveBrandSnapshot
+): string {
   if (!workspaces?.length) {
-    return 'Brand workspaces: unknown (call list_brand_workspaces when the user asks about brands).';
+    return 'Brand workspaces: call list_brand_workspaces when the user asks about brands.';
   }
-  const lines = workspaces.map(
-    (w) =>
-      `- ${w.name} (${w.connectedAccountCount} connected account${w.connectedAccountCount === 1 ? '' : 's'})`
-  );
-  return [`Brand workspaces (${workspaces.length} total):`, ...lines].join('\n');
+  const lines = workspaces.map((w) => {
+    const summary = summarizeWorkspaceAccounts(w);
+    return `- ${w.name} (${w.connectedAccountCount} connected account${w.connectedAccountCount === 1 ? '' : 's'}: ${summary})`;
+  });
+  const activeLine = activeBrand
+    ? `Active brand workspace (Console sidebar): ${activeBrand.name}`
+    : 'Active brand workspace: unknown';
+  return [`Brand workspaces (${workspaces.length} total):`, ...lines, activeLine].join('\n');
 }
 
 function formatAccountCatalog(
@@ -66,7 +76,8 @@ function buildSystemPrompt(
     '- A brand workspace is a grouping on Account > Brands (e.g. iZop, Guy kogen). Users may have multiple brand workspaces.',
     '- A platform is Instagram, TikTok, Facebook, etc. Multiple platform accounts can sit under one brand workspace.',
     '- When the user asks about brands, workspaces, or "how many brands", call list_brand_workspaces. Do NOT call get_analytics_all_accounts for that.',
-    '- When they ask what platforms or social accounts are connected, call list_connected_accounts or list_brand_workspaces depending on wording.',
+    '- Answer using workspace names from list_brand_workspaces. Mention connected @handles under each workspace (e.g. Agent4Socials on Facebook).',
+    '- The active brand workspace is the one shown in the Console sidebar; prefer it when they say "my brand" or "currently connected".',
     '',
     'Platform routing (critical):',
     '- Infer which platform the user means from their message (TikTok, Instagram, Facebook, YouTube, X/Twitter, LinkedIn, Pinterest, Threads).',
@@ -125,7 +136,7 @@ export async function runAysopChat(args: {
       content: buildSystemPrompt(
         formatAccountCatalog(accounts),
         brandBlock,
-        formatWorkspaceCatalog(args.ctx.workspaces)
+        formatWorkspaceCatalog(args.ctx.workspaces, args.ctx.activeBrand ?? null)
       ),
     },
     ...args.messages.map((m) => {

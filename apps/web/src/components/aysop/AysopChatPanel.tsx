@@ -5,7 +5,7 @@ import { BRAND_NAME } from '@/lib/site-brand-assets';
 import { Bot, Loader2, Paperclip, Send, Sparkles } from 'lucide-react';
 import api from '@/lib/api';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
-import { buildAysopWorkspaceSnapshot } from '@/lib/ai/aysop-workspace-snapshot';
+import { resolveChatBrandContext } from '@/lib/ai/aysop-workspace-snapshot';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 import {
   AYSOP_CHAT_FILE_ACCEPT,
@@ -162,17 +162,29 @@ export default function AysopChatPanel({
           content: m.content,
           ...(m.attachments?.length ? { attachments: m.attachments } : {}),
         }));
+        const brandContext = await resolveChatBrandContext({
+          contextBrands: brands,
+          contextAccounts: allCachedAccounts,
+          getAccountBrandId: getAccountBrandId,
+          activeBrandId: accountsCache?.activeBrandId,
+          fetchAccounts: async () => {
+            const res = await api.get<Array<{ id: string; platform: string; username?: string | null }>>(
+              '/social/accounts'
+            );
+            const rows = Array.isArray(res.data) ? res.data : [];
+            return rows.map((a) => ({
+              id: a.id,
+              platform: a.platform,
+              username: a.username ?? null,
+            }));
+          },
+        });
         const res = await api.post<{ reply: string; artifacts?: AysopArtifact[] }>(
           '/ai/aysop-chat',
           {
             messages: payload,
-            workspaces: buildAysopWorkspaceSnapshot(
-              brands,
-              allCachedAccounts,
-              Object.fromEntries(
-                allCachedAccounts.map((a) => [a.id, getAccountBrandId?.(a.id) ?? 'brand-default'])
-              )
-            ),
+            workspaces: brandContext.workspaces,
+            activeBrand: brandContext.activeBrand,
           },
           { timeout: 90_000 }
         );
@@ -204,7 +216,7 @@ export default function AysopChatPanel({
         setLoading(false);
       }
     },
-    [allCachedAccounts, brands, disabled, getAccountBrandId, loading, messages, onMessagesChange, uploading]
+    [accountsCache?.activeBrandId, allCachedAccounts, brands, disabled, getAccountBrandId, loading, messages, onMessagesChange, uploading]
   );
 
   const canSend = (input.trim().length > 0 || pendingAttachments.length > 0) && !loading && !disabled && !uploading;
