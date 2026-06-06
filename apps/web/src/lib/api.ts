@@ -7,10 +7,15 @@ const base = raw || '';
 export const API_DEFAULT_TIMEOUT_MS = 25_000;
 export const API_THREADS_COMMENT_REPLY_TIMEOUT_MS = 90_000;
 export const API_INSTAGRAM_DM_TIMEOUT_MS = 58_000;
-/** iZop AI chat + media uploads (can wait on queue or tool rounds). */
-export const API_AYSOP_CHAT_TIMEOUT_MS = 90_000;
-export const API_MEDIA_UPLOAD_TIMEOUT_MS = 120_000;
-export const API_AYSOP_SESSION_PERSIST_TIMEOUT_MS = 90_000;
+/** iZop AI chat (tool rounds + vision). */
+export const API_AYSOP_CHAT_TIMEOUT_MS = 120_000;
+/** iZop chat with PDF/video attachments (slower model + tools). */
+export const API_AYSOP_CHAT_ATTACHMENTS_TIMEOUT_MS = 180_000;
+/** Presigned URL + large PUT to R2. */
+export const API_MEDIA_UPLOAD_TIMEOUT_MS = 180_000;
+export const API_AYSOP_SESSION_PERSIST_TIMEOUT_MS = 120_000;
+/** Direct PUT to R2 after presign (large PDFs/videos). */
+export const R2_DIRECT_UPLOAD_TIMEOUT_MS = 5 * 60 * 1000;
 
 const api = axios.create({
   baseURL: `${base}/api`,
@@ -33,24 +38,51 @@ let _inFlight = 0;
 const _queue: Array<{ resolve: () => void }> = [];
 
 /** User-facing inbox/AI calls skip the queue so they are not stuck behind dashboard prefetch. */
-function isPriorityApiPath(url?: string): boolean {
-  if (!url) return false;
+function resolveRequestPath(url?: string, baseURL?: string): string {
+  const raw = (url ?? '').trim();
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  const base = (baseURL ?? '').replace(/\/+$/, '');
+  const path = raw.startsWith('/') ? raw : raw ? `/${raw}` : '';
+  return `${base}${path}`;
+}
+
+function isPriorityApiPath(url?: string, baseURL?: string): boolean {
+  const path = resolveRequestPath(url, baseURL);
+  if (!path) return false;
   return (
-    url.includes('/ai/aysop-chat') ||
-    url.includes('/ai/aysop-chats') ||
-    url.includes('/media/upload-url') ||
-    url.includes('/ai/brand-context') ||
-    url.includes('/ai/generate-description') ||
-    url.includes('/ai/generate-composer-dm') ||
-    url.includes('/tiktok-creator-info') ||
-    url.includes('/ai/generate-inbox-reply') ||
-    url.includes('/ai/generate-inbox-reply-batch') ||
-    url.includes('/comments/reply') ||
-    url.includes('/inbox/instagram-dms') ||
-    url.includes('/sender-profile') ||
-    /\/conversations(\?|$|\/)/.test(url) ||
-    /\/posts\/[^/]+(\/publish|\/finalize-publish-status)?$/.test(url)
+    path.includes('/ai/aysop-chat') ||
+    path.includes('/ai/aysop-chats') ||
+    path.includes('/media/upload-url') ||
+    path.includes('/ai/brand-context') ||
+    path.includes('/ai/generate-description') ||
+    path.includes('/ai/generate-composer-dm') ||
+    path.includes('/tiktok-creator-info') ||
+    path.includes('/ai/generate-inbox-reply') ||
+    path.includes('/ai/generate-inbox-reply-batch') ||
+    path.includes('/comments/reply') ||
+    path.includes('/inbox/instagram-dms') ||
+    path.includes('/sender-profile') ||
+    /\/conversations(\?|$|\/)/.test(path) ||
+    /\/posts\/[^/]+(\/publish|\/finalize-publish-status)?$/.test(path)
   );
+}
+
+function applyApiTimeout(config: { url?: string; baseURL?: string; timeout?: number }): void {
+  const path = resolveRequestPath(config.url, config.baseURL);
+  const floor = (ms: number) => {
+    config.timeout = Math.max(config.timeout ?? 0, ms);
+  };
+  if (path.includes('/comments/reply')) {
+    floor(API_THREADS_COMMENT_REPLY_TIMEOUT_MS);
+  } else if (path.includes('/inbox/instagram-dms')) {
+    floor(API_INSTAGRAM_DM_TIMEOUT_MS);
+  } else if (path.includes('/ai/aysop-chat')) {
+    floor(API_AYSOP_CHAT_TIMEOUT_MS);
+  } else if (path.includes('/media/upload-url')) {
+    floor(API_MEDIA_UPLOAD_TIMEOUT_MS);
+  } else if (path.includes('/ai/aysop-chats')) {
+    floor(API_AYSOP_SESSION_PERSIST_TIMEOUT_MS);
+  }
 }
 
 function acquireSlot(): Promise<void> {
@@ -76,6 +108,8 @@ function releaseSlot(): void {
 // Acquiring before getSession() held a "slot" during Supabase session resolution and
 // could starve other requests (pages stuck on loaders while slots were busy).
 api.interceptors.request.use(async (config) => {
+  applyApiTimeout(config);
+
   if (typeof window !== 'undefined') {
     const supabase = getSupabaseBrowser();
     let accessToken: string | null = null;
@@ -90,21 +124,8 @@ api.interceptors.request.use(async (config) => {
     }
   }
 
-  if (!isPriorityApiPath(typeof config.url === 'string' ? config.url : undefined)) {
+  if (!isPriorityApiPath(config.url, config.baseURL)) {
     await acquireSlot();
-  }
-
-  const url = typeof config.url === 'string' ? config.url : '';
-  if (url.includes('/comments/reply')) {
-    config.timeout = API_THREADS_COMMENT_REPLY_TIMEOUT_MS;
-  } else if (url.includes('/inbox/instagram-dms')) {
-    config.timeout = API_INSTAGRAM_DM_TIMEOUT_MS;
-  } else if (url.includes('/ai/aysop-chat')) {
-    config.timeout = API_AYSOP_CHAT_TIMEOUT_MS;
-  } else if (url.includes('/media/upload-url')) {
-    config.timeout = API_MEDIA_UPLOAD_TIMEOUT_MS;
-  } else if (url.includes('/ai/aysop-chats')) {
-    config.timeout = API_AYSOP_SESSION_PERSIST_TIMEOUT_MS;
   }
 
   return config;
@@ -113,13 +134,11 @@ api.interceptors.request.use(async (config) => {
 // Release the slot after response (success or error).
 api.interceptors.response.use(
   (response) => {
-    const url = typeof response.config?.url === 'string' ? response.config.url : undefined;
-    if (!isPriorityApiPath(url)) releaseSlot();
+    if (!isPriorityApiPath(response.config?.url, response.config?.baseURL)) releaseSlot();
     return response;
   },
   (error) => {
-    const url = typeof error.config?.url === 'string' ? error.config.url : undefined;
-    if (!isPriorityApiPath(url)) releaseSlot();
+    if (!isPriorityApiPath(error.config?.url, error.config?.baseURL)) releaseSlot();
     return Promise.reject(error);
   }
 );

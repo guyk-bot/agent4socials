@@ -10,7 +10,7 @@ import { trimMessagesForLlmContext } from '@/lib/ai/aysop-chat-context-window';
 export const maxDuration = 60;
 
 /** Wall-clock budget for tool rounds so we return before Vercel kills the function. */
-const CHAT_WALL_BUDGET_MS = Number(process.env.AYSOP_CHAT_WALL_BUDGET_MS) || 52_000;
+const CHAT_WALL_BUDGET_MS = Number(process.env.AYSOP_CHAT_WALL_BUDGET_MS) || 55_000;
 
 function messageHasBody(m: { content?: string; attachments?: unknown }): boolean {
   const text = typeof m.content === 'string' ? m.content.trim() : '';

@@ -14,7 +14,7 @@ export function friendlyAysopChatError(e: unknown, fallback: string): string {
     /timeout/i.test(raw) ||
     axiosErr.response?.status === 504
   ) {
-    return 'That took too long. Try again in a moment, or attach one file at a time.';
+    return 'That took too long (file uploads and AI replies can take up to a few minutes). Wait a moment and try again, or attach one file at a time.';
   }
 
   return raw || fallback;
