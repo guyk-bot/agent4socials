@@ -22,6 +22,7 @@
   --color-orange-800: #E878C8;
   --color-orange-900: #8B6EF0;
   --color-orange-950: #6B4FD9;
+  /* Must match BRAND_HEADER_BG in site-brand-assets.ts (logo square fill). */
   --color-dark: #170027;
   --color-surface: #111827;
   --color-text-primary: #ffffff;
@@ -587,6 +588,7 @@
   --secondary: #FA8DDF;
   --secondary-hover: #E878C8;
   --tertiary: #FA8DDF;
+  /* Must match BRAND_HEADER_BG in site-brand-assets.ts (logo square fill). */
   --dark: #170027;
   --surface: #111827;
   --button: #1C9CFB;
@@ -650,6 +652,7 @@
   --surface-soft: #1f1f1f;
   --chart-grid: rgba(212, 212, 216, 0.18);
   --wl-sidebar-bg: #000000;
+  /* Must match BRAND_HEADER_BG in site-brand-assets.ts (logo square fill). */
   --dark: #170027;
   color-scheme: dark;
   /* Restore legacy Tailwind orange scale in dark mode. */

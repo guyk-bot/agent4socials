@@ -12,8 +12,8 @@ export function normalizeLegacyBrandName(name: string): string {
   return isLegacyProductBrandName(name) ? BRAND_NAME : name.trim();
 }
 
-/** Bumped when shared logo mark assets change (cache bust for browsers and CDNs). */
-export const SITE_LOGO_V = '31';
+/** Header / chrome background; must match the logo mark square (no opacity on headers). */
+export const BRAND_HEADER_BG = '#170027';
 
 /** Static path for next/image (no query string; see next.config images.localPatterns). */
 export const SITE_LOGO_PATH = '/logo-mark.png';
