@@ -53,9 +53,10 @@ const SECTIONS: TableSection[] = [
   },
   {
     title: 'Smart Links',
+    note: 'Coming soon',
     rows: [
-      { feature: 'Smart link pages', free: '1', starter: '3', pro: '10' },
-      { feature: 'Link click analytics', free: 'check', starter: 'check', pro: 'check' },
+      { feature: 'Smart link pages', free: '0', starter: '0', pro: '0' },
+      { feature: 'Link click analytics', free: 'dash', starter: 'dash', pro: 'dash' },
     ],
   },
   {

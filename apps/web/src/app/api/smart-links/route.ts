@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { Prisma } from '@prisma/client';
+import { SMART_LINKS_ENABLED, SMART_LINKS_COMING_SOON_LABEL } from '@/lib/smart-links/feature-flag';
 
 const RESERVED_SLUGS = new Set([
   'admin', 'api', 'app', 'auth', 'dashboard', 'login', 'signup', 'settings',
@@ -23,6 +24,12 @@ function generateSlugFromEmail(email: string): string {
 }
 
 export async function GET(request: NextRequest) {
+  if (!SMART_LINKS_ENABLED) {
+    return NextResponse.json(
+      { message: SMART_LINKS_COMING_SOON_LABEL, linkPage: null },
+      { status: 503 }
+    );
+  }
   const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
   if (!userId) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
@@ -37,6 +44,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!SMART_LINKS_ENABLED) {
+    return NextResponse.json({ message: SMART_LINKS_COMING_SOON_LABEL }, { status: 503 });
+  }
   const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
   if (!userId) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });

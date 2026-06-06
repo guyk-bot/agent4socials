@@ -7,6 +7,8 @@ import {
   Instagram, Facebook, Youtube, Twitter, Linkedin, Github, Globe, Mail, Music2
 } from 'lucide-react';
 import api from '@/lib/api';
+import { SMART_LINKS_ENABLED } from '@/lib/smart-links/feature-flag';
+import SmartLinksComingSoon from '@/components/smart-links/SmartLinksComingSoon';
 import { LinkPageRenderer } from '@/components/smart-links/LinkPageRenderer';
 import { THEME_PRESETS, FONT_OPTIONS, type LinkPageDesign } from '@/components/smart-links/themes';
 
@@ -124,6 +126,13 @@ function clearDraft() {
 }
 
 export default function SmartLinksPage() {
+  if (!SMART_LINKS_ENABLED) {
+    return <SmartLinksComingSoon />;
+  }
+  return <SmartLinksEditor />;
+}
+
+function SmartLinksEditor() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);

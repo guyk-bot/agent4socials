@@ -19,7 +19,7 @@ const FREE_HIGHLIGHTS = [
   '25 scheduled posts / month',
   'Connect Instagram, Facebook, TikTok, YouTube, LinkedIn',
   '30 days analytics',
-  '1 smart link page',
+  'Smart link pages (coming soon)',
   'Limited AI Assistant use',
 ];
 
@@ -38,7 +38,7 @@ const PRO_HIGHLIGHTS = [
   'Unlimited analytic history',
   'Bulk replies (messages and comments)',
   'Advanced reporting & exports',
-  '10 smart link pages',
+  'Smart link pages (coming soon)',
   'White label',
   'Add team members',
   'Detailed reports',

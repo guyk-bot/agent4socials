@@ -12,6 +12,7 @@ import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
 import { formatInboxBadgeTitle } from '@/lib/inbox/unread-count';
 import { readLastActiveChatId } from '@/lib/ai/aysop-chat-local-cache';
+import { SMART_LINKS_COMING_SOON_LABEL } from '@/lib/smart-links/feature-flag';
 
 function topNavHref(item: (typeof topNavItems)[number], userId?: string | null): string {
   if (item.href === '/dashboard/aysop-ai' && userId) {
@@ -27,7 +28,7 @@ export const topNavItems = [
   { icon: MessageCircle, label: 'Inbox', href: '/dashboard/inbox', badgeKey: 'inbox' as const },
   { icon: PlusSquare, label: 'Composer', href: '/composer' },
   { icon: Calendar, label: 'Calendar', href: '/calendar' },
-  { icon: Link2, label: 'Smart Links', href: '/dashboard/smart-links' },
+  { icon: Link2, label: 'Smart Links', href: '/dashboard/smart-links', comingSoon: true as const },
   { icon: Brain, label: `${BRAND_NAME} AI`, href: '/dashboard/aysop-ai' },
 ];
 
@@ -66,10 +67,20 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
   const isAccountPage = pathname === '/dashboard/account';
   const displayAppName = normalizeLegacyBrandName(appName || BRAND_NAME);
 
-  const navLinkClass = (active: boolean) =>
+  const navLinkClass = (active: boolean, disabled?: boolean) =>
     `relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-0 ${
-      active ? 'bg-white/15 text-chrome-text' : 'text-chrome-text/70 hover:text-chrome-text hover:bg-white/10'
+      disabled
+        ? 'text-chrome-text/45 cursor-not-allowed select-none'
+        : active
+          ? 'bg-white/15 text-chrome-text'
+          : 'text-chrome-text/70 hover:text-chrome-text hover:bg-white/10'
     }`;
+
+  const comingSoonBadge = (
+    <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-chrome-text/70">
+      {SMART_LINKS_COMING_SOON_LABEL}
+    </span>
+  );
 
   return (
     <header className="h-full w-full flex items-center justify-between px-4 sm:px-6 bg-[var(--dark)] text-chrome-text border-b border-white/10 pointer-events-auto">
@@ -114,6 +125,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
               <>
                 <item.icon size={18} />
                 {item.label}
+                {'comingSoon' in item && item.comingSoon ? comingSoonBadge : null}
                 {badge > 0 && (
                   <span
                     title={inboxBadgeTitle}
@@ -124,6 +136,18 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
                 )}
               </>
             );
+            if ('comingSoon' in item && item.comingSoon) {
+              return (
+                <span
+                  key={item.href}
+                  className={navLinkClass(false, true)}
+                  aria-disabled="true"
+                  title={SMART_LINKS_COMING_SOON_LABEL}
+                >
+                  {content}
+                </span>
+              );
+            }
             return (
               <Link
                 key={item.href}
@@ -207,8 +231,26 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
                     ? `${badge} unread`
                     : undefined;
               const mobileLinkClass = `flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${
-                isActive ? 'bg-white/15 text-chrome-text' : 'text-chrome-text/70 hover:text-chrome-text hover:bg-white/10'
+                'comingSoon' in item && item.comingSoon
+                  ? 'text-chrome-text/45 cursor-not-allowed select-none'
+                  : isActive
+                    ? 'bg-white/15 text-chrome-text'
+                    : 'text-chrome-text/70 hover:text-chrome-text hover:bg-white/10'
               }`;
+              if ('comingSoon' in item && item.comingSoon) {
+                return (
+                  <span
+                    key={item.href}
+                    className={mobileLinkClass}
+                    aria-disabled="true"
+                    title={SMART_LINKS_COMING_SOON_LABEL}
+                  >
+                    <item.icon size={18} className="shrink-0" />
+                    <span className="flex-1">{item.label}</span>
+                    {comingSoonBadge}
+                  </span>
+                );
+              }
               return (
                 <Link
                   key={item.href}

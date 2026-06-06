@@ -31,7 +31,7 @@ const FREE_HIGHLIGHTS = [
   '25 scheduled posts / month',
   'Connect Instagram, Facebook, TikTok, YouTube, LinkedIn, and Pinterest',
   '30 days analytics',
-  '1 smart link page',
+  'Smart link pages (coming soon)',
   'Limited AI Assistant use',
 ];
 
@@ -50,7 +50,7 @@ const PRO_HIGHLIGHTS = [
   'Unlimited analytic history',
   'Bulk replies (messages and comments)',
   'Advanced reporting & exports',
-  '10 smart link pages',
+  'Smart link pages (coming soon)',
   'White label',
   'Add team members',
   'Detailed reports',
@@ -426,7 +426,7 @@ export default function Home() {
                 { icon: BarChart3, label: 'Cross-platform Analytics', desc: 'Views, likes, comments, followers across all your accounts in one unified dashboard.' },
                 { icon: MessageCircle, label: 'Unified Inbox', desc: 'DMs and comments from Instagram, Facebook, and X in one feed. Zero app-switching.' },
                 { icon: Hash, label: 'Hashtag Pool', desc: 'Save reusable hashtag sets and drop them into Composer in one click.' },
-                { icon: Link2, label: 'Smart Links', desc: 'One powerful bio link page with click analytics on every plan.' },
+                { icon: Link2, label: 'Smart Links', desc: 'Custom link-in-bio pages with click analytics. Coming soon.' },
                 { icon: Sparkles, label: 'AI Assistant', desc: 'Set your brand voice, get AI-suggested captions right inside the Composer.' },
               ].map(({ icon: Icon, label, desc }) => (
                 <div key={label} className="group relative flex flex-col gap-4 rounded-[20px] border border-[#C8E4FF] bg-white p-6 transition-all duration-300 hover:border-[#53BEFA] hover:shadow-md hover:scale-[1.01]">
@@ -516,7 +516,7 @@ export default function Home() {
                 {[
                   'All plans include scheduling, basic analytics, unified inbox, and AI assistant.',
                   'Standard and Pro add more brands, analytics history, and platform connections.',
-                  'Pro adds white label, team members, smart links, and priority support.',
+                  'Pro adds white label, team members, and priority support.',
                 ].map((item, i) => (
                   <li key={i} className="flex items-start gap-3 text-sm text-[#5d5768]">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#2f9e44]" />
@@ -570,7 +570,7 @@ export default function Home() {
                 { q: 'How do I delete my data?', a: 'You can delete your account and data from Account or Settings in the app, or send a data deletion request to support@agent4socials.com. We process requests within 30 days.' },
                 { q: 'Can I cancel anytime?', a: 'Yes. You can cancel your subscription at any time. You\'ll keep access until the end of your billing period.' },
                 { q: 'How do I get started?', a: 'Try the Free plan (no credit card required), or sign up for Standard or Pro to unlock more features. Connect your accounts and start scheduling from one dashboard.' },
-                { q: 'Which plan is right for me?', a: `Free is for trying the platform: 1 brand, 25 posts/month, 30 days analytics. Standard ($${STANDARD_PLAN_PRICING.monthly}/mo) is for creators: unlimited scheduling, inbox, X and LinkedIn, 6 months analytics, unlimited AI. Pro ($${PRO_PLAN_PRICING.monthly}/mo) is for professionals: advanced analytics, bulk replies, smart links, white label, team members, and priority support. Yearly billing saves ${PRICING_YEARLY_DISCOUNT_PERCENT}%.` },
+                { q: 'Which plan is right for me?', a: `Free is for trying the platform: 1 brand, 25 posts/month, 30 days analytics. Standard ($${STANDARD_PLAN_PRICING.monthly}/mo) is for creators: unlimited scheduling, inbox, X and LinkedIn, 6 months analytics, unlimited AI. Pro ($${PRO_PLAN_PRICING.monthly}/mo) is for professionals: advanced analytics, bulk replies, white label, team members, and priority support. Yearly billing saves ${PRICING_YEARLY_DISCOUNT_PERCENT}%.` },
               ].map((item, i) => (
                 <FaqItem key={i} question={item.q} answer={item.a} />
               ))}
