@@ -268,9 +268,9 @@ export default function AysopAiWorkspace() {
   const activeTitle = sessions.find((s) => s.id === activeId)?.title;
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-white">
+    <div className="flex flex-col h-full min-h-0 bg-white dark:bg-neutral-950">
       {saveError ? (
-        <p className="shrink-0 text-xs text-amber-700 bg-amber-50 border-b border-amber-200 px-4 py-2">
+        <p className="shrink-0 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-900 px-4 py-2">
           {saveError}
         </p>
       ) : null}
@@ -278,8 +278,8 @@ export default function AysopAiWorkspace() {
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <div className="flex-1 min-w-0 flex flex-col">
           {activeTitle && activeTitle !== 'New chat' ? (
-            <div className="shrink-0 border-b border-neutral-100 px-4 py-2.5 bg-white">
-              <p className="text-sm font-medium text-neutral-800 truncate">{activeTitle}</p>
+            <div className="shrink-0 border-b border-neutral-100 dark:border-neutral-800 px-4 py-2.5 bg-white dark:bg-neutral-950">
+              <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100 truncate">{activeTitle}</p>
             </div>
           ) : null}
           <AysopChatPanel

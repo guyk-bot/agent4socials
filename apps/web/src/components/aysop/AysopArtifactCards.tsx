@@ -48,13 +48,13 @@ function OpenLink({ href, label }: { href: string; label?: string }) {
 
 function AppViewCard({ artifact }: { artifact: Extract<AysopArtifact, { type: 'app_view' }> }) {
   return (
-    <div className="rounded-xl border border-neutral-200 bg-gradient-to-br from-white to-neutral-50 p-3 text-sm">
+    <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-gradient-to-br from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-950 p-3 text-sm">
       <div className="flex items-start gap-2">
         <span className="mt-0.5 shrink-0">{VIEW_ICONS[artifact.viewId as AppViewId] ?? <Bot size={18} />}</span>
         <div className="min-w-0 flex-1">
-          <p className="font-semibold text-neutral-900">{artifact.title}</p>
+          <p className="font-semibold text-neutral-900 dark:text-neutral-100 dark:text-neutral-100">{artifact.title}</p>
           {artifact.description ? (
-            <p className="text-neutral-600 text-xs mt-0.5">{artifact.description}</p>
+            <p className="text-neutral-600 dark:text-neutral-400 dark:text-neutral-400 text-xs mt-0.5">{artifact.description}</p>
           ) : null}
           <OpenLink href={artifact.href} label={artifact.openLabel ?? 'Open'} />
         </div>
@@ -95,9 +95,9 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
           rendered.add(key);
           const k = a.kpi;
           return (
-            <div key={key} className="rounded-xl border border-neutral-200 bg-white p-3 text-sm">
-              <p className="font-semibold text-neutral-900 mb-1">Console overview</p>
-              <p className="text-xs text-neutral-500 mb-3">
+            <div key={key} className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 text-sm">
+              <p className="font-semibold text-neutral-900 dark:text-neutral-100 mb-1">Console overview</p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-3">
                 {a.dateRange.start} to {a.dateRange.end}
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -107,9 +107,9 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
                   { label: 'Engagement', value: k.totalEngagement },
                   { label: 'Posts', value: k.totalPosts },
                 ].map((item) => (
-                  <div key={item.label} className="rounded-lg bg-neutral-50 border border-neutral-100 px-2 py-2">
-                    <p className="text-[10px] uppercase tracking-wide text-neutral-500">{item.label}</p>
-                    <p className="font-bold text-neutral-900">{formatMetricNumber(item.value)}</p>
+                  <div key={item.label} className="rounded-lg bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-100 dark:border-neutral-700 px-2 py-2">
+                    <p className="text-[10px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{item.label}</p>
+                    <p className="font-bold text-neutral-900 dark:text-neutral-100">{formatMetricNumber(item.value)}</p>
                   </div>
                 ))}
               </div>
@@ -121,13 +121,13 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
         if (a.type === 'brand_context') {
           rendered.add(key);
           return (
-            <div key={key} className="rounded-xl border border-neutral-200 bg-white p-3 text-sm max-h-64 overflow-y-auto">
-              <p className="font-semibold text-neutral-900 mb-2">Brand context</p>
+            <div key={key} className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 text-sm max-h-64 overflow-y-auto">
+              <p className="font-semibold text-neutral-900 dark:text-neutral-100 mb-2">Brand context</p>
               <dl className="space-y-2">
                 {a.fields.map((f) => (
                   <div key={f.label}>
-                    <dt className="text-[10px] uppercase tracking-wide text-neutral-500">{f.label}</dt>
-                    <dd className="text-neutral-700 whitespace-pre-wrap text-xs mt-0.5">{f.value}</dd>
+                    <dt className="text-[10px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">{f.label}</dt>
+                    <dd className="text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap text-xs mt-0.5">{f.value}</dd>
                   </div>
                 ))}
               </dl>
@@ -139,13 +139,13 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
         if (a.type === 'accounts') {
           rendered.add(key);
           return (
-            <div key={key} className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-sm">
-              <p className="font-medium text-neutral-800 mb-2">Connected accounts</p>
+            <div key={key} className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/80 p-3 text-sm">
+              <p className="font-medium text-neutral-800 dark:text-neutral-200 mb-2">Connected accounts</p>
               <div className="flex flex-wrap gap-1.5">
                 {a.accounts.map((acc) => (
                   <span
                     key={acc.id}
-                    className="text-xs px-2 py-1 rounded-full bg-white border border-neutral-200 text-neutral-700"
+                    className="text-xs px-2 py-1 rounded-full bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 dark:text-neutral-300"
                   >
                     {acc.platform}
                     {acc.username ? ` @${acc.username}` : ''}
@@ -160,13 +160,13 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
         if (a.type === 'posts') {
           rendered.add(key);
           return (
-            <div key={key} className="rounded-xl border border-neutral-200 bg-white p-3 text-sm">
-              <p className="font-medium text-neutral-800 mb-2">Recent posts</p>
+            <div key={key} className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 text-sm">
+              <p className="font-medium text-neutral-800 dark:text-neutral-200 mb-2">Recent posts</p>
               <ul className="space-y-2 max-h-52 overflow-y-auto">
                 {a.posts.map((p, j) => (
                   <li key={j} className="border-l-2 border-[var(--primary)] pl-2">
-                    <p className="text-neutral-800 line-clamp-2">{String(p.preview ?? 'Post')}</p>
-                    <p className="text-[11px] text-neutral-500 mt-0.5">
+                    <p className="text-neutral-800 dark:text-neutral-200 line-clamp-2">{String(p.preview ?? 'Post')}</p>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
                       {p.likes != null ? `${p.likes} likes` : ''}
                       {p.commentsCount != null ? ` · ${p.commentsCount} comments` : ''}
                       {p.impressions != null ? ` · ${p.impressions} views` : ''}
@@ -182,13 +182,13 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
         if (a.type === 'comments') {
           rendered.add(key);
           return (
-            <div key={key} className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-sm">
-              <p className="font-medium text-neutral-800 mb-2">Comments on: {a.postPreview}</p>
+            <div key={key} className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/80 p-3 text-sm">
+              <p className="font-medium text-neutral-800 dark:text-neutral-200 mb-2">Comments on: {a.postPreview}</p>
               <ul className="space-y-2 max-h-48 overflow-y-auto">
                 {a.comments.map((c, j) => (
                   <li key={j} className="border-l-2 border-[var(--primary)] pl-2">
-                    <span className="font-medium text-neutral-700">{String(c.authorName ?? 'User')}</span>
-                    <p className="text-neutral-600">{String(c.text ?? '')}</p>
+                    <span className="font-medium text-neutral-700 dark:text-neutral-300">{String(c.authorName ?? 'User')}</span>
+                    <p className="text-neutral-600 dark:text-neutral-400">{String(c.text ?? '')}</p>
                   </li>
                 ))}
               </ul>
@@ -201,9 +201,9 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
           rendered.add(key);
           const steps = Array.isArray(a.keywordSteps) ? a.keywordSteps : [];
           return (
-            <div key={key} className="rounded-xl border border-neutral-200 bg-white p-3 text-sm">
-              <p className="font-medium text-neutral-800 mb-1">Keyword automation</p>
-              <p className="text-xs text-neutral-500 mb-2">
+            <div key={key} className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 text-sm">
+              <p className="font-medium text-neutral-800 dark:text-neutral-200 mb-1">Keyword automation</p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
                 Welcome DM: {a.dmWelcomeEnabled ? 'On' : 'Off'} · {steps.length} keyword rule(s)
               </p>
               {steps.length > 0 ? (
@@ -211,9 +211,9 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
                   {steps.map((s, j) => {
                     const step = s as { keyword?: string; replyTemplate?: string };
                     return (
-                      <li key={j} className="rounded-lg bg-neutral-50 px-2 py-1.5 border border-neutral-100">
-                        <span className="font-medium text-neutral-800">{String(step.keyword ?? 'Keyword')}</span>
-                        <span className="text-neutral-500"> → {String(step.replyTemplate ?? '').slice(0, 80)}</span>
+                      <li key={j} className="rounded-lg bg-neutral-50 dark:bg-neutral-800/60 px-2 py-1.5 border border-neutral-100 dark:border-neutral-700">
+                        <span className="font-medium text-neutral-800 dark:text-neutral-200">{String(step.keyword ?? 'Keyword')}</span>
+                        <span className="text-neutral-500 dark:text-neutral-400"> → {String(step.replyTemplate ?? '').slice(0, 80)}</span>
                       </li>
                     );
                   })}
@@ -227,13 +227,13 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
         if (a.type === 'scheduled_posts') {
           rendered.add(key);
           return (
-            <div key={key} className="rounded-xl border border-neutral-200 bg-white p-3 text-sm">
-              <p className="font-medium text-neutral-800 mb-2">Scheduled & recent posts</p>
+            <div key={key} className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 text-sm">
+              <p className="font-medium text-neutral-800 dark:text-neutral-200 mb-2">Scheduled & recent posts</p>
               <ul className="space-y-2 max-h-48 overflow-y-auto">
                 {a.posts.map((p) => (
-                  <li key={p.id} className="rounded-lg border border-neutral-100 bg-neutral-50 px-2 py-1.5">
-                    <p className="text-neutral-800 line-clamp-2 text-xs">{p.preview}</p>
-                    <p className="text-[10px] text-neutral-500 mt-0.5">
+                  <li key={p.id} className="rounded-lg border border-neutral-100 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/60 px-2 py-1.5">
+                    <p className="text-neutral-800 dark:text-neutral-200 line-clamp-2 text-xs">{p.preview}</p>
+                    <p className="text-[10px] text-neutral-500 dark:text-neutral-400 mt-0.5">
                       {p.scheduledAt ? new Date(p.scheduledAt).toLocaleString() : ''}
                       {p.platforms.length ? ` · ${p.platforms.join(', ')}` : ''}
                     </p>
@@ -248,9 +248,9 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
         if (a.type === 'smart_links') {
           rendered.add(key);
           return (
-            <div key={key} className="rounded-xl border border-neutral-200 bg-white p-3 text-sm">
-              <p className="font-medium text-neutral-800">{a.title ?? 'Smart Links page'}</p>
-              <p className="text-xs text-neutral-500 mb-2">
+            <div key={key} className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 text-sm">
+              <p className="font-medium text-neutral-800 dark:text-neutral-200">{a.title ?? 'Smart Links page'}</p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
                 {a.isPublished ? 'Published' : 'Draft'}
                 {a.publicUrl ? ` · ${a.publicUrl}` : ''}
               </p>
@@ -258,13 +258,13 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
                 <ul className="space-y-1 text-xs max-h-36 overflow-y-auto">
                   {a.links.map((l, j) => (
                     <li key={j} className="flex justify-between gap-2">
-                      <span className="text-neutral-800 truncate">{l.label}</span>
+                      <span className="text-neutral-800 dark:text-neutral-200 truncate">{l.label}</span>
                       <span className="text-neutral-400 truncate">{l.url}</span>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-neutral-500">No links yet.</p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">No links yet.</p>
               )}
               <OpenLink href={a.href} label="Edit Smart Links" />
             </div>
@@ -274,9 +274,9 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
         if (a.type === 'text_block') {
           rendered.add(key);
           return (
-            <div key={key} className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-sm">
-              {a.title ? <p className="font-medium text-neutral-800 mb-1">{a.title}</p> : null}
-              <p className="text-neutral-600 whitespace-pre-wrap">{a.body}</p>
+            <div key={key} className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/80 p-3 text-sm">
+              {a.title ? <p className="font-medium text-neutral-800 dark:text-neutral-200 mb-1">{a.title}</p> : null}
+              <p className="text-neutral-600 dark:text-neutral-400 whitespace-pre-wrap">{a.body}</p>
               {a.href ? <OpenLink href={a.href} label={a.hrefLabel} /> : null}
             </div>
           );
@@ -285,9 +285,9 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
         if (a.type === 'composer_link') {
           rendered.add(key);
           return (
-            <div key={key} className="rounded-xl border border-[var(--primary)]/30 bg-[#E8F4FF]/50 p-3 text-sm">
-              <p className="font-medium text-neutral-800 mb-1">Draft ready for Composer</p>
-              {a.caption ? <p className="text-neutral-600 whitespace-pre-wrap mb-2">{a.caption}</p> : null}
+            <div key={key} className="rounded-xl border border-[var(--primary)]/30 bg-[#E8F4FF]/50 dark:bg-[var(--primary)]/10 p-3 text-sm">
+              <p className="font-medium text-neutral-800 dark:text-neutral-200 mb-1">Draft ready for Composer</p>
+              {a.caption ? <p className="text-neutral-600 dark:text-neutral-400 whitespace-pre-wrap mb-2">{a.caption}</p> : null}
               <OpenLink href={a.url} label="Open Composer" />
             </div>
           );
@@ -298,7 +298,7 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
           return (
             <div
               key={key}
-              className={`rounded-xl border p-3 text-sm ${a.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-red-200 bg-red-50'}`}
+              className={`rounded-xl border p-3 text-sm ${a.ok ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-200' : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40 dark:text-red-200'}`}
             >
               {a.detail}
             </div>

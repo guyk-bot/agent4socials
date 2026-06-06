@@ -186,17 +186,17 @@ export default function AysopChatPanel({
         <span className="font-semibold text-sm">{BRAND_NAME} AI</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-[#fafafa] min-h-0">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-[#fafafa] dark:bg-neutral-950 min-h-0">
         {sessionLoading ? (
-          <div className="flex items-center justify-center gap-2 text-neutral-500 text-sm py-12">
+          <div className="flex items-center justify-center gap-2 text-neutral-500 dark:text-neutral-400 text-sm py-12">
             <Loader2 size={18} className="animate-spin" />
             Loading chat…
           </div>
         ) : messages.length === 0 ? (
           <div className="text-center py-8 px-4">
             <Sparkles className="mx-auto text-[var(--primary)] mb-3" size={32} />
-            <p className="text-neutral-700 font-medium">Your social copilot</p>
-            <p className="text-sm text-neutral-500 mt-1 max-w-md mx-auto">
+            <p className="text-neutral-700 dark:text-neutral-200 font-medium">Your social copilot</p>
+            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1 max-w-md mx-auto">
               Ask to open Dashboard, Console, Inbox, Calendar, Automation, Smart Links, brand context, or analytics charts. Attach images, videos, or files with the paperclip.
             </p>
             <div className="flex flex-wrap justify-center gap-2 mt-6">
@@ -206,7 +206,7 @@ export default function AysopChatPanel({
                   type="button"
                   onClick={() => void send(s)}
                   disabled={disabled || loading || uploading}
-                  className="text-xs px-3 py-2 rounded-full border border-neutral-200 bg-white hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors disabled:opacity-50"
+                  className="text-xs px-3 py-2 rounded-full border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 hover:border-[var(--primary)] hover:text-[var(--primary)] transition-colors disabled:opacity-50"
                 >
                   {s}
                 </button>
@@ -220,7 +220,7 @@ export default function AysopChatPanel({
                 className={`max-w-[95%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap ${
                   m.role === 'user'
                     ? 'bg-[var(--primary)] text-chrome-text rounded-br-md'
-                    : 'bg-white border border-neutral-200 text-neutral-800 rounded-bl-md shadow-sm'
+                    : 'bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-bl-md shadow-sm'
                 }`}
               >
                 {m.content ? m.content : null}
@@ -235,7 +235,7 @@ export default function AysopChatPanel({
           ))
         )}
         {loading ? (
-          <div className="flex items-center gap-2 text-neutral-500 text-sm">
+          <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400 text-sm">
             <Loader2 size={16} className="animate-spin" />
             {BRAND_NAME} is thinking…
           </div>
@@ -244,7 +244,7 @@ export default function AysopChatPanel({
       </div>
 
       {error ? (
-        <p className="px-4 py-2 text-sm text-red-600 bg-red-50 border-t border-red-100 shrink-0">{error}</p>
+        <p className="px-4 py-2 text-sm text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-950/40 border-t border-red-100 dark:border-red-900 shrink-0">{error}</p>
       ) : null}
 
       <AysopPendingAttachments
@@ -254,7 +254,7 @@ export default function AysopChatPanel({
       />
 
       <form
-        className="p-3 border-t border-neutral-100 flex gap-2 bg-white shrink-0"
+        className="p-3 border-t border-neutral-100 dark:border-neutral-800 flex gap-2 bg-white dark:bg-neutral-950 shrink-0"
         onSubmit={(e) => {
           e.preventDefault();
           void send(input, pendingAttachments);
@@ -272,7 +272,7 @@ export default function AysopChatPanel({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={loading || disabled || uploading || pendingAttachments.length >= AYSOP_CHAT_MAX_ATTACHMENTS}
-          className="shrink-0 rounded-xl border border-neutral-200 px-3 py-3 text-neutral-600 hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:opacity-40 transition-colors"
+          className="shrink-0 rounded-xl border border-neutral-200 dark:border-neutral-700 px-3 py-3 text-neutral-600 dark:text-neutral-300 hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:opacity-40 transition-colors"
           aria-label="Attach file"
           title="Attach image, video, or file"
         >
@@ -283,7 +283,7 @@ export default function AysopChatPanel({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask anything or attach media…"
-          className="flex-1 rounded-xl border border-neutral-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40"
+          className="flex-1 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40"
           disabled={loading || disabled || uploading}
         />
         <button

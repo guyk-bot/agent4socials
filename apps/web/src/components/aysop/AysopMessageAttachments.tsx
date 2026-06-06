@@ -53,7 +53,7 @@ export function AysopMessageAttachments({ attachments, variant = 'user' }: Props
             target="_blank"
             rel="noopener noreferrer"
             className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${
-              onDark ? 'bg-white/15 hover:bg-white/25' : 'bg-neutral-50 border border-neutral-200 hover:bg-neutral-100'
+              onDark ? 'bg-white/15 hover:bg-white/25' : 'bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-700'
             }`}
           >
             <FileText size={14} className="shrink-0" />
@@ -75,26 +75,26 @@ export function AysopPendingAttachments({ attachments, onRemove, uploading }: Pe
   if (!attachments.length) return null;
 
   return (
-    <div className="px-3 pt-2 flex flex-wrap gap-2 border-t border-neutral-100 bg-neutral-50/80">
+    <div className="px-3 pt-2 flex flex-wrap gap-2 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50/80 dark:bg-neutral-950">
       {attachments.map((att, i) => (
         <div
           key={`${att.fileUrl}-${i}`}
-          className="relative group flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-xs max-w-[200px]"
+          className="relative group flex items-center gap-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-xs max-w-[200px]"
         >
           {att.kind === 'image' ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={att.fileUrl} alt="" className="h-8 w-8 rounded object-cover shrink-0" />
           ) : att.kind === 'video' ? (
-            <Film size={16} className="text-neutral-500 shrink-0" />
+            <Film size={16} className="text-neutral-500 dark:text-neutral-400 shrink-0" />
           ) : (
-            <FileText size={16} className="text-neutral-500 shrink-0" />
+            <FileText size={16} className="text-neutral-500 dark:text-neutral-400 shrink-0" />
           )}
-          <span className="truncate text-neutral-700">{att.fileName}</span>
+          <span className="truncate text-neutral-700 dark:text-neutral-200">{att.fileName}</span>
           {!uploading ? (
             <button
               type="button"
               onClick={() => onRemove(i)}
-              className="ml-auto shrink-0 text-neutral-400 hover:text-red-600"
+              className="ml-auto shrink-0 text-neutral-400 dark:text-neutral-500 hover:text-red-600 dark:hover:text-red-400"
               aria-label={`Remove ${att.fileName}`}
             >
               ×
