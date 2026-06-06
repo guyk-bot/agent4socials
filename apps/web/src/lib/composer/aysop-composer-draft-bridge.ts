@@ -19,12 +19,6 @@ export type AysopComposerDraftPayload = {
   selectedHashtags: string[];
   differentHashtagsPerPlatform: boolean;
   selectedHashtagsByPlatform: Record<string, string[]>;
-  commentAutomationEnabled: boolean;
-  commentAutomationKeywords: string;
-  commentAutomationReplyTemplate: string;
-  commentAutomationInstagramPublicReply: boolean;
-  commentAutomationInstagramPrivateReply: boolean;
-  commentAutomationTagCommenter: boolean;
 };
 
 export function buildAysopComposerDraftPayload(args: {
@@ -49,12 +43,6 @@ export function buildAysopComposerDraftPayload(args: {
     selectedHashtags: [],
     differentHashtagsPerPlatform: false,
     selectedHashtagsByPlatform: {},
-    commentAutomationEnabled: false,
-    commentAutomationKeywords: '',
-    commentAutomationReplyTemplate: '',
-    commentAutomationInstagramPublicReply: false,
-    commentAutomationInstagramPrivateReply: false,
-    commentAutomationTagCommenter: false,
   };
 }
 

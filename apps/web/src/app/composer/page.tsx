@@ -43,7 +43,6 @@ import {
     remapTikTokPublishPayloadForTargets,
     type TikTokDirectPostPayload,
 } from '@/lib/tiktok/tiktok-publish-compliance';
-import { commentAutomationSupportedForPlatform } from '@/lib/linkedin/composer-account';
 import {
     buildOptimisticPostingRow,
     pushPostsHistoryClientUpdate,
@@ -130,15 +129,6 @@ type ComposerDraft = {
     selectedHashtags: string[];
     differentHashtagsPerPlatform: boolean;
     selectedHashtagsByPlatform: Record<string, string[]>;
-    commentAutomationEnabled: boolean;
-    commentAutomationKeywords: string;
-    commentAutomationReplyTemplate: string;
-    commentAutomationReplyByPlatform?: Record<string, string>;
-    commentAutomationReplyOnComment?: boolean;
-    commentAutomationInstagramPublicReply: boolean;
-    commentAutomationInstagramPrivateReply: boolean;
-    commentAutomationInstagramDmMessage?: string;
-    commentAutomationTagCommenter?: boolean;
     tiktokPublishByAccountId?: Record<string, TikTokDirectPostPayload>;
     linkedInVisibility?: LinkedInPostVisibility;
     threadsShareToInstagram?: boolean;
@@ -521,9 +511,6 @@ function handlePublishResultOutcome(
     return false;
 }
 
-// Platforms that support comment-automation (replies to keyword comments)
-const COMMENT_AUTOMATION_PLATFORMS = new Set(['INSTAGRAM', 'FACEBOOK', 'TWITTER', 'YOUTUBE', 'LINKEDIN']);
-
 function optionalLinkedInConnectionKind(acc: unknown): { linkedinConnectionKind?: string } {
     const kind = (acc as { linkedinConnectionKind?: unknown }).linkedinConnectionKind;
     return typeof kind === 'string' ? { linkedinConnectionKind: kind } : {};
@@ -888,12 +875,8 @@ export default function ComposerPage() {
         | { open: true; kind: 'scheduled'; message: string }
         | { open: true; kind: 'failed'; message: string }
     >({ open: false });
-    const [dmAiModalOpen, setDmAiModalOpen] = useState(false);
-    const [dmAiInstructions, setDmAiInstructions] = useState('');
-    const [dmAiLoading, setDmAiLoading] = useState(false);
-    const [dmAiError, setDmAiError] = useState<string | null>(null);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
-    const [sectionOpen, setSectionOpen] = useState({ platforms: true, media: true, content: false, commentAutomation: false, hashtags: false, schedule: false });
+    const [sectionOpen, setSectionOpen] = useState({ platforms: true, media: true, content: false, hashtags: false, schedule: false });
     const toggleSection = (key: keyof typeof sectionOpen) => setSectionOpen((s) => ({ ...s, [key]: !s[key] }));
 
 
@@ -1071,24 +1054,11 @@ export default function ComposerPage() {
     const [differentHashtagsPerPlatform, setDifferentHashtagsPerPlatform] = useState(false);
     const [selectedHashtagsByPlatform, setSelectedHashtagsByPlatform] = useState<Record<string, string[]>>({});
 
-    // Comment automation (optional): keyword capture + auto-reply for this post (per-platform reply text)
-    const [commentAutomationEnabled, setCommentAutomationEnabled] = useState(false);
-    const [commentAutomationKeywords, setCommentAutomationKeywords] = useState('');
-    const [commentAutomationReplyTemplate, setCommentAutomationReplyTemplate] = useState('');
-    const [commentAutomationReplyByPlatform, setCommentAutomationReplyByPlatform] = useState<Record<string, string>>({});
-    const [commentAutomationReplyOnComment, setCommentAutomationReplyOnComment] = useState(true);
-    const [commentAutomationInstagramPublicReply, setCommentAutomationInstagramPublicReply] = useState(true);
-    const [commentAutomationInstagramPrivateReply, setCommentAutomationInstagramPrivateReply] = useState(false);
-    const [commentAutomationInstagramDmMessage, setCommentAutomationInstagramDmMessage] = useState('');
-    const [commentAutomationTagCommenter, setCommentAutomationTagCommenter] = useState(false);
-
     // AI description (optional): generate copy from brand context
     const [aiModalOpen, setAiModalOpen] = useState(false);
     const [aiTopic, setAiTopic] = useState('');
     const [aiPrompt, setAiPrompt] = useState('');
     const [aiPlatform, setAiPlatform] = useState('');
-    const [aiIncludeCtaAndAutomation, setAiIncludeCtaAndAutomation] = useState(false);
-    const [aiCtaAutomationPrompt, setAiCtaAutomationPrompt] = useState('');
     const [aiLoading, setAiLoading] = useState(false);
     const [aiError, setAiError] = useState<string | null>(null);
     /** True after the AI modal closes while caption generation runs in the background. */
@@ -1173,23 +1143,6 @@ export default function ComposerPage() {
         if (Array.isArray(d.selectedHashtags)) setSelectedHashtags(d.selectedHashtags);
         if (typeof d.differentHashtagsPerPlatform === 'boolean') setDifferentHashtagsPerPlatform(d.differentHashtagsPerPlatform);
         if (d.selectedHashtagsByPlatform && typeof d.selectedHashtagsByPlatform === 'object') setSelectedHashtagsByPlatform(d.selectedHashtagsByPlatform);
-        if (typeof d.commentAutomationEnabled === 'boolean') setCommentAutomationEnabled(d.commentAutomationEnabled);
-        if (typeof d.commentAutomationKeywords === 'string') setCommentAutomationKeywords(d.commentAutomationKeywords);
-        if (typeof d.commentAutomationReplyTemplate === 'string') setCommentAutomationReplyTemplate(d.commentAutomationReplyTemplate);
-        if (d.commentAutomationReplyByPlatform && typeof d.commentAutomationReplyByPlatform === 'object') {
-            setCommentAutomationReplyByPlatform(d.commentAutomationReplyByPlatform);
-        }
-        if (typeof d.commentAutomationReplyOnComment === 'boolean') setCommentAutomationReplyOnComment(d.commentAutomationReplyOnComment);
-        if (typeof d.commentAutomationInstagramPublicReply === 'boolean') {
-            setCommentAutomationInstagramPublicReply(d.commentAutomationInstagramPublicReply);
-        }
-        if (typeof d.commentAutomationInstagramPrivateReply === 'boolean') {
-            setCommentAutomationInstagramPrivateReply(d.commentAutomationInstagramPrivateReply);
-        }
-        if (typeof d.commentAutomationInstagramDmMessage === 'string') {
-            setCommentAutomationInstagramDmMessage(d.commentAutomationInstagramDmMessage);
-        }
-        if (typeof d.commentAutomationTagCommenter === 'boolean') setCommentAutomationTagCommenter(d.commentAutomationTagCommenter);
         if (d.tiktokPublishByAccountId && typeof d.tiktokPublishByAccountId === 'object') {
             const cleaned: Record<string, TikTokDirectPostPayload> = {};
             for (const [k, v] of Object.entries(d.tiktokPublishByAccountId)) {
@@ -1228,15 +1181,6 @@ export default function ComposerPage() {
             selectedHashtags,
             differentHashtagsPerPlatform,
             selectedHashtagsByPlatform,
-            commentAutomationEnabled,
-            commentAutomationKeywords,
-            commentAutomationReplyTemplate,
-            commentAutomationReplyByPlatform,
-            commentAutomationReplyOnComment,
-            commentAutomationInstagramPublicReply,
-            commentAutomationInstagramPrivateReply,
-            ...(commentAutomationInstagramDmMessage ? { commentAutomationInstagramDmMessage } : {}),
-            commentAutomationTagCommenter,
             ...(Object.keys(tiktokPublishByAccountId).length > 0 ? { tiktokPublishByAccountId } : {}),
             ...(platforms.includes('LINKEDIN') ? { linkedInVisibility } : {}),
             threadsShareToInstagram,
@@ -1259,15 +1203,6 @@ export default function ComposerPage() {
         selectedHashtags,
         differentHashtagsPerPlatform,
         selectedHashtagsByPlatform,
-        commentAutomationEnabled,
-        commentAutomationKeywords,
-        commentAutomationReplyTemplate,
-        commentAutomationReplyByPlatform,
-        commentAutomationReplyOnComment,
-        commentAutomationInstagramPublicReply,
-        commentAutomationInstagramPrivateReply,
-        commentAutomationInstagramDmMessage,
-        commentAutomationTagCommenter,
         tiktokPublishByAccountId,
         linkedInVisibility,
         threadsShareToInstagram,
@@ -1357,7 +1292,6 @@ export default function ComposerPage() {
                     }[];
                     scheduledAt?: string | null;
                     scheduleDelivery?: string | null;
-                    commentAutomation?: { keywords?: string[]; replyTemplate?: string; replyTemplateByPlatform?: Record<string, string>; instagramPublicReply?: boolean; instagramPrivateReply?: boolean; instagramDmTemplate?: string } | null;
                     tiktokPublishByAccountId?: unknown;
                     linkedInPublishByAccountId?: unknown;
                     threadsShareToInstagram?: boolean;
@@ -1444,24 +1378,6 @@ export default function ComposerPage() {
                     setScheduledAt(isoInstantToLocalTenMinuteSnappedUp(p.scheduledAt));
                 }
                 if (p.scheduleDelivery === 'auto' || p.scheduleDelivery === 'email_links') setScheduleDelivery(p.scheduleDelivery);
-                const ca = p.commentAutomation;
-                if (ca && Array.isArray(ca.keywords) && ca.keywords.length > 0) {
-                    setCommentAutomationEnabled(true);
-                    setCommentAutomationKeywords(ca.keywords.join(', '));
-                    setCommentAutomationReplyTemplate((ca.replyTemplate ?? '').trim());
-                    if (ca.replyTemplateByPlatform && typeof ca.replyTemplateByPlatform === 'object') {
-                        setCommentAutomationReplyByPlatform({ ...ca.replyTemplateByPlatform });
-                    }
-                    if (typeof (ca as { replyOnComment?: boolean }).replyOnComment === 'boolean') {
-                        setCommentAutomationReplyOnComment((ca as { replyOnComment: boolean }).replyOnComment);
-                    }
-                    const caIg = ca as { instagramPublicReply?: boolean; instagramPrivateReply?: boolean; instagramDmTemplate?: string; usePrivateReply?: boolean };
-                    if (typeof caIg.instagramPublicReply === 'boolean') setCommentAutomationInstagramPublicReply(caIg.instagramPublicReply);
-                    else if (caIg.usePrivateReply) setCommentAutomationInstagramPublicReply(false);
-                    if (typeof caIg.instagramPrivateReply === 'boolean') setCommentAutomationInstagramPrivateReply(caIg.instagramPrivateReply);
-                    else if (caIg.usePrivateReply) setCommentAutomationInstagramPrivateReply(true);
-                    if (typeof caIg.instagramDmTemplate === 'string') setCommentAutomationInstagramDmMessage(caIg.instagramDmTemplate);
-                }
                 // Pre-fill selected hashtags from post content (and contentByPlatform) so "Select up to 5" shows them as selected
                 const tagsFromPost = extractHashtagsFromPost(p);
                 if (tagsFromPost.length > 0) {
@@ -1584,8 +1500,6 @@ export default function ComposerPage() {
         }
         const topic = aiTopic.trim();
         const prompt = aiPrompt.trim() || undefined;
-        const includeCta = aiIncludeCtaAndAutomation;
-        const ctaPrompt = aiIncludeCtaAndAutomation ? aiCtaAutomationPrompt.trim() || undefined : undefined;
         const platformForSingle = aiPlatform || undefined;
         setAiLoading(true);
         setAiError(null);
@@ -1593,45 +1507,22 @@ export default function ComposerPage() {
         setAiContentGenerating(true);
         setAiInlineError(null);
 
-        const applyCommentAutomationFromAi = (data: {
-            keywords?: string[];
-            replyTemplate?: string;
-        }) => {
-            if (!data) return;
-            if (Array.isArray(data.keywords) && data.keywords.length > 0) {
-                setCommentAutomationEnabled(true);
-                setCommentAutomationKeywords(data.keywords.join(', '));
-            }
-            if (typeof data.replyTemplate === 'string' && data.replyTemplate.trim()) {
-                setCommentAutomationReplyTemplate(data.replyTemplate.trim());
-            }
-        };
-
         if (differentContentPerPlatform && platforms.length > 0) {
             // One HTTP request: server runs OpenAI per platform in parallel (avoids client axios slot queue).
             if (platforms.length > 1) {
                 api.post<{
                     byPlatform?: Record<string, string>;
-                    cta?: string;
-                    keywords?: string[];
-                    replyTemplate?: string;
                 }>('/ai/generate-description', {
                     topic,
                     prompt,
                     platforms,
-                    includeCtaAndAutomation: includeCta,
-                    ctaAutomationPrompt: ctaPrompt,
                 }, { timeout: 90_000 })
                     .then((res) => {
-                        const { byPlatform, cta, keywords, replyTemplate } = res.data;
-                        const ctaText = includeCta ? (cta?.trim() ?? '') : '';
+                        const { byPlatform } = res.data;
                         setContentByPlatform((prev) => {
                             const next = { ...prev };
                             for (const platform of platforms) {
                                 let text = byPlatform?.[platform] ?? '';
-                                if (includeCta && ctaText) {
-                                    text = mergeCaptionWithCta(text, ctaText);
-                                }
                                 if (platform === 'TWITTER') {
                                     text = clampTwitterAiText(text);
                                 }
@@ -1639,9 +1530,6 @@ export default function ComposerPage() {
                             }
                             return next;
                         });
-                        if (includeCta) {
-                            applyCommentAutomationFromAi({ keywords, replyTemplate });
-                        }
                     })
                     .catch((err) => {
                         const msg = err.response?.data?.message ?? 'Failed to generate for one or more platforms. Try again.';
@@ -1653,25 +1541,18 @@ export default function ComposerPage() {
                     });
             } else {
                 const firstPlatform = platforms[0];
-                api.post<{ content?: string; cta?: string; keywords?: string[]; replyTemplate?: string }>('/ai/generate-description', {
+                api.post<{ content?: string }>('/ai/generate-description', {
                     topic,
                     prompt,
                     platform: firstPlatform,
-                    includeCtaAndAutomation: includeCta,
-                    ctaAutomationPrompt: ctaPrompt,
                 }, { timeout: 60_000 })
                     .then((res) => {
                         const d = res.data;
-                        const ctaText = includeCta ? d?.cta?.trim() ?? '' : '';
                         let text = d?.content ?? '';
-                        if (includeCta && ctaText) {
-                            text = mergeCaptionWithCta(text, ctaText);
-                        }
                         if (firstPlatform === 'TWITTER') {
                             text = clampTwitterAiText(text);
                         }
                         setContentByPlatform((prev) => ({ ...prev, [firstPlatform]: text }));
-                        if (includeCta && d) applyCommentAutomationFromAi(d);
                     })
                     .catch((err) => {
                         const msg = err.response?.data?.message ?? 'Failed to generate for one or more platforms. Try again.';
@@ -1683,22 +1564,15 @@ export default function ComposerPage() {
                     });
             }
         } else {
-            api.post<{ content?: string; cta?: string; keywords?: string[]; replyTemplate?: string }>('/ai/generate-description', {
+            api.post<{ content?: string }>('/ai/generate-description', {
                 topic,
                 prompt,
                 platform: platformForSingle,
-                includeCtaAndAutomation: includeCta,
-                ctaAutomationPrompt: ctaPrompt,
             }, { timeout: 60_000 }).then((res) => {
                 const data = res.data;
                 const isTwitter = (platformForSingle || '').toUpperCase() === 'TWITTER';
-                const ctaText = includeCta ? (data?.cta?.trim() ?? '') : '';
                 let text = data?.content ?? '';
-                if (includeCta && ctaText) {
-                    text = mergeCaptionWithCta(text, ctaText);
-                }
                 setContent(isTwitter ? clampTwitterAiText(text) : text);
-                if (includeCta && data) applyCommentAutomationFromAi(data);
             }).catch((err) => {
                 const msg = err.response?.data?.message ?? 'Failed to generate. Try again.';
                 setAiInlineError(msg);
@@ -1707,48 +1581,7 @@ export default function ComposerPage() {
                 setAiContentGenerating(false);
             });
         }
-    }, [aiTopic, aiPrompt, aiPlatform, aiIncludeCtaAndAutomation, aiCtaAutomationPrompt, differentContentPerPlatform, platforms, clampTwitterAiText, hasBrandContext, user?.id]);
-
-    const openDmAiModal = useCallback(() => {
-        if (hasBrandContext === false) {
-            setAlertMessage('Set up AI Assistant brand context first.');
-            return;
-        }
-        setDmAiError(null);
-        setDmAiInstructions('');
-        setDmAiModalOpen(true);
-    }, [hasBrandContext]);
-
-    const handleDmAiGenerate = useCallback(() => {
-        setDmAiLoading(true);
-        setDmAiError(null);
-        const publicReply =
-            (commentAutomationReplyByPlatform['INSTAGRAM'] ?? commentAutomationReplyTemplate).trim() ||
-            'Thanks for commenting!';
-        api
-            .post<{ content?: string }>(
-                '/ai/generate-composer-dm',
-                {
-                    instructions: dmAiInstructions.trim() || 'Short Instagram DM when someone comments the keyword. Send them the link.',
-                    context: `Public comment reply we post: ${publicReply}`,
-                },
-                { timeout: 45_000 }
-            )
-            .then((res) => {
-                const text = res.data?.content?.trim();
-                if (text) {
-                    setCommentAutomationInstagramDmMessage(text);
-                    setDmAiModalOpen(false);
-                } else {
-                    setDmAiError('AI returned an empty message. Try again.');
-                }
-            })
-            .catch((err: { response?: { data?: { message?: string } }; message?: string }) => {
-                const msg = err.response?.data?.message ?? err.message ?? 'Failed to generate DM. Try again.';
-                setDmAiError(msg);
-            })
-            .finally(() => setDmAiLoading(false));
-    }, [dmAiInstructions, commentAutomationReplyByPlatform, commentAutomationReplyTemplate]);
+    }, [aiTopic, aiPrompt, aiPlatform, differentContentPerPlatform, platforms, clampTwitterAiText, hasBrandContext, user?.id]);
 
     // Persist composer draft when state changes (debounced; shorter delay when only media changed so carousel keeps all images after upload)
     const mediaSignature = mediaList.map((m) => m.fileUrl).join('|');
@@ -1820,35 +1653,6 @@ export default function ComposerPage() {
             ...optionalLinkedInConnectionKind(a),
         }));
     }, [accounts, cachedAccounts]);
-
-    const commentAutomationPlatformSupported = useCallback(
-        (platformKey: string) => commentAutomationSupportedForPlatform(platformKey, effectiveAccounts),
-        [effectiveAccounts]
-    );
-
-    const hasCommentAutomationPlatform = useMemo(
-        () => platforms.some((p) => commentAutomationPlatformSupported(p)),
-        [platforms, commentAutomationPlatformSupported]
-    );
-
-    useEffect(() => {
-        if (!accountsFetched) return;
-        if (!hasCommentAutomationPlatform && commentAutomationEnabled) {
-            setCommentAutomationEnabled(false);
-        }
-        if (
-            !platforms.includes('LINKEDIN') ||
-            commentAutomationSupportedForPlatform('LINKEDIN', effectiveAccounts)
-        ) {
-            return;
-        }
-        setCommentAutomationReplyByPlatform((prev) => {
-            if (!prev.LINKEDIN) return prev;
-            const next = { ...prev };
-            delete next.LINKEDIN;
-            return next;
-        });
-    }, [accountsFetched, hasCommentAutomationPlatform, commentAutomationEnabled, platforms, effectiveAccounts]);
 
     const connectedPlatformSet = useMemo(
         () => new Set(effectiveAccounts.map((a) => String(a.platform).toUpperCase())),
@@ -2851,7 +2655,6 @@ export default function ComposerPage() {
                 targets: { platform: string; socialAccountId: string }[];
                 scheduledAt?: string;
                 scheduleDelivery?: 'auto' | 'email_links';
-                commentAutomation?: { keywords: string[]; replyTemplate: string; replyOnComment?: boolean; usePrivateReply?: boolean; tagCommenter?: boolean } | null;
                 tiktokPublishByAccountId?: Record<string, TikTokDirectPostPayload>;
                 linkedInPublishByAccountId?: Record<string, LinkedInPublishSettings>;
                 threadsShareToInstagram?: boolean;
@@ -2906,42 +2709,6 @@ export default function ComposerPage() {
                 if (payload.scheduledAt) payload.scheduleDelivery = scheduleDelivery;
             } else {
                 payload.scheduledAt = undefined;
-            }
-            if (commentAutomationEnabled && commentAutomationKeywords.trim()) {
-                const keywords = commentAutomationKeywords
-                    .split(/[\n,]+/)
-                    .map((k) => k.trim().toLowerCase())
-                    .filter(Boolean);
-                const defaultReply = commentAutomationReplyTemplate.trim();
-                const supportedPlatforms = platforms.filter((p) => commentAutomationPlatformSupported(p));
-                const byPlatform: Record<string, string> = {};
-                for (const p of supportedPlatforms) {
-                    const t = (commentAutomationReplyByPlatform[p] ?? defaultReply).trim();
-                    if (t) byPlatform[p] = t;
-                }
-                const hasReply = defaultReply || Object.keys(byPlatform).length > 0;
-                const hasInstagram = supportedPlatforms.includes('INSTAGRAM');
-                const replyOnComment = true;
-                const instagramPublicReply = commentAutomationInstagramPublicReply;
-                const instagramPrivateReply = hasInstagram && commentAutomationInstagramPrivateReply;
-                if (keywords.length > 0 && hasReply) {
-                    if (hasInstagram && !instagramPublicReply && !instagramPrivateReply) {
-                        setAlertMessage('Instagram automation: enable a public reply or DM.');
-                        setLoading(false);
-                        return;
-                    }
-                    const instagramDmTemplate = commentAutomationInstagramPrivateReply
-                        ? (commentAutomationInstagramDmMessage.trim() || (byPlatform['INSTAGRAM'] ?? defaultReply).trim())
-                        : undefined;
-                    payload.commentAutomation = {
-                        keywords,
-                        replyTemplate: defaultReply || (byPlatform[supportedPlatforms[0]] ?? ''),
-                        ...(Object.keys(byPlatform).length > 0 ? { replyTemplateByPlatform: byPlatform } : {}),
-                        replyOnComment,
-                        tagCommenter: commentAutomationTagCommenter,
-                        ...(hasInstagram ? { instagramPublicReply, instagramPrivateReply, ...(instagramPrivateReply ? { instagramDmTemplate } : {}) } : {}),
-                    };
-                }
             }
             if (platforms.includes('TIKTOK') && Object.keys(tiktokPublishByAccountId).length > 0) {
                 payload.tiktokPublishByAccountId = tiktokPublishByAccountId;
@@ -3524,29 +3291,6 @@ export default function ComposerPage() {
                                     rows={2}
                                     className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                                 />
-                                {hasCommentAutomationPlatform ? (
-                                <label className="mt-3 flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={aiIncludeCtaAndAutomation}
-                                        onChange={(e) => setAiIncludeCtaAndAutomation(e.target.checked)}
-                                        className="rounded border-neutral-300 text-[var(--button)] focus:ring-[var(--button)]"
-                                    />
-                                    <span className="text-sm text-neutral-700">Also generate CTA and comment automation (keyword + reply)</span>
-                                </label>
-                                ) : null}
-                                {aiIncludeCtaAndAutomation && hasCommentAutomationPlatform && (
-                                    <>
-                                        <label className="mt-2 block text-sm font-medium text-neutral-700">Describe the CTA, keyword(s), and reply you want</label>
-                                        <textarea
-                                            value={aiCtaAutomationPrompt}
-                                            onChange={(e) => setAiCtaAutomationPrompt(e.target.value)}
-                                            placeholder="e.g. Ask people to comment AI and say we will send the link. Keywords: ai. Reply: Thanks, check your DMs for the link."
-                                            rows={3}
-                                            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm placeholder:text-neutral-400"
-                                        />
-                                    </>
-                                )}
                                 {differentContentPerPlatform && platforms.length > 0 ? (
                                     <p className="mt-3 text-sm text-neutral-600">
                                         We&apos;ll generate a separate description for each selected platform: {platforms.map((p) => PLATFORM_LABELS[p] ?? p).join(', ')}.
@@ -3580,39 +3324,6 @@ export default function ComposerPage() {
                             </>
                         )}
                     </div>
-                    </div>
-                </>,
-                document.body,
-            )}
-            {dmAiModalOpen && typeof document !== 'undefined' && createPortal(
-                <>
-                    <div
-                        className="fixed z-[10050] min-h-screen min-h-[100dvh] w-screen bg-neutral-900/50 backdrop-blur-sm"
-                        style={{ top: 0, left: 0, right: 0, bottom: 0 }}
-                        onClick={() => !dmAiLoading && setDmAiModalOpen(false)}
-                        aria-hidden="true"
-                    />
-                    <div className="fixed inset-0 z-[10051] flex items-center justify-center p-4 pointer-events-none" role="dialog" aria-modal="true">
-                        <div className="pointer-events-auto relative w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-                            <h3 className="text-lg font-semibold text-neutral-900">Generate DM with AI</h3>
-                            <p className="mt-1 text-sm text-neutral-600">Short private message sent when someone comments your keyword on Instagram.</p>
-                            <label className="mt-4 block text-sm font-medium text-neutral-700">Instructions (optional)</label>
-                            <textarea
-                                value={dmAiInstructions}
-                                onChange={(e) => setDmAiInstructions(e.target.value)}
-                                placeholder="e.g. Thank them and say you will send the free trial link in DM"
-                                rows={3}
-                                className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-                            />
-                            {dmAiError && <p className="mt-2 text-sm text-red-600">{dmAiError}</p>}
-                            <div className="mt-6 flex flex-wrap justify-end gap-3">
-                                <button type="button" onClick={() => !dmAiLoading && setDmAiModalOpen(false)} className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Cancel</button>
-                                <button type="button" onClick={handleDmAiGenerate} disabled={dmAiLoading} className="inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold text-chrome-text shadow-md gradient-cta-pro disabled:opacity-50 disabled:shadow-none">
-                                    {dmAiLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-                                    Generate
-                                </button>
-                            </div>
-                        </div>
                     </div>
                 </>,
                 document.body,
@@ -4299,135 +4010,6 @@ export default function ComposerPage() {
                             </div>
                         )}
                     </div>
-
-                    {hasCommentAutomationPlatform && <div className="card space-y-4">
-                        <button type="button" onClick={() => toggleSection('commentAutomation')} className="w-full flex items-center justify-between text-left">
-                            <h3 className="font-semibold text-neutral-900">Comment automation</h3>
-                            {sectionOpen.commentAutomation ? <ChevronUp size={20} className="text-neutral-400 shrink-0" /> : <ChevronDown size={20} className="text-neutral-400 shrink-0" />}
-                        </button>
-                        {sectionOpen.commentAutomation && (
-                        <div className="pt-4 space-y-4">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={commentAutomationEnabled}
-                                onChange={(e) => setCommentAutomationEnabled(e.target.checked)}
-                                className="rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
-                            />
-                            <span className="text-sm font-medium text-neutral-700">Enable keyword comment automation</span>
-                        </label>
-                        <p className="text-sm text-neutral-500">When comments contain your keywords on this post, we automatically reply. Set a default reply and/or a different reply per platform below. Replies are sent on Instagram, Facebook, and X. Settings are saved with the post.</p>
-                        <p className="text-xs text-neutral-500">Keyword checks run when your comment automation cron fires; many teams call it about every 5 minutes from an external scheduler (for example cron-job.org).</p>
-                        {commentAutomationEnabled && (
-                            <div className="space-y-4 pt-2 border-t border-neutral-100">
-                                <div>
-                                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Keywords (one per line or comma-separated)</label>
-                                    <textarea
-                                        value={commentAutomationKeywords}
-                                        onChange={(e) => setCommentAutomationKeywords(e.target.value)}
-                                        placeholder="e.g. price, discount, help"
-                                        rows={2}
-                                        className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] text-sm"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">Default reply (used if no platform-specific reply is set)</label>
-                                    <textarea
-                                        value={commentAutomationReplyTemplate}
-                                        onChange={(e) => setCommentAutomationReplyTemplate(e.target.value)}
-                                        placeholder="e.g. Thanks for your interest!"
-                                        rows={2}
-                                        className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] text-sm"
-                                    />
-                                </div>
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={commentAutomationTagCommenter}
-                                        onChange={(e) => setCommentAutomationTagCommenter(e.target.checked)}
-                                        className="rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
-                                    />
-                                    <span className="text-sm text-neutral-700">Tag the commenter in the reply (e.g. &quot;Hi @username, thanks!&quot;)</span>
-                                </label>
-                                {hasCommentAutomationPlatform && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-neutral-700 mb-2">Reply per platform (optional)</label>
-                                        <div className="space-y-3">
-                                            {platforms.filter((p) => commentAutomationPlatformSupported(p)).map((p) => (
-                                                <div key={p} className="space-y-1">
-                                                    <span className="text-sm font-medium text-neutral-600">{PLATFORM_LABELS[p] || p}</span>
-                                                    {p === 'INSTAGRAM' ? (
-                                                        <>
-                                                            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
-                                                                <label className="flex items-center gap-2 cursor-pointer">
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={commentAutomationInstagramPublicReply}
-                                                                        onChange={(e) => setCommentAutomationInstagramPublicReply(e.target.checked)}
-                                                                        className="rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
-                                                                    />
-                                                                    <span className="text-sm text-neutral-700">Send public reply</span>
-                                                                </label>
-                                                                <label className="flex items-center gap-2 cursor-pointer">
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={commentAutomationInstagramPrivateReply}
-                                                                        onChange={(e) => setCommentAutomationInstagramPrivateReply(e.target.checked)}
-                                                                        className="rounded border-neutral-300 text-[var(--primary)] focus:ring-[var(--primary)]"
-                                                                    />
-                                                                    <span className="text-sm text-neutral-700">Send a private reply (DM)</span>
-                                                                </label>
-                                                            </div>
-                                                            <textarea
-                                                                value={commentAutomationReplyByPlatform[p] ?? ''}
-                                                                onChange={(e) => setCommentAutomationReplyByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
-                                                                placeholder={commentAutomationReplyTemplate.trim() || 'e.g. Thanks for commenting!'}
-                                                                rows={2}
-                                                                className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] text-sm"
-                                                            />
-                                                            {commentAutomationInstagramPrivateReply && (
-                                                                <div className="mt-2 space-y-1">
-                                                                    <label className="block text-xs font-medium text-neutral-600">DM message</label>
-                                                                    <div className="flex gap-2">
-                                                                        <textarea
-                                                                            value={commentAutomationInstagramDmMessage}
-                                                                            onChange={(e) => setCommentAutomationInstagramDmMessage(e.target.value)}
-                                                                            placeholder="e.g. Thanks! I'll send you the link via DM."
-                                                                            rows={2}
-                                                                            className="flex-1 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] text-sm"
-                                                                        />
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={openDmAiModal}
-                                                                            disabled={hasBrandContext === false}
-                                                                            className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold text-chrome-text shadow-md gradient-cta-pro disabled:opacity-50 disabled:shadow-none"
-                                                                        >
-                                                                            <Sparkles size={16} />
-                                                                            Generate with AI
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            )}
-                                                        </>
-                                                    ) : (
-                                                        <textarea
-                                                            value={commentAutomationReplyByPlatform[p] ?? ''}
-                                                            onChange={(e) => setCommentAutomationReplyByPlatform((prev) => ({ ...prev, [p]: e.target.value }))}
-                                                            placeholder={commentAutomationReplyTemplate.trim() || 'e.g. Thanks for commenting!'}
-                                                            rows={2}
-                                                            className="w-full p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--primary)] focus:border-[var(--primary)] text-sm"
-                                                        />
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                        </div>
-                        )}
-                    </div>}
 
                     <div className="card space-y-4">
                         <button type="button" onClick={() => toggleSection('hashtags')} className="w-full flex items-center justify-between text-left">

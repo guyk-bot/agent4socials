@@ -22,15 +22,6 @@ export type ComposerPendingSnapshot = {
   selectedHashtags?: string[];
   differentHashtagsPerPlatform?: boolean;
   selectedHashtagsByPlatform?: Record<string, string[]>;
-  commentAutomationEnabled?: boolean;
-  commentAutomationKeywords?: string;
-  commentAutomationReplyTemplate?: string;
-  commentAutomationReplyByPlatform?: Record<string, string>;
-  commentAutomationReplyOnComment?: boolean;
-  commentAutomationInstagramPublicReply?: boolean;
-  commentAutomationInstagramPrivateReply?: boolean;
-  commentAutomationInstagramDmMessage?: string;
-  commentAutomationTagCommenter?: boolean;
   tiktokPublishByAccountId?: Record<string, unknown>;
   linkedInVisibility?: 'PUBLIC' | 'CONNECTIONS';
   threadsShareToInstagram?: boolean;
