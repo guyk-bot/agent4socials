@@ -84,6 +84,10 @@ import {
     type LinkedInPublishSettings,
 } from '@/lib/linkedin/publish-settings';
 import { LinkedInVisibilitySelect } from '@/components/composer/LinkedInVisibilitySelect';
+import {
+    consumeAysopComposerDraft,
+    parseAysopComposerDraftFromSearchParams,
+} from '@/lib/composer/aysop-composer-draft-bridge';
 
 const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
 
@@ -824,6 +828,7 @@ export default function ComposerPage() {
     const accountsLoadError = accountsCache?.accountsLoadError ?? null;
     const searchParams = useSearchParams();
     const editPostId = searchParams.get('edit');
+    const aysopDraftFlag = searchParams.get('aysopDraft');
     /** Real DB post id from History; `pending-*` ids are client-only and must create a new post. */
     const persistedEditPostId =
         editPostId && !isPendingHistoryPostId(editPostId) ? editPostId : null;
@@ -1291,6 +1296,24 @@ export default function ComposerPage() {
             setDraftRestored(true);
             return;
         }
+
+        if (aysopDraftFlag === '1') {
+            const staged =
+                consumeAysopComposerDraft() ??
+                parseAysopComposerDraftFromSearchParams(searchParams);
+            if (staged) {
+                applyComposerDraftFromPartial(staged);
+                setSectionOpen((s) => ({
+                    ...s,
+                    platforms: true,
+                    media: staged.mediaType !== 'text',
+                    content: Boolean(staged.content?.trim()),
+                }));
+                setDraftRestored(true);
+                return;
+            }
+        }
+
         try {
             const raw = localStorage.getItem(COMPOSER_DRAFT_KEY);
             if (!raw) {
@@ -1300,7 +1323,7 @@ export default function ComposerPage() {
             applyComposerDraftFromPartial(JSON.parse(raw) as Partial<ComposerDraft>);
         } catch (_) { /* ignore */ }
         setDraftRestored(true);
-    }, [draftRestored, editPostId, applyComposerDraftFromPartial]);
+    }, [applyComposerDraftFromPartial, aysopDraftFlag, draftRestored, editPostId, searchParams]);
 
     // Load post for editing when ?edit=id is present
     const [editLoaded, setEditLoaded] = useState(false);

@@ -20,6 +20,8 @@ import { formatMetricNumber } from '@/lib/metric-format';
 import type { AysopArtifact, AppViewId } from '@/lib/ai/aysop-artifacts';
 import { AysopAnalyticsReportCard } from '@/components/aysop/AysopAnalyticsReportCard';
 import { AysopComposerPostDraftCard } from '@/components/aysop/AysopComposerPostDraftCard';
+import { AysopComposerSessionDraftCard } from '@/components/aysop/AysopComposerSessionDraftCard';
+import { ComposerOpenLink } from '@/components/aysop/ComposerOpenLink';
 import { PostContentPreviewThumb } from '@/components/PostContentPreviewThumb';
 
 const VIEW_ICONS: Partial<Record<AppViewId, React.ReactNode>> = {
@@ -343,6 +345,11 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
           );
         }
 
+        if (a.type === 'composer_session_draft') {
+          rendered.add(key);
+          return <AysopComposerSessionDraftCard key={key} draft={a} />;
+        }
+
         if (a.type === 'composer_post_draft') {
           const prevIsDraft = i > 0 && artifacts[i - 1]?.type === 'composer_post_draft';
           if (prevIsDraft) return null;
@@ -370,7 +377,7 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
                 {a.platform ? `Draft for ${a.platform}` : 'Draft ready for Composer'}
               </p>
               {a.caption ? <p className="text-neutral-600 dark:text-neutral-400 whitespace-pre-wrap mb-2">{a.caption}</p> : null}
-              <OpenLink href={a.url} label="Open Composer" />
+              <ComposerOpenLink href={a.url} draft={a.draft ?? null} label="Open Composer" />
             </div>
           );
         }

@@ -28,6 +28,12 @@ import {
   TEXT_ONLY_COMPOSER_PLATFORMS,
   textOnlyPlatformsSummary,
 } from '@/lib/composer/platform-capabilities';
+import {
+  AYSOP_COMPOSER_HREF,
+  buildAysopComposerDraftPayload,
+  inferComposerMediaType,
+  type AysopComposerDraftPayload,
+} from '@/lib/composer/aysop-composer-draft-bridge';
 
 export type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 
@@ -213,6 +219,81 @@ function mapPostTypeToMediaType(postType: string): 'text' | 'photo' | 'video' | 
   return 'photo';
 }
 
+async function resolvePlatformsFromArgs(
+  userId: string,
+  args: Record<string, unknown>
+): Promise<string[]> {
+  const rawList = Array.isArray(args.platforms) ? args.platforms : [];
+  const singles = args.platform ? [args.platform] : [];
+  const inputs = [...rawList, ...singles]
+    .map((p) => (typeof p === 'string' ? p : String(p ?? '')))
+    .filter(Boolean);
+  if (!inputs.length) {
+    throw new Error('Pass platform or platforms (Instagram, TikTok, etc.).');
+  }
+
+  const resolved: string[] = [];
+  for (const input of inputs) {
+    const platformArg = normalizePlatformArg(input);
+    const accountId = await resolveAccountId(
+      userId,
+      { ...args, platform: platformArg ?? input },
+      { required: true }
+    );
+    const account = await assertAccount(userId, accountId!);
+    if (!resolved.includes(account.platform)) resolved.push(account.platform);
+  }
+  return resolved;
+}
+
+async function buildComposerSessionDraft(
+  userId: string,
+  args: Record<string, unknown>
+): Promise<{
+  artifact: Extract<AysopArtifact, { type: 'composer_session_draft' }>;
+  result: Record<string, unknown>;
+}> {
+  const caption = String(args.caption ?? '').trim();
+  if (!caption) throw new Error('caption is required');
+
+  const platforms = await resolvePlatformsFromArgs(userId, args);
+  const postType = String(args.postType ?? '');
+  const mediaType = inferComposerMediaType(platforms, postType, platformRequiresMedia);
+
+  if (mediaType === 'text' && platforms.some((p) => platformRequiresMedia(p))) {
+    throw new Error(
+      `${platforms.filter(platformRequiresMedia).map(platformLabel).join(', ')} need media. Use postType photo or video for Composer drafts.`
+    );
+  }
+
+  const draft: AysopComposerDraftPayload = buildAysopComposerDraftPayload({
+    platforms,
+    caption,
+    mediaType,
+  });
+
+  const artifact: Extract<AysopArtifact, { type: 'composer_session_draft' }> = {
+    type: 'composer_session_draft',
+    composerUrl: AYSOP_COMPOSER_HREF,
+    platforms,
+    platformLabels: platforms.map(platformLabel),
+    caption,
+    mediaType,
+    draft,
+  };
+
+  return {
+    artifact,
+    result: {
+      platforms,
+      platformLabels: artifact.platformLabels,
+      mediaType,
+      composerUrl: artifact.composerUrl,
+      note: 'User opens Composer to review platforms, caption, and upload media.',
+    },
+  };
+}
+
 async function buildComposerPostDraft(
   userId: string,
   args: Record<string, unknown>,
@@ -240,13 +321,11 @@ async function buildComposerPostDraft(
     );
   }
 
-  const params = new URLSearchParams({
-    draft: '1',
-    caption: caption.slice(0, 2000),
-    type: mediaType === 'text' ? 'text' : postType,
+  const sessionDraft = buildAysopComposerDraftPayload({
+    platforms: [platformUpper],
+    caption,
+    mediaType: mediaType === 'text' && platformRequiresMedia(platformUpper) ? 'photo' : mediaType,
   });
-  params.set('accountId', accountId!);
-  if (platformArg) params.set('platform', platformArg);
 
   const artifact: Extract<AysopArtifact, { type: 'composer_post_draft' }> = {
     type: 'composer_post_draft',
@@ -259,7 +338,8 @@ async function buildComposerPostDraft(
     mediaType,
     textOnlySupported,
     canPublishFromChat,
-    composerUrl: `/composer?${params.toString()}`,
+    composerUrl: AYSOP_COMPOSER_HREF,
+    sessionDraft,
   };
 
   return {
@@ -521,20 +601,25 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'open_composer_draft',
       description:
-        'Open a single Composer draft preview card. Call ONLY when the user explicitly asks for Composer or a draft there. For caption-only chat posts on X, Facebook, LinkedIn, or Threads use prepare_platform_post_drafts instead.',
+        'Open Composer with platforms pre-selected, caption filled, and media type set (photo for Instagram/TikTok/etc.). Call when the user asks to open Composer or see drafts there. Pass all discussed platforms in platforms array.',
       parameters: {
         type: 'object',
         properties: {
           caption: { type: 'string' },
           platform: platformParam,
-          accountId: { type: 'string' },
+          platforms: {
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              'All platforms to pre-select in Composer (e.g. Instagram, TikTok, YouTube, Pinterest from the conversation).',
+          },
           postType: {
             type: 'string',
             enum: ['text', 'feed', 'photo', 'video', 'reel', 'carousel', 'story'],
-            description: 'Use text for caption-only posts',
+            description: 'Use photo for media platforms when no file is attached yet.',
           },
         },
-        required: ['caption', 'platform'],
+        required: ['caption'],
         additionalProperties: false,
       },
     },
@@ -886,9 +971,22 @@ export async function runAysopTool(
       const artifacts: AysopArtifact[] = [];
       const results: Record<string, unknown>[] = [];
       const skipped: Array<{ platform?: unknown; reason: string }> = [];
+      const composerDraftRows: Record<string, unknown>[] = [];
+
       for (const raw of drafts.slice(0, 8)) {
         if (!raw || typeof raw !== 'object') continue;
         const row = raw as Record<string, unknown>;
+        const platformArg = normalizePlatformArg(row.platform as string | undefined);
+        const isMediaPlatform =
+          platformArg != null
+            ? platformRequiresMedia(platformArg)
+            : false;
+
+        if (allowComposerDrafts && isMediaPlatform) {
+          composerDraftRows.push(row);
+          continue;
+        }
+
         try {
           const built = await buildComposerPostDraft(ctx.userId, row, {
             allowComposerOnly: allowComposerDrafts,
@@ -902,20 +1000,41 @@ export async function runAysopTool(
           });
         }
       }
+
+      if (composerDraftRows.length) {
+        const captions = composerDraftRows
+          .map((r) => String(r.caption ?? '').trim())
+          .filter(Boolean);
+        const sharedCaption = captions[0] ?? '';
+        try {
+          const session = await buildComposerSessionDraft(ctx.userId, {
+            caption: sharedCaption,
+            platforms: composerDraftRows.map((r) => r.platform),
+            postType: composerDraftRows.find((r) => r.postType)?.postType ?? 'photo',
+          });
+          artifacts.push(session.artifact);
+          results.push(session.result);
+        } catch (e) {
+          skipped.push({
+            reason: e instanceof Error ? e.message : 'Could not prepare Composer session draft',
+          });
+        }
+      }
+
       if (!artifacts.length && !skipped.length) throw new Error('No valid drafts.');
       return {
         result: {
           drafts: results,
           skippedPlatforms: skipped,
           requiresUserApproval: true,
-          note: 'Previews only. User must click Approve & publish on each card; you cannot publish from tools.',
+          note: 'Chat previews require Approve & publish. Composer drafts open with platforms and caption pre-filled.',
         },
         artifacts,
       };
     }
 
     case 'open_composer_draft': {
-      const built = await buildComposerPostDraft(ctx.userId, args, { allowComposerOnly: true });
+      const built = await buildComposerSessionDraft(ctx.userId, args);
       return {
         result: built.result,
         artifacts: [built.artifact],

@@ -55,6 +55,7 @@ export function postingCapabilitiesPromptBlock(): string {
     `- Media required (image or video): ${mediaRequiredPlatformsSummary()}.`,
     '- When the user asks to post on all platforms without media, call prepare_platform_post_drafts for text-only platforms only.',
     '- Do NOT call open_composer_draft or set allowComposerDrafts unless the user explicitly asks for Composer or a draft there.',
+    '- When opening Composer, use open_composer_draft with platforms array so Instagram/TikTok/etc. are pre-selected with caption and photo format ready for upload.',
     '- For media platforms, explain they need media and offer Composer as an option. Wait for the user to accept before creating Composer drafts.',
     '- You cannot publish posts yourself. Previews appear as cards; the user must click Approve & publish on each card.',
     '- Never say a post was published, sent, or posted unless the user already approved via the preview card (you have no publish tool).',

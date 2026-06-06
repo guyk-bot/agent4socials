@@ -99,7 +99,7 @@ function buildSystemPrompt(
     '- Draft captions with prepare_platform_post_drafts (preview cards only; nothing publishes until the user approves).',
     '- get_posting_capabilities before multi-platform variations without media.',
     '- After prepare_platform_post_drafts, tell the user to review each preview and click Approve & publish. Never claim you already published.',
-    '- open_composer_draft only when the user explicitly asks for a Composer draft. Otherwise suggest Composer in text and wait.',
+    '- open_composer_draft when the user asks to open Composer: pass caption and all discussed platforms in platforms array; Composer opens with them selected and caption filled.',
     '- Instagram, TikTok, YouTube, Pinterest need media: do not create Composer drafts unless the user asks.',
     '',
     postingCapabilitiesPromptBlock(),

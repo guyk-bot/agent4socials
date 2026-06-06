@@ -55,8 +55,18 @@ export type AysopArtifact =
       textOnlySupported: boolean;
       canPublishFromChat: boolean;
       composerUrl: string;
+      sessionDraft?: import('@/lib/composer/aysop-composer-draft-bridge').AysopComposerDraftPayload;
     }
-  | { type: 'composer_link'; url: string; caption?: string; postType?: string; platform?: string }
+  | {
+      type: 'composer_session_draft';
+      composerUrl: string;
+      platforms: string[];
+      platformLabels: string[];
+      caption: string;
+      mediaType: 'text' | 'photo' | 'video' | 'reel' | 'carousel' | 'story';
+      draft: import('@/lib/composer/aysop-composer-draft-bridge').AysopComposerDraftPayload;
+    }
+  | { type: 'composer_link'; url: string; caption?: string; postType?: string; platform?: string; draft?: import('@/lib/composer/aysop-composer-draft-bridge').AysopComposerDraftPayload }
   | { type: 'action_result'; action: string; ok: boolean; detail: string }
   | {
       type: 'app_view';

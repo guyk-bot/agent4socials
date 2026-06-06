@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
-import { CheckCircle2, ExternalLink, Loader2, Send } from 'lucide-react';
+import { CheckCircle2, Loader2, Send } from 'lucide-react';
 import api from '@/lib/api';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
+import { ComposerOpenLink } from '@/components/aysop/ComposerOpenLink';
 
 type Draft = Extract<AysopArtifact, { type: 'composer_post_draft' }>;
 
@@ -142,12 +142,12 @@ export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
           </p>
         )}
         {!draft.canPublishFromChat || draft.mediaType !== 'text' ? (
-          <Link
+          <ComposerOpenLink
             href={draft.composerUrl}
+            draft={draft.sessionDraft ?? null}
+            label="Open Composer"
             className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--primary)] hover:underline"
-          >
-            Open Composer <ExternalLink size={13} />
-          </Link>
+          />
         ) : null}
       </div>
 
