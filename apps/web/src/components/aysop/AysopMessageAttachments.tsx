@@ -42,7 +42,7 @@ export function AysopMessageAttachments({ attachments, variant = 'user' }: Props
               key={att.fileUrl}
               src={att.fileUrl}
               fileName={att.fileName}
-              className={onDark ? 'border-white/25' : 'border-neutral-200 dark:border-neutral-700'}
+              onDarkBubble={onDark}
             />
           );
         }
@@ -81,7 +81,9 @@ export function AysopPendingAttachments({ attachments, onRemove, uploading }: Pe
       {attachments.map((att, i) => (
         <div
           key={`${att.fileUrl}-${i}`}
-          className="relative group flex items-center gap-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-xs max-w-[240px]"
+          className={`relative group flex items-center gap-2 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 text-xs ${
+            att.kind === 'video' ? 'max-w-none' : 'max-w-[240px]'
+          }`}
         >
           {att.kind === 'image' ? (
             // eslint-disable-next-line @next/next/no-img-element
