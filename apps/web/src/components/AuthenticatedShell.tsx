@@ -54,7 +54,7 @@ function AuthenticatedContent({
         >
             {/* Main content sits below the fixed chrome (chrome is rendered in fixed wrappers above) */}
             <div
-                className={`pt-14 transition-[padding] duration-200 ${sidebarOpen ? 'md:pl-64' : 'pl-0'}`}
+                className={`pt-14 transition-[padding] duration-200 ${sidebarOpen ? 'md:pl-64' : 'md:pl-0'}`}
             >
                 <div
                     className={
@@ -79,7 +79,7 @@ function AuthenticatedContent({
             {/* Sidebar wrapper: fixed on the left, fills height below header, high z-index.
                 Visibility mirrors sidebarOpen (hidden on mobile when closed, always visible on md+). */}
             <div
-                className={`${sidebarOpen ? 'flex' : 'hidden'} md:flex fixed left-0 top-14 bottom-0 w-64 flex-col`}
+                className={`${sidebarOpen ? 'flex' : 'hidden'} fixed left-0 top-14 bottom-0 w-64 flex-col transition-transform duration-200`}
                 style={{ ...chromeStyle, zIndex: CHROME_Z }}
                 data-chrome="sidebar"
             >

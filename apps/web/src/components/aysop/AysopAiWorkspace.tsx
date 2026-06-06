@@ -6,7 +6,6 @@ import api, { API_AYSOP_SESSION_PERSIST_TIMEOUT_MS } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import AysopChatSidebar from '@/components/aysop/AysopChatSidebar';
 import AysopChatHeader from '@/components/aysop/AysopChatHeader';
-import AysopBrandContextDrawer from '@/components/aysop/AysopBrandContextDrawer';
 import AysopChatPanel, { type ChatMessage } from '@/components/aysop/AysopChatPanel';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import {
@@ -130,7 +129,6 @@ export default function AysopAiWorkspace() {
   const [activeId, setActiveId] = useState<string | null>(instantBoot.activeId);
   const [messages, setMessages] = useState<ChatMessage[]>(instantBoot.messages);
   const [listLoading, setListLoading] = useState(instantBoot.sessions.length === 0);
-  const [brandContextOpen, setBrandContextOpen] = useState(false);
   const [clearHistoryOpen, setClearHistoryOpen] = useState(false);
   const [clearingHistory, setClearingHistory] = useState(false);
   const [settingsToast, setSettingsToast] = useState<string | null>(null);
@@ -677,7 +675,14 @@ export default function AysopAiWorkspace() {
     <div className="flex flex-col h-full min-h-0 bg-white dark:bg-neutral-950">
       <AysopChatHeader
         onNewChat={handleNewChat}
-        onOpenBrandContext={() => setBrandContextOpen(true)}
+        onOpenBrandContext={() => {
+          const chatId = activeIdRef.current;
+          const suffix =
+            chatId && !chatId.startsWith('offline-')
+              ? `?c=${encodeURIComponent(chatId)}`
+              : '';
+          router.push(`/dashboard/aysop-ai/brand-context${suffix}`);
+        }}
         onOpenSettings={() => setSettingsToast('Settings coming soon.')}
         onClearHistory={() => setClearHistoryOpen(true)}
       />
@@ -704,7 +709,6 @@ export default function AysopAiWorkspace() {
           side="right"
         />
       </div>
-      <AysopBrandContextDrawer open={brandContextOpen} onClose={() => setBrandContextOpen(false)} />
       <ConfirmModal
         open={clearHistoryOpen}
         onClose={() => {

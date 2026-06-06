@@ -42,47 +42,53 @@ function formFromCache(userId?: string | null): Required<BrandContextRecord> {
   return brandContextToFormFields(cached);
 }
 
+type BrandContextVariant = 'page' | 'drawer' | 'full';
+
 type Props = {
-  variant?: 'page' | 'drawer';
+  variant?: BrandContextVariant;
 };
 
-function labelClass(variant: 'page' | 'drawer') {
-  return variant === 'drawer'
+function isDarkVariant(variant: BrandContextVariant) {
+  return variant === 'drawer' || variant === 'full';
+}
+
+function labelClass(variant: BrandContextVariant) {
+  return isDarkVariant(variant)
     ? 'text-sm font-medium text-neutral-200'
     : 'text-sm font-medium text-gray-700';
 }
 
-function counterClass(variant: 'page' | 'drawer') {
-  return variant === 'drawer'
+function counterClass(variant: BrandContextVariant) {
+  return isDarkVariant(variant)
     ? 'text-xs font-normal text-neutral-500'
     : 'text-xs font-normal text-gray-500';
 }
 
-function textareaClass(variant: 'page' | 'drawer', minH: string) {
+function textareaClass(variant: BrandContextVariant, minH: string) {
   const base = `w-full rounded-lg border px-3 py-2.5 text-sm ${minH}`;
-  return variant === 'drawer'
+  return isDarkVariant(variant)
     ? `${base} border-neutral-700 bg-neutral-900 text-neutral-100 placeholder:text-neutral-500 focus:border-[var(--primary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)]`
     : `${base} border-gray-300`;
 }
 
-function sectionClass(variant: 'page' | 'drawer') {
-  return variant === 'drawer'
+function sectionClass(variant: BrandContextVariant) {
+  return isDarkVariant(variant)
     ? 'rounded-xl border border-neutral-800 bg-neutral-900/60 p-4 sm:p-5'
     : 'card p-6';
 }
 
-function headingClass(variant: 'page' | 'drawer') {
-  return variant === 'drawer'
+function headingClass(variant: BrandContextVariant) {
+  return isDarkVariant(variant)
     ? 'font-semibold text-neutral-100'
     : 'font-semibold text-gray-900';
 }
 
-function bodyTextClass(variant: 'page' | 'drawer') {
-  return variant === 'drawer' ? 'text-sm text-neutral-400' : 'text-sm text-gray-500';
+function bodyTextClass(variant: BrandContextVariant) {
+  return isDarkVariant(variant) ? 'text-sm text-neutral-400' : 'text-sm text-gray-500';
 }
 
-function messageBoxClass(type: 'success' | 'warning' | 'error', variant: 'page' | 'drawer') {
-  if (variant === 'drawer') {
+function messageBoxClass(type: 'success' | 'warning' | 'error', variant: BrandContextVariant) {
+  if (isDarkVariant(variant)) {
     if (type === 'success') return 'rounded-lg px-4 py-3 text-sm mb-4 bg-emerald-950/50 text-emerald-200 border border-emerald-900';
     if (type === 'warning') return 'rounded-lg px-4 py-3 text-sm mb-4 bg-amber-950/50 text-amber-200 border border-amber-900';
     return 'rounded-lg px-4 py-3 text-sm mb-4 bg-red-950/50 text-red-200 border border-red-900';
@@ -176,7 +182,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
         setMessage({
           type: 'success',
           text:
-            variant === 'drawer'
+            isDarkVariant(variant)
               ? 'Brand context saved.'
               : 'Brand context saved. You can use "Generate with AI" in the Composer.',
         });
@@ -223,7 +229,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
     'inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-chrome-text bg-[var(--button)] hover:bg-[var(--button-hover)] disabled:opacity-50';
 
   return (
-    <div className={variant === 'drawer' ? 'space-y-5' : 'flex flex-col flex-1 min-h-0'}>
+    <div className={isDarkVariant(variant) ? 'space-y-5' : 'flex flex-col flex-1 min-h-0'}>
       {variant === 'page' ? (
         <p className={`${bodyTextClass(variant)} mb-4`}>
           Set your brand context once. Then in the Composer use &quot;Generate with AI&quot; for post descriptions, and
@@ -245,7 +251,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
               onClick={() => handleSave()}
               disabled={saving}
               className={`mt-3 px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50 ${
-                variant === 'drawer'
+                isDarkVariant(variant)
                   ? 'bg-red-950 text-red-200 hover:bg-red-900'
                   : 'bg-red-100 hover:bg-red-200 text-red-800'
               }`}
@@ -359,7 +365,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
           />
         </div>
 
-        <div className={`pt-6 mt-4 border-t ${variant === 'drawer' ? 'border-neutral-800' : 'border-gray-100'}`}>
+        <div className={`pt-6 mt-4 border-t ${isDarkVariant(variant) ? 'border-neutral-800' : 'border-gray-100'}`}>
           <button type="button" onClick={handleSave} disabled={saving} className={saveButtonClass}>
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
             Save brand context
@@ -374,7 +380,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
             <h2 className={headingClass(variant)}>Inbox reply examples</h2>
             <p className={`${bodyTextClass(variant)} mt-0.5`}>
               Paste 2-5 example DM replies you would send to customers. The AI will match your style when drafting inbox
-              replies. <strong className={variant === 'drawer' ? 'text-neutral-200' : 'text-gray-700'}>Required</strong>{' '}
+              replies. <strong className={isDarkVariant(variant) ? 'text-neutral-200' : 'text-gray-700'}>Required</strong>{' '}
               to enable the AI draft button in the Inbox.
             </p>
           </div>
@@ -403,7 +409,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
         {!form.inboxReplyExamples?.trim() ? (
           <p
             className={`mt-2 text-xs rounded-lg px-3 py-2 border ${
-              variant === 'drawer'
+              isDarkVariant(variant)
                 ? 'text-amber-200 bg-amber-950/40 border-amber-900'
                 : 'text-amber-700 bg-amber-50 border-amber-200'
             }`}
@@ -411,7 +417,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
             AI draft replies in the Inbox are disabled until you add examples here and save.
           </p>
         ) : null}
-        <div className={`pt-4 mt-2 border-t ${variant === 'drawer' ? 'border-neutral-800' : 'border-gray-100'}`}>
+        <div className={`pt-4 mt-2 border-t ${isDarkVariant(variant) ? 'border-neutral-800' : 'border-gray-100'}`}>
           <button type="button" onClick={handleSave} disabled={saving} className={saveButtonClass}>
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
             Save
@@ -426,7 +432,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
             <h2 className={headingClass(variant)}>Comment reply examples</h2>
             <p className={`${bodyTextClass(variant)} mt-0.5`}>
               Paste 2-5 example comment replies you would post. The AI will match your style when drafting comment replies
-              in the Inbox. <strong className={variant === 'drawer' ? 'text-neutral-200' : 'text-gray-700'}>Required</strong>{' '}
+              in the Inbox. <strong className={isDarkVariant(variant) ? 'text-neutral-200' : 'text-gray-700'}>Required</strong>{' '}
               to enable AI drafts for comments.
             </p>
           </div>
@@ -455,7 +461,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
         {!form.commentReplyExamples?.trim() ? (
           <p
             className={`mt-2 text-xs rounded-lg px-3 py-2 border ${
-              variant === 'drawer'
+              isDarkVariant(variant)
                 ? 'text-amber-200 bg-amber-950/40 border-amber-900'
                 : 'text-amber-700 bg-amber-50 border-amber-200'
             }`}
@@ -463,7 +469,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
             AI draft replies for comments are disabled until you add examples here and save.
           </p>
         ) : null}
-        <div className={`pt-4 mt-2 border-t ${variant === 'drawer' ? 'border-neutral-800' : 'border-gray-100'}`}>
+        <div className={`pt-4 mt-2 border-t ${isDarkVariant(variant) ? 'border-neutral-800' : 'border-gray-100'}`}>
           <button type="button" onClick={handleSave} disabled={saving} className={saveButtonClass}>
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
             Save

@@ -5,41 +5,45 @@ import { Hash, Plus, X } from 'lucide-react';
 import { normalizeHashtag, readHashtagPool, writeHashtagPool } from '@/lib/hashtag-pool';
 
 type Props = {
-  variant?: 'page' | 'drawer';
+  variant?: 'page' | 'drawer' | 'full';
 };
 
-function sectionClass(variant: 'page' | 'drawer') {
-  return variant === 'drawer'
+function isDarkVariant(variant: 'page' | 'drawer' | 'full') {
+  return variant === 'drawer' || variant === 'full';
+}
+
+function sectionClass(variant: 'page' | 'drawer' | 'full') {
+  return isDarkVariant(variant)
     ? 'rounded-xl border border-neutral-800 bg-neutral-900/60 p-4 sm:p-5'
     : 'card p-6';
 }
 
-function headingClass(variant: 'page' | 'drawer') {
-  return variant === 'drawer' ? 'font-semibold text-neutral-100' : 'font-semibold text-gray-900';
+function headingClass(variant: 'page' | 'drawer' | 'full') {
+  return isDarkVariant(variant) ? 'font-semibold text-neutral-100' : 'font-semibold text-gray-900';
 }
 
-function bodyTextClass(variant: 'page' | 'drawer') {
-  return variant === 'drawer' ? 'text-sm text-neutral-400' : 'text-sm text-gray-500';
+function bodyTextClass(variant: 'page' | 'drawer' | 'full') {
+  return isDarkVariant(variant) ? 'text-sm text-neutral-400' : 'text-sm text-gray-500';
 }
 
-function labelClass(variant: 'page' | 'drawer') {
-  return variant === 'drawer' ? 'text-sm font-medium text-neutral-200' : 'text-sm font-medium text-neutral-700';
+function labelClass(variant: 'page' | 'drawer' | 'full') {
+  return isDarkVariant(variant) ? 'text-sm font-medium text-neutral-200' : 'text-sm font-medium text-neutral-700';
 }
 
-function inputClass(variant: 'page' | 'drawer') {
-  return variant === 'drawer'
+function inputClass(variant: 'page' | 'drawer' | 'full') {
+  return isDarkVariant(variant)
     ? 'flex-1 p-3 border border-neutral-700 rounded-xl text-sm text-neutral-100 placeholder:text-neutral-500 bg-neutral-900 focus:ring-2 focus:ring-[var(--primary)]/30 focus:border-[var(--primary)] focus:outline-none'
     : 'flex-1 p-3 border border-neutral-200 rounded-xl text-neutral-900 placeholder:text-neutral-400 focus:ring-2 focus:ring-[var(--button)]/30 focus:border-[var(--button)]';
 }
 
-function tagClass(variant: 'page' | 'drawer') {
-  return variant === 'drawer'
+function tagClass(variant: 'page' | 'drawer' | 'full') {
+  return isDarkVariant(variant)
     ? 'inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 bg-neutral-800 rounded-full text-sm text-neutral-100'
     : 'inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 bg-neutral-100 rounded-full text-sm text-neutral-800';
 }
 
-function tagRemoveClass(variant: 'page' | 'drawer') {
-  return variant === 'drawer'
+function tagRemoveClass(variant: 'page' | 'drawer' | 'full') {
+  return isDarkVariant(variant)
     ? 'p-1 rounded-full hover:bg-neutral-700 text-neutral-400'
     : 'p-1 rounded-full hover:bg-neutral-200 text-neutral-500';
 }

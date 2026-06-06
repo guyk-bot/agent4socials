@@ -89,8 +89,9 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
           <button
             type="button"
             onClick={onSidebarToggle}
-            className="md:hidden p-2 -ml-1 rounded-lg text-chrome-text/70 hover:text-chrome-text hover:bg-white/10"
+            className="p-2 -ml-1 rounded-lg text-chrome-text/70 hover:text-chrome-text hover:bg-white/10"
             aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+            title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
           >
             {sidebarOpen ? <PanelLeftClose size={22} /> : <PanelLeft size={22} />}
           </button>
