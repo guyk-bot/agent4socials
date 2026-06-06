@@ -2,9 +2,6 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { Bot } from 'lucide-react';
-import { BRAND_NAME } from '@/lib/site-brand-assets';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import AysopChatSidebar from '@/components/aysop/AysopChatSidebar';
@@ -59,16 +56,6 @@ export default function AysopAiWorkspace() {
     },
     [router]
   );
-
-  const refreshSessions = useCallback(async () => {
-    try {
-      const res = await api.get<{ sessions: AysopChatSessionSummary[] }>('/ai/aysop-chats');
-      setSessions(res.data.sessions ?? []);
-      setSaveError(null);
-    } catch {
-      /* keep local list */
-    }
-  }, []);
 
   const loadSession = useCallback(
     async (id: string) => {
@@ -281,62 +268,37 @@ export default function AysopAiWorkspace() {
   const activeTitle = sessions.find((s) => s.id === activeId)?.title;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-5.5rem)] min-h-[520px] -mx-4 sm:-mx-6 lg:-mx-8">
-      <div className="flex flex-1 min-h-0 px-4 sm:px-6 lg:px-8 gap-6 justify-end">
-        <div className="hidden xl:flex flex-col justify-end flex-1 min-w-0 max-w-lg pb-2 shrink-0">
-          <div className="flex items-center gap-2">
-            <Bot size={26} className="text-[var(--primary)]" />
-            <h1 className="text-xl font-bold text-neutral-900">{BRAND_NAME} AI</h1>
-          </div>
-          <p className="mt-2 text-sm text-neutral-500 leading-relaxed">
-            Knows your connected platforms and{' '}
-            <Link href="/dashboard/ai-assistant" className="text-[var(--primary)] hover:underline">
-              AI Assistant brand context
-            </Link>
-            . Chats are saved and named from your first message.
-          </p>
-        </div>
+    <div className="flex flex-col h-full min-h-0 bg-white">
+      {saveError ? (
+        <p className="shrink-0 text-xs text-amber-700 bg-amber-50 border-b border-amber-200 px-4 py-2">
+          {saveError}
+        </p>
+      ) : null}
 
-        <div className="flex flex-col flex-1 min-h-0 w-full max-w-4xl lg:max-w-[920px] lg:shrink-0">
-          <div className="xl:hidden mb-3 shrink-0">
-            <div className="flex items-center gap-2">
-              <Bot size={24} className="text-[var(--primary)]" />
-              <h1 className="text-lg font-bold text-neutral-900">{BRAND_NAME} AI</h1>
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-w-0 flex flex-col">
+          {activeTitle && activeTitle !== 'New chat' ? (
+            <div className="shrink-0 border-b border-neutral-100 px-4 py-2.5 bg-white">
+              <p className="text-sm font-medium text-neutral-800 truncate">{activeTitle}</p>
             </div>
-          </div>
-
-          {saveError ? (
-            <p className="mb-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 shrink-0">
-              {saveError}
-            </p>
           ) : null}
-
-          <div className="flex flex-1 min-h-0 rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
-            <div className="flex-1 min-w-0 flex flex-col">
-              {activeTitle && activeTitle !== 'New chat' ? (
-                <div className="shrink-0 border-b border-neutral-100 px-4 py-2.5">
-                  <p className="text-sm font-medium text-neutral-800 truncate">{activeTitle}</p>
-                </div>
-              ) : null}
-              <AysopChatPanel
-                key={activeId ?? 'none'}
-                messages={messages}
-                onMessagesChange={handleMessagesChange}
-                sessionLoading={sessionLoading || switching}
-                disabled={!activeId || switching}
-              />
-            </div>
-            <AysopChatSidebar
-              sessions={visibleSessions}
-              activeId={activeId}
-              loading={listLoading}
-              onSelect={(id) => void handleSelect(id)}
-              onNewChat={() => void handleNewChat()}
-              onDelete={(id) => void handleDelete(id)}
-              side="right"
-            />
-          </div>
+          <AysopChatPanel
+            key={activeId ?? 'none'}
+            messages={messages}
+            onMessagesChange={handleMessagesChange}
+            sessionLoading={sessionLoading || switching}
+            disabled={!activeId || switching}
+          />
         </div>
+        <AysopChatSidebar
+          sessions={visibleSessions}
+          activeId={activeId}
+          loading={listLoading}
+          onSelect={(id) => void handleSelect(id)}
+          onNewChat={() => void handleNewChat()}
+          onDelete={(id) => void handleDelete(id)}
+          side="right"
+        />
       </div>
     </div>
   );

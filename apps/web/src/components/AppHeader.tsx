@@ -17,10 +17,6 @@ export const topNavItems = [
   { icon: PlusSquare, label: 'Composer', href: '/composer' },
   { icon: Calendar, label: 'Calendar', href: '/calendar' },
   { icon: Link2, label: 'Smart Links', href: '/dashboard/smart-links' },
-];
-
-/** Shown on the right side of the header (before theme toggle). */
-export const topNavRightItems = [
   { icon: Bot, label: `${BRAND_NAME} AI`, href: '/dashboard/aysop-ai' },
 ];
 
@@ -132,21 +128,8 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
         </nav>
       </div>
 
-      {/* Dark mode toggle + iZop AI + Profile/account (top right) + mobile menu */}
+      {/* Dark mode toggle + Profile/account (top right) + mobile menu */}
       <div className="flex items-center gap-1 relative" ref={dropdownRef}>
-        <nav className="hidden md:flex items-center gap-1 mr-1">
-          {topNavRightItems.map((item) => {
-            const isActive =
-              pathname === item.href ||
-              (item.href !== '/dashboard' && pathname.startsWith(item.href.split('?')[0]));
-            return (
-              <Link key={item.href} href={item.href} className={navLinkClass(isActive)}>
-                <item.icon size={18} />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
         <button
           type="button"
           onClick={toggleTheme}
@@ -195,25 +178,6 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
               )}
               <span className="flex-1">Account</span>
             </Link>
-            {topNavRightItems.map((item) => {
-              const isActive =
-                pathname === item.href ||
-                (item.href !== '/dashboard' && pathname.startsWith(item.href.split('?')[0]));
-              const mobileLinkClass = `flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${
-                isActive ? 'bg-white/15 text-chrome-text' : 'text-chrome-text/70 hover:text-chrome-text hover:bg-white/10'
-              }`;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setTopNavOpen(false)}
-                  className={mobileLinkClass}
-                >
-                  <item.icon size={18} className="shrink-0" />
-                  <span className="flex-1">{item.label}</span>
-                </Link>
-              );
-            })}
             {topNavItems.map((item) => {
               const isActive = item.href === '/composer'
                 ? pathname === '/composer' && searchParams.get('analyze') !== 'reel'

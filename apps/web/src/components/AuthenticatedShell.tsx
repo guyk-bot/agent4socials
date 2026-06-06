@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useCallback, Suspense } from 'react';
+import { usePathname } from 'next/navigation';
 import AppHeader from '@/components/AppHeader';
 import Sidebar from '@/components/Sidebar';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
@@ -21,6 +22,8 @@ function AuthenticatedContent({
     onSidebarToggle: () => void;
     children: React.ReactNode;
 }) {
+    const pathname = usePathname();
+    const isAysopAiPage = pathname?.startsWith('/dashboard/aysop-ai');
     const { backgroundColor, primaryColor, textColor } = useWhiteLabel();
     const { theme } = useTheme();
     const usingDefaultWhiteLabelBg = !backgroundColor || backgroundColor.toLowerCase() === '#f5f5f5';
@@ -53,7 +56,13 @@ function AuthenticatedContent({
             <div
                 className={`pt-14 transition-[padding] duration-200 ${sidebarOpen ? 'md:pl-64' : 'pl-0'}`}
             >
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6 md:py-8">
+                <div
+                    className={
+                        isAysopAiPage
+                            ? 'h-[calc(100vh-3.5rem)] min-h-0'
+                            : 'max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6 md:py-8'
+                    }
+                >
                     {children}
                 </div>
             </div>
