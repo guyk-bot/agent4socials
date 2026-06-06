@@ -18,7 +18,7 @@ export const LINKEDIN_CONNECT_OPTIONS: Record<LinkedInConnectMethod, LinkedInCon
     subtitle: 'Community Management for a LinkedIn Page you administer',
     features: [
       'Publish & schedule posts on your LinkedIn Company Page',
-      'Reply to comments on your posts and auto reply using keyword automation',
+      'Reply to comments on your posts from the unified inbox',
       'Page post sync and performance metrics',
     ],
   },

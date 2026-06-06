@@ -14,7 +14,6 @@ import {
   PenSquare,
   Settings,
   Sparkles,
-  Zap,
 } from 'lucide-react';
 import { formatMetricNumber } from '@/lib/metric-format';
 import type { AysopArtifact, AppViewId } from '@/lib/ai/aysop-artifacts';
@@ -22,7 +21,6 @@ import { AysopAnalyticsReportCard } from '@/components/aysop/AysopAnalyticsRepor
 import { AysopComposerPostDraftCard } from '@/components/aysop/AysopComposerPostDraftCard';
 import { AysopComposerSessionDraftCard } from '@/components/aysop/AysopComposerSessionDraftCard';
 import { ComposerOpenLink } from '@/components/aysop/ComposerOpenLink';
-import { AysopInChatAutomationCard } from '@/components/aysop/AysopInChatAutomationCard';
 import { AysopInChatCommentsCard } from '@/components/aysop/AysopInChatCommentsCard';
 import { AysopInChatConnectCard } from '@/components/aysop/AysopInChatConnectCard';
 import { AysopInChatInboxFeedCard } from '@/components/aysop/AysopInChatInboxFeedCard';
@@ -34,7 +32,6 @@ const VIEW_ICONS: Partial<Record<AppViewId, React.ReactNode>> = {
   inbox: <Inbox size={18} className="text-[var(--primary)]" />,
   composer: <PenSquare size={18} className="text-[var(--primary)]" />,
   calendar: <Calendar size={18} className="text-[var(--primary)]" />,
-  automation: <Zap size={18} className="text-[var(--primary)]" />,
   smart_links: <Link2 size={18} className="text-[var(--primary)]" />,
   hashtag_pool: <Hash size={18} className="text-[var(--primary)]" />,
   ai_assistant: <Sparkles size={18} className="text-[var(--primary)]" />,
@@ -259,11 +256,6 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
         if (a.type === 'connect_platforms') {
           rendered.add(key);
           return <AysopInChatConnectCard key={key} artifact={a} />;
-        }
-
-        if (a.type === 'automation') {
-          rendered.add(key);
-          return <AysopInChatAutomationCard key={key} artifact={a} />;
         }
 
         if (a.type === 'scheduled_posts') {

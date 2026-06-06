@@ -19,8 +19,8 @@ import {
   ChevronDown,
   ChevronUp,
   MessageCircle,
-  MessageSquare,
   Sparkles,
+  Hash,
 } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
 import { PricingBillingToggle, PricingCard } from '@/components/landing/pricing';
@@ -49,7 +49,7 @@ const PRO_HIGHLIGHTS = [
   '1 brand included',
   'Unlimited analytic history',
   'Bulk replies (messages and comments)',
-  'Keyword triggers + automations',
+  'Advanced reporting & exports',
   '10 smart link pages',
   'White label',
   'Add team members',
@@ -418,14 +418,14 @@ export default function Home() {
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6">
             <div className="text-center mb-14">
               <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-[#1a161f]">Everything you need to grow</h2>
-              <p className="mt-4 text-[#5d5768] max-w-xl mx-auto text-base">Scheduling, analytics, unified inbox, automation, and AI. All in one place, all 8 platforms.</p>
+              <p className="mt-4 text-[#5d5768] max-w-xl mx-auto text-base">Scheduling, analytics, unified inbox, and AI. All in one place, all 8 platforms.</p>
             </div>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 { icon: Calendar, label: 'Post Scheduler', desc: 'Plan content for all 8 platforms from one visual calendar. Draft once, publish everywhere.' },
                 { icon: BarChart3, label: 'Cross-platform Analytics', desc: 'Views, likes, comments, followers across all your accounts in one unified dashboard.' },
                 { icon: MessageCircle, label: 'Unified Inbox', desc: 'DMs and comments from Instagram, Facebook, and X in one feed. Zero app-switching.' },
-                { icon: MessageSquare, label: 'Comment Automation', desc: 'Auto-reply on keywords, send welcome DMs, configure per-platform response text.' },
+                { icon: Hash, label: 'Hashtag Pool', desc: 'Save reusable hashtag sets and drop them into Composer in one click.' },
                 { icon: Link2, label: 'Smart Links', desc: 'One powerful bio link page with click analytics on every plan.' },
                 { icon: Sparkles, label: 'AI Assistant', desc: 'Set your brand voice, get AI-suggested captions right inside the Composer.' },
               ].map(({ icon: Icon, label, desc }) => (
@@ -500,7 +500,7 @@ export default function Home() {
                 { title: 'Publish everywhere', desc: 'Schedule to Instagram, YouTube, TikTok, Facebook, X, LinkedIn, and Pinterest from one calendar.', emoji: '🚀' },
                 { title: 'Analytics that matter', desc: 'Views, likes, comments, followers and subscribers in one dashboard. See what works.', emoji: '📊' },
                 { title: 'Unified inbox', desc: 'View and reply to DMs from Instagram, Facebook and X in one place. No more app hopping.', emoji: '💬' },
-                { title: 'Smart automation', desc: 'Keyword comment replies, welcome DMs, and new-follower messages. Set it per post or account.', emoji: '⚡' },
+                { title: 'AI copilot', desc: 'Draft captions, reply to inbox threads, and pull analytics from iZop AI chat.', emoji: '⚡' },
                 { title: 'Hashtag pool & AI', desc: 'Save hashtag sets and reuse them. Get AI-suggested captions with your brand voice.', emoji: '✨' },
                 { title: 'White-label (Agency)', desc: 'Your logo, your colors. The dashboard looks like your brand. Multiple workspaces on higher plans.', emoji: '🏢' },
               ].map((item) => (
@@ -515,7 +515,7 @@ export default function Home() {
               <ul className="space-y-3">
                 {[
                   'All plans include scheduling, basic analytics, unified inbox, and AI assistant.',
-                  'Keyword comment automation and higher limits on Standard and Pro.',
+                  'Standard and Pro add more brands, analytics history, and platform connections.',
                   'Pro adds white label, team members, smart links, and priority support.',
                 ].map((item, i) => (
                   <li key={i} className="flex items-start gap-3 text-sm text-[#5d5768]">
@@ -563,14 +563,14 @@ export default function Home() {
             </div>
             <div className="space-y-3">
               {[
-                { q: 'Which platforms can I connect?', a: 'You can connect Instagram, YouTube, TikTok, Facebook, Threads, Twitter (X), LinkedIn, and Pinterest. We use each platform\'s official OAuth so you authorize access securely. Inbox and comment automation are available for Instagram, Facebook and X; scheduling and analytics support all 8 platforms.' },
-                { q: 'How does scheduling work?', a: 'You create a post in the Composer, add your media and text, pick the date and time, and choose which connected accounts to publish to. We send the post at the scheduled time. You can also set keyword comment automation and per-platform reply text per post.' },
-                { q: 'What is comment automation?', a: 'When someone comments on your post with a keyword you set (e.g. "demo"), we can automatically reply with a message you define, or send a DM on Instagram if you prefer. You can set different reply text per platform.' },
+                { q: 'Which platforms can I connect?', a: 'You can connect Instagram, YouTube, TikTok, Facebook, Threads, Twitter (X), LinkedIn, and Pinterest. We use each platform\'s official OAuth so you authorize access securely. Unified inbox is available for Instagram, Facebook and X; scheduling and analytics support all 8 platforms.' },
+                { q: 'How does scheduling work?', a: 'You create a post in the Composer, add your media and text, pick the date and time, and choose which connected accounts to publish to. We send the post at the scheduled time.' },
+                { q: 'What is iZop AI?', a: 'iZop AI is the in-dashboard chat copilot. Connect platforms, draft and schedule posts, reply to comments and DMs, and pull analytics without leaving the conversation.' },
                 { q: 'What analytics do I get?', a: 'We pull views, likes, comments, followers, and subscribers (where available) from your connected accounts into one dashboard so you can see performance across platforms.' },
                 { q: 'How do I delete my data?', a: 'You can delete your account and data from Account or Settings in the app, or send a data deletion request to support@agent4socials.com. We process requests within 30 days.' },
                 { q: 'Can I cancel anytime?', a: 'Yes. You can cancel your subscription at any time. You\'ll keep access until the end of your billing period.' },
                 { q: 'How do I get started?', a: 'Try the Free plan (no credit card required), or sign up for Standard or Pro to unlock more features. Connect your accounts and start scheduling from one dashboard.' },
-                { q: 'Which plan is right for me?', a: `Free is for trying the platform: 1 brand, 25 posts/month, 30 days analytics. Standard ($${STANDARD_PLAN_PRICING.monthly}/mo) is for creators: unlimited scheduling, inbox, X and LinkedIn, 6 months analytics, unlimited AI. Pro ($${PRO_PLAN_PRICING.monthly}/mo) is for professionals: advanced analytics, bulk replies, keyword triggers, smart links, white label, team members, and priority support. Yearly billing saves ${PRICING_YEARLY_DISCOUNT_PERCENT}%.` },
+                { q: 'Which plan is right for me?', a: `Free is for trying the platform: 1 brand, 25 posts/month, 30 days analytics. Standard ($${STANDARD_PLAN_PRICING.monthly}/mo) is for creators: unlimited scheduling, inbox, X and LinkedIn, 6 months analytics, unlimited AI. Pro ($${PRO_PLAN_PRICING.monthly}/mo) is for professionals: advanced analytics, bulk replies, smart links, white label, team members, and priority support. Yearly billing saves ${PRICING_YEARLY_DISCOUNT_PERCENT}%.` },
               ].map((item, i) => (
                 <FaqItem key={i} question={item.q} answer={item.a} />
               ))}

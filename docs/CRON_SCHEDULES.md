@@ -6,32 +6,23 @@ Base URL: `https://<your-domain>/api/cron/...`
 
 **Unauthorized in the browser:** Opening a cron URL without the secret (e.g. pasting the link in Chrome) always returns `401 Unauthorized`. That is correct. Configure the secret only in cron-job.org as a request header, not in the public URL.
 
-**cron-job.org test run shows "timeout":** `sync-inbox` and `sync-platform-data` return **HTTP 202** immediately and finish work in the background (like `dm-first-welcome`). If the test UI says "Failed (timeout)" but the HTTP status was **202**, the job was accepted and may still complete. Check Vercel logs for `sync-inbox done` or `sync-platform-data done`.
+**cron-job.org test run shows "timeout":** `sync-inbox` and `sync-platform-data` return **HTTP 202** immediately and finish work in the background. If the test UI says "Failed (timeout)" but the HTTP status was **202**, the job was accepted and may still complete. Check Vercel logs for `sync-inbox done` or `sync-platform-data done`.
 
-## Every 1 to 2 minutes (first incoming DM auto-reply)
+**Automation crons removed from live app:** Comment automation, first-incoming welcome DMs, and follower welcome were archived under `archive/automation/`. Disable any external jobs pointing at `/api/cron/comment-automation`, `/api/cron/dm-first-welcome`, or `/api/cron/welcome-followers`.
 
-| Path | What it does |
-|------|----------------|
-| `/api/cron/dm-first-welcome` | Background sweep for Instagram, Facebook, and X: sends first-incoming auto-DM when the latest inbound message is fresh (about 15 minutes). Returns **202** immediately; work runs in `after()` after a short delay (default 2.5s) so it does not collide with other crons on the same minute. |
+## Every 5 minutes (scheduled publishing)
 
-**Stagger crons:** Do not start `dm-first-welcome`, `process-scheduled`, and `comment-automation` at the same second (e.g. all at `:00`). Offset **dm-first-welcome** by ~30s (e.g. `:01` / `:03`) or rely on the built-in `DM_FIRST_WELCOME_CRON_START_DELAY_MS` delay. Otherwise you may see `Timed out fetching a new connection from the connection pool` in Vercel logs.
+**Option A (one cron job):** call **`/api/cron/fast-tick`** every **5 minutes**. Same auth header. It runs due scheduled posts in one request. If you use this, **do not** also schedule `process-scheduled` separately.
 
-**DATABASE_URL:** Use Supabase **Transaction pooler** (port **6543**) with `pgbouncer=true`, not direct port 5432 on Vercel.
-
-## Every 5 minutes (comments automation, scheduled publishing)
-
-**Option A (one cron job):** call **`/api/cron/fast-tick`** every **5 minutes**. Same auth header. It runs scheduled posts, then comment automation, in one request (no self-HTTP chain). If you use this, **do not** also schedule `process-scheduled` or `comment-automation` separately, or automation will run twice.
-
-**Option B (two cron jobs):**
+**Option B (dedicated job):**
 
 | Path | What it does |
 |------|----------------|
 | `/api/cron/process-scheduled` | Publishes due scheduled posts (up to 3 per run) and scheduled email-link sends. |
-| `/api/cron/comment-automation` | Keyword comment automation (Meta, X, YouTube, etc.). |
 
-Both every **5 minutes**. Do not rely on `PROCESS_SCHEDULED_CHAIN_COMMENT_AUTOMATION` unless you accept longer single requests and possible timeouts.
+Every **5 minutes**.
 
-**Inbox comments** still load when users open **Inbox**. **First incoming DM** automation also needs **`/api/cron/dm-first-welcome`** every one to two minutes if you want replies without opening a thread.
+**Inbox comments and DMs** load when users open **Inbox** (live API + cached threads).
 
 ## Every 30 minutes (posts in DB, metrics, lower Meta app usage)
 
@@ -53,10 +44,8 @@ If you currently call `sync-platform-data` every **15** minutes, moving it to **
 
 | Path | When |
 |------|------|
-| `/api/cron/welcome-followers` | If you use Twitter new-follower welcome DMs: every **15 to 30** minutes is enough. |
 | `/api/cron/run-migrations` | Only when you intentionally run migrations from cron. |
 
 ## Tuning
 
 - **`CRON_SYNC_HTTP_BUDGET_MS`**: wall time budget for `sync-platform-data` (see route file). Increase only if your host allows longer HTTP waits.
-- **`COMMENT_AUTOMATION_CRON_BUDGET_MS`**: wall time for one comment-automation run (see `lib/comment-automation.ts`).

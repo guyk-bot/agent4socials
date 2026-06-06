@@ -19,7 +19,6 @@ export default function robots(): MetadataRoute.Robots {
           "/api/posts",
           "/api/social/",
           "/api/ai/",
-          "/api/automation/",
           "/api/cron/",
           "/api/create-profile",
           "/api/debug/",

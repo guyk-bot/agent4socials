@@ -38,12 +38,6 @@ export type AysopArtifact =
   | { type: 'posts'; accountId: string; platform?: string; posts: Array<Record<string, unknown>> }
   | { type: 'comments'; accountId: string; postPreview: string; comments: Array<Record<string, unknown>> }
   | {
-      type: 'automation';
-      keywordSteps: unknown[];
-      dmWelcomeEnabled: boolean;
-      href?: string;
-    }
-  | {
       type: 'connect_platforms';
       connected: Array<{ platform: string; name: string; username: string | null }>;
       missing: Array<{ platform: string; name: string; slug: string }>;
@@ -134,7 +128,6 @@ export type AppViewId =
   | 'composer'
   | 'calendar'
   | 'posts_history'
-  | 'automation'
   | 'reports'
   | 'smart_links'
   | 'hashtag_pool'
@@ -180,12 +173,6 @@ export const APP_VIEW_META: Record<
     description: 'Past scheduled and published posts.',
     href: '/posts',
     openLabel: 'Open history',
-  },
-  automation: {
-    title: 'Automation',
-    description: 'Keyword comment replies and welcome DMs.',
-    href: '/dashboard/automation',
-    openLabel: 'Open Automation',
   },
   reports: {
     title: 'Reports',

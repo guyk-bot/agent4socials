@@ -576,39 +576,9 @@ export const AYSOP_TOOL_DEFINITIONS = [
   {
     type: 'function' as const,
     function: {
-      name: 'get_keyword_automation',
-      description: 'Read saved keyword comment automation steps for the user.',
-      parameters: { type: 'object', properties: {}, additionalProperties: false },
-    },
-  },
-  {
-    type: 'function' as const,
-    function: {
-      name: 'save_keyword_automation_step',
-      description:
-        'Add or update a keyword automation step. Confirm with user before saving.',
-      parameters: {
-        type: 'object',
-        properties: {
-          keyword: { type: 'string' },
-          replyTemplate: { type: 'string' },
-          platforms: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'e.g. Instagram, Facebook, X (Twitter)',
-          },
-        },
-        required: ['keyword', 'replyTemplate'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function' as const,
-    function: {
       name: 'show_app_in_chat',
       description:
-        'Preview an app screen in chat. Prefer actionable tools (connect, automation, drafts, inbox, schedule) so the user can complete tasks in chat. Only use when they explicitly want the full page UI.',
+        'Preview an app screen in chat. Prefer actionable tools (connect, drafts, inbox, schedule) so the user can complete tasks in chat. Only use when they explicitly want the full page UI.',
       parameters: {
         type: 'object',
         properties: {
@@ -621,7 +591,6 @@ export const AYSOP_TOOL_DEFINITIONS = [
               'composer',
               'calendar',
               'posts_history',
-              'automation',
               'reports',
               'smart_links',
               'hashtag_pool',
@@ -970,62 +939,6 @@ export async function runAysopTool(
             accountId,
             postPreview,
             comments: filtered,
-          },
-        ],
-      };
-    }
-
-    case 'get_keyword_automation': {
-      const user = await prisma.user.findUnique({
-        where: { id: ctx.userId },
-        select: { automationSettings: true },
-      });
-      const raw = (user?.automationSettings ?? {}) as Record<string, unknown>;
-      const steps = Array.isArray(raw.keywordAutomationSteps) ? raw.keywordAutomationSteps : [];
-      const dmWelcomeEnabled = raw.dmWelcomeEnabled === true;
-      return {
-        result: { keywordSteps: steps, dmWelcomeEnabled },
-        artifacts: [{ type: 'automation', keywordSteps: steps, dmWelcomeEnabled }],
-      };
-    }
-
-    case 'save_keyword_automation_step': {
-      const keyword = String(args.keyword ?? '').trim();
-      const replyTemplate = String(args.replyTemplate ?? '').trim();
-      if (!keyword || !replyTemplate) throw new Error('keyword and replyTemplate are required');
-      const user = await prisma.user.findUnique({
-        where: { id: ctx.userId },
-        select: { automationSettings: true },
-      });
-      const raw = (user?.automationSettings ?? {}) as Record<string, unknown>;
-      const steps = Array.isArray(raw.keywordAutomationSteps) ? [...raw.keywordAutomationSteps] : [];
-      const platforms = Array.isArray(args.platforms)
-        ? (args.platforms as string[]).filter(Boolean)
-        : ['Instagram', 'Facebook'];
-      steps.push({ keyword, replyTemplate, platforms, enabled: true });
-      await prisma.user.update({
-        where: { id: ctx.userId },
-        data: {
-          automationSettings: {
-            ...raw,
-            keywordAutomationSteps: steps,
-          },
-        },
-      });
-      const dmWelcomeEnabled = raw.dmWelcomeEnabled === true;
-      return {
-        result: { saved: true, keyword, platforms },
-        artifacts: [
-          {
-            type: 'automation',
-            keywordSteps: steps,
-            dmWelcomeEnabled,
-          },
-          {
-            type: 'action_result',
-            action: 'save_keyword_automation',
-            ok: true,
-            detail: `Saved keyword "${keyword}" automation.`,
           },
         ],
       };

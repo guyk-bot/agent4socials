@@ -9,7 +9,6 @@ import {
     Hash,
     ChevronRight,
     Plus,
-    Zap,
     Sparkles,
     Gem,
     PanelLeftClose,
@@ -201,7 +200,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
     : (textColor || '#171717');
   const isMainAnalyticsView = pathname === '/dashboard' || pathname === '/dashboard/console';
   const isPostsPage = pathname === '/posts';
-  const isAutomationPage = pathname === '/dashboard/automation';
   const isHashtagPoolPage = pathname === '/dashboard/hashtag-pool';
   const isAiAssistantPage = pathname === '/dashboard/ai-assistant';
   const isReportsPage = pathname === '/dashboard/reports';
@@ -340,13 +338,6 @@ export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {}
         >
           <FileText size={18} className="shrink-0" />
           <span>History</span>
-        </Link>
-        <Link
-          href="/dashboard/automation"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isAutomationPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
-        >
-          <Zap size={18} className="shrink-0" />
-          <span>Automation</span>
         </Link>
         <Link
           href="/dashboard/hashtag-pool"

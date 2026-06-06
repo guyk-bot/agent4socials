@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { executeCommentAutomation } from '@/lib/comment-automation';
 import { executeProcessScheduled } from '@/lib/cron/process-scheduled-run';
 import { finalizeStalePostingPosts } from '@/lib/finalize-stale-posting';
 
@@ -8,15 +7,10 @@ export const maxDuration = 60;
 /**
  * GET/POST /api/cron/fast-tick
  *
- * Single entry point for a **5-minute** external cron: runs scheduled post processing,
- * then comment automation (same logic as `/api/cron/process-scheduled` and
- * `/api/cron/comment-automation` without an extra HTTP round trip).
+ * Single entry point for a **5-minute** external cron: scheduled post processing
+ * and stale publish finalization.
  *
  * Auth: `X-Cron-Secret`, `Authorization: Bearer <CRON_SECRET>`, or `?secret=`.
- *
- * If you use this route, **disable** separate cron jobs for `process-scheduled` and
- * `comment-automation` to avoid double-running automation. Do **not** set
- * `PROCESS_SCHEDULED_CHAIN_COMMENT_AUTOMATION` when using fast-tick.
  */
 export async function GET(request: NextRequest) {
   return handle(request);
@@ -39,18 +33,16 @@ async function handle(request: NextRequest) {
   }
 
   try {
-    const scheduled = await executeProcessScheduled({ chainCommentAutomation: false });
-    const commentAutomation = await executeCommentAutomation();
+    const scheduled = await executeProcessScheduled();
     const stalePosting = await finalizeStalePostingPosts(15);
     console.log(
       '[Cron] fast-tick done',
       JSON.stringify({
         scheduledProcessed: scheduled.processed,
-        commentAutomationOk: commentAutomation.ok,
         stalePostingFinalized: stalePosting.finalized.length,
       })
     );
-    return NextResponse.json({ ok: true, scheduled, commentAutomation, stalePosting });
+    return NextResponse.json({ ok: true, scheduled, stalePosting });
   } catch (e) {
     console.error('[Cron] fast-tick error:', e);
     return NextResponse.json(

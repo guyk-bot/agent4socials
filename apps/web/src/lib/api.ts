@@ -55,7 +55,6 @@ function isPriorityApiPath(url?: string, baseURL?: string): boolean {
     path.includes('/media/upload-url') ||
     path.includes('/ai/brand-context') ||
     path.includes('/ai/generate-description') ||
-    path.includes('/ai/generate-composer-dm') ||
     path.includes('/tiktok-creator-info') ||
     path.includes('/ai/generate-inbox-reply') ||
     path.includes('/ai/generate-inbox-reply-batch') ||

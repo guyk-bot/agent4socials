@@ -16,7 +16,6 @@ const NAV_LINKS = [
   { href: '#analytics-limitations', label: 'Analytics limitations' },
   { href: '#growth-chart-history', label: 'Growth chart & follower history' },
   { href: '#inbox-dms', label: 'Inbox & DMs' },
-  { href: '#automation-quotas', label: 'Automation & quotas' },
   { href: '#features', label: 'Features overview' },
 ];
 
@@ -172,19 +171,6 @@ export default function HelpPage() {
                 </p>
               </>
             )},
-            { id: 'automation-quotas', title: 'Automation & quotas', children: (
-              <p className="text-neutral-600 text-sm leading-relaxed">
-                Keyword comment automation runs on a schedule you configure and is subject to <strong>per-run technical limits</strong> (how many posts are scanned, how many replies per post, pagination depth, delays, and hosting time limits). Those limits are documented for transparency and are <strong>not</strong> a guarantee of delivery speed or volume. You are responsible for complying with each platform&apos;s automation and anti-spam rules. Read the full summary on{' '}
-                <Link href="/help/automation" className="text-[var(--primary)] font-medium hover:underline">
-                  Automation &amp; quotas
-                </Link>
-                {' '}and the contractual terms in our{' '}
-                <Link href="/terms" className="text-[var(--primary)] font-medium hover:underline">
-                  Terms of Service
-                </Link>
-                {' '}(Section 4).
-              </p>
-            )},
             { id: 'inbox-dms', title: 'Inbox & DMs', children: (
               <>
                 <p className="text-neutral-600 text-sm leading-relaxed mb-3">
@@ -206,7 +192,6 @@ export default function HelpPage() {
                 <li><strong>Reel Analyzer:</strong> Dedicated page to upload a short video and get a performance score and tips. Also available in Composer when you add a reel.</li>
                 <li><strong>Composer:</strong> Create posts, carousels, or reels; schedule or publish to connected accounts. Use &quot;Generate with AI&quot; for captions (set up AI Assistant first).</li>
                 <li><strong>Calendar:</strong> View and manage scheduled posts.</li>
-                <li><strong>Automation:</strong> Set up automated comment replies from the Automation page in the sidebar. See <Link href="/help/automation" className="text-[var(--primary)] font-medium hover:underline">Automation &amp; quotas</Link> for limits and <Link href="/terms" className="text-[var(--primary)] font-medium hover:underline">Terms</Link> for your obligations.</li>
                 <li><strong>AI Assistant:</strong> Add brand context and inbox/comment reply examples so the Inbox sparkle button can generate reply drafts. AI drafts are disabled until you add examples.</li>
                 <li><strong>Smart Links:</strong> Create a custom link-in-bio page with your links and branding.</li>
               </ul>

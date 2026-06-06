@@ -8,8 +8,7 @@ import {
 } from '@/lib/inbox/live-fetch-budget';
 import axios from 'axios';
 import { signTwitterRequest } from '@/lib/twitter-oauth1';
-import { runFirstWelcomeMaybe } from '@/lib/dm-first-welcome';
-import { loadConversationForFirstWelcome } from '@/lib/inbox/load-conversation-for-first-welcome';
+import { loadInboxConversationMessages } from '@/lib/inbox/load-inbox-conversation-messages';
 import { isMetaNonCriticalThrottled, shouldAllowMetaInboxProfileEnrichment } from '@/lib/meta-usage-guard';
 import { deleteInboxMessagesFromDb, getInboxMessagesFromDb, setInboxMessagesInDb } from '@/lib/inbox/inbox-db-cache';
 import { readInboxProfileCache } from '@/lib/inbox/inbox-profile-cache';
@@ -29,14 +28,6 @@ export const maxDuration = 60;
 
 const fbBaseUrl = facebookGraphBaseUrl;
 const igBaseUrl = 'https://graph.instagram.com/v25.0';
-
-function scheduleDmFirstWelcome(args: Parameters<typeof runFirstWelcomeMaybe>[0]) {
-  after(() => {
-    void runFirstWelcomeMaybe(args).catch((err) => {
-      console.error('[dm-first-welcome]', err);
-    });
-  });
-}
 
 function metaAttachmentTypeFromUrl(url: string, explicit?: string): 'image' | 'video' | 'file' {
   const t = typeof explicit === 'string' ? explicit.toLowerCase() : '';
@@ -236,10 +227,10 @@ export async function GET(
     );
   }
 
-  let loaded: Awaited<ReturnType<typeof loadConversationForFirstWelcome>>;
+  let loaded: Awaited<ReturnType<typeof loadInboxConversationMessages>>;
   try {
     loaded = await withInboxLiveFetchBudget(() =>
-      loadConversationForFirstWelcome(account, conversationId, userId)
+      loadInboxConversationMessages(account, conversationId, userId)
     );
   } catch (e) {
     if (isInboxLiveFetchBudgetError(e)) {
@@ -273,21 +264,6 @@ export async function GET(
   if (account.platform === 'INSTAGRAM' || account.platform === 'FACEBOOK' || account.platform === 'TWITTER') {
     void setInboxMessagesInDb(account.id, conversationId, loaded.messages).catch(() => {});
   }
-
-  scheduleDmFirstWelcome({
-    userId,
-    account: {
-      id: account.id,
-      platform: account.platform,
-      platformUserId: account.platformUserId,
-      accessToken: account.accessToken,
-      credentialsJson: account.credentialsJson,
-    },
-    conversationId,
-    messages: loaded.firstWelcomeRows,
-    recipientId: loaded.recipientId,
-    isInstagramBusinessLogin: loaded.isInstagramBusinessLogin,
-  });
 
   return NextResponse.json({
     messages: loaded.messages,

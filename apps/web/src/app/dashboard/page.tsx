@@ -308,7 +308,7 @@ const PRO_HIGHLIGHTS = [
   '1 brand included',
   'Unlimited analytic history',
   'Bulk replies (messages and comments)',
-  'Keyword triggers + automations',
+  'Advanced reporting & exports',
   '10 smart link pages',
   'White label',
   'Add team members',

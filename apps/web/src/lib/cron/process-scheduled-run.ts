@@ -15,15 +15,12 @@ export type ProcessScheduledSummary = {
   processed: number;
   results: { postId: string; action: string; ok: boolean; error?: string }[];
   error?: string;
-  commentAutomation?: { ok: boolean; results?: unknown; skipped?: true; hint?: string };
 };
 
 /**
  * Due scheduled posts: email_links flow and in-process publish.
- * @param opts.chainCommentAutomation when true, also HTTP GETs `/api/cron/comment-automation` after publishes (legacy). Prefer `/api/cron/fast-tick` for combined runs.
  */
-export async function executeProcessScheduled(opts?: { chainCommentAutomation?: boolean }): Promise<ProcessScheduledSummary> {
-  const chainComment = opts?.chainCommentAutomation === true;
+export async function executeProcessScheduled(): Promise<ProcessScheduledSummary> {
   const now = new Date();
 
   const BUDGET_MS = 22_000;
@@ -146,25 +143,9 @@ export async function executeProcessScheduled(opts?: { chainCommentAutomation?: 
     }
   }
 
-  let commentAutomationResult: { ok?: boolean; results?: unknown } = {};
-  if (chainComment) {
-    try {
-      const commentRes = await fetch(`${baseUrl()}/api/cron/comment-automation`, {
-        method: 'GET',
-        headers: { 'X-Cron-Secret': process.env.CRON_SECRET ?? '' },
-      });
-      commentAutomationResult = await commentRes.json().catch(() => ({}));
-    } catch {
-      // non-fatal: scheduled posts are already done
-    }
-  }
-
   const summary: ProcessScheduledSummary = {
     processed: due.length,
     results,
-    commentAutomation: chainComment
-      ? (commentAutomationResult?.ok === true ? { ok: true, results: commentAutomationResult?.results } : { ok: false })
-      : { ok: false, skipped: true as const, hint: 'Use /api/cron/fast-tick or a separate cron for /api/cron/comment-automation (recommended)' },
   };
 
   console.log('[Cron] process-scheduled done:', JSON.stringify(summary));

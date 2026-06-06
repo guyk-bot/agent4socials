@@ -65,12 +65,6 @@ const SECTIONS: TableSection[] = [
     ],
   },
   {
-    title: 'Automation',
-    rows: [
-      { feature: 'Keyword triggers + automations', free: 'dash', starter: 'dash', pro: 'check' },
-    ],
-  },
-  {
     title: 'Workspace',
     rows: [
       { feature: 'Access to history', free: 'dash', starter: 'check', pro: 'check' },

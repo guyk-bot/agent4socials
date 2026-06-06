@@ -37,7 +37,6 @@ export type ChatMessage = {
 
 const STARTERS = [
   'Connect a platform for me',
-  'Set up keyword automation for "price"',
   'Show my latest comments so I can reply',
   'Draft a post for X and let me schedule it',
   'Show my Console analytics',
@@ -290,7 +289,7 @@ export default function AysopChatPanel({
             <Sparkles className="mx-auto text-[var(--primary)] mb-3" size={32} />
             <p className="text-neutral-700 dark:text-neutral-200 font-medium">Your social copilot</p>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1 max-w-md mx-auto">
-              Connect platforms, set up automations, draft and schedule posts, reply to comments, and pull analytics, all from chat. Attach media with the paperclip.
+              Connect platforms, draft and schedule posts, reply to comments, and pull analytics, all from chat. Attach media with the paperclip.
             </p>
             <div className="flex flex-wrap justify-center gap-2 mt-6">
               {STARTERS.map((s) => (

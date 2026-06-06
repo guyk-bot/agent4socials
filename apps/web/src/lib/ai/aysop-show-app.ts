@@ -172,23 +172,6 @@ export async function runShowAppInChat(
       return { result: { view, count: mapped.length }, artifacts };
     }
 
-    case 'automation': {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { automationSettings: true },
-      });
-      const raw = (user?.automationSettings ?? {}) as Record<string, unknown>;
-      const steps = Array.isArray(raw.keywordAutomationSteps) ? raw.keywordAutomationSteps : [];
-      const dmWelcomeEnabled = raw.dmWelcomeEnabled === true;
-      artifacts.push({
-        type: 'automation',
-        keywordSteps: steps,
-        dmWelcomeEnabled,
-        href: meta.href,
-      });
-      return { result: { view, keywordSteps: steps.length, dmWelcomeEnabled }, artifacts };
-    }
-
     case 'reports':
       return {
         result: { view, hint: 'Use Reports to download PDF summaries for a date range.' },

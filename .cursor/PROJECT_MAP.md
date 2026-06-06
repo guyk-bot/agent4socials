@@ -34,7 +34,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | iZop AI chat | `app/dashboard/aysop-ai/page.tsx`, `components/aysop/*` (incl. `AysopComposerPostDraftCard.tsx`, `AysopComposerSessionDraftCard.tsx`, `ComposerOpenLink.tsx`), `app/api/ai/aysop-chats/`, `lib/composer/platform-capabilities.ts`, `lib/composer/aysop-composer-draft-bridge.ts`, `lib/ai/llm-config.ts`, `lib/ai/aysop-chat-store.ts`, `lib/ai/aysop-chat-local-cache.ts`, `lib/ai/aysop-tools.ts`, `lib/ai/aysop-attachments.ts`, `lib/ai/aysop-show-app.ts`, `lib/ai/aysop-artifacts.ts`, `lib/ai/aysop-chat-core.ts` |
 | Media upload / proxy (R2) | `apps/web/src/app/api/media/`, `instagram-media-r2.ts` |
 | Prisma DB access | `apps/web/prisma/schema.prisma`, `apps/web/src/lib/db.ts` |
-| Cron | `apps/web/src/app/api/cron/` (includes `fast-tick` for one 5-minute job: scheduled posts + comment automation) |
+| Cron | `apps/web/src/app/api/cron/` (includes `fast-tick` for one 5-minute job: scheduled posts only) |
 
 ---
 
@@ -75,7 +75,6 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | `/dashboard/inbox` | `dashboard/inbox/page.tsx` |
 | `/dashboard/accounts` | Redirects to `/dashboard/account#connected-accounts`; UI in `components/account/ConnectedAccountsPanel.tsx` |
 | `/dashboard/settings` | `dashboard/settings/page.tsx` |
-| `/dashboard/automation` | `dashboard/automation/page.tsx` |
 | `/dashboard/reports` | `dashboard/reports/page.tsx` (download Simplified/Detailed Console PDF reports) |
 | `/dashboard/smart-links` | `dashboard/smart-links/page.tsx` |
 | `/dashboard/console` (Console: unified KPIs, Growth / Engagement / Views charts, `AnalyticsDateRangePicker`, cache `lib/dashboard-unified-summary-cache.ts`) | `dashboard/console/page.tsx` |
@@ -117,7 +116,7 @@ Layouts worth knowing: `composer/layout.tsx` uses `AuthenticatedShell`.
 
 **AI:** `ai/brand-context`, `ai/generate-description`, `ai/generate-inbox-reply`, `ai/generate-inbox-reply-batch` (parallel bulk comment/DM drafts)
 
-**Automation / cron:** `automation/`, `cron/process-scheduled`, `cron/metric-snapshots`, `cron/comment-automation`, **`cron/dm-first-welcome`**, etc. External schedule examples: `docs/CRON_SCHEDULES.md`.
+**Cron:** `cron/process-scheduled`, `cron/fast-tick`, `cron/metric-snapshots`, `cron/sync-platform-data`, etc. External schedule examples: `docs/CRON_SCHEDULES.md`. Archived automation crons/API: `archive/automation/`.
 
 **Auth / user:** `auth/signup`, `auth/verify-otp`, `auth/profile`, `create-profile`, `user/can-connect-twitter`
 
@@ -136,7 +135,7 @@ Layouts worth knowing: `composer/layout.tsx` uses `AuthenticatedShell`.
 | Calendar / dates | `calendar-date.ts` |
 | Analytics helpers | `analytics/extended-fetchers.ts`, `metric-snapshots.ts`, `client-fetch.ts` |
 | DB / auth prisma user | `db.ts`, `get-prisma-user.ts` |
-| Inbox | `inbox-read-state.ts`, `comment-automation.ts`, `dm-first-welcome.ts`, `dm-first-welcome-sweep.ts`, `inbox/load-conversation-for-first-welcome.ts`, `inbox/twitter-conversation-for-first-welcome.ts` |
+| Inbox | `inbox-read-state.ts`, `inbox/load-inbox-conversation-messages.ts`, `inbox/load-twitter-inbox-conversation.ts`, `inbox/instagram-dm-conversations.ts` (archived welcome automation: `archive/automation/`) |
 | YouTube token | `youtube-token.ts` |
 | Media | `media-to-jpeg.ts`, `instagram-media-r2.ts`, `media-serve-token.ts` |
 | Email | `resend.ts` |
@@ -250,7 +249,6 @@ Layouts worth knowing: `composer/layout.tsx` uses `AuthenticatedShell`.
 | Help | `apps/web/src/app/help/page.tsx` |
 | Reel Analyzer | `apps/web/src/app/reel-analyzer/page.tsx`, `components/ReelAnalyzer.tsx`, `lib/reel-analysis/` |
 | Smart links | `apps/web/src/app/dashboard/smart-links/page.tsx`, `app/api/smart-links/`, `components/smart-links/` |
-| Automation | `apps/web/src/app/dashboard/automation/page.tsx`, `app/api/automation/` |
 | AI APIs | `apps/web/src/app/api/ai/` |
 | White-label | `apps/web/src/context/WhiteLabelContext.tsx`, `dashboard/settings/page.tsx` |
 

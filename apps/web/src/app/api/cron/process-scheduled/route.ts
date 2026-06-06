@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { executeProcessScheduled } from '@/lib/cron/process-scheduled-run';
 
-/** Enough for publish + email paths; comment-automation is no longer chained by default. */
+/** Enough for publish + email paths. */
 export const maxDuration = 60;
 
 /**
  * GET/POST /api/cron/process-scheduled
  * Call with header X-Cron-Secret: CRON_SECRET (or Authorization: Bearer CRON_SECRET).
  * Finds posts due now: scheduleDelivery=email_links -> send email with open link; scheduleDelivery=auto -> publish.
- * Optional: set PROCESS_SCHEDULED_CHAIN_COMMENT_AUTOMATION=1 to also call /api/cron/comment-automation (slow; prefer /api/cron/fast-tick or a second cron).
  * Work runs inline — no after() — to release the lambda as soon as processing finishes.
  */
 async function handle(request: NextRequest) {
@@ -45,10 +44,6 @@ async function processScheduledInline(request: NextRequest) {
   const denied = authorizeCron(request);
   if (denied) return denied;
 
-  const chainComment =
-    process.env.PROCESS_SCHEDULED_CHAIN_COMMENT_AUTOMATION === '1' ||
-    process.env.PROCESS_SCHEDULED_CHAIN_COMMENT_AUTOMATION === 'true';
-
-  const result = await executeProcessScheduled({ chainCommentAutomation: chainComment });
+  const result = await executeProcessScheduled();
   return NextResponse.json({ ok: true, ...result });
 }

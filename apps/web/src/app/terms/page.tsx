@@ -28,7 +28,6 @@ export default function TermsPage() {
               <li>Schedule and publish posts (including captions, media, and hashtags) to one or more connected accounts from a single calendar and composer.</li>
               <li>View analytics (e.g. views, likes, comments, followers, subscribers) from your connected accounts in one dashboard.</li>
               <li>Use a unified inbox to view and reply to direct messages and conversations from Instagram, Facebook, and X.</li>
-              <li>Set up automation: keyword-based comment auto-replies (including optional private/DM replies on Instagram) with configurable reply text per platform (Instagram, Facebook, X), and optional welcome or new-follower messages when someone messages or follows you.</li>
               <li>Use a hashtag pool to save and reuse hashtag sets, and an AI Assistant to set brand context and receive AI-suggested captions or content ideas.</li>
               <li>Apply white-label options (e.g. your logo and colors) where offered.</li>
             </ul>
@@ -43,40 +42,36 @@ export default function TermsPage() {
               You must use the Service in compliance with these terms and with each platform&apos;s terms and policies, including but not limited to: Meta (Facebook, Instagram), TikTok, Google (YouTube), X (Twitter), and LinkedIn. You are responsible for your account credentials, the content you post, and ensuring your use does not violate any applicable law or third-party rights.
             </p>
             <p className="mt-3 leading-relaxed">
-              You may not misuse the Service, attempt to gain unauthorized access, use it for spam or illegal activity, or configure automation (e.g. comment replies or welcome messages) in a way that violates any platform&apos;s policies. You are responsible for the keywords, reply text, and messages you set for comment and DM automation; we do not control how platforms treat automated replies and messaging, and you must comply with their rules (e.g. messaging windows, prohibited content).
+              You may not misuse the Service, attempt to gain unauthorized access, use it for spam or illegal activity, or send messages or replies in a way that violates any platform&apos;s policies. You are responsible for the content you post and send through the Service; we do not control how platforms treat your activity, and you must comply with their rules (e.g. messaging windows, prohibited content).
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-chrome-text">4. Automation, quotas, fair use, and third-party limits</h2>
+            <h2 className="text-xl font-semibold text-chrome-text">4. Quotas, fair use, and third-party limits</h2>
             <p className="mt-3 leading-relaxed">
-              Certain features (including keyword-based comment auto-replies and related scheduled jobs) rely on automated calls to third-party platforms and are subject to <strong>technical limits</strong> on each run or request cycle. Without limitation, limits may include: the maximum number of posts with automation settings processed per run; how deeply we paginate comments or search results per post; the maximum number of automated replies sent per post target in a single run; intentional delays between API requests; and maximum execution time for serverless or background jobs. These limits protect service stability, reduce abuse risk, and help comply with platform rate and usage expectations. They are <strong>not</strong> a guarantee that any particular comment will receive a reply, that any volume of traffic will be handled in one run, or that automation will run on a schedule you expect if your deployment, cron configuration, or hosting plan does not invoke our endpoints as documented.
+              Certain features (including scheduled publishing, inbox replies, and background sync jobs) rely on automated calls to third-party platforms and are subject to <strong>technical limits</strong> on each run or request cycle. Without limitation, limits may include: how many posts or accounts we process per run; how deeply we paginate comments or search results; intentional delays between API requests; and maximum execution time for serverless or background jobs. These limits protect service stability, reduce abuse risk, and help comply with platform rate and usage expectations. They are <strong>not</strong> a guarantee that any particular action will succeed, that any volume of traffic will be handled in one run, or that background jobs will run on a schedule you expect if your deployment, cron configuration, or hosting plan does not invoke our endpoints as documented.
             </p>
             <p className="mt-3 leading-relaxed">
-              A non-binding summary of typical default limits is published at{' '}
-              <Link href="/help/automation" className="text-[var(--primary)] hover:opacity-90 underline">
-                /help/automation
-              </Link>
-              . Operators may change limits via deployment environment variables or infrastructure changes. We may adjust defaults, quotas, or scheduling in our discretion to maintain the Service; we will update customer-facing documentation or these terms when practicable but you should not treat current numeric defaults as a contractual service level.
+              Operators may change limits via deployment environment variables or infrastructure changes. We may adjust defaults, quotas, or scheduling in our discretion to maintain the Service; we will update customer-facing documentation or these terms when practicable but you should not treat current numeric defaults as a contractual service level.
             </p>
             <p className="mt-3 leading-relaxed">
-              <strong>No service level for automation.</strong> We do not warrant uninterrupted automation, error-free delivery, minimum throughput, or that third-party APIs (Meta, X, or others) will remain available, unchanged, or sufficient for your use case. Platforms may throttle, block, revoke, or change access; tokens may expire; search or messaging endpoints may be unavailable depending on your app approval tier. Failures may appear only in logs or administrative responses rather than in-product notifications.
+              <strong>No service level for integrations.</strong> We do not warrant uninterrupted delivery, error-free publishing, minimum throughput, or that third-party APIs (Meta, X, or others) will remain available, unchanged, or sufficient for your use case. Platforms may throttle, block, revoke, or change access; tokens may expire; endpoints may be unavailable depending on your app approval tier. Failures may appear only in logs or administrative responses rather than in-product notifications.
             </p>
             <p className="mt-3 leading-relaxed">
-              <strong>Your compliance.</strong> You are solely responsible for all keywords, reply templates, frequency, targeting, and the lawfulness of your automated interactions. You must comply with applicable law and each connected platform&apos;s terms, community standards, anti-spam rules, advertising and disclosure requirements, messaging windows (where applicable), and any rules governing bots or automated engagement. We provide software only; we do not review or approve your automations for legality or platform compliance.
+              <strong>Your compliance.</strong> You are solely responsible for the lawfulness of your posts, replies, and messaging. You must comply with applicable law and each connected platform&apos;s terms, community standards, anti-spam rules, advertising and disclosure requirements, messaging windows (where applicable), and any rules governing bots or automated engagement. We provide software only; we do not review or approve your content for legality or platform compliance.
             </p>
             <p className="mt-3 leading-relaxed">
-              <strong>Fair use and enforcement.</strong> Even when within technical quotas, we may delay, rate-limit, queue, or suspend automation (or your account) if we reasonably believe your use risks violating law or platform policies, degrades the Service for others, or is abusive, deceptive, or excessive. Nothing in published limits obliges us to permit use we consider harmful.
+              <strong>Fair use and enforcement.</strong> Even when within technical quotas, we may delay, rate-limit, queue, or suspend features (or your account) if we reasonably believe your use risks violating law or platform policies, degrades the Service for others, or is abusive, deceptive, or excessive. Nothing in published limits obliges us to permit use we consider harmful.
             </p>
             <p className="mt-3 leading-relaxed">
-              <strong>Third-party precedence.</strong> Where a platform&apos;s rules conflict with your desired automation behavior, the platform&apos;s rules control. You must not use the Service to circumvent platform restrictions or to send unsolicited or misleading messages.
+              <strong>Third-party precedence.</strong> Where a platform&apos;s rules conflict with your desired behavior, the platform&apos;s rules control. You must not use the Service to circumvent platform restrictions or to send unsolicited or misleading messages.
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold text-chrome-text">5. Content and intellectual property</h2>
             <p className="mt-3 leading-relaxed">
-              You retain ownership of content you create and post. By using the Service you grant us the limited rights necessary to operate the Service (e.g. sending your content to the platforms you connect, storing and processing it for scheduling, analytics, inbox, and automation). Our name, logo, and the Service&apos;s design and code remain our intellectual property. You may not copy, reverse-engineer, or misuse our branding or technology except as permitted by these terms.
+              You retain ownership of content you create and post. By using the Service you grant us the limited rights necessary to operate the Service (e.g. sending your content to the platforms you connect, storing and processing it for scheduling, analytics, and inbox). Our name, logo, and the Service&apos;s design and code remain our intellectual property. You may not copy, reverse-engineer, or misuse our branding or technology except as permitted by these terms.
             </p>
           </section>
 
@@ -97,7 +92,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-xl font-semibold text-chrome-text">8. Disclaimer of warranties</h2>
             <p className="mt-3 leading-relaxed">
-              The Service is provided &quot;as is&quot; and &quot;as available.&quot; We disclaim all warranties, express or implied, including merchantability and fitness for a particular purpose. We do not warrant that the Service will be error-free, uninterrupted, or that integrations with third-party platforms (Meta, TikTok, Google, X, LinkedIn) will always be available or function as expected. Your use of the Service and any reliance on automation, analytics, or platform features is at your own risk.
+              The Service is provided &quot;as is&quot; and &quot;as available.&quot; We disclaim all warranties, express or implied, including merchantability and fitness for a particular purpose. We do not warrant that the Service will be error-free, uninterrupted, or that integrations with third-party platforms (Meta, TikTok, Google, X, LinkedIn) will always be available or function as expected. Your use of the Service and any reliance on analytics or platform features is at your own risk.
             </p>
           </section>
 
