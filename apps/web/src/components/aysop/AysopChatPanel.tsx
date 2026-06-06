@@ -2,7 +2,7 @@
 
 import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { BRAND_NAME } from '@/lib/site-brand-assets';
-import { Bot, Loader2, Paperclip, Send, Sparkles, Square } from 'lucide-react';
+import { Loader2, Paperclip, Send, Sparkles, Square } from 'lucide-react';
 import api, {
   API_AYSOP_CHAT_ATTACHMENTS_TIMEOUT_MS,
   API_AYSOP_CHAT_TIMEOUT_MS,
@@ -275,11 +275,6 @@ export default function AysopChatPanel({
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-neutral-100 bg-[var(--dark)] text-chrome-text shrink-0">
-        <Bot size={20} className="text-[#53BEFA]" />
-        <span className="font-semibold text-sm">{BRAND_NAME} AI</span>
-      </div>
-
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-[#fafafa] dark:bg-neutral-950 min-h-0"

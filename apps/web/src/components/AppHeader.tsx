@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { MessageCircle, PlusSquare, Calendar, Menu, PanelLeft, PanelLeftClose, Link2, Sun, Moon, Bot } from 'lucide-react';
+import { MessageCircle, PlusSquare, Calendar, Menu, PanelLeft, PanelLeftClose, Link2, Sun, Moon, Brain } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { BRAND_NAME, SITE_LOGO_SRC, normalizeLegacyBrandName } from '@/lib/site-brand-assets';
 import { useTheme } from '@/context/ThemeContext';
@@ -28,7 +28,7 @@ export const topNavItems = [
   { icon: PlusSquare, label: 'Composer', href: '/composer' },
   { icon: Calendar, label: 'Calendar', href: '/calendar' },
   { icon: Link2, label: 'Smart Links', href: '/dashboard/smart-links' },
-  { icon: Bot, label: `${BRAND_NAME} AI`, href: '/dashboard/aysop-ai' },
+  { icon: Brain, label: `${BRAND_NAME} AI`, href: '/dashboard/aysop-ai' },
 ];
 
 type AppHeaderProps = {
