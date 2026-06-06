@@ -1,8 +1,11 @@
+import type { AysopChatAttachment } from '@/lib/ai/aysop-attachments';
+
 export type StoredAysopMessage = {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   artifacts?: unknown[];
+  attachments?: AysopChatAttachment[];
 };
 
 export type AysopChatSessionSummary = {
@@ -14,18 +17,42 @@ export type AysopChatSessionSummary = {
 };
 
 export function titleFromMessages(messages: StoredAysopMessage[]): string {
-  const firstUser = messages.find((m) => m.role === 'user' && m.content.trim());
+  const firstUser = messages.find(
+    (m) => m.role === 'user' && (m.content.trim() || (m.attachments?.length ?? 0) > 0)
+  );
   if (!firstUser) return 'New chat';
-  const trimmed = firstUser.content.trim();
-  if (trimmed.length <= 52) return trimmed;
-  return `${trimmed.slice(0, 52).trim()}…`;
+  if (firstUser.content.trim()) {
+    const trimmed = firstUser.content.trim();
+    if (trimmed.length <= 52) return trimmed;
+    return `${trimmed.slice(0, 52).trim()}…`;
+  }
+  const firstAtt = firstUser.attachments?.[0];
+  if (firstAtt) {
+    const label =
+      firstAtt.kind === 'image'
+        ? `Image: ${firstAtt.fileName}`
+        : firstAtt.kind === 'video'
+          ? `Video: ${firstAtt.fileName}`
+          : firstAtt.fileName;
+    return label.length <= 52 ? label : `${label.slice(0, 52).trim()}…`;
+  }
+  return 'New chat';
 }
 
 export function previewFromMessages(messages: StoredAysopMessage[]): string | null {
-  const last = [...messages].reverse().find((m) => m.content.trim());
+  const last = [...messages]
+    .reverse()
+    .find((m) => m.content.trim() || (m.attachments?.length ?? 0) > 0);
   if (!last) return null;
-  const t = last.content.trim();
-  return t.length <= 80 ? t : `${t.slice(0, 80).trim()}…`;
+  if (last.content.trim()) {
+    const t = last.content.trim();
+    return t.length <= 80 ? t : `${t.slice(0, 80).trim()}…`;
+  }
+  const att = last.attachments?.[0];
+  if (!att) return null;
+  if (att.kind === 'image') return `Image: ${att.fileName}`;
+  if (att.kind === 'video') return `Video: ${att.fileName}`;
+  return `File: ${att.fileName}`;
 }
 
 export type ChatDateGroup = 'Today' | 'Yesterday' | 'Previous 7 Days' | 'Previous 30 Days' | 'Older';

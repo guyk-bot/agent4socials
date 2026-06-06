@@ -3,12 +3,19 @@ import { BRAND_NAME } from '@/lib/site-brand-assets';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { runAysopChat } from '@/lib/ai/aysop-chat-core';
 import { trackUsage } from '@/lib/usage-tracking';
+import { normalizeChatAttachments } from '@/lib/ai/aysop-attachments';
 
 export const maxDuration = 60;
 
+function messageHasBody(m: { content?: string; attachments?: unknown }): boolean {
+  const text = typeof m.content === 'string' ? m.content.trim() : '';
+  const attachments = normalizeChatAttachments(m.attachments);
+  return text.length > 0 || attachments.length > 0;
+}
+
 /**
  * POST /api/ai/aysop-chat
- * Body: { messages: { role: 'user'|'assistant', content: string }[] }
+ * Body: { messages: { role, content, attachments? }[] }
  */
 export async function POST(request: NextRequest) {
   if (!process.env.OPENAI_API_KEY?.trim()) {
@@ -24,13 +31,17 @@ export async function POST(request: NextRequest) {
   }
 
   const body = (await request.json()) as {
-    messages?: Array<{ role?: string; content?: string }>;
+    messages?: Array<{ role?: string; content?: string; attachments?: unknown }>;
   };
 
   const messages = (body.messages ?? [])
-    .filter((m) => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
-    .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content!.trim() }))
-    .filter((m) => m.content.length > 0);
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      content: typeof m.content === 'string' ? m.content.trim() : '',
+      attachments: m.role === 'user' ? normalizeChatAttachments(m.attachments) : undefined,
+    }))
+    .filter(messageHasBody);
 
   if (messages.length === 0 || messages[messages.length - 1].role !== 'user') {
     return NextResponse.json({ message: 'Send at least one user message.' }, { status: 400 });

@@ -6,10 +6,19 @@
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const DEFAULT_MODEL = 'gpt-4.1-nano';
 
+export type OpenAIContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string; detail?: 'low' | 'high' | 'auto' } };
+
 export interface OpenAIChatMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: 'system' | 'assistant';
   content: string;
 }
+
+export type OpenAIUserMessage = {
+  role: 'user';
+  content: string | OpenAIContentPart[];
+};
 
 export interface OpenAIChatOptions {
   max_tokens?: number;
@@ -40,6 +49,7 @@ export type OpenAIToolCall = {
 
 export type OpenAIChatMessageWithTools =
   | OpenAIChatMessage
+  | OpenAIUserMessage
   | { role: 'assistant'; content: string | null; tool_calls?: OpenAIToolCall[] }
   | { role: 'tool'; tool_call_id: string; content: string };
 

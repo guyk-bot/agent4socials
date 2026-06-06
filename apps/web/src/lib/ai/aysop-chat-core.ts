@@ -12,6 +12,13 @@ import {
 import { prisma } from '@/lib/db';
 import { formatBrandContextForPrompt } from '@/lib/ai/brand-context-prompt';
 import { formatAppSurfaceCatalog } from '@/lib/ai/aysop-artifacts';
+import {
+  buildOpenAiUserContent,
+  threadHasImages,
+  type AysopChatInputMessage,
+} from '@/lib/ai/aysop-openai-messages';
+
+export type { AysopChatInputMessage };
 
 const MAX_TOOL_ROUNDS = 6;
 
@@ -54,6 +61,11 @@ function buildSystemPrompt(accountCatalog: string, brandContextBlock: string | n
     '- Offer keyword automations; confirm before saving.',
     '- Draft captions and open Composer for images, videos, carousels, or reels.',
     '',
+    'Attachments:',
+    '- Users can attach images, videos, and files. You can see image content directly.',
+    '- For videos and documents, use the filename and user message to help (caption ideas, content review, scheduling).',
+    '- Suggest opening Composer when they want to publish attached media.',
+    '',
     'When the user asks to see, open, or show anything in the app, call show_app_in_chat with the matching view. Combine with get_analytics_report_snapshot for platform-specific charts on dashboard/console.',
     '',
     'Conversation style:',
@@ -63,8 +75,6 @@ function buildSystemPrompt(accountCatalog: string, brandContextBlock: string | n
     'Plain text only in replies (no markdown bold). No em dashes.',
   ].join('\n');
 }
-
-export type AysopChatInputMessage = { role: 'user' | 'assistant'; content: string };
 
 export async function runAysopChat(args: {
   messages: AysopChatInputMessage[];
@@ -86,13 +96,24 @@ export async function runAysopChat(args: {
 
   const thread: OpenAIChatMessageWithTools[] = [
     { role: 'system', content: buildSystemPrompt(formatAccountCatalog(accounts), brandBlock) },
-    ...args.messages.map((m) => ({ role: m.role, content: m.content })),
+    ...args.messages.map((m) => {
+      if (m.role === 'assistant') return { role: 'assistant' as const, content: m.content };
+      const content = buildOpenAiUserContent(m);
+      return { role: 'user' as const, content };
+    }),
   ];
 
   const artifacts: AysopArtifact[] = [];
+  const visionModel =
+    process.env.OPENAI_VISION_MODEL?.trim() ||
+    process.env.OPENAI_CHAT_VISION_MODEL?.trim() ||
+    'gpt-4.1-mini';
+  const chatOptions = threadHasImages(args.messages)
+    ? { max_tokens: 900, model: visionModel }
+    : { max_tokens: 900 };
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    const res = await openAiChatWithTools(thread, AYSOP_TOOL_DEFINITIONS, { max_tokens: 900 });
+    const res = await openAiChatWithTools(thread, AYSOP_TOOL_DEFINITIONS, chatOptions);
     const assistantMsg = res.message;
 
     if (!assistantMsg.tool_calls?.length) {
