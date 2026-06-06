@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CheckCircle2, Loader2, Send } from 'lucide-react';
+import { CalendarClock, CheckCircle2, Loader2, Send } from 'lucide-react';
 import api from '@/lib/api';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 import { ComposerOpenLink } from '@/components/aysop/ComposerOpenLink';
@@ -21,8 +21,11 @@ const PLATFORM_ACCENT: Record<string, string> = {
 
 export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
   const [confirming, setConfirming] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
+  const [scheduleAt, setScheduleAt] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
+  const [scheduled, setScheduled] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,7 +33,7 @@ export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
   const handle = draft.username ? `@${draft.username.replace(/^@/, '')}` : 'Your account';
 
   const handlePublish = async () => {
-    if (!draft.canPublishFromChat || publishing || published) return;
+    if (!draft.canPublishFromChat || publishing || published || scheduled) return;
     setPublishing(true);
     setError(null);
     setStatus(null);
@@ -45,11 +48,41 @@ export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
       await api.post(`/posts/${postId}/publish`, {});
       setPublished(true);
       setConfirming(false);
+      setScheduling(false);
       setStatus('Publishing started. Check History for live status.');
     } catch (e) {
       const msg =
         (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         'Could not publish. Try Open Composer or History.';
+      setError(msg);
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleSchedule = async () => {
+    if (!draft.canPublishFromChat || publishing || published || scheduled || !scheduleAt) return;
+    setPublishing(true);
+    setError(null);
+    setStatus(null);
+    try {
+      const iso = new Date(scheduleAt).toISOString();
+      await api.post('/posts', {
+        content: draft.caption,
+        mediaType: 'text',
+        media: [],
+        targets: [{ platform: draft.platform, socialAccountId: draft.accountId }],
+        scheduledAt: iso,
+        scheduleDelivery: 'auto',
+      });
+      setScheduled(true);
+      setConfirming(false);
+      setScheduling(false);
+      setStatus(`Scheduled for ${new Date(scheduleAt).toLocaleString()}.`);
+    } catch (e) {
+      const msg =
+        (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Could not schedule. Try Calendar or Composer.';
       setError(msg);
     } finally {
       setPublishing(false);
@@ -96,29 +129,48 @@ export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
 
       <div className="p-3 flex flex-wrap items-center gap-2">
         {draft.canPublishFromChat ? (
-          published ? (
+          published || scheduled ? (
             <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-300">
               <CheckCircle2 size={14} />
-              Approved and publishing
+              {scheduled ? 'Scheduled' : 'Approved and publishing'}
             </span>
-          ) : confirming ? (
+          ) : confirming || scheduling ? (
             <div className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 p-2.5 space-y-2">
               <p className="text-xs text-neutral-700 dark:text-neutral-300">
-                Publish this post to {draft.platformLabel}?
+                {scheduling
+                  ? `Schedule this post to ${draft.platformLabel}?`
+                  : `Publish this post to ${draft.platformLabel} now?`}
               </p>
+              {scheduling ? (
+                <input
+                  type="datetime-local"
+                  value={scheduleAt}
+                  onChange={(e) => setScheduleAt(e.target.value)}
+                  className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2.5 py-2 text-xs"
+                />
+              ) : null}
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => void handlePublish()}
-                  disabled={publishing}
+                  onClick={() => void (scheduling ? handleSchedule() : handlePublish())}
+                  disabled={publishing || (scheduling && !scheduleAt)}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--dark)] text-chrome-text px-3 py-1.5 text-xs font-medium hover:opacity-90 disabled:opacity-50"
                 >
-                  {publishing ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                  Yes, publish
+                  {publishing ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : scheduling ? (
+                    <CalendarClock size={14} />
+                  ) : (
+                    <Send size={14} />
+                  )}
+                  {scheduling ? 'Confirm schedule' : 'Yes, publish'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setConfirming(false)}
+                  onClick={() => {
+                    setConfirming(false);
+                    setScheduling(false);
+                  }}
                   disabled={publishing}
                   className="rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-50"
                 >
@@ -127,14 +179,30 @@ export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
               </div>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => setConfirming(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--dark)] text-chrome-text px-3 py-2 text-xs font-medium hover:opacity-90"
-            >
-              <Send size={14} />
-              Approve & publish
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirming(true);
+                  setScheduling(false);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--dark)] text-chrome-text px-3 py-2 text-xs font-medium hover:opacity-90"
+              >
+                <Send size={14} />
+                Approve & publish
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setScheduling(true);
+                  setConfirming(false);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              >
+                <CalendarClock size={14} />
+                Schedule
+              </button>
+            </>
           )
         ) : (
           <p className="text-xs text-amber-700 dark:text-amber-300">

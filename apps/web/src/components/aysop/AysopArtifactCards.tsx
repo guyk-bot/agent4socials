@@ -22,6 +22,10 @@ import { AysopAnalyticsReportCard } from '@/components/aysop/AysopAnalyticsRepor
 import { AysopComposerPostDraftCard } from '@/components/aysop/AysopComposerPostDraftCard';
 import { AysopComposerSessionDraftCard } from '@/components/aysop/AysopComposerSessionDraftCard';
 import { ComposerOpenLink } from '@/components/aysop/ComposerOpenLink';
+import { AysopInChatAutomationCard } from '@/components/aysop/AysopInChatAutomationCard';
+import { AysopInChatCommentsCard } from '@/components/aysop/AysopInChatCommentsCard';
+import { AysopInChatConnectCard } from '@/components/aysop/AysopInChatConnectCard';
+import { AysopInChatInboxFeedCard } from '@/components/aysop/AysopInChatInboxFeedCard';
 import { PostContentPreviewThumb } from '@/components/PostContentPreviewThumb';
 
 const VIEW_ICONS: Partial<Record<AppViewId, React.ReactNode>> = {
@@ -244,47 +248,22 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
 
         if (a.type === 'comments') {
           rendered.add(key);
-          return (
-            <div key={key} className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/80 p-3 text-sm">
-              <p className="font-medium text-neutral-800 dark:text-neutral-200 mb-2">Comments on: {a.postPreview}</p>
-              <ul className="space-y-2 max-h-48 overflow-y-auto">
-                {a.comments.map((c, j) => (
-                  <li key={j} className="border-l-2 border-[var(--primary)] pl-2">
-                    <span className="font-medium text-neutral-700 dark:text-neutral-300">{String(c.authorName ?? 'User')}</span>
-                    <p className="text-neutral-600 dark:text-neutral-400">{String(c.text ?? '')}</p>
-                  </li>
-                ))}
-              </ul>
-              <OpenLink href="/dashboard/inbox" label="Open Inbox" />
-            </div>
-          );
+          return <AysopInChatCommentsCard key={key} artifact={a} />;
+        }
+
+        if (a.type === 'inbox_feed') {
+          rendered.add(key);
+          return <AysopInChatInboxFeedCard key={key} artifact={a} />;
+        }
+
+        if (a.type === 'connect_platforms') {
+          rendered.add(key);
+          return <AysopInChatConnectCard key={key} artifact={a} />;
         }
 
         if (a.type === 'automation') {
           rendered.add(key);
-          const steps = Array.isArray(a.keywordSteps) ? a.keywordSteps : [];
-          return (
-            <div key={key} className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 text-sm">
-              <p className="font-medium text-neutral-800 dark:text-neutral-200 mb-1">Keyword automation</p>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-2">
-                Welcome DM: {a.dmWelcomeEnabled ? 'On' : 'Off'} · {steps.length} keyword rule(s)
-              </p>
-              {steps.length > 0 ? (
-                <ul className="space-y-1.5 max-h-40 overflow-y-auto text-xs">
-                  {steps.map((s, j) => {
-                    const step = s as { keyword?: string; replyTemplate?: string };
-                    return (
-                      <li key={j} className="rounded-lg bg-neutral-50 dark:bg-neutral-800/60 px-2 py-1.5 border border-neutral-100 dark:border-neutral-700">
-                        <span className="font-medium text-neutral-800 dark:text-neutral-200">{String(step.keyword ?? 'Keyword')}</span>
-                        <span className="text-neutral-500 dark:text-neutral-400"> → {String(step.replyTemplate ?? '').slice(0, 80)}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : null}
-              <OpenLink href={a.href} label="Open Automation" />
-            </div>
-          );
+          return <AysopInChatAutomationCard key={key} artifact={a} />;
         }
 
         if (a.type === 'scheduled_posts') {

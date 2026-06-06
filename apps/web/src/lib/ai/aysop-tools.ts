@@ -34,6 +34,7 @@ import {
   inferComposerMediaType,
   type AysopComposerDraftPayload,
 } from '@/lib/composer/aysop-composer-draft-bridge';
+import { AYSOP_CONNECT_PLATFORMS } from '@/lib/ai/aysop-connect-platforms';
 
 export type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 
@@ -197,7 +198,7 @@ async function findLatestPost(userId: string, accountId?: string | null) {
   });
 }
 
-function commentToPublic(row: InboxCommentRow) {
+function commentToPublic(row: InboxCommentRow, platform?: string) {
   return {
     commentId: row.commentId,
     authorName: row.authorName,
@@ -206,6 +207,68 @@ function commentToPublic(row: InboxCommentRow) {
     postPreview: row.postPreview,
     platformPostId: row.platformPostId,
     isFromMe: row.isFromMe ?? false,
+    platform,
+  };
+}
+
+async function buildConnectPlatformsArtifact(userId: string): Promise<
+  Extract<AysopArtifact, { type: 'connect_platforms' }>
+> {
+  const accounts = await prisma.socialAccount.findMany({
+    where: { userId },
+    select: { platform: true, username: true },
+    orderBy: { createdAt: 'asc' },
+  });
+  const byPlatform = new Map(accounts.map((a) => [a.platform, a.username]));
+  const connected = AYSOP_CONNECT_PLATFORMS.filter((p) => byPlatform.has(p.platform)).map((p) => ({
+    platform: p.platform,
+    name: p.name,
+    username: byPlatform.get(p.platform) ?? null,
+  }));
+  const missing = AYSOP_CONNECT_PLATFORMS.filter((p) => !byPlatform.has(p.platform)).map((p) => ({
+    platform: p.platform,
+    name: p.name,
+    slug: p.slug,
+  }));
+  return { type: 'connect_platforms', connected, missing };
+}
+
+async function buildRecentInboxArtifact(
+  userId: string,
+  limit: number,
+  platformFilter?: Platform | null
+): Promise<Extract<AysopArtifact, { type: 'inbox_feed' }>> {
+  const accounts = await prisma.socialAccount.findMany({
+    where: {
+      userId,
+      ...(platformFilter ? { platform: platformFilter } : {}),
+    },
+    select: { id: true, platform: true },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  const items: Extract<AysopArtifact, { type: 'inbox_feed' }>['items'] = [];
+  for (const acc of accounts) {
+    const cached = (await getInboxCommentsFromDb(acc.id)) ?? [];
+    for (const row of cached) {
+      if (row.isFromMe) continue;
+      items.push({
+        accountId: acc.id,
+        platform: platformLabel(acc.platform),
+        commentId: row.commentId,
+        authorName: row.authorName,
+        text: row.text,
+        postPreview: row.postPreview ?? 'Post',
+        createdAt: row.createdAt,
+      });
+    }
+  }
+
+  items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  return {
+    type: 'inbox_feed',
+    items: items.slice(0, Math.min(Math.max(limit, 1), 25)),
   };
 }
 
@@ -488,6 +551,31 @@ export const AYSOP_TOOL_DEFINITIONS = [
   {
     type: 'function' as const,
     function: {
+      name: 'list_connect_platforms',
+      description:
+        'Show Connect buttons in chat for platforms not yet linked. Use when the user wants to connect, add, or link Instagram, TikTok, Facebook, etc.',
+      parameters: { type: 'object', properties: {}, additionalProperties: false },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'list_recent_inbox',
+      description:
+        'Show recent comments from Inbox with inline Reply in chat buttons. Use for messages, comments, inbox, or replying without opening Inbox.',
+      parameters: {
+        type: 'object',
+        properties: {
+          platform: platformParam,
+          limit: { type: 'number', description: 'Max items (default 12, max 25)' },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
       name: 'get_keyword_automation',
       description: 'Read saved keyword comment automation steps for the user.',
       parameters: { type: 'object', properties: {}, additionalProperties: false },
@@ -520,7 +608,7 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'show_app_in_chat',
       description:
-        'Show any app screen inline in chat with previews and an open link. Views: dashboard, console, inbox, composer, calendar, posts_history, automation, reports, smart_links, hashtag_pool, ai_assistant, account. Use when the user asks to open, see, or show any page, graph, feature, or tool in the app.',
+        'Preview an app screen in chat. Prefer actionable tools (connect, automation, drafts, inbox, schedule) so the user can complete tasks in chat. Only use when they explicitly want the full page UI.',
       parameters: {
         type: 'object',
         properties: {
@@ -707,9 +795,34 @@ export async function runAysopTool(
         select: { id: true, platform: true, username: true },
         orderBy: { createdAt: 'asc' },
       });
+      const connectArtifact = await buildConnectPlatformsArtifact(ctx.userId);
       return {
-        result: { accounts },
-        artifacts: [{ type: 'accounts', accounts }],
+        result: { accounts, missingPlatforms: connectArtifact.missing.map((m) => m.name) },
+        artifacts: [
+          { type: 'accounts', accounts },
+          ...(connectArtifact.missing.length ? [connectArtifact] : []),
+        ],
+      };
+    }
+
+    case 'list_connect_platforms': {
+      const artifact = await buildConnectPlatformsArtifact(ctx.userId);
+      return {
+        result: {
+          connected: artifact.connected,
+          missing: artifact.missing,
+        },
+        artifacts: [artifact],
+      };
+    }
+
+    case 'list_recent_inbox': {
+      const limit = Math.min(Math.max(Number(args.limit) || 12, 1), 25);
+      const platform = normalizePlatformArg(args.platform as string | undefined);
+      const artifact = await buildRecentInboxArtifact(ctx.userId, limit, platform);
+      return {
+        result: { count: artifact.items.length, items: artifact.items },
+        artifacts: [artifact],
       };
     }
 
@@ -835,13 +948,13 @@ export async function runAysopTool(
       }
 
       if (!accountId) throw new Error('Could not resolve account for comments.');
-      await assertAccount(ctx.userId, accountId);
+      const account = await assertAccount(ctx.userId, accountId);
 
       const cached = (await getInboxCommentsFromDb(accountId)) ?? [];
       const filtered = cached
         .filter((c) => c.platformPostId === platformPostId && !c.isFromMe)
         .slice(0, limit)
-        .map(commentToPublic);
+        .map((row) => commentToPublic(row, platformLabel(account.platform)));
       const postPreview =
         cached.find((c) => c.platformPostId === platformPostId)?.postPreview ??
         (await prisma.importedPost.findFirst({
@@ -872,7 +985,7 @@ export async function runAysopTool(
       const dmWelcomeEnabled = raw.dmWelcomeEnabled === true;
       return {
         result: { keywordSteps: steps, dmWelcomeEnabled },
-        artifacts: [{ type: 'automation', keywordSteps: steps, dmWelcomeEnabled, href: '/dashboard/automation' }],
+        artifacts: [{ type: 'automation', keywordSteps: steps, dmWelcomeEnabled }],
       };
     }
 
@@ -899,9 +1012,15 @@ export async function runAysopTool(
           },
         },
       });
+      const dmWelcomeEnabled = raw.dmWelcomeEnabled === true;
       return {
         result: { saved: true, keyword, platforms },
         artifacts: [
+          {
+            type: 'automation',
+            keywordSteps: steps,
+            dmWelcomeEnabled,
+          },
           {
             type: 'action_result',
             action: 'save_keyword_automation',

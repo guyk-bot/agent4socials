@@ -6,7 +6,7 @@ import {
   titleFromMessages,
   type AysopChatSessionSummary,
 } from '@/lib/ai/aysop-chat-sessions';
-import { normalizeStoredMessages } from '@/lib/ai/aysop-chat-persist';
+import { normalizeStoredMessages, hasConversation } from '@/lib/ai/aysop-chat-persist';
 import type { StoredAysopMessage } from '@/lib/ai/aysop-chat-sessions';
 
 export type AysopChatSessionRow = AysopChatSessionSummary & {

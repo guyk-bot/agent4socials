@@ -41,7 +41,24 @@ export type AysopArtifact =
       type: 'automation';
       keywordSteps: unknown[];
       dmWelcomeEnabled: boolean;
-      href: string;
+      href?: string;
+    }
+  | {
+      type: 'connect_platforms';
+      connected: Array<{ platform: string; name: string; username: string | null }>;
+      missing: Array<{ platform: string; name: string; slug: string }>;
+    }
+  | {
+      type: 'inbox_feed';
+      items: Array<{
+        accountId: string;
+        platform: string;
+        commentId: string;
+        authorName: string | null;
+        text: string;
+        postPreview: string;
+        createdAt: string;
+      }>;
     }
   | {
       type: 'composer_post_draft';
