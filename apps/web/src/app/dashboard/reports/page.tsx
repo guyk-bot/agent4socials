@@ -280,7 +280,7 @@ export default function ReportsPage() {
               type="button"
               onClick={() => handleDownload('simple')}
               disabled={busy}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-semibold text-sm disabled:opacity-50 transition-all shadow-sm"
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-chrome-text font-semibold text-sm disabled:opacity-50 transition-all shadow-sm"
             >
               {loadingKind === 'simple' ? (
                 <><Loader2 size={16} className="animate-spin" />Generating...</>
@@ -297,7 +297,7 @@ export default function ReportsPage() {
           <div className="p-5 flex-1 space-y-3">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <span className="text-xs font-semibold uppercase tracking-wide text-white gradient-cta-pro px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+                <span className="text-xs font-semibold uppercase tracking-wide text-chrome-text gradient-cta-pro px-2 py-0.5 rounded-full inline-flex items-center gap-1">
                   <Sparkles size={10} />
                   Pro
                 </span>
@@ -342,7 +342,7 @@ export default function ReportsPage() {
               type="button"
               onClick={() => handleDownload('advanced')}
               disabled={busy}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl gradient-cta-pro text-white font-semibold text-sm disabled:opacity-50 transition-all shadow-sm hover:opacity-90"
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl gradient-cta-pro text-chrome-text font-semibold text-sm disabled:opacity-50 transition-all shadow-sm hover:opacity-90"
             >
               {loadingKind === 'advanced' ? (
                 <><Loader2 size={16} className="animate-spin" />Generating...</>

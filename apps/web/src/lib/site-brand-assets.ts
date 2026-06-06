@@ -15,6 +15,9 @@ export function normalizeLegacyBrandName(name: string): string {
 /** Header / chrome background; must match the logo mark square (no opacity on headers). */
 export const BRAND_HEADER_BG = '#170027';
 
+/** Off-white copy on dark chrome (headers, funnel footer, dark marketing pages). */
+export const BRAND_CHROME_TEXT = '#fcf7ff';
+
 /** Static path for next/image (no query string; see next.config images.localPatterns). */
 export const SITE_LOGO_PATH = '/logo-mark.png';
 

@@ -269,7 +269,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
             >
               <Icon size={iconSize} softenOnLight />
               <span
-                className="absolute flex items-center justify-center rounded-full text-[9px] font-bold text-white"
+                className="absolute flex items-center justify-center rounded-full text-[9px] font-bold text-chrome-text"
                 style={{
                   minWidth: isMobile ? 13 : 15,
                   height: isMobile ? 13 : 15,
@@ -354,7 +354,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={openSignup}
-                className="group inline-flex min-w-[196px] items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#1C9CFB_0%,#FA8DDF_100%)] px-8 py-3.5 text-base font-semibold text-white shadow-[0_10px_30px_rgba(28, 156, 251,0.24)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_35px_rgba(250, 141, 223,0.28)] active:translate-y-0"
+                className="group inline-flex min-w-[196px] items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#1C9CFB_0%,#FA8DDF_100%)] px-8 py-3.5 text-base font-semibold text-chrome-text shadow-[0_10px_30px_rgba(28, 156, 251,0.24)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_35px_rgba(250, 141, 223,0.28)] active:translate-y-0"
               >
                 Get started free
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -465,7 +465,7 @@ export default function Home() {
                     <div className="flex h-24 w-24 items-center justify-center rounded-[20px] border border-[#C8E4FF] bg-white text-[#1C9CFB] shadow-sm transition-all duration-300 group-hover:shadow-md group-hover:-translate-y-1">
                       <Icon className="h-10 w-10" />
                     </div>
-                    <div className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-[linear-gradient(135deg,#1C9CFB,#FA8DDF)] text-[10px] font-black text-white">{step}</div>
+                    <div className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-[linear-gradient(135deg,#1C9CFB,#FA8DDF)] text-[10px] font-black text-chrome-text">{step}</div>
                   </div>
                   <h3 className="text-xl font-semibold text-[#1a161f] mb-3">{title}</h3>
                   <p className="text-sm text-[#5d5768] leading-relaxed max-w-xs">{desc}</p>
@@ -488,7 +488,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={openSignup}
-                  className="group inline-flex items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#1C9CFB,#FA8DDF)] px-8 py-4 text-base font-semibold text-white shadow-[0_10px_24px_rgba(28, 156, 251,0.26)] transition-all duration-300 hover:opacity-95 hover:scale-[1.03] active:scale-[0.98]"
+                  className="group inline-flex items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#1C9CFB,#FA8DDF)] px-8 py-4 text-base font-semibold text-chrome-text shadow-[0_10px_24px_rgba(28, 156, 251,0.26)] transition-all duration-300 hover:opacity-95 hover:scale-[1.03] active:scale-[0.98]"
                 >
                   Get started free
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -593,7 +593,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={openSignup}
-                className="group inline-flex items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#1C9CFB,#FA8DDF)] px-8 py-4 text-base font-semibold text-white shadow-[0_10px_24px_rgba(28, 156, 251,0.28)] transition-all duration-300 hover:opacity-95 hover:scale-[1.03] active:scale-[0.98]"
+                className="group inline-flex items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#1C9CFB,#FA8DDF)] px-8 py-4 text-base font-semibold text-chrome-text shadow-[0_10px_24px_rgba(28, 156, 251,0.28)] transition-all duration-300 hover:opacity-95 hover:scale-[1.03] active:scale-[0.98]"
               >
                 Get started free
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

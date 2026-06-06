@@ -56,17 +56,17 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
 
   const navLinkClass = (active: boolean) =>
     `relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-0 ${
-      active ? 'bg-white/15 text-white' : 'text-neutral-300 hover:text-white hover:bg-white/10'
+      active ? 'bg-white/15 text-chrome-text' : 'text-chrome-text/70 hover:text-chrome-text hover:bg-white/10'
     }`;
 
   return (
-    <header className="h-full w-full flex items-center justify-between px-4 sm:px-6 bg-[var(--dark)] text-white border-b border-white/10 pointer-events-auto">
+    <header className="h-full w-full flex items-center justify-between px-4 sm:px-6 bg-[var(--dark)] text-chrome-text border-b border-white/10 pointer-events-auto">
       <div className="flex items-center gap-2 md:gap-8 min-w-0">
         {onSidebarToggle && (
           <button
             type="button"
             onClick={onSidebarToggle}
-            className="md:hidden p-2 -ml-1 rounded-lg text-neutral-300 hover:text-white hover:bg-white/10"
+            className="md:hidden p-2 -ml-1 rounded-lg text-chrome-text/70 hover:text-chrome-text hover:bg-white/10"
             aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
           >
             {sidebarOpen ? <PanelLeftClose size={22} /> : <PanelLeft size={22} />}
@@ -78,7 +78,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
           ) : (
             <img src={SITE_LOGO_SRC} alt={BRAND_NAME} className="h-7 w-7 sm:h-8 sm:w-8 object-contain block bg-transparent" />
           )}
-          <span className="font-semibold text-white hidden sm:inline truncate">{displayAppName}</span>
+          <span className="font-semibold text-chrome-text hidden sm:inline truncate">{displayAppName}</span>
         </Link>
         <nav className="hidden md:flex items-center gap-1">
           {topNavItems.map((item) => {
@@ -105,7 +105,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
                 {badge > 0 && (
                   <span
                     title={inboxBadgeTitle}
-                    className="absolute -top-0.5 -right-0.5 min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold"
+                    className="absolute -top-0.5 -right-0.5 min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-chrome-text text-xs font-bold"
                   >
                     {badge > 99 ? '99' : badge}
                   </span>
@@ -132,7 +132,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
         <button
           type="button"
           onClick={toggleTheme}
-          className="p-2 rounded-lg text-neutral-300 hover:text-white hover:bg-white/10 transition-colors"
+          className="p-2 rounded-lg text-chrome-text/70 hover:text-chrome-text hover:bg-white/10 transition-colors"
           aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
         >
@@ -140,7 +140,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
         </button>
         <Link
           href="/dashboard/account"
-          className="flex items-stretch w-9 h-9 rounded-full overflow-hidden border-2 border-neutral-600 text-neutral-300 hover:text-white hover:border-neutral-500 hover:bg-white/10 transition-colors shrink-0"
+          className="flex items-stretch w-9 h-9 rounded-full overflow-hidden border-2 border-neutral-600 text-chrome-text/70 hover:text-chrome-text hover:border-neutral-500 hover:bg-white/10 transition-colors shrink-0"
           title="Account"
           aria-label="Account"
         >
@@ -155,7 +155,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
         <button
           type="button"
           onClick={() => setTopNavOpen((v) => !v)}
-          className="md:hidden p-2 rounded-lg text-neutral-300 hover:text-white hover:bg-white/10"
+          className="md:hidden p-2 rounded-lg text-chrome-text/70 hover:text-chrome-text hover:bg-white/10"
           aria-label="Open menu"
           aria-expanded={topNavOpen}
         >
@@ -166,7 +166,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
             <Link
               href="/dashboard/account"
               onClick={() => setTopNavOpen(false)}
-              className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${isAccountPage ? 'bg-white/15 text-white' : 'text-neutral-300 hover:text-white hover:bg-white/10'}`}
+              className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${isAccountPage ? 'bg-white/15 text-chrome-text' : 'text-chrome-text/70 hover:text-chrome-text hover:bg-white/10'}`}
             >
               {user?.avatarUrl ? (
                 <img src={user.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
@@ -195,7 +195,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
                     ? `${badge} unread`
                     : undefined;
               const mobileLinkClass = `flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${
-                isActive ? 'bg-white/15 text-white' : 'text-neutral-300 hover:text-white hover:bg-white/10'
+                isActive ? 'bg-white/15 text-chrome-text' : 'text-chrome-text/70 hover:text-chrome-text hover:bg-white/10'
               }`;
               return (
                 <Link
@@ -211,7 +211,7 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
                   {badge > 0 && (
                     <span
                       title={inboxBadgeTitle}
-                      className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold"
+                      className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-chrome-text text-xs font-bold"
                     >
                       {badge > 99 ? '99' : badge}
                     </span>

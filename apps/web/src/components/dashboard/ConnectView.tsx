@@ -260,7 +260,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
               <li className="flex items-center gap-2"><Check size={13} className="text-green-500 shrink-0" /> Posts &amp; analytics</li>
               <li className="flex items-center gap-2"><Check size={13} className="text-green-500 shrink-0" /> Comments &amp; messages</li>
             </ul>
-            <div className={`mt-5 flex justify-center items-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r ${info.buttonGradient} ${info.buttonHover} transition-all`}>
+            <div className={`mt-5 flex justify-center items-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold text-chrome-text bg-gradient-to-r ${info.buttonGradient} ${info.buttonHover} transition-all`}>
               {connecting && connectingMethod === 'instagram' ? <Loader2 size={15} className="animate-spin" /> : 'Connect'}
             </div>
           </button>
@@ -285,7 +285,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
               <li className="flex items-center gap-2"><Check size={13} className="text-green-500 shrink-0" /> Messages &amp; comments</li>
               <li className="flex items-center gap-2"><Check size={13} className="text-green-500 shrink-0" /> All Instagram features</li>
             </ul>
-            <div className="mt-5 flex justify-center items-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 transition-all">
+            <div className="mt-5 flex justify-center items-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold text-chrome-text bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 transition-all">
               {connecting && !connectingMethod ? <Loader2 size={15} className="animate-spin" /> : 'Connect with Facebook'}
             </div>
           </button>
@@ -326,7 +326,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
               type="button"
               onClick={() => onConnect(platformLower)}
               disabled={connecting}
-              className={`mt-6 w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-sm font-semibold text-white bg-gradient-to-r ${info.buttonGradient} ${info.buttonHover} transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed`}
+              className={`mt-6 w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-sm font-semibold text-chrome-text bg-gradient-to-r ${info.buttonGradient} ${info.buttonHover} transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed`}
             >
               {connecting && connectingMethod !== 'switch' ? (
                 <Loader2 size={18} className="animate-spin" />
@@ -388,7 +388,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
                   type="button"
                   onClick={() => onConnect('tiktok', method)}
                   disabled={connecting}
-                  className="connect-tiktok-btn w-full flex items-center justify-center gap-2.5 py-3 px-5 rounded-xl border-2 border-black bg-black text-white font-semibold text-sm transition-all hover:bg-neutral-900 hover:border-neutral-900 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="connect-tiktok-btn w-full flex items-center justify-center gap-2.5 py-3 px-5 rounded-xl border-2 border-black bg-black text-chrome-text font-semibold text-sm transition-all hover:bg-neutral-900 hover:border-neutral-900 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {connecting && connectingMethod === method ? (
                     <Loader2 size={18} className="animate-spin" />
@@ -427,7 +427,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
           type="button"
           onClick={() => onConnect(platformLower)}
           disabled={connecting}
-          className={`mt-6 w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-sm font-semibold text-white bg-gradient-to-r ${info.buttonGradient} ${info.buttonHover} transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed`}
+          className={`mt-6 w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-sm font-semibold text-chrome-text bg-gradient-to-r ${info.buttonGradient} ${info.buttonHover} transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed`}
         >
           {connecting ? <Loader2 size={18} className="animate-spin" /> : null}
           Connect {info.buttonLabel ?? info.name}

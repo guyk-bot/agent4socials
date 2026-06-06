@@ -181,7 +181,7 @@ export function SummaryDashboard() {
         <div className="rounded-2xl bg-gradient-to-r from-[#1C9CFB] to-[#FA8DDF] px-5 py-3 flex items-center gap-3 shadow-md">
           <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-white text-sm font-medium">Syncing data from all connected accounts…</p>
+            <p className="text-chrome-text text-sm font-medium">Syncing data from all connected accounts…</p>
             <div className="mt-1.5 h-1.5 rounded-full bg-white/20 overflow-hidden">
               <div
                 className="h-full rounded-full bg-white transition-all duration-500"
@@ -189,7 +189,7 @@ export function SummaryDashboard() {
               />
             </div>
           </div>
-          <span className="text-white/70 text-xs tabular-nums shrink-0">{syncProgress}%</span>
+          <span className="text-chrome-text/70 text-xs tabular-nums shrink-0">{syncProgress}%</span>
         </div>
       )}
 

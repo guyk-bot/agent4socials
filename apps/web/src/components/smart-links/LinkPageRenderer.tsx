@@ -135,7 +135,7 @@ function Carousel({
               e.stopPropagation();
               setIndex((i) => (i - 1 + n) % n);
             }}
-            className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-chrome-text flex items-center justify-center hover:bg-black/60 transition-colors"
             aria-label="Previous"
           >
             <ChevronLeft size={20} />
@@ -147,7 +147,7 @@ function Carousel({
               e.stopPropagation();
               setIndex((i) => (i + 1) % n);
             }}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-white flex items-center justify-center hover:bg-black/60 transition-colors"
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/40 text-chrome-text flex items-center justify-center hover:bg-black/60 transition-colors"
             aria-label="Next"
           >
             <ChevronRight size={20} />

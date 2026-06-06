@@ -8,7 +8,7 @@ import SiteFooter from '@/components/landing/SiteFooter';
  */
 export default function HelpAutomationPage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-slate-950 text-chrome-text">
       <SiteHeader />
       <main className="mx-auto max-w-3xl px-4 pt-24 pb-20 sm:px-6">
         <h1 className="text-3xl font-bold sm:text-4xl">Automation &amp; quotas</h1>
@@ -22,21 +22,21 @@ export default function HelpAutomationPage() {
 
         <div className="mt-10 space-y-8 text-slate-300 leading-relaxed">
           <section>
-            <h2 className="text-xl font-semibold text-white">What is automated</h2>
+            <h2 className="text-xl font-semibold text-chrome-text">What is automated</h2>
             <p className="mt-3">
               Keyword-based comment replies (and optional Instagram DM flows where you configure them) for connected Instagram, Facebook, X, YouTube, and LinkedIn accounts on posts you published through iZop. TikTok keyword automation may be available for some business accounts. Other platforms may have inbox or manual tools but are outside this keyword automation path unless we document otherwise.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white">When it runs</h2>
+            <h2 className="text-xl font-semibold text-chrome-text">When it runs</h2>
             <p className="mt-3">
               On a schedule you configure (for example Vercel Cron or cron-job.org calling our API with your secret). You can also trigger runs from the dashboard. We do not guarantee a specific latency between a comment appearing on a platform and our reply being sent.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white">Technical limits (per automation run)</h2>
+            <h2 className="text-xl font-semibold text-chrome-text">Technical limits (per automation run)</h2>
             <p className="mt-3">
               Each run is intentionally bounded so jobs complete and third-party APIs are not overloaded. Defaults below can be changed by the service operator using environment variables on the deployment (see operator docs in the codebase:{' '}
               <code className="text-slate-200">apps/web/docs/COMMENT_AUTOMATION.md</code>
@@ -46,9 +46,9 @@ export default function HelpAutomationPage() {
               <table className="w-full min-w-[520px] text-left text-sm">
                 <thead className="border-b border-slate-700 bg-slate-900/80">
                   <tr>
-                    <th className="p-3 font-semibold text-white">Setting</th>
-                    <th className="p-3 font-semibold text-white">Default</th>
-                    <th className="p-3 font-semibold text-white">Meaning</th>
+                    <th className="p-3 font-semibold text-chrome-text">Setting</th>
+                    <th className="p-3 font-semibold text-chrome-text">Default</th>
+                    <th className="p-3 font-semibold text-chrome-text">Meaning</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
@@ -91,7 +91,7 @@ export default function HelpAutomationPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white">Your compliance</h2>
+            <h2 className="text-xl font-semibold text-chrome-text">Your compliance</h2>
             <p className="mt-3">
               You are solely responsible for keywords, reply text, frequency, and compliance with applicable law and each platform&apos;s terms, spam policies, automation rules, and advertising or messaging rules. We provide software only and do not vet your automations for legality or platform approval.
             </p>

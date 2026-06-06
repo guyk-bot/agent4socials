@@ -184,7 +184,7 @@ export function PlatformOverviewTab({
           <button
             type="button"
             onClick={onUpgrade}
-            className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 rounded-lg gradient-cta-pro text-white font-semibold text-sm hover:opacity-90 transition-opacity"
+            className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 rounded-lg gradient-cta-pro text-chrome-text font-semibold text-sm hover:opacity-90 transition-opacity"
           >
             Upgrade plan
           </button>
@@ -255,7 +255,7 @@ export function PlatformOverviewTab({
                       content={({ active, payload, label }) => {
                         if (!active || !payload?.length || !label) return null;
                         return (
-                          <div className="bg-[#111827] text-white text-xs rounded-lg px-2.5 py-2 shadow-xl" style={{ borderRadius: 8 }}>
+                          <div className="bg-[#111827] text-chrome-text text-xs rounded-lg px-2.5 py-2 shadow-xl" style={{ borderRadius: 8 }}>
                             <p className="text-neutral-300">{new Date(label).toLocaleDateString(undefined, { dateStyle: 'medium' })}</p>
                             <p className="font-medium mt-0.5">{followersLabel}: {typeof payload[0]?.value === 'number' ? payload[0].value.toLocaleString() : payload[0]?.value}</p>
                           </div>
@@ -323,7 +323,7 @@ export function PlatformOverviewTab({
                       content={({ active, payload, label }) => {
                         if (!active || !payload?.length || !label) return null;
                         return (
-                          <div className="bg-[#111827] text-white text-xs rounded-lg px-2.5 py-2 shadow-xl" style={{ borderRadius: 8 }}>
+                          <div className="bg-[#111827] text-chrome-text text-xs rounded-lg px-2.5 py-2 shadow-xl" style={{ borderRadius: 8 }}>
                             <p className="text-neutral-300">{new Date(label).toLocaleDateString(undefined, { dateStyle: 'medium' })}</p>
                             {payload.map((p) => (
                               <p key={p.name} className="font-medium mt-0.5">{p.name}: {typeof p.value === 'number' ? p.value.toLocaleString() : p.value}</p>
@@ -367,7 +367,7 @@ export function PlatformOverviewTab({
                       content={({ active, payload, label }) => {
                         if (!active || !payload?.length || !label) return null;
                         return (
-                          <div className="bg-[#111827] text-white text-xs rounded-lg px-2.5 py-2 shadow-xl" style={{ borderRadius: 8 }}>
+                          <div className="bg-[#111827] text-chrome-text text-xs rounded-lg px-2.5 py-2 shadow-xl" style={{ borderRadius: 8 }}>
                             <p className="text-neutral-300">{new Date(label).toLocaleDateString(undefined, { dateStyle: 'medium' })}</p>
                             <p className="font-medium mt-0.5">Posts: {(payload[0]?.value ?? 0) as number}</p>
                           </div>

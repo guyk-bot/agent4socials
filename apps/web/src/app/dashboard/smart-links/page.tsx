@@ -437,7 +437,7 @@ export default function SmartLinksPage() {
           <div className="p-5 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--primary)] to-[var(--secondary)] flex items-center justify-center">
-                <Link2 className="w-5 h-5 text-white" />
+                <Link2 className="w-5 h-5 text-chrome-text" />
               </div>
               <div>
                 <h1 className="text-lg font-bold text-slate-900">Smart Links</h1>
@@ -447,7 +447,7 @@ export default function SmartLinksPage() {
             <button
               onClick={handleSave}
               disabled={saving || loading}
-              className="px-4 py-2 bg-[var(--button)] text-white rounded-lg font-medium text-sm hover:bg-[var(--button-hover)] transition-colors flex items-center gap-2 disabled:opacity-50"
+              className="px-4 py-2 bg-[var(--button)] text-chrome-text rounded-lg font-medium text-sm hover:bg-[var(--button-hover)] transition-colors flex items-center gap-2 disabled:opacity-50"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               {loading ? 'Loading...' : 'Save'}
@@ -560,7 +560,7 @@ export default function SmartLinksPage() {
                         type="button"
                         onClick={() => avatarInputRef.current?.click()}
                         disabled={avatarUploading}
-                        className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[var(--button)] text-white flex items-center justify-center shadow hover:bg-[var(--button-hover)] disabled:opacity-50"
+                        className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[var(--button)] text-chrome-text flex items-center justify-center shadow hover:bg-[var(--button-hover)] disabled:opacity-50"
                         title="Upload profile photo (recommended: 400×400px square)"
                       >
                         {avatarUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
@@ -843,7 +843,7 @@ export default function SmartLinksPage() {
                                             const next = urls.filter((_, j) => j !== i);
                                             updateLink(link.id, { icon: JSON.stringify(next) });
                                           }}
-                                          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover/img:opacity-100"
+                                          className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-chrome-text text-xs flex items-center justify-center opacity-0 group-hover/img:opacity-100"
                                         >
                                           ×
                                         </button>
@@ -995,7 +995,7 @@ export default function SmartLinksPage() {
                       <button
                         key={bg}
                         onClick={() => updateDesign({ bgType: bg })}
-                        className={`px-2 py-1.5 rounded-lg text-xs font-medium capitalize ${data.design?.bgType === bg ? 'bg-[var(--button)] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        className={`px-2 py-1.5 rounded-lg text-xs font-medium capitalize ${data.design?.bgType === bg ? 'bg-[var(--button)] text-chrome-text' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                       >
                         {bg}
                       </button>
@@ -1111,7 +1111,7 @@ export default function SmartLinksPage() {
                       <button
                         key={sz}
                         onClick={() => updateDesign({ buttonSize: sz })}
-                        className={`px-3 py-2 rounded-lg text-xs font-medium capitalize ${(data.design?.buttonSize ?? 'medium') === sz ? 'bg-[var(--button)] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        className={`px-3 py-2 rounded-lg text-xs font-medium capitalize ${(data.design?.buttonSize ?? 'medium') === sz ? 'bg-[var(--button)] text-chrome-text' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                       >
                         {sz}
                       </button>
@@ -1127,7 +1127,7 @@ export default function SmartLinksPage() {
                       <button
                         key={style}
                         onClick={() => updateDesign({ buttonStyle: style as LinkPageDesign['buttonStyle'] })}
-                        className={`px-3 py-2 rounded-lg text-xs font-medium capitalize transition-all ${data.design?.buttonStyle === style ? 'bg-[var(--button)] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        className={`px-3 py-2 rounded-lg text-xs font-medium capitalize transition-all ${data.design?.buttonStyle === style ? 'bg-[var(--button)] text-chrome-text' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                       >
                         {style}
                       </button>
@@ -1188,7 +1188,7 @@ export default function SmartLinksPage() {
                       <button
                         key={anim}
                         onClick={() => updateDesign({ animation: anim as LinkPageDesign['animation'] })}
-                        className={`px-2 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${data.design?.animation === anim ? 'bg-[var(--button)] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        className={`px-2 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${data.design?.animation === anim ? 'bg-[var(--button)] text-chrome-text' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                       >
                         {anim}
                       </button>

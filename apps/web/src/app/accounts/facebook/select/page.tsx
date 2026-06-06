@@ -152,7 +152,7 @@ function FacebookSelectContent() {
             <button
               type="submit"
               disabled={!selectedId || submitting}
-              className="flex-1 py-2 rounded-lg font-medium text-white bg-[#1877F2] hover:bg-[#166FE5] active:bg-[#145BCC] disabled:opacity-50 transition-colors flex items-center justify-center"
+              className="flex-1 py-2 rounded-lg font-medium text-chrome-text bg-[#1877F2] hover:bg-[#166FE5] active:bg-[#145BCC] disabled:opacity-50 transition-colors flex items-center justify-center"
             >
               {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Connect this Page'}
             </button>

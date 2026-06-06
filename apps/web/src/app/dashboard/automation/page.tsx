@@ -858,7 +858,7 @@ export default function AutomationPage() {
             type="button"
             onClick={() => void saveAllAutomation()}
             disabled={anySaveInProgress && !savingAll}
-            className="inline-flex items-center gap-2 rounded-xl bg-[var(--button)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-[var(--button)] px-4 py-2 text-sm font-medium text-chrome-text hover:opacity-90 disabled:opacity-50"
           >
             {savingAll ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
             Save all
@@ -995,7 +995,7 @@ export default function AutomationPage() {
                   type="button"
                   onClick={() => void flushFirstDmPlatformToServer(platform, settingsRef.current)}
                   disabled={(savingFirstDmPlatform !== null && savingFirstDmPlatform !== platform) || savingAllFirstDm}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 py-1.5 text-xs font-medium text-chrome-text hover:opacity-90 disabled:opacity-50"
                 >
                   {savingFirstDmPlatform === platform ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                   Save
@@ -1009,7 +1009,7 @@ export default function AutomationPage() {
             type="button"
             onClick={() => void saveAllFirstDmSection()}
             disabled={anySaveInProgress && !savingAllFirstDm}
-            className="inline-flex items-center gap-2 rounded-xl bg-[var(--button)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-[var(--button)] px-4 py-2 text-sm font-medium text-chrome-text hover:opacity-90 disabled:opacity-50"
           >
             {savingAllFirstDm ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
             Save all
@@ -1069,7 +1069,7 @@ export default function AutomationPage() {
                   type="button"
                   onClick={() => void flushNewFollowerPlatformToServer(platform, settingsRef.current)}
                   disabled={(savingNewFollowerPlatform !== null && savingNewFollowerPlatform !== platform) || savingAllNewFollower}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 py-1.5 text-xs font-medium text-chrome-text hover:opacity-90 disabled:opacity-50"
                 >
                   {savingNewFollowerPlatform === platform ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                   Save
@@ -1083,7 +1083,7 @@ export default function AutomationPage() {
             type="button"
             onClick={() => void saveAllNewFollowerSection()}
             disabled={anySaveInProgress && !savingAllNewFollower}
-            className="inline-flex items-center gap-2 rounded-xl bg-[var(--button)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-[var(--button)] px-4 py-2 text-sm font-medium text-chrome-text hover:opacity-90 disabled:opacity-50"
           >
             {savingAllNewFollower ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
             Save all
@@ -1251,7 +1251,7 @@ export default function AutomationPage() {
                   type="button"
                   onClick={() => void saveKeywordStep(step.id)}
                   disabled={(savingKeywordStepId !== null && savingKeywordStepId !== step.id) || savingAllKeyword}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--button)] px-3 py-1.5 text-xs font-medium text-chrome-text hover:opacity-90 disabled:opacity-50"
                 >
                   {savingKeywordStepId === step.id ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                   Save
@@ -1287,7 +1287,7 @@ export default function AutomationPage() {
             type="button"
             onClick={() => void saveAllKeywordSection()}
             disabled={anySaveInProgress && !savingAllKeyword}
-            className="inline-flex items-center gap-2 rounded-xl bg-[var(--button)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl bg-[var(--button)] px-4 py-2 text-sm font-medium text-chrome-text hover:opacity-90 disabled:opacity-50"
           >
             {savingAllKeyword ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
             Save all

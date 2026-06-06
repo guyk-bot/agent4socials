@@ -134,7 +134,7 @@ export default function PostOpenClient({
               type="button"
               onClick={handlePublishNow}
               disabled={publishState === 'loading'}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-[var(--button)] text-white rounded-lg text-sm font-medium hover:bg-[var(--button-hover)] disabled:opacity-60"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-[var(--button)] text-chrome-text rounded-lg text-sm font-medium hover:bg-[var(--button-hover)] disabled:opacity-60"
             >
               {publishState === 'loading' ? (
                 <>
@@ -216,7 +216,7 @@ export default function PostOpenClient({
                               target="_blank"
                               rel="noopener noreferrer"
                               download
-                              className="absolute bottom-2 right-2 inline-flex items-center gap-1 px-2 py-1.5 rounded-md bg-black/60 text-white text-xs font-medium hover:bg-black/80"
+                              className="absolute bottom-2 right-2 inline-flex items-center gap-1 px-2 py-1.5 rounded-md bg-black/60 text-chrome-text text-xs font-medium hover:bg-black/80"
                             >
                               <Download size={14} />
                               Download
@@ -229,14 +229,14 @@ export default function PostOpenClient({
                           <button
                             type="button"
                             onClick={() => setCarouselIndex((p) => ({ ...p, [platform]: Math.max(0, (p[platform] ?? 0) - 1) }))}
-                            className="absolute left-1 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 text-white hover:bg-black/60"
+                            className="absolute left-1 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 text-chrome-text hover:bg-black/60"
                           >
                             <ChevronLeft size={20} />
                           </button>
                           <button
                             type="button"
                             onClick={() => setCarouselIndex((p) => ({ ...p, [platform]: Math.min(images.length - 1, (p[platform] ?? 0) + 1) }))}
-                            className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 text-white hover:bg-black/60"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-full bg-black/40 text-chrome-text hover:bg-black/60"
                           >
                             <ChevronRight size={20} />
                           </button>
@@ -277,7 +277,7 @@ export default function PostOpenClient({
                             className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
                             title="Download"
                           >
-                            <Download size={20} className="text-white" />
+                            <Download size={20} className="text-chrome-text" />
                           </a>
                         </div>
                       ))}
@@ -323,7 +323,7 @@ export default function PostOpenClient({
                     href={shareUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--button)] text-white rounded-lg text-sm font-medium hover:bg-[var(--button-hover)]"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--button)] text-chrome-text rounded-lg text-sm font-medium hover:bg-[var(--button-hover)]"
                   >
                     <ExternalLink size={16} />
                     Open in {PLATFORM_LABELS[platform] || platform}

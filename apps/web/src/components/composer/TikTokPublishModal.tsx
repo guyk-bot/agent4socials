@@ -384,7 +384,7 @@ export function TikTokPublishModal({
                   key={a.id}
                   type="button"
                   onClick={() => setActiveIdx(i)}
-                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${i === activeIdx ? 'bg-orange-700 text-white border-orange-700' : 'border-neutral-200 text-neutral-700 hover:bg-orange-50 hover:border-orange-200'}`}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${i === activeIdx ? 'bg-orange-700 text-chrome-text border-orange-700' : 'border-neutral-200 text-neutral-700 hover:bg-orange-50 hover:border-orange-200'}`}
                 >
                   {a.username ? `@${a.username.replace(/^@/, '')}` : `Account ${i + 1}`}
                 </button>
@@ -659,7 +659,7 @@ export function TikTokPublishModal({
                 !f?.privacyLevel ||
                 Boolean(activeId && disclosureNeedsSelection)
               }
-              className="px-6 py-2.5 text-sm font-semibold rounded-full text-white shadow-md transition-all active:scale-[0.98] gradient-cta-pro disabled:opacity-50 disabled:shadow-none"
+              className="px-6 py-2.5 text-sm font-semibold rounded-full text-chrome-text shadow-md transition-all active:scale-[0.98] gradient-cta-pro disabled:opacity-50 disabled:shadow-none"
             >
               Continue
             </button>

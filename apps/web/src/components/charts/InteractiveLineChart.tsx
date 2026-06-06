@@ -89,7 +89,7 @@ export function InteractiveLineChart({
       const isDark = tooltipStyle === 'dark';
       return (
         <div
-          className={isDark ? 'bg-[#111827] text-white px-2.5 py-2 rounded-lg shadow-xl text-xs' : 'rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-xl'}
+          className={isDark ? 'bg-[#111827] text-chrome-text px-2.5 py-2 rounded-lg shadow-xl text-xs' : 'rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-xl'}
         >
           <p className={isDark ? 'text-neutral-300 mb-1.5' : 'text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-2'}>{formatDate(label)}</p>
           <div className="space-y-1">

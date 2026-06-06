@@ -16,7 +16,7 @@ export default function PricingBillingToggle({ interval, onIntervalChange, dark 
           onClick={() => onIntervalChange('monthly')}
           className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
             interval === 'monthly'
-              ? 'gradient-cta-pro text-white shadow'
+              ? 'gradient-cta-pro text-chrome-text shadow'
               : 'text-[#5d5768] hover:text-[#E878C8]'
           }`}
         >
@@ -27,11 +27,11 @@ export default function PricingBillingToggle({ interval, onIntervalChange, dark 
           onClick={() => onIntervalChange('yearly')}
           className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
             interval === 'yearly'
-              ? 'gradient-cta-pro text-white shadow'
+              ? 'gradient-cta-pro text-chrome-text shadow'
               : 'text-[#5d5768] hover:text-[#E878C8]'
           }`}
         >
-          Yearly <span className={interval === 'yearly' ? 'text-white/90' : 'text-[#FA8DDF]'}>(Save 20%)</span>
+          Yearly <span className={interval === 'yearly' ? 'text-chrome-text/90' : 'text-[#FA8DDF]'}>(Save 20%)</span>
         </button>
       </div>
       <p className="text-sm font-medium text-[#2f9e44]">

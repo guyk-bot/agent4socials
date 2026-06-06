@@ -369,7 +369,7 @@ export default function CalendarPage() {
                                                                 >
                                                                     <div className="flex items-start justify-between gap-2 mb-1 min-w-0">
                                                                         <span className="text-[11px] font-semibold leading-none truncate">{formatTime(new Date(p.scheduledAt))}</span>
-                                                                        <span className="shrink-0 text-[10px] font-semibold rounded-md bg-orange-600 text-white px-2 py-0.5">Edit</span>
+                                                                        <span className="shrink-0 text-[10px] font-semibold rounded-md bg-orange-600 text-chrome-text px-2 py-0.5">Edit</span>
                                                                     </div>
                                                                     <div className="flex items-start gap-1.5 min-w-0">
                                                                         {thumb && (
@@ -445,7 +445,7 @@ export default function CalendarPage() {
                                                     >
                                                         <div className="flex items-start justify-between gap-2 mb-1 min-w-0">
                                                             <span className="text-[11px] font-semibold leading-none truncate">{formatTime(new Date(p.scheduledAt))}</span>
-                                                            <span className="shrink-0 text-[10px] font-semibold rounded-md bg-orange-600 text-white px-2 py-0.5">Edit</span>
+                                                            <span className="shrink-0 text-[10px] font-semibold rounded-md bg-orange-600 text-chrome-text px-2 py-0.5">Edit</span>
                                                         </div>
                                                         <div className="flex items-start gap-1.5 min-w-0">
                                                             {thumb ? (

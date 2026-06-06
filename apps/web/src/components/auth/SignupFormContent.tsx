@@ -316,7 +316,7 @@ export default function SignupFormContent() {
             <button
               type="submit"
               disabled={loading || !termsAccepted}
-              className="gradient-cta-pro w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-full text-sm font-semibold text-white shadow-[0_12px_24px_rgba(255,122,0,0.30)] hover:brightness-105 disabled:opacity-50 transition-all"
+              className="gradient-cta-pro w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-full text-sm font-semibold text-chrome-text shadow-[0_12px_24px_rgba(255,122,0,0.30)] hover:brightness-105 disabled:opacity-50 transition-all"
             >
               {loading ? 'Sending code...' : 'Sign up'} <ArrowRight className="w-4 h-4" />
             </button>
@@ -368,7 +368,7 @@ export default function SignupFormContent() {
           <button
             type="submit"
             disabled={loading || code.length !== 6}
-            className="gradient-cta-pro w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-full text-sm font-semibold text-white shadow-[0_12px_24px_rgba(255,122,0,0.30)] hover:brightness-105 disabled:opacity-50 transition-all"
+            className="gradient-cta-pro w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-full text-sm font-semibold text-chrome-text shadow-[0_12px_24px_rgba(255,122,0,0.30)] hover:brightness-105 disabled:opacity-50 transition-all"
           >
             {loading ? 'Verifying...' : 'Verify and sign in'} <ArrowRight className="w-4 h-4" />
           </button>

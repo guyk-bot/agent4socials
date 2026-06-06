@@ -79,7 +79,7 @@ export default function SyncStatusBanner({
         <button
           type="button"
           onClick={() => triggerSync()}
-          className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white shadow-sm opacity-95 hover:opacity-100 transition-opacity gradient-cta-pro"
+          className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-chrome-text shadow-sm opacity-95 hover:opacity-100 transition-opacity gradient-cta-pro"
           title="Refresh data now"
         >
           <RefreshCw size={12} />

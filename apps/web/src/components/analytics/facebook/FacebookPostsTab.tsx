@@ -148,7 +148,7 @@ export function FacebookPostsTab({
                     content={({ active, payload, label }) => {
                       if (!active || !payload?.length || !label) return null;
                       return (
-                        <div className="bg-[#111827] text-white text-xs rounded-lg px-2.5 py-2 shadow-xl" style={{ padding: '8px 10px', borderRadius: 8 }}>
+                        <div className="bg-[#111827] text-chrome-text text-xs rounded-lg px-2.5 py-2 shadow-xl" style={{ padding: '8px 10px', borderRadius: 8 }}>
                           <p className="text-neutral-300">{new Date(label).toLocaleDateString(undefined, { dateStyle: 'medium' })}</p>
                           <p className="font-semibold mt-0.5">Posts: {(payload[0]?.value ?? 0) as number}</p>
                         </div>

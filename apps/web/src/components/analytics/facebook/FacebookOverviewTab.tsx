@@ -87,7 +87,7 @@ export function FacebookOverviewTab({
           <button
             type="button"
             onClick={() => (onUpgrade ? onUpgrade() : window.location.assign('/pricing'))}
-            className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 rounded-lg gradient-cta-pro text-white font-semibold text-sm hover:opacity-90 transition-opacity"
+            className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 rounded-lg gradient-cta-pro text-chrome-text font-semibold text-sm hover:opacity-90 transition-opacity"
           >
             Upgrade
           </button>
@@ -173,7 +173,7 @@ export function FacebookOverviewTab({
                   content={({ active, payload, label }) => {
                     if (!active || !payload?.length || !label) return null;
                     return (
-                      <div className="bg-neutral-900 text-white text-xs rounded-lg px-3 py-2.5 shadow-xl border border-neutral-700">
+                      <div className="bg-neutral-900 text-chrome-text text-xs rounded-lg px-3 py-2.5 shadow-xl border border-neutral-700">
                         <p className="text-neutral-300 font-medium mb-1.5">
                           {new Date(label).toLocaleDateString(undefined, { dateStyle: 'medium' })}
                         </p>

@@ -67,7 +67,7 @@ export default function PricingCard({
       }`}
     >
       {badge && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full gradient-cta-pro px-3 py-1 text-xs font-semibold text-white shadow">
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full gradient-cta-pro px-3 py-1 text-xs font-semibold text-chrome-text shadow">
           {badge}
         </div>
       )}
@@ -136,10 +136,10 @@ export default function PricingCard({
         onClick={onCta}
         className={`mt-8 w-full rounded-xl py-3.5 font-semibold text-sm transition-all duration-200 ${
           highlighted
-            ? 'gradient-cta-pro text-white shadow hover:opacity-95 active:scale-[0.98]'
+            ? 'gradient-cta-pro text-chrome-text shadow hover:opacity-95 active:scale-[0.98]'
             : isFree
               ? 'border border-[#C8E4FF] bg-white text-[#E878C8] hover:border-[#FA8DDF] hover:bg-[#E8F4FF]'
-              : 'bg-[#FA8DDF] text-white shadow hover:bg-[#E878C8] active:scale-[0.98]'
+              : 'bg-[#FA8DDF] text-chrome-text shadow hover:bg-[#E878C8] active:scale-[0.98]'
         }`}
       >
         {ctaText}

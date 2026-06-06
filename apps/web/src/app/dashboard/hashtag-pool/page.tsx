@@ -69,7 +69,7 @@ export default function HashtagPoolPage() {
           <button
             type="button"
             onClick={add}
-            className="px-4 py-3 bg-[var(--button)] text-white rounded-xl font-medium hover:bg-[var(--button-hover)] transition-colors inline-flex items-center gap-2"
+            className="px-4 py-3 bg-[var(--button)] text-chrome-text rounded-xl font-medium hover:bg-[var(--button-hover)] transition-colors inline-flex items-center gap-2"
           >
             <Plus size={20} />
             Add

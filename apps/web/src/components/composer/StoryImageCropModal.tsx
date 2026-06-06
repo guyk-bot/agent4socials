@@ -124,7 +124,7 @@ export function StoryImageCropModal({
       <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 shadow-xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
           <div>
-            <h2 id="story-crop-title" className="text-base font-semibold text-neutral-900 dark:text-white">
+            <h2 id="story-crop-title" className="text-base font-semibold text-neutral-900 dark:text-chrome-text">
               {title}
             </h2>
             <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
@@ -169,7 +169,7 @@ export function StoryImageCropModal({
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">
-                <Loader2 className="animate-spin text-white" size={28} />
+                <Loader2 className="animate-spin text-chrome-text" size={28} />
               </div>
             )}
           </div>
@@ -202,7 +202,7 @@ export function StoryImageCropModal({
             type="button"
             onClick={() => void exportCrop()}
             disabled={exporting || !natural.w}
-            className="flex-1 py-2.5 rounded-xl bg-[#1C9CFB] hover:bg-[#0B87E8] text-white text-sm font-medium disabled:opacity-50 inline-flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 rounded-xl bg-[#1C9CFB] hover:bg-[#0B87E8] text-chrome-text text-sm font-medium disabled:opacity-50 inline-flex items-center justify-center gap-2"
           >
             {exporting ? <Loader2 size={16} className="animate-spin" /> : null}
             {exporting ? 'Saving…' : 'Save'}

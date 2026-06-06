@@ -25,7 +25,9 @@
   /* Must match BRAND_HEADER_BG in site-brand-assets.ts (logo square fill). */
   --color-dark: #170027;
   --color-surface: #111827;
-  --color-text-primary: #ffffff;
+  /* Must match BRAND_CHROME_TEXT in site-brand-assets.ts (header / dark chrome copy). */
+  --color-chrome-text: #fcf7ff;
+  --color-text-primary: #fcf7ff;
   --color-text-secondary: #9ca3af;
   --glow-purple: 0 0 20px rgba(250, 141, 223, 0.45);
   --glow-soft: 0 0 10px rgba(28, 156, 251, 0.35);
@@ -590,6 +592,8 @@
   --tertiary: #FA8DDF;
   /* Must match BRAND_HEADER_BG in site-brand-assets.ts (logo square fill). */
   --dark: #170027;
+  /* Must match BRAND_CHROME_TEXT in site-brand-assets.ts. */
+  --chrome-text: #fcf7ff;
   --surface: #111827;
   --button: #1C9CFB;
   --button-hover: #0B87E8;
@@ -654,6 +658,8 @@
   --wl-sidebar-bg: #000000;
   /* Must match BRAND_HEADER_BG in site-brand-assets.ts (logo square fill). */
   --dark: #170027;
+  /* Must match BRAND_CHROME_TEXT in site-brand-assets.ts. */
+  --chrome-text: #fcf7ff;
   color-scheme: dark;
   /* Restore legacy Tailwind orange scale in dark mode. */
   --color-orange-50: #fff7ed;

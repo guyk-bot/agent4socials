@@ -37,7 +37,7 @@ export function AnalyticsUpgradeGate({
           <button
             type="button"
             onClick={onUpgrade}
-            className="mt-4 px-4 py-2 rounded-xl gradient-cta-pro text-white font-semibold text-sm hover:opacity-90 transition-opacity"
+            className="mt-4 px-4 py-2 rounded-xl gradient-cta-pro text-chrome-text font-semibold text-sm hover:opacity-90 transition-opacity"
           >
             {buttonLabel}
           </button>

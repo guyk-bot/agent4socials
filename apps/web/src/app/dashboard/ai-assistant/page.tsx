@@ -297,7 +297,7 @@ export default function AIAssistantPage() {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-white bg-[var(--button)] hover:bg-[var(--button-hover)] disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-chrome-text bg-[var(--button)] hover:bg-[var(--button-hover)] disabled:opacity-50"
           >
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
             Save brand context
@@ -343,7 +343,7 @@ export default function AIAssistantPage() {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-white bg-[var(--button)] hover:bg-[var(--button-hover)] disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-chrome-text bg-[var(--button)] hover:bg-[var(--button-hover)] disabled:opacity-50"
           >
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
             Save
@@ -389,7 +389,7 @@ export default function AIAssistantPage() {
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-white bg-[var(--button)] hover:bg-[var(--button-hover)] disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-chrome-text bg-[var(--button)] hover:bg-[var(--button-hover)] disabled:opacity-50"
           >
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
             Save

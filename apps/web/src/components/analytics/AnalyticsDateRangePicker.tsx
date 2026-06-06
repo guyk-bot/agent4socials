@@ -172,7 +172,7 @@ function CalendarGrid({
                 ${!currentMonth ? (isDark ? 'text-neutral-600' : 'text-neutral-300') : (isDark ? 'text-neutral-100' : 'text-neutral-800')}
                 ${inRange && !startOrEnd ? (isDark ? 'bg-orange-900/35' : 'bg-orange-100') : ''}
                 ${!inRange && !startOrEnd ? (isDark ? 'hover:bg-neutral-800' : 'hover:bg-neutral-100') : ''}
-                ${startOrEnd ? 'bg-orange-600 text-white hover:bg-orange-700' : ''}
+                ${startOrEnd ? 'bg-orange-600 text-chrome-text hover:bg-orange-700' : ''}
                 ${isToday && !startOrEnd ? `ring-2 ring-orange-400 ${isDark ? 'ring-offset-0' : 'ring-offset-1'}` : ''}
               `}
             >

@@ -8,16 +8,16 @@ import { useAuthModal } from '@/context/AuthModalContext';
 export default function SiteFooter() {
   const { openLogin, openSignup } = useAuthModal();
   return (
-    <footer className="border-t border-white/10 bg-[#0f0f14] text-white/75">
+    <footer className="border-t border-white/10 bg-[var(--dark)] text-chrome-text/75">
       <div className="mx-auto max-w-6xl px-4 py-10 sm:py-14 sm:px-6">
         <div className="flex flex-col gap-8 sm:gap-10 md:flex-row md:items-start md:justify-between">
           <div className="flex items-center gap-2.5">
             <Image src={SITE_LOGO_PATH} alt={BRAND_NAME} width={28} height={28} className="h-6 w-6 sm:h-7 sm:w-7 object-contain [background:transparent]" />
-            <span className="font-semibold text-white text-sm sm:text-base">{BRAND_NAME}</span>
+            <span className="font-semibold text-chrome-text text-sm sm:text-base">{BRAND_NAME}</span>
           </div>
           <div className="grid gap-6 sm:gap-8 sm:grid-cols-3">
             <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-white/50">Product</h4>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-chrome-text/50">Product</h4>
               <ul className="mt-4 space-y-3">
                 <li><Link href="/#features" className="hover:text-[#53BEFA] transition-colors">Features</Link></li>
                 <li><Link href="/pricing" className="hover:text-[#53BEFA] transition-colors">Pricing</Link></li>
@@ -27,14 +27,14 @@ export default function SiteFooter() {
               </ul>
             </div>
             <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-white/50">Company</h4>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-chrome-text/50">Company</h4>
               <ul className="mt-4 space-y-3">
                 <li><button type="button" onClick={openSignup} className="hover:text-[#53BEFA] transition-colors">Sign up</button></li>
                 <li><button type="button" onClick={openLogin} className="hover:text-[#53BEFA] transition-colors">Log in</button></li>
               </ul>
             </div>
             <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-white/50">Legal</h4>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-chrome-text/50">Legal</h4>
               <ul className="mt-4 space-y-3">
                 <li><Link href="/privacy" className="hover:text-[#53BEFA] transition-colors">Privacy</Link></li>
                 <li><Link href="/terms" className="hover:text-[#53BEFA] transition-colors">Terms</Link></li>
@@ -43,7 +43,7 @@ export default function SiteFooter() {
             </div>
           </div>
         </div>
-        <div className="mt-12 border-t border-white/10 pt-8 text-center text-sm text-white/45">
+        <div className="mt-12 border-t border-white/10 pt-8 text-center text-sm text-chrome-text/45">
           © {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.
         </div>
       </div>

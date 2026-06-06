@@ -4,7 +4,7 @@ import SiteFooter from '@/components/landing/SiteFooter';
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-slate-950 text-chrome-text">
       <SiteHeader />
       <main className="mx-auto max-w-3xl px-4 pt-24 pb-20 sm:px-6">
         <h1 className="text-3xl font-bold sm:text-4xl">Terms of Service</h1>
@@ -12,14 +12,14 @@ export default function TermsPage() {
 
         <div className="mt-10 space-y-10 text-slate-300">
           <section>
-            <h2 className="text-xl font-semibold text-white">1. Acceptance of terms</h2>
+            <h2 className="text-xl font-semibold text-chrome-text">1. Acceptance of terms</h2>
             <p className="mt-3 leading-relaxed">
               By accessing or using iZop (&quot;Service&quot;, &quot;we,&quot; &quot;us&quot;), you agree to be bound by these Terms of Service and our <Link href="/privacy" className="text-[var(--primary)] hover:opacity-90 underline">Privacy Policy</Link>. If you do not agree, do not use the Service. We may update these terms from time to time; we will post the updated version on this page and update the &quot;Last updated&quot; date. Continued use after changes constitutes acceptance.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white">2. Description of service</h2>
+            <h2 className="text-xl font-semibold text-chrome-text">2. Description of service</h2>
             <p className="mt-3 leading-relaxed">
               iZop provides a platform that allows you to:
             </p>
@@ -38,7 +38,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white">3. Your obligations</h2>
+            <h2 className="text-xl font-semibold text-chrome-text">3. Your obligations</h2>
             <p className="mt-3 leading-relaxed">
               You must use the Service in compliance with these terms and with each platform&apos;s terms and policies, including but not limited to: Meta (Facebook, Instagram), TikTok, Google (YouTube), X (Twitter), and LinkedIn. You are responsible for your account credentials, the content you post, and ensuring your use does not violate any applicable law or third-party rights.
             </p>
@@ -48,7 +48,7 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white">4. Automation, quotas, fair use, and third-party limits</h2>
+            <h2 className="text-xl font-semibold text-chrome-text">4. Automation, quotas, fair use, and third-party limits</h2>
             <p className="mt-3 leading-relaxed">
               Certain features (including keyword-based comment auto-replies and related scheduled jobs) rely on automated calls to third-party platforms and are subject to <strong>technical limits</strong> on each run or request cycle. Without limitation, limits may include: the maximum number of posts with automation settings processed per run; how deeply we paginate comments or search results per post; the maximum number of automated replies sent per post target in a single run; intentional delays between API requests; and maximum execution time for serverless or background jobs. These limits protect service stability, reduce abuse risk, and help comply with platform rate and usage expectations. They are <strong>not</strong> a guarantee that any particular comment will receive a reply, that any volume of traffic will be handled in one run, or that automation will run on a schedule you expect if your deployment, cron configuration, or hosting plan does not invoke our endpoints as documented.
             </p>
@@ -74,42 +74,42 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white">5. Content and intellectual property</h2>
+            <h2 className="text-xl font-semibold text-chrome-text">5. Content and intellectual property</h2>
             <p className="mt-3 leading-relaxed">
               You retain ownership of content you create and post. By using the Service you grant us the limited rights necessary to operate the Service (e.g. sending your content to the platforms you connect, storing and processing it for scheduling, analytics, inbox, and automation). Our name, logo, and the Service&apos;s design and code remain our intellectual property. You may not copy, reverse-engineer, or misuse our branding or technology except as permitted by these terms.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white">6. Payment and cancellation</h2>
+            <h2 className="text-xl font-semibold text-chrome-text">6. Payment and cancellation</h2>
             <p className="mt-3 leading-relaxed">
               Paid plans are billed as described on the <Link href="/pricing" className="text-[var(--primary)] hover:opacity-90 underline">pricing page</Link> (monthly or yearly subscription). You may cancel at any time; access continues until the end of the current billing period. We do not provide refunds for partial periods. We may change pricing with advance notice. You are responsible for any applicable taxes.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white">7. Termination</h2>
+            <h2 className="text-xl font-semibold text-chrome-text">7. Termination</h2>
             <p className="mt-3 leading-relaxed">
               We may suspend or terminate your access if you breach these terms or for other operational or legal reasons. You may stop using the Service at any time and delete your account. Sections that by their nature should survive (e.g. liability limits, dispute resolution, intellectual property) will survive termination.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white">8. Disclaimer of warranties</h2>
+            <h2 className="text-xl font-semibold text-chrome-text">8. Disclaimer of warranties</h2>
             <p className="mt-3 leading-relaxed">
               The Service is provided &quot;as is&quot; and &quot;as available.&quot; We disclaim all warranties, express or implied, including merchantability and fitness for a particular purpose. We do not warrant that the Service will be error-free, uninterrupted, or that integrations with third-party platforms (Meta, TikTok, Google, X, LinkedIn) will always be available or function as expected. Your use of the Service and any reliance on automation, analytics, or platform features is at your own risk.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white">9. Limitation of liability</h2>
+            <h2 className="text-xl font-semibold text-chrome-text">9. Limitation of liability</h2>
             <p className="mt-3 leading-relaxed">
               To the maximum extent permitted by law, iZop and its affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or for loss of data, revenue, or profits. Our total liability for any claim arising from your use of the Service shall not exceed the amount you paid us in the twelve months before the claim.
             </p>
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-white">10. Contact</h2>
+            <h2 className="text-xl font-semibold text-chrome-text">10. Contact</h2>
             <p className="mt-3 leading-relaxed">
               For questions about these terms, contact us at <a href="mailto:support@agent4socials.com" className="text-[var(--primary)] hover:opacity-90 underline">support@agent4socials.com</a> or use the contact or support option in the app or on our website. For data deletion requests, see our <Link href="/data-deletion" className="text-[var(--primary)] hover:opacity-90 underline">Data Deletion</Link> page and <Link href="/privacy" className="text-[var(--primary)] hover:opacity-90 underline">Privacy Policy</Link>.
             </p>

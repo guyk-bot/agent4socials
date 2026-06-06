@@ -10,7 +10,7 @@ export default async function DataDeletionPage({ searchParams }: Props) {
   const platform = params?.platform?.trim();
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-slate-950 text-chrome-text">
       <SiteHeader />
       <main className="mx-auto max-w-3xl px-4 pt-24 pb-20 sm:px-6">
         <h1 className="text-3xl font-bold sm:text-4xl">Data deletion</h1>
@@ -18,7 +18,7 @@ export default async function DataDeletionPage({ searchParams }: Props) {
 
         {confirmationCode && (
           <div className="mt-6 rounded-xl border border-emerald-500/40 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-100">
-            <p className="font-medium text-white">Deletion request received</p>
+            <p className="font-medium text-chrome-text">Deletion request received</p>
             <p className="mt-1">
               Confirmation code: <span className="font-mono">{confirmationCode}</span>
               {platform ? ` (${platform})` : null}
@@ -37,12 +37,12 @@ export default async function DataDeletionPage({ searchParams }: Props) {
             </p>
             <ul className="mt-4 list-disc list-inside space-y-2 leading-relaxed">
               <li>
-                <strong className="text-white">From the app:</strong> Log in to iZop, go to Account or
+                <strong className="text-chrome-text">From the app:</strong> Log in to iZop, go to Account or
                 Settings, and use &quot;Delete my account&quot; (or the equivalent option). This will remove your
                 account and associated data.
               </li>
               <li>
-                <strong className="text-white">By email:</strong> Send an email to{' '}
+                <strong className="text-chrome-text">By email:</strong> Send an email to{' '}
                 <a href="mailto:support@agent4socials.com" className="text-emerald-400 hover:text-emerald-300 underline">
                   support@agent4socials.com
                 </a>{' '}

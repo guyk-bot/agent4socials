@@ -745,7 +745,7 @@ function MessagesConversationList({
           >
             {selectMode ? (
               <div className={checkboxCls}>
-                {isSelected && <Check size={12} className="text-white" />}
+                {isSelected && <Check size={12} className="text-chrome-text" />}
               </div>
             ) : (
               <div className="relative shrink-0 w-10 h-10">
@@ -768,7 +768,7 @@ function MessagesConversationList({
                 if (unreadN <= 0) return null;
                 return (
                   <span
-                    className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold"
+                    className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-chrome-text text-xs font-bold"
                     title={`${unreadN} unread message${unreadN === 1 ? '' : 's'}`}
                   >
                     {unreadN > 99 ? '99' : unreadN}
@@ -3228,7 +3228,7 @@ function InboxPage() {
                       if (url) openOAuthConnectUrl(url);
                     } catch { /* ignore */ }
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-800 text-white text-sm font-medium hover:opacity-90"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-neutral-800 text-chrome-text text-sm font-medium hover:opacity-90"
                 >
                   Reconnect X (Twitter)
                 </button>
@@ -3243,7 +3243,7 @@ function InboxPage() {
                       if (url) openOAuthConnectUrl(url);
                     } catch { /* ignore */ }
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-[#E1306C] to-[#FCAF45] text-white text-sm font-medium hover:opacity-90"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-[#E1306C] to-[#FCAF45] text-chrome-text text-sm font-medium hover:opacity-90"
                 >
                   Reconnect Instagram
                 </button>
@@ -3353,7 +3353,7 @@ function InboxPage() {
                   >
                     {selectMode ? (
                       <div className={isSelected ? 'w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 bg-[var(--button)] border-[var(--button)]' : 'w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 border-neutral-300'}>
-                        {isSelected && <Check size={12} className="text-white" />}
+                        {isSelected && <Check size={12} className="text-chrome-text" />}
                       </div>
                     ) : null}
                     <div className="flex-1 min-w-0">
@@ -3487,7 +3487,7 @@ function InboxPage() {
                           if (url && typeof url === 'string') openOAuthConnectUrl(url);
                         } catch (_) {}
                       }}
-                      className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#E1306C] to-[#FCAF45] text-white text-sm font-medium hover:opacity-90"
+                      className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#E1306C] to-[#FCAF45] text-chrome-text text-sm font-medium hover:opacity-90"
                     >
                       Reconnect via Facebook
                     </button>
@@ -3502,7 +3502,7 @@ function InboxPage() {
                           if (url && typeof url === 'string') openOAuthConnectUrl(url);
                         } catch (_) {}
                       }}
-                      className="px-4 py-2 rounded-lg bg-orange-600 text-white text-sm font-medium hover:bg-orange-700"
+                      className="px-4 py-2 rounded-lg bg-orange-600 text-chrome-text text-sm font-medium hover:bg-orange-700"
                     >
                       Reconnect Facebook
                     </button>
@@ -3627,7 +3627,7 @@ function InboxPage() {
                         if (url && typeof url === 'string') openOAuthConnectUrl(url);
                       } catch (_) {}
                     }}
-                    className="text-xs px-2 py-1 rounded bg-orange-600 text-white font-medium hover:bg-orange-700"
+                    className="text-xs px-2 py-1 rounded bg-orange-600 text-chrome-text font-medium hover:bg-orange-700"
                   >
                     Reconnect Facebook
                   </button>
@@ -3707,7 +3707,7 @@ function InboxPage() {
                 >
                   <Icon size={22} className={'color' in p ? p.color : undefined} />
                   {displayCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 min-w-[1.1rem] h-[1.1rem] px-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none shadow-sm">
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[1.1rem] h-[1.1rem] px-0.5 rounded-full bg-red-500 text-chrome-text text-[10px] font-bold flex items-center justify-center leading-none shadow-sm">
                       {displayCount > 99 ? '99' : displayCount}
                     </span>
                   )}
@@ -3744,7 +3744,7 @@ function InboxPage() {
           >
             Messages
             {messagesTabUnreadCount > 0 ? (
-              <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+              <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-chrome-text text-xs font-bold">
                 {messagesTabUnreadCount > 99 ? '99' : messagesTabUnreadCount}
               </span>
             ) : null}
@@ -3760,7 +3760,7 @@ function InboxPage() {
           >
             Comments
             {commentsTabUnreadCount > 0 ? (
-              <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+              <span className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-chrome-text text-xs font-bold">
                 {commentsTabUnreadCount > 99 ? '99' : commentsTabUnreadCount}
               </span>
             ) : null}
@@ -3831,7 +3831,7 @@ function InboxPage() {
                     <button
                       type="button"
                       onClick={markSelectedAsRead}
-                      className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700"
+                      className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-chrome-text dark:hover:bg-neutral-700"
                     >
                       <Check size={12} />
                       Mark {selectedConversationIds.size} as read
@@ -3921,7 +3921,7 @@ function InboxPage() {
                     <button
                       type="button"
                       onClick={markSelectedCommentsAsRead}
-                      className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700"
+                      className="ml-auto inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-neutral-100 text-neutral-700 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-chrome-text dark:hover:bg-neutral-700"
                     >
                       <Check size={12} />
                       Mark {selectedCommentIds.size} as read
@@ -4604,7 +4604,7 @@ function InboxPage() {
                         href={selectedComment.postUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-neutral-900 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+                        className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-neutral-900 px-5 py-3 text-sm font-semibold text-chrome-text hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
                       >
                         <ExternalLink size={16} />
                         {openOnPlatformLabel(selectedComment.platform)}
@@ -5006,7 +5006,7 @@ function InboxPage() {
                             setDmRecipientLookupLoading(false);
                           }
                         }}
-                        className="px-3 py-2 rounded-lg bg-[var(--button)] text-white text-sm font-medium hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-2 rounded-lg bg-[var(--button)] text-chrome-text text-sm font-medium hover:bg-[var(--button-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {dmRecipientLookupLoading ? 'Looking up...' : 'Look up'}
                       </button>
@@ -5072,7 +5072,7 @@ function InboxPage() {
                     {aiReplyLoading ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
                 </button>
                   {!canUseInboxMessageAi && inboxExamplesLoaded && (
-                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap px-2.5 py-1.5 rounded-lg bg-neutral-800 text-white text-xs pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap px-2.5 py-1.5 rounded-lg bg-neutral-800 text-chrome-text text-xs pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-10">
                       Add reply examples in AI Assistant to unlock
               </div>
                   )}

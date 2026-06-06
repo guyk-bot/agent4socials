@@ -69,7 +69,7 @@ export default function LinkedInConnectOptions({ connecting, connectError }: Pro
                 </li>
               ))}
             </ul>
-            <div className="mt-4 w-full py-2.5 rounded-xl text-sm font-semibold text-center text-white bg-gradient-to-r from-blue-600 to-blue-800 flex items-center justify-center gap-2 min-h-[40px]">
+            <div className="mt-4 w-full py-2.5 rounded-xl text-sm font-semibold text-center text-chrome-text bg-gradient-to-r from-blue-600 to-blue-800 flex items-center justify-center gap-2 min-h-[40px]">
               {busyMethod === 'personal' ? <Loader2 size={16} className="animate-spin" /> : null}
               Continue
             </div>
@@ -94,7 +94,7 @@ export default function LinkedInConnectOptions({ connecting, connectError }: Pro
                 </li>
               ))}
             </ul>
-            <div className="mt-4 w-full py-2.5 rounded-xl text-sm font-semibold text-center text-white bg-gradient-to-r from-blue-700 to-blue-900 flex items-center justify-center gap-2 min-h-[40px]">
+            <div className="mt-4 w-full py-2.5 rounded-xl text-sm font-semibold text-center text-chrome-text bg-gradient-to-r from-blue-700 to-blue-900 flex items-center justify-center gap-2 min-h-[40px]">
               {busyMethod === 'page' ? <Loader2 size={16} className="animate-spin" /> : null}
               Continue
             </div>

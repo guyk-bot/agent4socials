@@ -57,7 +57,7 @@ export function AnalyticsNoticeBanner({
             <button
               type="button"
               onClick={onCta}
-              className="mt-3 px-4 py-2 rounded-lg bg-[#111827] text-white text-sm font-medium hover:bg-[#374151] transition-colors"
+              className="mt-3 px-4 py-2 rounded-lg bg-[#111827] text-chrome-text text-sm font-medium hover:bg-[#374151] transition-colors"
             >
               {ctaLabel}
             </button>

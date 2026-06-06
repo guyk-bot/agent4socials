@@ -145,10 +145,10 @@ export function ConfirmModal({
               disabled={confirmLoading}
               className={
                 isDanger
-                  ? 'inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-red-600 text-sm font-medium text-white hover:bg-red-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed min-w-[7.5rem]'
+                  ? 'inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-red-600 text-sm font-medium text-chrome-text hover:bg-red-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed min-w-[7.5rem]'
                   : isInfo || isAlert
-                  ? 'inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-orange-600 text-sm font-medium text-white hover:bg-orange-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed min-w-[7.5rem]'
-                  : 'inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-amber-500 text-sm font-medium text-white hover:bg-amber-600 transition-colors disabled:opacity-70 disabled:cursor-not-allowed min-w-[7.5rem]'
+                  ? 'inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-orange-600 text-sm font-medium text-chrome-text hover:bg-orange-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed min-w-[7.5rem]'
+                  : 'inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-amber-500 text-sm font-medium text-chrome-text hover:bg-amber-600 transition-colors disabled:opacity-70 disabled:cursor-not-allowed min-w-[7.5rem]'
               }
             >
               {confirmLoading ? (

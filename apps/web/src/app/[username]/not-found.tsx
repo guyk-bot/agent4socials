@@ -9,7 +9,7 @@ export default function SmartLinkNotFound() {
       </p>
       <Link
         href="/dashboard/smart-links"
-        className="px-4 py-2 bg-[var(--button)] text-white rounded-lg font-medium hover:bg-[var(--button-hover)] transition-colors"
+        className="px-4 py-2 bg-[var(--button)] text-chrome-text rounded-lg font-medium hover:bg-[var(--button-hover)] transition-colors"
       >
         Go to Smart Links
       </Link>

@@ -113,7 +113,7 @@ export function FacebookPageViewsTab({
                     disabled={key === 'clicks' && !hasClicks}
                     title={key === 'clicks' && !hasClicks ? 'Clicks data not available from API' : undefined}
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                      isOn ? 'bg-[#111827] text-white' : key === 'clicks' && !hasClicks ? 'bg-neutral-100 text-neutral-400 cursor-not-allowed' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                      isOn ? 'bg-[#111827] text-chrome-text' : key === 'clicks' && !hasClicks ? 'bg-neutral-100 text-neutral-400 cursor-not-allowed' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                     }`}
                   >
                     {label}

@@ -834,7 +834,7 @@ export default function AccountPage() {
             type="button"
             onClick={handleCreateBrand}
             disabled={!newBrandName.trim()}
-            className="flex-1 rounded-xl bg-[var(--button)] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[var(--button-hover)] disabled:opacity-50"
+            className="flex-1 rounded-xl bg-[var(--button)] px-4 py-2.5 text-sm font-semibold text-chrome-text hover:bg-[var(--button-hover)] disabled:opacity-50"
           >
             Create brand
           </button>
@@ -900,7 +900,7 @@ export default function AccountPage() {
           <button
             type="button"
             onClick={applyBrandImageAdjustment}
-            className="flex-1 rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800"
+            className="flex-1 rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-chrome-text hover:bg-neutral-800"
           >
             Use image
           </button>
@@ -960,7 +960,7 @@ export default function AccountPage() {
             type="button"
             onClick={handleDeleteBrand}
             disabled={deleteConfirmText.trim().toLowerCase() !== 'delete'}
-            className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-500 disabled:opacity-50"
+            className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-chrome-text hover:bg-red-500 disabled:opacity-50"
           >
             Delete brand
           </button>
@@ -1047,7 +1047,7 @@ export default function AccountPage() {
             type="button"
             onClick={handleSaveBrandSettings}
             disabled={!editingBrandName.trim()}
-            className="flex-1 rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+            className="flex-1 rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-chrome-text hover:bg-neutral-800 disabled:opacity-50"
           >
             Save changes
           </button>
@@ -1078,7 +1078,7 @@ export default function AccountPage() {
             </div>
             <Link
               href="/pricing"
-              className="shrink-0 inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-md transition-all active:scale-[0.98] gradient-cta-pro"
+              className="shrink-0 inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-chrome-text shadow-md transition-all active:scale-[0.98] gradient-cta-pro"
             >
               Upgrade now
               <ArrowRight className="w-4 h-4" aria-hidden />
@@ -1321,7 +1321,7 @@ export default function AccountPage() {
           <button
             type="button"
             onClick={() => setShareOpen(!shareOpen)}
-            className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium text-white bg-emerald-500 hover:bg-emerald-600 transition-colors shadow-sm"
+            className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium text-chrome-text bg-emerald-500 hover:bg-emerald-600 transition-colors shadow-sm"
           >
             <Share2 className="w-5 h-5" />
             Share

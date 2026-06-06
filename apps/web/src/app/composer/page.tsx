@@ -356,7 +356,7 @@ const ComposerMediaPeekPlayer = React.forwardRef<
                     {enableAudioToggle ? (
                         <button
                             type="button"
-                            className="absolute left-2 top-2 z-40 rounded-md bg-black/55 p-1.5 text-white hover:bg-black/70"
+                            className="absolute left-2 top-2 z-40 rounded-md bg-black/55 p-1.5 text-chrome-text hover:bg-black/70"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 setAudioOn((on) => !on);
@@ -377,7 +377,7 @@ const ComposerMediaPeekPlayer = React.forwardRef<
                             aria-label="Play video"
                         >
                             <span className="rounded-full bg-black/70 p-3 shadow-lg">
-                                <Play className="h-8 w-8 text-white" fill="currentColor" aria-hidden />
+                                <Play className="h-8 w-8 text-chrome-text" fill="currentColor" aria-hidden />
                             </span>
                         </button>
                     ) : null}
@@ -385,7 +385,7 @@ const ComposerMediaPeekPlayer = React.forwardRef<
                         <div className="flex items-center gap-2">
                             <button
                                 type="button"
-                                className="rounded-md bg-white/20 p-1.5 text-white hover:bg-white/30"
+                                className="rounded-md bg-white/20 p-1.5 text-chrome-text hover:bg-white/30"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     togglePlay();
@@ -394,7 +394,7 @@ const ComposerMediaPeekPlayer = React.forwardRef<
                             >
                                 {playing ? <Pause className="h-4 w-4" aria-hidden /> : <Play className="h-4 w-4" fill="currentColor" aria-hidden />}
                             </button>
-                            <span className="text-[10px] tabular-nums text-white/90">
+                            <span className="text-[10px] tabular-nums text-chrome-text/90">
                                 {formatPeekTimeSec(displayTime)} / {formatPeekTimeSec(duration)}
                             </span>
                         </div>
@@ -3549,7 +3549,7 @@ export default function ComposerPage() {
                                 )}
                                 <div className="mt-6 flex flex-wrap justify-end gap-3">
                                     <button type="button" onClick={() => !aiLoading && setAiModalOpen(false)} className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Cancel</button>
-                                    <button type="button" onClick={handleAiGenerate} disabled={aiLoading} className="inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold text-white shadow-md gradient-cta-pro disabled:opacity-50 disabled:shadow-none">
+                                    <button type="button" onClick={handleAiGenerate} disabled={aiLoading} className="inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold text-chrome-text shadow-md gradient-cta-pro disabled:opacity-50 disabled:shadow-none">
                                         {aiLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
                                         Generate
                                     </button>
@@ -3584,7 +3584,7 @@ export default function ComposerPage() {
                             {dmAiError && <p className="mt-2 text-sm text-red-600">{dmAiError}</p>}
                             <div className="mt-6 flex flex-wrap justify-end gap-3">
                                 <button type="button" onClick={() => !dmAiLoading && setDmAiModalOpen(false)} className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">Cancel</button>
-                                <button type="button" onClick={handleDmAiGenerate} disabled={dmAiLoading} className="inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold text-white shadow-md gradient-cta-pro disabled:opacity-50 disabled:shadow-none">
+                                <button type="button" onClick={handleDmAiGenerate} disabled={dmAiLoading} className="inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-semibold text-chrome-text shadow-md gradient-cta-pro disabled:opacity-50 disabled:shadow-none">
                                     {dmAiLoading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
                                     Generate
                                 </button>
@@ -3721,7 +3721,7 @@ export default function ComposerPage() {
                                             }}
                                             className={`shrink-0 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${mediaType === type
                                                 ? (isDark ? 'bg-neutral-700 text-neutral-100 shadow-sm' : 'sidebar-item-selected text-neutral-900 shadow-sm')
-                                                : (isDark ? 'text-neutral-300 hover:text-white hover:bg-neutral-700/80' : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/80')
+                                                : (isDark ? 'text-neutral-300 hover:text-chrome-text hover:bg-neutral-700/80' : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/80')
                                                 }`}
                                         >
                                             {MEDIA_RECOMMENDATIONS[type].label}
@@ -3928,12 +3928,12 @@ export default function ComposerPage() {
                                                         />
                                                         {thumbnailVideoLoadState === 'loading' && (
                                                             <div className="absolute inset-0 flex items-center justify-center bg-neutral-900/80 z-20">
-                                                                <Loader2 size={28} className="animate-spin text-white" />
+                                                                <Loader2 size={28} className="animate-spin text-chrome-text" />
                                                             </div>
                                                         )}
                                                         {thumbnailVideoLoadState === 'error' && (
                                                             <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-900/95 z-20 p-3 text-center">
-                                                                <p className="text-sm text-white font-medium">Video failed to load</p>
+                                                                <p className="text-sm text-chrome-text font-medium">Video failed to load</p>
                                                                 <p className="text-xs text-neutral-400 mt-1">Try re-uploading or choose another thumbnail option.</p>
                                                             </div>
                                                         )}
@@ -3968,8 +3968,8 @@ export default function ComposerPage() {
                                                                 posterUrl={mediaDisplayUrl(effectiveThumbnail)}
                                                             />
                                                         </div>
-                                                        <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1 right-1 z-[5] p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={12} /></button>
-                                                        <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1 right-1 z-[5] p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={12} /></a>
+                                                        <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1 right-1 z-[5] p-1.5 bg-red-500 text-chrome-text rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={12} /></button>
+                                                        <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1 right-1 z-[5] p-1.5 bg-black/60 text-chrome-text rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={12} /></a>
                                                     </>
                                                 ) : (
                                                     <>
@@ -3983,8 +3983,8 @@ export default function ComposerPage() {
                                                             variant="inline"
                                                             enableAudioToggle
                                                         />
-                                                        <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1 right-1 z-[5] p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={12} /></button>
-                                                        <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1 right-1 z-[5] p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={12} /></a>
+                                                        <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveMedia(0); }} className="absolute top-1 right-1 z-[5] p-1.5 bg-red-500 text-chrome-text rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"><X size={12} /></button>
+                                                        <a href={mediaList[0].fileUrl} download target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="absolute bottom-1 right-1 z-[5] p-1.5 bg-black/60 text-chrome-text rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow" title="Download"><Download size={12} /></a>
                                                     </>
                                                 );
                                                 })()}
@@ -4015,14 +4015,14 @@ export default function ComposerPage() {
                                                 <img src={mediaDisplayUrl(m.fileUrl)} alt="media" className="object-cover w-full h-full pointer-events-none" draggable={false} />
                                             )}
                                             {mediaType === 'carousel' && (
-                                                <span className="absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-black/70 text-white text-sm font-bold flex items-center justify-center pointer-events-none">
+                                                <span className="absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-black/70 text-chrome-text text-sm font-bold flex items-center justify-center pointer-events-none">
                                                     {i + 1}
                                                 </span>
                                             )}
                                             <button
                                                 type="button"
                                                 onClick={(e) => { e.stopPropagation(); handleRemoveMedia(i); }}
-                                                className="absolute top-1.5 right-1.5 p-1.5 bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                                                className="absolute top-1.5 right-1.5 p-1.5 bg-red-500 text-chrome-text rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"
                                             >
                                                 <X size={14} />
                                             </button>
@@ -4032,7 +4032,7 @@ export default function ComposerPage() {
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 onClick={(e) => e.stopPropagation()}
-                                                className="absolute bottom-1.5 right-1.5 p-1.5 bg-black/60 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"
+                                                className="absolute bottom-1.5 right-1.5 p-1.5 bg-black/60 text-chrome-text rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow"
                                                 title="Download"
                                             >
                                                 <Download size={14} />
@@ -4081,8 +4081,8 @@ export default function ComposerPage() {
                                                     ) : (
                                                         <img src={mediaDisplayUrl(m.fileUrl)} alt="" className="w-full h-full object-cover" />
                                                     )}
-                                                    <button type="button" onClick={() => handleRemoveMediaForPlatform(p, i)} className="absolute top-0.5 right-0.5 p-1 bg-red-500 text-white rounded text-xs">×</button>
-                                                    <a href={m.fileUrl} download target="_blank" rel="noopener noreferrer" className="absolute bottom-0.5 right-0.5 p-1 bg-black/60 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity" title="Download"><Download size={12} /></a>
+                                                    <button type="button" onClick={() => handleRemoveMediaForPlatform(p, i)} className="absolute top-0.5 right-0.5 p-1 bg-red-500 text-chrome-text rounded text-xs">×</button>
+                                                    <a href={m.fileUrl} download target="_blank" rel="noopener noreferrer" className="absolute bottom-0.5 right-0.5 p-1 bg-black/60 text-chrome-text rounded opacity-0 group-hover:opacity-100 transition-opacity" title="Download"><Download size={12} /></a>
                                                 </div>
                                             ))}
                                         </div>
@@ -4377,7 +4377,7 @@ export default function ComposerPage() {
                                                                             type="button"
                                                                             onClick={openDmAiModal}
                                                                             disabled={hasBrandContext === false}
-                                                                            className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold text-white shadow-md gradient-cta-pro disabled:opacity-50 disabled:shadow-none"
+                                                                            className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-semibold text-chrome-text shadow-md gradient-cta-pro disabled:opacity-50 disabled:shadow-none"
                                                                         >
                                                                             <Sparkles size={16} />
                                                                             Generate with AI
@@ -4457,7 +4457,7 @@ export default function ComposerPage() {
                                             {hashtagPool.map((tag) => {
                                                 const selected = selectedHashtags.includes(tag);
                                                 return (
-                                                    <button key={tag} type="button" onClick={() => toggleSelectedHashtag(tag)} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selected ? 'bg-[var(--button)] text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>
+                                                    <button key={tag} type="button" onClick={() => toggleSelectedHashtag(tag)} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selected ? 'bg-[var(--button)] text-chrome-text' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>
                                                         {tag}
                                                     </button>
                                                 );
@@ -4476,7 +4476,7 @@ export default function ComposerPage() {
                                                         {hashtagPool.map((tag) => {
                                                             const selected = list.includes(tag);
                                                             return (
-                                                                <button key={tag} type="button" onClick={() => toggleSelectedHashtagForPlatform(p, tag)} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selected ? 'bg-[var(--button)] text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>
+                                                                <button key={tag} type="button" onClick={() => toggleSelectedHashtagForPlatform(p, tag)} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selected ? 'bg-[var(--button)] text-chrome-text' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'}`}>
                                                                     {tag}
                                                                 </button>
                                                             );
@@ -4584,7 +4584,7 @@ export default function ComposerPage() {
                         type="submit"
                             value="publish"
                         disabled={(loading && !publishModal.open) || !!composerMediaNotReadyReason || aiContentGenerating}
-                            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-base font-medium bg-neutral-700 text-white hover:bg-neutral-800 active:bg-neutral-900 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl text-base font-medium bg-neutral-700 text-chrome-text hover:bg-neutral-800 active:bg-neutral-900 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             {loading && !publishModal.open ? (
                                 <>
@@ -4853,7 +4853,7 @@ function PostPreview({
             className={`rounded-xl overflow-hidden bg-white shadow-sm ${reelPreview ? '' : 'border border-neutral-200'} ${compact ? 'max-w-[260px]' : 'w-full max-w-none mx-auto shadow-lg'}`}
         >
             {mediaType === 'story' && (
-                <div className="bg-gradient-to-r from-[#E1306C] via-[#F77737] to-[#FCAF45] text-white text-[10px] font-semibold text-center py-1 tracking-wide">
+                <div className="bg-gradient-to-r from-[#E1306C] via-[#F77737] to-[#FCAF45] text-chrome-text text-[10px] font-semibold text-center py-1 tracking-wide">
                     Story preview
                 </div>
             )}
@@ -4902,8 +4902,8 @@ function PostPreview({
                                         className={videoVisualClass}
                                     />
                                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/35">
-                                        <Loader2 size={compact ? 18 : 28} className="animate-spin text-white" />
-                                        <span className={`text-white font-medium ${compact ? 'text-[9px]' : 'text-xs'}`}>Uploading…</span>
+                                        <Loader2 size={compact ? 18 : 28} className="animate-spin text-chrome-text" />
+                                        <span className={`text-chrome-text font-medium ${compact ? 'text-[9px]' : 'text-xs'}`}>Uploading…</span>
                                     </div>
                                 </div>
                             ) : useLiveFrameScrub && composerFramePreview ? (
@@ -4936,7 +4936,7 @@ function PostPreview({
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); setCurrentSlide((s) => (s <= 0 ? media.length - 1 : s - 1)); }}
-                                    className={`absolute top-1/2 -translate-y-1/2 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center shadow ${compact ? 'left-0.5 w-6 h-6' : 'left-2 w-9 h-9'}`}
+                                    className={`absolute top-1/2 -translate-y-1/2 rounded-full bg-black/50 hover:bg-black/70 text-chrome-text flex items-center justify-center shadow ${compact ? 'left-0.5 w-6 h-6' : 'left-2 w-9 h-9'}`}
                                     aria-label="Previous"
                                 >
                                     <ChevronLeft size={compact ? 14 : 22} />
@@ -4944,12 +4944,12 @@ function PostPreview({
                                 <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); setCurrentSlide((s) => (s >= media.length - 1 ? 0 : s + 1)); }}
-                                    className={`absolute top-1/2 -translate-y-1/2 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center shadow ${compact ? 'right-0.5 w-6 h-6' : 'right-2 w-9 h-9'}`}
+                                    className={`absolute top-1/2 -translate-y-1/2 rounded-full bg-black/50 hover:bg-black/70 text-chrome-text flex items-center justify-center shadow ${compact ? 'right-0.5 w-6 h-6' : 'right-2 w-9 h-9'}`}
                                     aria-label="Next"
                                 >
                                     <ChevronRight size={compact ? 14 : 22} />
                                 </button>
-                                <span className={`absolute bottom-1 right-1 rounded bg-black/60 text-white font-medium ${compact ? 'px-1 py-0.5 text-[9px]' : 'bottom-2 right-2 px-2 py-0.5 text-xs'}`}>
+                                <span className={`absolute bottom-1 right-1 rounded bg-black/60 text-chrome-text font-medium ${compact ? 'px-1 py-0.5 text-[9px]' : 'bottom-2 right-2 px-2 py-0.5 text-xs'}`}>
                                     {slideIndex + 1} / {media.length}
                                 </span>
                             </>

@@ -45,7 +45,7 @@ export default function DashboardPreview() {
                   <h3 className="text-xl font-bold text-[#1a161f]">Overview</h3>
                   <p className="text-sm text-[#8f7ca9]">Welcome back, Creator</p>
                 </div>
-                <div className="h-9 w-32 rounded-lg bg-[linear-gradient(135deg,#7b2cbf,#d7263d)] flex items-center justify-center text-xs font-bold text-white shadow-lg shadow-[#7b2cbf]/20">
+                <div className="h-9 w-32 rounded-lg bg-[linear-gradient(135deg,#7b2cbf,#d7263d)] flex items-center justify-center text-xs font-bold text-chrome-text shadow-lg shadow-[#7b2cbf]/20">
                   + New Post
                 </div>
               </div>

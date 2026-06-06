@@ -157,14 +157,14 @@ function DataSyncBanner({
     <div className="flex items-center gap-1.5 min-w-0">
       <div className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
         state === 'done' ? 'bg-white/95 text-orange-700' :
-        state === 'loading' ? 'bg-white/25 text-white' : 'bg-white/30 text-white/60'
+        state === 'loading' ? 'bg-white/25 text-chrome-text' : 'bg-white/30 text-chrome-text/60'
       }`}>
         {state === 'done' ? '✓' : state === 'loading' ? (
           <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
         ) : '○'}
       </div>
       <span className={`text-xs font-medium truncate ${
-        state === 'done' ? 'text-white' : state === 'loading' ? 'text-white/90' : 'text-white/50'
+        state === 'done' ? 'text-chrome-text' : state === 'loading' ? 'text-chrome-text/90' : 'text-chrome-text/50'
       }`}>{label}</span>
     </div>
   );
@@ -191,10 +191,10 @@ function DataSyncBanner({
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-white text-sm leading-tight">
+          <p className="font-semibold text-chrome-text text-sm leading-tight">
             {allDone ? 'Data loaded! Your account is ready.' : 'Loading your data…'}
           </p>
-          <p className="text-white/70 text-xs mt-0.5">
+          <p className="text-chrome-text/70 text-xs mt-0.5">
             {allDone ? 'Scroll down to see analytics and posts.' : 'This takes a few seconds. The page will update automatically.'}
           </p>
           {/* steps */}
@@ -2397,7 +2397,7 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={() => setSelectedPlatformForConnect('INSTAGRAM')}
-            className="shrink-0 px-4 py-2.5 rounded-full text-white text-sm font-semibold shadow-md transition-all gradient-cta-pro"
+            className="shrink-0 px-4 py-2.5 rounded-full text-chrome-text text-sm font-semibold shadow-md transition-all gradient-cta-pro"
           >
             Connect with Facebook for full features
           </button>
@@ -2430,7 +2430,7 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={() => { setAccountsLoadError(null); setCachedAccounts([]); }}
-                  className="mt-3 px-3 py-1.5 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700"
+                  className="mt-3 px-3 py-1.5 rounded-lg bg-amber-600 text-chrome-text text-sm font-medium hover:bg-amber-700"
                 >
                   Refresh
                 </button>
@@ -2576,7 +2576,7 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={openPricingPopup}
-                  className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 rounded-lg gradient-cta-pro text-white font-semibold text-sm hover:opacity-90 transition-opacity"
+                  className="shrink-0 w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 rounded-lg gradient-cta-pro text-chrome-text font-semibold text-sm hover:opacity-90 transition-opacity"
                 >
                   Upgrade plan
                 </button>
@@ -2617,7 +2617,7 @@ export default function DashboardPage() {
                               const { active, payload, label } = props as unknown as { active?: boolean; payload?: Array<{ value?: number }>; label?: string };
                               if (!active || !payload?.length || !label) return null;
                               return (
-                                <div className="bg-[#111827] text-white text-xs rounded-lg px-2.5 py-2 shadow-xl" style={{ borderRadius: 8 }}>
+                                <div className="bg-[#111827] text-chrome-text text-xs rounded-lg px-2.5 py-2 shadow-xl" style={{ borderRadius: 8 }}>
                                   <p className="text-neutral-300">{new Date(label).toLocaleDateString(undefined, { dateStyle: 'medium' })}</p>
                                   <p className="font-medium mt-0.5">{(payload[0]?.value ?? 0).toLocaleString()} interactions</p>
                                 </div>
@@ -2665,7 +2665,7 @@ export default function DashboardPage() {
                               const { active, payload, label } = props as unknown as { active?: boolean; payload?: Array<{ value?: number }>; label?: string };
                               if (!active || !payload?.length || !label) return null;
                               return (
-                                <div className="bg-[#111827] text-white text-xs rounded-lg px-2.5 py-2 shadow-xl" style={{ borderRadius: 8 }}>
+                                <div className="bg-[#111827] text-chrome-text text-xs rounded-lg px-2.5 py-2 shadow-xl" style={{ borderRadius: 8 }}>
                                   <p className="text-neutral-300">{new Date(label).toLocaleDateString(undefined, { dateStyle: 'medium' })}</p>
                                   <p className="font-medium mt-0.5">{(payload[0]?.value ?? 0).toLocaleString()} posts</p>
                                 </div>
@@ -2720,11 +2720,11 @@ export default function DashboardPage() {
                       platform === 'INSTAGRAM' ? (isActive ? 'bg-pink-100 border-pink-300 text-pink-800' : 'border-neutral-200 text-neutral-600 hover:bg-pink-50') :
                       platform === 'FACEBOOK' ? (isActive ? 'bg-blue-100 border-blue-300 text-blue-800' : 'border-neutral-200 text-neutral-600 hover:bg-blue-50') :
                       platform === 'YOUTUBE' ? (isActive ? 'bg-red-100 border-red-300 text-red-800' : 'border-neutral-200 text-neutral-600 hover:bg-red-50') :
-                      platform === 'TIKTOK' ? (isActive ? 'bg-neutral-900 border-neutral-900 text-white' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100') :
+                      platform === 'TIKTOK' ? (isActive ? 'bg-neutral-900 border-neutral-900 text-chrome-text' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100') :
                       platform === 'TWITTER' ? (isActive ? 'bg-neutral-200 border-neutral-400 text-neutral-800' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100') :
                       platform === 'LINKEDIN' ? (isActive ? 'bg-blue-100 border-blue-400 text-blue-900' : 'border-neutral-200 text-neutral-600 hover:bg-blue-50') :
                       platform === 'PINTEREST' ? (isActive ? 'bg-rose-100 border-rose-400 text-rose-900' : 'border-neutral-200 text-neutral-600 hover:bg-rose-50') :
-                      platform === 'THREADS' ? (isActive ? 'bg-neutral-900 border-neutral-900 text-white' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100') :
+                      platform === 'THREADS' ? (isActive ? 'bg-neutral-900 border-neutral-900 text-chrome-text' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100') :
                       (isActive ? 'bg-[var(--primary)]/15 border-[var(--primary)]/40 text-[var(--primary)]' : 'border-neutral-200 text-neutral-600 hover:bg-[var(--primary)]/5');
                     return (
                       <button

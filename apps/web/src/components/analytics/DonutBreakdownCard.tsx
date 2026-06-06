@@ -105,10 +105,10 @@ export function DonutBreakdownCard({
       const row = payload[0]?.payload;
       if (!row) return null;
       return (
-        <div className="rounded-lg border border-black/[0.06] bg-[#111827] px-3 py-2 text-left text-sm text-white shadow-lg">
+        <div className="rounded-lg border border-black/[0.06] bg-[#111827] px-3 py-2 text-left text-sm text-chrome-text shadow-lg">
           <p className="font-medium">{row.label}</p>
-          <p className="text-white/85 tabular-nums">{formatTooltipMetricLine(row.value, valueFormat)}</p>
-          <p className="text-white/70 tabular-nums">{row.displayPercent}%</p>
+          <p className="text-chrome-text/85 tabular-nums">{formatTooltipMetricLine(row.value, valueFormat)}</p>
+          <p className="text-chrome-text/70 tabular-nums">{row.displayPercent}%</p>
         </div>
       );
     },

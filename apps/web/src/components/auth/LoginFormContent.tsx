@@ -130,7 +130,7 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
             </button>
           </div>
         </div>
-        <button type="submit" disabled={loading} className="gradient-cta-pro w-full flex items-center justify-center gap-2 rounded-full px-4 py-3.5 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(255,122,0,0.30)] transition-all hover:brightness-105 disabled:opacity-50">
+        <button type="submit" disabled={loading} className="gradient-cta-pro w-full flex items-center justify-center gap-2 rounded-full px-4 py-3.5 text-sm font-semibold text-chrome-text shadow-[0_12px_24px_rgba(255,122,0,0.30)] transition-all hover:brightness-105 disabled:opacity-50">
           {loading ? 'Logging in...' : 'Log in'} <ArrowRight className="w-4 h-4" />
         </button>
       </form>

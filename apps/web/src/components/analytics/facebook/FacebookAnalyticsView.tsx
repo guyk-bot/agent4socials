@@ -5502,7 +5502,7 @@ type PostsUploadDayTooltipAgg = {
           <button
             type="button"
             onClick={onUpgrade}
-            className="shrink-0 inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-md transition-all active:scale-[0.98] gradient-cta-pro"
+            className="shrink-0 inline-flex w-full sm:w-auto justify-center items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-chrome-text shadow-md transition-all active:scale-[0.98] gradient-cta-pro"
           >
             Upgrade now
             <ArrowRight className="w-4 h-4" aria-hidden />
