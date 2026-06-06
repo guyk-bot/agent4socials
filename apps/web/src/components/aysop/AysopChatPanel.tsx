@@ -3,7 +3,8 @@
 import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { BRAND_NAME } from '@/lib/site-brand-assets';
 import { Bot, Loader2, Paperclip, Send, Sparkles, Square } from 'lucide-react';
-import api from '@/lib/api';
+import api, { API_AYSOP_CHAT_TIMEOUT_MS, API_MEDIA_UPLOAD_TIMEOUT_MS } from '@/lib/api';
+import { friendlyAysopChatError } from '@/lib/ai/aysop-chat-errors';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { resolveChatBrandContext } from '@/lib/ai/aysop-workspace-snapshot';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
@@ -44,10 +45,14 @@ type Props = {
 };
 
 async function uploadChatFile(file: File): Promise<AysopChatAttachment> {
-  const res = await api.post<{ uploadUrl: string; fileUrl: string }>('/media/upload-url', {
-    fileName: file.name,
-    contentType: file.type || 'application/octet-stream',
-  });
+  const res = await api.post<{ uploadUrl: string; fileUrl: string }>(
+    '/media/upload-url',
+    {
+      fileName: file.name,
+      contentType: file.type || 'application/octet-stream',
+    },
+    { timeout: API_MEDIA_UPLOAD_TIMEOUT_MS }
+  );
   const { uploadUrl, fileUrl } = res.data;
   const putRes = await fetch(uploadUrl, {
     method: 'PUT',
@@ -142,11 +147,7 @@ export default function AysopChatPanel({
       }
       setPendingAttachments((prev) => [...prev, ...uploaded].slice(0, AYSOP_CHAT_MAX_ATTACHMENTS));
     } catch (e) {
-      const msg =
-        (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (e as Error).message ??
-        'Upload failed. Check media storage configuration.';
-      setError(msg);
+      setError(friendlyAysopChatError(e, 'Upload failed. Check media storage configuration.'));
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -199,7 +200,7 @@ export default function AysopChatPanel({
           fetchAccounts: async () => {
             const res = await api.get<Array<{ id: string; platform: string; username?: string | null }>>(
               '/social/accounts',
-              { signal: ac.signal }
+              { signal: ac.signal, timeout: API_AYSOP_CHAT_TIMEOUT_MS }
             );
             const rows = Array.isArray(res.data) ? res.data : [];
             return rows.map((a) => ({
@@ -218,7 +219,7 @@ export default function AysopChatPanel({
             workspaces: brandContext.workspaces,
             activeBrand: brandContext.activeBrand,
           },
-          { timeout: 90_000, signal: ac.signal }
+          { timeout: API_AYSOP_CHAT_TIMEOUT_MS, signal: ac.signal }
         );
         if (gen !== requestGenRef.current || ac.signal.aborted) return;
 
@@ -236,18 +237,7 @@ export default function AysopChatPanel({
         if (isAbortError(e)) return;
         if (gen !== requestGenRef.current) return;
 
-        const axiosErr = e as {
-          response?: { status?: number; data?: { message?: string } };
-          code?: string;
-        };
-        const status = axiosErr.response?.status;
-        const serverMsg = axiosErr.response?.data?.message;
-        let msg = serverMsg ?? 'Something went wrong. Try again.';
-        if (status === 504 || axiosErr.code === 'ECONNABORTED' || /timed out/i.test(String(serverMsg ?? ''))) {
-          msg =
-            'That took too long. Try a shorter question (one platform) or ask again in a moment.';
-        }
-        setError(msg);
+        setError(friendlyAysopChatError(e, 'Something went wrong. Try again.'));
         onMessagesChange(next);
       } finally {
         if (gen === requestGenRef.current) {

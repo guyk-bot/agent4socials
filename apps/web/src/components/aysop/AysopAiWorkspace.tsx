@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import api from '@/lib/api';
+import api, { API_AYSOP_SESSION_PERSIST_TIMEOUT_MS } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import AysopChatSidebar from '@/components/aysop/AysopChatSidebar';
 import AysopChatPanel, { type ChatMessage } from '@/components/aysop/AysopChatPanel';
@@ -261,9 +261,11 @@ export default function AysopAiWorkspace() {
       }
 
       try {
-        const res = await api.patch<{ session: SessionDetail }>(`/ai/aysop-chats/${targetId}`, {
-          messages: nextMessages,
-        });
+        const res = await api.patch<{ session: SessionDetail }>(
+          `/ai/aysop-chats/${targetId}`,
+          { messages: nextMessages },
+          { timeout: API_AYSOP_SESSION_PERSIST_TIMEOUT_MS }
+        );
         upsertSessionSummary(sessionSummaryFromDetail(res.data.session));
         return true;
       } catch {

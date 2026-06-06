@@ -7,6 +7,10 @@ const base = raw || '';
 export const API_DEFAULT_TIMEOUT_MS = 25_000;
 export const API_THREADS_COMMENT_REPLY_TIMEOUT_MS = 90_000;
 export const API_INSTAGRAM_DM_TIMEOUT_MS = 58_000;
+/** iZop AI chat + media uploads (can wait on queue or tool rounds). */
+export const API_AYSOP_CHAT_TIMEOUT_MS = 90_000;
+export const API_MEDIA_UPLOAD_TIMEOUT_MS = 120_000;
+export const API_AYSOP_SESSION_PERSIST_TIMEOUT_MS = 90_000;
 
 const api = axios.create({
   baseURL: `${base}/api`,
@@ -34,6 +38,7 @@ function isPriorityApiPath(url?: string): boolean {
   return (
     url.includes('/ai/aysop-chat') ||
     url.includes('/ai/aysop-chats') ||
+    url.includes('/media/upload-url') ||
     url.includes('/ai/brand-context') ||
     url.includes('/ai/generate-description') ||
     url.includes('/ai/generate-composer-dm') ||
@@ -94,6 +99,12 @@ api.interceptors.request.use(async (config) => {
     config.timeout = API_THREADS_COMMENT_REPLY_TIMEOUT_MS;
   } else if (url.includes('/inbox/instagram-dms')) {
     config.timeout = API_INSTAGRAM_DM_TIMEOUT_MS;
+  } else if (url.includes('/ai/aysop-chat')) {
+    config.timeout = API_AYSOP_CHAT_TIMEOUT_MS;
+  } else if (url.includes('/media/upload-url')) {
+    config.timeout = API_MEDIA_UPLOAD_TIMEOUT_MS;
+  } else if (url.includes('/ai/aysop-chats')) {
+    config.timeout = API_AYSOP_SESSION_PERSIST_TIMEOUT_MS;
   }
 
   return config;
