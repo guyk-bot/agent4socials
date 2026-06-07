@@ -25,6 +25,8 @@ const MARK_RASTER_MAX = 480;
 /** In-app header / loader logo (transparent background). */
 const UI_LOGO_MAX = 512;
 const logoMarkPngPath = path.join(publicDir, "logo-mark.png");
+/** Header / nav logo only (does not affect tab favicons). */
+const logoMarkSourcePath = path.join(publicDir, "logo-mark-source.png");
 const logoMarkDarkSourcePath = path.join(publicDir, "logo-mark-dark-source.png");
 const logoMarkDarkPngPath = path.join(publicDir, "logo-mark-dark.png");
 const logoSvgOutPath = path.join(publicDir, "logo.svg");
@@ -336,15 +338,19 @@ function buildFlatLogoSvg(pngBuffer, width, height) {
 
   const tabMarkPng = await loadTabMarkPngBuffer();
   const googleMarkPng = await loadGoogleLogoPngBuffer();
-  const uiLogoSourcePath = fs.existsSync(squareIconSourcePath)
-    ? squareIconSourcePath
-    : fs.existsSync(markSourcePngPath)
-      ? markSourcePngPath
-      : fs.existsSync(googleSearchLogoPath)
-        ? googleSearchLogoPath
-        : null;
+  const uiLogoSourcePath = fs.existsSync(logoMarkSourcePath)
+    ? logoMarkSourcePath
+    : fs.existsSync(squareIconSourcePath)
+      ? squareIconSourcePath
+      : fs.existsSync(markSourcePngPath)
+        ? markSourcePngPath
+        : fs.existsSync(googleSearchLogoPath)
+          ? googleSearchLogoPath
+          : null;
   if (!uiLogoSourcePath) {
-    throw new Error("Add public/brand-app-icon-source.png or public/favicon-source-mark.png to build UI logo assets.");
+    throw new Error(
+      "Add public/logo-mark-source.png, brand-app-icon-source.png, or favicon-source-mark.png to build UI logo assets."
+    );
   }
   const uiLogoMarkPng = await buildUiLogoMarkPngBuffer(uiLogoSourcePath);
   const uiMeta = await sharp(uiLogoMarkPng).metadata();
