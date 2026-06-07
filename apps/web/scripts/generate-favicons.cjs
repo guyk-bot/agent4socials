@@ -161,6 +161,19 @@ async function knockOutWhiteBackgroundPng(pngBuffer) {
     .toBuffer();
 }
 
+async function loadColoredTabMarkDarkPngBuffer(filePath) {
+  const coloredMark = await buildUiLogoMarkDarkPngBuffer(filePath);
+  const trimmed = await sharp(coloredMark).trim({ threshold: 12 }).toBuffer();
+  return sharp(trimmed)
+    .resize(MARK_RASTER_MAX, MARK_RASTER_MAX, {
+      fit: "inside",
+      withoutEnlargement: true,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
+}
+
 async function loadColoredTabMarkPngBuffer(filePath) {
   const coloredMark = await buildUiLogoMarkPngBuffer(filePath);
   const trimmed = await sharp(coloredMark).trim({ threshold: 12 }).toBuffer();
@@ -175,6 +188,9 @@ async function loadColoredTabMarkPngBuffer(filePath) {
 }
 
 async function loadTabMarkPngBuffer() {
+  if (fs.existsSync(logoMarkDarkSourcePath)) {
+    return loadColoredTabMarkDarkPngBuffer(logoMarkDarkSourcePath);
+  }
   const src = fs.existsSync(markSourcePngPath)
     ? markSourcePngPath
     : fs.existsSync(squareIconSourcePath)
@@ -198,6 +214,9 @@ async function loadTabMarkPngBuffer() {
 }
 
 async function loadGoogleLogoPngBuffer() {
+  if (fs.existsSync(logoMarkDarkSourcePath)) {
+    return loadColoredTabMarkDarkPngBuffer(logoMarkDarkSourcePath);
+  }
   if (fs.existsSync(markSourcePngPath)) {
     return loadColoredTabMarkPngBuffer(markSourcePngPath);
   }
