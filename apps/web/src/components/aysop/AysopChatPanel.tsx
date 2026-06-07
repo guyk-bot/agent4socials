@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BRAND_NAME } from '@/lib/site-brand-assets';
 import { Loader2, Paperclip, Send, Sparkles, Square } from 'lucide-react';
 import api, {
@@ -46,6 +46,8 @@ type Props = {
   messages: ChatMessage[];
   onMessagesChange: (messages: ChatMessage[]) => void;
   disabled?: boolean;
+  /** Bumped when the user switches chats so in-flight requests reset without remounting the panel. */
+  panelResetKey?: number;
 };
 
 async function uploadChatFile(file: File): Promise<AysopChatAttachment> {
@@ -95,6 +97,7 @@ export default function AysopChatPanel({
   messages,
   onMessagesChange,
   disabled,
+  panelResetKey = 0,
 }: Props) {
   const accountsCache = useAccountsCache();
   const brands = accountsCache?.brands ?? [];
@@ -111,6 +114,17 @@ export default function AysopChatPanel({
   const prevMessageCountRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const requestGenRef = useRef(0);
+  const userStoppedRef = useRef(false);
+
+  useEffect(() => {
+    requestGenRef.current += 1;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLoading(false);
+    setInput('');
+    setPendingAttachments([]);
+    setError(null);
+  }, [panelResetKey]);
 
   useLayoutEffect(() => {
     return () => {
@@ -172,6 +186,7 @@ export default function AysopChatPanel({
   };
 
   const stopGeneration = useCallback(() => {
+    userStoppedRef.current = true;
     requestGenRef.current += 1;
     abortRef.current?.abort();
     abortRef.current = null;
@@ -186,6 +201,7 @@ export default function AysopChatPanel({
       if (loading) return;
 
       setError(null);
+      userStoppedRef.current = false;
       const userMsg: ChatMessage = {
         id: `u-${Date.now()}`,
         role: 'user',
@@ -227,7 +243,12 @@ export default function AysopChatPanel({
             }));
           },
         });
-        if (gen !== requestGenRef.current || ac.signal.aborted) return;
+        if (gen !== requestGenRef.current || ac.signal.aborted) {
+          if (ac.signal.aborted && !userStoppedRef.current) {
+            setError('Response was interrupted. Send again to retry.');
+          }
+          return;
+        }
 
         const chatTimeout =
           hasAttachments && attachments.some((a) => a.kind === 'file' || a.kind === 'video')
@@ -243,7 +264,12 @@ export default function AysopChatPanel({
           },
           { timeout: chatTimeout, signal: ac.signal }
         );
-        if (gen !== requestGenRef.current || ac.signal.aborted) return;
+        if (gen !== requestGenRef.current || ac.signal.aborted) {
+          if (ac.signal.aborted && !userStoppedRef.current) {
+            setError('Response was interrupted. Send again to retry.');
+          }
+          return;
+        }
 
         const withAssistant: ChatMessage[] = [
           ...next,
@@ -256,7 +282,12 @@ export default function AysopChatPanel({
         ];
         onMessagesChange(withAssistant);
       } catch (e) {
-        if (isAbortError(e)) return;
+        if (isAbortError(e)) {
+          if (!userStoppedRef.current) {
+            setError('Response was interrupted. Send again to retry.');
+          }
+          return;
+        }
         if (gen !== requestGenRef.current) return;
 
         setError(friendlyAysopChatError(e, 'Something went wrong. Try again.'));
@@ -311,6 +342,9 @@ export default function AysopChatPanel({
                 }`}
               >
                 {m.content ? <AysopChatMessageContent content={m.content} variant={m.role} /> : null}
+                {m.role === 'assistant' && !m.content?.trim() && m.artifacts?.length ? (
+                  <p className="text-neutral-600 dark:text-neutral-300">Here is what I prepared:</p>
+                ) : null}
                 {m.attachments?.length ? (
                   <AysopMessageAttachments attachments={m.attachments} variant={m.role} />
                 ) : null}

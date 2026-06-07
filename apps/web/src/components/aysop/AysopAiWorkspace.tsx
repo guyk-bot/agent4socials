@@ -134,6 +134,7 @@ export default function AysopAiWorkspace() {
   const persistDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPersistRef = useRef<{ id: string; messages: ChatMessage[] } | null>(null);
   const actionLockRef = useRef(false);
+  const [panelResetKey, setPanelResetKey] = useState(0);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -237,6 +238,10 @@ export default function AysopAiWorkspace() {
           });
           if (activeIdRef.current === id) {
             setActiveChat(targetId);
+          }
+          writeCachedMessages(user?.id, targetId, nextMessages);
+          if (pendingPersistRef.current?.id === id) {
+            pendingPersistRef.current = { id: targetId, messages: nextMessages };
           }
         } catch {
           return false;
@@ -544,6 +549,7 @@ export default function AysopAiWorkspace() {
   const handleNewChat = () => {
     if (actionLockRef.current) return;
     actionLockRef.current = true;
+    setPanelResetKey((k) => k + 1);
 
     const prevId = activeIdRef.current;
     const prevMsgs = [...messagesRef.current];
@@ -587,6 +593,7 @@ export default function AysopAiWorkspace() {
 
   const handleSelect = (id: string) => {
     if (id === activeIdRef.current || actionLockRef.current) return;
+    setPanelResetKey((k) => k + 1);
 
     const prevId = activeIdRef.current;
     const prevMsgs = [...messagesRef.current];
@@ -648,7 +655,7 @@ export default function AysopAiWorkspace() {
     <div className="flex h-full min-h-0 bg-white dark:bg-neutral-950">
       <div className="flex flex-1 min-w-0 flex-col">
         <AysopChatPanel
-          key={activeId ?? 'none'}
+          panelResetKey={panelResetKey}
           messages={messages}
           onMessagesChange={handleMessagesChange}
         />

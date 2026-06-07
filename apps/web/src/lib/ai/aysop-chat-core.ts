@@ -153,6 +153,7 @@ function buildSystemPrompt(
     'Attachments:',
     '- Users can attach images, videos, and files. You can see image content directly.',
     '- For videos and documents, use the filename and user message to help (caption ideas, content review, scheduling).',
+    '- When the user attaches a video and asks to upload or post (e.g. Instagram), reply with next steps and call open_composer_draft or prepare_platform_post_drafts with postType video and a caption suggestion. Mention the attached file URL from the message.',
     '- Suggest opening Composer when they want to publish attached media.',
     '',
     'When the user asks to set up, connect, post, schedule, or reply, use the actionable tools above so they can finish in chat.',
