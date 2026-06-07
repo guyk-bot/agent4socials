@@ -169,6 +169,7 @@ Layouts worth knowing: `composer/layout.tsx` uses `AuthenticatedShell`.
 | Dashboard home, sidebar, connect/disconnect | `apps/web/src/app/dashboard/page.tsx` |
 | Connect flow UI (per-platform) | `apps/web/src/components/dashboard/ConnectView.tsx`, `LinkedInConnectOptions.tsx` |
 | Branded full-page loader | `apps/web/src/components/BrandedPageLoader.tsx`, `LogoLoadingAnimation.tsx` (CSS in `app/globals.css`; legacy `public/logo-loading-page.mp4` unused) |
+| Brand color tokens (purple system) | `apps/web/src/lib/colors.ts`, CSS vars in `app/globals.css` |
 | Sidebar | `apps/web/src/components/Sidebar.tsx` |
 | App header | `apps/web/src/components/AppHeader.tsx` |
 | Funnel / landing | `BrandWordmark.tsx`, `app/page.tsx`, `SiteHeader` / `SiteFooter` |
