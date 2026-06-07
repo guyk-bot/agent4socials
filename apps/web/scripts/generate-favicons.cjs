@@ -25,6 +25,8 @@ const MARK_RASTER_MAX = 480;
 /** In-app header / loader logo (transparent background). */
 const UI_LOGO_MAX = 512;
 const logoMarkPngPath = path.join(publicDir, "logo-mark.png");
+const logoMarkDarkSourcePath = path.join(publicDir, "logo-mark-dark-source.png");
+const logoMarkDarkPngPath = path.join(publicDir, "logo-mark-dark.png");
 const logoSvgOutPath = path.join(publicDir, "logo.svg");
 const logoWhiteSvgOutPath = path.join(publicDir, "logo-white.svg");
 
@@ -272,6 +274,56 @@ async function buildUiLogoMarkPngBuffer(filePath) {
     .toBuffer();
 }
 
+async function buildUiLogoMarkDarkPngBuffer(filePath) {
+  const { data, info } = await sharp(filePath)
+    .resize(MARK_RASTER_MAX, MARK_RASTER_MAX, {
+      fit: "inside",
+      withoutEnlargement: true,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  knockOutNearBlack(data);
+  let trimmed = await sharp(data, {
+    raw: { width: info.width, height: info.height, channels: 4 },
+  })
+    .png()
+    .trim({ threshold: 12 })
+    .toBuffer();
+  const trimmedMeta = await sharp(trimmed).metadata();
+  const maxDim = Math.max(trimmedMeta.width || 1, trimmedMeta.height || 1);
+  const targetSize = Math.round(MARK_RASTER_MAX * 0.94);
+  const scale = targetSize / maxDim;
+  const newW = Math.max(1, Math.round((trimmedMeta.width || 1) * scale));
+  const newH = Math.max(1, Math.round((trimmedMeta.height || 1) * scale));
+  const padLeft = Math.floor((MARK_RASTER_MAX - newW) / 2);
+  const padRight = MARK_RASTER_MAX - newW - padLeft;
+  const padTop = Math.floor((MARK_RASTER_MAX - newH) / 2);
+  const padBottom = MARK_RASTER_MAX - newH - padTop;
+  const buf = await sharp(trimmed)
+    .resize(newW, newH, { fit: "fill" })
+    .extend({
+      top: padTop,
+      bottom: padBottom,
+      left: padLeft,
+      right: padRight,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
+  const meta = await sharp(buf).metadata();
+  if ((meta.width || 0) <= UI_LOGO_MAX && (meta.height || 0) <= UI_LOGO_MAX) return buf;
+  return sharp(buf)
+    .resize(UI_LOGO_MAX, UI_LOGO_MAX, {
+      fit: "inside",
+      withoutEnlargement: true,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
+}
+
 function buildFlatLogoSvg(pngBuffer, width, height) {
   const b64 = pngBuffer.toString("base64");
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
@@ -300,7 +352,17 @@ function buildFlatLogoSvg(pngBuffer, width, height) {
 
   fs.writeFileSync(logoMarkPngPath, uiLogoMarkPng);
   fs.writeFileSync(logoSvgOutPath, uiLogoSvg);
-  fs.writeFileSync(logoWhiteSvgOutPath, uiLogoSvg);
+  if (fs.existsSync(logoMarkDarkSourcePath)) {
+    const uiLogoMarkDarkPng = await buildUiLogoMarkDarkPngBuffer(logoMarkDarkSourcePath);
+    const darkMeta = await sharp(uiLogoMarkDarkPng).metadata();
+    fs.writeFileSync(logoMarkDarkPngPath, uiLogoMarkDarkPng);
+    fs.writeFileSync(
+      logoWhiteSvgOutPath,
+      buildFlatLogoSvg(uiLogoMarkDarkPng, darkMeta.width, darkMeta.height)
+    );
+  } else {
+    fs.writeFileSync(logoWhiteSvgOutPath, uiLogoSvg);
+  }
   fs.writeFileSync(markCachePath, tabMarkPng);
 
   const svgTab = Buffer.from(buildTransparentTabSvg(tabMarkPng));

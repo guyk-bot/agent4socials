@@ -6,7 +6,7 @@ import { useAuthModal } from '@/context/AuthModalContext';
 import LoginFormContent from './LoginFormContent';
 import SignupFormContent from './SignupFormContent';
 import Image from 'next/image';
-import { BRAND_NAME, SITE_LOGO_PATH } from '@/lib/site-brand-assets';
+import { BRAND_NAME, SITE_LOGO_DARK_PATH } from '@/lib/site-brand-assets';
 
 function AuthModalInner() {
   const { modal, closeModal } = useAuthModal();
@@ -48,7 +48,7 @@ function AuthModalInner() {
         </button>
         <div className="text-center mb-6">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-neutral-950 p-2">
-            <Image src={SITE_LOGO_PATH} alt={BRAND_NAME} width={40} height={40} className="h-10 w-10 object-contain" />
+            <Image src={SITE_LOGO_DARK_PATH} alt={BRAND_NAME} width={40} height={40} className="h-10 w-10 object-contain" />
           </div>
         </div>
         {modal === 'login' && (

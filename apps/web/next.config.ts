@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    localPatterns: [{ pathname: "/logo-mark.png" }],
+    localPatterns: [{ pathname: "/logo-mark.png" }, { pathname: "/logo-mark-dark.png" }],
   },
   // Omit turbopack config so Vercel uses default (avoids "turbopack.root should be absolute" warning)
   async redirects() {
@@ -24,6 +24,7 @@ const nextConfig: NextConfig = {
       { source: "/logo-48.png", headers: faviconCache },
       { source: "/logo-192.png", headers: faviconCache },
       { source: "/logo-mark.png", headers: faviconCache },
+      { source: "/logo-mark-dark.png", headers: faviconCache },
       { source: "/logo.svg", headers: faviconCache },
       { source: "/logo-white.svg", headers: faviconCache },
     ];

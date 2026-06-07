@@ -1,6 +1,7 @@
 'use client';
 
-import { SITE_LOGO_SRC } from '@/lib/site-brand-assets';
+import { useTheme } from '@/context/ThemeContext';
+import { siteLogoSrcForTheme } from '@/lib/site-brand-assets';
 
 type LogoLoadingAnimationProps = {
   className?: string;
@@ -12,11 +13,13 @@ type LogoLoadingAnimationProps = {
  * Animation CSS lives in `globals.css` under `.a4s-logo-loading`.
  */
 export function LogoLoadingAnimation({ className, 'aria-label': ariaLabel }: LogoLoadingAnimationProps) {
+  const { theme } = useTheme();
+
   return (
     <div className={`a4s-logo-loading__stage ${className ?? ''}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={SITE_LOGO_SRC}
+        src={siteLogoSrcForTheme(theme)}
         alt={ariaLabel ?? 'Loading'}
         className="a4s-logo-loading__mark"
         draggable={false}

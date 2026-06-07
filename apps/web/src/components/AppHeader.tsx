@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { MessageCircle, PlusSquare, Calendar, Menu, Sun, Moon, Brain } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
-import { BRAND_NAME, SITE_LOGO_SRC, normalizeLegacyBrandName } from '@/lib/site-brand-assets';
+import { BRAND_NAME, normalizeLegacyBrandName, siteLogoSrcForTheme } from '@/lib/site-brand-assets';
 import { useTheme } from '@/context/ThemeContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAuth } from '@/context/AuthContext';
@@ -74,7 +74,7 @@ export default function AppHeader() {
           {logoUrl ? (
             <img src={logoUrl} alt="" className="h-7 w-7 sm:h-8 sm:w-8 object-contain" />
           ) : (
-            <img src={SITE_LOGO_SRC} alt={BRAND_NAME} className="h-7 w-7 sm:h-8 sm:w-8 object-contain block bg-transparent" />
+            <img src={siteLogoSrcForTheme(theme)} alt={BRAND_NAME} className="h-7 w-7 sm:h-8 sm:w-8 object-contain block bg-transparent" />
           )}
           <span className="font-semibold text-[var(--foreground)] hidden sm:inline truncate">{displayAppName}</span>
         </Link>

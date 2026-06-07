@@ -19,13 +19,24 @@ export const BRAND_HEADER_BG = '#111118';
 export const BRAND_CHROME_TEXT = '#FFFFFF';
 
 /** Bumped when shared logo mark assets change (cache bust for browsers and CDNs). */
-export const SITE_LOGO_V = '35';
+export const SITE_LOGO_V = '36';
 
 /** Static path for next/image (no query string; see next.config images.localPatterns). */
 export const SITE_LOGO_PATH = '/logo-mark.png';
 
+/** White mark for dark app chrome (headers, loaders). */
+export const SITE_LOGO_DARK_PATH = '/logo-mark-dark.png';
+
 /** Primary UI logo with cache bust (use on <img>, not next/image). */
 export const SITE_LOGO_SRC = `${SITE_LOGO_PATH}?v=${SITE_LOGO_V}`;
+
+/** White UI logo for dark mode with cache bust. */
+export const SITE_LOGO_DARK_SRC = `${SITE_LOGO_DARK_PATH}?v=${SITE_LOGO_V}`;
+
+/** Pick light or dark logo src for app chrome. */
+export function siteLogoSrcForTheme(theme: 'light' | 'dark'): string {
+  return theme === 'dark' ? SITE_LOGO_DARK_SRC : SITE_LOGO_SRC;
+}
 
 /** SVG variant of the same mark. */
 export const SITE_LOGO_SVG_SRC = `/logo.svg?v=${SITE_LOGO_V}`;
