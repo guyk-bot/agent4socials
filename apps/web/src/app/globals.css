@@ -139,26 +139,12 @@
   color: #A78BFA;
 }
 
-/* iZop AI nav highlight */
-.nav-aysop-ai {
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.2), rgba(79, 70, 229, 0.15));
-  color: #A78BFA !important;
-}
-.nav-aysop-ai:hover {
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.28), rgba(79, 70, 229, 0.22));
-  color: #C4B5FD !important;
-}
-[data-theme='light'] .nav-aysop-ai {
+/* iZop AI nav: purple text only when that page is active (not a permanent pill). */
+.nav-aysop-ai-active {
   color: #7C3AED !important;
 }
-[data-theme='light'] .nav-aysop-ai:hover {
-  color: #6D28D9 !important;
-}
-
-/* Sidebar / nav active accent */
-.nav-active-accent {
-  border-left: 3px solid #7C3AED;
-  padding-left: calc(0.75rem - 3px);
+[data-theme='dark'] .nav-aysop-ai-active {
+  color: #A78BFA !important;
 }
 
 /* AI chat bubbles */
@@ -220,13 +206,11 @@
 /* Sidebar selected account row — same glass-grey gradient as upgrade banner. */
 .sidebar-item-selected {
   background: linear-gradient(135deg, #ffffff 0%, #F1EFF8 42%, #F8F7FC 100%);
-  box-shadow: 0 1px 3px rgba(124, 58, 237, 0.08), 0 0 0 1px rgba(124, 58, 237, 0.15);
-  border-left: 3px solid #7C3AED;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(148, 163, 184, 0.25);
 }
 [data-theme='dark'] .sidebar-item-selected {
   background: linear-gradient(135deg, #16161F 0%, #111118 42%, #111118 100%);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(124, 58, 237, 0.2);
-  border-left: 3px solid #7C3AED;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
   color: var(--foreground);
 }
 

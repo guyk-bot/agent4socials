@@ -62,11 +62,9 @@ export default function AppHeader() {
 
   const navLinkClass = (active: boolean, isAysopAi = false) =>
     `relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-0 ${
-      isAysopAi
-        ? `nav-aysop-ai ${active ? 'ring-1 ring-[#7C3AED]/40' : ''}`
-        : active
-          ? 'bg-[var(--bg-hover)] text-[var(--foreground)] border-l-[3px] border-brand-purple pl-[calc(0.75rem-3px)]'
-          : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--bg-hover)]'
+      active
+        ? `bg-[var(--bg-hover)] text-[var(--foreground)]${isAysopAi ? ' nav-aysop-ai-active' : ''}`
+        : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--bg-hover)]'
     }`;
 
   return (
@@ -196,13 +194,10 @@ export default function AppHeader() {
                     ? `${badge} unread`
                     : undefined;
               const isAysopAi = item.href.startsWith('/dashboard/aysop-ai');
-              const mobileLinkClass = isAysopAi
-                ? `flex items-center gap-3 px-4 py-2.5 text-sm font-medium nav-aysop-ai ${isActive ? 'ring-1 ring-[#7C3AED]/40' : ''}`
-                : `flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-[var(--bg-hover)] text-[var(--foreground)] border-l-[3px] border-brand-purple'
-                      : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--bg-hover)]'
-                  }`;
+              const mobileLinkClass =
+                isActive
+                  ? `flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors bg-[var(--bg-hover)] text-[var(--foreground)]${isAysopAi ? ' nav-aysop-ai-active' : ''}`
+                  : 'flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--bg-hover)]';
               return (
                 <Link
                   key={item.href}
