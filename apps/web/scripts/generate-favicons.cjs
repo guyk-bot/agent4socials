@@ -147,24 +147,35 @@ async function loadSquareIconBuffer(filePath, size = MARK_RASTER_MAX) {
     .toBuffer();
 }
 
-async function loadTabMarkPngBuffer() {
-  if (fs.existsSync(squareIconSourcePath)) {
-    return loadTrimmedMarkBuffer(squareIconSourcePath, TAB_MARK_FILL);
-  }
-  if (fs.existsSync(markSourcePngPath)) {
-    return rasterizeSourceToMarkBuffer(markSourcePngPath, TAB_MARK_FILL);
-  }
-  if (!fs.existsSync(logoSvgPath)) {
-    throw new Error("Add public/favicon-source-mark.png or public/logo.svg to build tab favicons.");
-  }
-  return sharp(logoSvgPath, { density: 240 })
-    .resize(MARK_RASTER_MAX, MARK_RASTER_MAX, {
-      fit: "inside",
-      withoutEnlargement: true,
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    })
+async function knockOutWhiteBackgroundPng(pngBuffer) {
+  const { data, info } = await sharp(pngBuffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  knockOutNearWhite(data);
+  return sharp(data, {
+    raw: { width: info.width, height: info.height, channels: 4 },
+  })
     .png()
     .toBuffer();
+}
+
+async function loadTabMarkPngBuffer() {
+  let mark;
+  if (fs.existsSync(squareIconSourcePath)) {
+    mark = await loadTrimmedMarkBuffer(squareIconSourcePath, TAB_MARK_FILL);
+  } else if (fs.existsSync(markSourcePngPath)) {
+    mark = await rasterizeSourceToMarkBuffer(markSourcePngPath, TAB_MARK_FILL);
+  } else if (!fs.existsSync(logoSvgPath)) {
+    throw new Error("Add public/favicon-source-mark.png or public/logo.svg to build tab favicons.");
+  } else {
+    mark = await sharp(logoSvgPath, { density: 240 })
+      .resize(MARK_RASTER_MAX, MARK_RASTER_MAX, {
+        fit: "inside",
+        withoutEnlargement: true,
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .png()
+      .toBuffer();
+  }
+  return knockOutWhiteBackgroundPng(mark);
 }
 
 async function loadGoogleLogoPngBuffer() {
@@ -209,22 +220,56 @@ function knockOutNearBlack(data, threshold = 16) {
 
 function prepareSourcePixels(data) {
   knockOutNearWhite(data);
-  knockOutNearBlack(data);
 }
 
 async function buildUiLogoMarkPngBuffer(filePath) {
-  return rasterizeSourceToMarkBuffer(filePath, 0.94).then(async (buf) => {
-    const meta = await sharp(buf).metadata();
-    if ((meta.width || 0) <= UI_LOGO_MAX && (meta.height || 0) <= UI_LOGO_MAX) return buf;
-    return sharp(buf)
-      .resize(UI_LOGO_MAX, UI_LOGO_MAX, {
-        fit: "inside",
-        withoutEnlargement: true,
-        background: { r: 0, g: 0, b: 0, alpha: 0 },
-      })
-      .png()
-      .toBuffer();
-  });
+  const { data, info } = await sharp(filePath)
+    .resize(MARK_RASTER_MAX, MARK_RASTER_MAX, {
+      fit: "inside",
+      withoutEnlargement: true,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  knockOutNearWhite(data);
+  let trimmed = await sharp(data, {
+    raw: { width: info.width, height: info.height, channels: 4 },
+  })
+    .png()
+    .trim({ threshold: 12 })
+    .toBuffer();
+  const trimmedMeta = await sharp(trimmed).metadata();
+  const maxDim = Math.max(trimmedMeta.width || 1, trimmedMeta.height || 1);
+  const targetSize = Math.round(MARK_RASTER_MAX * 0.94);
+  const scale = targetSize / maxDim;
+  const newW = Math.max(1, Math.round((trimmedMeta.width || 1) * scale));
+  const newH = Math.max(1, Math.round((trimmedMeta.height || 1) * scale));
+  const padLeft = Math.floor((MARK_RASTER_MAX - newW) / 2);
+  const padRight = MARK_RASTER_MAX - newW - padLeft;
+  const padTop = Math.floor((MARK_RASTER_MAX - newH) / 2);
+  const padBottom = MARK_RASTER_MAX - newH - padTop;
+  const buf = await sharp(trimmed)
+    .resize(newW, newH, { fit: "fill" })
+    .extend({
+      top: padTop,
+      bottom: padBottom,
+      left: padLeft,
+      right: padRight,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
+  const meta = await sharp(buf).metadata();
+  if ((meta.width || 0) <= UI_LOGO_MAX && (meta.height || 0) <= UI_LOGO_MAX) return buf;
+  return sharp(buf)
+    .resize(UI_LOGO_MAX, UI_LOGO_MAX, {
+      fit: "inside",
+      withoutEnlargement: true,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
 }
 
 function buildFlatLogoSvg(pngBuffer, width, height) {
@@ -249,9 +294,7 @@ function buildFlatLogoSvg(pngBuffer, width, height) {
   if (!uiLogoSourcePath) {
     throw new Error("Add public/brand-app-icon-source.png or public/favicon-source-mark.png to build UI logo assets.");
   }
-  const uiLogoMarkPng = fs.existsSync(squareIconSourcePath)
-    ? await loadSquareIconBuffer(squareIconSourcePath, UI_LOGO_MAX)
-    : await buildUiLogoMarkPngBuffer(uiLogoSourcePath);
+  const uiLogoMarkPng = await buildUiLogoMarkPngBuffer(uiLogoSourcePath);
   const uiMeta = await sharp(uiLogoMarkPng).metadata();
   const uiLogoSvg = buildFlatLogoSvg(uiLogoMarkPng, uiMeta.width, uiMeta.height);
 
