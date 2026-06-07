@@ -33,11 +33,11 @@ const CENTER = CANVAS / 2;
 const RX = Math.round(CANVAS * 0.22);
 const CLIP_R = CENTER;
 /** Tab squircle: fill most of the canvas so the mark stays legible at 16–32px. */
-const TAB_LOGO_FRAC = 1.08;
+const TAB_LOGO_FRAC = 1.18;
 /** Circle (Google): slightly smaller so padded artwork stays inside the inscribed circle. */
-const GOOGLE_LOGO_FRAC = 0.88;
+const GOOGLE_LOGO_FRAC = 0.92;
 /** Tight-crop mark fills this fraction of the raster square before compositing. */
-const TAB_MARK_FILL = 0.94;
+const TAB_MARK_FILL = 1.0;
 
 function imageAttrs(b64, logoFrac, preserveAR) {
   const L = Math.round(CANVAS * logoFrac);
@@ -115,6 +115,31 @@ async function rasterizeSourceToMarkBuffer(filePath, fillFrac = TAB_MARK_FILL) {
     .toBuffer();
 }
 
+async function loadTrimmedMarkBuffer(filePath, fillFrac = TAB_MARK_FILL) {
+  const trimmed = await sharp(filePath).ensureAlpha().png().trim({ threshold: 10 }).toBuffer();
+  const meta = await sharp(trimmed).metadata();
+  const maxDim = Math.max(meta.width || 1, meta.height || 1);
+  const targetSize = Math.round(MARK_RASTER_MAX * fillFrac);
+  const scale = targetSize / maxDim;
+  const newW = Math.max(1, Math.round((meta.width || 1) * scale));
+  const newH = Math.max(1, Math.round((meta.height || 1) * scale));
+  const padLeft = Math.floor((MARK_RASTER_MAX - newW) / 2);
+  const padRight = MARK_RASTER_MAX - newW - padLeft;
+  const padTop = Math.floor((MARK_RASTER_MAX - newH) / 2);
+  const padBottom = MARK_RASTER_MAX - newH - padTop;
+  return sharp(trimmed)
+    .resize(newW, newH, { fit: "fill" })
+    .extend({
+      top: padTop,
+      bottom: padBottom,
+      left: padLeft,
+      right: padRight,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
+}
+
 async function loadSquareIconBuffer(filePath, size = MARK_RASTER_MAX) {
   return sharp(filePath)
     .resize(size, size, { fit: "cover", position: "center" })
@@ -124,10 +149,10 @@ async function loadSquareIconBuffer(filePath, size = MARK_RASTER_MAX) {
 
 async function loadTabMarkPngBuffer() {
   if (fs.existsSync(squareIconSourcePath)) {
-    return loadSquareIconBuffer(squareIconSourcePath);
+    return loadTrimmedMarkBuffer(squareIconSourcePath, TAB_MARK_FILL);
   }
   if (fs.existsSync(markSourcePngPath)) {
-    return rasterizeSourceToMarkBuffer(markSourcePngPath);
+    return rasterizeSourceToMarkBuffer(markSourcePngPath, TAB_MARK_FILL);
   }
   if (!fs.existsSync(logoSvgPath)) {
     throw new Error("Add public/favicon-source-mark.png or public/logo.svg to build tab favicons.");
@@ -144,7 +169,7 @@ async function loadTabMarkPngBuffer() {
 
 async function loadGoogleLogoPngBuffer() {
   if (fs.existsSync(squareIconSourcePath)) {
-    return loadSquareIconBuffer(squareIconSourcePath);
+    return loadTrimmedMarkBuffer(squareIconSourcePath, 0.92);
   }
   if (fs.existsSync(googleSearchLogoPath)) {
     return rasterizeSourceToMarkBuffer(googleSearchLogoPath, 0.9);
