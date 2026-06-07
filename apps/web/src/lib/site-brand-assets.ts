@@ -12,11 +12,11 @@ export function normalizeLegacyBrandName(name: string): string {
   return isLegacyProductBrandName(name) ? BRAND_NAME : name.trim();
 }
 
-/** Header / chrome background; must match the logo mark square (no opacity on headers). */
-export const BRAND_HEADER_BG = '#170027';
+/** Header / chrome background (nav bar). */
+export const BRAND_HEADER_BG = '#111118';
 
-/** Off-white copy on dark chrome (headers, funnel footer, dark marketing pages). */
-export const BRAND_CHROME_TEXT = '#fcf7ff';
+/** Copy on dark chrome (headers, funnel footer, dark marketing pages). */
+export const BRAND_CHROME_TEXT = '#FFFFFF';
 
 /** Bumped when shared logo mark assets change (cache bust for browsers and CDNs). */
 export const SITE_LOGO_V = '31';

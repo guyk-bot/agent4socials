@@ -140,8 +140,8 @@ export function useSummaryData(
         platform: acc.platform,
         segments: [
           { label: 'Posts', value: regular, color: '#94a3b8' },
-          { label: 'Reels', value: reels, color: '#1C9CFB' },
-          { label: 'Stories', value: stories, color: '#FA8DDF' },
+          { label: 'Reels', value: reels, color: '#7C3AED' },
+          { label: 'Stories', value: stories, color: '#A78BFA' },
         ].filter((s) => s.value > 0),
       };
     }).filter((d) => d.segments.length > 0);

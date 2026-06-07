@@ -62,8 +62,8 @@ export default function PricingCard({
     <div
       className={`relative flex flex-col rounded-2xl border-2 p-6 sm:p-8 transition-all duration-200 ${
         highlighted
-          ? 'border-[#53BEFA] bg-[#E8F4FF] shadow-lg shadow-[#FA8DDF]/20'
-          : 'border-[#F3EDFF] bg-white shadow-sm hover:border-[#C8E4FF] hover:shadow-md'
+          ? 'border-[#A78BFA] bg-[rgba(124, 58, 237, 0.08)] shadow-lg shadow-[#A78BFA]/20'
+          : 'border-[#F3EDFF] bg-white shadow-sm hover:border-[rgba(124, 58, 237, 0.2)] hover:shadow-md'
       }`}
     >
       {badge && (
@@ -71,34 +71,34 @@ export default function PricingCard({
           {badge}
         </div>
       )}
-      <h2 className="text-xl font-bold text-[#1a161f]">
+      <h2 className="text-xl font-bold text-[#1a1a1a]">
         {plan === 'free' ? 'Free' : plan === 'starter' ? 'Standard' : 'Pro'}
       </h2>
       {bestValueLabel && (
-        <p className="mt-1 text-sm font-medium text-[#E878C8]">{bestValueLabel}</p>
+        <p className="mt-1 text-sm font-medium text-[#4F46E5]">{bestValueLabel}</p>
       )}
-      <p className="mt-1 text-sm text-[#5d5768]">{description}</p>
+      <p className="mt-1 text-sm text-[#888780]">{description}</p>
       <div className="mt-6">
         {isFree ? (
           <p className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold tracking-tight text-[#1a161f] sm:text-4xl">{freePrice ?? '$0'}</span>
+            <span className="text-3xl font-bold tracking-tight text-[#1a1a1a] sm:text-4xl">{freePrice ?? '$0'}</span>
           </p>
         ) : billingInterval === 'monthly' ? (
           <p className="flex items-baseline gap-1">
-            <span className="text-3xl font-bold tracking-tight text-[#1a161f] sm:text-4xl">${priceMonthly}</span>
+            <span className="text-3xl font-bold tracking-tight text-[#1a1a1a] sm:text-4xl">${priceMonthly}</span>
             <span className="text-[#756a88]">/ month</span>
           </p>
         ) : (
           <>
             <p className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold tracking-tight text-[#1a161f] sm:text-4xl">
+              <span className="text-3xl font-bold tracking-tight text-[#1a1a1a] sm:text-4xl">
                 ${Math.round((priceYearly ?? 0) / 12)}
               </span>
               <span className="text-[#756a88]">/ month</span>
             </p>
             <p className="mt-1 text-sm text-[#756a88]">
               Billed{' '}
-              <span className="font-semibold text-[#1a161f]">${priceYearly}</span>
+              <span className="font-semibold text-[#1a1a1a]">${priceYearly}</span>
               / year
               {yearlyCrossedPrice != null && yearlyCrossedPrice > (priceYearly ?? 0) ? (
                 <>
@@ -107,7 +107,7 @@ export default function PricingCard({
                 </>
               ) : null}
               {savePerYear != null && savePerYear > 0 ? (
-                <span className="text-[#E878C8]"> · Save ${savePerYear}/year</span>
+                <span className="text-[#4F46E5]"> · Save ${savePerYear}/year</span>
               ) : null}
             </p>
           </>
@@ -123,8 +123,8 @@ export default function PricingCard({
       </ul>
       {!isFree && (additionalBrandsMonthly != null || additionalBrandsYearly != null) && (
         <div className="mt-4 pt-4 border-t border-[#F3EDFF]">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[#E878C8] mb-1">Add-ons</p>
-          <p className="text-sm text-[#5d5768]">
+          <p className="text-xs font-semibold uppercase tracking-wider text-[#4F46E5] mb-1">Add-ons</p>
+          <p className="text-sm text-[#888780]">
             {billingInterval === 'monthly'
               ? `+$${additionalBrandsMonthly} / ${additionalAddonUnitLabel} monthly`
               : `+$${additionalBrandsYearly} / ${additionalAddonUnitLabel} yearly`}
@@ -138,8 +138,8 @@ export default function PricingCard({
           highlighted
             ? 'gradient-cta-pro text-chrome-text shadow hover:opacity-95 active:scale-[0.98]'
             : isFree
-              ? 'border border-[#C8E4FF] bg-white text-[#E878C8] hover:border-[#FA8DDF] hover:bg-[#E8F4FF]'
-              : 'bg-[#FA8DDF] text-chrome-text shadow hover:bg-[#E878C8] active:scale-[0.98]'
+              ? 'border border-[rgba(124, 58, 237, 0.2)] bg-white text-[#4F46E5] hover:border-[#A78BFA] hover:bg-[rgba(124, 58, 237, 0.08)]'
+              : 'bg-[#A78BFA] text-chrome-text shadow hover:bg-[#4F46E5] active:scale-[0.98]'
         }`}
       >
         {ctaText}

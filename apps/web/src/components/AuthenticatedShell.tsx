@@ -43,7 +43,7 @@ function AuthenticatedContent({
 
     return (
         <div
-            className="min-h-screen bg-neutral-100"
+            className="min-h-screen bg-[var(--background)]"
             style={{
                 backgroundColor: resolvedBackground,
                 color: resolvedText,
@@ -73,7 +73,7 @@ function AuthenticatedContent({
                 style={{ ...chromeStyle, zIndex: CHROME_Z }}
                 data-chrome="header"
             >
-                <Suspense fallback={<div className="h-14 w-full bg-[var(--dark)]" />}>
+                <Suspense fallback={<div className="h-14 w-full bg-[var(--bg-surface)]" />}>
                     <AppHeader />
                 </Suspense>
             </div>

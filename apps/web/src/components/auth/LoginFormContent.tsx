@@ -103,7 +103,7 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
           <label className="text-sm font-medium text-[#5d5768]">Email address</label>
           <div className="mt-1 relative">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 text-[#5d5768] pointer-events-none"><Mail size={18} /></div>
-            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="block w-full rounded-xl border border-[#F3EDFF] bg-white py-2.5 pl-10 pr-3 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#FA8DDF]/50 focus:outline-none focus:ring-2 focus:ring-[#FA8DDF]/25" placeholder="name@example.com" />
+            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="block w-full rounded-xl border border-[#F3EDFF] bg-white py-2.5 pl-10 pr-3 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#A78BFA]/50 focus:outline-none focus:ring-2 focus:ring-[#A78BFA]/25" placeholder="name@example.com" />
           </div>
         </div>
         <div>
@@ -115,7 +115,7 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="block w-full rounded-xl border border-[#F3EDFF] bg-white py-2.5 pl-10 pr-10 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#FA8DDF]/50 focus:outline-none focus:ring-2 focus:ring-[#FA8DDF]/25"
+              className="block w-full rounded-xl border border-[#F3EDFF] bg-white py-2.5 pl-10 pr-10 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#A78BFA]/50 focus:outline-none focus:ring-2 focus:ring-[#A78BFA]/25"
               placeholder="••••••••"
               autoComplete="current-password"
             />
@@ -137,7 +137,7 @@ export default function LoginFormContent({ profileFailedMessage, authError }: Pr
 
       <p className="text-center text-sm text-[#5d5768]">
         Don&apos;t have an account?{' '}
-        <button type="button" onClick={openSignup} className="font-semibold text-[#E878C8] transition-colors hover:text-[#C85098]">
+        <button type="button" onClick={openSignup} className="font-semibold text-[#4F46E5] transition-colors hover:text-[#C85098]">
           Sign up for free
         </button>
       </p>

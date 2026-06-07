@@ -63,7 +63,7 @@ export function PostPerformanceTable({ posts }: PostPerformanceTableProps) {
     if (platform === 'TWITTER') return active ? 'bg-neutral-200 border-neutral-400 text-neutral-800' : 'border-slate-200 text-slate-600 hover:bg-neutral-100';
     if (platform === 'LINKEDIN') return active ? 'bg-blue-100 border-blue-400 text-blue-900' : 'border-slate-200 text-slate-600 hover:bg-blue-50';
     if (platform === 'PINTEREST') return active ? 'bg-rose-100 border-rose-400 text-rose-900' : 'border-slate-200 text-slate-600 hover:bg-rose-50';
-    return active ? 'bg-[#1C9CFB]/20 border-[#1C9CFB]/50 text-[#0b0f1a]' : 'border-slate-200 text-slate-600 hover:bg-[#1C9CFB]/10';
+    return active ? 'bg-[#7C3AED]/20 border-[#7C3AED]/50 text-[#0b0f1a]' : 'border-slate-200 text-slate-600 hover:bg-[#7C3AED]/10';
   };
 
   return (
@@ -166,7 +166,7 @@ export function PostPerformanceTable({ posts }: PostPerformanceTableProps) {
                           <span className="text-slate-800 truncate text-sm">{post.caption || 'No caption'}</span>
                         </div>
                         {post.permalinkUrl && (
-                          <a href={post.permalinkUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[#1C9CFB] hover:underline">
+                          <a href={post.permalinkUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-[#7C3AED] hover:underline">
                             Open
                           </a>
                         )}

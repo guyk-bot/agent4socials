@@ -159,14 +159,14 @@ const COLOR = {
   textSecondary: 'var(--muted)',
   textMuted: 'var(--muted)',
   /** Former “cyan” analytics accent; kept as key `cyan` for metric map compatibility. */
-  cyan: '#6366f1',
-  /** True cyan for non-viral traffic (distinct from post impressions indigo above). */
-  trafficNonviralCyan: '#06b6d4',
-  violet: '#7c6cff',
-  magenta: '#d946ef',
-  mint: '#31c48d',
-  amber: '#f5b942',
-  coral: '#ff8b7b',
+  cyan: '#7C3AED',
+  /** True cyan for non-viral traffic (distinct from post impressions purple above). */
+  trafficNonviralCyan: '#0EA5E9',
+  violet: '#7C3AED',
+  magenta: '#A78BFA',
+  mint: '#10B981',
+  amber: '#F59E0B',
+  coral: '#EF4444',
 };
 
 function LinkedInAnalyticsStubNotice() {

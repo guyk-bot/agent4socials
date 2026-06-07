@@ -91,17 +91,17 @@ const COLOR = {
   text: 'var(--foreground)',
   textSecondary: 'var(--muted)',
   textMuted: 'var(--muted)',
-  violet: '#1C9CFB',
-  mint: '#31c48d',
-  amber: '#f5b942',
-  coral: '#ff8b7b',
-  magenta: '#d946ef',
-  cyan: '#1C9CFB',
+  violet: '#7C3AED',
+  mint: '#10B981',
+  amber: '#F59E0B',
+  coral: '#EF4444',
+  magenta: '#A78BFA',
+  cyan: '#0EA5E9',
 } as const;
 
-const CONSOLE_ENGAGEMENT_ACCENT = '#f59e0b';
+const CONSOLE_ENGAGEMENT_ACCENT = '#F59E0B';
 /** Views KPI + overview line (distinct from orange engagements). */
-const CONSOLE_VIEWS_ACCENT = '#9333ea';
+const CONSOLE_VIEWS_ACCENT = '#7C3AED';
 
 /** Console-specific platform colors for the Performance per platform section. */
 const CONSOLE_PLATFORM_COLOR: Record<string, string> = {
@@ -1187,7 +1187,7 @@ function HistoryTable({ rows }: { rows: UnifiedHistoryPost[] }) {
             {visible.length === 0 ? (
               <tr><td colSpan={9} className="py-8 text-center text-sm" style={{ color: COLOR.textMuted }}>No posts in this period</td></tr>
             ) : visible.map((row) => {
-              const c = PLATFORM_COLOR[row.platform] ?? '#1C9CFB';
+              const c = PLATFORM_COLOR[row.platform] ?? '#7C3AED';
               return (
                 <tr key={row.id} style={{ borderBottom: `1px solid ${COLOR.border}` }}>
                   <td className="py-2.5 px-3 whitespace-nowrap"><span className="flex items-center gap-1.5"><PlatformIcon platform={row.platform} size={13} /><span className="text-xs font-medium" style={{ color: c }}>{row.platform}</span></span></td>

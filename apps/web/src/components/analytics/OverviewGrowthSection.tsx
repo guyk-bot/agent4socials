@@ -25,9 +25,9 @@ import {
 
 // —— iZop logo chart system (aligned with --color-primary) ——
 const BRAND = {
-  primary: '#1C9CFB',
+  primary: '#7C3AED',
   strong: '#A58DF6',
-  soft: '#53BEFA',
+  soft: '#A78BFA',
   muted: 'rgba(28, 156, 251, 0.45)',
   bg: 'rgba(28, 156, 251, 0.08)',
   grid: 'rgba(0, 0, 0, 0.018)',
@@ -137,7 +137,7 @@ function KpiCard({
   const displayValue = useCountUp(value);
   // Distinct solid background per tint; selected = ring + darker border
   const tintStyles: Record<NonNullable<typeof tint>, { bg: string; border: string; borderSelected: string; text: string; trendPositive: string }> = {
-    violet: { bg: 'bg-[#E8F4FF]', border: 'border-[#C8E4FF]', borderSelected: 'border-[#1C9CFB] ring-2 ring-[#1C9CFB]/50', text: 'text-[#0E0E0E]', trendPositive: 'text-[#0B87E8]' },
+    violet: { bg: 'bg-[rgba(124,58,237,0.08)]', border: 'border-[rgba(124,58,237,0.2)]', borderSelected: 'border-[#7C3AED] ring-2 ring-[#7C3AED]/50', text: 'text-[#1a1a1a]', trendPositive: 'text-[#10B981]' },
     blue: { bg: 'bg-blue-50', border: 'border-blue-200', borderSelected: 'border-blue-500 ring-2 ring-blue-400/50', text: 'text-blue-900', trendPositive: 'text-blue-600' },
     emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', borderSelected: 'border-emerald-500 ring-2 ring-emerald-400/50', text: 'text-emerald-900', trendPositive: 'text-emerald-600' },
     slate: { bg: 'bg-amber-50', border: 'border-amber-200', borderSelected: 'border-amber-500 ring-2 ring-amber-400/50', text: 'text-amber-900', trendPositive: 'text-amber-600' },
@@ -858,7 +858,7 @@ export function OverviewGrowthSection({
                 type="date"
                 value={dateRange.start}
                 onChange={(e) => onDateRangeChange({ ...dateRange, start: e.target.value })}
-                className="text-sm border border-neutral-200 rounded-lg px-3 py-2 text-neutral-700 bg-white focus:ring-2 focus:ring-[#1C9CFB]/20 focus:border-[#1C9CFB]"
+                className="text-sm border border-neutral-200 rounded-lg px-3 py-2 text-neutral-700 bg-white focus:ring-2 focus:ring-[#7C3AED]/20 focus:border-[#7C3AED]"
               />
             )}
             {onExport && (

@@ -11,7 +11,7 @@ export default function SmartLinksComingSoon() {
       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 mb-5">
         <Link2 size={28} className="text-neutral-500" />
       </div>
-      <span className="inline-flex items-center rounded-full border border-[#FA8DDF]/60 bg-[#FA8DDF]/15 px-3 py-1 text-xs font-bold uppercase tracking-wide text-[#e878c8] dark:text-[#ffc8ef] mb-4">
+      <span className="inline-flex items-center rounded-full border border-[#A78BFA]/60 bg-[#A78BFA]/15 px-3 py-1 text-xs font-bold uppercase tracking-wide text-[#e878c8] dark:text-[#ffc8ef] mb-4">
         {SMART_LINKS_COMING_SOON_LABEL}
       </span>
       <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">Links</h1>

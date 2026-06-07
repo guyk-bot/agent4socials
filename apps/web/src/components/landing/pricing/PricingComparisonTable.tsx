@@ -102,7 +102,7 @@ function Cell({ value }: { value: CellValue }) {
   if (value === 'dash') {
     return <span className="text-[#d6c0a8]">—</span>;
   }
-  return <span className="text-[#5d5768] text-sm">{value}</span>;
+  return <span className="text-[#888780] text-sm">{value}</span>;
 }
 
 function CellDark({ value }: { value: CellValue }) {
@@ -112,7 +112,7 @@ function CellDark({ value }: { value: CellValue }) {
   if (value === 'dash') {
     return <span className="text-[#d6c0a8]">—</span>;
   }
-  return <span className="text-[#5d5768] text-sm">{value}</span>;
+  return <span className="text-[#888780] text-sm">{value}</span>;
 }
 
 export default function PricingComparisonTable({ dark }: { dark?: boolean }) {
@@ -121,29 +121,29 @@ export default function PricingComparisonTable({ dark }: { dark?: boolean }) {
   return (
     <section className="py-16 sm:py-20 border-t border-[#F3EDFF]">
       <div className="mx-auto max-w-5xl px-4 sm:px-6">
-        <h2 className="text-center text-2xl font-bold text-[#1a161f] sm:text-3xl">
+        <h2 className="text-center text-2xl font-bold text-[#1a1a1a] sm:text-3xl">
           Compare plans
         </h2>
         <div className="mt-10 overflow-x-auto rounded-2xl border border-[#F3EDFF] bg-white shadow-sm">
           <table className="w-full min-w-[640px] border-collapse text-left">
             <thead>
-              <tr className="border-b border-[#F3EDFF] bg-[#E8F4FF]">
-                <th className="py-4 pl-6 pr-4 text-sm font-semibold text-[#1a161f]">Feature</th>
-                <th className="py-4 px-4 text-sm font-semibold text-[#1a161f] text-center">Free</th>
-                <th className="py-4 px-4 text-sm font-semibold text-[#1a161f] text-center">Standard</th>
-                <th className="py-4 px-4 text-sm font-semibold text-[#1a161f] text-center">Pro</th>
+              <tr className="border-b border-[#F3EDFF] bg-[rgba(124, 58, 237, 0.08)]">
+                <th className="py-4 pl-6 pr-4 text-sm font-semibold text-[#1a1a1a]">Feature</th>
+                <th className="py-4 px-4 text-sm font-semibold text-[#1a1a1a] text-center">Free</th>
+                <th className="py-4 px-4 text-sm font-semibold text-[#1a1a1a] text-center">Standard</th>
+                <th className="py-4 px-4 text-sm font-semibold text-[#1a1a1a] text-center">Pro</th>
               </tr>
             </thead>
             <tbody>
               {SECTIONS.map((section) => (
                 <React.Fragment key={section.title}>
-                  <tr className="border-b border-[#F3EDFF] bg-[#E8F4FF]">
-                    <td colSpan={4} className="py-3 pl-6 pr-4 text-sm font-semibold uppercase tracking-wider text-[#E878C8]">
+                  <tr className="border-b border-[#F3EDFF] bg-[rgba(124, 58, 237, 0.08)]">
+                    <td colSpan={4} className="py-3 pl-6 pr-4 text-sm font-semibold uppercase tracking-wider text-[#4F46E5]">
                       {section.title}
                     </td>
                   </tr>
                   {section.rows.map((row) => (
-                    <tr key={row.feature} className="border-b border-[#E8F4FF] hover:bg-[#E8F4FF] transition-colors">
+                    <tr key={row.feature} className="border-b border-[rgba(124, 58, 237, 0.08)] hover:bg-[rgba(124, 58, 237, 0.08)] transition-colors">
                       <td className="py-3 pl-6 pr-4 text-sm text-[#473f55]">{row.feature}</td>
                       <td className="py-3 px-4 text-center"><Cell value={row.free} /></td>
                       <td className="py-3 px-4 text-center"><Cell value={row.starter} /></td>
@@ -151,7 +151,7 @@ export default function PricingComparisonTable({ dark }: { dark?: boolean }) {
                     </tr>
                   ))}
                   {section.note && (
-                    <tr className="border-b border-[#C8E4FF] bg-[#E8F4FF]">
+                    <tr className="border-b border-[rgba(124, 58, 237, 0.2)] bg-[rgba(124, 58, 237, 0.08)]">
                       <td colSpan={4} className="py-2 pl-6 pr-4 text-xs text-[#c44536]">
                         {section.note}
                       </td>

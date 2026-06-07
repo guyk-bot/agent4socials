@@ -2,12 +2,12 @@
  * iZop light-theme brand palette (sampled from logo artwork).
  * Dark mode keeps legacy orange via globals.css [data-theme='dark'] overrides.
  */
-export const NEWT_CYAN = '#1C9CFB';
-export const NEWT_CYAN_HOVER = '#0B87E8';
-export const NEWT_CYAN_SOFT = '#53BEFA';
-export const NEWT_CYAN_MUTED = '#B8E4FF';
-export const NEWT_MAGENTA = '#FA8DDF';
-export const NEWT_MAGENTA_HOVER = '#E878C8';
+export const NEWT_CYAN = '#7C3AED';
+export const NEWT_CYAN_HOVER = '#6D28D9';
+export const NEWT_CYAN_SOFT = '#A78BFA';
+export const NEWT_CYAN_MUTED = '#C4B5FD';
+export const NEWT_MAGENTA = '#A78BFA';
+export const NEWT_MAGENTA_HOVER = '#4F46E5';
 export const NEWT_PURPLE = '#A58DF6';
 export const NEWT_PURPLE_DEEP = '#8B6EF0';
 export const NEWT_PEACH = '#FF9D8A';
@@ -24,8 +24,8 @@ export const NEWT_LAVENDER = NEWT_LILAC_SURFACE;
 export const NEWT_LAVENDER_BORDER = NEWT_SKY_BORDER;
 export const NEWT_LAVENDER_SURFACE = NEWT_SKY_SURFACE;
 
-export const NEWT_GRADIENT_CTA = 'linear-gradient(135deg, #1C9CFB 0%, #FA8DDF 100%)';
-export const NEWT_GRADIENT_CTA_TW = 'linear-gradient(135deg,#1C9CFB_0%,#FA8DDF_100%)';
+export const NEWT_GRADIENT_CTA = 'linear-gradient(135deg, #7C3AED 0%, #A78BFA 100%)';
+export const NEWT_GRADIENT_CTA_TW = 'linear-gradient(135deg,#7C3AED_0%,#A78BFA_100%)';
 
 export const NEWT_SHADOW = 'rgba(28, 156, 251, 0.28)';
 export const NEWT_SHADOW_HOVER = 'rgba(250, 141, 223, 0.28)';

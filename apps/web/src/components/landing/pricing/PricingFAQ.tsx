@@ -41,18 +41,18 @@ const FAQ_ITEMS: { question: string; answer: string }[] = [
 function FaqItem({ question, answer, isOpen, onToggle, dark }: { question: string; answer: string; isOpen: boolean; onToggle: () => void; dark?: boolean }) {
   void dark;
   return (
-    <div className="rounded-2xl border border-[#F3EDFF] bg-white overflow-hidden transition-all duration-200 hover:border-[#C8E4FF]">
+    <div className="rounded-2xl border border-[#F3EDFF] bg-white overflow-hidden transition-all duration-200 hover:border-[rgba(124, 58, 237, 0.2)]">
       <button
         type="button"
         onClick={onToggle}
         className="flex w-full items-center justify-between gap-4 p-5 sm:p-6 text-left"
         aria-expanded={isOpen}
       >
-        <span className="font-semibold text-[#1a161f] pr-4">{question}</span>
+        <span className="font-semibold text-[#1a1a1a] pr-4">{question}</span>
         {isOpen ? (
-          <ChevronUp className="h-5 w-5 shrink-0 text-[#E878C8]" aria-hidden />
+          <ChevronUp className="h-5 w-5 shrink-0 text-[#4F46E5]" aria-hidden />
         ) : (
-          <ChevronDown className="h-5 w-5 shrink-0 text-[#E878C8]" aria-hidden />
+          <ChevronDown className="h-5 w-5 shrink-0 text-[#4F46E5]" aria-hidden />
         )}
       </button>
       <div
@@ -61,7 +61,7 @@ function FaqItem({ question, answer, isOpen, onToggle, dark }: { question: strin
         }`}
       >
         <div className="border-t border-[#F3EDFF] px-5 pb-5 pt-0 sm:px-6 sm:pb-6 sm:pt-0">
-          <p className="text-[#5d5768] text-sm sm:text-base leading-relaxed">{answer}</p>
+          <p className="text-[#888780] text-sm sm:text-base leading-relaxed">{answer}</p>
         </div>
       </div>
     </div>
@@ -74,7 +74,7 @@ export default function PricingFAQ({ dark }: { dark?: boolean }) {
   return (
     <section className="border-t border-[#F3EDFF] py-16 sm:py-20">
       <div className="mx-auto max-w-3xl px-4 sm:px-6">
-        <h2 className="text-2xl font-bold sm:text-3xl text-center text-[#1a161f]">
+        <h2 className="text-2xl font-bold sm:text-3xl text-center text-[#1a1a1a]">
           Frequently Asked Questions
         </h2>
         <div className="mt-10 space-y-3">

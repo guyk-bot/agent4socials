@@ -236,7 +236,7 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
       {platforms.map(({ Icon, label }, i) => {
         const slots = isMobile ? MOBILE_ICON_SLOTS : RANDOM_ICON_SLOTS;
         const slot = slots[i % slots.length];
-        const color = PLATFORM_COLORS[label] ?? '#1C9CFB';
+        const color = PLATFORM_COLORS[label] ?? '#7C3AED';
         const iconSize = isMobile ? 26 : 34;
         const rotation = STATIC_ICON_ROTATIONS[i % STATIC_ICON_ROTATIONS.length];
         const notificationCount = LOGO_NOTIFICATIONS[i % LOGO_NOTIFICATIONS.length];
@@ -269,14 +269,14 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
             >
               <Icon size={iconSize} softenOnLight />
               <span
-                className="absolute flex items-center justify-center rounded-full text-[9px] font-bold text-chrome-text"
+                className="absolute flex items-center justify-center rounded-full text-[9px] font-bold text-white"
                 style={{
                   minWidth: isMobile ? 13 : 15,
                   height: isMobile ? 13 : 15,
                   padding: isMobile ? '0 3px' : '0 4px',
                   right: isMobile ? -5 : -6,
                   top: isMobile ? -5 : -6,
-                  background: 'linear-gradient(135deg, #ef4444, #FA8DDF)',
+                  background: 'linear-gradient(135deg, #ef4444, #A78BFA)',
                   boxShadow: '0 6px 16px rgba(225,29,72,0.35)',
                   lineHeight: 1,
                 }}
@@ -294,20 +294,20 @@ function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
 function FaqItem({ question, answer }: { question: string; answer: string }) {
   const [isOpen, setIsOpen] = useState(false);
   return (
-    <div className="rounded-[20px] border border-[#C8E4FF] bg-white overflow-hidden transition-all duration-300 hover:border-[#53BEFA] hover:shadow-md">
+    <div className="rounded-[20px] border border-[rgba(124, 58, 237, 0.2)] bg-white overflow-hidden transition-all duration-300 hover:border-[#A78BFA] hover:shadow-md">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex w-full items-start justify-between gap-3 p-5 sm:p-6 text-left"
       >
-        <span className="flex items-start gap-3 font-semibold text-[#1a161f] text-sm sm:text-base">
-          <HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#1C9CFB]" />
+        <span className="flex items-start gap-3 font-semibold text-[#1a1a1a] text-sm sm:text-base">
+          <HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#7C3AED]" />
           {question}
         </span>
         {isOpen
-          ? <ChevronUp className="h-4 w-4 shrink-0 text-[#b1631a] mt-0.5" />
-          : <ChevronDown className="h-4 w-4 shrink-0 text-[#b1631a] mt-0.5" />}
+          ? <ChevronUp className="h-4 w-4 shrink-0 text-[#888780] mt-0.5" />
+          : <ChevronDown className="h-4 w-4 shrink-0 text-[#888780] mt-0.5" />}
       </button>
-      <div className={`px-5 sm:px-6 text-[#5d5768] text-sm leading-relaxed overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-96 pb-5 opacity-100' : 'max-h-0 opacity-0'}`}>
+      <div className={`px-5 sm:px-6 text-[#888780] text-sm leading-relaxed overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-96 pb-5 opacity-100' : 'max-h-0 opacity-0'}`}>
         <div className="pl-7">{answer}</div>
       </div>
     </div>
@@ -327,7 +327,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white text-[#1a161f] overflow-x-hidden">
+    <div className="min-h-screen funnel-page overflow-x-hidden overflow-x-hidden">
       <SiteHeader />
       <main>
 
@@ -335,18 +335,18 @@ export default function Home() {
         <section className="relative overflow-hidden pt-20 pb-20 sm:pt-28 sm:pb-28">
           {/* Design system: radial glow + light streaks feel */}
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute left-1/2 top-0 -translate-x-1/2 h-[600px] w-[900px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(28, 156, 251,0.14)_0%,rgba(250, 141, 223,0.06)_42%,transparent_72%)]" />
-            <div className="absolute -right-32 top-20 h-[450px] w-[550px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(250, 141, 223,0.08)_0%,transparent_65%)]" />
+            <div className="absolute left-1/2 top-0 -translate-x-1/2 h-[600px] w-[900px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(124, 58, 237,0.14)_0%,rgba(79, 70, 229,0.06)_42%,transparent_72%)]" />
+            <div className="absolute -right-32 top-20 h-[450px] w-[550px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(79, 70, 229,0.08)_0%,transparent_65%)]" />
             <div className="absolute -left-24 bottom-10 h-[380px] w-[480px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(255,176,0,0.08)_0%,transparent_65%)]" />
-            <div className="absolute bottom-0 left-0 right-0 h-72 bg-gradient-to-t from-[#E8F4FF] via-[#E8F4FF] to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 h-72 bg-gradient-to-t from-[rgba(124, 58, 237, 0.08)] via-[rgba(124, 58, 237, 0.08)] to-transparent" />
           </div>
 
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6 text-center">
-            <h1 className="mt-1 text-[40px] font-bold tracking-[-0.028em] leading-[1.06] text-[#1a161f] sm:text-5xl md:text-[60px] lg:text-[72px]">
+            <h1 className="mt-1 text-[40px] font-bold tracking-[-0.028em] leading-[1.06] text-[#1a1a1a] sm:text-5xl md:text-[60px] lg:text-[72px]">
               The all-in-one platform for social media growth.
             </h1>
 
-            <p className="mx-auto mt-5 max-w-[860px] text-[15px] font-medium sm:text-[19px] text-[#5d5768] leading-relaxed">
+            <p className="mx-auto mt-5 max-w-[860px] text-[15px] font-medium sm:text-[19px] text-[#888780] leading-relaxed">
               Schedule posts, automate replies, track analytics, and create content with AI, all across 8 platforms in one dashboard.
             </p>
 
@@ -354,23 +354,23 @@ export default function Home() {
               <button
                 type="button"
                 onClick={openSignup}
-                className="group inline-flex min-w-[196px] items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#1C9CFB_0%,#FA8DDF_100%)] px-8 py-3.5 text-base font-semibold text-chrome-text shadow-[0_10px_30px_rgba(28, 156, 251,0.24)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_35px_rgba(250, 141, 223,0.28)] active:translate-y-0"
+                className="group inline-flex min-w-[196px] items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#7C3AED_0%,#A78BFA_100%)] px-8 py-3.5 text-base font-semibold text-white shadow-[0_10px_30px_rgba(124, 58, 237,0.24)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_35px_rgba(79, 70, 229,0.28)] active:translate-y-0"
               >
                 Get started free
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </button>
               <Link
                 href="/pricing"
-                className="inline-flex min-w-[196px] items-center justify-center rounded-full border border-[#dcc9ef] bg-white px-8 py-3.5 text-base font-semibold text-[#FA8DDF] shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0"
+                className="inline-flex min-w-[196px] items-center justify-center rounded-full border border-[#E8E6DF] bg-white px-8 py-3.5 text-base font-semibold text-[#A78BFA] shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0"
               >
                 See pricing
               </Link>
             </div>
 
-            <div className="relative z-[4] mx-auto mt-8 inline-flex flex-wrap items-center justify-center gap-x-5 gap-y-2 rounded-full border border-[#C8E4FF] bg-white px-4 py-2 text-xs text-[#5d5768] sm:px-5">
-              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#2f9e44]" /> No credit card required</span>
-              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#2f9e44]" /> Free plan forever</span>
-              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#2f9e44]" /> Cancel anytime</span>
+            <div className="relative z-[4] mx-auto mt-8 inline-flex flex-wrap items-center justify-center gap-x-5 gap-y-2 rounded-full border border-[rgba(124, 58, 237, 0.2)] bg-white px-4 py-2 text-xs text-[#888780] sm:px-5">
+              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#10B981]" /> No credit card required</span>
+              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#10B981]" /> Free plan forever</span>
+              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#10B981]" /> Cancel anytime</span>
             </div>
           </div>
 
@@ -380,45 +380,45 @@ export default function Home() {
           {/* Dashboard preview + floating glass badges (design: detached UI, blur, glow) */}
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6 mt-14">
             <div className="hidden sm:block absolute -left-2 top-10 z-10">
-              <div className="rounded-[16px] border border-[#C8E4FF] bg-white px-4 py-3 shadow-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#1C9CFB] mb-0.5">Platforms</p>
-                <p className="text-lg font-bold text-[#1a161f]">8 connected</p>
+              <div className="rounded-[16px] border border-[rgba(124, 58, 237, 0.2)] bg-white px-4 py-3 shadow-sm">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#7C3AED] mb-0.5">Platforms</p>
+                <p className="text-lg font-bold text-[#1a1a1a]">8 connected</p>
               </div>
             </div>
             <div className="hidden sm:block absolute -right-2 top-10 z-10">
-              <div className="rounded-[16px] border border-[#C8E4FF] bg-white px-4 py-3 shadow-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#FA8DDF] mb-0.5">AI Assistant</p>
-                <p className="text-lg font-bold text-[#1a161f]">Always on</p>
+              <div className="rounded-[16px] border border-[rgba(124, 58, 237, 0.2)] bg-white px-4 py-3 shadow-sm">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#A78BFA] mb-0.5">AI Assistant</p>
+                <p className="text-lg font-bold text-[#1a1a1a]">Always on</p>
               </div>
             </div>
             <div className="hidden sm:block absolute -left-2 bottom-14 z-10">
-              <div className="rounded-[16px] border border-[#C8E4FF] bg-white px-4 py-3 shadow-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#1C9CFB] mb-0.5">Analytics</p>
-                <p className="text-lg font-bold text-[#1a161f]">Real-time</p>
+              <div className="rounded-[16px] border border-[rgba(124, 58, 237, 0.2)] bg-white px-4 py-3 shadow-sm">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#7C3AED] mb-0.5">Analytics</p>
+                <p className="text-lg font-bold text-[#1a1a1a]">Real-time</p>
               </div>
             </div>
             <div className="hidden sm:block absolute -right-2 bottom-14 z-10">
-              <div className="rounded-[16px] border border-[#C8E4FF] bg-white px-4 py-3 shadow-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#1C9CFB] mb-0.5">Scheduling</p>
-                <p className="text-lg font-bold text-[#1a161f]">Unlimited</p>
+              <div className="rounded-[16px] border border-[rgba(124, 58, 237, 0.2)] bg-white px-4 py-3 shadow-sm">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#7C3AED] mb-0.5">Scheduling</p>
+                <p className="text-lg font-bold text-[#1a1a1a]">Unlimited</p>
               </div>
             </div>
             <div className="absolute inset-x-16 top-1/2 -translate-y-1/2 h-64 bg-[radial-gradient(circle,rgba(123,44,191,0.18),transparent)] blur-3xl pointer-events-none rounded-full" />
-            <div className="relative rounded-[24px] border border-[#C8E4FF] overflow-hidden shadow-[0_14px_30px_rgba(28, 156, 251,0.12)] bg-white">
+            <div className="relative rounded-[24px] border border-[rgba(124, 58, 237, 0.2)] overflow-hidden shadow-[0_14px_30px_rgba(124, 58, 237,0.12)] bg-white">
               <DashboardPreview />
             </div>
           </div>
         </section>
 
         {/* FEATURES - glassmorphism cards, neon accents */}
-        <section id="features" className="relative border-t border-[#C8E4FF] py-20 sm:py-28">
+        <section id="features" className="relative border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28">
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 h-[500px] w-[500px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(28, 156, 251,0.25)_0%,transparent_65%)]" />
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 h-[500px] w-[500px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(124, 58, 237,0.25)_0%,transparent_65%)]" />
           </div>
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6">
             <div className="text-center mb-14">
-              <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-[#1a161f]">Everything you need to grow</h2>
-              <p className="mt-4 text-[#5d5768] max-w-xl mx-auto text-base">Scheduling, analytics, unified inbox, and AI. All in one place, all 8 platforms.</p>
+              <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-[#1a1a1a]">Everything you need to grow</h2>
+              <p className="mt-4 text-[#888780] max-w-xl mx-auto text-base">Scheduling, analytics, unified inbox, and AI. All in one place, all 8 platforms.</p>
             </div>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {[
@@ -429,13 +429,13 @@ export default function Home() {
                 { icon: Link2, label: 'Smart Links', desc: 'Custom link-in-bio pages with click analytics. Coming soon.' },
                 { icon: Sparkles, label: 'AI Assistant', desc: 'Set your brand voice, get AI-suggested captions right inside the Composer.' },
               ].map(({ icon: Icon, label, desc }) => (
-                <div key={label} className="group relative flex flex-col gap-4 rounded-[20px] border border-[#C8E4FF] bg-white p-6 transition-all duration-300 hover:border-[#53BEFA] hover:shadow-md hover:scale-[1.01]">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#E8F4FF] border border-[#C8E4FF] text-[#1C9CFB] transition-all">
+                <div key={label} className="group relative flex flex-col gap-4 rounded-[20px] border border-[rgba(124, 58, 237, 0.2)] bg-white p-6 transition-all duration-300 hover:border-[#A78BFA] hover:shadow-md hover:scale-[1.01]">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[rgba(124, 58, 237, 0.08)] border border-[rgba(124, 58, 237, 0.2)] text-[#7C3AED] transition-all">
                     <Icon className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-[#1a161f] text-base">{label}</h3>
-                    <p className="mt-1.5 text-sm text-[#5d5768] leading-relaxed">{desc}</p>
+                    <h3 className="font-semibold text-[#1a1a1a] text-base">{label}</h3>
+                    <p className="mt-1.5 text-sm text-[#888780] leading-relaxed">{desc}</p>
                   </div>
                 </div>
               ))}
@@ -444,17 +444,17 @@ export default function Home() {
         </section>
 
         {/* HOW IT WORKS - step cards with glow */}
-        <section id="how-it-works" className="relative border-t border-[#C8E4FF] py-20 sm:py-28 overflow-hidden">
+        <section id="how-it-works" className="relative border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28 overflow-hidden">
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[700px] rounded-full bg-[radial-gradient(circle,rgba(28, 156, 251,0.25),transparent_65%)]" />
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[700px] rounded-full bg-[radial-gradient(circle,rgba(124, 58, 237,0.25),transparent_65%)]" />
           </div>
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6">
             <div className="text-center mb-16">
-              <h2 className="text-[28px] sm:text-4xl md:text-5xl font-bold tracking-[-0.02em] text-[#1a161f]">Up and running in minutes</h2>
-              <p className="mx-auto mt-5 max-w-xl text-[#5d5768]">Three steps from signup to your first scheduled post. No complicated setup.</p>
+              <h2 className="text-[28px] sm:text-4xl md:text-5xl font-bold tracking-[-0.02em] text-[#1a1a1a]">Up and running in minutes</h2>
+              <p className="mx-auto mt-5 max-w-xl text-[#888780]">Three steps from signup to your first scheduled post. No complicated setup.</p>
             </div>
             <div className="grid gap-10 md:grid-cols-3 relative">
-              <div className="hidden md:block absolute top-14 left-[calc(16.67%+1rem)] right-[calc(16.67%+1rem)] h-px bg-gradient-to-r from-[#1C9CFB]/25 via-[#FA8DDF]/25 to-[#E878C8]/20" />
+              <div className="hidden md:block absolute top-14 left-[calc(16.67%+1rem)] right-[calc(16.67%+1rem)] h-px bg-gradient-to-r from-[#7C3AED]/25 via-[#A78BFA]/25 to-[#4F46E5]/20" />
               {[
                 { icon: Link2, step: '01', title: 'Connect', desc: 'Authorize your accounts with each platform\'s official OAuth. No passwords stored, just secure logins.' },
                 { icon: CalendarCheck, step: '02', title: 'Create & Schedule', desc: 'Use the Composer to write captions, add media, and schedule posts to one or multiple platforms at once.' },
@@ -462,13 +462,13 @@ export default function Home() {
               ].map(({ icon: Icon, step, title, desc }) => (
                 <div key={title} className="group relative flex flex-col items-center text-center z-10">
                   <div className="relative mb-6">
-                    <div className="flex h-24 w-24 items-center justify-center rounded-[20px] border border-[#C8E4FF] bg-white text-[#1C9CFB] shadow-sm transition-all duration-300 group-hover:shadow-md group-hover:-translate-y-1">
+                    <div className="flex h-24 w-24 items-center justify-center rounded-[20px] border border-[rgba(124, 58, 237, 0.2)] bg-white text-[#7C3AED] shadow-sm transition-all duration-300 group-hover:shadow-md group-hover:-translate-y-1">
                       <Icon className="h-10 w-10" />
                     </div>
-                    <div className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-[linear-gradient(135deg,#1C9CFB,#FA8DDF)] text-[10px] font-black text-chrome-text">{step}</div>
+                    <div className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-[linear-gradient(135deg,#7C3AED,#A78BFA)] text-[10px] font-black text-white">{step}</div>
                   </div>
-                  <h3 className="text-xl font-semibold text-[#1a161f] mb-3">{title}</h3>
-                  <p className="text-sm text-[#5d5768] leading-relaxed max-w-xs">{desc}</p>
+                  <h3 className="text-xl font-semibold text-[#1a1a1a] mb-3">{title}</h3>
+                  <p className="text-sm text-[#888780] leading-relaxed max-w-xs">{desc}</p>
                 </div>
               ))}
             </div>
@@ -476,19 +476,19 @@ export default function Home() {
         </section>
 
         {/* PRODUCT DETAIL - glass cards */}
-        <section id="product" className="relative border-t border-[#C8E4FF] py-20 sm:py-28 overflow-hidden">
+        <section id="product" className="relative border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28 overflow-hidden">
           <div className="pointer-events-none absolute inset-0">
             <div className="absolute -left-20 top-1/2 -translate-y-1/2 h-[400px] w-[400px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.08)_0%,transparent_65%)]" />
           </div>
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6">
             <div className="text-center mb-14">
-              <h2 className="text-[28px] sm:text-4xl md:text-5xl font-bold tracking-[-0.02em] text-[#1a161f]">One product, everything you need</h2>
-              <p className="mx-auto mt-4 max-w-xl text-[#5d5768]">No juggling multiple tools. One login, all platforms. Scale from solo creator to agency.</p>
+              <h2 className="text-[28px] sm:text-4xl md:text-5xl font-bold tracking-[-0.02em] text-[#1a1a1a]">One product, everything you need</h2>
+              <p className="mx-auto mt-4 max-w-xl text-[#888780]">No juggling multiple tools. One login, all platforms. Scale from solo creator to agency.</p>
               <div className="mt-8 flex justify-center">
                 <button
                   type="button"
                   onClick={openSignup}
-                  className="group inline-flex items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#1C9CFB,#FA8DDF)] px-8 py-4 text-base font-semibold text-chrome-text shadow-[0_10px_24px_rgba(28, 156, 251,0.26)] transition-all duration-300 hover:opacity-95 hover:scale-[1.03] active:scale-[0.98]"
+                  className="group inline-flex items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#7C3AED,#A78BFA)] px-8 py-4 text-base font-semibold text-white shadow-[0_10px_24px_rgba(124, 58, 237,0.26)] transition-all duration-300 hover:opacity-95 hover:scale-[1.03] active:scale-[0.98]"
                 >
                   Get started free
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -504,22 +504,22 @@ export default function Home() {
                 { title: 'Hashtag pool & AI', desc: 'Save hashtag sets and reuse them. Get AI-suggested captions with your brand voice.', emoji: '✨' },
                 { title: 'White-label (Agency)', desc: 'Your logo, your colors. The dashboard looks like your brand. Multiple workspaces on higher plans.', emoji: '🏢' },
               ].map((item) => (
-                <div key={item.title} className="group rounded-[20px] border border-[#C8E4FF] bg-white p-6 transition-all duration-300 hover:border-[#53BEFA] hover:shadow-md">
+                <div key={item.title} className="group rounded-[20px] border border-[rgba(124, 58, 237, 0.2)] bg-white p-6 transition-all duration-300 hover:border-[#A78BFA] hover:shadow-md">
                   <div className="text-2xl mb-3">{item.emoji}</div>
-                  <h3 className="font-semibold text-[#1a161f] mb-2">{item.title}</h3>
-                  <p className="text-sm text-[#5d5768] leading-relaxed">{item.desc}</p>
+                  <h3 className="font-semibold text-[#1a1a1a] mb-2">{item.title}</h3>
+                  <p className="text-sm text-[#888780] leading-relaxed">{item.desc}</p>
                 </div>
               ))}
             </div>
-            <div className="mt-10 rounded-[20px] border border-[#C8E4FF] bg-[#fefcff] p-6 sm:p-8">
+            <div className="mt-10 rounded-[20px] border border-[rgba(124, 58, 237, 0.2)] bg-[#F8F7FC] p-6 sm:p-8">
               <ul className="space-y-3">
                 {[
                   'All plans include scheduling, basic analytics, unified inbox, and AI assistant.',
                   'Standard and Pro add more brands, analytics history, and platform connections.',
                   'Pro adds white label, team members, and priority support.',
                 ].map((item, i) => (
-                  <li key={i} className="flex items-start gap-3 text-sm text-[#5d5768]">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#2f9e44]" />
+                  <li key={i} className="flex items-start gap-3 text-sm text-[#888780]">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#10B981]" />
                     <span>{item}</span>
                   </li>
                 ))}
@@ -529,14 +529,14 @@ export default function Home() {
         </section>
 
         {/* PRICING */}
-        <section className="relative border-t border-[#C8E4FF] py-20 sm:py-28 overflow-hidden">
+        <section className="relative border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28 overflow-hidden">
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute left-1/2 bottom-0 -translate-x-1/2 h-[400px] w-[800px] rounded-full bg-[radial-gradient(circle,rgba(28, 156, 251,0.3),transparent_65%)]" />
+            <div className="absolute left-1/2 bottom-0 -translate-x-1/2 h-[400px] w-[800px] rounded-full bg-[radial-gradient(circle,rgba(124, 58, 237,0.3),transparent_65%)]" />
           </div>
           <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
             <div className="text-center mb-10">
-              <h2 className="text-[28px] sm:text-4xl font-bold tracking-[-0.02em] text-[#1a161f]">Plans for every stage</h2>
-              <p className="mt-3 text-[#5d5768]">Yearly billing saves 20%. No hidden fees.</p>
+              <h2 className="text-[28px] sm:text-4xl font-bold tracking-[-0.02em] text-[#1a1a1a]">Plans for every stage</h2>
+              <p className="mt-3 text-[#888780]">Yearly billing saves 20%. No hidden fees.</p>
             </div>
             <div className="pb-8">
               <PricingBillingToggle interval={billingInterval} onIntervalChange={setBillingInterval} />
@@ -547,7 +547,7 @@ export default function Home() {
               <PricingCard plan="pro" description="Best for professionals and agencies" badge="Most Popular" bestValueLabel="Best value for growing brands" highlights={PRO_HIGHLIGHTS} priceMonthly={PRO_PLAN_PRICING.monthly} priceYearly={PRO_PLAN_PRICING.yearly} yearlyCrossedPrice={PRO_PLAN_PRICING.yearlyCrossed} savePerYear={PRO_PLAN_PRICING.savePerYear} additionalBrandsMonthly={PRO_PLAN_PRICING.additionalBrandsMonthly} additionalBrandsYearly={PRO_PLAN_PRICING.additionalBrandsYearly} additionalAddonUnitLabel="team member" ctaText={PRO_PLAN_PRICING.ctaText} onCta={openSignup} highlighted billingInterval={billingInterval} />
             </div>
             <p className="mt-10 text-center">
-              <Link href="/pricing" className="text-[#1C9CFB] font-medium hover:text-[#FA8DDF] transition-colors">
+              <Link href="/pricing" className="text-[#7C3AED] font-medium hover:text-[#A78BFA] transition-colors">
                 Compare all features and yearly pricing &rarr;
               </Link>
             </p>
@@ -555,11 +555,11 @@ export default function Home() {
         </section>
 
         {/* FAQ */}
-        <section id="faq" className="border-t border-[#C8E4FF] py-20 sm:py-28">
+        <section id="faq" className="border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28">
           <div className="mx-auto max-w-3xl px-4 sm:px-6">
             <div className="text-center mb-14">
-              <h2 className="text-[28px] sm:text-4xl font-bold tracking-[-0.02em] text-[#1a161f]">Frequently asked questions</h2>
-              <p className="mx-auto mt-4 max-w-md text-[#5d5768]">Quick answers to common questions.</p>
+              <h2 className="text-[28px] sm:text-4xl font-bold tracking-[-0.02em] text-[#1a1a1a]">Frequently asked questions</h2>
+              <p className="mx-auto mt-4 max-w-md text-[#888780]">Quick answers to common questions.</p>
             </div>
             <div className="space-y-3">
               {[
@@ -582,27 +582,27 @@ export default function Home() {
         <Testimonials />
 
         {/* FINAL CTA - gradient CTA + glow */}
-        <section className="relative border-t border-[#C8E4FF] py-20 sm:py-28 overflow-hidden">
+        <section className="relative border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28 overflow-hidden">
           <div className="pointer-events-none absolute inset-0">
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[500px] w-[700px] rounded-full bg-[radial-gradient(circle,rgba(28, 156, 251,0.35)_0%,rgba(250, 141, 223,0.1)_45%,transparent_70%)]" />
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[500px] w-[700px] rounded-full bg-[radial-gradient(circle,rgba(124, 58, 237,0.35)_0%,rgba(79, 70, 229,0.1)_45%,transparent_70%)]" />
           </div>
           <div className="relative mx-auto max-w-2xl px-4 text-center sm:px-6">
-            <h2 className="text-[28px] sm:text-4xl md:text-5xl font-bold tracking-[-0.02em] text-[#1a161f]">Ready to grow your socials?</h2>
-            <p className="mt-5 text-lg text-[#5d5768]">Join creators and businesses who schedule smarter with iZop.</p>
+            <h2 className="text-[28px] sm:text-4xl md:text-5xl font-bold tracking-[-0.02em] text-[#1a1a1a]">Ready to grow your socials?</h2>
+            <p className="mt-5 text-lg text-[#888780]">Join creators and businesses who schedule smarter with iZop.</p>
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
               <button
                 type="button"
                 onClick={openSignup}
-                className="group inline-flex items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#1C9CFB,#FA8DDF)] px-8 py-4 text-base font-semibold text-chrome-text shadow-[0_10px_24px_rgba(28, 156, 251,0.28)] transition-all duration-300 hover:opacity-95 hover:scale-[1.03] active:scale-[0.98]"
+                className="group inline-flex items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#7C3AED,#A78BFA)] px-8 py-4 text-base font-semibold text-white shadow-[0_10px_24px_rgba(124, 58, 237,0.28)] transition-all duration-300 hover:opacity-95 hover:scale-[1.03] active:scale-[0.98]"
               >
                 Get started free
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </button>
-              <button type="button" onClick={openLogin} className="text-[#5d5768] hover:text-[#FA8DDF] transition-colors text-sm font-medium">
+              <button type="button" onClick={openLogin} className="text-[#888780] hover:text-[#A78BFA] transition-colors text-sm font-medium">
                 I already have an account
               </button>
             </div>
-            <p className="mt-6 text-xs text-[#b1631a]">No credit card required. Free plan, forever.</p>
+            <p className="mt-6 text-xs text-[#888780]">No credit card required. Free plan, forever.</p>
           </div>
         </section>
 

@@ -205,10 +205,10 @@ export default function SignupFormContent() {
   };
 
   const inputClass =
-    'block w-full rounded-xl border border-[#F3EDFF] bg-white py-2.5 pl-10 pr-10 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#FA8DDF]/50 focus:outline-none focus:ring-2 focus:ring-[#FA8DDF]/25';
+    'block w-full rounded-xl border border-[#F3EDFF] bg-white py-2.5 pl-10 pr-10 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#A78BFA]/50 focus:outline-none focus:ring-2 focus:ring-[#A78BFA]/25';
 
   const otpBoxClass =
-    'h-12 w-10 sm:w-11 rounded-xl border border-[#F3EDFF] bg-white text-center text-lg font-semibold text-[#1a161f] transition-colors focus:border-[#FA8DDF]/50 focus:outline-none focus:ring-2 focus:ring-[#FA8DDF]/25';
+    'h-12 w-10 sm:w-11 rounded-xl border border-[#F3EDFF] bg-white text-center text-lg font-semibold text-[#1a161f] transition-colors focus:border-[#A78BFA]/50 focus:outline-none focus:ring-2 focus:ring-[#A78BFA]/25';
 
   const lockoutActive = lockoutUntilMs !== null && Date.now() < lockoutUntilMs;
   const cooldownActive = !lockoutActive && cooldownUntil !== null && Date.now() < cooldownUntil;
@@ -295,11 +295,11 @@ export default function SignupFormContent() {
                 type="checkbox"
                 checked={termsAccepted}
                 onChange={(e) => setTermsAccepted(e.target.checked)}
-                className="mt-0.5 rounded border-[#C8E4FF] bg-white text-[#FA8DDF] focus:ring-[#FA8DDF]/40"
+                className="mt-0.5 rounded border-[#C8E4FF] bg-white text-[#A78BFA] focus:ring-[#A78BFA]/40"
               />
               <span>
                 I agree to the{' '}
-                <Link href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#E878C8] hover:text-[#C85098] underline">
+                <Link href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#4F46E5] hover:text-[#C85098] underline">
                   Terms of Service
                 </Link>
               </span>
@@ -309,7 +309,7 @@ export default function SignupFormContent() {
                 type="checkbox"
                 checked={marketingConsent}
                 onChange={(e) => setMarketingConsent(e.target.checked)}
-                className="rounded border-[#C8E4FF] bg-white text-[#FA8DDF] focus:ring-[#FA8DDF]/40"
+                className="rounded border-[#C8E4FF] bg-white text-[#A78BFA] focus:ring-[#A78BFA]/40"
               />
               Send me product updates and tips (optional)
             </label>
@@ -378,7 +378,7 @@ export default function SignupFormContent() {
               type="button"
               onClick={handleResend}
               disabled={!canRequestResend}
-              className="text-sm font-semibold text-[#E878C8] hover:text-[#C85098] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="text-sm font-semibold text-[#4F46E5] hover:text-[#C85098] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {resendLoading ? 'Sending…' : "Didn't get the code? Send again"}
             </button>
@@ -386,7 +386,7 @@ export default function SignupFormContent() {
               <p className="text-xs text-[#5d5768]">
                 You can request a new code in <span className="font-mono font-semibold text-[#1a161f]">{formatMmSs(lockoutRemainingSec)}</span>
                 . Or{' '}
-                <button type="button" onClick={openLogin} className="font-semibold text-[#E878C8] hover:text-[#C85098]">
+                <button type="button" onClick={openLogin} className="font-semibold text-[#4F46E5] hover:text-[#C85098]">
                   log in
                 </button>{' '}
                 or use Google.
@@ -406,7 +406,7 @@ export default function SignupFormContent() {
               setCooldownUntil(null);
               setLockoutUntilMs(null);
             }}
-            className="w-full text-sm text-[#E878C8] hover:text-[#C85098] transition-colors"
+            className="w-full text-sm text-[#4F46E5] hover:text-[#C85098] transition-colors"
           >
             Use a different email
           </button>
@@ -415,7 +415,7 @@ export default function SignupFormContent() {
 
       <p className="text-center text-sm text-[#5d5768]">
         Already have an account?{' '}
-        <button type="button" onClick={openLogin} className="font-semibold text-[#E878C8] hover:text-[#C85098] transition-colors">
+        <button type="button" onClick={openLogin} className="font-semibold text-[#4F46E5] hover:text-[#C85098] transition-colors">
           Log in
         </button>
       </p>

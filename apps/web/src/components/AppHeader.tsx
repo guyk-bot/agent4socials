@@ -60,15 +60,17 @@ export default function AppHeader() {
   const isAccountPage = pathname === '/dashboard/account';
   const displayAppName = normalizeLegacyBrandName(appName || BRAND_NAME);
 
-  const navLinkClass = (active: boolean) =>
+  const navLinkClass = (active: boolean, isAysopAi = false) =>
     `relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-0 ${
-      active
-        ? 'bg-white/15 text-chrome-text'
-        : 'text-chrome-text/70 hover:text-chrome-text hover:bg-white/10'
+      isAysopAi
+        ? `nav-aysop-ai ${active ? 'ring-1 ring-[#7C3AED]/40' : ''}`
+        : active
+          ? 'bg-[var(--bg-hover)] text-[var(--foreground)] border-l-[3px] border-brand-purple pl-[calc(0.75rem-3px)]'
+          : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--bg-hover)]'
     }`;
 
   return (
-    <header className="h-full w-full flex items-center justify-between px-4 sm:px-6 bg-[var(--dark)] text-chrome-text border-b border-white/10 pointer-events-auto">
+    <header className="h-full w-full flex items-center justify-between px-4 sm:px-6 bg-[var(--bg-surface)] text-[var(--foreground)] border-b border-[var(--border)] pointer-events-auto">
       <div className="flex items-center gap-2 md:gap-8 min-w-0">
         <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
           {logoUrl ? (
@@ -76,7 +78,7 @@ export default function AppHeader() {
           ) : (
             <img src={SITE_LOGO_SRC} alt={BRAND_NAME} className="h-7 w-7 sm:h-8 sm:w-8 object-contain block bg-transparent" />
           )}
-          <span className="font-semibold text-chrome-text hidden sm:inline truncate">{displayAppName}</span>
+          <span className="font-semibold text-[var(--foreground)] hidden sm:inline truncate">{displayAppName}</span>
         </Link>
         <nav className="hidden md:flex items-center gap-1">
           {topNavItems.map((item) => {
@@ -96,6 +98,7 @@ export default function AppHeader() {
                 : badge > 0
                   ? `${badge} unread`
                   : undefined;
+            const isAysopAi = item.href.startsWith('/dashboard/aysop-ai');
             const content = (
               <>
                 <item.icon size={18} />
@@ -115,7 +118,7 @@ export default function AppHeader() {
                 key={item.href}
                 href={topNavHref(item, user?.id)}
                 prefetch={item.href === '/composer'}
-                className={navLinkClass(isActive)}
+                className={navLinkClass(isActive, isAysopAi)}
                 title={item.badgeKey === 'inbox' ? inboxBadgeTitle : undefined}
               >
                 {content}
@@ -130,7 +133,7 @@ export default function AppHeader() {
         <button
           type="button"
           onClick={toggleTheme}
-          className="p-2 rounded-lg text-chrome-text/70 hover:text-chrome-text hover:bg-white/10 transition-colors"
+          className="p-2 rounded-lg text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--bg-hover)] transition-colors"
           aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
         >
@@ -138,7 +141,7 @@ export default function AppHeader() {
         </button>
         <Link
           href="/dashboard/account"
-          className="flex items-stretch w-9 h-9 rounded-full overflow-hidden border-2 border-neutral-600 text-chrome-text/70 hover:text-chrome-text hover:border-neutral-500 hover:bg-white/10 transition-colors shrink-0"
+          className="flex items-stretch w-9 h-9 rounded-full overflow-hidden border-2 border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:border-[var(--color-purple)] hover:bg-[var(--bg-hover)] transition-colors shrink-0"
           title="Account"
           aria-label="Account"
         >
@@ -153,18 +156,18 @@ export default function AppHeader() {
         <button
           type="button"
           onClick={() => setTopNavOpen((v) => !v)}
-          className="md:hidden p-2 rounded-lg text-chrome-text/70 hover:text-chrome-text hover:bg-white/10"
+          className="md:hidden p-2 rounded-lg text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--bg-hover)]"
           aria-label="Open menu"
           aria-expanded={topNavOpen}
         >
           <Menu size={24} />
         </button>
         {topNavOpen && (
-          <div className="absolute right-0 top-full mt-1 py-1 w-52 rounded-lg bg-neutral-800 border border-neutral-700 shadow-xl z-50 md:hidden">
+          <div className="absolute right-0 top-full mt-1 py-1 w-52 rounded-lg bg-[var(--card-bg)] border border-[var(--border)] shadow-xl z-50 md:hidden">
             <Link
               href="/dashboard/account"
               onClick={() => setTopNavOpen(false)}
-              className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${isAccountPage ? 'bg-white/15 text-chrome-text' : 'text-chrome-text/70 hover:text-chrome-text hover:bg-white/10'}`}
+              className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${isAccountPage ? 'bg-[var(--bg-hover)] text-[var(--foreground)]' : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--bg-hover)]'}`}
             >
               {user?.avatarUrl ? (
                 <img src={user.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
@@ -192,11 +195,14 @@ export default function AppHeader() {
                   : badge > 0
                     ? `${badge} unread`
                     : undefined;
-              const mobileLinkClass = `flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${
-                isActive
-                  ? 'bg-white/15 text-chrome-text'
-                  : 'text-chrome-text/70 hover:text-chrome-text hover:bg-white/10'
-              }`;
+              const isAysopAi = item.href.startsWith('/dashboard/aysop-ai');
+              const mobileLinkClass = isAysopAi
+                ? `flex items-center gap-3 px-4 py-2.5 text-sm font-medium nav-aysop-ai ${isActive ? 'ring-1 ring-[#7C3AED]/40' : ''}`
+                : `flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-[var(--bg-hover)] text-[var(--foreground)] border-l-[3px] border-brand-purple'
+                      : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--bg-hover)]'
+                  }`;
               return (
                 <Link
                   key={item.href}

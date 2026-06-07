@@ -214,7 +214,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
             if (pathname === '/dashboard/console') e.preventDefault();
           }}
           className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold transition-colors ${
-            isMainAnalyticsView ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 border border-transparent dark:hover:border-neutral-700'
+            isMainAnalyticsView ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)] border border-transparent'
           }`}
         >
           <BarChart3 size={18} className="shrink-0" />
@@ -334,7 +334,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
         {SMART_LINKS_ENABLED ? (
           <Link
             href="/dashboard/smart-links"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isSmartLinksPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isSmartLinksPage ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)]'}`}
           >
             <Link2 size={18} className="shrink-0" />
             <span>Links</span>
@@ -347,21 +347,21 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
           >
             <Link2 size={18} className="shrink-0" />
             <span>Links</span>
-            <span className="rounded-full border border-[#FA8DDF]/60 bg-[#FA8DDF]/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#e878c8] leading-none">
+            <span className="rounded-full brand-pill px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide leading-none">
               {SMART_LINKS_COMING_SOON_LABEL}
             </span>
           </span>
         )}
         <Link
           href="/posts"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isPostsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isPostsPage ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)]'}`}
         >
           <History size={18} className="shrink-0" />
           <span>History</span>
         </Link>
         <Link
           href="/dashboard/reports"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isReportsPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isReportsPage ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)]'}`}
         >
           <FileText size={18} className="shrink-0" />
           <span>Reports</span>
@@ -371,7 +371,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
       <div className="mt-auto p-3 border-t border-neutral-200 shrink-0">
         <Link
           href="/help"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isHelpPage ? 'bg-neutral-200 text-neutral-700' : 'hover:bg-neutral-100 dark:hover:border-neutral-700'}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isHelpPage ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)]'}`}
         >
           <HelpCircle size={18} className="shrink-0" />
           <span>Need help?</span>
@@ -382,8 +382,8 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
 
   return (
     <div
-      className="flex flex-1 border-r border-neutral-200 flex-col bg-white min-h-0 pointer-events-auto overflow-hidden"
-      style={{ backgroundColor: 'var(--wl-sidebar-bg, #ffffff)', color: text }}
+      className="flex flex-1 border-r border-[var(--border)] flex-col bg-[var(--bg-surface)] min-h-0 pointer-events-auto overflow-hidden"
+      style={{ backgroundColor: 'var(--wl-sidebar-bg, var(--bg-surface))', color: text }}
     >
       {onSidebarToggle && (
         <div className="flex justify-end p-2 border-b border-neutral-200 shrink-0">

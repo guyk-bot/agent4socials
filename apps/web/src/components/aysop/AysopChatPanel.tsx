@@ -277,7 +277,7 @@ export default function AysopChatPanel({
     <div className="flex flex-col h-full min-h-0">
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-[#fafafa] dark:bg-neutral-950 min-h-0"
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-[var(--bg-primary)] min-h-0"
       >
         {messages.length === 0 ? (
           <div className="text-center py-8 px-4">
@@ -306,8 +306,8 @@ export default function AysopChatPanel({
               <div
                 className={`max-w-[95%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap ${
                   m.role === 'user'
-                    ? 'bg-[var(--primary)] text-chrome-text rounded-br-md'
-                    : 'bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-100 rounded-bl-md shadow-sm'
+                    ? 'aysop-bubble-user rounded-br-md'
+                    : 'aysop-bubble-assistant rounded-bl-md shadow-sm'
                 }`}
               >
                 {m.content ? <AysopChatMessageContent content={m.content} variant={m.role} /> : null}
@@ -340,7 +340,7 @@ export default function AysopChatPanel({
       />
 
       <form
-        className="p-3 border-t border-neutral-100 dark:border-neutral-800 flex gap-2 bg-white dark:bg-neutral-950 shrink-0"
+        className="p-3 border-t border-[var(--border)] flex gap-2 bg-[var(--bg-surface)] shrink-0"
         onSubmit={(e) => {
           e.preventDefault();
           void send(input, pendingAttachments);
@@ -369,14 +369,14 @@ export default function AysopChatPanel({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={loading ? 'Type your next message…' : 'Ask anything or attach media…'}
-          className="flex-1 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40"
+          className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--foreground)] placeholder:text-[var(--muted)] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/40"
           disabled={disabled || uploading}
         />
         {loading ? (
           <button
             type="button"
             onClick={stopGeneration}
-            className="shrink-0 rounded-xl bg-[var(--dark)] text-chrome-text px-4 py-3 hover:opacity-90 transition-opacity"
+            className="shrink-0 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--foreground)] px-4 py-3 hover:bg-[var(--bg-hover)] transition-opacity"
             aria-label="Stop generating"
             title="Stop"
           >
@@ -386,7 +386,7 @@ export default function AysopChatPanel({
           <button
             type="submit"
             disabled={!canSend}
-            className="shrink-0 rounded-xl bg-[var(--dark)] text-chrome-text px-4 py-3 hover:opacity-90 disabled:opacity-40 transition-opacity"
+            className="shrink-0 rounded-xl gradient-cta-pro px-4 py-3 hover:opacity-90 disabled:opacity-40 transition-opacity"
             aria-label="Send"
           >
             <Send size={18} />

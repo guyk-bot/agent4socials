@@ -28,10 +28,10 @@ type GrowthLineChartProps = {
 };
 
 const METRIC_CONFIG: Record<string, SeriesConfig> = {
-  audience: { dataKey: 'audience', label: 'Audience', color: '#1C9CFB' },
+  audience: { dataKey: 'audience', label: 'Audience', color: '#7C3AED' },
   reach: { dataKey: 'reach', label: 'Reach', color: '#A58DF6' },
   engagement: { dataKey: 'engagement', label: 'Engagement', color: '#f59e0b' },
-  posts: { dataKey: 'posts', label: 'Posts', color: '#FA8DDF' },
+  posts: { dataKey: 'posts', label: 'Posts', color: '#A78BFA' },
 };
 
 function formatDate(dateStr: string): string {
