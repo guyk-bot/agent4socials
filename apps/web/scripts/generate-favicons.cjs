@@ -161,24 +161,27 @@ async function knockOutWhiteBackgroundPng(pngBuffer) {
     .toBuffer();
 }
 
+async function loadColoredTabMarkPngBuffer(filePath) {
+  const coloredMark = await buildUiLogoMarkDarkPngBuffer(filePath);
+  const trimmed = await sharp(coloredMark).trim({ threshold: 12 }).toBuffer();
+  return sharp(trimmed)
+    .resize(MARK_RASTER_MAX, MARK_RASTER_MAX, {
+      fit: "inside",
+      withoutEnlargement: true,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
+}
+
 async function loadTabMarkPngBuffer() {
-  const src = fs.existsSync(squareIconSourcePath)
-    ? squareIconSourcePath
-    : fs.existsSync(markSourcePngPath)
-      ? markSourcePngPath
+  const src = fs.existsSync(markSourcePngPath)
+    ? markSourcePngPath
+    : fs.existsSync(squareIconSourcePath)
+      ? squareIconSourcePath
       : null;
   if (src) {
-    const whiteMark = await buildUiLogoMarkDarkPngBuffer(src);
-    const trimmed = await sharp(whiteMark).trim({ threshold: 12 }).toBuffer();
-    const scaled = await sharp(trimmed)
-      .resize(MARK_RASTER_MAX, MARK_RASTER_MAX, {
-        fit: "inside",
-        withoutEnlargement: true,
-        background: { r: 0, g: 0, b: 0, alpha: 0 },
-      })
-      .png()
-      .toBuffer();
-    return recolorVisibleMarkToRgb(scaled, 0, 0, 0);
+    return loadColoredTabMarkPngBuffer(src);
   }
   if (!fs.existsSync(logoSvgPath)) {
     throw new Error("Add public/favicon-source-mark.png or public/logo.svg to build tab favicons.");
@@ -195,8 +198,11 @@ async function loadTabMarkPngBuffer() {
 }
 
 async function loadGoogleLogoPngBuffer() {
+  if (fs.existsSync(markSourcePngPath)) {
+    return loadColoredTabMarkPngBuffer(markSourcePngPath);
+  }
   if (fs.existsSync(squareIconSourcePath)) {
-    return loadTrimmedMarkBuffer(squareIconSourcePath, 0.92);
+    return loadColoredTabMarkPngBuffer(squareIconSourcePath);
   }
   if (fs.existsSync(googleSearchLogoPath)) {
     return rasterizeSourceToMarkBuffer(googleSearchLogoPath, 0.9);
