@@ -162,7 +162,7 @@ async function knockOutWhiteBackgroundPng(pngBuffer) {
 }
 
 async function loadColoredTabMarkPngBuffer(filePath) {
-  const coloredMark = await buildUiLogoMarkDarkPngBuffer(filePath);
+  const coloredMark = await buildUiLogoMarkPngBuffer(filePath);
   const trimmed = await sharp(coloredMark).trim({ threshold: 12 }).toBuffer();
   return sharp(trimmed)
     .resize(MARK_RASTER_MAX, MARK_RASTER_MAX, {
@@ -392,11 +392,9 @@ function buildFlatLogoSvg(pngBuffer, width, height) {
       "Add public/logo-mark-source.png, brand-app-icon-source.png, or favicon-source-mark.png to build UI logo assets."
     );
   }
-  const uiLogoMarkPng = fs.existsSync(logoMarkDarkSourcePath)
-    ? await buildUiLogoMarkLightFromDarkSource(logoMarkDarkSourcePath)
-    : fs.existsSync(logoMarkSourcePath)
-      ? await buildUiLogoMarkLightFromDarkSource(logoMarkSourcePath)
-      : await buildUiLogoMarkPngBuffer(uiLogoSourcePath);
+  const uiLogoMarkPng = fs.existsSync(logoMarkSourcePath)
+    ? await buildUiLogoMarkPngBuffer(logoMarkSourcePath)
+    : await buildUiLogoMarkPngBuffer(uiLogoSourcePath);
   const uiMeta = await sharp(uiLogoMarkPng).metadata();
   const uiLogoSvg = buildFlatLogoSvg(uiLogoMarkPng, uiMeta.width, uiMeta.height);
 
