@@ -1,6 +1,7 @@
 import { BRAND_NAME } from '@/lib/site-brand-assets';
 import {
   openAiChatWithTools,
+  openAiChat,
   type OpenAIChatMessageWithTools,
 } from '@/lib/openai-client';
 import {
@@ -29,6 +30,44 @@ import { summarizeWorkspaceAccounts } from '@/lib/ai/aysop-workspace-snapshot';
 export type { AysopChatInputMessage };
 
 const MAX_TOOL_ROUNDS = 6;
+const MIN_MS_BEFORE_LLM = 12_000;
+
+function timeLeftMs(deadlineMs: number): number {
+  return deadlineMs - Date.now();
+}
+
+async function finalizeReplyFromToolData(
+  thread: OpenAIChatMessageWithTools[],
+  chatOptions: { max_tokens?: number; model?: string; providerScope?: 'default' | 'aysop' }
+): Promise<string> {
+  const toolOutputs = thread
+    .filter((m): m is { role: 'tool'; tool_call_id: string; content: string } => m.role === 'tool')
+    .map((m) => m.content)
+    .join('\n\n')
+    .slice(0, 14_000);
+  const lastUser = [...thread].reverse().find((m) => m.role === 'user');
+  const userQ =
+    typeof lastUser?.content === 'string'
+      ? lastUser.content
+      : 'Answer the user using the tool data below.';
+  const { content } = await openAiChat(
+    [
+      {
+        role: 'system',
+        content:
+          'Summarize the tool data for the user in plain text. No markdown. If they asked about lead interest, give a brief estimate from comment samples and label it as your opinion, not exact counts.',
+      },
+      {
+        role: 'user',
+        content: toolOutputs
+          ? `${userQ}\n\nTool data (JSON):\n${toolOutputs}`
+          : userQ,
+      },
+    ],
+    { ...chatOptions, max_tokens: 700 }
+  );
+  return content.trim() || 'Here is what I found from your workspace so far.';
+}
 
 function formatWorkspaceCatalog(
   workspaces: AysopWorkspaceSnapshot[] | undefined,
@@ -93,6 +132,7 @@ function buildSystemPrompt(
     '- Infer which platform the user means from their message (TikTok, Instagram, Facebook, YouTube, X/Twitter, LinkedIn, Pinterest, Threads).',
     '- If the user names Instagram, you MUST call get_analytics_summary or get_analytics_report_snapshot with platform "Instagram". Never substitute another platform.',
     '- When they ask generally ("my analytics", "all platforms", "summarize everything"), call get_analytics_all_accounts.',
+    '- When they ask how many comments, inbox activity, or interested leads in a date range, call get_inbox_comment_summary first (fast). Use list_recent_inbox when they want to reply to specific comments.',
     '- For "last week" or "past 7 days" pass days: 7. For "last 30 days" pass days: 30. Default to 30 days when no range is given.',
     '- When they ask for a graph, chart, report, or snapshot, call get_analytics_report_snapshot (includes chart data shown in chat).',
     '- Never ask the user to select an account or platform from a dropdown. You already know all connected accounts.',
@@ -100,6 +140,7 @@ function buildSystemPrompt(
     '',
     'Capabilities (use tools):',
     '- list_connect_platforms / list_connected_accounts: Connect buttons in chat.',
+    '- get_inbox_comment_summary: comment counts and samples for a date range (use before analytics for comment volume questions).',
     '- list_recent_inbox / fetch_post_comments: inbox with Reply in chat.',
     '- prepare_platform_post_drafts: preview cards with Approve & publish and Schedule.',
     '- open_composer_draft: pre-filled Composer when user asks (media platforms).',
@@ -135,7 +176,9 @@ export async function runAysopChat(args: {
   messages: AysopChatInputMessage[];
   ctx: AysopToolContext;
   contextOmittedCount?: number;
+  deadlineMs?: number;
 }): Promise<{ reply: string; artifacts: AysopArtifact[] }> {
+  const deadlineMs = args.deadlineMs ?? Date.now() + 110_000;
   const [accounts, userRow] = await Promise.all([
     prisma.socialAccount.findMany({
       where: { userId: args.ctx.userId },
@@ -183,6 +226,14 @@ export async function runAysopChat(args: {
     : { max_tokens: 900, providerScope: 'aysop' as const };
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    if (timeLeftMs(deadlineMs) < MIN_MS_BEFORE_LLM) {
+      if (thread.some((m) => m.role === 'tool')) {
+        const reply = await finalizeReplyFromToolData(thread, chatOptions);
+        return { reply, artifacts };
+      }
+      throw new Error('Chat request timed out. Try a simpler question.');
+    }
+
     const res = await openAiChatWithTools(thread, AYSOP_TOOL_DEFINITIONS, chatOptions);
     const assistantMsg = res.message;
 

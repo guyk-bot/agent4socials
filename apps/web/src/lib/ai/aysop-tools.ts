@@ -120,6 +120,12 @@ async function resolveAccountId(
   return null;
 }
 
+function resolveDaysFromArgs(args: Record<string, unknown>, defaultDays = 30): number {
+  const daysRaw = Number(args.days);
+  if ([7, 14, 30, 60, 90].includes(daysRaw)) return daysRaw;
+  return defaultDays;
+}
+
 function resolveDateRangeFromArgs(args: Record<string, unknown>) {
   const daysRaw = Number(args.days);
   const days = [7, 30, 90].includes(daysRaw) ? daysRaw : undefined;
@@ -247,9 +253,12 @@ async function buildRecentInboxArtifact(
     orderBy: { createdAt: 'asc' },
   });
 
+  const caches = await Promise.all(accounts.map((acc) => getInboxCommentsFromDb(acc.id)));
+
   const items: Extract<AysopArtifact, { type: 'inbox_feed' }>['items'] = [];
-  for (const acc of accounts) {
-    const cached = (await getInboxCommentsFromDb(acc.id)) ?? [];
+  for (let i = 0; i < accounts.length; i++) {
+    const acc = accounts[i]!;
+    const cached = caches[i] ?? [];
     for (const row of cached) {
       if (row.isFromMe) continue;
       items.push({
@@ -269,6 +278,74 @@ async function buildRecentInboxArtifact(
   return {
     type: 'inbox_feed',
     items: items.slice(0, Math.min(Math.max(limit, 1), 25)),
+  };
+}
+
+async function buildInboxCommentSummary(
+  userId: string,
+  days: number,
+  platformFilter?: Platform | null
+) {
+  const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+  const accounts = await prisma.socialAccount.findMany({
+    where: {
+      userId,
+      ...(platformFilter ? { platform: platformFilter } : {}),
+    },
+    select: { id: true, platform: true, username: true },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  const caches = await Promise.all(accounts.map((acc) => getInboxCommentsFromDb(acc.id)));
+
+  let totalComments = 0;
+  const byPlatform: Record<string, number> = {};
+  const sampleComments: Array<{
+    platform: string;
+    authorName: string;
+    text: string;
+    createdAt: string;
+    postPreview: string;
+  }> = [];
+
+  for (let i = 0; i < accounts.length; i++) {
+    const acc = accounts[i]!;
+    const label = platformLabel(acc.platform);
+    const cached = caches[i] ?? [];
+    let platformCount = 0;
+    for (const row of cached) {
+      if (row.isFromMe) continue;
+      const createdMs = new Date(row.createdAt).getTime();
+      if (Number.isNaN(createdMs) || createdMs < sinceMs) continue;
+      platformCount += 1;
+      totalComments += 1;
+      if (sampleComments.length < 40) {
+        sampleComments.push({
+          platform: label,
+          authorName: row.authorName,
+          text: row.text,
+          createdAt: row.createdAt,
+          postPreview: row.postPreview ?? 'Post',
+        });
+      }
+    }
+    if (platformCount > 0) {
+      byPlatform[label] = (byPlatform[label] ?? 0) + platformCount;
+    }
+  }
+
+  return {
+    days,
+    since: new Date(sinceMs).toISOString().slice(0, 10),
+    totalComments,
+    byPlatform,
+    sampleComments,
+    accountsScanned: accounts.length,
+    dataSource: 'cached_inbox' as const,
+    note:
+      totalComments === 0
+        ? 'No cached inbox comments in this range. Open Inbox once to sync recent comments, then ask again.'
+        : 'Counts from cached inbox comments. Lead interest is your estimate from samples, not exact CRM data.',
   };
 }
 
@@ -560,6 +637,22 @@ export const AYSOP_TOOL_DEFINITIONS = [
   {
     type: 'function' as const,
     function: {
+      name: 'get_inbox_comment_summary',
+      description:
+        'Fast comment volume for a date range from cached Inbox data. Use when the user asks how many comments they got, comment trends, or which comments might be interested leads. Pass days: 7 or 30 for the range.',
+      parameters: {
+        type: 'object',
+        properties: {
+          platform: platformParam,
+          days: { type: 'number', description: 'Lookback days: 7, 14, 30, 60, or 90 (default 30)' },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
       name: 'list_recent_inbox',
       description:
         'Show recent comments from Inbox with inline Reply in chat buttons. Use for messages, comments, inbox, or replying without opening Inbox.',
@@ -783,6 +876,13 @@ export async function runAysopTool(
         },
         artifacts: [artifact],
       };
+    }
+
+    case 'get_inbox_comment_summary': {
+      const days = resolveDaysFromArgs(args, 30);
+      const platform = normalizePlatformArg(args.platform as string | undefined);
+      const summary = await buildInboxCommentSummary(ctx.userId, days, platform);
+      return { result: summary };
     }
 
     case 'list_recent_inbox': {

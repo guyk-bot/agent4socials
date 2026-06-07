@@ -7,10 +7,10 @@ import { trackUsage } from '@/lib/usage-tracking';
 import { normalizeChatAttachments } from '@/lib/ai/aysop-attachments';
 import { trimMessagesForLlmContext } from '@/lib/ai/aysop-chat-context-window';
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 /** Wall-clock budget for tool rounds so we return before Vercel kills the function. */
-const CHAT_WALL_BUDGET_MS = Number(process.env.AYSOP_CHAT_WALL_BUDGET_MS) || 55_000;
+const CHAT_WALL_BUDGET_MS = Number(process.env.AYSOP_CHAT_WALL_BUDGET_MS) || 110_000;
 
 function messageHasBody(m: { content?: string; attachments?: unknown }): boolean {
   const text = typeof m.content === 'string' ? m.content.trim() : '';
@@ -65,11 +65,13 @@ export async function POST(request: NextRequest) {
 
   try {
     const started = Date.now();
+    const deadlineMs = started + CHAT_WALL_BUDGET_MS;
     const { reply, artifacts } = await Promise.race([
       runAysopChat({
         messages: llmMessages,
         ctx: { userId, workspaces: body.workspaces, activeBrand: body.activeBrand ?? null },
         contextOmittedCount: omittedCount,
+        deadlineMs,
       }),
       new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error('Chat request timed out. Try a simpler question.')), CHAT_WALL_BUDGET_MS);
