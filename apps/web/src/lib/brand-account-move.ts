@@ -173,11 +173,14 @@ export function clearPendingConnectNav(): void {
 
 export function prepareBrandMoveNavigation(successRedirect?: string): void {
   const existing = readPendingConnectNav();
+  const activeBrandId =
+    existing?.activeBrandId ?? readPendingConnectActiveBrand() ?? undefined;
   if (successRedirect) {
     storePendingConnectNav({
       successRedirect,
       returnUrl: existing?.returnUrl ?? resolveBrandMoveReturnUrl(),
       pendingId: existing?.pendingId ?? readPendingIdFromLocation(),
+      activeBrandId,
     });
     return;
   }
@@ -186,6 +189,7 @@ export function prepareBrandMoveNavigation(successRedirect?: string): void {
     successRedirect: DEFAULT_CONNECT_RETURN_URL,
     returnUrl: resolveBrandMoveReturnUrl(),
     pendingId: readPendingIdFromLocation(),
+    activeBrandId,
   });
 }
 
@@ -360,11 +364,21 @@ export function shouldPromptMoveFromOtherBrand(
   activeBrandId: string,
   prevAccountIds?: Set<string>
 ): boolean {
+  const account = accounts.find((a) => a.id === accountId);
   // First-time connect: new row id was not in cache before OAuth.
   if (prevAccountIds !== undefined && !prevAccountIds.has(accountId)) {
+    if (prevAccountIds.size === 0) {
+      if (
+        isAccountExplicitlyBrandMapped(map, accountId) &&
+        map[accountId] !== activeBrandId &&
+        isAccountVisibleOnBrand(accounts, map, accountId, map[accountId])
+      ) {
+        return true;
+      }
+      return false;
+    }
     return false;
   }
-  const account = accounts.find((a) => a.id === accountId);
   if (!account) {
     return (
       isAccountExplicitlyBrandMapped(map, accountId) && map[accountId] !== activeBrandId

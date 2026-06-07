@@ -216,6 +216,16 @@ describe('Twitter cross-brand reconnect', () => {
       })
     ).toEqual({ type: 'assign_active' });
   });
+
+  it('prompts when X is on Guy kogen and user reconnects from iZop with an empty pre-OAuth cache', () => {
+    const map = { tw: brandGuy };
+    const accounts = [{ id: 'tw', platform: 'TWITTER', platformUserId: 'agent4socials' }];
+    expect(
+      resolvePostConnectBrandAction(map, 'tw', brandMain, accounts, {
+        prevAccountIds: new Set<string>(),
+      })
+    ).toEqual({ type: 'prompt_move', fromBrandId: brandGuy });
+  });
 });
 
 describe('countAccountsForBrand', () => {
