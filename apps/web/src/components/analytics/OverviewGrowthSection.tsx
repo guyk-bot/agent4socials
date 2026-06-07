@@ -137,7 +137,7 @@ function KpiCard({
   const displayValue = useCountUp(value);
   // Distinct solid background per tint; selected = ring + darker border
   const tintStyles: Record<NonNullable<typeof tint>, { bg: string; border: string; borderSelected: string; text: string; trendPositive: string }> = {
-    violet: { bg: 'bg-[rgba(124,58,237,0.08)]', border: 'border-[rgba(124,58,237,0.2)]', borderSelected: 'border-[#7C3AED] ring-2 ring-[#7C3AED]/50', text: 'text-[#1a1a1a]', trendPositive: 'text-[#10B981]' },
+    violet: { bg: 'bg-[#F3EDFF]', border: 'border-[#DDD6FE]', borderSelected: 'border-[#7C3AED] ring-2 ring-[#7C3AED]/50', text: 'text-[#1a1a1a]', trendPositive: 'text-[#10B981]' },
     blue: { bg: 'bg-blue-50', border: 'border-blue-200', borderSelected: 'border-blue-500 ring-2 ring-blue-400/50', text: 'text-blue-900', trendPositive: 'text-blue-600' },
     emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', borderSelected: 'border-emerald-500 ring-2 ring-emerald-400/50', text: 'text-emerald-900', trendPositive: 'text-emerald-600' },
     slate: { bg: 'bg-amber-50', border: 'border-amber-200', borderSelected: 'border-amber-500 ring-2 ring-amber-400/50', text: 'text-amber-900', trendPositive: 'text-amber-600' },
