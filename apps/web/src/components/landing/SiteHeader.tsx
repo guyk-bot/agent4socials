@@ -22,8 +22,7 @@ export default function SiteHeader() {
 
   return (
     <>
-      <div className="brand-gradient-bar fixed top-0 left-0 right-0 z-[60]" aria-hidden />
-      <header className="fixed top-[6px] left-0 right-0 z-50 funnel-nav">
+      <header className="fixed top-0 left-0 right-0 z-50 funnel-nav">
         <div className="mx-auto flex h-14 sm:h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2 sm:gap-2.5 transition-opacity hover:opacity-90 min-w-0">
             <Image
