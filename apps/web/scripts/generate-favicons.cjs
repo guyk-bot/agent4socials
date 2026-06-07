@@ -162,15 +162,15 @@ async function knockOutWhiteBackgroundPng(pngBuffer) {
 }
 
 async function loadTabMarkPngBuffer() {
-  let mark;
-  if (fs.existsSync(squareIconSourcePath)) {
-    mark = await loadTrimmedMarkBuffer(squareIconSourcePath, TAB_MARK_FILL);
-  } else if (fs.existsSync(markSourcePngPath)) {
-    mark = await rasterizeSourceToMarkBuffer(markSourcePngPath, TAB_MARK_FILL);
-  } else if (!fs.existsSync(logoSvgPath)) {
-    throw new Error("Add public/favicon-source-mark.png or public/logo.svg to build tab favicons.");
-  } else {
-    mark = await sharp(logoSvgPath, { density: 240 })
+  const src = fs.existsSync(squareIconSourcePath)
+    ? squareIconSourcePath
+    : fs.existsSync(markSourcePngPath)
+      ? markSourcePngPath
+      : null;
+  if (src) {
+    const whiteMark = await buildUiLogoMarkDarkPngBuffer(src);
+    const trimmed = await sharp(whiteMark).trim({ threshold: 12 }).toBuffer();
+    const scaled = await sharp(trimmed)
       .resize(MARK_RASTER_MAX, MARK_RASTER_MAX, {
         fit: "inside",
         withoutEnlargement: true,
@@ -178,7 +178,19 @@ async function loadTabMarkPngBuffer() {
       })
       .png()
       .toBuffer();
+    return recolorVisibleMarkToRgb(scaled, 0, 0, 0);
   }
+  if (!fs.existsSync(logoSvgPath)) {
+    throw new Error("Add public/favicon-source-mark.png or public/logo.svg to build tab favicons.");
+  }
+  const mark = await sharp(logoSvgPath, { density: 240 })
+    .resize(MARK_RASTER_MAX, MARK_RASTER_MAX, {
+      fit: "inside",
+      withoutEnlargement: true,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png()
+    .toBuffer();
   return knockOutWhiteBackgroundPng(mark);
 }
 
@@ -326,6 +338,28 @@ async function buildUiLogoMarkDarkPngBuffer(filePath) {
     .toBuffer();
 }
 
+async function recolorVisibleMarkToRgb(pngBuffer, r, g, b) {
+  const { data, info } = await sharp(pngBuffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] > 16) {
+      data[i] = r;
+      data[i + 1] = g;
+      data[i + 2] = b;
+    }
+  }
+  return sharp(data, {
+    raw: { width: info.width, height: info.height, channels: 4 },
+  })
+    .png()
+    .toBuffer();
+}
+
+/** White-on-black source → black mark on transparent (light headers). */
+async function buildUiLogoMarkLightFromDarkSource(filePath) {
+  const whiteMark = await buildUiLogoMarkDarkPngBuffer(filePath);
+  return recolorVisibleMarkToRgb(whiteMark, 0, 0, 0);
+}
+
 function buildFlatLogoSvg(pngBuffer, width, height) {
   const b64 = pngBuffer.toString("base64");
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
@@ -352,7 +386,11 @@ function buildFlatLogoSvg(pngBuffer, width, height) {
       "Add public/logo-mark-source.png, brand-app-icon-source.png, or favicon-source-mark.png to build UI logo assets."
     );
   }
-  const uiLogoMarkPng = await buildUiLogoMarkPngBuffer(uiLogoSourcePath);
+  const uiLogoMarkPng = fs.existsSync(logoMarkDarkSourcePath)
+    ? await buildUiLogoMarkLightFromDarkSource(logoMarkDarkSourcePath)
+    : fs.existsSync(logoMarkSourcePath)
+      ? await buildUiLogoMarkLightFromDarkSource(logoMarkSourcePath)
+      : await buildUiLogoMarkPngBuffer(uiLogoSourcePath);
   const uiMeta = await sharp(uiLogoMarkPng).metadata();
   const uiLogoSvg = buildFlatLogoSvg(uiLogoMarkPng, uiMeta.width, uiMeta.height);
 
