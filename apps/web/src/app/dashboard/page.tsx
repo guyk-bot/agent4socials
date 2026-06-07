@@ -395,6 +395,8 @@ export default function DashboardPage() {
   const shouldApplyVisibleChartUpdate = () =>
     typeof document === 'undefined' || document.visibilityState === 'visible';
   /** Stable ref so effects do not re-run on every AppDataProvider render (prefetch updates replace context value). */
+  const appDataRef = useRef(appData);
+  appDataRef.current = appData;
   const finishPostConnectRef = useRef(finishPostConnectBrandAssignment);
   finishPostConnectRef.current = finishPostConnectBrandAssignment;
   const maybePromptBrandMoveRef = useRef(maybePromptBrandMove);
