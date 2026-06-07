@@ -13,6 +13,7 @@ import { ThemeProvider } from "@/context/ThemeContext";
 import AuthModal from "@/components/auth/AuthModal";
 import AuthModalOpener from "@/components/auth/AuthModalOpener";
 import { siteTabIcons } from "@/lib/site-tab-icons";
+import { SITE_LOGO_V } from "@/lib/site-brand-assets";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit", display: "swap" });
@@ -35,7 +36,7 @@ const organizationJsonLd = {
   url: siteUrl,
   logo: {
     "@type": "ImageObject",
-    url: `${siteUrl.replace(/\/+$/, "")}/logo-192.png?v=31`,
+    url: `${siteUrl.replace(/\/+$/, "")}/logo-192.png?v=${SITE_LOGO_V}`,
     width: 192,
     height: 192,
   },
@@ -58,20 +59,20 @@ export const metadata: Metadata = {
     siteName: "iZop",
     title: "iZop | Schedule Posts & Analytics for All Major Social Platforms",
     description: "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. Try for free.",
-    images: [{ url: "/logo-192.png?v=31", width: 192, height: 192, alt: "iZop" }],
+    images: [{ url: `/logo-192.png?v=${SITE_LOGO_V}`, width: 192, height: 192, alt: "iZop" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "iZop | Schedule Posts & Analytics",
     description: "One dashboard for scheduling and analytics. Try for free.",
-    images: ["/logo-192.png?v=31"],
+    images: [`/logo-192.png?v=${SITE_LOGO_V}`],
   },
   robots: {
     index: true,
     follow: true,
     googleBot: { index: true, follow: true },
   },
-  // Tab favicon: PNGs / ICO / SVG (see SITE_TAB_FAVICON_V). Google / OG logo: logo-192 (v=31, circular file).
+  // Tab favicon: PNGs / ICO / SVG (see SITE_TAB_FAVICON_V). Google / OG logo: logo-192 (circular export).
   icons: siteTabIcons,
   manifest: "/manifest.json",
   appleWebApp: {
