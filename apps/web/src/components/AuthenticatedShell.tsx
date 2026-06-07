@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, Suspense } from 'react';
 import { usePathname } from 'next/navigation';
+import { PanelLeft } from 'lucide-react';
 import AppHeader from '@/components/AppHeader';
 import Sidebar from '@/components/Sidebar';
 import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
@@ -73,9 +74,21 @@ function AuthenticatedContent({
                 data-chrome="header"
             >
                 <Suspense fallback={<div className="h-14 w-full bg-[var(--dark)]" />}>
-                    <AppHeader sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
+                    <AppHeader />
                 </Suspense>
             </div>
+            {!sidebarOpen ? (
+                <button
+                    type="button"
+                    onClick={onSidebarToggle}
+                    className="fixed left-3 top-[3.75rem] rounded-lg border border-neutral-200 bg-white p-2 text-neutral-600 shadow-sm hover:bg-neutral-50 hover:text-neutral-900 transition-colors dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+                    style={{ zIndex: CHROME_Z }}
+                    aria-label="Open sidebar"
+                    title="Open sidebar"
+                >
+                    <PanelLeft size={20} />
+                </button>
+            ) : null}
             {/* Sidebar wrapper: fixed on the left, fills height below header, high z-index.
                 Visibility mirrors sidebarOpen (hidden on mobile when closed, always visible on md+). */}
             <div
@@ -83,7 +96,7 @@ function AuthenticatedContent({
                 style={{ ...chromeStyle, zIndex: CHROME_Z }}
                 data-chrome="sidebar"
             >
-                <Sidebar sidebarOpen={sidebarOpen} onSidebarToggle={onSidebarToggle} />
+                <Sidebar onSidebarToggle={onSidebarToggle} />
             </div>
         </div>
     );

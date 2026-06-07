@@ -56,11 +56,10 @@ const PLATFORM_ROW_PY = 'py-1.5';
 const UPGRADE_TO_CONNECT_PLATFORMS: string[] = [];
 
 type SidebarProps = {
-  sidebarOpen?: boolean;
   onSidebarToggle?: () => void;
 };
 
-export default function Sidebar({ sidebarOpen = true, onSidebarToggle = () => {} }: SidebarProps) {
+export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
   const pathname = usePathname();
   const { textColor } = useWhiteLabel();
   const { theme } = useTheme();

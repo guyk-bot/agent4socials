@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { MessageCircle, PlusSquare, Calendar, Menu, PanelLeft, PanelLeftClose, Sun, Moon, Brain } from 'lucide-react';
+import { MessageCircle, PlusSquare, Calendar, Menu, Sun, Moon, Brain } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { BRAND_NAME, SITE_LOGO_SRC, normalizeLegacyBrandName } from '@/lib/site-brand-assets';
 import { useTheme } from '@/context/ThemeContext';
@@ -30,12 +30,7 @@ export const topNavItems = [
   { icon: Brain, label: `${BRAND_NAME} AI`, href: '/dashboard/aysop-ai' },
 ];
 
-type AppHeaderProps = {
-  sidebarOpen?: boolean;
-  onSidebarToggle?: () => void;
-};
-
-export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHeaderProps) {
+export default function AppHeader() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -75,17 +70,6 @@ export default function AppHeader({ sidebarOpen = true, onSidebarToggle }: AppHe
   return (
     <header className="h-full w-full flex items-center justify-between px-4 sm:px-6 bg-[var(--dark)] text-chrome-text border-b border-white/10 pointer-events-auto">
       <div className="flex items-center gap-2 md:gap-8 min-w-0">
-        {onSidebarToggle && (
-          <button
-            type="button"
-            onClick={onSidebarToggle}
-            className="p-2 -ml-1 rounded-lg text-chrome-text/70 hover:text-chrome-text hover:bg-white/10"
-            aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-            title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-          >
-            {sidebarOpen ? <PanelLeftClose size={22} /> : <PanelLeft size={22} />}
-          </button>
-        )}
         <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
           {logoUrl ? (
             <img src={logoUrl} alt="" className="h-7 w-7 sm:h-8 sm:w-8 object-contain" />
