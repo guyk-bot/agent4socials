@@ -115,6 +115,28 @@ export default function AysopChatPanel({
   const abortRef = useRef<AbortController | null>(null);
   const requestGenRef = useRef(0);
   const userStoppedRef = useRef(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  /** ChatGPT-style auto-grow: expand up to 5 rows, then scroll within the box. */
+  const autoResizeInput = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    const cs = window.getComputedStyle(el);
+    const lineHeight = parseFloat(cs.lineHeight) || 20;
+    const padTop = parseFloat(cs.paddingTop) || 0;
+    const padBottom = parseFloat(cs.paddingBottom) || 0;
+    const borderTop = parseFloat(cs.borderTopWidth) || 0;
+    const borderBottom = parseFloat(cs.borderBottomWidth) || 0;
+    const maxHeight = lineHeight * 5 + padTop + padBottom + borderTop + borderBottom;
+    const nextHeight = Math.min(el.scrollHeight, maxHeight);
+    el.style.height = `${nextHeight}px`;
+    el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden';
+  }, []);
+
+  useEffect(() => {
+    autoResizeInput();
+  }, [input, pendingAttachments, autoResizeInput]);
 
   useEffect(() => {
     requestGenRef.current += 1;
@@ -374,7 +396,7 @@ export default function AysopChatPanel({
       />
 
       <form
-        className="p-3 border-t border-[var(--border)] flex gap-2 bg-[var(--bg-surface)] shrink-0"
+        className="p-3 border-t border-[var(--border)] flex items-end gap-2 bg-[var(--bg-surface)] shrink-0"
         onSubmit={(e) => {
           e.preventDefault();
           void send(input, pendingAttachments);
@@ -398,12 +420,19 @@ export default function AysopChatPanel({
         >
           {uploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={18} />}
         </button>
-        <input
-          type="text"
+        <textarea
+          ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={loading ? 'Type your next message…' : 'Ask anything or attach media…'}
-          className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--foreground)] placeholder:text-[var(--muted)] px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/40"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              if (canSend) void send(input, pendingAttachments);
+            }
+          }}
+          rows={1}
+          placeholder={loading ? 'Type your next message…' : 'Ask anything or attach media…  (Shift + Enter for a new line)'}
+          className="flex-1 resize-none rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--foreground)] placeholder:text-[var(--muted)] px-4 py-3 text-sm leading-5 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/40"
           disabled={disabled || uploading}
         />
         {loading ? (
