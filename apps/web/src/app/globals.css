@@ -8,10 +8,10 @@
   --color-brand-purple: #7C3AED;
   --color-brand-purple-dark: #4F46E5;
   --color-brand-purple-text: #A78BFA;
-  --color-dark-void: #0A0A0F;
-  --color-dark-surface: #111118;
-  --color-dark-border: #1E1E2A;
-  --color-dark-hover: #16161F;
+  --color-dark-void: #000000;
+  --color-dark-surface: #000000;
+  --color-dark-border: #1a1a1a;
+  --color-dark-hover: #141414;
   --color-light-cloud: #F8F7FC;
   --color-light-surface: #FFFFFF;
   --color-light-border: #E8E6DF;
@@ -159,10 +159,22 @@
 .metric-negative { color: #EF4444; }
 .metric-neutral { color: #888780; }
 
-/* Funnel / marketing page surfaces */
+/* Funnel / marketing page surfaces (black canvas matches square logo mark). */
 .funnel-page {
-  background: var(--bg-primary);
-  color: var(--text-primary);
+  --bg-primary: #000000;
+  --bg-surface: #000000;
+  --bg-border: #1a1a1a;
+  --bg-hover: #141414;
+  --text-primary: #ffffff;
+  --text-muted: #a3a3a3;
+  --background: #000000;
+  --foreground: #ffffff;
+  --muted: #a3a3a3;
+  --border: #1a1a1a;
+  --card-bg: #0a0a0a;
+  --surface-soft: #0a0a0a;
+  background: #000000;
+  color: #ffffff;
 }
 .funnel-card {
   background: var(--bg-surface);
@@ -170,13 +182,13 @@
   border-radius: 12px;
 }
 .funnel-nav {
-  background: var(--bg-surface);
+  background: #000000;
   border-bottom: 1px solid var(--bg-border);
   color: var(--text-primary);
 }
 [data-theme='dark'] .funnel-nav {
-  background: #111118;
-  border-bottom-color: #1E1E2A;
+  background: #000000;
+  border-bottom-color: #1a1a1a;
 }
 
 /* Shared upgrade banner: white to very light grey fill, soft orange edge (CTA stays vivid orange in markup). */
@@ -201,7 +213,7 @@
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(148, 163, 184, 0.25);
 }
 [data-theme='dark'] .sidebar-item-selected {
-  background: linear-gradient(135deg, #16161F 0%, #111118 42%, #111118 100%);
+  background: linear-gradient(135deg, #121212 0%, #0a0a0a 42%, #000000 100%);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
   color: var(--foreground);
 }
@@ -726,12 +738,12 @@
   --color-purple-border: rgba(124, 58, 237, 0.3);
   --color-purple-text: #A78BFA;
 
-  --bg-primary: #0A0A0F;
-  --bg-surface: #111118;
-  --bg-border: #1E1E2A;
-  --bg-hover: #16161F;
+  --bg-primary: #000000;
+  --bg-surface: #000000;
+  --bg-border: #1a1a1a;
+  --bg-hover: #141414;
   --text-primary: #FFFFFF;
-  --text-muted: #888780;
+  --text-muted: #a3a3a3;
 
   --color-primary: #7C3AED;
   --color-primary-hover: #6D28D9;
@@ -753,19 +765,19 @@
   --shadow-glow-soft: 0 0 10px rgba(124, 58, 237, 0.2);
   --glow-purple: 0 0 20px rgba(124, 58, 237, 0.35);
   --glow-soft: 0 0 10px rgba(124, 58, 237, 0.25);
-  --background: #0A0A0F;
-  --card-bg: #111118;
+  --background: #000000;
+  --card-bg: #0a0a0a;
   --foreground: #FFFFFF;
-  --muted: #888780;
-  --border: #1E1E2A;
-  --surface-soft: #16161F;
+  --muted: #a3a3a3;
+  --border: #1a1a1a;
+  --surface-soft: #0a0a0a;
   --chart-grid: rgba(136, 135, 128, 0.18);
   --chart-primary: #7C3AED;
   --chart-secondary: #0EA5E9;
-  --wl-sidebar-bg: #111118;
-  --dark: #111118;
+  --wl-sidebar-bg: #000000;
+  --dark: #000000;
   --chrome-text: #FFFFFF;
-  --surface: #111118;
+  --surface: #000000;
   color-scheme: dark;
   --color-orange-50: rgba(124, 58, 237, 0.1);
   --color-orange-100: rgba(124, 58, 237, 0.14);

@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { useTheme } from '@/context/ThemeContext';
+import { BRAND_HEADER_BG } from '@/lib/site-brand-assets';
 
 /** Above in-page overlays (e.g. z-300 loaders); below portaled modals (8.5k+). */
 const CHROME_Z = 8000;
@@ -73,7 +74,7 @@ function AuthenticatedContent({
                 style={{ ...chromeStyle, zIndex: CHROME_Z }}
                 data-chrome="header"
             >
-                <Suspense fallback={<div className="h-14 w-full bg-[var(--bg-surface)]" />}>
+                <Suspense fallback={<div className="h-14 w-full" style={{ backgroundColor: BRAND_HEADER_BG }} />}>
                     <AppHeader />
                 </Suspense>
             </div>

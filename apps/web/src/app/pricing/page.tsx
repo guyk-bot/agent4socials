@@ -56,7 +56,7 @@ export default function PricingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white text-[#1a161f]">
+    <div className="min-h-screen funnel-page">
       <SiteHeader />
       <main className="relative">
         <div className="min-h-screen">

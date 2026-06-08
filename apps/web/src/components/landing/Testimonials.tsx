@@ -34,15 +34,15 @@ const testimonials = [
 
 export default function Testimonials() {
   return (
-    <section className="py-24 sm:py-32 bg-white border-t border-[#efe7f7] relative overflow-hidden">
+    <section className="py-24 sm:py-32 border-t border-[var(--bg-border)] relative overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(123,44,191,0.08)_0%,rgba(215,38,61,0.03)_38%,transparent_72%)] pointer-events-none" />
       
       <div className="mx-auto max-w-7xl px-6 lg:px-8 relative z-10">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-[#1a161f] sm:text-4xl">
+          <h2 className="text-3xl font-bold tracking-tight text-[var(--text-primary)] sm:text-4xl">
             Loved by creators and businesses
           </h2>
-          <p className="mt-6 text-lg leading-8 text-[#5d5768]">
+          <p className="mt-6 text-lg leading-8 text-[var(--text-muted)]">
             Join thousands who trust iZop to manage their online presence.
           </p>
         </div>

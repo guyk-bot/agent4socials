@@ -16,12 +16,12 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 function readTheme(): Theme {
-  if (typeof window === 'undefined') return 'light';
+  if (typeof window === 'undefined') return 'dark';
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === 'dark' || stored === 'light') return stored;
   } catch (_) {}
-  return 'light';
+  return 'dark';
 }
 
 function applyTheme(theme: Theme) {
@@ -30,7 +30,7 @@ function applyTheme(theme: Theme) {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('light');
+  const [theme, setThemeState] = useState<Theme>('dark');
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
 
@@ -43,11 +43,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!mounted) return;
-    // Keep marketing landing page visuals fixed to light mode.
-    if (pathname === '/') {
-      applyTheme('light');
-      return;
-    }
     applyTheme(theme);
   }, [mounted, pathname, theme]);
 

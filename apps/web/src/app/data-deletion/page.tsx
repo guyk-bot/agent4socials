@@ -10,7 +10,7 @@ export default async function DataDeletionPage({ searchParams }: Props) {
   const platform = params?.platform?.trim();
 
   return (
-    <div className="min-h-screen bg-slate-950 text-chrome-text">
+    <div className="min-h-screen funnel-page">
       <SiteHeader />
       <main className="mx-auto max-w-3xl px-4 pt-24 pb-20 sm:px-6">
         <h1 className="text-3xl font-bold sm:text-4xl">Data deletion</h1>

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { MessageCircle, PlusSquare, Calendar, Menu, Sun, Moon, Brain } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
-import { BRAND_NAME, normalizeLegacyBrandName, siteLogoSrcForTheme } from '@/lib/site-brand-assets';
+import { BRAND_NAME, BRAND_HEADER_BG, normalizeLegacyBrandName, siteLogoSrcForTheme } from '@/lib/site-brand-assets';
 import { useTheme } from '@/context/ThemeContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAuth } from '@/context/AuthContext';
@@ -68,7 +68,10 @@ export default function AppHeader() {
     }`;
 
   return (
-    <header className="h-full w-full flex items-center justify-between px-4 sm:px-6 bg-[var(--bg-surface)] text-[var(--foreground)] border-b border-[var(--border)] pointer-events-auto">
+    <header
+      className={`h-full w-full flex items-center justify-between px-4 sm:px-6 text-[var(--foreground)] border-b border-[var(--border)] pointer-events-auto ${logoUrl ? 'bg-[var(--bg-surface)]' : ''}`}
+      style={logoUrl ? undefined : { backgroundColor: BRAND_HEADER_BG }}
+    >
       <div className="flex items-center gap-2 md:gap-8 min-w-0">
         <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
           {logoUrl ? (

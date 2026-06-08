@@ -299,15 +299,15 @@ function FaqItem({ question, answer }: { question: string; answer: string }) {
         onClick={() => setIsOpen(!isOpen)}
         className="flex w-full items-start justify-between gap-3 p-5 sm:p-6 text-left"
       >
-        <span className="flex items-start gap-3 font-semibold text-[#1a1a1a] text-sm sm:text-base">
+        <span className="flex items-start gap-3 font-semibold text-[var(--text-primary)] text-sm sm:text-base">
           <HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#7C3AED]" />
           {question}
         </span>
         {isOpen
-          ? <ChevronUp className="h-4 w-4 shrink-0 text-[#888780] mt-0.5" />
-          : <ChevronDown className="h-4 w-4 shrink-0 text-[#888780] mt-0.5" />}
+          ? <ChevronUp className="h-4 w-4 shrink-0 text-[var(--text-muted)] mt-0.5" />
+          : <ChevronDown className="h-4 w-4 shrink-0 text-[var(--text-muted)] mt-0.5" />}
       </button>
-      <div className={`px-5 sm:px-6 text-[#888780] text-sm leading-relaxed overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-96 pb-5 opacity-100' : 'max-h-0 opacity-0'}`}>
+      <div className={`px-5 sm:px-6 text-[var(--text-muted)] text-sm leading-relaxed overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-96 pb-5 opacity-100' : 'max-h-0 opacity-0'}`}>
         <div className="pl-7">{answer}</div>
       </div>
     </div>
@@ -327,7 +327,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen funnel-page overflow-x-hidden overflow-x-hidden">
+    <div className="min-h-screen funnel-page overflow-x-hidden">
       <SiteHeader />
       <main>
 
@@ -342,11 +342,11 @@ export default function Home() {
           </div>
 
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6 text-center">
-            <h1 className="mt-1 text-[40px] font-bold tracking-[-0.028em] leading-[1.06] text-[#1a1a1a] sm:text-5xl md:text-[60px] lg:text-[72px]">
+            <h1 className="mt-1 text-[40px] font-bold tracking-[-0.028em] leading-[1.06] text-[var(--text-primary)] sm:text-5xl md:text-[60px] lg:text-[72px]">
               The all-in-one platform for social media growth.
             </h1>
 
-            <p className="mx-auto mt-5 max-w-[860px] text-[15px] font-medium sm:text-[19px] text-[#888780] leading-relaxed">
+            <p className="mx-auto mt-5 max-w-[860px] text-[15px] font-medium sm:text-[19px] text-[var(--text-muted)] leading-relaxed">
               Schedule posts, automate replies, track analytics, and create content with AI, all across 8 platforms in one dashboard.
             </p>
 
@@ -367,7 +367,7 @@ export default function Home() {
               </Link>
             </div>
 
-            <div className="relative z-[4] mx-auto mt-8 inline-flex flex-wrap items-center justify-center gap-x-5 gap-y-2 rounded-full border border-[rgba(124, 58, 237, 0.2)] bg-white px-4 py-2 text-xs text-[#888780] sm:px-5">
+            <div className="relative z-[4] mx-auto mt-8 inline-flex flex-wrap items-center justify-center gap-x-5 gap-y-2 rounded-full border border-[rgba(124, 58, 237, 0.2)] bg-white px-4 py-2 text-xs text-[var(--text-muted)] sm:px-5">
               <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#10B981]" /> No credit card required</span>
               <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#10B981]" /> Free plan forever</span>
               <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#10B981]" /> Cancel anytime</span>
@@ -382,25 +382,25 @@ export default function Home() {
             <div className="hidden sm:block absolute -left-2 top-10 z-10">
               <div className="rounded-[16px] border border-[rgba(124, 58, 237, 0.2)] bg-white px-4 py-3 shadow-sm">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-[#7C3AED] mb-0.5">Platforms</p>
-                <p className="text-lg font-bold text-[#1a1a1a]">8 connected</p>
+                <p className="text-lg font-bold text-[var(--text-primary)]">8 connected</p>
               </div>
             </div>
             <div className="hidden sm:block absolute -right-2 top-10 z-10">
               <div className="rounded-[16px] border border-[rgba(124, 58, 237, 0.2)] bg-white px-4 py-3 shadow-sm">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-[#A78BFA] mb-0.5">AI Assistant</p>
-                <p className="text-lg font-bold text-[#1a1a1a]">Always on</p>
+                <p className="text-lg font-bold text-[var(--text-primary)]">Always on</p>
               </div>
             </div>
             <div className="hidden sm:block absolute -left-2 bottom-14 z-10">
               <div className="rounded-[16px] border border-[rgba(124, 58, 237, 0.2)] bg-white px-4 py-3 shadow-sm">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-[#7C3AED] mb-0.5">Analytics</p>
-                <p className="text-lg font-bold text-[#1a1a1a]">Real-time</p>
+                <p className="text-lg font-bold text-[var(--text-primary)]">Real-time</p>
               </div>
             </div>
             <div className="hidden sm:block absolute -right-2 bottom-14 z-10">
               <div className="rounded-[16px] border border-[rgba(124, 58, 237, 0.2)] bg-white px-4 py-3 shadow-sm">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-[#7C3AED] mb-0.5">Scheduling</p>
-                <p className="text-lg font-bold text-[#1a1a1a]">Unlimited</p>
+                <p className="text-lg font-bold text-[var(--text-primary)]">Unlimited</p>
               </div>
             </div>
             <div className="absolute inset-x-16 top-1/2 -translate-y-1/2 h-64 bg-[radial-gradient(circle,rgba(123,44,191,0.18),transparent)] blur-3xl pointer-events-none rounded-full" />
@@ -417,8 +417,8 @@ export default function Home() {
           </div>
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6">
             <div className="text-center mb-14">
-              <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-[#1a1a1a]">Everything you need to grow</h2>
-              <p className="mt-4 text-[#888780] max-w-xl mx-auto text-base">Scheduling, analytics, unified inbox, and AI. All in one place, all 8 platforms.</p>
+              <h2 className="text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-[var(--text-primary)]">Everything you need to grow</h2>
+              <p className="mt-4 text-[var(--text-muted)] max-w-xl mx-auto text-base">Scheduling, analytics, unified inbox, and AI. All in one place, all 8 platforms.</p>
             </div>
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {[
@@ -434,8 +434,8 @@ export default function Home() {
                     <Icon className="h-5 w-5" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-[#1a1a1a] text-base">{label}</h3>
-                    <p className="mt-1.5 text-sm text-[#888780] leading-relaxed">{desc}</p>
+                    <h3 className="font-semibold text-[var(--text-primary)] text-base">{label}</h3>
+                    <p className="mt-1.5 text-sm text-[var(--text-muted)] leading-relaxed">{desc}</p>
                   </div>
                 </div>
               ))}
@@ -450,8 +450,8 @@ export default function Home() {
           </div>
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6">
             <div className="text-center mb-16">
-              <h2 className="text-[28px] sm:text-4xl md:text-5xl font-bold tracking-[-0.02em] text-[#1a1a1a]">Up and running in minutes</h2>
-              <p className="mx-auto mt-5 max-w-xl text-[#888780]">Three steps from signup to your first scheduled post. No complicated setup.</p>
+              <h2 className="text-[28px] sm:text-4xl md:text-5xl font-bold tracking-[-0.02em] text-[var(--text-primary)]">Up and running in minutes</h2>
+              <p className="mx-auto mt-5 max-w-xl text-[var(--text-muted)]">Three steps from signup to your first scheduled post. No complicated setup.</p>
             </div>
             <div className="grid gap-10 md:grid-cols-3 relative">
               <div className="hidden md:block absolute top-14 left-[calc(16.67%+1rem)] right-[calc(16.67%+1rem)] h-px bg-gradient-to-r from-[#7C3AED]/25 via-[#A78BFA]/25 to-[#4F46E5]/20" />
@@ -467,8 +467,8 @@ export default function Home() {
                     </div>
                     <div className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-[linear-gradient(135deg,#7C3AED,#A78BFA)] text-[10px] font-black text-white">{step}</div>
                   </div>
-                  <h3 className="text-xl font-semibold text-[#1a1a1a] mb-3">{title}</h3>
-                  <p className="text-sm text-[#888780] leading-relaxed max-w-xs">{desc}</p>
+                  <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-3">{title}</h3>
+                  <p className="text-sm text-[var(--text-muted)] leading-relaxed max-w-xs">{desc}</p>
                 </div>
               ))}
             </div>
@@ -482,8 +482,8 @@ export default function Home() {
           </div>
           <div className="relative mx-auto max-w-5xl px-4 sm:px-6">
             <div className="text-center mb-14">
-              <h2 className="text-[28px] sm:text-4xl md:text-5xl font-bold tracking-[-0.02em] text-[#1a1a1a]">One product, everything you need</h2>
-              <p className="mx-auto mt-4 max-w-xl text-[#888780]">No juggling multiple tools. One login, all platforms. Scale from solo creator to agency.</p>
+              <h2 className="text-[28px] sm:text-4xl md:text-5xl font-bold tracking-[-0.02em] text-[var(--text-primary)]">One product, everything you need</h2>
+              <p className="mx-auto mt-4 max-w-xl text-[var(--text-muted)]">No juggling multiple tools. One login, all platforms. Scale from solo creator to agency.</p>
               <div className="mt-8 flex justify-center">
                 <button
                   type="button"
@@ -506,8 +506,8 @@ export default function Home() {
               ].map((item) => (
                 <div key={item.title} className="group rounded-[20px] border border-[rgba(124, 58, 237, 0.2)] bg-white p-6 transition-all duration-300 hover:border-[#A78BFA] hover:shadow-md">
                   <div className="text-2xl mb-3">{item.emoji}</div>
-                  <h3 className="font-semibold text-[#1a1a1a] mb-2">{item.title}</h3>
-                  <p className="text-sm text-[#888780] leading-relaxed">{item.desc}</p>
+                  <h3 className="font-semibold text-[var(--text-primary)] mb-2">{item.title}</h3>
+                  <p className="text-sm text-[var(--text-muted)] leading-relaxed">{item.desc}</p>
                 </div>
               ))}
             </div>
@@ -518,7 +518,7 @@ export default function Home() {
                   'Standard and Pro add more brands, analytics history, and platform connections.',
                   'Pro adds white label, team members, and priority support.',
                 ].map((item, i) => (
-                  <li key={i} className="flex items-start gap-3 text-sm text-[#888780]">
+                  <li key={i} className="flex items-start gap-3 text-sm text-[var(--text-muted)]">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#10B981]" />
                     <span>{item}</span>
                   </li>
@@ -535,8 +535,8 @@ export default function Home() {
           </div>
           <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
             <div className="text-center mb-10">
-              <h2 className="text-[28px] sm:text-4xl font-bold tracking-[-0.02em] text-[#1a1a1a]">Plans for every stage</h2>
-              <p className="mt-3 text-[#888780]">Yearly billing saves 20%. No hidden fees.</p>
+              <h2 className="text-[28px] sm:text-4xl font-bold tracking-[-0.02em] text-[var(--text-primary)]">Plans for every stage</h2>
+              <p className="mt-3 text-[var(--text-muted)]">Yearly billing saves 20%. No hidden fees.</p>
             </div>
             <div className="pb-8">
               <PricingBillingToggle interval={billingInterval} onIntervalChange={setBillingInterval} />
@@ -558,8 +558,8 @@ export default function Home() {
         <section id="faq" className="border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28">
           <div className="mx-auto max-w-3xl px-4 sm:px-6">
             <div className="text-center mb-14">
-              <h2 className="text-[28px] sm:text-4xl font-bold tracking-[-0.02em] text-[#1a1a1a]">Frequently asked questions</h2>
-              <p className="mx-auto mt-4 max-w-md text-[#888780]">Quick answers to common questions.</p>
+              <h2 className="text-[28px] sm:text-4xl font-bold tracking-[-0.02em] text-[var(--text-primary)]">Frequently asked questions</h2>
+              <p className="mx-auto mt-4 max-w-md text-[var(--text-muted)]">Quick answers to common questions.</p>
             </div>
             <div className="space-y-3">
               {[
@@ -587,8 +587,8 @@ export default function Home() {
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[500px] w-[700px] rounded-full bg-[radial-gradient(circle,rgba(124, 58, 237,0.35)_0%,rgba(79, 70, 229,0.1)_45%,transparent_70%)]" />
           </div>
           <div className="relative mx-auto max-w-2xl px-4 text-center sm:px-6">
-            <h2 className="text-[28px] sm:text-4xl md:text-5xl font-bold tracking-[-0.02em] text-[#1a1a1a]">Ready to grow your socials?</h2>
-            <p className="mt-5 text-lg text-[#888780]">Join creators and businesses who schedule smarter with iZop.</p>
+            <h2 className="text-[28px] sm:text-4xl md:text-5xl font-bold tracking-[-0.02em] text-[var(--text-primary)]">Ready to grow your socials?</h2>
+            <p className="mt-5 text-lg text-[var(--text-muted)]">Join creators and businesses who schedule smarter with iZop.</p>
             <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
               <button
                 type="button"
@@ -598,11 +598,11 @@ export default function Home() {
                 Get started free
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
               </button>
-              <button type="button" onClick={openLogin} className="text-[#888780] hover:text-[#A78BFA] transition-colors text-sm font-medium">
+              <button type="button" onClick={openLogin} className="text-[var(--text-muted)] hover:text-[#A78BFA] transition-colors text-sm font-medium">
                 I already have an account
               </button>
             </div>
-            <p className="mt-6 text-xs text-[#888780]">No credit card required. Free plan, forever.</p>
+            <p className="mt-6 text-xs text-[var(--text-muted)]">No credit card required. Free plan, forever.</p>
           </div>
         </section>
 

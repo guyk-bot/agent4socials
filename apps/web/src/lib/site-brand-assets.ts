@@ -12,14 +12,17 @@ export function normalizeLegacyBrandName(name: string): string {
   return isLegacyProductBrandName(name) ? BRAND_NAME : name.trim();
 }
 
+/** Page / logo canvas background (matches the square mark PNG). */
+export const BRAND_PAGE_BG = '#000000';
+
 /** Header / chrome background (nav bar). */
-export const BRAND_HEADER_BG = '#111118';
+export const BRAND_HEADER_BG = BRAND_PAGE_BG;
 
 /** Copy on dark chrome (headers, funnel footer, dark marketing pages). */
 export const BRAND_CHROME_TEXT = '#FFFFFF';
 
 /** Bumped when shared logo mark assets change (cache bust for browsers and CDNs). */
-export const SITE_LOGO_V = '41';
+export const SITE_LOGO_V = '42';
 
 /** Static path for next/image (no query string; see next.config images.localPatterns). */
 export const SITE_LOGO_PATH = '/logo-mark.png';
@@ -33,9 +36,9 @@ export const SITE_LOGO_SRC = `${SITE_LOGO_PATH}?v=${SITE_LOGO_V}`;
 /** White UI logo for dark mode with cache bust. */
 export const SITE_LOGO_DARK_SRC = `${SITE_LOGO_DARK_PATH}?v=${SITE_LOGO_V}`;
 
-/** Pick light or dark logo src for app chrome. */
-export function siteLogoSrcForTheme(theme: 'light' | 'dark'): string {
-  return theme === 'dark' ? SITE_LOGO_DARK_SRC : SITE_LOGO_SRC;
+/** App chrome logo (square mark with black background; same in light and dark). */
+export function siteLogoSrcForTheme(_theme: 'light' | 'dark'): string {
+  return SITE_LOGO_SRC;
 }
 
 /** SVG variant of the same mark. */

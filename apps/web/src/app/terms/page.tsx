@@ -4,7 +4,7 @@ import SiteFooter from '@/components/landing/SiteFooter';
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-chrome-text">
+    <div className="min-h-screen funnel-page">
       <SiteHeader />
       <main className="mx-auto max-w-3xl px-4 pt-24 pb-20 sm:px-6">
         <h1 className="text-3xl font-bold sm:text-4xl">Terms of Service</h1>
