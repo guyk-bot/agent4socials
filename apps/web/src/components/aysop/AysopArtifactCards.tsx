@@ -9,11 +9,14 @@ import {
   ExternalLink,
   Hash,
   Inbox,
+  LifeBuoy,
+  Lightbulb,
   Link2,
   MessageSquare,
   PenSquare,
   Settings,
   Sparkles,
+  Users,
 } from 'lucide-react';
 import { formatMetricNumber } from '@/lib/metric-format';
 import type { AysopArtifact, AppViewId } from '@/lib/ai/aysop-artifacts';
@@ -24,7 +27,30 @@ import { ComposerOpenLink } from '@/components/aysop/ComposerOpenLink';
 import { AysopInChatCommentsCard } from '@/components/aysop/AysopInChatCommentsCard';
 import { AysopInChatConnectCard } from '@/components/aysop/AysopInChatConnectCard';
 import { AysopInChatInboxFeedCard } from '@/components/aysop/AysopInChatInboxFeedCard';
+import { AysopBrandContextUpdateCard } from '@/components/aysop/AysopBrandContextUpdateCard';
+import { AysopLeadsCard } from '@/components/aysop/AysopLeadsCard';
 import { PostContentPreviewThumb } from '@/components/PostContentPreviewThumb';
+
+const SUPPORT_OPTIONS: Array<{ label: string; desc: string; href: string; icon: React.ReactNode }> = [
+  {
+    label: 'Send feedback',
+    desc: 'Suggest a change or improvement.',
+    href: '/dashboard/support?tab=feedback',
+    icon: <Sparkles size={16} className="text-[var(--primary)]" />,
+  },
+  {
+    label: 'Open a ticket',
+    desc: 'Report an issue and get a reply by email.',
+    href: '/dashboard/support?tab=ticket',
+    icon: <MessageSquare size={16} className="text-[var(--primary)]" />,
+  },
+  {
+    label: 'Schedule a 15 min Zoom call',
+    desc: 'Pick a time that works for you.',
+    href: '/dashboard/support?tab=zoom',
+    icon: <Calendar size={16} className="text-[var(--primary)]" />,
+  },
+];
 
 const VIEW_ICONS: Partial<Record<AppViewId, React.ReactNode>> = {
   dashboard: <BarChart2 size={18} className="text-[var(--primary)]" />,
@@ -38,6 +64,11 @@ const VIEW_ICONS: Partial<Record<AppViewId, React.ReactNode>> = {
   account: <Settings size={18} className="text-[var(--primary)]" />,
   reports: <BarChart2 size={18} className="text-[var(--primary)]" />,
   posts_history: <MessageSquare size={18} className="text-[var(--primary)]" />,
+  brand: <Sparkles size={18} className="text-[var(--primary)]" />,
+  leads: <Users size={18} className="text-[var(--primary)]" />,
+  team: <Users size={18} className="text-[var(--primary)]" />,
+  support: <LifeBuoy size={18} className="text-[var(--primary)]" />,
+  brainstorm: <Lightbulb size={18} className="text-[var(--primary)]" />,
 };
 
 function OpenLink({ href, label }: { href: string; label?: string }) {
@@ -137,6 +168,45 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
                 ))}
               </dl>
               <OpenLink href={a.href} label="Edit in AI Assistant" />
+            </div>
+          );
+        }
+
+        if (a.type === 'brand_context_update') {
+          rendered.add(key);
+          return <AysopBrandContextUpdateCard key={key} artifact={a} />;
+        }
+
+        if (a.type === 'leads') {
+          rendered.add(key);
+          return <AysopLeadsCard key={key} artifact={a} />;
+        }
+
+        if (a.type === 'support_options') {
+          rendered.add(key);
+          return (
+            <div key={key} className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 text-sm">
+              <p className="flex items-center gap-1.5 font-semibold text-neutral-900 dark:text-neutral-100">
+                <LifeBuoy size={15} className="text-[var(--primary)]" /> How can we help?
+              </p>
+              <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                Pick an option and we will take care of it.
+              </p>
+              <div className="mt-3 space-y-2">
+                {SUPPORT_OPTIONS.map((opt) => (
+                  <Link
+                    key={opt.href}
+                    href={opt.href}
+                    className="flex items-start gap-2.5 rounded-lg border border-neutral-100 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 px-3 py-2.5 hover:border-[var(--primary)]/40 hover:bg-[var(--primary)]/5 transition-colors"
+                  >
+                    <span className="mt-0.5 shrink-0">{opt.icon}</span>
+                    <span className="min-w-0">
+                      <span className="block font-medium text-neutral-800 dark:text-neutral-200">{opt.label}</span>
+                      <span className="block text-xs text-neutral-500 dark:text-neutral-400">{opt.desc}</span>
+                    </span>
+                  </Link>
+                ))}
+              </div>
             </div>
           );
         }

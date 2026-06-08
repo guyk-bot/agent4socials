@@ -35,8 +35,32 @@ import {
   type AysopComposerDraftPayload,
 } from '@/lib/composer/aysop-composer-draft-bridge';
 import { AYSOP_CONNECT_PLATFORMS } from '@/lib/ai/aysop-connect-platforms';
+import { appViewArtifact, type AppViewId } from '@/lib/ai/aysop-artifacts';
+import { scanLeads } from '@/lib/leads/scan-leads';
 
 export type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
+
+const BRAND_CONTEXT_FIELDS: Array<{ key: string; label: string }> = [
+  { key: 'productDescription', label: 'Product / service' },
+  { key: 'targetAudience', label: 'Target audience' },
+  { key: 'toneOfVoice', label: 'Tone of voice' },
+  { key: 'toneExamples', label: 'Tone examples' },
+  { key: 'additionalContext', label: 'Additional context' },
+  { key: 'inboxReplyExamples', label: 'Inbox reply examples' },
+  { key: 'commentReplyExamples', label: 'Comment reply examples' },
+];
+const WORKSPACE_PAGE_VIEWS = new Set<AppViewId>(['brand', 'leads', 'team', 'support', 'brainstorm']);
+
+async function loadBrandContext(userId: string): Promise<Record<string, string>> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { brandContext: true } });
+  const ctx = (user?.brandContext as Record<string, unknown> | null) ?? {};
+  const out: Record<string, string> = {};
+  for (const { key } of BRAND_CONTEXT_FIELDS) {
+    const v = ctx[key];
+    out[key] = typeof v === 'string' ? v : '';
+  }
+  return out;
+}
 
 export type AysopToolContext = {
   userId: string;
@@ -774,6 +798,80 @@ export const AYSOP_TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'get_brand_context',
+      description:
+        "Show the user's current brand context (product, audience, tone, examples) as a card in chat. Use when they ask what their brand context is or want to review it.",
+      parameters: { type: 'object', properties: {}, additionalProperties: false },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'propose_brand_context_update',
+      description:
+        "Propose changes to the user's brand context and show an editable Approve card in chat. Call this whenever the user describes a new/changed product, audience, tone, or other brand info (e.g. 'I just launched a new product that does X'). Only pass fields that should change. Nothing is saved until the user clicks Approve.",
+      parameters: {
+        type: 'object',
+        properties: {
+          productDescription: { type: 'string', description: 'New product / service description' },
+          targetAudience: { type: 'string', description: 'New target audience' },
+          toneOfVoice: { type: 'string', description: 'New tone of voice' },
+          toneExamples: { type: 'string', description: 'New tone examples' },
+          additionalContext: { type: 'string', description: 'New additional context' },
+          inboxReplyExamples: { type: 'string', description: 'New inbox reply examples' },
+          commentReplyExamples: { type: 'string', description: 'New comment reply examples' },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'scan_leads',
+      description:
+        'Scan cached post comments for potential customers (leads) and show them in chat with suggested outreach messages and a CSV download. Use when the user asks how many leads commented, who looks interested, or to find/extract leads.',
+      parameters: {
+        type: 'object',
+        properties: {
+          platform: platformParam,
+          accountId: { type: 'string', description: 'Optional internal account id to scan one account.' },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'show_support_options',
+      description:
+        "Show support options in chat (send feedback, open a ticket, schedule a 15 minute Zoom call). Use when the user is stuck, reports an error you cannot fix, or asks for help/support/contact.",
+      parameters: { type: 'object', properties: {}, additionalProperties: false },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'open_workspace_page',
+      description:
+        'Open a workspace page card in chat with a button: Brand, Leads, Team members, Support, or Brainstorm. Use when the user asks to open one of these pages and a richer in-chat tool (scan_leads, propose_brand_context_update, show_support_options) does not apply.',
+      parameters: {
+        type: 'object',
+        properties: {
+          page: {
+            type: 'string',
+            enum: ['brand', 'leads', 'team', 'support', 'brainstorm'],
+          },
+        },
+        required: ['page'],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 export async function runAysopTool(
@@ -1170,6 +1268,122 @@ export async function runAysopTool(
       return {
         result: built.result,
         artifacts: [built.artifact],
+      };
+    }
+
+    case 'get_brand_context': {
+      const current = await loadBrandContext(ctx.userId);
+      const fields = BRAND_CONTEXT_FIELDS.filter((f) => current[f.key]?.trim()).map((f) => ({
+        label: f.label,
+        value: current[f.key]!,
+      }));
+      if (!fields.length) {
+        return {
+          result: { isEmpty: true, note: 'No brand context set yet.' },
+          artifacts: [
+            {
+              type: 'text_block',
+              title: 'Brand context',
+              body: 'No brand context yet. Tell me about your product, audience, and tone and I can set it up, or open the Brand page.',
+              href: '/dashboard/brand',
+              hrefLabel: 'Open Brand',
+            },
+          ],
+        };
+      }
+      return {
+        result: { fields },
+        artifacts: [{ type: 'brand_context', fields, href: '/dashboard/brand' }],
+      };
+    }
+
+    case 'propose_brand_context_update': {
+      const current = await loadBrandContext(ctx.userId);
+      const changes: Array<{ field: string; label: string; current: string; proposed: string }> = [];
+      for (const { key, label } of BRAND_CONTEXT_FIELDS) {
+        const raw = args[key];
+        if (typeof raw !== 'string') continue;
+        const proposed = raw.trim();
+        if (!proposed) continue;
+        if (proposed === (current[key] ?? '').trim()) continue;
+        changes.push({ field: key, label, current: current[key] ?? '', proposed });
+      }
+      if (!changes.length) {
+        return {
+          result: {
+            note: 'No brand context changes detected. Ask the user what to update (product, audience, or tone).',
+          },
+        };
+      }
+      return {
+        result: {
+          requiresUserApproval: true,
+          changedFields: changes.map((c) => c.field),
+          note: 'An editable Approve card is shown in chat. Nothing is saved until the user clicks Approve. Do not claim the brand context was updated.',
+        },
+        artifacts: [{ type: 'brand_context_update', changes }],
+      };
+    }
+
+    case 'scan_leads': {
+      let accountId: string | null = null;
+      try {
+        accountId = await resolveAccountId(ctx.userId, args);
+      } catch {
+        accountId = null;
+      }
+      const { leads, scanned, message } = await scanLeads(ctx.userId, accountId);
+      const highCount = leads.filter((l) => l.intent === 'high').length;
+      const artifactLeads = leads.slice(0, 25).map((l) => ({
+        authorName: l.authorName,
+        profileUrl: l.profileUrl,
+        platform: l.platform,
+        comment: l.comment,
+        outreach: l.outreach,
+        intent: l.intent,
+      }));
+      return {
+        result: {
+          scanned,
+          totalLeads: leads.length,
+          highIntent: highCount,
+          message,
+          leads: leads.slice(0, 25).map((l) => ({
+            authorName: l.authorName,
+            platform: l.platform,
+            intent: l.intent,
+            comment: l.comment,
+            reason: l.reason,
+          })),
+          note:
+            leads.length > 0
+              ? 'Leads card shown in chat with outreach messages and a CSV download. Summarize how many leads and that they can download the sheet or open the Leads page.'
+              : 'No leads found. Tell the user to open Inbox so comments are cached, then scan again.',
+        },
+        artifacts: leads.length
+          ? [{ type: 'leads', scanned, href: '/dashboard/leads', leads: artifactLeads }]
+          : [],
+      };
+    }
+
+    case 'show_support_options': {
+      return {
+        result: {
+          options: ['feedback', 'ticket', 'zoom'],
+          note: 'Support card shown in chat with Send feedback, Open a ticket, and Schedule a Zoom call buttons.',
+        },
+        artifacts: [{ type: 'support_options', href: '/dashboard/support' }],
+      };
+    }
+
+    case 'open_workspace_page': {
+      const page = String(args.page ?? '').toLowerCase() as AppViewId;
+      if (!WORKSPACE_PAGE_VIEWS.has(page)) {
+        throw new Error('Unknown page. Use brand, leads, team, support, or brainstorm.');
+      }
+      return {
+        result: { opened: page },
+        artifacts: [appViewArtifact(page)],
       };
     }
 

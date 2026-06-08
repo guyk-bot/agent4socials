@@ -89,6 +89,24 @@ export type AysopArtifact =
     }
   | { type: 'brand_context'; fields: Array<{ label: string; value: string }>; href: string }
   | {
+      type: 'brand_context_update';
+      changes: Array<{ field: string; label: string; current: string; proposed: string }>;
+    }
+  | {
+      type: 'leads';
+      scanned: number;
+      href: string;
+      leads: Array<{
+        authorName: string;
+        profileUrl: string | null;
+        platform: string;
+        comment: string;
+        outreach: string;
+        intent: 'high' | 'medium';
+      }>;
+    }
+  | { type: 'support_options'; href: string }
+  | {
       type: 'console_summary';
       dateRange: { start: string; end: string };
       kpi: {
@@ -132,7 +150,12 @@ export type AppViewId =
   | 'smart_links'
   | 'hashtag_pool'
   | 'ai_assistant'
-  | 'account';
+  | 'account'
+  | 'brand'
+  | 'leads'
+  | 'team'
+  | 'support'
+  | 'brainstorm';
 
 export const APP_VIEW_META: Record<
   AppViewId,
@@ -203,6 +226,36 @@ export const APP_VIEW_META: Record<
     description: 'Connected accounts, brands, and billing.',
     href: '/dashboard/account',
     openLabel: 'Open Account',
+  },
+  brand: {
+    title: 'Brand',
+    description: 'Your product, audience, and voice that power AI across the app.',
+    href: '/dashboard/brand',
+    openLabel: 'Open Brand',
+  },
+  leads: {
+    title: 'Leads',
+    description: 'Potential customers mined from your post comments, with outreach.',
+    href: '/dashboard/leads',
+    openLabel: 'Open Leads',
+  },
+  team: {
+    title: 'Team members',
+    description: 'Members, roles, permissions, activity, and performance.',
+    href: '/dashboard/account#team-members',
+    openLabel: 'Open Team',
+  },
+  support: {
+    title: 'Support',
+    description: 'Send feedback, open a ticket, or book a 15 minute Zoom call.',
+    href: '/dashboard/support',
+    openLabel: 'Open Support',
+  },
+  brainstorm: {
+    title: 'Brainstorm',
+    description: 'Capture content ideas and campaigns, manually or with AI.',
+    href: '/dashboard/brainstorm',
+    openLabel: 'Open Brainstorm',
   },
 };
 
