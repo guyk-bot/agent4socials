@@ -1,15 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
 import { MessageSquarePlus, Pencil, Trash2 } from 'lucide-react';
 import { BRAND_NAME } from '@/lib/site-brand-assets';
 import {
   groupChatSessions,
   type AysopChatSessionSummary,
 } from '@/lib/ai/aysop-chat-sessions';
-
-export type AysopSidebarNavActive = 'chats' | 'brand-context';
 
 type Props = {
   sessions: AysopChatSessionSummary[];
@@ -19,10 +16,6 @@ type Props = {
   onDelete: (id: string) => void;
   onRename?: (id: string, title: string) => void;
   side?: 'left' | 'right';
-  navActive?: AysopSidebarNavActive;
-  brandContextHref: string;
-  /** When on Brand Context, clicking the tab again returns to this chat URL. */
-  returnChatHref?: string;
   onNewChat: () => void;
 };
 
@@ -34,9 +27,6 @@ export default function AysopChatSidebar({
   onDelete,
   onRename,
   side = 'left',
-  navActive = 'chats',
-  brandContextHref,
-  returnChatHref,
   onNewChat,
 }: Props) {
   const groups = groupChatSessions(sessions);
@@ -54,28 +44,11 @@ export default function AysopChatSidebar({
         : 'text-neutral-700 dark:text-neutral-300 hover:bg-white/80 dark:hover:bg-neutral-900/80'
     }`;
 
-  const brandContextButtonClass = (active: boolean) =>
-    `block w-full rounded-lg px-3 py-2.5 text-sm font-semibold text-center transition-colors shadow-sm ${
-      active
-        ? 'bg-[var(--button)] text-chrome-text border border-transparent hover:bg-[var(--button-hover)]'
-        : 'bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 border border-neutral-300 dark:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-neutral-800'
-    }`;
-
   return (
     <aside
       className={`w-[260px] shrink-0 flex flex-col ${borderClass} bg-neutral-50/80 dark:bg-neutral-950 h-full`}
     >
       <div className="shrink-0 border-b border-neutral-200 dark:border-neutral-800 px-2 pt-4 pb-3 space-y-2">
-        {navActive === 'brand-context' && returnChatHref ? (
-          <Link href={returnChatHref} className={brandContextButtonClass(true)}>
-            Brand Context
-          </Link>
-        ) : (
-          <Link href={brandContextHref} className={brandContextButtonClass(navActive === 'brand-context')}>
-            Brand Context
-          </Link>
-        )}
-
         <button type="button" onClick={onNewChat} className={navItemClass(false)}>
           <span className="inline-flex items-center gap-2">
             <MessageSquarePlus size={18} className="shrink-0" />
@@ -100,7 +73,7 @@ export default function AysopChatSidebar({
             </p>
             <ul className="space-y-0.5">
               {group.sessions.map((s) => {
-                const active = navActive === 'chats' && s.id === activeId;
+                const active = s.id === activeId;
                 const renaming = renamingId === s.id;
                 return (
                   <li key={s.id} className="group relative">

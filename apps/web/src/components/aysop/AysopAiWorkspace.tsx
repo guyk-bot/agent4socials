@@ -644,13 +644,6 @@ export default function AysopAiWorkspace() {
     [schedulePersist]
   );
 
-  const brandContextHref = useMemo(() => {
-    if (activeId) {
-      return `/dashboard/aysop-ai/brand-context?c=${encodeURIComponent(activeId)}`;
-    }
-    return '/dashboard/aysop-ai/brand-context';
-  }, [activeId]);
-
   return (
     <div className="flex h-full min-h-0 bg-white dark:bg-neutral-950">
       <div className="flex flex-1 min-w-0 flex-col">
@@ -668,8 +661,6 @@ export default function AysopAiWorkspace() {
         onDelete={(id) => void handleDelete(id)}
         onRename={renameSession}
         side="right"
-        navActive="chats"
-        brandContextHref={brandContextHref}
         onNewChat={handleNewChat}
       />
     </div>

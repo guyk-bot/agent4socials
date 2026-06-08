@@ -38,6 +38,10 @@ import { AYSOP_CONNECT_PLATFORMS } from '@/lib/ai/aysop-connect-platforms';
 import { appViewArtifact, type AppViewId } from '@/lib/ai/aysop-artifacts';
 import { scanLeads, type ScannedLead } from '@/lib/leads/scan-leads';
 import { getSavedLeadsScan, saveLeadsScan } from '@/lib/leads/leads-scan-cache';
+import {
+  shouldSkipCosmeticRewrite,
+  surgicalProductDescriptionUpdate,
+} from '@/lib/brand-context-surgical';
 
 export type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 
@@ -813,7 +817,7 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'propose_brand_context_update',
       description:
-        "Propose changes to the user's brand context and show an editable Approve card in chat. Call this whenever the user describes a new/changed product, audience, tone, or other brand info (e.g. 'I just launched a new product that does X'). Only pass fields that should change. CRITICAL: when a field already has content, preserve the existing wording and make the SMALLEST edit needed (e.g. only remove the sentence about a discontinued feature). Pass the FULL new value of that field, but keep every unchanged word identical so the highlighted diff is minimal. Do NOT rewrite, rephrase, summarize, or reorder the whole field unless the user explicitly asks for a rewrite. Nothing is saved until the user clicks Approve.",
+        "Propose changes to the user's brand context and show an editable Approve card in chat. ONLY pass fields the user explicitly asked to change: product/features → productDescription only; audience → targetAudience only; tone → toneOfVoice only. Never pass targetAudience or toneOfVoice when the user only mentions product or features. CRITICAL: copy the existing field text verbatim and make the smallest edit (remove one bullet, add one sentence). Do NOT rewrite, summarize, or rephrase unchanged sections. Nothing is saved until Approve.",
       parameters: {
         type: 'object',
         properties: {
@@ -1348,9 +1352,14 @@ export async function runAysopTool(
       for (const { key, label } of BRAND_CONTEXT_FIELDS) {
         const raw = args[key];
         if (typeof raw !== 'string') continue;
-        const proposed = raw.trim();
+        let proposed = raw.trim();
         if (!proposed) continue;
-        if (proposed === (current[key] ?? '').trim()) continue;
+        const cur = (current[key] ?? '').trim();
+        if (key === 'productDescription' && cur) {
+          proposed = surgicalProductDescriptionUpdate(cur, proposed);
+        }
+        if (shouldSkipCosmeticRewrite(cur, proposed)) continue;
+        if (proposed === cur) continue;
         changes.push({ field: key, label, current: current[key] ?? '', proposed });
       }
       if (!changes.length) {

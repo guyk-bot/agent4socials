@@ -4,89 +4,65 @@ import React, { useMemo, useState } from 'react';
 import { Check, Loader2, Sparkles, X } from 'lucide-react';
 import api from '@/lib/api';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
+import { diffBrandContextText } from '@/lib/brand-context-diff';
 
 type Artifact = Extract<AysopArtifact, { type: 'brand_context_update' }>;
 
-type DiffSeg = { type: 'same' | 'add' | 'del'; text: string };
-
-function tokenize(s: string): string[] {
-  return s.match(/\s+|\S+/g) ?? [];
-}
-
-/** Word-level diff so only what actually changed is highlighted (not the whole field). */
-function diffTokens(oldStr: string, newStr: string): DiffSeg[] {
-  const a = tokenize(oldStr);
-  const b = tokenize(newStr);
-  const n = a.length;
-  const m = b.length;
-
-  // Guard against pathological sizes; fall back to whole-value replace.
-  if (n * m > 400_000) {
-    const segs: DiffSeg[] = [];
-    if (oldStr) segs.push({ type: 'del', text: oldStr });
-    if (newStr) segs.push({ type: 'add', text: newStr });
-    return segs;
-  }
-
-  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
-  for (let i = n - 1; i >= 0; i--) {
-    for (let j = m - 1; j >= 0; j--) {
-      dp[i]![j] = a[i] === b[j] ? dp[i + 1]![j + 1]! + 1 : Math.max(dp[i + 1]![j]!, dp[i]![j + 1]!);
-    }
-  }
-
-  const segs: DiffSeg[] = [];
-  const push = (type: DiffSeg['type'], text: string) => {
-    const last = segs[segs.length - 1];
-    if (last && last.type === type) last.text += text;
-    else segs.push({ type, text });
-  };
-  let i = 0;
-  let j = 0;
-  while (i < n && j < m) {
-    if (a[i] === b[j]) {
-      push('same', a[i]!);
-      i++;
-      j++;
-    } else if (dp[i + 1]![j]! >= dp[i]![j + 1]!) {
-      push('del', a[i]!);
-      i++;
-    } else {
-      push('add', b[j]!);
-      j++;
-    }
-  }
-  while (i < n) push('del', a[i++]!);
-  while (j < m) push('add', b[j++]!);
-  return segs;
-}
-
 function DiffPreview({ current, proposed }: { current: string; proposed: string }) {
-  const segs = diffTokens(current, proposed);
+  const segs = diffBrandContextText(current, proposed);
   const changed = segs.some((s) => s.type !== 'same');
-  return (
-    <div className="mt-0.5 whitespace-pre-wrap break-words text-xs leading-relaxed text-neutral-600 dark:text-neutral-300">
-      {!changed && !current ? <span className="italic text-neutral-400">Currently empty</span> : null}
-      {segs.map((seg, k) => {
-        if (seg.type === 'same') return <span key={k}>{seg.text}</span>;
-        if (seg.type === 'del') {
-          return (
-            <span
-              key={k}
-              className="rounded bg-red-100 text-red-700 line-through decoration-red-400 dark:bg-red-950/40 dark:text-red-300"
-            >
-              {seg.text}
-            </span>
-          );
-        }
-        return (
-          <span key={k} className="rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
-            {seg.text}
-          </span>
-        );
-      })}
-    </div>
-  );
+
+  if (!changed && !current) {
+    return <p className="mt-0.5 text-xs italic text-neutral-400">Currently empty</p>;
+  }
+
+  if (!changed) {
+    return <p className="mt-0.5 text-xs text-neutral-500">No visible changes in this field.</p>;
+  }
+
+  const nodes: React.ReactNode[] = [];
+  let skippedSame = 0;
+
+  const flushSkipped = () => {
+    if (skippedSame > 0) {
+      nodes.push(
+        <p key={`skip-${nodes.length}`} className="text-[10px] italic text-neutral-400 py-0.5">
+          … {skippedSame} unchanged line{skippedSame === 1 ? '' : 's'} …
+        </p>
+      );
+      skippedSame = 0;
+    }
+  };
+
+  for (const seg of segs) {
+    if (seg.type === 'same') {
+      skippedSame += 1;
+      continue;
+    }
+    flushSkipped();
+    if (seg.type === 'del') {
+      nodes.push(
+        <p
+          key={`del-${nodes.length}`}
+          className="whitespace-pre-wrap break-words rounded bg-red-50 px-1.5 py-0.5 text-xs text-red-800 line-through decoration-red-400 dark:bg-red-950/40 dark:text-red-300"
+        >
+          {seg.text}
+        </p>
+      );
+    } else {
+      nodes.push(
+        <p
+          key={`add-${nodes.length}`}
+          className="whitespace-pre-wrap break-words rounded bg-emerald-50 px-1.5 py-0.5 text-xs text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
+        >
+          {seg.text}
+        </p>
+      );
+    }
+  }
+  flushSkipped();
+
+  return <div className="mt-0.5 space-y-1">{nodes}</div>;
 }
 
 export function AysopBrandContextUpdateCard({ artifact }: { artifact: Artifact }) {
@@ -140,7 +116,7 @@ export function AysopBrandContextUpdateCard({ artifact }: { artifact: Artifact }
         <Sparkles size={15} className="text-[var(--primary)]" /> Update brand context?
       </p>
       <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-        Review the changes below. Edit anything, then Approve to save. Nothing changes until you approve.
+        Only the highlighted lines below will change. Edit if needed, then Approve to save.
       </p>
 
       <div className="mt-3 space-y-3">

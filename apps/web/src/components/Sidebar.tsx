@@ -203,7 +203,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
   const isMainAnalyticsView = pathname === '/dashboard' || pathname === '/dashboard/console';
   const isPostsPage = pathname === '/posts';
   const isReportsPage = pathname === '/dashboard/reports';
-  const isBrandPage = pathname === '/dashboard/brand' || pathname?.startsWith('/dashboard/aysop-ai/brand-context');
+  const isBrandPage = pathname === '/dashboard/brand';
   const isLeadsPage = pathname === '/dashboard/leads';
   const isTeamPage = pathname === '/dashboard/account';
   const isBrainstormPage = pathname === '/dashboard/brainstorm';

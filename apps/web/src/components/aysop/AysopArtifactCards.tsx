@@ -167,7 +167,7 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
                   </div>
                 ))}
               </dl>
-              <OpenLink href={a.href} label="Edit in AI Assistant" />
+              <OpenLink href={a.href} label="Open Brand" />
             </div>
           );
         }
