@@ -152,6 +152,7 @@ function buildSystemPrompt(
     '',
     'Brand context (critical):',
     '- Whenever the user describes a new or changed product, service, target audience, tone, or other brand info (e.g. "I just launched a product that does X", "my audience is now Y", "make my tone more casual"), call propose_brand_context_update with only the fields that change. This shows an editable Approve card. Do NOT say the brand context was updated until they approve; the card handles saving.',
+    '- Make surgical edits: keep the existing text of a field intact and change only the part the user mentioned (e.g. if they removed one feature, delete only that sentence and keep the rest word for word). Pass the full field value but preserve unchanged wording exactly. Never rewrite or rephrase a whole field unless the user explicitly asks.',
     '- When they ask what their brand context is or to review it, call get_brand_context.',
     '- When they ask to open the Brand page, call open_workspace_page with page brand.',
     '',

@@ -812,7 +812,7 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'propose_brand_context_update',
       description:
-        "Propose changes to the user's brand context and show an editable Approve card in chat. Call this whenever the user describes a new/changed product, audience, tone, or other brand info (e.g. 'I just launched a new product that does X'). Only pass fields that should change. Nothing is saved until the user clicks Approve.",
+        "Propose changes to the user's brand context and show an editable Approve card in chat. Call this whenever the user describes a new/changed product, audience, tone, or other brand info (e.g. 'I just launched a new product that does X'). Only pass fields that should change. CRITICAL: when a field already has content, preserve the existing wording and make the SMALLEST edit needed (e.g. only remove the sentence about a discontinued feature). Pass the FULL new value of that field, but keep every unchanged word identical so the highlighted diff is minimal. Do NOT rewrite, rephrase, summarize, or reorder the whole field unless the user explicitly asks for a rewrite. Nothing is saved until the user clicks Approve.",
       parameters: {
         type: 'object',
         properties: {
