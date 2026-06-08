@@ -36,7 +36,7 @@ export default function SiteHeader() {
             <img
               src={SITE_LOGO_DARK_SRC}
               alt={BRAND_NAME}
-              className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 object-contain"
+              className="h-6 w-6 sm:h-7 sm:w-7 shrink-0 object-contain"
             />
             <BrandWordmark
               name={BRAND_NAME}

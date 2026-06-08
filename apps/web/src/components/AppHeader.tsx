@@ -105,7 +105,7 @@ export default function AppHeader() {
           {logoUrl ? (
             <img src={logoUrl} alt="" className="h-8 w-8 sm:h-9 sm:w-9 object-contain" />
           ) : (
-            <img src={siteLogoSrcForAppHeader(theme, isOfficialBrandHeader)} alt={BRAND_NAME} className="h-7 w-7 sm:h-8 sm:w-8 object-contain block" />
+            <img src={siteLogoSrcForAppHeader(theme, isOfficialBrandHeader)} alt={BRAND_NAME} className="h-6 w-6 sm:h-7 sm:w-7 object-contain block" />
           )}
           <span
             className={`font-semibold hidden sm:inline truncate text-sm sm:text-base ${
