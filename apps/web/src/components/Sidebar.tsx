@@ -51,8 +51,8 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
 
 const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'THREADS', 'PINTEREST', 'LINKEDIN'];
 
-/** Vertical padding on platform rows; flex-1 rows expand to fill sidebar height. */
-const PLATFORM_ROW_PY = 'py-2.5';
+/** Vertical padding on platform rows. */
+const PLATFORM_ROW_PY = 'py-1';
 
 /** Platforms that show a gem / upgrade styling on the connect row (empty = same as other networks). */
 const UPGRADE_TO_CONNECT_PLATFORMS: string[] = [];
@@ -213,12 +213,13 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
     { key: 'brand', href: '/dashboard/brand', label: 'Brand', icon: <Sparkles size={18} className="shrink-0" />, active: isBrandPage },
     { key: 'leads', href: '/dashboard/leads', label: 'Leads', icon: <Users size={18} className="shrink-0" />, active: isLeadsPage },
     { key: 'team', href: '/dashboard/account#team-members', label: 'Team', icon: <Users2 size={18} className="shrink-0" />, active: isTeamPage },
+    { key: 'reports', href: '/dashboard/reports', label: 'Reports', icon: <FileText size={18} className="shrink-0" />, active: isReportsPage },
     { key: 'brainstorm', href: '/dashboard/brainstorm', label: 'Brainstorm', icon: <Lightbulb size={18} className="shrink-0" />, active: isBrainstormPage },
   ];
 
   const sidebarContent = (
     <>
-      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col px-1.5 py-1">
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col px-1.5 py-0.5">
         {PLATFORM_ORDER.map((platform) => {
           const accounts = accountsByPlatform[platform] ?? [];
           const isPlatformSelected = selectedPlatformForConnect === platform;
@@ -228,7 +229,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
             const needsUpgrade = UPGRADE_TO_CONNECT_PLATFORMS.includes(platform);
             /** Connect URL per platform; optional gem styling when platform is in UPGRADE_TO_CONNECT_PLATFORMS. */
             const href = `/dashboard?connect=${connectParam}`;
-            const platformRowClass = `flex flex-1 min-h-[2.75rem] items-center gap-3 px-3 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors border border-transparent ${
+            const platformRowClass = `flex items-center gap-3 px-3 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors border border-transparent ${
               isPlatformSelected ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80 dark:hover:border-neutral-700'
             } ${needsUpgrade ? 'ring-1 ring-orange-400/50 bg-gradient-to-r from-orange-500/10 to-orange-500/10' : ''}`;
             const platformRowInner = (
@@ -261,10 +262,10 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
           }
 
           return (
-            <div key={platform} className="flex flex-1 min-h-[2.75rem] flex-col">
+            <div key={platform} className="flex flex-col">
               {accounts.map((acc) => {
                 const isSelected = selectedAccountId === acc.id;
-                const accountRowClass = `flex flex-1 min-h-[2.75rem] items-center gap-3 px-3 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors min-w-0 border border-transparent ${
+                const accountRowClass = `flex items-center gap-3 px-3 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors min-w-0 border border-transparent ${
                   isSelected ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80 dark:hover:border-neutral-700'
                 }`;
                 // From Inbox or any page: go to this account's analytics via client-side nav (keeps cache, no reload).
@@ -348,13 +349,6 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
           <History size={18} className="shrink-0" />
           <span>History</span>
         </Link>
-        <Link
-          href="/dashboard/reports"
-          className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm font-medium border border-transparent ${isReportsPage ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)]'}`}
-        >
-          <FileText size={18} className="shrink-0" />
-          <span>Reports</span>
-        </Link>
       </div>
 
       <div className="mt-auto px-2 py-2 border-t border-neutral-200 shrink-0">
@@ -374,28 +368,30 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
       className="flex flex-1 border-r border-[var(--border)] flex-col bg-[var(--bg-surface)] min-h-0 pointer-events-auto overflow-hidden"
       style={{ backgroundColor: 'var(--wl-sidebar-bg, var(--bg-surface))', color: text }}
     >
-      <div className="flex items-stretch gap-0 border-b border-neutral-200 shrink-0">
+      <div className="flex items-stretch gap-0 border-b border-neutral-200 shrink-0 pl-1.5">
         <Link
           href="/dashboard/console"
           onClick={(e) => {
             if (pathname === '/dashboard/console') e.preventDefault();
           }}
-          className={`flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2.5 rounded-none text-base font-bold transition-colors ${
+          className={`flex min-w-0 flex-1 items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
             isMainAnalyticsView ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)] border border-transparent'
           }`}
         >
-          <BarChart3 size={20} className="shrink-0" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center">
+            <BarChart3 size={18} className="shrink-0" />
+          </div>
           <span className="truncate">Console</span>
           {isMainAnalyticsView && <ChevronRight size={14} className="ml-auto shrink-0 opacity-70" />}
         </Link>
         <button
           type="button"
           onClick={onSidebarToggle}
-          className="shrink-0 border-l border-neutral-200 px-2 py-2.5 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          className="shrink-0 border-l border-neutral-200 px-2 py-3 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
           aria-label="Close sidebar"
           title="Close sidebar"
         >
-          <PanelLeftClose size={20} />
+          <PanelLeftClose size={18} />
         </button>
       </div>
       {sidebarContent}
