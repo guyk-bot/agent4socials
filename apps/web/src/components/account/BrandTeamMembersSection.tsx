@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import { Users, HelpCircle, Plus, Shield, ChevronDown, Check } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Users, HelpCircle, Plus, Shield, ChevronDown, Check, Clock, CircleCheck } from 'lucide-react';
 import api from '@/lib/api';
 
 const ROLE_GUIDE_URL = '/help/roles-permissions';
 
 export type BrandTeamRole = 'Admin' | 'Editor' | 'Viewer';
+
+export type BrandTeamMemberStatus = 'active' | 'pending';
 
 export type BrandTeamMember = {
   id: string;
@@ -16,7 +18,47 @@ export type BrandTeamMember = {
   email: string;
   role: BrandTeamRole;
   imageUrl?: string | null;
+  status?: BrandTeamMemberStatus;
+  addedAt?: string;
 };
+
+const ROLE_PERMISSIONS: Record<BrandTeamRole, string[]> = {
+  Admin: [
+    'Manage team members and roles',
+    'Edit brand details and brand image',
+    'Create, edit, schedule, and publish content',
+    'View analytics and reports',
+  ],
+  Editor: [
+    'Create, edit, schedule, and publish content',
+    'Reply to inbox comments and DMs',
+    'View analytics and reports',
+    'Cannot manage team or brand settings',
+  ],
+  Viewer: [
+    'View analytics and reports',
+    'View content and inbox (read-only)',
+    'Cannot create, edit, or publish',
+    'Cannot manage team or settings',
+  ],
+};
+
+const ROLE_BADGE_CLASS: Record<BrandTeamRole, string> = {
+  Admin: 'border-violet-300 bg-violet-50 text-violet-700',
+  Editor: 'border-sky-300 bg-sky-50 text-sky-700',
+  Viewer: 'border-neutral-300 bg-neutral-50 text-neutral-600',
+};
+
+function memberStatus(member: BrandTeamMember): BrandTeamMemberStatus {
+  return member.status ?? 'active';
+}
+
+function formatMemberSince(addedAt?: string): string | null {
+  if (!addedAt) return null;
+  const d = new Date(addedAt);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
 export type BrandTeamMembersSectionProps = {
   brands: Array<{ id: string; name: string }>;
@@ -42,6 +84,7 @@ export function BrandTeamMembersSection({
   const [inviteLink, setInviteLink] = useState('');
   const [rolesTooltipOpen, setRolesTooltipOpen] = useState(false);
   const [brandMenuOpen, setBrandMenuOpen] = useState(false);
+  const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
   const brandMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -96,6 +139,8 @@ export function BrandTeamMembersSection({
       email,
       role: newMemberRole,
       imageUrl: null,
+      status: 'pending',
+      addedAt: new Date().toISOString(),
     };
     setTeamMembersByBrand((prev) => {
       const existing = prev[selectedBrand.id] ?? [];
@@ -137,6 +182,26 @@ export function BrandTeamMembersSection({
       };
     });
   };
+
+  const handleChangeRole = (memberId: string, role: BrandTeamRole) => {
+    if (!selectedBrand) return;
+    setTeamMembersByBrand((prev) => {
+      const existing = prev[selectedBrand.id] ?? [];
+      return {
+        ...prev,
+        [selectedBrand.id]: existing.map((m) => (m.id === memberId ? { ...m, role } : m)),
+      };
+    });
+  };
+
+  const teamSummary = useMemo(() => {
+    const counts = { Admin: 0, Editor: 0, Viewer: 0, pending: 0 };
+    for (const m of members) {
+      counts[m.role] += 1;
+      if (memberStatus(m) === 'pending') counts.pending += 1;
+    }
+    return counts;
+  }, [members]);
 
   return (
     <div className="team-members-frame rounded-2xl border border-neutral-200 bg-neutral-50/40 p-4 sm:p-5 shadow-sm space-y-4">
@@ -234,36 +299,111 @@ export function BrandTeamMembersSection({
               </div>
             </div>
           </div>
+          {members.length > 0 ? (
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {[
+                { label: 'Members', value: members.length },
+                { label: 'Admins', value: teamSummary.Admin },
+                { label: 'Editors', value: teamSummary.Editor },
+                { label: 'Pending', value: teamSummary.pending },
+              ].map((stat) => (
+                <div key={stat.label} className="rounded-lg border border-neutral-200 bg-[var(--card-bg)] px-3 py-2">
+                  <p className="text-lg font-bold text-neutral-900">{stat.value}</p>
+                  <p className="text-[11px] uppercase tracking-wide text-neutral-500">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
           <div className="mt-3 space-y-2">
             {members.length === 0 ? (
               <p className="text-sm text-neutral-500">No team members yet.</p>
             ) : (
-              members.map((member) => (
-                <div key={member.id} className="team-member-row flex items-center gap-2 rounded-lg border border-neutral-200 bg-[var(--card-bg)] px-3 py-2">
-                  <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-neutral-100 flex items-center justify-center">
-                    {member.imageUrl ? (
-                      <img src={member.imageUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <span className="text-xs font-semibold text-neutral-500">{(member.name || 'F').slice(0, 1).toUpperCase()}</span>
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-neutral-900">{member.name}</p>
-                    <p className="truncate text-xs text-neutral-500">{member.email || 'No email'}</p>
-                  </div>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-neutral-300 px-2 py-0.5 text-xs text-neutral-700">
-                    <Shield size={11} />
-                    {member.role}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteTeamMember(member.id)}
-                    className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+              members.map((member) => {
+                const status = memberStatus(member);
+                const since = formatMemberSince(member.addedAt);
+                const isExpanded = expandedMemberId === member.id;
+                return (
+                  <div
+                    key={member.id}
+                    className="team-member-row rounded-lg border border-neutral-200 bg-[var(--card-bg)] px-3 py-2.5"
                   >
-                    Remove
-                  </button>
-                </div>
-              ))
+                    <div className="flex items-center gap-2">
+                      <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-neutral-100 flex items-center justify-center">
+                        {member.imageUrl ? (
+                          <img src={member.imageUrl} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="text-xs font-semibold text-neutral-500">{(member.name || 'F').slice(0, 1).toUpperCase()}</span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-neutral-900">{member.name}</p>
+                        <p className="truncate text-xs text-neutral-500">{member.email || 'No email'}</p>
+                      </div>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+                          status === 'active'
+                            ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                            : 'border-amber-300 bg-amber-50 text-amber-700'
+                        }`}
+                      >
+                        {status === 'active' ? <CircleCheck size={11} /> : <Clock size={11} />}
+                        {status === 'active' ? 'Active' : 'Invited'}
+                      </span>
+                      <select
+                        value={member.role}
+                        onChange={(e) => handleChangeRole(member.id, e.target.value as BrandTeamRole)}
+                        aria-label={`Role for ${member.name}`}
+                        className={`rounded-full border px-2 py-0.5 text-xs font-medium ${ROLE_BADGE_CLASS[member.role]}`}
+                      >
+                        <option value="Admin">Admin</option>
+                        <option value="Editor">Editor</option>
+                        <option value="Viewer">Viewer</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTeamMember(member.id)}
+                        className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                      >
+                        Remove
+                      </button>
+                    </div>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 pl-11 text-[11px] text-neutral-500">
+                      <span className="inline-flex items-center gap-1">
+                        <Clock size={11} />
+                        {status === 'active'
+                          ? since
+                            ? `Active since ${since}`
+                            : 'Active'
+                          : since
+                            ? `Invited ${since}`
+                            : 'Invitation sent'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedMemberId(isExpanded ? null : member.id)}
+                        className="inline-flex items-center gap-1 font-medium text-neutral-600 hover:text-neutral-900"
+                      >
+                        <Shield size={11} />
+                        {isExpanded ? 'Hide permissions' : 'View permissions'}
+                        <ChevronDown size={11} className={`transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                      </button>
+                    </div>
+
+                    {isExpanded ? (
+                      <ul className="mt-2 ml-11 space-y-1 border-l border-neutral-200 pl-3 text-xs text-neutral-600">
+                        {ROLE_PERMISSIONS[member.role].map((perm) => (
+                          <li key={perm} className="flex items-start gap-1.5">
+                            <Check size={12} className="mt-0.5 shrink-0 text-emerald-500" />
+                            <span>{perm}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                );
+              })
             )}
           </div>
 
