@@ -159,10 +159,38 @@
 .metric-negative { color: #EF4444; }
 .metric-neutral { color: #888780; }
 
-/* Funnel / marketing: light page body; black header bar only (see `.funnel-nav`). */
+/* Funnel / marketing: always light body; black header bar only (see `.funnel-nav`). */
 .funnel-page {
-  background: var(--bg-primary);
-  color: var(--text-primary);
+  --bg-primary: #F8F7FC;
+  --bg-surface: #FFFFFF;
+  --bg-border: #E8E6DF;
+  --bg-hover: #F1EFF8;
+  --text-primary: #1a1a1a;
+  --text-muted: #888780;
+  --background: #F8F7FC;
+  --foreground: #1a1a1a;
+  --muted: #888780;
+  --border: #E8E6DF;
+  --card-bg: #ffffff;
+  --surface-soft: #F1EFF8;
+  background: #F8F7FC;
+  color: #1a1a1a;
+}
+[data-theme='dark'] .funnel-page {
+  --bg-primary: #F8F7FC;
+  --bg-surface: #FFFFFF;
+  --bg-border: #E8E6DF;
+  --bg-hover: #F1EFF8;
+  --text-primary: #1a1a1a;
+  --text-muted: #888780;
+  --background: #F8F7FC;
+  --foreground: #1a1a1a;
+  --muted: #888780;
+  --border: #E8E6DF;
+  --card-bg: #ffffff;
+  --surface-soft: #F1EFF8;
+  background: #F8F7FC;
+  color: #1a1a1a;
 }
 .funnel-card {
   background: var(--bg-surface);

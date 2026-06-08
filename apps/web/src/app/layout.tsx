@@ -14,19 +14,20 @@ import AuthModal from "@/components/auth/AuthModal";
 import AuthModalOpener from "@/components/auth/AuthModalOpener";
 import { siteTabIcons } from "@/lib/site-tab-icons";
 import { SITE_LOGO_V } from "@/lib/site-brand-assets";
+import { CANONICAL_APP_ORIGIN, resolveAppBaseUrl } from "@/lib/app-base-url";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit", display: "swap" });
 
 function getMetadataBase(): URL {
   try {
-    return new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://agent4socials.com");
+    return new URL(resolveAppBaseUrl());
   } catch {
-    return new URL("https://agent4socials.com");
+    return new URL(CANONICAL_APP_ORIGIN);
   }
 }
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://agent4socials.com";
+const siteUrl = resolveAppBaseUrl();
 
 // Organization JSON-LD so Google can show the correct logo in search results (favicon + optional Knowledge Panel).
 const organizationJsonLd = {
@@ -72,7 +73,7 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true },
   },
-  // Tab favicon: PNGs / ICO / SVG (see SITE_TAB_FAVICON_V). Google / OG logo: logo-192 (circular export).
+  // Tab favicon: PNGs / ICO / SVG (see SITE_TAB_FAVICON_V). Google / OG logo: logo-192 (black square, matches logo-mark).
   icons: siteTabIcons,
   manifest: "/manifest.json",
   appleWebApp: {
@@ -96,7 +97,7 @@ export default function RootLayout({
       <body className="antialiased min-h-screen min-h-dvh">
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var t=localStorage.getItem('agent4socials-theme');var p=window.location.pathname;if(p==='/'){t='light';}if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);})();`,
+            __html: `(function(){var t=localStorage.getItem('agent4socials-theme');var p=window.location.pathname;var funnel=['/','/pricing','/privacy','/terms','/data-deletion','/login','/signup'];if(funnel.indexOf(p)!==-1||p.indexOf('/help')===0){t='light';}if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);})();`,
           }}
         />
         <script
