@@ -14,7 +14,7 @@ import AuthModal from "@/components/auth/AuthModal";
 import AuthModalOpener from "@/components/auth/AuthModalOpener";
 import { siteTabIcons } from "@/lib/site-tab-icons";
 import { SITE_LOGO_V } from "@/lib/site-brand-assets";
-import { CANONICAL_APP_ORIGIN, resolveAppBaseUrl } from "@/lib/app-base-url";
+import { resolveAppBaseUrl } from "@/lib/app-base-url";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit", display: "swap" });
@@ -23,7 +23,7 @@ function getMetadataBase(): URL {
   try {
     return new URL(resolveAppBaseUrl());
   } catch {
-    return new URL(CANONICAL_APP_ORIGIN);
+    return new URL("https://www.izop.io");
   }
 }
 
