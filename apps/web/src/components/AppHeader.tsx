@@ -44,10 +44,12 @@ function TopNavItemContent({ item, badge, inboxBadgeTitle }: { item: TopNavItem;
   if (item.stackedTop) {
     return (
       <>
-        <item.icon size={18} className="shrink-0" aria-hidden />
-        <span className="flex flex-col items-start leading-none gap-0.5">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-400">{item.stackedTop}</span>
-          <span className="text-sm font-medium">{item.label}</span>
+        <span className="relative inline-flex items-center gap-2">
+          <span className="absolute -top-[11px] left-0 text-[9px] font-semibold uppercase tracking-wide text-amber-400 whitespace-nowrap leading-none pointer-events-none">
+            {item.stackedTop}
+          </span>
+          <item.icon size={18} className="shrink-0" aria-hidden />
+          <span>{item.label}</span>
         </span>
         {badge > 0 ? (
           <span
@@ -161,7 +163,7 @@ export default function AppHeader() {
             {displayAppName}
           </span>
         </Link>
-        <nav className="hidden md:flex items-center gap-1">
+        <nav className="hidden md:flex items-center gap-1 overflow-visible">
           {topNavItems.map((item) => {
             const isActive = item.href === '/composer'
               ? pathname === '/composer' && searchParams.get('analyze') !== 'reel'
@@ -187,7 +189,7 @@ export default function AppHeader() {
                 key={item.href}
                 href={topNavHref(item, user?.id)}
                 prefetch={item.href === '/composer'}
-                className={`${navLinkClass(isActive)}${item.stackedTop ? ' py-1.5' : ''}`}
+                className={`${navLinkClass(isActive)}${item.stackedTop ? ' overflow-visible' : ''}`}
                 title={item.badgeKey === 'inbox' ? inboxBadgeTitle : undefined}
               >
                 {content}
