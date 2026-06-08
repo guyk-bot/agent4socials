@@ -36,7 +36,8 @@ import {
 } from '@/lib/composer/aysop-composer-draft-bridge';
 import { AYSOP_CONNECT_PLATFORMS } from '@/lib/ai/aysop-connect-platforms';
 import { appViewArtifact, type AppViewId } from '@/lib/ai/aysop-artifacts';
-import { scanLeads } from '@/lib/leads/scan-leads';
+import { scanLeads, type ScannedLead } from '@/lib/leads/scan-leads';
+import { getSavedLeadsScan, saveLeadsScan } from '@/lib/leads/leads-scan-cache';
 
 export type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 
@@ -831,9 +832,18 @@ export const AYSOP_TOOL_DEFINITIONS = [
   {
     type: 'function' as const,
     function: {
+      name: 'get_saved_leads',
+      description:
+        'Return the user\'s most recent lead scan (same results as the Leads page). Call FIRST when they ask how many leads they have, who the leads are, or to show leads again. Only call scan_leads if there is no saved scan or they ask to refresh/rescan.',
+      parameters: { type: 'object', properties: {}, additionalProperties: false },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
       name: 'scan_leads',
       description:
-        'Scan cached post comments for potential customers (leads) and show them in chat with suggested outreach messages and a CSV download. Use when the user asks how many leads commented, who looks interested, or to find/extract leads.',
+        'Run a fresh AI scan of cached post comments for potential customers (leads). Use when get_saved_leads is empty, or the user asks to scan/rescan/refresh leads. Shows outreach messages and CSV in chat.',
       parameters: {
         type: 'object',
         properties: {
@@ -873,6 +883,41 @@ export const AYSOP_TOOL_DEFINITIONS = [
     },
   },
 ];
+
+function buildLeadsToolResponse(leads: ScannedLead[], scanned: number, message?: string, scannedAt?: string | null) {
+  const highCount = leads.filter((l) => l.intent === 'high').length;
+  const artifactLeads = leads.slice(0, 25).map((l) => ({
+    authorName: l.authorName,
+    profileUrl: l.profileUrl,
+    platform: l.platform,
+    comment: l.comment,
+    outreach: l.outreach,
+    intent: l.intent,
+  }));
+  return {
+    result: {
+      scanned,
+      totalLeads: leads.length,
+      highIntent: highCount,
+      message,
+      scannedAt: scannedAt ?? null,
+      leads: leads.slice(0, 25).map((l) => ({
+        authorName: l.authorName,
+        platform: l.platform,
+        intent: l.intent,
+        comment: l.comment,
+        reason: l.reason,
+      })),
+      note:
+        leads.length > 0
+          ? 'Leads card shown in chat with outreach messages and a CSV download. Summarize how many leads and that they can download the sheet or open the Leads page.'
+          : 'No leads found. Tell the user to open Inbox so comments are cached, then call scan_leads to refresh.',
+    },
+    artifacts: leads.length
+      ? [{ type: 'leads' as const, scanned, href: '/dashboard/leads', leads: artifactLeads }]
+      : [],
+  };
+}
 
 export async function runAysopTool(
   name: string,
@@ -1325,6 +1370,19 @@ export async function runAysopTool(
       };
     }
 
+    case 'get_saved_leads': {
+      const saved = await getSavedLeadsScan(ctx.userId);
+      if (!saved) {
+        return {
+          result: {
+            totalLeads: 0,
+            note: 'No saved lead scan yet. Call scan_leads to run a fresh scan. If comments are empty, suggest opening Inbox once to cache comments.',
+          },
+        };
+      }
+      return buildLeadsToolResponse(saved.leads, saved.scanned, saved.message, saved.scannedAt);
+    }
+
     case 'scan_leads': {
       let accountId: string | null = null;
       try {
@@ -1333,37 +1391,8 @@ export async function runAysopTool(
         accountId = null;
       }
       const { leads, scanned, message } = await scanLeads(ctx.userId, accountId);
-      const highCount = leads.filter((l) => l.intent === 'high').length;
-      const artifactLeads = leads.slice(0, 25).map((l) => ({
-        authorName: l.authorName,
-        profileUrl: l.profileUrl,
-        platform: l.platform,
-        comment: l.comment,
-        outreach: l.outreach,
-        intent: l.intent,
-      }));
-      return {
-        result: {
-          scanned,
-          totalLeads: leads.length,
-          highIntent: highCount,
-          message,
-          leads: leads.slice(0, 25).map((l) => ({
-            authorName: l.authorName,
-            platform: l.platform,
-            intent: l.intent,
-            comment: l.comment,
-            reason: l.reason,
-          })),
-          note:
-            leads.length > 0
-              ? 'Leads card shown in chat with outreach messages and a CSV download. Summarize how many leads and that they can download the sheet or open the Leads page.'
-              : 'No leads found. Tell the user to open Inbox so comments are cached, then scan again.',
-        },
-        artifacts: leads.length
-          ? [{ type: 'leads', scanned, href: '/dashboard/leads', leads: artifactLeads }]
-          : [],
-      };
+      await saveLeadsScan(ctx.userId, { accountId, scanned, leads, message });
+      return buildLeadsToolResponse(leads, scanned, message, new Date().toISOString());
     }
 
     case 'show_support_options': {

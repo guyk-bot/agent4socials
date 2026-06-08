@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { scanLeads } from '@/lib/leads/scan-leads';
+import { saveLeadsScan } from '@/lib/leads/leads-scan-cache';
 
 export const maxDuration = 60;
 
@@ -24,8 +25,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await scanLeads(userId, body.accountId ?? null);
-    return NextResponse.json(result);
+    const accountId = body.accountId ?? null;
+    const result = await scanLeads(userId, accountId);
+    await saveLeadsScan(userId, {
+      accountId,
+      scanned: result.scanned,
+      leads: result.leads,
+      message: result.message,
+    });
+    return NextResponse.json({ ...result, scannedAt: new Date().toISOString() });
   } catch (e) {
     const raw = e instanceof Error ? e.message : String(e);
     console.error('[leads/scan]', raw);

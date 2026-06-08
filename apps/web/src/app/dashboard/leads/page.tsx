@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Users, Loader2, Download, Search, Copy, Check, ExternalLink } from 'lucide-react';
 import api from '@/lib/api';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
+import { useAuth } from '@/context/AuthContext';
 
 type Lead = {
   commentId: string;
@@ -37,14 +38,52 @@ function buildCsv(leads: Lead[]): string {
 }
 
 export default function LeadsPage() {
+  const { user } = useAuth();
   const { cachedAccounts } = useAccountsCache() ?? { cachedAccounts: [] };
   const [accountId, setAccountId] = useState<string>('all');
   const [loading, setLoading] = useState(false);
+  const [loadingSaved, setLoadingSaved] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const [scanned, setScanned] = useState(0);
+  const [scannedAt, setScannedAt] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setLoadingSaved(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await api.get<{
+          leads: Lead[];
+          scanned: number;
+          message?: string;
+          accountId?: string | null;
+          scannedAt?: string | null;
+        }>('/leads/last');
+        if (cancelled) return;
+        const saved = res.data.leads ?? [];
+        if (saved.length > 0 || (res.data.scanned ?? 0) > 0) {
+          setLeads(saved);
+          setScanned(res.data.scanned ?? 0);
+          setScannedAt(res.data.scannedAt ?? null);
+          if (res.data.accountId) setAccountId(res.data.accountId);
+          if (res.data.message) setHint(res.data.message);
+        }
+      } catch {
+        /* ignore: user can scan again */
+      } finally {
+        if (!cancelled) setLoadingSaved(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const scan = useCallback(async () => {
     setLoading(true);
@@ -58,6 +97,7 @@ export default function LeadsPage() {
       );
       setLeads(res.data.leads ?? []);
       setScanned(res.data.scanned ?? 0);
+      setScannedAt((res.data as { scannedAt?: string }).scannedAt ?? new Date().toISOString());
       if (res.data.message) setHint(res.data.message);
     } catch (err: unknown) {
       const msg =
@@ -148,10 +188,16 @@ export default function LeadsPage() {
         </div>
       ) : null}
 
+      {loadingSaved ? (
+        <p className="mb-3 text-sm text-[var(--muted)]">Loading your last scan…</p>
+      ) : null}
+
       {leads !== null ? (
         <p className="mb-3 text-sm text-[var(--muted)]">
           {leads.length > 0
-            ? `Found ${leads.length} potential lead${leads.length === 1 ? '' : 's'} (${highCount} high intent) from ${scanned} comments.`
+            ? `Found ${leads.length} potential lead${leads.length === 1 ? '' : 's'} (${highCount} high intent) from ${scanned} comments.${
+                scannedAt ? ` Last scan: ${new Date(scannedAt).toLocaleString()}.` : ''
+              }`
             : hint ?? `No potential leads found in ${scanned} comments.`}
         </p>
       ) : null}
@@ -236,7 +282,7 @@ export default function LeadsPage() {
         </div>
       ) : null}
 
-      {leads === null && !loading ? (
+      {leads === null && !loading && !loadingSaved ? (
         <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg-surface)] p-8 text-center text-sm text-[var(--muted)]">
           Pick an account (or all) and scan. We read comments already loaded from your Inbox and flag
           the ones that look like buying intent. Tip: open Inbox first so the latest comments are cached.
