@@ -3,6 +3,8 @@ const fs = require("fs");
 const path = require("path");
 
 const publicDir = path.join(__dirname, "..", "public");
+/** Authoritative black-square favicon (tab + Google). When present, drives all favicon exports. */
+const izopFaviconSourcePath = path.join(publicDir, "izop-favicon-source.png");
 /** Finished square app icon (purple bg + mark). Preferred when present. */
 const squareIconSourcePath = path.join(publicDir, "brand-app-icon-source.png");
 /** Tab / browser favicon (squircle). Legacy transparent mark extraction. */
@@ -16,8 +18,8 @@ const svgOutLegacy = path.join(publicDir, "favicon.svg");
 /** Debug copy of tab raster. */
 const markCachePath = path.join(publicDir, "brand-tab-mark.png");
 
-/** Google / JSON-LD circle exports: keep white outside the clip for predictable SERP cropping. */
-const whiteBg = { background: { r: 255, g: 255, b: 255 } };
+/** Google / JSON-LD square exports: black canvas (matches logo-mark.png). */
+const blackBg = { background: { r: 0, g: 0, b: 0 } };
 /** Tab favicons use a transparent canvas so only the mark shows in the browser tab. */
 const tabFlattenBg = null;
 
@@ -73,16 +75,12 @@ function buildTransparentTabSvg(pngBuffer) {
 </svg>`;
 }
 
-function buildCircleSvg(pngBuffer) {
+/** Square black canvas for Google Search / Open Graph (same look as logo-mark.png). */
+function buildSquareBlackSvg(pngBuffer) {
   const b64 = pngBuffer.toString("base64");
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${CANVAS}" height="${CANVAS}" viewBox="0 0 ${CANVAS} ${CANVAS}">
-  <defs>
-    <clipPath id="google-circle"><circle cx="${CENTER}" cy="${CENTER}" r="${CLIP_R}"/></clipPath>
-  </defs>
-  <g clip-path="url(#google-circle)">
-    <rect width="${CANVAS}" height="${CANVAS}" fill="#ffffff"/>
-    ${imageAttrs(b64, GOOGLE_LOGO_FRAC, "xMidYMid meet")}
-  </g>
+  <rect width="${CANVAS}" height="${CANVAS}" fill="#000000"/>
+  ${imageAttrs(b64, GOOGLE_LOGO_FRAC, "xMidYMid meet")}
 </svg>`;
 }
 
@@ -94,6 +92,29 @@ function rasterize(svgBuffer, size, outPath, flattenBg) {
 
 async function rasterizePngBuffer(pngBuffer, size, outPath) {
   return sharp(pngBuffer).resize(size, size).png().toFile(outPath);
+}
+
+/** Black square export for Google / JSON-LD; inset so circular SERP crops do not clip the mark. */
+const GOOGLE_SQUARE_INSET = 0.82;
+
+async function buildGoogleSearchExportPng(sourcePath, size) {
+  const inner = Math.max(1, Math.round(size * GOOGLE_SQUARE_INSET));
+  const pad = Math.floor((size - inner) / 2);
+  return sharp(sourcePath)
+    .resize(inner, inner, {
+      fit: "contain",
+      background: { r: 0, g: 0, b: 0, alpha: 1 },
+    })
+    .flatten({ background: { r: 0, g: 0, b: 0 } })
+    .extend({
+      top: pad,
+      bottom: size - inner - pad,
+      left: pad,
+      right: size - inner - pad,
+      background: { r: 0, g: 0, b: 0, alpha: 1 },
+    })
+    .png()
+    .toBuffer();
 }
 
 async function rasterizeSourceToMarkBuffer(filePath, fillFrac = TAB_MARK_FILL) {
@@ -164,6 +185,7 @@ async function loadTrimmedMarkBuffer(filePath, fillFrac = TAB_MARK_FILL) {
 async function loadSquareIconBuffer(filePath, size = MARK_RASTER_MAX) {
   return sharp(filePath)
     .resize(size, size, { fit: "cover", position: "center" })
+    .flatten({ background: { r: 0, g: 0, b: 0 } })
     .png()
     .toBuffer();
 }
@@ -205,6 +227,9 @@ async function loadColoredTabMarkPngBuffer(filePath) {
 }
 
 async function loadSquareTabIconBuffer() {
+  if (fs.existsSync(izopFaviconSourcePath)) {
+    return loadSquareIconBuffer(izopFaviconSourcePath, CANVAS);
+  }
   if (fs.existsSync(logoMarkDarkSourcePath)) {
     return loadSquareIconBuffer(logoMarkDarkSourcePath, CANVAS);
   }
@@ -476,14 +501,29 @@ function buildFlatLogoSvg(pngBuffer, width, height) {
   fs.writeFileSync(markCachePath, tabMarkPng);
 
   const svgTab = Buffer.from(buildSquircleTabSvg(squareTabPng));
-  const svgCircle = Buffer.from(buildCircleSvg(googleMarkPng));
 
   fs.writeFileSync(svgOutTab, svgTab);
   fs.writeFileSync(svgOutLegacy, svgTab);
 
+  const googleSourcePath = fs.existsSync(izopFaviconSourcePath)
+    ? izopFaviconSourcePath
+    : fs.existsSync(googleSearchLogoPath)
+      ? googleSearchLogoPath
+      : null;
+  const writeGoogleExports = googleSourcePath
+    ? async () => {
+        const png48 = await buildGoogleSearchExportPng(googleSourcePath, 48);
+        const png192 = await buildGoogleSearchExportPng(googleSourcePath, 192);
+        fs.writeFileSync(path.join(publicDir, "logo-48.png"), png48);
+        fs.writeFileSync(path.join(publicDir, "logo-192.png"), png192);
+      }
+    : async () => {
+        await rasterizePngBuffer(uiLogoMarkPng, 48, path.join(publicDir, "logo-48.png"));
+        await rasterizePngBuffer(uiLogoMarkPng, 192, path.join(publicDir, "logo-192.png"));
+      };
+
   await Promise.all([
-    rasterize(svgCircle, 48, path.join(publicDir, "logo-48.png"), whiteBg),
-    rasterize(svgCircle, 192, path.join(publicDir, "logo-192.png"), whiteBg),
+    writeGoogleExports(),
     rasterize(svgTab, 48, path.join(publicDir, "favicon-48.png"), tabFlattenBg),
     rasterize(svgTab, 96, path.join(publicDir, "favicon-96.png"), tabFlattenBg),
     rasterize(svgTab, 128, path.join(publicDir, "favicon-128.png"), tabFlattenBg),
@@ -497,18 +537,22 @@ function buildFlatLogoSvg(pngBuffer, width, height) {
   const icoBuffer = await pngToIco([png16, png32, png48, png64]);
   fs.writeFileSync(path.join(publicDir, "favicon.ico"), icoBuffer);
 
-  const g = fs.existsSync(squareIconSourcePath)
-    ? "brand-app-icon-source.png"
+  const g = fs.existsSync(izopFaviconSourcePath)
+    ? "izop-favicon-source.png"
     : fs.existsSync(googleSearchLogoPath)
       ? "google-search-logo-source.png"
-      : "favicon mark (fallback)";
-  const t = fs.existsSync(squareIconSourcePath)
-    ? "brand-app-icon-source.png"
-    : fs.existsSync(markSourcePngPath)
-      ? "favicon-source-mark.png"
-      : "logo.svg";
+      : fs.existsSync(squareIconSourcePath)
+        ? "brand-app-icon-source.png"
+        : "favicon mark (fallback)";
+  const t = fs.existsSync(izopFaviconSourcePath)
+    ? "izop-favicon-source.png"
+    : fs.existsSync(squareIconSourcePath)
+      ? "brand-app-icon-source.png"
+      : fs.existsSync(markSourcePngPath)
+        ? "favicon-source-mark.png"
+        : "logo.svg";
   console.log(
-    `Wrote rounded tab favicons from square icon; logo-48/192 (circle) from ${g}; logo-mark.png + logo.svg from ${uiLogoSourcePath}`,
+    `Wrote rounded tab favicons from square icon; logo-48/192 (black square, inset ${GOOGLE_SQUARE_INSET}) from ${g}; logo-mark.png + logo.svg from ${uiLogoSourcePath}`,
   );
 })().catch((e) => {
   console.error(e);
