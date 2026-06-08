@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Users, HelpCircle, Plus, Shield, ChevronDown, Check, Clock, CircleCheck } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Users, HelpCircle, Plus, Shield, ChevronDown, Check, Clock, CircleCheck, Loader2 } from 'lucide-react';
 import api from '@/lib/api';
 
 const ROLE_GUIDE_URL = '/help/roles-permissions';
@@ -20,6 +20,22 @@ export type BrandTeamMember = {
   imageUrl?: string | null;
   status?: BrandTeamMemberStatus;
   addedAt?: string;
+};
+
+/** Server record shape from /api/team-members. */
+type ApiTeamMember = {
+  id: string;
+  brandId: string;
+  brandName: string | null;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  name: string;
+  role: BrandTeamRole;
+  status: BrandTeamMemberStatus;
+  invitedAt: string;
+  acceptedAt: string | null;
+  lastActiveAt: string | null;
 };
 
 const ROLE_PERMISSIONS: Record<BrandTeamRole, string[]> = {
@@ -49,15 +65,25 @@ const ROLE_BADGE_CLASS: Record<BrandTeamRole, string> = {
   Viewer: 'border-neutral-300 bg-neutral-50 text-neutral-600',
 };
 
-function memberStatus(member: BrandTeamMember): BrandTeamMemberStatus {
-  return member.status ?? 'active';
-}
-
-function formatMemberSince(addedAt?: string): string | null {
-  if (!addedAt) return null;
-  const d = new Date(addedAt);
+function formatDate(iso?: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function apiToBrandMember(m: ApiTeamMember): BrandTeamMember {
+  return {
+    id: m.id,
+    firstName: m.firstName ?? '',
+    lastName: m.lastName ?? '',
+    name: m.name,
+    email: m.email,
+    role: m.role,
+    imageUrl: null,
+    status: m.status,
+    addedAt: m.invitedAt,
+  };
 }
 
 export type BrandTeamMembersSectionProps = {
@@ -85,7 +111,10 @@ export function BrandTeamMembersSection({
   const [rolesTooltipOpen, setRolesTooltipOpen] = useState(false);
   const [brandMenuOpen, setBrandMenuOpen] = useState(false);
   const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
+  const [members, setMembers] = useState<ApiTeamMember[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
   const brandMenuRef = useRef<HTMLDivElement>(null);
+  const migratedBrands = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!brandMenuOpen) return;
@@ -111,7 +140,70 @@ export function BrandTeamMembersSection({
   }, [brands, activeBrandId]);
 
   const selectedBrand = brands.find((b) => b.id === selectedBrandId) ?? null;
-  const members = selectedBrand ? (teamMembersByBrand[selectedBrand.id] ?? []) : [];
+
+  const mirrorToParent = useCallback(
+    (brandId: string, apiMembers: ApiTeamMember[]) => {
+      setTeamMembersByBrand((prev) => ({
+        ...prev,
+        [brandId]: apiMembers.map(apiToBrandMember),
+      }));
+    },
+    [setTeamMembersByBrand]
+  );
+
+  const loadMembers = useCallback(
+    async (brand: { id: string; name: string }) => {
+      setLoadingMembers(true);
+      try {
+        const res = await api.get<{ members: ApiTeamMember[] }>('/team-members', {
+          params: { brandId: brand.id },
+        });
+        let list = res.data.members ?? [];
+
+        // One-time migration: if the DB has no rows but localStorage does, import them silently.
+        if (list.length === 0 && !migratedBrands.current.has(brand.id)) {
+          migratedBrands.current.add(brand.id);
+          const legacy = teamMembersByBrand[brand.id] ?? [];
+          if (legacy.length > 0) {
+            await Promise.allSettled(
+              legacy.map((m) =>
+                api.post('/team-members', {
+                  brandId: brand.id,
+                  brandName: brand.name,
+                  email: m.email,
+                  firstName: m.firstName,
+                  lastName: m.lastName,
+                  role: m.role,
+                  silent: true,
+                })
+              )
+            );
+            const after = await api.get<{ members: ApiTeamMember[] }>('/team-members', {
+              params: { brandId: brand.id },
+            });
+            list = after.data.members ?? [];
+          }
+        }
+
+        setMembers(list);
+        mirrorToParent(brand.id, list);
+      } catch {
+        setMembers([]);
+      } finally {
+        setLoadingMembers(false);
+      }
+    },
+    [teamMembersByBrand, mirrorToParent]
+  );
+
+  useEffect(() => {
+    if (!selectedBrand) {
+      setMembers([]);
+      return;
+    }
+    void loadMembers(selectedBrand);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBrandId]);
 
   const handleAddTeamMember = async () => {
     if (!selectedBrand) return;
@@ -120,7 +212,6 @@ export function BrandTeamMembersSection({
     setInviteLink('');
     const firstName = newMemberFirstName.trim();
     const lastName = newMemberLastName.trim();
-    const name = `${firstName} ${lastName}`.trim();
     const email = newMemberEmail.trim();
     if (!firstName || !lastName || !email) {
       setInviteError('First name, last name, and email are required.');
@@ -131,74 +222,69 @@ export function BrandTeamMembersSection({
       setInviteError('Enter a valid email.');
       return;
     }
-    const friend: BrandTeamMember = {
-      id: `member-${Date.now().toString(36)}`,
-      firstName,
-      lastName,
-      name,
-      email,
-      role: newMemberRole,
-      imageUrl: null,
-      status: 'pending',
-      addedAt: new Date().toISOString(),
-    };
-    setTeamMembersByBrand((prev) => {
-      const existing = prev[selectedBrand.id] ?? [];
-      return {
-        ...prev,
-        [selectedBrand.id]: [...existing, friend],
-      };
-    });
     setInviteSending(true);
     try {
-      const response = await api.post('/brands/invite-friend', {
-        email,
-        friendName: name,
-        role: newMemberRole,
-        brandName: selectedBrand.name,
-      });
-      const generatedLink = String(response?.data?.inviteLink || '');
-      setInviteLink(generatedLink);
-      setInviteFeedback(`Invite sent to ${email}. If they cannot find it, ask them to check spam.`);
+      const res = await api.post<{ member: ApiTeamMember; inviteLink?: string; emailError?: string | null }>(
+        '/team-members',
+        {
+          brandId: selectedBrand.id,
+          brandName: selectedBrand.name,
+          email,
+          firstName,
+          lastName,
+          role: newMemberRole,
+        }
+      );
+      const next = [...members, res.data.member];
+      setMembers(next);
+      mirrorToParent(selectedBrand.id, next);
+      setInviteLink(res.data.inviteLink || '');
+      if (res.data.emailError) {
+        setInviteError(`Member added, but the invite email failed: ${res.data.emailError}`);
+      } else {
+        setInviteFeedback(`Invite sent to ${email}. If they cannot find it, ask them to check spam.`);
+      }
+      setNewMemberFirstName('');
+      setNewMemberLastName('');
+      setNewMemberEmail('');
+      setNewMemberRole('Editor');
     } catch (err) {
       const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setInviteError(message || 'Team member added, but invite email failed to send.');
+      setInviteError(message || 'Could not add team member. Try again.');
     } finally {
       setInviteSending(false);
     }
-    setNewMemberFirstName('');
-    setNewMemberLastName('');
-    setNewMemberEmail('');
-    setNewMemberRole('Editor');
   };
 
-  const handleDeleteTeamMember = (memberId: string) => {
+  const handleDeleteTeamMember = async (memberId: string) => {
     if (!selectedBrand) return;
-    setTeamMembersByBrand((prev) => {
-      const existing = prev[selectedBrand.id] ?? [];
-      return {
-        ...prev,
-        [selectedBrand.id]: existing.filter((m) => m.id !== memberId),
-      };
-    });
+    const next = members.filter((m) => m.id !== memberId);
+    setMembers(next);
+    mirrorToParent(selectedBrand.id, next);
+    try {
+      await api.delete(`/team-members/${memberId}`);
+    } catch {
+      void loadMembers(selectedBrand);
+    }
   };
 
-  const handleChangeRole = (memberId: string, role: BrandTeamRole) => {
+  const handleChangeRole = async (memberId: string, role: BrandTeamRole) => {
     if (!selectedBrand) return;
-    setTeamMembersByBrand((prev) => {
-      const existing = prev[selectedBrand.id] ?? [];
-      return {
-        ...prev,
-        [selectedBrand.id]: existing.map((m) => (m.id === memberId ? { ...m, role } : m)),
-      };
-    });
+    const next = members.map((m) => (m.id === memberId ? { ...m, role } : m));
+    setMembers(next);
+    mirrorToParent(selectedBrand.id, next);
+    try {
+      await api.patch(`/team-members/${memberId}`, { role });
+    } catch {
+      void loadMembers(selectedBrand);
+    }
   };
 
   const teamSummary = useMemo(() => {
     const counts = { Admin: 0, Editor: 0, Viewer: 0, pending: 0 };
     for (const m of members) {
       counts[m.role] += 1;
-      if (memberStatus(m) === 'pending') counts.pending += 1;
+      if (m.status === 'pending') counts.pending += 1;
     }
     return counts;
   }, [members]);
@@ -261,6 +347,7 @@ export function BrandTeamMembersSection({
           <div className="flex items-center gap-2">
             <Users size={15} className="text-neutral-500" />
             <h3 className="text-sm font-semibold text-neutral-900">Team members & roles</h3>
+            {loadingMembers ? <Loader2 size={13} className="animate-spin text-neutral-400" /> : null}
             <div
               className="relative"
               onMouseEnter={() => setRolesTooltipOpen(true)}
@@ -299,6 +386,7 @@ export function BrandTeamMembersSection({
               </div>
             </div>
           </div>
+
           {members.length > 0 ? (
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {[
@@ -317,11 +405,11 @@ export function BrandTeamMembersSection({
 
           <div className="mt-3 space-y-2">
             {members.length === 0 ? (
-              <p className="text-sm text-neutral-500">No team members yet.</p>
+              <p className="text-sm text-neutral-500">{loadingMembers ? 'Loading team members…' : 'No team members yet.'}</p>
             ) : (
               members.map((member) => {
-                const status = memberStatus(member);
-                const since = formatMemberSince(member.addedAt);
+                const since = formatDate(member.invitedAt);
+                const lastActive = formatDate(member.lastActiveAt);
                 const isExpanded = expandedMemberId === member.id;
                 return (
                   <div
@@ -330,11 +418,7 @@ export function BrandTeamMembersSection({
                   >
                     <div className="flex items-center gap-2">
                       <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-neutral-100 flex items-center justify-center">
-                        {member.imageUrl ? (
-                          <img src={member.imageUrl} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <span className="text-xs font-semibold text-neutral-500">{(member.name || 'F').slice(0, 1).toUpperCase()}</span>
-                        )}
+                        <span className="text-xs font-semibold text-neutral-500">{(member.name || 'F').slice(0, 1).toUpperCase()}</span>
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-neutral-900">{member.name}</p>
@@ -342,17 +426,17 @@ export function BrandTeamMembersSection({
                       </div>
                       <span
                         className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${
-                          status === 'active'
+                          member.status === 'active'
                             ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                             : 'border-amber-300 bg-amber-50 text-amber-700'
                         }`}
                       >
-                        {status === 'active' ? <CircleCheck size={11} /> : <Clock size={11} />}
-                        {status === 'active' ? 'Active' : 'Invited'}
+                        {member.status === 'active' ? <CircleCheck size={11} /> : <Clock size={11} />}
+                        {member.status === 'active' ? 'Active' : 'Invited'}
                       </span>
                       <select
                         value={member.role}
-                        onChange={(e) => handleChangeRole(member.id, e.target.value as BrandTeamRole)}
+                        onChange={(e) => void handleChangeRole(member.id, e.target.value as BrandTeamRole)}
                         aria-label={`Role for ${member.name}`}
                         className={`rounded-full border px-2 py-0.5 text-xs font-medium ${ROLE_BADGE_CLASS[member.role]}`}
                       >
@@ -362,7 +446,7 @@ export function BrandTeamMembersSection({
                       </select>
                       <button
                         type="button"
-                        onClick={() => handleDeleteTeamMember(member.id)}
+                        onClick={() => void handleDeleteTeamMember(member.id)}
                         className="rounded-md px-2 py-1 text-xs text-red-600 hover:bg-red-50"
                       >
                         Remove
@@ -372,9 +456,9 @@ export function BrandTeamMembersSection({
                     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 pl-11 text-[11px] text-neutral-500">
                       <span className="inline-flex items-center gap-1">
                         <Clock size={11} />
-                        {status === 'active'
-                          ? since
-                            ? `Active since ${since}`
+                        {member.status === 'active'
+                          ? lastActive
+                            ? `Last active ${lastActive}`
                             : 'Active'
                           : since
                             ? `Invited ${since}`

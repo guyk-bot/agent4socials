@@ -131,6 +131,13 @@ export async function GET(request: NextRequest) {
         await sendWelcomeEmail(dbUser.email, dbUser.name);
       }
     }
+    try {
+      const { activateMembershipsForUser } = await import('@/lib/team/team-members');
+      await activateMembershipsForUser(dbUser.id, dbUser.email);
+    } catch {
+      /* non-fatal: team activation should never block profile load */
+    }
+
     const res = NextResponse.json({
       id: dbUser.id,
       email: dbUser.email,
