@@ -12,7 +12,7 @@ import {
     Gem,
     PanelLeftClose,
     HelpCircle,
-    Sparkles,
+    Settings,
     Users,
     Users2,
     Lightbulb,
@@ -210,7 +210,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
   const isHelpSection = pathname === '/help' || pathname?.startsWith('/help/');
 
   const workspaceNav = [
-    { key: 'brand', href: '/dashboard/brand', label: 'Brand', icon: <Sparkles size={18} className="shrink-0" />, active: isBrandPage },
+    { key: 'brand', href: '/dashboard/brand', label: 'Brand', icon: <Settings size={18} className="shrink-0" />, active: isBrandPage },
     { key: 'leads', href: '/dashboard/leads', label: 'Leads', icon: <Users size={18} className="shrink-0" />, active: isLeadsPage },
     { key: 'team', href: '/dashboard/account#team-members', label: 'Team', icon: <Users2 size={18} className="shrink-0" />, active: isTeamPage },
     { key: 'reports', href: '/dashboard/reports', label: 'Reports', icon: <FileText size={18} className="shrink-0" />, active: isReportsPage },
