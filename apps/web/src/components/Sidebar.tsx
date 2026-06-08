@@ -17,7 +17,6 @@ import {
     Users2,
     Lightbulb,
 } from 'lucide-react';
-import { SUPPORT_TABS, supportTabHref } from '@/components/support/SupportHub';
 import api from '@/lib/api';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
@@ -40,20 +39,20 @@ const PLATFORM_LABELS: Record<string, string> = {
 };
 
 const PLATFORM_ICON: Record<string, React.ReactNode> = {
-  INSTAGRAM: <InstagramIcon size={22} />,
-  FACEBOOK: <FacebookIcon size={22} />,
-  TIKTOK: <TikTokIcon size={22} />,
-  YOUTUBE: <YoutubeIcon size={22} />,
-  TWITTER: <XTwitterIcon size={22} className="text-neutral-800" />,
-  LINKEDIN: <LinkedinIcon size={22} />,
-  PINTEREST: <PinterestIcon size={22} />,
-  THREADS: <ThreadsIcon size={22} />,
+  INSTAGRAM: <InstagramIcon size={28} />,
+  FACEBOOK: <FacebookIcon size={28} />,
+  TIKTOK: <TikTokIcon size={28} />,
+  YOUTUBE: <YoutubeIcon size={28} />,
+  TWITTER: <XTwitterIcon size={28} className="text-neutral-800" />,
+  LINKEDIN: <LinkedinIcon size={28} />,
+  PINTEREST: <PinterestIcon size={28} />,
+  THREADS: <ThreadsIcon size={28} />,
 };
 
 const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'THREADS', 'PINTEREST', 'LINKEDIN'];
 
-/** Vertical padding on platform rows (icons stay full size). */
-const PLATFORM_ROW_PY = 'py-0.5';
+/** Vertical padding on platform rows; flex-1 rows expand to fill sidebar height. */
+const PLATFORM_ROW_PY = 'py-2.5';
 
 /** Platforms that show a gem / upgrade styling on the connect row (empty = same as other networks). */
 const UPGRADE_TO_CONNECT_PLATFORMS: string[] = [];
@@ -219,7 +218,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
 
   const sidebarContent = (
     <>
-      <div className="flex-1 min-h-0 overflow-y-auto px-1.5 pt-0 space-y-0">
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col px-1.5 py-1">
         {PLATFORM_ORDER.map((platform) => {
           const accounts = accountsByPlatform[platform] ?? [];
           const isPlatformSelected = selectedPlatformForConnect === platform;
@@ -229,12 +228,12 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
             const needsUpgrade = UPGRADE_TO_CONNECT_PLATFORMS.includes(platform);
             /** Connect URL per platform; optional gem styling when platform is in UPGRADE_TO_CONNECT_PLATFORMS. */
             const href = `/dashboard?connect=${connectParam}`;
-            const platformRowClass = `w-full flex items-center gap-2.5 px-2.5 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors border border-transparent ${
+            const platformRowClass = `flex flex-1 min-h-[2.75rem] items-center gap-3 px-3 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors border border-transparent ${
               isPlatformSelected ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80 dark:hover:border-neutral-700'
             } ${needsUpgrade ? 'ring-1 ring-orange-400/50 bg-gradient-to-r from-orange-500/10 to-orange-500/10' : ''}`;
             const platformRowInner = (
               <>
-                <div className="w-8 h-8 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 flex items-center justify-center shrink-0">
                   {PLATFORM_ICON[platform]}
                 </div>
                 <span className="truncate flex-1 font-medium">{PLATFORM_LABELS[platform]}</span>
@@ -243,8 +242,8 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
                     <Gem size={14} className="text-orange-600" aria-hidden />
                   </span>
                 ) : null}
-                <div className="w-6 h-6 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 hover:bg-neutral-300">
-                  <Plus size={12} className="text-neutral-600" />
+                <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 hover:bg-neutral-300">
+                  <Plus size={14} className="text-neutral-600" />
                 </div>
               </>
             );
@@ -262,10 +261,10 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
           }
 
           return (
-            <div key={platform} className="space-y-0">
+            <div key={platform} className="flex flex-1 min-h-[2.75rem] flex-col">
               {accounts.map((acc) => {
                 const isSelected = selectedAccountId === acc.id;
-                const accountRowClass = `w-full flex items-center gap-2.5 px-2.5 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors min-w-0 border border-transparent ${
+                const accountRowClass = `flex flex-1 min-h-[2.75rem] items-center gap-3 px-3 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors min-w-0 border border-transparent ${
                   isSelected ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80 dark:hover:border-neutral-700'
                 }`;
                 // From Inbox or any page: go to this account's analytics via client-side nav (keeps cache, no reload).
@@ -292,7 +291,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
                     aria-label={`View ${acc.username || platformLabel} analytics`}
                   >
                     <div
-                      className="w-8 h-8 flex items-center justify-center shrink-0 rounded-lg"
+                      className="w-10 h-10 flex items-center justify-center shrink-0 rounded-lg"
                       aria-hidden
                     >
                       {PLATFORM_ICON[platform]}
@@ -300,7 +299,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium">{acc.username || PLATFORM_LABELS[platform]}</div>
                     </div>
-                    <div className={`w-6 h-6 flex items-center justify-center shrink-0 rounded-full overflow-hidden ${acc.profilePicture && !brokenAvatarIds[acc.id] ? '' : 'bg-neutral-200 dark:bg-neutral-700'}`}>
+                    <div className={`w-8 h-8 flex items-center justify-center shrink-0 rounded-full overflow-hidden ${acc.profilePicture && !brokenAvatarIds[acc.id] ? '' : 'bg-neutral-200 dark:bg-neutral-700'}`}>
                       {(() => {
                         const avatarSrc = avatarDisplayUrl(platform, acc.profilePicture);
                         return avatarSrc && !brokenAvatarIds[acc.id] ? (
@@ -358,32 +357,14 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
         </Link>
       </div>
 
-      <div className="mt-auto px-2 py-1.5 border-t border-neutral-200 shrink-0">
-        <div className="flex items-center gap-2 px-2.5 py-1 text-sm font-medium text-[var(--foreground)]">
-          <HelpCircle size={16} className="shrink-0" />
+      <div className="mt-auto px-2 py-2 border-t border-neutral-200 shrink-0">
+        <Link
+          href="/help"
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isHelpSection ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)]'}`}
+        >
+          <HelpCircle size={18} className="shrink-0" />
           <span>Need help?</span>
-        </div>
-        <div className="mt-0.5 flex flex-col gap-0">
-          {SUPPORT_TABS.map((item) => (
-            <Link
-              key={item.id}
-              href={supportTabHref(item.id)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium border border-transparent hover:bg-[var(--bg-hover)] ${
-                isHelpSection ? 'text-[var(--foreground)]' : 'text-[var(--muted)]'
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-          <Link
-            href="/help"
-            className={`px-2.5 py-1 rounded-lg text-xs font-medium border border-transparent hover:bg-[var(--bg-hover)] ${
-              isHelpSection ? 'sidebar-item-selected text-[var(--foreground)]' : 'text-[var(--muted)]'
-            }`}
-          >
-            Knowledge base
-          </Link>
-        </div>
+        </Link>
       </div>
     </>
   );
@@ -399,22 +380,22 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
           onClick={(e) => {
             if (pathname === '/dashboard/console') e.preventDefault();
           }}
-          className={`flex min-w-0 flex-1 items-center gap-1.5 px-1.5 py-1 rounded-none text-sm font-bold transition-colors ${
+          className={`flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2.5 rounded-none text-base font-bold transition-colors ${
             isMainAnalyticsView ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)] border border-transparent'
           }`}
         >
-          <BarChart3 size={16} className="shrink-0" />
+          <BarChart3 size={20} className="shrink-0" />
           <span className="truncate">Console</span>
-          {isMainAnalyticsView && <ChevronRight size={12} className="ml-auto shrink-0 opacity-70" />}
+          {isMainAnalyticsView && <ChevronRight size={14} className="ml-auto shrink-0 opacity-70" />}
         </Link>
         <button
           type="button"
           onClick={onSidebarToggle}
-          className="shrink-0 border-l border-neutral-200 px-1.5 py-1 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          className="shrink-0 border-l border-neutral-200 px-2 py-2.5 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
           aria-label="Close sidebar"
           title="Close sidebar"
         >
-          <PanelLeftClose size={18} />
+          <PanelLeftClose size={20} />
         </button>
       </div>
       {sidebarContent}

@@ -22,7 +22,7 @@ export const BRAND_HEADER_BG = BRAND_PAGE_BG;
 export const BRAND_CHROME_TEXT = '#FFFFFF';
 
 /** Bumped when shared logo mark assets change (cache bust for browsers and CDNs). */
-export const SITE_LOGO_V = '43';
+export const SITE_LOGO_V = '46';
 
 /** Static path for next/image (no query string; see next.config images.localPatterns). */
 export const SITE_LOGO_PATH = '/logo-mark.png';
@@ -36,9 +36,15 @@ export const SITE_LOGO_SRC = `${SITE_LOGO_PATH}?v=${SITE_LOGO_V}`;
 /** White UI logo for dark mode with cache bust. */
 export const SITE_LOGO_DARK_SRC = `${SITE_LOGO_DARK_PATH}?v=${SITE_LOGO_V}`;
 
-/** App chrome logo (square mark with black background; same in light and dark). */
-export function siteLogoSrcForTheme(_theme: 'light' | 'dark'): string {
-  return SITE_LOGO_SRC;
+/** App chrome logo: white mark on the black dashboard header; light mark elsewhere. */
+export function siteLogoSrcForTheme(theme: 'light' | 'dark'): string {
+  return theme === 'dark' ? SITE_LOGO_DARK_SRC : SITE_LOGO_SRC;
+}
+
+/** Official iZop header (black bar) always uses the white mark. */
+export function siteLogoSrcForAppHeader(theme: 'light' | 'dark', onBlackChrome = false): string {
+  if (onBlackChrome) return SITE_LOGO_DARK_SRC;
+  return siteLogoSrcForTheme(theme);
 }
 
 /** SVG variant of the same mark. */

@@ -34,7 +34,10 @@ const logoWhiteSvgOutPath = path.join(publicDir, "logo-white.svg");
 
 const CANVAS = 512;
 const CENTER = CANVAS / 2;
-const RX = Math.round(CANVAS * 0.22);
+/** Rounded tab corners (~26% radius, similar to macOS / Cursor tab icons). */
+const RX = Math.round(CANVAS * 0.26);
+/** Slightly zoom the mark so it reads larger at 16–32px in the tab. */
+const TAB_SQUIRCLE_ZOOM = 1.1;
 const CLIP_R = CENTER;
 /** Tab squircle: fill most of the canvas so the mark stays legible at 16–32px. */
 const TAB_LOGO_FRAC = 1.18;
@@ -51,12 +54,14 @@ function imageAttrs(b64, logoFrac, preserveAR) {
 
 function buildSquircleTabSvg(pngBuffer) {
   const b64 = pngBuffer.toString("base64");
+  const size = Math.round(CANVAS * TAB_SQUIRCLE_ZOOM);
+  const offset = (CANVAS - size) / 2;
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${CANVAS}" height="${CANVAS}" viewBox="0 0 ${CANVAS} ${CANVAS}">
   <defs>
     <clipPath id="tab-squircle"><rect width="${CANVAS}" height="${CANVAS}" rx="${RX}" ry="${RX}"/></clipPath>
   </defs>
   <g clip-path="url(#tab-squircle)">
-    <image width="${CANVAS}" height="${CANVAS}" preserveAspectRatio="xMidYMid slice" href="data:image/png;base64,${b64}" xlink:href="data:image/png;base64,${b64}"/>
+    <image x="${offset}" y="${offset}" width="${size}" height="${size}" preserveAspectRatio="xMidYMid slice" href="data:image/png;base64,${b64}" xlink:href="data:image/png;base64,${b64}"/>
   </g>
 </svg>`;
 }

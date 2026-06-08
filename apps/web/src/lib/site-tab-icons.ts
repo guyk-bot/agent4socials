@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 /** Bumped when tab favicon assets change (cache bust for browsers and CDNs). */
-export const SITE_TAB_FAVICON_V = "45";
+export const SITE_TAB_FAVICON_V = "46";
 
 /** Tab / PWA icons. Rounded black-square mark; PNG first so browsers pick the full logo. */
 export const siteTabIcons: NonNullable<Metadata["icons"]> = {
