@@ -106,6 +106,7 @@ export type AysopArtifact =
       }>;
     }
   | { type: 'support_options'; href: string }
+  | { type: 'leads_scan_prompt'; href: string; lastScannedAt?: string | null }
   | {
       type: 'console_summary';
       dateRange: { start: string; end: string };

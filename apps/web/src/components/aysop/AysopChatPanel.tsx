@@ -26,6 +26,8 @@ import {
   AysopPendingAttachments,
 } from '@/components/aysop/AysopMessageAttachments';
 import { AysopChatMessageContent } from '@/components/aysop/AysopChatMessageContent';
+import { leadsScanReplyText, leadsToChatArtifacts } from '@/lib/leads/leads-chat-artifact';
+import type { ScannedLead } from '@/lib/leads/scan-leads';
 
 export type ChatMessage = {
   id: string;
@@ -37,6 +39,7 @@ export type ChatMessage = {
 
 const STARTERS = [
   'Connect a platform for me',
+  'Scan for leads in my comments',
   'Show my latest comments so I can reply',
   'Draft a post for X and let me schedule it',
   'Show my Console analytics',
@@ -207,6 +210,46 @@ export default function AysopChatPanel({
     }
   };
 
+  const [scanningLeads, setScanningLeads] = useState(false);
+
+  const runLeadsScan = useCallback(async () => {
+    if (disabled || uploading || loading || scanningLeads) return;
+    setError(null);
+    const userMsg: ChatMessage = {
+      id: `u-${Date.now()}`,
+      role: 'user',
+      content: 'Scan for leads',
+    };
+    const base = [...messages, userMsg];
+    onMessagesChange(base);
+    setScanningLeads(true);
+    try {
+      const res = await api.post<{ leads: ScannedLead[]; scanned: number; scannedAt?: string }>(
+        '/leads/scan',
+        {},
+        { timeout: 90_000 }
+      );
+      const leads = res.data.leads ?? [];
+      const scanned = res.data.scanned ?? 0;
+      onMessagesChange([
+        ...base,
+        {
+          id: `a-${Date.now()}`,
+          role: 'assistant',
+          content: leadsScanReplyText(leads, scanned),
+          artifacts: leadsToChatArtifacts(leads, scanned, {
+            lastScannedAt: res.data.scannedAt ?? new Date().toISOString(),
+          }),
+        },
+      ]);
+    } catch (e) {
+      setError(friendlyAysopChatError(e, 'Lead scan failed. Try again.'));
+      onMessagesChange(base);
+    } finally {
+      setScanningLeads(false);
+    }
+  }, [disabled, uploading, loading, scanningLeads, messages, onMessagesChange]);
+
   const stopGeneration = useCallback(() => {
     userStoppedRef.current = true;
     requestGenRef.current += 1;
@@ -371,7 +414,11 @@ export default function AysopChatPanel({
                   <AysopMessageAttachments attachments={m.attachments} variant={m.role} />
                 ) : null}
                 {m.role === 'assistant' && m.artifacts?.length ? (
-                  <AysopArtifactCards artifacts={m.artifacts} />
+                  <AysopArtifactCards
+                    artifacts={m.artifacts}
+                    onScanLeads={() => void runLeadsScan()}
+                    scanningLeads={scanningLeads}
+                  />
                 ) : null}
               </div>
             </div>

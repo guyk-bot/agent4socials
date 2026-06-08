@@ -52,6 +52,8 @@ function isPriorityApiPath(url?: string, baseURL?: string): boolean {
   return (
     path.includes('/ai/aysop-chat') ||
     path.includes('/ai/aysop-chats') ||
+    path.includes('/leads/scan') ||
+    path.includes('/leads/last') ||
     path.includes('/media/upload-url') ||
     path.includes('/ai/brand-context') ||
     path.includes('/ai/generate-description') ||

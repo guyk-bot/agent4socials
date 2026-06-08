@@ -38,6 +38,7 @@ import { AYSOP_CONNECT_PLATFORMS } from '@/lib/ai/aysop-connect-platforms';
 import { appViewArtifact, type AppViewId } from '@/lib/ai/aysop-artifacts';
 import { scanLeads, type ScannedLead } from '@/lib/leads/scan-leads';
 import { getSavedLeadsScan, saveLeadsScan } from '@/lib/leads/leads-scan-cache';
+import { leadsToChatArtifacts } from '@/lib/leads/leads-chat-artifact';
 import {
   shouldSkipCosmeticRewrite,
   surgicalProductDescriptionUpdate,
@@ -838,7 +839,7 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'get_saved_leads',
       description:
-        'Return the user\'s most recent lead scan (same results as the Leads page). Call FIRST when they ask how many leads they have, who the leads are, or to show leads again. Only call scan_leads if there is no saved scan or they ask to refresh/rescan.',
+        'Return the user\'s most recent lead scan (same results as the Leads page). Use when they ask how many leads they have or to show saved results without rescanning. Shows a Scan for leads button if empty. Do NOT use when they ask to scan, rescan, or find new leads (use scan_leads instead).',
       parameters: { type: 'object', properties: {}, additionalProperties: false },
     },
   },
@@ -847,7 +848,7 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'scan_leads',
       description:
-        'Run a fresh AI scan of cached post comments for potential customers (leads). Use when get_saved_leads is empty, or the user asks to scan/rescan/refresh leads. Shows outreach messages and CSV in chat.',
+        'Run a fresh AI lead scan from cached post comments (same as the Leads page Scan button). Call when the user asks to scan, rescan, find leads, mine comments for leads, or discover new potential customers. Shows results in chat with outreach messages, CSV download, and Rescan button.',
       parameters: {
         type: 'object',
         properties: {
@@ -890,14 +891,6 @@ export const AYSOP_TOOL_DEFINITIONS = [
 
 function buildLeadsToolResponse(leads: ScannedLead[], scanned: number, message?: string, scannedAt?: string | null) {
   const highCount = leads.filter((l) => l.intent === 'high').length;
-  const artifactLeads = leads.slice(0, 25).map((l) => ({
-    authorName: l.authorName,
-    profileUrl: l.profileUrl,
-    platform: l.platform,
-    comment: l.comment,
-    outreach: l.outreach,
-    intent: l.intent,
-  }));
   return {
     result: {
       scanned,
@@ -914,12 +907,10 @@ function buildLeadsToolResponse(leads: ScannedLead[], scanned: number, message?:
       })),
       note:
         leads.length > 0
-          ? 'Leads card shown in chat with outreach messages and a CSV download. Summarize how many leads and that they can download the sheet or open the Leads page.'
-          : 'No leads found. Tell the user to open Inbox so comments are cached, then call scan_leads to refresh.',
+          ? 'Leads card shown in chat with Scan/Rescan, outreach, and CSV. Summarize the count; user can rescan from the card.'
+          : 'Scan prompt card shown with a Scan for leads button. Tell the user to tap it or open Inbox first if no comments are cached.',
     },
-    artifacts: leads.length
-      ? [{ type: 'leads' as const, scanned, href: '/dashboard/leads', leads: artifactLeads }]
-      : [],
+    artifacts: leadsToChatArtifacts(leads, scanned, { lastScannedAt: scannedAt }),
   };
 }
 
@@ -1385,8 +1376,9 @@ export async function runAysopTool(
         return {
           result: {
             totalLeads: 0,
-            note: 'No saved lead scan yet. Call scan_leads to run a fresh scan. If comments are empty, suggest opening Inbox once to cache comments.',
+            note: 'No saved scan. A Scan for leads button is shown in chat, or call scan_leads if the user wants to scan now.',
           },
+          artifacts: leadsToChatArtifacts([], 0),
         };
       }
       return buildLeadsToolResponse(saved.leads, saved.scanned, saved.message, saved.scannedAt);

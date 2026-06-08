@@ -2,7 +2,7 @@
 
 import React, { useCallback, useState } from 'react';
 import Link from 'next/link';
-import { Check, Copy, Download, ExternalLink, Users } from 'lucide-react';
+import { Check, Copy, Download, ExternalLink, Loader2, Search, Users } from 'lucide-react';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 
 type Artifact = Extract<AysopArtifact, { type: 'leads' }>;
@@ -19,7 +19,15 @@ function buildCsv(leads: Artifact['leads']): string {
   return [header.map(csvCell).join(','), ...rows].join('\r\n');
 }
 
-export function AysopLeadsCard({ artifact }: { artifact: Artifact }) {
+export function AysopLeadsCard({
+  artifact,
+  onScanLeads,
+  scanning,
+}: {
+  artifact: Artifact;
+  onScanLeads?: () => void;
+  scanning?: boolean;
+}) {
   const [copied, setCopied] = useState<number | null>(null);
   const highCount = artifact.leads.filter((l) => l.intent === 'high').length;
 
@@ -52,13 +60,26 @@ export function AysopLeadsCard({ artifact }: { artifact: Artifact }) {
           <Users size={15} className="text-[var(--primary)]" />
           {artifact.leads.length} potential lead{artifact.leads.length === 1 ? '' : 's'}
         </p>
-        <button
-          type="button"
-          onClick={download}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 px-2.5 py-1 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800"
-        >
-          <Download size={13} /> CSV
-        </button>
+        <div className="flex items-center gap-1.5">
+          {onScanLeads ? (
+            <button
+              type="button"
+              onClick={() => onScanLeads()}
+              disabled={scanning}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 px-2.5 py-1 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-50"
+            >
+              {scanning ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
+              Rescan
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={download}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 px-2.5 py-1 text-xs font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+          >
+            <Download size={13} /> CSV
+          </button>
+        </div>
       </div>
       <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
         Scanned {artifact.scanned} comment{artifact.scanned === 1 ? '' : 's'} · {highCount} high intent

@@ -29,6 +29,7 @@ import { AysopInChatConnectCard } from '@/components/aysop/AysopInChatConnectCar
 import { AysopInChatInboxFeedCard } from '@/components/aysop/AysopInChatInboxFeedCard';
 import { AysopBrandContextUpdateCard } from '@/components/aysop/AysopBrandContextUpdateCard';
 import { AysopLeadsCard } from '@/components/aysop/AysopLeadsCard';
+import { AysopLeadsScanPromptCard } from '@/components/aysop/AysopLeadsScanPromptCard';
 import { PostContentPreviewThumb } from '@/components/PostContentPreviewThumb';
 
 const SUPPORT_OPTIONS: Array<{ label: string; desc: string; href: string; icon: React.ReactNode }> = [
@@ -99,7 +100,15 @@ function AppViewCard({ artifact }: { artifact: Extract<AysopArtifact, { type: 'a
   );
 }
 
-export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }) {
+export function AysopArtifactCards({
+  artifacts,
+  onScanLeads,
+  scanningLeads,
+}: {
+  artifacts: AysopArtifact[];
+  onScanLeads?: () => void;
+  scanningLeads?: boolean;
+}) {
   if (!artifacts.length) return null;
 
   const rendered = new Set<string>();
@@ -179,7 +188,19 @@ export function AysopArtifactCards({ artifacts }: { artifacts: AysopArtifact[] }
 
         if (a.type === 'leads') {
           rendered.add(key);
-          return <AysopLeadsCard key={key} artifact={a} />;
+          return <AysopLeadsCard key={key} artifact={a} onScanLeads={onScanLeads} scanning={scanningLeads} />;
+        }
+
+        if (a.type === 'leads_scan_prompt') {
+          rendered.add(key);
+          return (
+            <AysopLeadsScanPromptCard
+              key={key}
+              artifact={a}
+              onScanLeads={onScanLeads}
+              scanning={scanningLeads}
+            />
+          );
         }
 
         if (a.type === 'support_options') {
