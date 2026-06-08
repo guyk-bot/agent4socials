@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { MessageCircle, PlusSquare, Calendar, Menu, Sun, Moon, Brain, Megaphone } from 'lucide-react';
+import { MessageCircle, PlusSquare, Calendar, Menu, Sun, Moon, Brain, Hammer } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { BRAND_NAME, BRAND_HEADER_BG, normalizeLegacyBrandName, siteLogoSrcForAppHeader } from '@/lib/site-brand-assets';
 import { useTheme } from '@/context/ThemeContext';
@@ -27,7 +27,7 @@ export const topNavItems = [
   { icon: MessageCircle, label: 'Inbox', href: '/dashboard/inbox', badgeKey: 'inbox' as const },
   { icon: PlusSquare, label: 'Composer', href: '/composer' },
   { icon: Calendar, label: 'Calendar', href: '/calendar' },
-  { icon: Megaphone, label: 'Ads coming soon', href: '/dashboard/ads' },
+  { icon: Hammer, label: 'Ads coming soon', href: '/dashboard/ads' },
   { icon: Brain, label: `${BRAND_NAME} AI`, href: '/dashboard/aysop-ai' },
 ];
 

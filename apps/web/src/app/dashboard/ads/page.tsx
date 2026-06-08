@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Megaphone, Sparkles, Mail, Send, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { Hammer, Mail, Send, CheckCircle, AlertCircle, X } from 'lucide-react';
 import { FacebookIcon, TikTokIcon } from '@/components/SocialPlatformIcons';
 import { useAuth } from '@/context/AuthContext';
 import api from '@/lib/api';
@@ -187,17 +187,11 @@ export default function AdsComingSoonPage() {
           }}
         />
         <div className="relative text-center">
-          <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-[var(--color-purple-border)] bg-[var(--color-purple-soft)] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[var(--color-purple-text)]">
-            <Sparkles size={14} />
+          <div className="mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-amber-300/60 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-800 dark:border-amber-500/40 dark:bg-amber-950/50 dark:text-amber-200">
+            <Hammer size={14} />
             In development
           </div>
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--color-purple-soft)] text-[var(--primary)]">
-            <Megaphone size={28} />
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-            Unified ads are on the way
-          </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-[var(--muted)] sm:text-lg">
+          <p className="mx-auto max-w-2xl text-base leading-relaxed text-[var(--muted)] sm:text-lg">
             We are building a single place to connect and monitor paid campaigns across Google, Meta, and TikTok,
             right next to your organic social analytics.
           </p>
@@ -208,15 +202,16 @@ export default function AdsComingSoonPage() {
         </div>
       </div>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+      <div className="mt-8">
+        <p className="mb-3 text-center text-sm font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+          Coming soon
+        </p>
+        <div className="grid gap-4 sm:grid-cols-3">
         {AD_PLATFORMS.map((platform) => (
           <div
             key={platform.id}
             className="relative flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-5 transition-colors hover:border-[var(--color-purple-border)]"
           >
-            <span className="absolute right-3 top-3 rounded-full border border-[var(--color-purple-border)] bg-[var(--color-purple-soft)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-purple-text)]">
-              Coming soon
-            </span>
             <div
               className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl"
               style={{ background: `${platform.accent}18` }}
@@ -235,6 +230,7 @@ export default function AdsComingSoonPage() {
             </button>
           </div>
         ))}
+        </div>
       </div>
 
       <div className="mt-10 rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] px-6 py-8 text-center sm:px-10">
