@@ -13,6 +13,11 @@ import {
     Gem,
     PanelLeftClose,
     HelpCircle,
+    Sparkles,
+    Users,
+    Users2,
+    LifeBuoy,
+    Lightbulb,
 } from 'lucide-react';
 import { SMART_LINKS_ENABLED, SMART_LINKS_COMING_SOON_LABEL } from '@/lib/smart-links/feature-flag';
 import api from '@/lib/api';
@@ -203,6 +208,19 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
   const isSmartLinksPage = pathname?.startsWith('/dashboard/smart-links');
   const isReportsPage = pathname === '/dashboard/reports';
   const isHelpPage = pathname === '/help';
+  const isBrandPage = pathname === '/dashboard/brand' || pathname?.startsWith('/dashboard/aysop-ai/brand-context');
+  const isLeadsPage = pathname === '/dashboard/leads';
+  const isTeamPage = pathname === '/dashboard/account';
+  const isSupportPage = pathname === '/dashboard/support';
+  const isBrainstormPage = pathname === '/dashboard/brainstorm';
+
+  const workspaceNav = [
+    { key: 'brand', href: '/dashboard/brand', label: 'Brand', icon: <Sparkles size={18} className="shrink-0" />, active: isBrandPage },
+    { key: 'leads', href: '/dashboard/leads', label: 'Leads', icon: <Users size={18} className="shrink-0" />, active: isLeadsPage },
+    { key: 'team', href: '/dashboard/account#team-members', label: 'Team members', icon: <Users2 size={18} className="shrink-0" />, active: isTeamPage },
+    { key: 'support', href: '/dashboard/support', label: 'Support', icon: <LifeBuoy size={18} className="shrink-0" />, active: isSupportPage },
+    { key: 'brainstorm', href: '/dashboard/brainstorm', label: 'Brainstorm', icon: <Lightbulb size={18} className="shrink-0" />, active: isBrainstormPage },
+  ];
 
   const sidebarContent = (
     <>
@@ -330,7 +348,22 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
         })}
       </div>
 
-      <div className="mt-6 pt-2 p-3 space-y-0.5 border-t border-neutral-200 shrink-0">
+      <div className="mt-4 pt-2 p-3 space-y-0.5 border-t border-neutral-200 shrink-0">
+        {workspaceNav.map((item) => (
+          <Link
+            key={item.key}
+            href={item.href}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${
+              item.active ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)]'
+            }`}
+          >
+            {item.icon}
+            <span>{item.label}</span>
+          </Link>
+        ))}
+      </div>
+
+      <div className="pt-2 p-3 space-y-0.5 border-t border-neutral-200 shrink-0">
         {SMART_LINKS_ENABLED ? (
           <Link
             href="/dashboard/smart-links"
