@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { MessageCircle, PlusSquare, Calendar, Menu, Sun, Moon, Brain, Hammer } from 'lucide-react';
+import { MessageCircle, PlusSquare, Calendar, Menu, Sun, Moon, Brain, Megaphone, type LucideIcon } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { BRAND_NAME, BRAND_HEADER_BG, normalizeLegacyBrandName, siteLogoSrcForAppHeader } from '@/lib/site-brand-assets';
 import { useTheme } from '@/context/ThemeContext';
@@ -23,13 +23,59 @@ function topNavHref(item: (typeof topNavItems)[number], userId?: string | null):
   return item.href;
 }
 
-export const topNavItems = [
-  { icon: MessageCircle, label: 'Inbox', href: '/dashboard/inbox', badgeKey: 'inbox' as const },
+type TopNavItem = {
+  icon: LucideIcon;
+  label: string;
+  href: string;
+  badgeKey?: 'inbox';
+  /** Small line above the label (e.g. Ads → Coming soon / Ads). */
+  stackedTop?: string;
+};
+
+export const topNavItems: TopNavItem[] = [
+  { icon: MessageCircle, label: 'Inbox', href: '/dashboard/inbox', badgeKey: 'inbox' },
   { icon: PlusSquare, label: 'Composer', href: '/composer' },
   { icon: Calendar, label: 'Calendar', href: '/calendar' },
-  { icon: Hammer, label: 'Ads coming soon', href: '/dashboard/ads' },
+  { icon: Megaphone, label: 'Ads', href: '/dashboard/ads', stackedTop: 'Coming soon' },
   { icon: Brain, label: `${BRAND_NAME} AI`, href: '/dashboard/aysop-ai' },
 ];
+
+function TopNavItemContent({ item, badge, inboxBadgeTitle }: { item: TopNavItem; badge: number; inboxBadgeTitle?: string }) {
+  if (item.stackedTop) {
+    return (
+      <>
+        <item.icon size={18} className="shrink-0" aria-hidden />
+        <span className="flex flex-col items-start leading-none gap-0.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-400">{item.stackedTop}</span>
+          <span className="text-sm font-medium">{item.label}</span>
+        </span>
+        {badge > 0 ? (
+          <span
+            title={inboxBadgeTitle}
+            className="absolute -top-0.5 -right-0.5 min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold"
+          >
+            {badge > 99 ? '99' : badge}
+          </span>
+        ) : null}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <item.icon size={18} />
+      {item.label}
+      {badge > 0 && (
+        <span
+          title={inboxBadgeTitle}
+          className="absolute -top-0.5 -right-0.5 min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold"
+        >
+          {badge > 99 ? '99' : badge}
+        </span>
+      )}
+    </>
+  );
+}
 
 export default function AppHeader() {
   const pathname = usePathname();
@@ -134,25 +180,14 @@ export default function AppHeader() {
                   ? `${badge} unread`
                   : undefined;
             const content = (
-              <>
-                <item.icon size={18} />
-                {item.label}
-                {badge > 0 && (
-                  <span
-                    title={inboxBadgeTitle}
-                    className="absolute -top-0.5 -right-0.5 min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold"
-                  >
-                    {badge > 99 ? '99' : badge}
-                  </span>
-                )}
-              </>
+              <TopNavItemContent item={item} badge={badge} inboxBadgeTitle={inboxBadgeTitle} />
             );
             return (
               <Link
                 key={item.href}
                 href={topNavHref(item, user?.id)}
                 prefetch={item.href === '/composer'}
-                className={navLinkClass(isActive)}
+                className={`${navLinkClass(isActive)}${item.stackedTop ? ' py-1.5' : ''}`}
                 title={item.badgeKey === 'inbox' ? inboxBadgeTitle : undefined}
               >
                 {content}
@@ -248,8 +283,20 @@ export default function AppHeader() {
                   className={mobileNavLinkClass(isActive)}
                   title={item.badgeKey === 'inbox' ? inboxBadgeTitle : undefined}
                 >
-                  <item.icon size={18} className="shrink-0" />
-                  <span className="flex-1">{item.label}</span>
+                  {item.stackedTop ? (
+                    <>
+                      <item.icon size={18} className="shrink-0" aria-hidden />
+                      <span className="flex flex-1 flex-col leading-none gap-0.5">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-400">{item.stackedTop}</span>
+                        <span>{item.label}</span>
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <item.icon size={18} className="shrink-0" />
+                      <span className="flex-1">{item.label}</span>
+                    </>
+                  )}
                   {badge > 0 && (
                     <span
                       title={inboxBadgeTitle}
