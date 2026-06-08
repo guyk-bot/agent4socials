@@ -61,26 +61,59 @@ export default function AppHeader() {
   const isAccountPage = pathname === '/dashboard/account';
   const displayAppName = normalizeLegacyBrandName(appName || BRAND_NAME);
 
-  const navLinkClass = (active: boolean, isAysopAi = false) =>
-    `relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-0 ${
+  const isOfficialBrandHeader = !logoUrl;
+
+  const navLinkClass = (active: boolean) => {
+    if (isOfficialBrandHeader) {
+      return `brand-app-header__nav-link relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-0 ${
+        active ? 'is-active' : ''
+      }`;
+    }
+    return `relative flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors focus:outline-none focus:ring-0 ${
       active
-        ? `bg-[var(--bg-hover)] text-[var(--foreground)]${isAysopAi ? ' nav-aysop-ai-active' : ''}`
+        ? 'bg-[var(--bg-hover)] text-[var(--foreground)]'
         : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--bg-hover)]'
     }`;
+  };
+
+  const mobileNavLinkClass = (active: boolean) => {
+    if (isOfficialBrandHeader) {
+      return `brand-app-header__mobile-link flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${
+        active ? 'is-active' : ''
+      }`;
+    }
+    return active
+      ? 'flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors bg-[var(--bg-hover)] text-[var(--foreground)]'
+      : 'flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--bg-hover)]';
+  };
+
+  const iconBtnClass = isOfficialBrandHeader
+    ? 'brand-app-header__icon-btn p-2 rounded-lg transition-colors'
+    : 'p-2 rounded-lg text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--bg-hover)] transition-colors';
 
   return (
     <header
-      className={`h-full w-full flex items-center justify-between px-4 sm:px-6 text-[var(--foreground)] border-b border-[var(--border)] pointer-events-auto ${logoUrl ? 'bg-[var(--bg-surface)]' : ''}`}
-      style={logoUrl ? undefined : { backgroundColor: BRAND_HEADER_BG }}
+      className={`h-full w-full flex items-center justify-between px-4 sm:px-6 border-b pointer-events-auto ${
+        isOfficialBrandHeader
+          ? 'brand-app-header'
+          : 'bg-[var(--bg-surface)] text-[var(--foreground)] border-[var(--border)]'
+      }`}
+      style={isOfficialBrandHeader ? undefined : logoUrl ? undefined : { backgroundColor: BRAND_HEADER_BG }}
     >
       <div className="flex items-center gap-2 md:gap-8 min-w-0">
-        <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
+        <Link href="/dashboard" className="flex items-center gap-2.5 shrink-0">
           {logoUrl ? (
-            <img src={logoUrl} alt="" className="h-7 w-7 sm:h-8 sm:w-8 object-contain" />
+            <img src={logoUrl} alt="" className="h-8 w-8 sm:h-9 sm:w-9 object-contain" />
           ) : (
-            <img src={siteLogoSrcForTheme(theme)} alt={BRAND_NAME} className="h-7 w-7 sm:h-8 sm:w-8 object-contain block bg-transparent" />
+            <img src={siteLogoSrcForTheme(theme)} alt={BRAND_NAME} className="h-10 w-10 sm:h-11 sm:w-11 object-contain block" />
           )}
-          <span className="font-semibold text-[var(--foreground)] hidden sm:inline truncate">{displayAppName}</span>
+          <span
+            className={`font-semibold hidden sm:inline truncate text-base sm:text-lg ${
+              isOfficialBrandHeader ? 'brand-app-header__wordmark' : 'text-[var(--foreground)]'
+            }`}
+          >
+            {displayAppName}
+          </span>
         </Link>
         <nav className="hidden md:flex items-center gap-1">
           {topNavItems.map((item) => {
@@ -100,7 +133,6 @@ export default function AppHeader() {
                 : badge > 0
                   ? `${badge} unread`
                   : undefined;
-            const isAysopAi = item.href.startsWith('/dashboard/aysop-ai');
             const content = (
               <>
                 <item.icon size={18} />
@@ -108,7 +140,7 @@ export default function AppHeader() {
                 {badge > 0 && (
                   <span
                     title={inboxBadgeTitle}
-                    className="absolute -top-0.5 -right-0.5 min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-chrome-text text-xs font-bold"
+                    className="absolute -top-0.5 -right-0.5 min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold"
                   >
                     {badge > 99 ? '99' : badge}
                   </span>
@@ -120,7 +152,7 @@ export default function AppHeader() {
                 key={item.href}
                 href={topNavHref(item, user?.id)}
                 prefetch={item.href === '/composer'}
-                className={navLinkClass(isActive, isAysopAi)}
+                className={navLinkClass(isActive)}
                 title={item.badgeKey === 'inbox' ? inboxBadgeTitle : undefined}
               >
                 {content}
@@ -135,7 +167,7 @@ export default function AppHeader() {
         <button
           type="button"
           onClick={toggleTheme}
-          className="p-2 rounded-lg text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--bg-hover)] transition-colors"
+          className={iconBtnClass}
           aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
         >
@@ -143,7 +175,11 @@ export default function AppHeader() {
         </button>
         <Link
           href="/dashboard/account"
-          className="flex items-stretch w-9 h-9 rounded-full overflow-hidden border-2 border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:border-[var(--color-purple)] hover:bg-[var(--bg-hover)] transition-colors shrink-0"
+          className={`flex items-stretch w-9 h-9 rounded-full overflow-hidden border-2 transition-colors shrink-0 ${
+            isOfficialBrandHeader
+              ? 'border-[#333] text-[#a3a3a3] hover:text-white hover:border-[var(--color-purple)] hover:bg-[#1a1a1a]'
+              : 'border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)] hover:border-[var(--color-purple)] hover:bg-[var(--bg-hover)]'
+          }`}
           title="Account"
           aria-label="Account"
         >
@@ -158,18 +194,24 @@ export default function AppHeader() {
         <button
           type="button"
           onClick={() => setTopNavOpen((v) => !v)}
-          className="md:hidden p-2 rounded-lg text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--bg-hover)]"
+          className={`md:hidden ${iconBtnClass}`}
           aria-label="Open menu"
           aria-expanded={topNavOpen}
         >
           <Menu size={24} />
         </button>
         {topNavOpen && (
-          <div className="absolute right-0 top-full mt-1 py-1 w-52 rounded-lg bg-[var(--card-bg)] border border-[var(--border)] shadow-xl z-50 md:hidden">
+          <div
+            className={`absolute right-0 top-full mt-1 py-1 w-52 rounded-lg shadow-xl z-50 md:hidden border ${
+              isOfficialBrandHeader
+                ? 'brand-app-header__mobile-menu'
+                : 'bg-[var(--card-bg)] border-[var(--border)]'
+            }`}
+          >
             <Link
               href="/dashboard/account"
               onClick={() => setTopNavOpen(false)}
-              className={`flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors ${isAccountPage ? 'bg-[var(--bg-hover)] text-[var(--foreground)]' : 'text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--bg-hover)]'}`}
+              className={mobileNavLinkClass(isAccountPage)}
             >
               {user?.avatarUrl ? (
                 <img src={user.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover shrink-0" />
@@ -197,18 +239,13 @@ export default function AppHeader() {
                   : badge > 0
                     ? `${badge} unread`
                     : undefined;
-              const isAysopAi = item.href.startsWith('/dashboard/aysop-ai');
-              const mobileLinkClass =
-                isActive
-                  ? `flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors bg-[var(--bg-hover)] text-[var(--foreground)]${isAysopAi ? ' nav-aysop-ai-active' : ''}`
-                  : 'flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--bg-hover)]';
               return (
                 <Link
                   key={item.href}
                   href={topNavHref(item, user?.id)}
                   prefetch={item.href === '/composer'}
                   onClick={() => setTopNavOpen(false)}
-                  className={mobileLinkClass}
+                  className={mobileNavLinkClass(isActive)}
                   title={item.badgeKey === 'inbox' ? inboxBadgeTitle : undefined}
                 >
                   <item.icon size={18} className="shrink-0" />
@@ -216,7 +253,7 @@ export default function AppHeader() {
                   {badge > 0 && (
                     <span
                       title={inboxBadgeTitle}
-                      className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-chrome-text text-xs font-bold"
+                      className="min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold"
                     >
                       {badge > 99 ? '99' : badge}
                     </span>

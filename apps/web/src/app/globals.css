@@ -159,22 +159,10 @@
 .metric-negative { color: #EF4444; }
 .metric-neutral { color: #888780; }
 
-/* Funnel / marketing page surfaces (black canvas matches square logo mark). */
+/* Funnel / marketing: light page body; black header bar only (see `.funnel-nav`). */
 .funnel-page {
-  --bg-primary: #000000;
-  --bg-surface: #000000;
-  --bg-border: #1a1a1a;
-  --bg-hover: #141414;
-  --text-primary: #ffffff;
-  --text-muted: #a3a3a3;
-  --background: #000000;
-  --foreground: #ffffff;
-  --muted: #a3a3a3;
-  --border: #1a1a1a;
-  --card-bg: #0a0a0a;
-  --surface-soft: #0a0a0a;
-  background: #000000;
-  color: #ffffff;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 .funnel-card {
   background: var(--bg-surface);
@@ -183,12 +171,66 @@
 }
 .funnel-nav {
   background: #000000;
-  border-bottom: 1px solid var(--bg-border);
-  color: var(--text-primary);
+  border-bottom: 1px solid #1a1a1a;
+  color: #ffffff;
 }
-[data-theme='dark'] .funnel-nav {
+.funnel-nav .funnel-nav-wordmark {
+  color: #ffffff !important;
+}
+.funnel-nav .funnel-nav-link {
+  color: #a3a3a3;
+}
+.funnel-nav .funnel-nav-link:hover {
+  color: #ffffff;
+  background: #1a1a1a;
+}
+.funnel-nav .funnel-nav-link.is-active {
+  background: #2d2d2d;
+  color: #ffffff;
+}
+.funnel-nav .funnel-nav-mobile-panel {
   background: #000000;
+  border-top-color: #1a1a1a;
+}
+
+/* Dashboard / app top bar on black chrome (official logo, no white-label override). */
+.brand-app-header {
+  background: #000000;
+  color: #ffffff;
   border-bottom-color: #1a1a1a;
+}
+.brand-app-header .brand-app-header__wordmark {
+  color: #ffffff;
+}
+.brand-app-header .brand-app-header__nav-link {
+  color: #a3a3a3;
+}
+.brand-app-header .brand-app-header__nav-link:hover {
+  color: #ffffff;
+  background: #1a1a1a;
+}
+.brand-app-header .brand-app-header__nav-link.is-active {
+  background: #2d2d2d;
+  color: #ffffff;
+}
+.brand-app-header .brand-app-header__icon-btn {
+  color: #a3a3a3;
+}
+.brand-app-header .brand-app-header__icon-btn:hover {
+  color: #ffffff;
+  background: #1a1a1a;
+}
+.brand-app-header .brand-app-header__mobile-menu {
+  background: #111111;
+  border-color: #1a1a1a;
+}
+.brand-app-header .brand-app-header__mobile-link {
+  color: #a3a3a3;
+}
+.brand-app-header .brand-app-header__mobile-link:hover,
+.brand-app-header .brand-app-header__mobile-link.is-active {
+  color: #ffffff;
+  background: #2d2d2d;
 }
 
 /* Shared upgrade banner: white to very light grey fill, soft orange edge (CTA stays vivid orange in markup). */
