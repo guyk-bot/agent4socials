@@ -52,7 +52,7 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
 const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'THREADS', 'PINTEREST', 'LINKEDIN'];
 
 /** Vertical padding on platform rows. */
-const PLATFORM_ROW_PY = 'py-1';
+const PLATFORM_ROW_PY = 'py-1.5';
 
 /** Platforms that show a gem / upgrade styling on the connect row (empty = same as other networks). */
 const UPGRADE_TO_CONNECT_PLATFORMS: string[] = [];
@@ -219,7 +219,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
 
   const sidebarContent = (
     <>
-      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col px-1.5 py-0.5">
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1 px-1.5 pt-0 pb-1">
         {PLATFORM_ORDER.map((platform) => {
           const accounts = accountsByPlatform[platform] ?? [];
           const isPlatformSelected = selectedPlatformForConnect === platform;

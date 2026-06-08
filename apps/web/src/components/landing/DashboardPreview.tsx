@@ -1,4 +1,5 @@
 import { BarChart3, Calendar, Users, ArrowUpRight, MoreHorizontal, CheckCircle2 } from 'lucide-react';
+import { SITE_LOGO_DARK_SRC } from '@/lib/site-brand-assets';
 
 export default function DashboardPreview() {
   return (
@@ -21,8 +22,11 @@ export default function DashboardPreview() {
           <div className="flex h-[500px] md:h-[600px]">
             {/* Sidebar */}
             <div className="hidden w-16 md:w-64 flex-col border-r border-[#f3ecf9] bg-[#fcfaff] p-4 md:flex">
-              <div className="space-y-6">
-                <div className="h-8 w-8 rounded-lg bg-[#7b2cbf]/10 border border-[#7b2cbf]/30" />
+              <div className="space-y-4">
+                <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-black">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={SITE_LOGO_DARK_SRC} alt="" className="h-6 w-6 object-contain" />
+                </div>
                 <div className="space-y-2">
                   <div className="h-2 w-20 rounded bg-[#e9def5]" />
                   <div className="h-2 w-12 rounded bg-[#e9def5]" />

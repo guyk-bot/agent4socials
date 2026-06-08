@@ -1,13 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { BrandWordmark } from '@/components/BrandWordmark';
-import { BRAND_NAME, SITE_LOGO_PATH } from '@/lib/site-brand-assets';
+import { BRAND_NAME, SITE_LOGO_DARK_SRC } from '@/lib/site-brand-assets';
 
 const navLinks = [
   { href: '/#features', label: 'Features' },
@@ -32,17 +31,16 @@ export default function SiteHeader() {
     <>
       <header className="fixed top-0 left-0 right-0 z-50 funnel-nav">
         <div className="mx-auto flex h-14 sm:h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2.5 sm:gap-3 transition-opacity hover:opacity-90 min-w-0">
-            <Image
-              src={SITE_LOGO_PATH}
+          <Link href="/" className="flex items-center gap-2 sm:gap-2.5 transition-opacity hover:opacity-90 min-w-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={SITE_LOGO_DARK_SRC}
               alt={BRAND_NAME}
-              width={44}
-              height={44}
-              className="h-10 w-10 sm:h-11 sm:w-11 shrink-0 object-contain"
+              className="h-7 w-7 sm:h-8 sm:w-8 shrink-0 object-contain"
             />
             <BrandWordmark
               name={BRAND_NAME}
-              className="funnel-nav-wordmark text-lg sm:text-xl font-semibold tracking-tight truncate"
+              className="funnel-nav-wordmark text-base sm:text-lg font-semibold tracking-tight truncate"
             />
           </Link>
           <nav className="hidden items-center gap-5 lg:gap-7 md:flex">
