@@ -1,10 +1,11 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
-import { HelpCircle, Mail, ChevronRight } from 'lucide-react';
+import { HelpCircle } from 'lucide-react';
+import SupportHub from '@/components/support/SupportHub';
 
 const NAV_LINKS = [
+  { href: '#support', label: 'Support' },
   { href: '#connecting-accounts', label: 'Connecting accounts' },
   { href: '#facebook', label: 'Facebook' },
   { href: '#instagram', label: 'Instagram' },
@@ -23,7 +24,7 @@ export default function HelpPage() {
   return (
     <div className="max-w-4xl mx-auto pb-16">
       {/* Hero */}
-      <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden mb-10">
+      <div id="support" className="scroll-mt-6 rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden mb-10">
         <div className="px-6 py-8 sm:px-8">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2.5 rounded-xl bg-[var(--primary)]/15">
@@ -32,16 +33,9 @@ export default function HelpPage() {
             <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Help &amp; Knowledge Base</h1>
           </div>
           <p className="text-neutral-600 text-sm mt-1 max-w-xl">
-            Find answers about connecting accounts, analytics limitations, inbox rules, and more. Can&apos;t find what you need? Open a support ticket.
+            Find answers about connecting accounts, analytics limitations, inbox rules, and more. Need hands-on help? Pick a support option below.
           </p>
-          <Link
-            href="/help/support"
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--button)] text-chrome-text text-sm font-medium hover:bg-[var(--button-hover)] transition-colors"
-          >
-            <Mail size={18} />
-            Open a support ticket
-            <ChevronRight size={16} />
-          </Link>
+          <SupportHub embedded />
         </div>
       </div>
 

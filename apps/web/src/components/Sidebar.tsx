@@ -15,9 +15,9 @@ import {
     Sparkles,
     Users,
     Users2,
-    LifeBuoy,
     Lightbulb,
 } from 'lucide-react';
+import { SUPPORT_TABS, supportTabHref } from '@/components/support/SupportHub';
 import api from '@/lib/api';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
@@ -40,20 +40,20 @@ const PLATFORM_LABELS: Record<string, string> = {
 };
 
 const PLATFORM_ICON: Record<string, React.ReactNode> = {
-  INSTAGRAM: <InstagramIcon size={26} />,
-  FACEBOOK: <FacebookIcon size={26} />,
-  TIKTOK: <TikTokIcon size={26} />,
-  YOUTUBE: <YoutubeIcon size={26} />,
-  TWITTER: <XTwitterIcon size={26} className="text-neutral-800" />,
-  LINKEDIN: <LinkedinIcon size={26} />,
-  PINTEREST: <PinterestIcon size={26} />,
-  THREADS: <ThreadsIcon size={26} />,
+  INSTAGRAM: <InstagramIcon size={22} />,
+  FACEBOOK: <FacebookIcon size={22} />,
+  TIKTOK: <TikTokIcon size={22} />,
+  YOUTUBE: <YoutubeIcon size={22} />,
+  TWITTER: <XTwitterIcon size={22} className="text-neutral-800" />,
+  LINKEDIN: <LinkedinIcon size={22} />,
+  PINTEREST: <PinterestIcon size={22} />,
+  THREADS: <ThreadsIcon size={22} />,
 };
 
 const PLATFORM_ORDER = ['FACEBOOK', 'INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'TWITTER', 'THREADS', 'PINTEREST', 'LINKEDIN'];
 
 /** Vertical padding on platform rows (icons stay full size). */
-const PLATFORM_ROW_PY = 'py-1.5';
+const PLATFORM_ROW_PY = 'py-0.5';
 
 /** Platforms that show a gem / upgrade styling on the connect row (empty = same as other networks). */
 const UPGRADE_TO_CONNECT_PLATFORMS: string[] = [];
@@ -204,41 +204,22 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
   const isMainAnalyticsView = pathname === '/dashboard' || pathname === '/dashboard/console';
   const isPostsPage = pathname === '/posts';
   const isReportsPage = pathname === '/dashboard/reports';
-  const isHelpPage = pathname === '/help';
   const isBrandPage = pathname === '/dashboard/brand' || pathname?.startsWith('/dashboard/aysop-ai/brand-context');
   const isLeadsPage = pathname === '/dashboard/leads';
   const isTeamPage = pathname === '/dashboard/account';
-  const isSupportPage = pathname === '/dashboard/support';
   const isBrainstormPage = pathname === '/dashboard/brainstorm';
+  const isHelpSection = pathname === '/help' || pathname?.startsWith('/help/');
 
   const workspaceNav = [
     { key: 'brand', href: '/dashboard/brand', label: 'Brand', icon: <Sparkles size={18} className="shrink-0" />, active: isBrandPage },
     { key: 'leads', href: '/dashboard/leads', label: 'Leads', icon: <Users size={18} className="shrink-0" />, active: isLeadsPage },
-    { key: 'team', href: '/dashboard/account#team-members', label: 'Team members', icon: <Users2 size={18} className="shrink-0" />, active: isTeamPage },
-    { key: 'support', href: '/dashboard/support', label: 'Support', icon: <LifeBuoy size={18} className="shrink-0" />, active: isSupportPage },
+    { key: 'team', href: '/dashboard/account#team-members', label: 'Team', icon: <Users2 size={18} className="shrink-0" />, active: isTeamPage },
     { key: 'brainstorm', href: '/dashboard/brainstorm', label: 'Brainstorm', icon: <Lightbulb size={18} className="shrink-0" />, active: isBrainstormPage },
   ];
 
   const sidebarContent = (
     <>
-      <div className="p-3 shrink-0">
-        <Link
-          href="/dashboard/console"
-          onClick={(e) => {
-            // Avoid redundant navigation when the user is already on Console.
-            if (pathname === '/dashboard/console') e.preventDefault();
-          }}
-          className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold transition-colors ${
-            isMainAnalyticsView ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)] border border-transparent'
-          }`}
-        >
-          <BarChart3 size={18} className="shrink-0" />
-          <span>Console</span>
-          {isMainAnalyticsView && <ChevronRight size={14} className="ml-auto opacity-70" />}
-        </Link>
-      </div>
-
-      <div className="flex-1 min-h-0 overflow-y-auto px-2 space-y-1">
+      <div className="flex-1 min-h-0 overflow-y-auto px-1.5 pt-0 space-y-0">
         {PLATFORM_ORDER.map((platform) => {
           const accounts = accountsByPlatform[platform] ?? [];
           const isPlatformSelected = selectedPlatformForConnect === platform;
@@ -248,12 +229,12 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
             const needsUpgrade = UPGRADE_TO_CONNECT_PLATFORMS.includes(platform);
             /** Connect URL per platform; optional gem styling when platform is in UPGRADE_TO_CONNECT_PLATFORMS. */
             const href = `/dashboard?connect=${connectParam}`;
-            const platformRowClass = `w-full flex items-center gap-3 px-3 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors border border-transparent ${
+            const platformRowClass = `w-full flex items-center gap-2.5 px-2.5 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors border border-transparent ${
               isPlatformSelected ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80 dark:hover:border-neutral-700'
             } ${needsUpgrade ? 'ring-1 ring-orange-400/50 bg-gradient-to-r from-orange-500/10 to-orange-500/10' : ''}`;
             const platformRowInner = (
               <>
-                <div className="w-10 h-10 flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 flex items-center justify-center shrink-0">
                   {PLATFORM_ICON[platform]}
                 </div>
                 <span className="truncate flex-1 font-medium">{PLATFORM_LABELS[platform]}</span>
@@ -262,8 +243,8 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
                     <Gem size={14} className="text-orange-600" aria-hidden />
                   </span>
                 ) : null}
-                <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 hover:bg-neutral-300">
-                  <Plus size={14} className="text-neutral-600" />
+                <div className="w-6 h-6 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 hover:bg-neutral-300">
+                  <Plus size={12} className="text-neutral-600" />
                 </div>
               </>
             );
@@ -281,10 +262,10 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
           }
 
           return (
-            <div key={platform} className="space-y-1">
+            <div key={platform} className="space-y-0">
               {accounts.map((acc) => {
                 const isSelected = selectedAccountId === acc.id;
-                const accountRowClass = `w-full flex items-center gap-3 px-3 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors min-w-0 border border-transparent ${
+                const accountRowClass = `w-full flex items-center gap-2.5 px-2.5 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors min-w-0 border border-transparent ${
                   isSelected ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80 dark:hover:border-neutral-700'
                 }`;
                 // From Inbox or any page: go to this account's analytics via client-side nav (keeps cache, no reload).
@@ -311,7 +292,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
                     aria-label={`View ${acc.username || platformLabel} analytics`}
                   >
                     <div
-                      className="w-10 h-10 flex items-center justify-center shrink-0 rounded-lg"
+                      className="w-8 h-8 flex items-center justify-center shrink-0 rounded-lg"
                       aria-hidden
                     >
                       {PLATFORM_ICON[platform]}
@@ -319,7 +300,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium">{acc.username || PLATFORM_LABELS[platform]}</div>
                     </div>
-                    <div className={`w-8 h-8 flex items-center justify-center shrink-0 rounded-full overflow-hidden ${acc.profilePicture && !brokenAvatarIds[acc.id] ? '' : 'bg-neutral-200 dark:bg-neutral-700'}`}>
+                    <div className={`w-6 h-6 flex items-center justify-center shrink-0 rounded-full overflow-hidden ${acc.profilePicture && !brokenAvatarIds[acc.id] ? '' : 'bg-neutral-200 dark:bg-neutral-700'}`}>
                       {(() => {
                         const avatarSrc = avatarDisplayUrl(platform, acc.profilePicture);
                         return avatarSrc && !brokenAvatarIds[acc.id] ? (
@@ -345,12 +326,12 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
         })}
       </div>
 
-      <div className="mt-4 pt-2 p-3 space-y-0.5 border-t border-neutral-200 shrink-0">
+      <div className="mt-2 pt-1.5 px-2 pb-1.5 space-y-0 border-t border-neutral-200 shrink-0">
         {workspaceNav.map((item) => (
           <Link
             key={item.key}
             href={item.href}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${
+            className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm font-medium border border-transparent ${
               item.active ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)]'
             }`}
           >
@@ -360,31 +341,49 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
         ))}
       </div>
 
-      <div className="pt-2 p-3 space-y-0.5 border-t border-neutral-200 shrink-0">
+      <div className="pt-1 px-2 pb-1.5 space-y-0 border-t border-neutral-200 shrink-0">
         <Link
           href="/posts"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isPostsPage ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)]'}`}
+          className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm font-medium border border-transparent ${isPostsPage ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)]'}`}
         >
           <History size={18} className="shrink-0" />
           <span>History</span>
         </Link>
         <Link
           href="/dashboard/reports"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isReportsPage ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)]'}`}
+          className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm font-medium border border-transparent ${isReportsPage ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)]'}`}
         >
           <FileText size={18} className="shrink-0" />
           <span>Reports</span>
         </Link>
       </div>
 
-      <div className="mt-auto p-3 border-t border-neutral-200 shrink-0">
-        <Link
-          href="/help"
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isHelpPage ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)]'}`}
-        >
-          <HelpCircle size={18} className="shrink-0" />
+      <div className="mt-auto px-2 py-1.5 border-t border-neutral-200 shrink-0">
+        <div className="flex items-center gap-2 px-2.5 py-1 text-sm font-medium text-[var(--foreground)]">
+          <HelpCircle size={16} className="shrink-0" />
           <span>Need help?</span>
-        </Link>
+        </div>
+        <div className="mt-0.5 flex flex-col gap-0">
+          {SUPPORT_TABS.map((item) => (
+            <Link
+              key={item.id}
+              href={supportTabHref(item.id)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium border border-transparent hover:bg-[var(--bg-hover)] ${
+                isHelpSection ? 'text-[var(--foreground)]' : 'text-[var(--muted)]'
+              }`}
+            >
+              {item.label}
+            </Link>
+          ))}
+          <Link
+            href="/help"
+            className={`px-2.5 py-1 rounded-lg text-xs font-medium border border-transparent hover:bg-[var(--bg-hover)] ${
+              isHelpSection ? 'sidebar-item-selected text-[var(--foreground)]' : 'text-[var(--muted)]'
+            }`}
+          >
+            Knowledge base
+          </Link>
+        </div>
       </div>
     </>
   );
@@ -394,19 +393,30 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
       className="flex flex-1 border-r border-[var(--border)] flex-col bg-[var(--bg-surface)] min-h-0 pointer-events-auto overflow-hidden"
       style={{ backgroundColor: 'var(--wl-sidebar-bg, var(--bg-surface))', color: text }}
     >
-      {onSidebarToggle && (
-        <div className="flex justify-end p-2 border-b border-neutral-200 shrink-0">
-          <button
-            type="button"
-            onClick={onSidebarToggle}
-            className="p-2 rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            aria-label="Close sidebar"
-            title="Close sidebar"
-          >
-            <PanelLeftClose size={20} />
-          </button>
-        </div>
-      )}
+      <div className="flex items-stretch gap-0 border-b border-neutral-200 shrink-0">
+        <Link
+          href="/dashboard/console"
+          onClick={(e) => {
+            if (pathname === '/dashboard/console') e.preventDefault();
+          }}
+          className={`flex min-w-0 flex-1 items-center gap-1.5 px-1.5 py-1 rounded-none text-sm font-bold transition-colors ${
+            isMainAnalyticsView ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)] border border-transparent'
+          }`}
+        >
+          <BarChart3 size={16} className="shrink-0" />
+          <span className="truncate">Console</span>
+          {isMainAnalyticsView && <ChevronRight size={12} className="ml-auto shrink-0 opacity-70" />}
+        </Link>
+        <button
+          type="button"
+          onClick={onSidebarToggle}
+          className="shrink-0 border-l border-neutral-200 px-1.5 py-1 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          aria-label="Close sidebar"
+          title="Close sidebar"
+        >
+          <PanelLeftClose size={18} />
+        </button>
+      </div>
       {sidebarContent}
     </div>
   );

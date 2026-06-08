@@ -49,6 +49,18 @@ function imageAttrs(b64, logoFrac, preserveAR) {
   return `<image x="${P}" y="${P}" width="${L}" height="${L}" preserveAspectRatio="${preserveAR}" href="data:image/png;base64,${b64}" xlink:href="data:image/png;base64,${b64}"/>`;
 }
 
+function buildSquircleTabSvg(pngBuffer) {
+  const b64 = pngBuffer.toString("base64");
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${CANVAS}" height="${CANVAS}" viewBox="0 0 ${CANVAS} ${CANVAS}">
+  <defs>
+    <clipPath id="tab-squircle"><rect width="${CANVAS}" height="${CANVAS}" rx="${RX}" ry="${RX}"/></clipPath>
+  </defs>
+  <g clip-path="url(#tab-squircle)">
+    <image width="${CANVAS}" height="${CANVAS}" preserveAspectRatio="xMidYMid slice" href="data:image/png;base64,${b64}" xlink:href="data:image/png;base64,${b64}"/>
+  </g>
+</svg>`;
+}
+
 function buildTransparentTabSvg(pngBuffer) {
   const b64 = pngBuffer.toString("base64");
   return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${CANVAS}" height="${CANVAS}" viewBox="0 0 ${CANVAS} ${CANVAS}">
@@ -185,6 +197,31 @@ async function loadColoredTabMarkPngBuffer(filePath) {
     })
     .png()
     .toBuffer();
+}
+
+async function loadSquareTabIconBuffer() {
+  if (fs.existsSync(logoMarkDarkSourcePath)) {
+    return loadSquareIconBuffer(logoMarkDarkSourcePath, CANVAS);
+  }
+  if (fs.existsSync(squareIconSourcePath)) {
+    return loadSquareIconBuffer(squareIconSourcePath, CANVAS);
+  }
+  if (fs.existsSync(markSourcePngPath)) {
+    return loadSquareIconBuffer(markSourcePngPath, CANVAS);
+  }
+  const mark = await loadTabMarkPngBuffer();
+  const blackSquare = await sharp({
+    create: {
+      width: CANVAS,
+      height: CANVAS,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 1 },
+    },
+  })
+    .composite([{ input: mark, gravity: "center" }])
+    .png()
+    .toBuffer();
+  return blackSquare;
 }
 
 async function loadTabMarkPngBuffer() {
@@ -396,6 +433,7 @@ function buildFlatLogoSvg(pngBuffer, width, height) {
   const { default: pngToIco } = await import("png-to-ico");
 
   const tabMarkPng = await loadTabMarkPngBuffer();
+  const squareTabPng = await loadSquareTabIconBuffer();
   const googleMarkPng = await loadGoogleLogoPngBuffer();
   const uiLogoSourcePath = fs.existsSync(logoMarkSourcePath)
     ? logoMarkSourcePath
@@ -432,7 +470,7 @@ function buildFlatLogoSvg(pngBuffer, width, height) {
   }
   fs.writeFileSync(markCachePath, tabMarkPng);
 
-  const svgTab = Buffer.from(buildTransparentTabSvg(tabMarkPng));
+  const svgTab = Buffer.from(buildSquircleTabSvg(squareTabPng));
   const svgCircle = Buffer.from(buildCircleSvg(googleMarkPng));
 
   fs.writeFileSync(svgOutTab, svgTab);
@@ -441,16 +479,16 @@ function buildFlatLogoSvg(pngBuffer, width, height) {
   await Promise.all([
     rasterize(svgCircle, 48, path.join(publicDir, "logo-48.png"), whiteBg),
     rasterize(svgCircle, 192, path.join(publicDir, "logo-192.png"), whiteBg),
-    rasterizePngBuffer(tabMarkPng, 48, path.join(publicDir, "favicon-48.png")),
-    rasterizePngBuffer(tabMarkPng, 96, path.join(publicDir, "favicon-96.png")),
-    rasterizePngBuffer(tabMarkPng, 128, path.join(publicDir, "favicon-128.png")),
-    rasterizePngBuffer(tabMarkPng, 192, path.join(publicDir, "favicon-192.png")),
+    rasterize(svgTab, 48, path.join(publicDir, "favicon-48.png"), tabFlattenBg),
+    rasterize(svgTab, 96, path.join(publicDir, "favicon-96.png"), tabFlattenBg),
+    rasterize(svgTab, 128, path.join(publicDir, "favicon-128.png"), tabFlattenBg),
+    rasterize(svgTab, 192, path.join(publicDir, "favicon-192.png"), tabFlattenBg),
   ]);
 
-  const png16 = await sharp(tabMarkPng).resize(16, 16).png().toBuffer();
-  const png32 = await sharp(tabMarkPng).resize(32, 32).png().toBuffer();
-  const png48 = await sharp(tabMarkPng).resize(48, 48).png().toBuffer();
-  const png64 = await sharp(tabMarkPng).resize(64, 64).png().toBuffer();
+  const png16 = await sharp(svgTab).resize(16, 16).png().toBuffer();
+  const png32 = await sharp(svgTab).resize(32, 32).png().toBuffer();
+  const png48 = await sharp(svgTab).resize(48, 48).png().toBuffer();
+  const png64 = await sharp(svgTab).resize(64, 64).png().toBuffer();
   const icoBuffer = await pngToIco([png16, png32, png48, png64]);
   fs.writeFileSync(path.join(publicDir, "favicon.ico"), icoBuffer);
 
@@ -465,7 +503,7 @@ function buildFlatLogoSvg(pngBuffer, width, height) {
       ? "favicon-source-mark.png"
       : "logo.svg";
   console.log(
-    `Wrote tab favicons from ${t}; logo-48/192 (circle) from ${g}; logo-mark.png + logo.svg from ${uiLogoSourcePath}`,
+    `Wrote rounded tab favicons from square icon; logo-48/192 (circle) from ${g}; logo-mark.png + logo.svg from ${uiLogoSourcePath}`,
   );
 })().catch((e) => {
   console.error(e);

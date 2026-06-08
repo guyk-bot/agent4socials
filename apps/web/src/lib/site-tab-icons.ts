@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 /** Bumped when tab favicon assets change (cache bust for browsers and CDNs). */
-export const SITE_TAB_FAVICON_V = "44";
+export const SITE_TAB_FAVICON_V = "45";
 
-/** Tab / PWA icons. Black-square mark; PNG first so browsers pick the full logo. */
+/** Tab / PWA icons. Rounded black-square mark; PNG first so browsers pick the full logo. */
 export const siteTabIcons: NonNullable<Metadata["icons"]> = {
   icon: [
     { url: `/favicon-192.png?v=${SITE_TAB_FAVICON_V}`, sizes: "192x192", type: "image/png" },
