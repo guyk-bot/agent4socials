@@ -9,7 +9,6 @@ import {
     History,
     ChevronRight,
     Plus,
-    Link2,
     Gem,
     PanelLeftClose,
     HelpCircle,
@@ -19,7 +18,6 @@ import {
     LifeBuoy,
     Lightbulb,
 } from 'lucide-react';
-import { SMART_LINKS_ENABLED, SMART_LINKS_COMING_SOON_LABEL } from '@/lib/smart-links/feature-flag';
 import api from '@/lib/api';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
@@ -205,7 +203,6 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
     : (textColor || '#171717');
   const isMainAnalyticsView = pathname === '/dashboard' || pathname === '/dashboard/console';
   const isPostsPage = pathname === '/posts';
-  const isSmartLinksPage = pathname?.startsWith('/dashboard/smart-links');
   const isReportsPage = pathname === '/dashboard/reports';
   const isHelpPage = pathname === '/help';
   const isBrandPage = pathname === '/dashboard/brand' || pathname?.startsWith('/dashboard/aysop-ai/brand-context');
@@ -364,27 +361,6 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
       </div>
 
       <div className="pt-2 p-3 space-y-0.5 border-t border-neutral-200 shrink-0">
-        {SMART_LINKS_ENABLED ? (
-          <Link
-            href="/dashboard/smart-links"
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isSmartLinksPage ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)]'}`}
-          >
-            <Link2 size={18} className="shrink-0" />
-            <span>Links</span>
-          </Link>
-        ) : (
-          <span
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-neutral-400 cursor-not-allowed select-none"
-            aria-disabled="true"
-            title={SMART_LINKS_COMING_SOON_LABEL}
-          >
-            <Link2 size={18} className="shrink-0" />
-            <span>Links</span>
-            <span className="rounded-full brand-pill px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide leading-none">
-              {SMART_LINKS_COMING_SOON_LABEL}
-            </span>
-          </span>
-        )}
         <Link
           href="/posts"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isPostsPage ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)]'}`}

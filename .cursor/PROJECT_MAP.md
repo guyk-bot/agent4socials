@@ -77,6 +77,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | `/dashboard/settings` | `dashboard/settings/page.tsx` |
 | `/dashboard/reports` | `dashboard/reports/page.tsx` (download Simplified/Detailed Console PDF reports) |
 | `/dashboard/smart-links` | `dashboard/smart-links/page.tsx` |
+| `/dashboard/ads` (Ads coming soon: Google / Meta / TikTok connect preview + feedback form) | `dashboard/ads/page.tsx` |
 | `/dashboard/console` (Console: unified KPIs, Growth / Engagement / Views charts, `AnalyticsDateRangePicker`, cache `lib/dashboard-unified-summary-cache.ts`) | `dashboard/console/page.tsx` |
 | `/dashboard/summary` | Redirects to `/dashboard/console` (same query string) |
 | `/dashboard/ai-assistant` | `dashboard/ai-assistant/page.tsx` |
