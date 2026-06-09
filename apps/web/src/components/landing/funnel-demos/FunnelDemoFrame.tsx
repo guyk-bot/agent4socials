@@ -34,9 +34,7 @@ export function FunnelDemoFrame({
     >
       <div
         className="flex shrink-0 items-center overflow-hidden border-b border-black/10 px-3 py-3"
-        style={{
-          background: `linear-gradient(180deg, rgba(255,255,255,0.28) 0%, ${BRAND_LIME_DOT} 32%, #b4f060 100%)`,
-        }}
+        style={{ backgroundColor: BRAND_LIME_DOT }}
       >
         <span
           className={`text-base sm:text-lg font-black tracking-tight leading-snug text-[#0a0a0a] dark:text-[#0a0a0a] ${

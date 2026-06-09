@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowUp, BadgeCheck, Check } from 'lucide-react';
+import { ArrowUp, Check } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAuthModal } from '@/context/AuthModalContext';
 import {
@@ -211,9 +211,6 @@ function OpeningAiMessage({
   const showCursor = !!typewriterActive && displayed.length < INITIAL_AI_TEXT.length;
   const activeLine = getActiveOpeningLineIndex(displayed);
 
-  const headlineComplete =
-    !typewriterActive || (headline.length >= OPENING_HEADLINE.length && activeLine >= 1);
-
   const rows: { key: string; text: string; className: string }[] = [
     {
       key: 'greeting',
@@ -223,7 +220,7 @@ function OpeningAiMessage({
     {
       key: 'headline',
       text: headline,
-      className: `${OPENING_PRIMARY} font-black mt-1 sm:mt-1.5 [font-weight:950]`,
+      className: `${OPENING_PRIMARY} font-black mt-1 sm:mt-1.5 [font-weight:950] text-[#7C3AED] dark:text-[#A78BFA]`,
     },
     {
       key: 'body',
@@ -239,29 +236,6 @@ function OpeningAiMessage({
       <div className="flex-1 min-w-0 text-[var(--chat-hero-text)]">
         {rows.map((row, index) => {
           if (!row.text && !(showCursor && index === activeLine)) return null;
-          if (row.key === 'headline') {
-            return (
-              <p
-                key={row.key}
-                className={`${row.className} flex flex-wrap items-center gap-1.5 text-[#0a0a0a] dark:text-[#f5f5f5]`}
-              >
-                <span>
-                  {row.text}
-                  {showCursor && index === activeLine ? (
-                    <span className="inline-block w-[2px] h-[1em] ml-0.5 bg-[var(--chat-hero-cursor)] animate-pulse align-middle" />
-                  ) : null}
-                </span>
-                {headlineComplete && row.text.length > 0 ? (
-                  <BadgeCheck
-                    size={22}
-                    strokeWidth={2.5}
-                    className="chat-hero-verified-pop shrink-0 text-[#7C3AED]"
-                    aria-hidden
-                  />
-                ) : null}
-              </p>
-            );
-          }
           return (
             <p key={row.key} className={row.className}>
               {row.text}
