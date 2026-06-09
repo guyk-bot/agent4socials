@@ -23,7 +23,7 @@ import {
   connectRedirectForPlatforms,
   demoBlocksForPainPoint,
   formatPlatformList,
-  freeTextReplyForStep,
+  answerLandingChatQuestion,
   matchPainPointFromText,
   matchPlatformsFromText,
   painDiscoveryMessage,
@@ -196,7 +196,7 @@ function OptionSquareButton({
       style={{ animationDelay: staggerIndex !== undefined ? `${staggerIndex * 60}ms` : undefined }}
       className={[
         'chat-hero-pill-enter flex w-full flex-col items-center justify-center rounded-lg border p-2 transition-all duration-150',
-        isTall ? 'min-h-[84px] sm:min-h-[92px] gap-1' : 'h-[64px] sm:h-[70px] gap-1',
+        isTall ? 'min-h-[96px] sm:min-h-[108px] gap-1.5' : 'h-[80px] sm:h-[92px] gap-1.5',
         'active:scale-[0.97]',
         selected
           ? 'border-[#7C3AED] bg-[rgba(124,58,237,0.08)] shadow-[0_0_0_1px_rgba(124,58,237,0.2)]'
@@ -205,11 +205,11 @@ function OptionSquareButton({
       ].join(' ')}
     >
       {icon ? (
-        <span className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center">{icon}</span>
+        <span className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center">{icon}</span>
       ) : null}
       <span
         className={`text-center font-medium leading-snug px-1 ${
-          isTall ? 'text-[11px] sm:text-xs' : 'text-[10px] sm:text-xs'
+          isTall ? 'text-xs sm:text-sm' : 'text-[11px] sm:text-xs'
         } ${selected ? 'text-[#5B21B6]' : 'text-[#1a1a1a]'}`}
       >
         {label}
@@ -440,6 +440,16 @@ export default function ChatHero() {
     if (showPlatformOptions && matchedPlatforms.length > 0) {
       setSelectedPlatforms((prev) => [...new Set([...prev, ...matchedPlatforms])]);
     }
+    // Also select platform when user asks about posting on a specific one
+    if (showPlatformOptions) {
+      const lower = trimmed.toLowerCase();
+      if (/instagram|ig\b|insta/.test(lower) && /post|publish|reel/.test(lower)) {
+        setSelectedPlatforms((prev) => [...new Set([...prev, 'instagram' as ChatHeroPlatformId])]);
+      }
+      if (/tiktok|tik tok/.test(lower) && /post|publish|video|from here|can you|can i/.test(lower)) {
+        setSelectedPlatforms((prev) => [...new Set([...prev, 'tiktok' as ChatHeroPlatformId])]);
+      }
+    }
     if (showPainOptions && matchedPain) {
       setSelectedPain(matchedPain);
     }
@@ -450,7 +460,18 @@ export default function ChatHero() {
         {
           id: blockId('ai'),
           kind: 'ai',
-          text: freeTextReplyForStep(step, trimmed, matchedPlatforms, matchedPain),
+          text: answerLandingChatQuestion({
+            step,
+            text: trimmed,
+            matchedPlatforms,
+            matchedPain,
+            selectedPlatformIds: [
+              ...new Set([
+                ...selectedPlatforms,
+                ...matchedPlatforms,
+              ]),
+            ],
+          }),
         },
       ]);
       setBusy(false);
@@ -461,6 +482,7 @@ export default function ChatHero() {
     draftText,
     isTyping,
     playTypingThen,
+    selectedPlatforms,
     showPainOptions,
     showPlatformOptions,
     step,
@@ -470,7 +492,7 @@ export default function ChatHero() {
     if (showSignup) return 'Ask anything, or use the signup buttons below…';
     if (showDemoCta) return 'Type a question, or tap Start for free…';
     if (showPainOptions) return 'Describe your biggest challenge…';
-    if (showPlatformOptions) return 'Type your platforms, e.g. Instagram and TikTok…';
+    if (showPlatformOptions) return 'Ask anything — e.g. "Can I post to TikTok from here?"';
     return 'Message iZop…';
   }, [showDemoCta, showPainOptions, showPlatformOptions, showSignup]);
 
@@ -595,7 +617,7 @@ export default function ChatHero() {
             </div>
 
             {showPlatformOptions ? (
-              <div className="mt-3 grid grid-cols-4 gap-2 sm:gap-2.5 w-full max-w-2xl lg:max-w-3xl shrink-0">
+              <div className="mt-3 grid grid-cols-4 gap-2.5 sm:gap-3 w-full max-w-3xl lg:max-w-4xl shrink-0">
                 {CHAT_HERO_PLATFORMS.map((platform, i) => {
                   const Icon = PLATFORM_ICONS[platform.id];
                   const selected = selectedPlatforms.includes(platform.id);
@@ -606,7 +628,7 @@ export default function ChatHero() {
                       selected={selected}
                       disabled={busy}
                       staggerIndex={i}
-                      icon={<Icon size={22} />}
+                      icon={<Icon size={30} />}
                       onClick={() => togglePlatform(platform.id)}
                     />
                   );
@@ -631,7 +653,8 @@ export default function ChatHero() {
             ) : null}
           </div>
 
-          <div className="shrink-0 space-y-3 border-t border-[#E8E6DF] pt-3 pb-2">
+          <div className="shrink-0 border-t border-[#E8E6DF] pt-3 pb-3">
+            <div className="space-y-3">
               {showPlatformOptions && canPlatformContinue ? (
                 <button
                   type="button"
@@ -694,7 +717,9 @@ export default function ChatHero() {
                   </p>
                 </div>
               ) : null}
+            </div>
 
+            <div className="mt-3 flex flex-col gap-2">
             <form
               className="flex items-center gap-2 rounded-2xl border border-[#E8E6DF] bg-[#F8F7FC] px-3 py-2 sm:px-4 sm:py-2.5 shadow-sm focus-within:border-[#7C3AED]/40 focus-within:ring-2 focus-within:ring-[#7C3AED]/15"
               onSubmit={(e) => {
@@ -722,7 +747,7 @@ export default function ChatHero() {
               </button>
             </form>
 
-            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11px] sm:text-xs text-[#888780]">
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11px] sm:text-xs text-[#888780] pt-0.5">
               <span className="flex items-center gap-1.5">
                 <Check className="h-3.5 w-3.5 text-[#10B981]" />
                 No credit card required
@@ -735,6 +760,7 @@ export default function ChatHero() {
                 <Check className="h-3.5 w-3.5 text-[#10B981]" />
                 Cancel anytime
               </span>
+            </div>
             </div>
           </div>
         </div>

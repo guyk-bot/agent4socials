@@ -165,6 +165,118 @@ export function connectRedirectForPlatforms(platformIds: ChatHeroPlatformId[]): 
   return `/dashboard?connect=${first}`;
 }
 
+export type LandingChatContext = {
+  step: 0 | 1 | 2 | 3;
+  text: string;
+  matchedPlatforms: ChatHeroPlatformId[];
+  matchedPain: ChatHeroPainPointId | null;
+  selectedPlatformIds: ChatHeroPlatformId[];
+};
+
+function platformLabel(id: ChatHeroPlatformId): string {
+  return CHAT_HERO_PLATFORMS.find((p) => p.id === id)?.label ?? id;
+}
+
+function selectedLabels(ids: ChatHeroPlatformId[]): string[] {
+  return ids.map(platformLabel);
+}
+
+/** Scripted answers for free-text questions (no API). */
+export function answerLandingChatQuestion(ctx: LandingChatContext): string {
+  const lower = ctx.text.toLowerCase().trim();
+  const namesFromMessage = ctx.matchedPlatforms.map(platformLabel);
+  const namesSelected = selectedLabels(ctx.selectedPlatformIds);
+  const allNames = [...new Set([...namesFromMessage, ...namesSelected])];
+
+  const stepNudge =
+    ctx.step === 0
+      ? ' Pick any other platforms you use, then hit Continue.'
+      : ctx.step === 1
+        ? ' Choose the challenge that fits you below, or hit Show me when ready.'
+        : ctx.step === 2
+          ? ' Tap Start for free when you want to try it on your accounts.'
+          : ' Use Continue with Google or email below to get started.';
+
+  if (/^(hi|hello|hey|yo)\b/.test(lower)) {
+    return `Hey! I am iZop, your AI social media manager. Ask me anything about scheduling, analytics, inbox, or connecting accounts.${ctx.step === 0 ? ' Which platforms are you on?' : stepNudge}`;
+  }
+
+  if (/price|pricing|how much|cost|\$\d|plan|subscription|pay/.test(lower)) {
+    return `iZop has a free plan forever — no credit card. Standard is $29/month for unlimited scheduling, inbox, and AI. Pro is $47/month for advanced analytics, bulk replies, and team features.${stepNudge}`;
+  }
+
+  if (/credit card|no card|free forever|free plan|trial/.test(lower)) {
+    return 'Yes — you can start free with no credit card. The free plan includes 25 scheduled posts per month and core features. Upgrade anytime if you need unlimited scheduling or Pro tools.' + stepNudge;
+  }
+
+  if (/connect|link account|oauth|sign in|login|integrate/.test(lower)) {
+    return 'You connect accounts with official OAuth (Instagram, TikTok, YouTube, Facebook, X, LinkedIn, Threads, Pinterest). After signup we open Connect so you can link each platform securely in under a minute.' + stepNudge;
+  }
+
+  if (/analytics|metrics|insights|performance|dashboard|report/.test(lower)) {
+    return 'iZop pulls views, likes, comments, and followers into one dashboard. You can also ask iZop AI in plain English — for example: "Which post performed best this week and why?"' + stepNudge;
+  }
+
+  if (/inbox|comment|dm|message|repl/.test(lower) && !ctx.matchedPain) {
+    return 'Yes — iZop unifies comments and DMs from Instagram, Facebook, and X. iZop AI can draft replies in your brand voice and bulk-reply to high-volume comment threads.' + stepNudge;
+  }
+
+  if (/schedule|calendar|post later|publish later|automate post/.test(lower)) {
+    return 'Yes — use Composer to write once, pick platforms and times, and iZop publishes on schedule. iZop AI can also suggest topics and draft captions in your brand voice.' + stepNudge;
+  }
+
+  if (/ai|assistant|chatgpt|gpt|copilot|brand voice/.test(lower)) {
+    return 'iZop AI is built into the dashboard: schedule posts, reply to inbox threads, scan comments for leads, and get analytics answers — all in one chat, trained on your brand context.' + stepNudge;
+  }
+
+  if (/lead|spreadsheet|export/.test(lower)) {
+    return 'iZop AI can scan comments for buyer intent, flag potential leads, and export them to a spreadsheet — useful after viral posts or launch campaigns.' + stepNudge;
+  }
+
+  if (/instagram|ig\b|insta/.test(lower) && /post|publish|reel|story|can you|can i|from here/.test(lower)) {
+    return 'Yes — connect Instagram, then schedule and publish posts, Reels, and Stories from iZop Composer. Analytics and inbox for Instagram are included too.' + (ctx.step === 0 ? ' I added Instagram to your selection.' + stepNudge : stepNudge);
+  }
+
+  if (/tiktok|tik tok/.test(lower) && /post|publish|video|can you|can i|from here|do that/.test(lower)) {
+    return 'Yes — connect TikTok, upload or link your video, write your caption, and schedule or publish directly from iZop. No need to jump between apps.' + (ctx.step === 0 ? ' I added TikTok to your selection.' + stepNudge : stepNudge);
+  }
+
+  if (/youtube|yt\b/.test(lower) && /post|publish|video|short|can you|can i/.test(lower)) {
+    return 'Yes — connect YouTube to schedule uploads and track views and subscribers alongside your other platforms.' + (ctx.step === 0 ? ' I added YouTube to your selection.' + stepNudge : stepNudge);
+  }
+
+  if (/linkedin/.test(lower) && /post|publish|can you|can i/.test(lower)) {
+    return 'Yes — LinkedIn is supported on Standard and Pro. Connect your profile or Page and schedule posts from Composer.' + (ctx.step === 0 ? ' I added LinkedIn to your selection.' + stepNudge : stepNudge);
+  }
+
+  if (
+    /post|publish|upload|schedule/.test(lower) &&
+    (ctx.matchedPlatforms.length > 0 || allNames.length > 0)
+  ) {
+    const names = allNames.length > 0 ? allNames : namesFromMessage;
+    return `Yes — iZop supports posting and scheduling to ${formatPlatformList(names)}. Connect once, use Composer, and publish or schedule from one place.${ctx.step === 0 ? stepNudge : stepNudge}`;
+  }
+
+  if (/what is izop|what's izop|who are you|what do you do|how does izop work/.test(lower)) {
+    return 'iZop is an all-in-one social media manager: connect 8 platforms, schedule posts, manage inbox, track analytics, and use iZop AI for content, replies, and reports — all from one dashboard and one chat.' + stepNudge;
+  }
+
+  if (/how many platform|which platform|what platform|support/.test(lower)) {
+    return 'iZop supports Instagram, TikTok, YouTube, Facebook, X, LinkedIn, Threads, and Pinterest — connect any combination that fits your workflow.' + stepNudge;
+  }
+
+  if (ctx.matchedPain) {
+    const painLabel = CHAT_HERO_PAIN_POINTS.find((p) => p.id === ctx.matchedPain)?.label ?? 'that';
+    return `That sounds like "${painLabel}" — iZop is built to help with exactly that. Tap the matching option below, or hit Show me for a quick demo.${ctx.step === 1 ? '' : stepNudge}`;
+  }
+
+  if (ctx.matchedPlatforms.length > 0) {
+    return `Got it — ${formatPlatformList(namesFromMessage)}. iZop supports scheduling, analytics, and AI for each of those.${ctx.step === 0 ? stepNudge : stepNudge}`;
+  }
+
+  return freeTextReplyForStep(ctx.step, ctx.text, ctx.matchedPlatforms, ctx.matchedPain);
+}
+
 const PLATFORM_TEXT_ALIASES: Record<ChatHeroPlatformId, string[]> = {
   instagram: ['instagram', 'ig', 'insta'],
   tiktok: ['tiktok', 'tik tok'],
