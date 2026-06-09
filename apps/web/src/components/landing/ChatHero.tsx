@@ -16,7 +16,10 @@ import {
 } from '@/components/SocialPlatformIcons';
 import { SITE_LOGO_SRC, siteLogoSrcForTheme } from '@/lib/site-brand-assets';
 import { useTheme } from '@/context/ThemeContext';
-import { ZThinkingLoopAnimation } from '@/components/ZThinkingLoopAnimation';
+import {
+  FUNNEL_THINKING_LOGO_DARK_SRC,
+  FUNNEL_THINKING_LOGO_LIGHT_SRC,
+} from '@/components/landing/funnel-demos/funnel-demo-assets';
 import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
 import {
@@ -151,30 +154,18 @@ function TypewriterText({
 
 function TypingIndicator() {
   const { theme } = useTheme();
-
-  if (theme === 'dark') {
-    return (
-      <div className="flex items-start chat-hero-message-enter">
-        <ZThinkingLoopAnimation size={48} className="h-12 w-12 shrink-0" aria-label="Thinking" />
-      </div>
-    );
-  }
-
-  const logoSrc = siteLogoSrcForTheme(theme);
+  const thinkingSrc =
+    theme === 'dark' ? FUNNEL_THINKING_LOGO_DARK_SRC : FUNNEL_THINKING_LOGO_LIGHT_SRC;
 
   return (
-    <div className="flex items-center gap-3 chat-hero-message-enter">
+    <div className="flex items-start chat-hero-message-enter">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={logoSrc} alt="" className="h-7 w-7 shrink-0 object-contain bg-transparent" />
-      <div className="flex items-center gap-1.5 py-1">
-        {[0, 1, 2].map((i) => (
-          <span
-            key={i}
-            className="chat-hero-typing-dot h-2 w-2 rounded-full bg-[var(--chat-hero-muted)]"
-            style={{ animationDelay: `${i * 200}ms` }}
-          />
-        ))}
-      </div>
+      <img
+        src={thinkingSrc}
+        alt=""
+        className="h-12 w-12 shrink-0 object-contain"
+        aria-label="Thinking"
+      />
     </div>
   );
 }

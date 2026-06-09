@@ -1,6 +1,10 @@
 export const FUNNEL_DEMO_POST_VIDEO_SRC = '/funnel-demo-post-video.png';
 export const FUNNEL_DEMO_BRAINSTORM_WINNER_SRC = '/funnel-demo-brainstorm-winner.png';
 
+/** Funnel ChatHero AI thinking indicators (theme-specific). */
+export const FUNNEL_THINKING_LOGO_DARK_SRC = '/funnel-thinking-dark.png';
+export const FUNNEL_THINKING_LOGO_LIGHT_SRC = '/funnel-thinking-light.png';
+
 /** Logo dot lime green (matches izop-z-thinking__dot). */
 export const BRAND_LIME_DOT = '#aaff45';
 
