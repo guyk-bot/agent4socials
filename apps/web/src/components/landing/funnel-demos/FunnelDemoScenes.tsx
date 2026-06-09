@@ -81,7 +81,6 @@ const COMMENT_DRAFTS = [
   { name: 'Alex Kim', avatar: 'AK', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.alex, colorClass: 'bg-sky-500', text: 'Where can I buy this? Ship to Canada?', replyText: 'Yes! Link in bio ships worldwide, including Canada.', replyPlatform: 'instagram' as const },
   { name: 'Priya Sharma', avatar: 'PS', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.priya, colorClass: 'bg-amber-500', text: 'Can you share the template from the video?', replyText: 'Absolutely. I will DM you the template right after this goes live.', replyPlatform: 'youtube' as const },
   { name: 'Daniel Frost', avatar: 'DF', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.daniel, colorClass: 'bg-amber-500', text: 'This hook is fire. Saving for later.', replyText: 'Appreciate you, Daniel! Full breakdown is in the pinned comment.', replyPlatform: 'instagram' as const },
-  { name: 'Lina Park', avatar: 'LP', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.lina, colorClass: 'bg-rose-500', text: 'Subbed after this Short. More like this?', replyText: 'Yes! Part 2 drops tomorrow on the same topic.', replyPlatform: 'youtube' as const },
 ];
 
 function DemoSceneScroll({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -98,7 +97,11 @@ export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
   return (
     <>
       <div className="flex w-full flex-col items-end gap-1.5">
-        <ChatAttachmentReel src={FUNNEL_DEMO_POST_VIDEO_SRC} alt="Parkour reel vertical video" />
+        <ChatAttachmentReel
+          src={FUNNEL_DEMO_POST_VIDEO_SRC}
+          alt="Parkour reel vertical video"
+          compactSchedule
+        />
         <FunnelDemoUserBubble show visual={false}>
           {USER_SCHEDULE}
         </FunnelDemoUserBubble>
@@ -115,6 +118,7 @@ export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
         />
       </FunnelDemoAssistantBubble>
       <FunnelDemoAllowBar
+        prominent
         compact
         message="Reel scheduled for 9:30 AM on all three platforms. Allow me to confirm?"
       />
@@ -149,11 +153,12 @@ export function FunnelDemoSceneComments({ progress }: { progress: number }) {
             />
           ))}
         </ul>
-        <p className="mt-1.5 text-[10px] text-neutral-500 dark:text-neutral-400">
-          + 8 more replies ready in the same voice.
-        </p>
-        <FunnelDemoAllowBar primaryLabel="Send" message="Would you like me to send these 14 replies?" />
       </FunnelDemoAssistantBubble>
+      <FunnelDemoAllowBar
+        prominent
+        primaryLabel="Send"
+        message="Would you like me to send these 14 replies?"
+      />
     </DemoSceneScroll>
   );
 }
@@ -242,11 +247,11 @@ export function FunnelDemoSceneAdsRoas({ progress }: { progress: number }) {
           </div>
           <AdsPerformanceChart show />
           <AdsTopCreativesCandleChart />
-          <p className="text-[11px] text-neutral-700 dark:text-neutral-300 leading-snug">
+          <p className="text-[12px] leading-snug text-neutral-700 dark:text-neutral-300">
             TikTok leads on ROAS (4.17x) with the lowest CPA. Task Complete is your top creative at 4.82x.
           </p>
           <FunnelDemoAllowBar
-            compact
+            prominent
             showRegenerate={false}
             message="Want a weekly ROAS snapshot emailed when cross-platform ads tracking launches?"
           />
@@ -278,8 +283,11 @@ export function FunnelDemoSceneReports({ progress }: { progress: number }) {
       <FunnelDemoUserBubble show>{USER_REPORTS}</FunnelDemoUserBubble>
       <FunnelDemoAssistantBubble show visual wide contained>
         <AnalyticsReportPreview show progress={1} />
-        <FunnelDemoAllowBar message="Allow me to generate and download the full PDF report now?" />
       </FunnelDemoAssistantBubble>
+      <FunnelDemoAllowBar
+        prominent
+        message="Allow me to generate and download the full PDF report now?"
+      />
     </DemoSceneScroll>
   );
 }

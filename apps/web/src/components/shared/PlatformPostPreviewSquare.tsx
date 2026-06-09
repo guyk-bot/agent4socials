@@ -141,7 +141,7 @@ export function PlatformPostPreviewSquare({
 
   const mediaFrameClass = (() => {
     if (isShorts && scheduleDemo) {
-      return 'relative mx-auto w-full min-h-[96px] flex-1 aspect-[9/16] overflow-hidden bg-neutral-100 dark:bg-neutral-900';
+      return 'relative mx-auto w-full min-h-[88px] flex-1 aspect-[9/16] overflow-hidden bg-neutral-100 dark:bg-neutral-900';
     }
     if (isShorts) {
       return compact
@@ -169,7 +169,7 @@ export function PlatformPostPreviewSquare({
   return (
     <div
       className={`flex min-w-0 flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-950 ${
-        scheduleDemo ? 'h-full min-h-[168px]' : ''
+        scheduleDemo ? 'h-full min-h-[148px]' : ''
       }`}
     >
       <div

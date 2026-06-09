@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, FileText, Play, Users } from 'lucide-react';
+import { CheckCircle2, Play, Users } from 'lucide-react';
 import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, XAxis, YAxis, PieChart, Pie, Cell } from 'recharts';
 import { YoutubeIcon, InstagramIcon } from '@/components/SocialPlatformIcons';
 
@@ -135,6 +135,8 @@ const USER_ATTACH_FRAME = 'ml-auto aspect-[3/4] w-full max-w-[52%]';
 
 /** Vertical Reel / Shorts attachment in chat (1080×1920, 9:16). */
 const USER_REEL_ATTACH_FRAME = 'ml-auto aspect-[9/16] w-full max-w-[38%]';
+/** Slightly smaller reel in schedule demo so Allow/Regenerate stay visible. */
+export const USER_REEL_ATTACH_FRAME_COMPACT = 'ml-auto aspect-[9/16] w-full max-w-[30%] max-h-[118px]';
 
 /** Thin border on the image only (not the purple chat bubble). */
 export function ChatAttachmentImage({
@@ -166,14 +168,17 @@ export function ChatAttachmentReel({
   src,
   alt,
   className = '',
+  compactSchedule = false,
 }: {
   src: string;
   alt: string;
   className?: string;
+  compactSchedule?: boolean;
 }) {
+  const frame = compactSchedule ? USER_REEL_ATTACH_FRAME_COMPACT : USER_REEL_ATTACH_FRAME;
   return (
     <div
-      className={`relative overflow-hidden rounded-md border border-white/25 ${USER_REEL_ATTACH_FRAME} ${className}`}
+      className={`relative overflow-hidden rounded-md border border-white/25 ${frame} ${className}`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -603,7 +608,7 @@ function IgPostsHoverPopup({
       className="funnel-demo-ig-post-popup absolute z-30 rounded-xl border border-neutral-200 bg-white p-2.5 shadow-xl dark:border-neutral-700 dark:bg-neutral-950"
       style={style}
     >
-      <p className="mb-2 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">{day} · {postIndices.length} post{postIndices.length > 1 ? 's' : ''}</p>
+      <p className="mb-2 text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">{day} · {postIndices.length} post{postIndices.length > 1 ? 's' : ''}</p>
       <div className="flex gap-2">
         {postIndices.map((idx) => {
           const post = FUNNEL_DEMO_IG_WEEK_POSTS[idx];
@@ -612,10 +617,10 @@ function IgPostsHoverPopup({
               <div className="aspect-[3/4] overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700">
                 <IgPostThumb postIndex={idx} showPlay={showPlay} className="h-full w-full" />
               </div>
-              <p className="mt-1 text-[9px] font-medium text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">
+              <p className="mt-1 text-[10px] font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">
                 {post.label}
               </p>
-              <p className="text-[8px] text-neutral-500">{post.views} views · {post.likes} likes</p>
+              <p className="text-[10px] font-medium text-neutral-600 dark:text-neutral-400">{post.views} views · {post.likes} likes</p>
             </div>
           );
         })}
@@ -641,6 +646,14 @@ function IgPostPerformanceChart({
 
   const activePoint = points.find((p) => p.day === activeDay);
 
+  const linePointCoords = points
+    .filter((p) => p.postIndices.length > 0)
+    .map((p) => {
+      const yPct = p.score === 0 ? 92 : 8 + (1 - p.score / maxScore) * 78;
+      return `${p.xPct},${yPct}`;
+    })
+    .join(' ');
+
   const popupForPoint = (p: (typeof points)[number]) => {
     if (p.xPct <= 14) {
       return { left: 0, transform: 'translateX(0)' as const };
@@ -663,8 +676,12 @@ function IgPostPerformanceChart({
               <div className="aspect-[3/4] w-[72px]">
                 <IgPostThumb postIndex={activePoint.postIndex} showPlay className="h-full w-full" />
               </div>
-              <p className="px-1.5 py-1 text-[9px] font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">
+              <p className="px-1.5 py-1 text-[10px] font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">
                 {FUNNEL_DEMO_IG_WEEK_POSTS[activePoint.postIndex]?.label}
+              </p>
+              <p className="px-1.5 pb-1 text-[10px] font-medium text-neutral-600 dark:text-neutral-400">
+                {FUNNEL_DEMO_IG_WEEK_POSTS[activePoint.postIndex]?.views} views ·{' '}
+                {FUNNEL_DEMO_IG_WEEK_POSTS[activePoint.postIndex]?.likes} likes
               </p>
             </div>
           </div>
@@ -674,6 +691,17 @@ function IgPostPerformanceChart({
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
         >
+          {linePointCoords ? (
+            <polyline
+              points={linePointCoords}
+              fill="none"
+              stroke="#7C3AED"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          ) : null}
           {points.map((p) => {
             const yPct = p.score === 0 ? 92 : 8 + (1 - p.score / maxScore) * 78;
             const hasPost = p.postIndices.length > 0;
@@ -775,8 +803,8 @@ function IgPostsWeekBarChart({
   const maxPosts = Math.max(...IG_WEEK_BY_DAY.map((d) => d.posts), 1);
 
   return (
-    <div className="relative h-[60px] w-full overflow-hidden">
-      <div className="flex h-full items-end justify-between gap-1 px-0.5">
+    <div className="relative min-h-[108px] w-full overflow-visible pt-14">
+      <div className="flex h-[60px] items-end justify-between gap-1 px-0.5">
         {IG_WEEK_BY_DAY.map((row, i) => {
           const heightPct = row.posts === 0 ? 8 : Math.max(18, (row.posts / maxPosts) * 100);
           const isActive = activeDay === row.day;
@@ -838,7 +866,7 @@ export function InstagramWeeklyAnalyticsPanel() {
       </div>
 
       <div
-        className="relative overflow-hidden px-2 py-1.5 border-b border-neutral-100 dark:border-neutral-800"
+        className="relative overflow-visible px-2 py-1.5 border-b border-neutral-100 dark:border-neutral-800"
         onMouseLeave={() => setActiveLineDay(null)}
       >
         <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">
@@ -848,7 +876,7 @@ export function InstagramWeeklyAnalyticsPanel() {
       </div>
 
       <div className="grid grid-cols-2 gap-2 p-2 border-b border-neutral-100 dark:border-neutral-800">
-        <div className="relative overflow-hidden">
+        <div className="relative overflow-visible">
           <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">
             Posts last 7 days
           </p>
@@ -876,8 +904,8 @@ export function InstagramWeeklyAnalyticsPanel() {
                   <img src={post.src} alt={post.label} className="h-full w-full object-cover" draggable={false} />
                   <DemoReelPlayOverlay show={post.format === 'reel'} onHover />
                 </div>
-                <p className="text-[9px] font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">{post.label}</p>
-                <p className="mt-0.5 text-[8px] text-neutral-500">{post.views} views · {post.likes} likes</p>
+                <p className="text-[10px] font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">{post.label}</p>
+                <p className="mt-0.5 text-[10px] font-medium text-neutral-600 dark:text-neutral-400">{post.views} views · {post.likes} likes</p>
               </div>
             </div>
           ))}
@@ -1214,7 +1242,6 @@ export function TeamMembersPanel({ show, progress = 1 }: { show: boolean; progre
 
 export function AnalyticsReportPreview({ show, progress = 1 }: { show: boolean; progress?: number }) {
   if (!show) return null;
-  const showDownload = progress > 0.55 || progress >= 1;
 
   const platformRows = [
     { platform: 'Instagram', followers: '14.8K', views: '412K', eng: '6.2%', posts: 38 },
@@ -1313,29 +1340,6 @@ export function AnalyticsReportPreview({ show, progress = 1 }: { show: boolean; 
           ))}
         </div>
       </div>
-
-      <div className="grid grid-cols-2 gap-1.5">
-        {[
-          { title: 'Simplified report', sub: 'PDF · 4 pages' },
-          { title: 'Detailed report', sub: 'PDF · 12 pages' },
-        ].map((card, i) => (
-          <div
-            key={card.title}
-            className={`rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 ${
-              progress > 0.32 + i * 0.12 || progress >= 1 ? 'opacity-100' : 'opacity-40'
-            }`}
-          >
-            <FileText size={15} className="text-[#7C3AED] mb-0.5" />
-            <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 leading-snug">{card.title}</p>
-            <p className="text-[9px] text-neutral-500">{card.sub}</p>
-          </div>
-        ))}
-      </div>
-      {showDownload ? (
-        <p className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--primary)]">
-          <CheckCircle2 size={12} /> analytics-report-mar.pdf ready
-        </p>
-      ) : null}
     </div>
   );
 }

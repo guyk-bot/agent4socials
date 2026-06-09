@@ -10,6 +10,7 @@ export function FunnelDemoAllowBar({
   approvedLabel = 'Allowed',
   showRegenerate = true,
   compact = false,
+  prominent = false,
   primaryLabel = 'Allow',
 }: {
   message: string;
@@ -18,6 +19,7 @@ export function FunnelDemoAllowBar({
   approvedLabel?: string;
   showRegenerate?: boolean;
   compact?: boolean;
+  prominent?: boolean;
   primaryLabel?: string;
 }) {
   if (approved) {
@@ -35,21 +37,31 @@ export function FunnelDemoAllowBar({
         compact ? 'mt-1 px-2 py-1.5' : 'mt-2 px-2 py-2'
       }`}
     >
-      <p className="text-[10px] leading-snug text-neutral-800 dark:text-neutral-200">{message}</p>
+      <p
+        className={`leading-snug text-neutral-800 dark:text-neutral-200 ${
+          prominent ? 'text-[11px]' : 'text-[10px]'
+        }`}
+      >
+        {message}
+      </p>
       {!compact ? <p className="text-[9px] text-neutral-500 dark:text-neutral-400">{hint}</p> : null}
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          className="inline-flex items-center rounded-lg bg-[#7C3AED] px-3 py-1.5 text-[10px] font-semibold text-white shadow-sm hover:bg-[#6D28D9]"
+          className={`inline-flex items-center rounded-lg bg-[#7C3AED] font-bold text-white shadow-md hover:bg-[#6D28D9] ${
+            prominent ? 'px-4 py-2 text-[12px]' : 'px-3 py-1.5 text-[10px] font-semibold shadow-sm'
+          }`}
         >
           {primaryLabel}
         </button>
         {showRegenerate ? (
           <button
             type="button"
-            className="btn-funnel-lime-cta inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-[10px] font-semibold"
+            className={`btn-funnel-lime-cta inline-flex items-center gap-1 rounded-lg font-bold ${
+              prominent ? 'px-4 py-2 text-[12px]' : 'px-3 py-1.5 text-[10px] font-semibold'
+            }`}
           >
-            <RefreshCw size={11} />
+            <RefreshCw size={prominent ? 13 : 11} />
             Regenerate
           </button>
         ) : null}
