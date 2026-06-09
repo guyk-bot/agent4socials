@@ -66,7 +66,7 @@ export default function SiteHeader() {
             <button
               type="button"
               onClick={openSignup}
-              className="rounded-full gradient-cta-pro px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(124,58,237,0.28)] transition-all hover:scale-[1.02]"
+              className="rounded-full btn-funnel-lime-cta px-5 py-2.5 text-sm font-semibold"
             >
               Try for free
             </button>
@@ -83,7 +83,7 @@ export default function SiteHeader() {
             <button
               type="button"
               onClick={openSignup}
-              className="rounded-full gradient-cta-pro px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(124,58,237,0.26)]"
+              className="rounded-full btn-funnel-lime-cta px-4 py-2 text-sm font-semibold"
             >
               Try for free
             </button>
@@ -127,7 +127,7 @@ export default function SiteHeader() {
             <button
               type="button"
               onClick={() => { setMobileOpen(false); openSignup(); }}
-              className="mt-2 mx-3 py-3 rounded-full gradient-cta-pro text-center font-semibold text-white w-full shadow-[0_10px_22px_rgba(124,58,237,0.26)]"
+              className="btn-funnel-lime-cta mx-3 mt-2 w-full rounded-full py-3 text-center font-semibold"
             >
               Try for free
             </button>

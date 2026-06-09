@@ -91,9 +91,9 @@ export function DemoImage({
   );
 }
 
-/** Portrait frame: 3:4, fills card without crowding text below. */
+/** Portrait frame: 3:4, larger preview for schedule demo. */
 const USER_ATTACH_FRAME =
-  'ml-auto aspect-[3/4] w-full max-w-[86%] max-h-[156px]';
+  'ml-auto aspect-[3/4] w-full max-w-[96%] max-h-[228px]';
 
 /** Thin border on the image only (not the purple chat bubble). */
 export function ChatAttachmentImage({

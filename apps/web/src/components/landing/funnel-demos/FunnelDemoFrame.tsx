@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { BRAND_LIME_DOT } from './funnel-demo-assets';
 
 /** Scene progress after headline intro (first ~22% of card timeline). */
 export function funnelDemoContentProgress(progress: number): number {
@@ -27,24 +26,21 @@ export function FunnelDemoFrame({
 
   return (
     <div
-      className={`funnel-demo-card pointer-events-auto flex h-full min-h-0 w-full max-w-[400px] 2xl:max-w-[440px] flex-col overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800 bg-[var(--bg-primary)] shadow-lg transition-opacity duration-300 ${
+      className={`funnel-demo-card pointer-events-auto flex h-full min-h-0 w-full max-w-[400px] 2xl:max-w-[440px] flex-col overflow-hidden rounded-xl border-2 border-neutral-200 bg-[var(--bg-primary)] shadow-md transition-opacity duration-300 dark:border-neutral-700 ${
         visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
       } ${entering && visible ? 'funnel-demo-card-enter' : ''}`}
       aria-hidden={!visible}
     >
-      <div
-        className="flex shrink-0 items-center overflow-hidden border-b border-black/10 px-3 py-3"
-        style={{ backgroundColor: BRAND_LIME_DOT }}
-      >
+      <div className="shrink-0 px-3 pt-3 pb-2">
         <span
-          className={`text-base sm:text-lg font-black tracking-tight leading-snug text-[#0a0a0a] dark:text-[#0a0a0a] ${
+          className={`block text-base font-black leading-snug tracking-tight text-neutral-900 dark:text-neutral-100 sm:text-lg ${
             titleReady ? 'funnel-demo-title-pop' : 'opacity-0'
           }`}
         >
           {title}
         </span>
       </div>
-      <div className="min-h-0 flex-1 overflow-hidden px-2.5 py-2.5 bg-[var(--bg-primary)]">
+      <div className="min-h-0 flex-1 overflow-hidden px-2.5 pb-2.5 bg-[var(--bg-primary)]">
         <div
           className={`flex min-h-0 flex-col gap-2 overflow-hidden transition-opacity duration-300 ${
             contentVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
