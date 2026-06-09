@@ -14,12 +14,8 @@ import {
   XTwitterIcon,
   YoutubeIcon,
 } from '@/components/SocialPlatformIcons';
-import { SITE_LOGO_SRC, siteLogoSrcForTheme } from '@/lib/site-brand-assets';
 import { useTheme } from '@/context/ThemeContext';
-import {
-  FUNNEL_THINKING_LOGO_DARK_SRC,
-  FUNNEL_THINKING_LOGO_LIGHT_SRC,
-} from '@/components/landing/funnel-demos/funnel-demo-assets';
+import { funnelAiMessageLogoSrc } from '@/components/landing/funnel-demos/funnel-demo-assets';
 import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
 import {
@@ -152,20 +148,23 @@ function TypewriterText({
   );
 }
 
-function TypingIndicator() {
+function FunnelAiMessageAvatar({ className }: { className?: string }) {
   const { theme } = useTheme();
-  const thinkingSrc =
-    theme === 'dark' ? FUNNEL_THINKING_LOGO_DARK_SRC : FUNNEL_THINKING_LOGO_LIGHT_SRC;
-
   return (
-    <div className="flex items-start chat-hero-message-enter">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={thinkingSrc}
-        alt=""
-        className="h-12 w-12 shrink-0 object-contain"
-        aria-label="Thinking"
-      />
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={funnelAiMessageLogoSrc(theme)}
+      alt=""
+      className={className ?? 'h-8 w-8 sm:h-9 sm:w-9 shrink-0 object-contain'}
+      aria-hidden
+    />
+  );
+}
+
+function TypingIndicator() {
+  return (
+    <div className="flex items-start gap-3 chat-hero-message-enter" aria-label="Thinking">
+      <FunnelAiMessageAvatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 object-contain mt-0.5" />
     </div>
   );
 }
@@ -177,8 +176,6 @@ function OpeningAiMessage({
   typewriterActive?: boolean;
   onTypewriterComplete?: () => void;
 }) {
-  const { theme } = useTheme();
-  const logoSrc = siteLogoSrcForTheme(theme);
   const [displayed, setDisplayed] = useState('');
   const doneRef = useRef(false);
 
@@ -231,12 +228,7 @@ function OpeningAiMessage({
 
   return (
     <div className="flex items-start gap-3 chat-hero-message-enter mt-5 sm:mt-7">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={logoSrc}
-        alt=""
-        className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 object-contain bg-transparent mt-1"
-      />
+      <FunnelAiMessageAvatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 object-contain mt-1" />
       <div className="flex-1 min-w-0 text-[var(--chat-hero-text)]">
         {rows.map((row, index) => {
           if (!row.text && !(showCursor && index === activeLine)) return null;
@@ -265,17 +257,9 @@ function AiMessage({
   typewriterActive?: boolean;
   onTypewriterComplete?: () => void;
 }) {
-  const { theme } = useTheme();
-  const logoSrc = siteLogoSrcForTheme(theme);
-
   return (
     <div className="flex items-start gap-3 chat-hero-message-enter">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={logoSrc}
-        alt=""
-        className="h-7 w-7 shrink-0 object-contain bg-transparent mt-0.5"
-      />
+      <FunnelAiMessageAvatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 object-contain mt-0.5" />
       <p className="text-[16px] leading-[1.6] text-[var(--chat-hero-text)] whitespace-pre-line flex-1 min-w-0">
         {typewriter ? (
           <TypewriterText text={text} active={!!typewriterActive} onComplete={onTypewriterComplete} />
