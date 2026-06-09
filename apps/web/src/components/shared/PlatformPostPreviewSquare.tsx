@@ -2,6 +2,9 @@
 
 import React from 'react';
 
+/** Portrait post frame used across funnel schedule previews (3:4). */
+export const PORTRAIT_POST_ASPECT = 'aspect-[3/4]';
+
 export type PlatformPostPreview = {
   platformLabel: string;
   accentClass: string;
@@ -17,19 +20,19 @@ export function PlatformPostPreviewSquare({ preview }: { preview: PlatformPostPr
         {preview.platformLabel}
       </div>
       {preview.imageSrc ? (
-        <div className="aspect-square w-full overflow-hidden bg-neutral-100 dark:bg-neutral-900">
+        <div className={`${PORTRAIT_POST_ASPECT} w-full overflow-hidden bg-neutral-100 dark:bg-neutral-900`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={preview.imageSrc}
             alt={preview.imageAlt ?? preview.platformLabel}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover object-center"
             draggable={false}
           />
         </div>
       ) : (
-        <div className="aspect-square w-full bg-neutral-50 dark:bg-neutral-900" />
+        <div className={`${PORTRAIT_POST_ASPECT} w-full bg-neutral-50 dark:bg-neutral-900`} />
       )}
-      <p className="line-clamp-3 px-2 py-1.5 text-[9px] leading-snug text-neutral-700 dark:text-neutral-300">
+      <p className="px-2 py-1.5 text-[9px] leading-snug text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">
         {preview.caption}
       </p>
     </div>

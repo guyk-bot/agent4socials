@@ -13,10 +13,10 @@ import {
 } from './funnel-demo-assets';
 import {
   AdsPerformanceChart,
-  AnalyticsChart,
   AnalyticsReportPreview,
   ChatAttachmentImage,
   CommentRow,
+  InstagramWeeklyAnalyticsPanel,
   LeadsSpreadsheet,
   TeamMembersPanel,
   YouTubeVideoPreview,
@@ -24,7 +24,7 @@ import {
 
 const USER_SCHEDULE = 'Post this on Instagram, X, Facebook at 9:30.';
 const USER_REPLY = 'Reply to comments on my last post in my brand voice.';
-const USER_ANALYTICS = 'Show my weekly analytics: views, engagement, and followers.';
+const USER_ANALYTICS = 'Show me weekly analytics for Instagram.';
 const USER_LEADS = 'Send me a spreadsheet of leads from comments with AI DM suggestions.';
 const USER_BRAINSTORM = 'Brainstorm new ideas based on my best YouTube video.';
 const USER_ADS = 'Compare Google, Meta, and TikTok ad ROAS side by side.';
@@ -35,23 +35,26 @@ const SCHEDULE_PREVIEWS = [
   {
     platformLabel: 'Instagram',
     accentClass: 'bg-gradient-to-r from-[#E1306C] to-[#FCAF45]',
-    caption: 'Morning savings tip: 3 hooks that 10X my savings. Which one would you try first?',
+    caption:
+      'City flow at dawn. Precision jumps, core control, zero fear. @levitate.crew trains parkour the smart way. Who is hitting a line this week? #Parkour #UrbanAthlete',
     imageSrc: FUNNEL_DEMO_POST_VIDEO_SRC,
-    imageAlt: 'Instagram post preview',
+    imageAlt: 'Parkour athlete training on a city ledge',
   },
   {
     platformLabel: 'X',
     accentClass: 'bg-neutral-900',
-    caption: '3 hooks that 10X my savings. Thread-worthy tip inside.',
+    caption:
+      'New line. Same discipline. Parkour is not reckless, it is calculated movement. Watch the full sequence.',
     imageSrc: FUNNEL_DEMO_POST_VIDEO_SRC,
-    imageAlt: 'X post preview',
+    imageAlt: 'Parkour athlete post preview for X',
   },
   {
     platformLabel: 'Facebook',
     accentClass: 'bg-[#1877F2]',
-    caption: 'Quick savings win: 3 hooks that helped me 10X what I put away this month.',
+    caption:
+      'From ledge to launch: how we train explosive control without a gym. Full breakdown in comments. Built for athletes who move differently.',
     imageSrc: FUNNEL_DEMO_POST_VIDEO_SRC,
-    imageAlt: 'Facebook post preview',
+    imageAlt: 'Parkour athlete post preview for Facebook',
   },
 ];
 
@@ -100,7 +103,7 @@ export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
   return (
     <DemoSceneScroll>
       <div className="flex w-full flex-col items-end gap-1.5">
-        <ChatAttachmentImage src={FUNNEL_DEMO_POST_VIDEO_SRC} alt="Post media" />
+        <ChatAttachmentImage src={FUNNEL_DEMO_POST_VIDEO_SRC} alt="Parkour athlete training on a city ledge" />
         <FunnelDemoUserBubble show visual={false}>
           {USER_SCHEDULE}
         </FunnelDemoUserBubble>
@@ -112,7 +115,7 @@ export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
         <PlatformPostPreviewGrid previews={SCHEDULE_PREVIEWS} />
         <div className="mt-2 space-y-1">
           <p className="text-[10px] text-neutral-700 dark:text-neutral-300 leading-snug">
-            Caption added for each platform with your brand voice and a clear CTA.
+            Captions match your parkour influencer style: movement, discipline, and a clear CTA on each platform.
           </p>
           <FunnelDemoScheduledChip
             timeLabel="9:30 AM"
@@ -167,15 +170,16 @@ export function FunnelDemoSceneAnalytics({ progress }: { progress: number }) {
       <FunnelDemoUserBubble show>{USER_ANALYTICS}</FunnelDemoUserBubble>
       <FunnelDemoAssistantBubble show visual wide contained>
         <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
-          Last 7 days across connected accounts:
+          Instagram weekly snapshot:
         </p>
-        <AnalyticsChart show />
+        <InstagramWeeklyAnalyticsPanel />
         <p className="mt-2 text-[10px] text-neutral-700 dark:text-neutral-300 leading-snug">
-          Views up 18%, engagement up 12%, followers net +136. Instagram Reels drove most of the lift.
+          Views up 18%, engagement up 12%, followers net +135. Reels drove most of the lift this week.
         </p>
         <FunnelDemoAllowBar
           message="Want me to pin this report to your Console and email a PDF every Monday?"
           approvedLabel="Weekly report enabled"
+          showRegenerate={false}
         />
       </FunnelDemoAssistantBubble>
     </DemoSceneScroll>

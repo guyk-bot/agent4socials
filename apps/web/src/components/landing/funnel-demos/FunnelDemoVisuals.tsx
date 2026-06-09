@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, FileText, Play, Users } from 'lucide-react';
-import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, XAxis, YAxis } from 'recharts';
+import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, XAxis, YAxis, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { YoutubeIcon } from '@/components/SocialPlatformIcons';
 
-import { BRAND_LIME_DOT, FUNNEL_ANALYTICS_KPIS } from './funnel-demo-assets';
+import { BRAND_LIME_DOT, FUNNEL_ANALYTICS_KPIS, FUNNEL_DEMO_POST_VIDEO_SRC } from './funnel-demo-assets';
 
 const BRAND = {
   primary: '#7C3AED',
@@ -91,9 +91,8 @@ export function DemoImage({
   );
 }
 
-/** Portrait frame: 3:4, larger preview for schedule demo. */
-const USER_ATTACH_FRAME =
-  'ml-auto aspect-[3/4] w-full max-w-[96%] max-h-[228px]';
+/** Portrait frame: 3:4 for schedule demo attachments. */
+const USER_ATTACH_FRAME = 'ml-auto aspect-[3/4] w-full max-w-[72%]';
 
 /** Thin border on the image only (not the purple chat bubble). */
 export function ChatAttachmentImage({
@@ -368,6 +367,187 @@ export function AnalyticsChart({ show }: { show: boolean }) {
               />
             </ComposedChart>
           </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const IG_WEEKLY_LINE = [
+  { day: 'Mon', followers: 14_712, views: 1920, engagement: 94 },
+  { day: 'Tue', followers: 14_728, views: 2100, engagement: 108 },
+  { day: 'Wed', followers: 14_701, views: 1680, engagement: 82 },
+  { day: 'Thu', followers: 14_734, views: 2380, engagement: 121 },
+  { day: 'Fri', followers: 14_768, views: 2240, engagement: 115 },
+  { day: 'Sat', followers: 14_809, views: 2510, engagement: 134 },
+  { day: 'Sun', followers: 14_847, views: 1872, engagement: 98 },
+];
+
+const IG_POSTS_LAST_WEEK = [
+  { day: 'Mon', posts: 1 },
+  { day: 'Tue', posts: 0 },
+  { day: 'Wed', posts: 2 },
+  { day: 'Thu', posts: 1 },
+  { day: 'Fri', posts: 1 },
+  { day: 'Sat', posts: 2 },
+  { day: 'Sun', posts: 1 },
+];
+
+const IG_FORMAT_MIX = [
+  { name: 'Reels', value: 42, color: '#7C3AED' },
+  { name: 'Images', value: 35, color: '#2563eb' },
+  { name: 'Carousels', value: 23, color: '#059669' },
+];
+
+const IG_ANALYTICS_KPIS = {
+  followers: 14_847,
+  followersGain: 135,
+  views: 18_432,
+  engagement: 937,
+};
+
+/** Instagram weekly analytics with hover line chart, posts bar chart, format pie, best post. */
+export function InstagramWeeklyAnalyticsPanel() {
+  const [hovered, setHovered] = useState(false);
+  const { followers, followersGain, views, engagement } = IG_ANALYTICS_KPIS;
+
+  return (
+    <div
+      className="rounded-2xl border border-neutral-100 bg-white dark:bg-neutral-900 dark:border-neutral-800 shadow-md overflow-hidden"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div className="grid grid-cols-3 gap-1.5 p-2 border-b border-neutral-100 dark:border-neutral-800">
+        <MiniKpiCard label="Followers" value={formatKpiNumber(followers)} trend={`+${followersGain}`} tint="violet" />
+        <MiniKpiCard label="Views" value={formatKpiNumber(views)} tint="blue" />
+        <MiniKpiCard label="Engagement" value={formatKpiNumber(engagement)} tint="emerald" />
+      </div>
+
+      <div className="px-2 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+        <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
+          Weekly trend {hovered ? '' : '(hover to see lines)'}
+        </p>
+        <div className="h-[72px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={IG_WEEKLY_LINE} margin={{ top: 4, right: 2, left: -16, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={BRAND.grid} vertical={false} />
+              <XAxis dataKey="day" tick={{ fontSize: 8, fill: '#737373' }} axisLine={false} tickLine={false} />
+              <YAxis hide domain={['dataMin - 20', 'dataMax + 20']} />
+              {hovered ? (
+                <>
+                  <Line
+                    type="monotone"
+                    dataKey="followers"
+                    stroke={BRAND.primary}
+                    strokeWidth={2}
+                    dot={{ r: 2, fill: BRAND.primary, strokeWidth: 0 }}
+                    isAnimationActive={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="views"
+                    stroke="#2563eb"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 3"
+                    dot={{ r: 1.5, fill: '#2563eb', strokeWidth: 0 }}
+                    isAnimationActive={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="engagement"
+                    stroke="#059669"
+                    strokeWidth={1.5}
+                    dot={{ r: 1.5, fill: '#059669', strokeWidth: 0 }}
+                    isAnimationActive={false}
+                  />
+                </>
+              ) : (
+                <Line type="monotone" dataKey="followers" stroke="transparent" dot={false} />
+              )}
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+        {hovered ? (
+          <div className="mt-0.5 flex flex-wrap gap-2 text-[8px] text-neutral-500">
+            <span className="inline-flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#7C3AED]" /> Followers
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-600" /> Views
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" /> Engagement
+            </span>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 p-2 border-b border-neutral-100 dark:border-neutral-800">
+        <div>
+          <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">Posts last 7 days</p>
+          <div className="h-[52px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={IG_POSTS_LAST_WEEK} margin={{ top: 2, right: 0, left: -22, bottom: 0 }}>
+                <XAxis dataKey="day" tick={{ fontSize: 7, fill: '#737373' }} axisLine={false} tickLine={false} />
+                <YAxis hide allowDecimals={false} />
+                <Bar dataKey="posts" fill={BRAND.primary} radius={[2, 2, 0, 0]} isAnimationActive={false} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        <div>
+          <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">Post formats</p>
+          <div className="h-[52px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={IG_FORMAT_MIX}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={12}
+                  outerRadius={22}
+                  paddingAngle={2}
+                  isAnimationActive={false}
+                >
+                  {IG_FORMAT_MIX.map((entry) => (
+                    <Cell key={entry.name} fill={entry.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex flex-wrap gap-x-1.5 gap-y-0.5 text-[7px] text-neutral-500">
+            {IG_FORMAT_MIX.map((f) => (
+              <span key={f.name} className="inline-flex items-center gap-0.5">
+                <span className="h-1 w-1 rounded-full" style={{ backgroundColor: f.color }} />
+                {f.name} {f.value}%
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="p-2">
+        <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1">Best post this week</p>
+        <div className="flex gap-2">
+          <div className="aspect-[3/4] w-[56px] shrink-0 overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={FUNNEL_DEMO_POST_VIDEO_SRC}
+              alt="Best performing parkour post"
+              className="h-full w-full object-cover object-center"
+              draggable={false}
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[9px] font-semibold text-neutral-900 dark:text-neutral-100">Precision line at sunrise</p>
+            <p className="mt-0.5 text-[8px] leading-snug text-neutral-600 dark:text-neutral-400">
+              4.2K likes · 318 comments · 89K views. Your parkour Reel outperformed carousels by 2.1x.
+            </p>
+            <p className="mt-1 text-[8px] text-neutral-500">Photo post · no audio</p>
+          </div>
         </div>
       </div>
     </div>
