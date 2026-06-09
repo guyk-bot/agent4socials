@@ -151,6 +151,9 @@ function TypewriterText({
 const OPENING_PRIMARY =
   'block text-[22px] sm:text-[26px] lg:text-[28px] tracking-[-0.03em] leading-[1.15]';
 
+const OPENING_HEADLINE_SIZE =
+  'block text-[24px] sm:text-[28px] lg:text-[32px] tracking-[-0.04em] leading-[1.1]';
+
 /** White mark on black — circle size fixed; mark slightly inset inside. */
 const FUNNEL_AI_AVATAR_BOX = 'h-9 w-9 shrink-0';
 
@@ -225,7 +228,7 @@ function OpeningAiMessage({
     {
       key: 'headline',
       text: headline,
-      className: `${OPENING_PRIMARY} font-black mt-1 sm:mt-1.5 [font-weight:950] text-[#7C3AED] dark:text-[#A78BFA]`,
+      className: `${OPENING_HEADLINE_SIZE} chat-hero-opening-headline-bold mt-1 sm:mt-1.5`,
     },
     {
       key: 'body',
