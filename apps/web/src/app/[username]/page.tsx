@@ -5,6 +5,7 @@ import { LinkPageRenderer } from '@/components/smart-links/LinkPageRenderer';
 import type { LinkPageDesign } from '@/components/smart-links/themes';
 import type { Metadata } from 'next';
 import { siteTabIcons } from '@/lib/site-tab-icons';
+import { isSmartLinkReservedSlug } from '@/lib/smart-links/reserved-slugs';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -77,6 +78,10 @@ export default async function SmartLinkPublicPage({ params }: { params: Params }
     const { username } = await params;
     const slug = normalizeSlug(username);
     const slugCompact = compactSlug(username);
+
+    if (isSmartLinkReservedSlug(slug) || (slugCompact && isSmartLinkReservedSlug(slugCompact))) {
+      notFound();
+    }
 
     let linkPage = null;
     try {

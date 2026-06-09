@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
-
-const RESERVED_SLUGS = new Set([
-  'admin', 'api', 'app', 'auth', 'dashboard', 'login', 'signup', 'settings',
-  'help', 'support', 'about', 'terms', 'privacy', 'pricing', 'blog', 'docs',
-  'static', 'assets', 'images', 'css', 'js', 'fonts', 'favicon', 'robots',
-  'sitemap', 'manifest', 'sw', 'service-worker', 'null', 'undefined', 'true', 'false',
-]);
+import { isSmartLinkReservedSlug } from '@/lib/smart-links/reserved-slugs';
 
 export async function GET(request: NextRequest) {
   const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
@@ -28,7 +22,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ available: false, message: 'Only lowercase letters, numbers, and underscores' });
   }
 
-  if (RESERVED_SLUGS.has(slug)) {
+  if (isSmartLinkReservedSlug(slug)) {
     return NextResponse.json({ available: false, message: 'This username is reserved' });
   }
 
