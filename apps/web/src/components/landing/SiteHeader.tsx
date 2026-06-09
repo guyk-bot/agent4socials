@@ -14,7 +14,7 @@ const navLinks = [
   { href: '/#how-it-works', label: 'How it works' },
   { href: '/#product', label: 'Product' },
   { href: '/#faq', label: 'FAQ' },
-  { href: '/pricing', label: 'Pricing' },
+  { href: '/#pricing', label: 'Pricing' },
 ];
 
 export default function SiteHeader() {
@@ -24,7 +24,9 @@ export default function SiteHeader() {
   const pathname = usePathname();
 
   const navLinkClass = (href: string) => {
-    const isPricing = href === '/pricing' && pathname === '/pricing';
+    const isPricing =
+      (href === '/#pricing' || href === '/pricing') &&
+      (pathname === '/pricing' || (pathname === '/' && typeof window !== 'undefined' && window.location.hash === '#pricing'));
     const isActive = isPricing;
     return `funnel-nav-link rounded-lg px-2 py-1.5 text-sm font-medium transition-colors ${isActive ? 'is-active' : ''}`;
   };

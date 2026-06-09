@@ -98,8 +98,7 @@ import { InteractiveLineChart } from '@/components/charts/InteractiveLineChart';
 import { FacebookAnalyticsView, AnalyticsGrid, AnalyticsGridItem, AnalyticsWatermarkedChart } from '@/components/analytics';
 import type { FacebookFrontendAnalyticsBundle } from '@/lib/facebook/frontend-analytics-bundle';
 import type { FacebookInsights } from '@/components/analytics/facebook/types';
-import { PricingBillingToggle, PricingCard } from '@/components/landing/pricing';
-import { PRO_PLAN_PRICING, STANDARD_PLAN_PRICING } from '@/lib/pricing/constants';
+import { PricingPlansGrid } from '@/components/landing/pricing';
 import type { Demographics, GrowthDataPoint, TrafficSourceItem } from '@/types/analytics';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip as RechartTooltip,
@@ -284,37 +283,6 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
   PINTEREST: <PinterestIcon size={22} />,
   THREADS: <ThreadsIcon size={22} />,
 };
-
-const FREE_HIGHLIGHTS = [
-  '1 brand',
-  '25 scheduled posts / month',
-  'Connect Instagram, Facebook, TikTok, YouTube, LinkedIn',
-  '30 days analytics',
-  'Smart link pages (coming soon)',
-  'Limited AI Assistant use',
-];
-
-const STANDARD_HIGHLIGHTS = [
-  '1 brand included',
-  'Unlimited scheduling',
-  'Reply to messages and comments',
-  'X (Twitter) and LinkedIn connections',
-  '6 months analytics',
-  'Unlimited AI Assistant use',
-  'Export analytics reports (no watermark)',
-];
-
-const PRO_HIGHLIGHTS = [
-  '1 brand included',
-  'Unlimited analytic history',
-  'Bulk replies (messages and comments)',
-  'Advanced reporting & exports',
-  'Smart link pages (coming soon)',
-  'White label',
-  'Add team members',
-  'Detailed reports',
-  'Priority support',
-];
 
 /** First (or Facebook-style) posts fetch should hit the importer so analytics tabs are not empty. */
 function postImportSyncOnFirstLoad(platform: string | undefined): boolean {
@@ -1961,7 +1929,7 @@ export default function DashboardPage() {
         const opened = navigateOAuthConnect(url, oauthPopup);
         if (!opened.opened) {
           setAlertMessage(
-            'Could not open sign-in. Allow pop-ups for agent4socials.com or click Connect again.'
+            'Could not open sign-in. Allow pop-ups for www.izop.io or click Connect again.'
           );
         }
         return;
@@ -2304,54 +2272,14 @@ export default function DashboardPage() {
                   Close
                 </button>
 
-                <div className="px-4 sm:px-6 pt-8 pb-4 sm:pb-5">
-                  <PricingBillingToggle interval={pricingInterval} onIntervalChange={setPricingInterval} />
-                </div>
-
-                <div className="px-4 sm:px-6 pb-6 sm:pb-8">
-                  <div className="grid gap-4 sm:gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-                    <PricingCard
-                      plan="free"
-                      price="$0"
-                      description="Best for trying the platform"
-                      highlights={FREE_HIGHLIGHTS}
-                      ctaText="Start Free"
-                      onCta={openSignup}
-                      billingInterval={pricingInterval}
-                    />
-                    <PricingCard
-                      plan="starter"
-                      description="Best for creators and freelancers"
-                      highlights={STANDARD_HIGHLIGHTS}
-                      priceMonthly={STANDARD_PLAN_PRICING.monthly}
-                      priceYearly={STANDARD_PLAN_PRICING.yearly}
-                      yearlyCrossedPrice={STANDARD_PLAN_PRICING.yearlyCrossed}
-                      savePerYear={STANDARD_PLAN_PRICING.savePerYear}
-                      additionalBrandsMonthly={STANDARD_PLAN_PRICING.additionalBrandsMonthly}
-                      additionalBrandsYearly={STANDARD_PLAN_PRICING.additionalBrandsYearly}
-                      ctaText={STANDARD_PLAN_PRICING.ctaText}
-                      onCta={openSignup}
-                      billingInterval={pricingInterval}
-                    />
-                    <PricingCard
-                      plan="pro"
-                      description="Best for professionals and agencies"
-                      badge="Most Popular"
-                      bestValueLabel="⭐ Best value for growing brands"
-                      highlights={PRO_HIGHLIGHTS}
-                      priceMonthly={PRO_PLAN_PRICING.monthly}
-                      priceYearly={PRO_PLAN_PRICING.yearly}
-                      yearlyCrossedPrice={PRO_PLAN_PRICING.yearlyCrossed}
-                      savePerYear={PRO_PLAN_PRICING.savePerYear}
-                      additionalBrandsMonthly={PRO_PLAN_PRICING.additionalBrandsMonthly}
-                      additionalBrandsYearly={PRO_PLAN_PRICING.additionalBrandsYearly}
-                      additionalAddonUnitLabel="team member"
-                      ctaText={PRO_PLAN_PRICING.ctaText}
-                      onCta={openSignup}
-                      highlighted
-                      billingInterval={pricingInterval}
-                    />
-                  </div>
+                <div className="px-4 sm:px-6 pt-8 pb-6 sm:pb-8">
+                  <PricingPlansGrid
+                    billingInterval={pricingInterval}
+                    onBillingIntervalChange={setPricingInterval}
+                    onCta={openSignup}
+                    toggleClassName="pb-4 sm:pb-5"
+                    gridClassName="grid gap-4 sm:gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6"
+                  />
                   <p className="mt-6 text-center">
                     <button
                       type="button"

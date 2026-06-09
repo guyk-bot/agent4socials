@@ -22,39 +22,8 @@ import {
   Sparkles,
   Hash,
 } from 'lucide-react';
-import { PricingBillingToggle, PricingCard } from '@/components/landing/pricing';
+import { PricingPlansGrid } from '@/components/landing/pricing';
 import { PRICING_YEARLY_DISCOUNT_PERCENT, PRO_PLAN_PRICING, STANDARD_PLAN_PRICING } from '@/lib/pricing/constants';
-
-const FREE_HIGHLIGHTS = [
-  '1 brand',
-  '25 scheduled posts / month',
-  'Connect Instagram, Facebook, TikTok, YouTube, LinkedIn, and Pinterest',
-  '30 days analytics',
-  'Smart link pages (coming soon)',
-  'Limited AI Assistant use',
-];
-
-const STANDARD_HIGHLIGHTS = [
-  '1 brand included',
-  'Unlimited scheduling',
-  'Reply to messages and comments',
-  'X (Twitter) and LinkedIn connections',
-  '6 months analytics',
-  'Unlimited AI Assistant use',
-  'Export analytics reports (no watermark)',
-];
-
-const PRO_HIGHLIGHTS = [
-  '1 brand included',
-  'Unlimited analytic history',
-  'Bulk replies (messages and comments)',
-  'Advanced reporting & exports',
-  'Smart link pages (coming soon)',
-  'White label',
-  'Add team members',
-  'Detailed reports',
-  'Priority support',
-];
 
 function FaqItem({ question, answer }: { question: string; answer: string }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -216,23 +185,20 @@ export default function Home() {
         </section>
 
         {/* PRICING */}
-        <section className="relative border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28 overflow-hidden">
+        <section id="pricing" className="relative border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28 overflow-hidden">
           <div className="pointer-events-none absolute inset-0">
             <div className="absolute left-1/2 bottom-0 -translate-x-1/2 h-[400px] w-[800px] rounded-full bg-[radial-gradient(circle,rgba(124, 58, 237,0.3),transparent_65%)]" />
           </div>
           <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
             <div className="text-center mb-10">
               <h2 className="text-[28px] sm:text-4xl font-bold tracking-[-0.02em] text-[var(--text-primary)]">Plans for every stage</h2>
-              <p className="mt-3 text-[var(--text-muted)]">Yearly billing saves 20%. No hidden fees.</p>
+              <p className="mt-3 text-[var(--text-muted)]">Free, Standard, and Pro. Yearly billing saves 20%. No hidden fees.</p>
             </div>
-            <div className="pb-8">
-              <PricingBillingToggle interval={billingInterval} onIntervalChange={setBillingInterval} />
-            </div>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
-              <PricingCard plan="free" price="$0" description="Best for trying the platform" highlights={FREE_HIGHLIGHTS} ctaText="Start Free" onCta={openSignup} billingInterval={billingInterval} />
-              <PricingCard plan="starter" description="Best for creators and freelancers" highlights={STANDARD_HIGHLIGHTS} priceMonthly={STANDARD_PLAN_PRICING.monthly} priceYearly={STANDARD_PLAN_PRICING.yearly} yearlyCrossedPrice={STANDARD_PLAN_PRICING.yearlyCrossed} savePerYear={STANDARD_PLAN_PRICING.savePerYear} additionalBrandsMonthly={STANDARD_PLAN_PRICING.additionalBrandsMonthly} additionalBrandsYearly={STANDARD_PLAN_PRICING.additionalBrandsYearly} ctaText={STANDARD_PLAN_PRICING.ctaText} onCta={openSignup} billingInterval={billingInterval} />
-              <PricingCard plan="pro" description="Best for professionals and agencies" badge="Most Popular" bestValueLabel="Best value for growing brands" highlights={PRO_HIGHLIGHTS} priceMonthly={PRO_PLAN_PRICING.monthly} priceYearly={PRO_PLAN_PRICING.yearly} yearlyCrossedPrice={PRO_PLAN_PRICING.yearlyCrossed} savePerYear={PRO_PLAN_PRICING.savePerYear} additionalBrandsMonthly={PRO_PLAN_PRICING.additionalBrandsMonthly} additionalBrandsYearly={PRO_PLAN_PRICING.additionalBrandsYearly} additionalAddonUnitLabel="team member" ctaText={PRO_PLAN_PRICING.ctaText} onCta={openSignup} highlighted billingInterval={billingInterval} />
-            </div>
+            <PricingPlansGrid
+              billingInterval={billingInterval}
+              onBillingIntervalChange={setBillingInterval}
+              onCta={openSignup}
+            />
             <p className="mt-10 text-center">
               <Link href="/pricing" className="text-[#7C3AED] font-medium hover:text-[#A78BFA] transition-colors">
                 Compare all features and yearly pricing &rarr;

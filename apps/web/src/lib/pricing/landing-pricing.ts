@@ -1,8 +1,13 @@
-/** Marketing pricing tiers for the landing page (display only). */
+/**
+ * @deprecated Use lib/pricing/constants.ts + lib/pricing/plan-marketing.ts + PricingPlansGrid.
+ * Kept for type compatibility only. Product pricing is Free, Standard ($29/mo), Pro ($47/mo).
+ */
+
+import { PRO_PLAN_PRICING, STANDARD_PLAN_PRICING } from './constants';
 
 export const LANDING_PRICING_YEARLY_DISCOUNT_PERCENT = 20;
 
-export type LandingPlanId = 'free' | 'starter' | 'pro' | 'agency';
+export type LandingPlanId = 'free' | 'standard' | 'pro';
 
 export type LandingPlanFeature = {
   text: string;
@@ -17,94 +22,55 @@ export type LandingPlan = {
   yearly: number;
   badge?: string;
   cta: string;
-  ctaStyle: 'link' | 'secondary' | 'gradient' | 'lime';
   highlighted?: boolean;
   features: LandingPlanFeature[];
 };
 
+/** Three plans only (not the experimental four-tier Agency layout). */
 export const LANDING_PLANS: LandingPlan[] = [
   {
     id: 'free',
     name: 'Free',
-    subtitle: 'Try iZop risk-free',
+    subtitle: 'Best for trying the platform',
     monthly: 0,
     yearly: 0,
-    cta: 'Start for free',
-    ctaStyle: 'link',
+    cta: 'Start Free',
     features: [
       { text: '1 brand', included: true },
-      { text: '3 platforms', included: true },
-      { text: '30 scheduled posts / month', included: true },
+      { text: '25 scheduled posts / month', included: true },
       { text: '30 days analytics', included: true },
-      { text: 'Limited iZop AI (10 messages/month)', included: true },
-      { text: 'Bulk replies', included: false },
-      { text: 'Lead extraction', included: false },
-      { text: 'Team members', included: false },
+      { text: 'Limited AI Assistant use', included: true },
     ],
   },
   {
-    id: 'starter',
-    name: 'Starter',
-    subtitle: 'Perfect for solo creators',
-    monthly: 19,
-    yearly: 182,
-    cta: 'Get Starter',
-    ctaStyle: 'secondary',
+    id: 'standard',
+    name: 'Standard',
+    subtitle: 'Best for creators and freelancers',
+    monthly: STANDARD_PLAN_PRICING.monthly,
+    yearly: STANDARD_PLAN_PRICING.yearly,
+    cta: STANDARD_PLAN_PRICING.ctaText,
     features: [
-      { text: '1 brand', included: true },
-      { text: 'All 8 platforms', included: true },
       { text: 'Unlimited scheduling', included: true },
-      { text: '90 days analytics', included: true },
-      { text: 'Extended iZop AI (100 messages/month)', included: true },
-      { text: 'Reply to comments and DMs', included: true },
-      { text: 'Export analytics reports', included: true },
-      { text: 'Bulk replies', included: false },
-      { text: 'Lead extraction', included: false },
-      { text: 'Team members', included: false },
+      { text: 'Reply to messages and comments', included: true },
+      { text: '6 months analytics', included: true },
+      { text: 'Unlimited AI Assistant use', included: true },
     ],
   },
   {
     id: 'pro',
     name: 'Pro',
-    subtitle: 'For serious creators and agencies',
-    monthly: 49,
-    yearly: 470,
-    badge: 'Most popular',
-    cta: 'Get Pro',
-    ctaStyle: 'gradient',
+    subtitle: 'Best for professionals and agencies',
+    monthly: PRO_PLAN_PRICING.monthly,
+    yearly: PRO_PLAN_PRICING.yearly,
+    badge: 'Most Popular',
+    cta: PRO_PLAN_PRICING.ctaText,
     highlighted: true,
     features: [
-      { text: '3 brands', included: true },
-      { text: 'All 8 platforms', included: true },
-      { text: 'Unlimited scheduling', included: true },
-      { text: 'Unlimited analytics history', included: true },
-      { text: 'Unlimited iZop AI', included: true },
-      { text: 'Bulk reply to comments and DMs', included: true },
-      { text: 'Lead extraction → spreadsheet export', included: true },
-      { text: 'Team performance reports', included: true },
-      { text: 'White label ready', included: true },
-      { text: 'Add team members (+$5/member/month)', included: true },
+      { text: 'Unlimited analytic history', included: true },
+      { text: 'Bulk replies', included: true },
+      { text: 'White label', included: true },
+      { text: 'Add team members', included: true },
       { text: 'Priority support', included: true },
-    ],
-  },
-  {
-    id: 'agency',
-    name: 'Agency',
-    subtitle: 'Built for agencies and teams',
-    monthly: 99,
-    yearly: 950,
-    cta: 'Get Agency',
-    ctaStyle: 'lime',
-    features: [
-      { text: '10 brands', included: true },
-      { text: 'All 8 platforms', included: true },
-      { text: 'Everything in Pro', included: true },
-      { text: 'Full white label', included: true },
-      { text: 'Unlimited team members', included: true },
-      { text: 'Custom AI brand voice per brand', included: true },
-      { text: 'Client reporting dashboard', included: true },
-      { text: 'Dedicated support', included: true },
-      { text: 'API access (coming soon)', included: true },
     ],
   },
 ];
