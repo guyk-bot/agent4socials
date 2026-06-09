@@ -9,12 +9,14 @@ export function FunnelDemoAllowBar({
   approved = false,
   approvedLabel = 'Allowed',
   showRegenerate = true,
+  compact = false,
 }: {
   message: string;
   hint?: string;
   approved?: boolean;
   approvedLabel?: string;
   showRegenerate?: boolean;
+  compact?: boolean;
 }) {
   if (approved) {
     return (
@@ -26,9 +28,13 @@ export function FunnelDemoAllowBar({
   }
 
   return (
-    <div className="mt-2 space-y-1.5 rounded-lg border border-[#7C3AED]/25 bg-[#7C3AED]/5 px-2 py-2 dark:border-[#7C3AED]/35 dark:bg-[#7C3AED]/10">
+    <div
+      className={`space-y-1.5 rounded-lg border border-[#7C3AED]/25 bg-[#7C3AED]/5 dark:border-[#7C3AED]/35 dark:bg-[#7C3AED]/10 ${
+        compact ? 'mt-1 px-2 py-1.5' : 'mt-2 px-2 py-2'
+      }`}
+    >
       <p className="text-[10px] leading-snug text-neutral-800 dark:text-neutral-200">{message}</p>
-      <p className="text-[9px] text-neutral-500 dark:text-neutral-400">{hint}</p>
+      {!compact ? <p className="text-[9px] text-neutral-500 dark:text-neutral-400">{hint}</p> : null}
       <div className="flex flex-wrap gap-1.5">
         <button
           type="button"
@@ -39,7 +45,7 @@ export function FunnelDemoAllowBar({
         {showRegenerate ? (
           <button
             type="button"
-            className="inline-flex items-center gap-1 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-[10px] font-semibold text-neutral-800 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            className="btn-funnel-lime-cta inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-[10px] font-semibold"
           >
             <RefreshCw size={11} />
             Regenerate

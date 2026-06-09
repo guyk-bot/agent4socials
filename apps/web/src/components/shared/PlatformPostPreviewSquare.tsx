@@ -50,7 +50,13 @@ function PlatformPostPreviewProfileRow({ preview }: { preview: PlatformPostPrevi
   );
 }
 
-export function PlatformPostPreviewSquare({ preview }: { preview: PlatformPostPreview }) {
+export function PlatformPostPreviewSquare({
+  preview,
+  compact = false,
+}: {
+  preview: PlatformPostPreview;
+  compact?: boolean;
+}) {
   return (
     <div className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-950">
       <div className={`px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white ${preview.accentClass}`}>
@@ -58,7 +64,13 @@ export function PlatformPostPreviewSquare({ preview }: { preview: PlatformPostPr
       </div>
       <PlatformPostPreviewProfileRow preview={preview} />
       {preview.imageSrc ? (
-        <div className={`${PORTRAIT_POST_ASPECT} w-full overflow-hidden bg-neutral-100 dark:bg-neutral-900`}>
+        <div
+          className={
+            compact
+              ? 'h-[58px] w-full overflow-hidden bg-neutral-100 dark:bg-neutral-900'
+              : `${PORTRAIT_POST_ASPECT} w-full overflow-hidden bg-neutral-100 dark:bg-neutral-900`
+          }
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={preview.imageSrc}
@@ -68,16 +80,34 @@ export function PlatformPostPreviewSquare({ preview }: { preview: PlatformPostPr
           />
         </div>
       ) : (
-        <div className={`${PORTRAIT_POST_ASPECT} w-full bg-neutral-50 dark:bg-neutral-900`} />
+        <div
+          className={
+            compact
+              ? 'h-[58px] w-full bg-neutral-50 dark:bg-neutral-900'
+              : `${PORTRAIT_POST_ASPECT} w-full bg-neutral-50 dark:bg-neutral-900`
+          }
+        />
       )}
-      <p className="px-2 py-2 text-[11px] leading-snug text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap sm:text-[12px]">
+      <p
+        className={`px-2 py-1.5 text-neutral-700 dark:text-neutral-300 ${
+          compact
+            ? 'line-clamp-3 text-[9px] leading-snug sm:text-[10px]'
+            : 'whitespace-pre-wrap py-2 text-[11px] leading-snug sm:text-[12px]'
+        }`}
+      >
         {preview.caption}
       </p>
     </div>
   );
 }
 
-export function PlatformPostPreviewGrid({ previews }: { previews: PlatformPostPreview[] }) {
+export function PlatformPostPreviewGrid({
+  previews,
+  compact = false,
+}: {
+  previews: PlatformPostPreview[];
+  compact?: boolean;
+}) {
   const cols = previews.length >= 3 ? 3 : previews.length;
   return (
     <div
@@ -85,7 +115,7 @@ export function PlatformPostPreviewGrid({ previews }: { previews: PlatformPostPr
       style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
     >
       {previews.map((preview) => (
-        <PlatformPostPreviewSquare key={preview.platformLabel} preview={preview} />
+        <PlatformPostPreviewSquare key={preview.platformLabel} preview={preview} compact={compact} />
       ))}
     </div>
   );

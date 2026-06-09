@@ -119,25 +119,20 @@ export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
           {USER_SCHEDULE}
         </FunnelDemoUserBubble>
       </div>
-      <FunnelDemoAssistantBubble show visual wide contained>
-        <div className="flex min-h-0 flex-col gap-2">
-          <div className="funnel-demo-scene-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain pr-0.5">
-            <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
-              I drafted platform-specific previews for 9:30 AM:
-            </p>
-            <PlatformPostPreviewGrid previews={SCHEDULE_PREVIEWS} />
-            <div className="mt-2 space-y-1">
-              <FunnelDemoScheduledChip
-                timeLabel="9:30 AM"
-                platforms="Instagram, X, and Facebook"
-              />
-            </div>
-          </div>
-          <div className="shrink-0">
-            <FunnelDemoAllowBar message="Post scheduled to go live at 9:30 AM. Allow me to confirm?" />
-          </div>
-        </div>
+      <FunnelDemoAssistantBubble show visual wide>
+        <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
+          I drafted platform-specific previews for 9:30 AM:
+        </p>
+        <PlatformPostPreviewGrid previews={SCHEDULE_PREVIEWS} compact />
+        <FunnelDemoScheduledChip
+          timeLabel="9:30 AM"
+          platforms="Instagram, X, and Facebook"
+        />
       </FunnelDemoAssistantBubble>
+      <FunnelDemoAllowBar
+        compact
+        message="Post scheduled for 9:30 AM. Allow me to confirm?"
+      />
     </>
   );
 }
