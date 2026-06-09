@@ -1,11 +1,24 @@
 @import "tailwindcss";
 
+/*
+ * Georgia for letters; system UI sans for digits only (unicode-range).
+ * Avoids Georgia old-style figures in metrics while keeping serif body copy.
+ */
+@font-face {
+  font-family: "iZop lining digits";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: local("Segoe UI"), local("Helvetica Neue"), local("Arial"), local("system-ui"), local("sans-serif");
+  unicode-range: U+0030-0039, U+002C, U+002E, U+0025, U+002B, U+002D, U+003A, U+0024, U+00D7, U+2212, U+0028, U+0029, U+002F;
+}
+
 /* Match app theme toggle (data-theme), not OS prefers-color-scheme alone. */
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
 @theme {
-  --font-sans: Georgia, "Times New Roman", Times, serif;
-  --font-serif: Georgia, "Times New Roman", Times, serif;
+  --font-sans: "iZop lining digits", Georgia, "Times New Roman", Times, serif;
+  --font-serif: "iZop lining digits", Georgia, "Times New Roman", Times, serif;
   /* iZop brand: purple primary + void/surface darks + cloud light backgrounds. */
   --color-brand-purple: #7C3AED;
   --color-brand-purple-dark: #4F46E5;
@@ -1252,8 +1265,8 @@
   --border: #E8E6DF;
   --radius: 12px;
   --radius-glass: 20px;
-  --font-main: Georgia, "Times New Roman", Times, serif;
-  --font-heading: Georgia, "Times New Roman", Times, serif;
+  --font-main: "iZop lining digits", Georgia, "Times New Roman", Times, serif;
+  --font-heading: "iZop lining digits", Georgia, "Times New Roman", Times, serif;
   --gradient-primary: linear-gradient(135deg, #7C3AED, #4F46E5);
   --gradient-brand: linear-gradient(135deg, #7C3AED, #4F46E5);
   --gradient-brand-bar: linear-gradient(90deg, #7C3AED, #4F46E5, #0EA5E9);
@@ -1564,12 +1577,14 @@
 
 html {
   font-family: var(--font-main);
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-main);
+  font-variant-numeric: lining-nums tabular-nums;
   margin: 0;
   min-height: 100vh;
   min-height: 100dvh;
