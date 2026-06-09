@@ -10,6 +10,7 @@ export function FunnelDemoAllowBar({
   approvedLabel = 'Allowed',
   showRegenerate = true,
   compact = false,
+  primaryLabel = 'Allow',
 }: {
   message: string;
   hint?: string;
@@ -17,6 +18,7 @@ export function FunnelDemoAllowBar({
   approvedLabel?: string;
   showRegenerate?: boolean;
   compact?: boolean;
+  primaryLabel?: string;
 }) {
   if (approved) {
     return (
@@ -40,7 +42,7 @@ export function FunnelDemoAllowBar({
           type="button"
           className="inline-flex items-center rounded-lg bg-[#7C3AED] px-3 py-1.5 text-[10px] font-semibold text-white shadow-sm hover:bg-[#6D28D9]"
         >
-          Allow
+          {primaryLabel}
         </button>
         {showRegenerate ? (
           <button

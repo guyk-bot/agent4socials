@@ -3,9 +3,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, FileText, Play, Users } from 'lucide-react';
 import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, XAxis, YAxis, PieChart, Pie, Cell } from 'recharts';
-import { YoutubeIcon } from '@/components/SocialPlatformIcons';
+import { YoutubeIcon, InstagramIcon } from '@/components/SocialPlatformIcons';
 
-import { BRAND_LIME_DOT, FUNNEL_ANALYTICS_KPIS, FUNNEL_DEMO_BEST_POST_WEEK_SRC, FUNNEL_DEMO_IG_WEEK_POSTS, FUNNEL_DEMO_POST_VIDEO_SRC } from './funnel-demo-assets';
+import { BRAND_LIME_DOT, FUNNEL_ANALYTICS_KPIS, FUNNEL_DEMO_BEST_POST_WEEK_SRC, FUNNEL_DEMO_IG_WEEK_POSTS, FUNNEL_DEMO_POST_VIDEO_SRC, FUNNEL_DEMO_TOP_ADS } from './funnel-demo-assets';
 
 const BRAND = {
   primary: '#7C3AED',
@@ -67,6 +67,33 @@ export function DemoAvatar({
       {label}
     </span>
   );
+}
+
+export function DemoProfilePhoto({
+  src,
+  label,
+  colorClass,
+  size = 'md',
+}: {
+  src?: string;
+  label: string;
+  colorClass: string;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  const dim =
+    size === 'lg' ? 'h-9 w-9' : size === 'md' ? 'h-7 w-7' : 'h-6 w-6';
+  if (src) {
+    return (
+      /* eslint-disable-next-line @next/next/no-img-element */
+      <img
+        src={src}
+        alt=""
+        className={`${dim} shrink-0 rounded-full border border-neutral-200 object-cover object-center dark:border-neutral-600`}
+        draggable={false}
+      />
+    );
+  }
+  return <DemoAvatar label={label} colorClass={colorClass} size={size} />;
 }
 
 export function DemoImage({
@@ -148,9 +175,6 @@ export function ChatAttachmentReel({
           <Play size={20} className="ml-0.5 fill-white text-white" />
         </span>
       </div>
-      <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/60 px-1 py-0.5 text-[8px] font-semibold tracking-wide text-white">
-        1080×1920
-      </span>
     </div>
   );
 }
@@ -878,29 +902,74 @@ export function AdsPerformanceChart({ show }: { show: boolean }) {
   );
 }
 
+export function AdsTopCreativesCandleChart() {
+  const maxRoas = Math.max(...FUNNEL_DEMO_TOP_ADS.map((a) => a.roas));
+
+  return (
+    <div className="space-y-1">
+      <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200">Best performing ads</p>
+      <div className="flex items-end gap-1 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-1.5 py-2">
+        {FUNNEL_DEMO_TOP_ADS.map((ad) => {
+          const bodyH = Math.max(14, Math.round((ad.roas / maxRoas) * 44));
+          const wickTop = bodyH + 10;
+          return (
+            <div key={ad.label} className="group flex min-w-0 flex-1 flex-col items-center gap-0.5">
+              <span className="text-[8px] font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                {ad.roas.toFixed(2)}x
+              </span>
+              <div className="relative flex h-[58px] w-full items-end justify-center">
+                <div
+                  className="absolute bottom-0 w-px bg-neutral-300 dark:bg-neutral-600"
+                  style={{ height: `${wickTop}px` }}
+                />
+                <div
+                  className="relative z-[1] w-[58%] min-w-[10px] rounded-[2px] bg-gradient-to-t from-[#6D28D9] to-[#A78BFA] transition-transform group-hover:scale-105"
+                  style={{ height: `${bodyH}px` }}
+                />
+              </div>
+              <div className="h-7 w-full overflow-hidden rounded border border-neutral-200 dark:border-neutral-700">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={ad.src} alt={ad.label} className="h-full w-full object-cover object-center" draggable={false} />
+              </div>
+              <span className="w-full truncate text-center text-[7px] text-neutral-600 dark:text-neutral-400">{ad.label}</span>
+              <span className="text-[7px] tabular-nums text-neutral-500">{ad.cpa} CPA</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function CommentRow({
   name,
   avatar,
+  avatarSrc,
   colorClass,
   text,
   highlight,
   replied,
   replyText,
+  replyPlatform,
   show,
   draft,
 }: {
   name: string;
   avatar: string;
+  avatarSrc?: string;
   colorClass: string;
   text: string;
   highlight?: boolean;
   replied?: boolean;
   replyText?: string;
+  replyPlatform?: 'instagram' | 'youtube';
   show: boolean;
   /** Draft reply pending approval (no "Reply sent" badge). */
   draft?: boolean;
 }) {
   if (!show) return null;
+  const PlatformIcon = replyPlatform === 'youtube' ? YoutubeIcon : replyPlatform === 'instagram' ? InstagramIcon : null;
+
   return (
     <li
       className={`flex items-start gap-1.5 rounded-md border p-1.5 ${
@@ -909,13 +978,16 @@ export function CommentRow({
           : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900'
       }`}
     >
-      <DemoAvatar label={avatar} colorClass={colorClass} size="md" />
+      <DemoProfilePhoto src={avatarSrc} label={avatar} colorClass={colorClass} size="md" />
       <div className="min-w-0 flex-1">
         <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 truncate">{name}</p>
         <p className="text-[10px] text-neutral-600 dark:text-neutral-400 leading-snug line-clamp-2">{text}</p>
         {replied && replyText ? (
           <p className="mt-1 rounded-md border border-violet-200/80 bg-violet-50/80 dark:bg-violet-950/30 dark:border-violet-800/50 px-1.5 py-0.5 text-[9px] text-violet-900 dark:text-violet-200 leading-snug line-clamp-3">
-            <span className="font-semibold">{draft ? 'Draft reply: ' : 'AI reply: '}</span>
+            <span className="inline-flex items-center gap-1 font-semibold">
+              {PlatformIcon ? <PlatformIcon size={10} className="shrink-0" /> : null}
+              {draft ? 'Draft reply: ' : 'AI reply: '}
+            </span>
             {replyText}
           </p>
         ) : null}
@@ -933,42 +1005,101 @@ const LEADS_DEMO_ROWS = [
   {
     name: 'Sarah Chen',
     avatar: 'SC',
+    avatarSrc: '/funnel-demo-profile-avatar.png',
     color: 'bg-violet-500',
     comment: 'How much for my team?',
     intent: 'High',
     intentStyle: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300',
     dm: 'Happy to share pricing in DM',
-    showAt: 0.1,
+    showAt: 0.08,
   },
   {
     name: 'Priya Sharma',
     avatar: 'PS',
+    avatarSrc: '/funnel-demo-ig-week-3.png',
     color: 'bg-emerald-500',
     comment: 'Does this integrate with Shopify?',
     intent: 'Contact',
     intentStyle: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300',
     dm: 'Yes, setup takes 5 min in DM',
-    showAt: 0.22,
+    showAt: 0.16,
   },
   {
     name: 'Mike Torres',
     avatar: 'MT',
+    avatarSrc: '/funnel-demo-ig-week-1.png',
     color: 'bg-sky-500',
     comment: 'Available in Europe?',
     intent: 'Medium',
     intentStyle: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
     dm: 'Yes, we ship worldwide',
-    showAt: 0.34,
+    showAt: 0.24,
   },
   {
     name: 'Daniel Frost',
     avatar: 'DF',
+    avatarSrc: '/funnel-demo-ig-week-2.png',
     color: 'bg-amber-500',
     comment: 'Can I book a demo this week?',
     intent: 'High',
     intentStyle: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300',
     dm: 'Sending calendar link now',
-    showAt: 0.46,
+    showAt: 0.32,
+  },
+  {
+    name: 'James Okonkwo',
+    avatar: 'JO',
+    avatarSrc: '/funnel-demo-ig-week-4.png',
+    color: 'bg-emerald-500',
+    comment: 'DM me the onboarding link?',
+    intent: 'High',
+    intentStyle: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300',
+    dm: 'Onboarding link queued',
+    showAt: 0.4,
+  },
+  {
+    name: 'Alex Kim',
+    avatar: 'AK',
+    avatarSrc: '/funnel-demo-ig-week-5.png',
+    color: 'bg-sky-500',
+    comment: 'Need pricing for 3 seats',
+    intent: 'Contact',
+    intentStyle: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300',
+    dm: 'Team plan breakdown sent',
+    showAt: 0.48,
+  },
+  {
+    name: 'Maya Rodriguez',
+    avatar: 'MR',
+    avatarSrc: '/funnel-demo-ig-week-6.png',
+    color: 'bg-violet-500',
+    comment: 'Is there a free trial?',
+    intent: 'Medium',
+    intentStyle: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
+    dm: 'Free plan details in DM',
+    showAt: 0.56,
+  },
+  {
+    name: 'Lina Park',
+    avatar: 'LP',
+    avatarSrc: '/funnel-demo-ig-week-3.png',
+    color: 'bg-rose-500',
+    comment: 'Can you handle DMs too?',
+    intent: 'High',
+    intentStyle: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300',
+    dm: 'Yes, inbox automation included',
+    showAt: 0.64,
+  },
+  {
+    name: 'Chris Webb',
+    avatar: 'CW',
+    avatarSrc: '/funnel-demo-profile-avatar.png',
+    color: 'bg-neutral-500',
+    comment: 'Interested in agency plan',
+    intent: 'Contact',
+    intentStyle: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300',
+    dm: 'Agency tier overview ready',
+    showAt: 0.72,
   },
 ] as const;
 
@@ -981,32 +1112,32 @@ export function LeadsSpreadsheet({ show, progress = 1 }: { show: boolean; progre
       <table className="w-full text-left">
         <thead>
           <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 text-[9px] uppercase tracking-wide text-neutral-500">
-            <th className="px-1.5 py-1.5 font-semibold">Lead</th>
-            <th className="px-1.5 py-1.5 font-semibold">Comment</th>
-            <th className="px-1.5 py-1.5 font-semibold">Class</th>
-            <th className="px-1.5 py-1.5 font-semibold">AI DM</th>
+            <th className="px-1.5 py-1 font-semibold">Lead</th>
+            <th className="px-1.5 py-1 font-semibold">Comment</th>
+            <th className="px-1.5 py-1 font-semibold">Class</th>
+            <th className="px-1.5 py-1 font-semibold">AI DM</th>
           </tr>
         </thead>
         <tbody>
           {visibleRows.map((row) => (
             <tr key={row.name} className="border-b border-neutral-100 dark:border-neutral-800 last:border-0 funnel-demo-message-in">
-              <td className="px-1.5 py-1.5 align-top">
-                <div className="flex items-center gap-1.5">
-                  <DemoAvatar label={row.avatar} colorClass={row.color} size="md" />
-                  <span className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 whitespace-nowrap">
-                    {row.name}
+              <td className="px-1.5 py-1 align-top">
+                <div className="flex items-center gap-1">
+                  <DemoProfilePhoto src={row.avatarSrc} label={row.avatar} colorClass={row.color} size="sm" />
+                  <span className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 whitespace-nowrap">
+                    {row.name.split(' ')[0]}
                   </span>
                 </div>
               </td>
-              <td className="px-1.5 py-1.5 text-[10px] text-neutral-600 dark:text-neutral-400 align-top max-w-[80px] leading-snug">
+              <td className="px-1.5 py-1 text-[9px] text-neutral-600 dark:text-neutral-400 align-top max-w-[72px] leading-snug line-clamp-2">
                 {row.comment}
               </td>
-              <td className="px-1.5 py-1.5 align-top">
-                <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${row.intentStyle}`}>
+              <td className="px-1.5 py-1 align-top">
+                <span className={`rounded-full px-1 py-0.5 text-[8px] font-semibold ${row.intentStyle}`}>
                   {row.intent}
                 </span>
               </td>
-              <td className="px-1.5 py-1.5 text-[10px] text-[var(--primary)] align-top max-w-[90px] leading-snug font-medium">
+              <td className="px-1.5 py-1 text-[9px] text-[var(--primary)] align-top max-w-[80px] leading-snug font-medium line-clamp-2">
                 {row.dm}
               </td>
             </tr>
@@ -1104,49 +1235,104 @@ export function AnalyticsReportPreview({ show, progress = 1 }: { show: boolean; 
   if (!show) return null;
   const showDownload = progress > 0.55 || progress >= 1;
 
+  const platformRows = [
+    { platform: 'Instagram', followers: '14.8K', views: '412K', eng: '6.2%', posts: 38 },
+    { platform: 'TikTok', followers: '22.1K', views: '891K', eng: '8.4%', posts: 31 },
+    { platform: 'YouTube', followers: '9.4K', views: '256K', eng: '5.1%', posts: 18 },
+    { platform: 'Facebook', followers: '6.2K', views: '98K', eng: '3.8%', posts: 14 },
+    { platform: 'X', followers: '4.1K', views: '44K', eng: '2.9%', posts: 23 },
+  ];
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <div className="rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950/25 dark:border-orange-900/60 p-2">
         <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
           Mar 1 to Mar 31 · 8 platforms
         </p>
-        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+        <div className="mt-1 grid grid-cols-4 gap-1">
           {[
-            { label: 'Impressions', value: '1.2M' },
-            { label: 'Engagement', value: '48.3K' },
-            { label: 'Posts', value: '124' },
-            { label: 'Audience', value: '89.4K' },
+            { label: 'Impressions', value: '1.2M', delta: '+14%' },
+            { label: 'Engagement', value: '48.3K', delta: '+9%' },
+            { label: 'Posts', value: '124', delta: '+6' },
+            { label: 'Audience', value: '89.4K', delta: '+2.1K' },
           ].map((m) => (
             <div
               key={m.label}
-              className="rounded-md border border-orange-100 bg-white/80 dark:bg-neutral-900/60 dark:border-orange-900/40 px-1.5 py-1"
+              className="rounded-md border border-orange-100 bg-white/80 dark:bg-neutral-900/60 dark:border-orange-900/40 px-1 py-0.5"
             >
-              <p className="text-[11px] font-bold tabular-nums text-neutral-900 dark:text-neutral-100">{m.value}</p>
-              <p className="text-[8px] text-neutral-500">{m.label}</p>
+              <p className="text-[10px] font-bold tabular-nums text-neutral-900 dark:text-neutral-100">{m.value}</p>
+              <p className="text-[7px] text-neutral-500">{m.label}</p>
+              <p className="text-[7px] font-semibold text-emerald-600 dark:text-emerald-400">{m.delta}</p>
             </div>
           ))}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-1.5">
+
+      <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
+        <p className="border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 px-2 py-1 text-[8px] font-semibold uppercase tracking-wide text-neutral-500">
+          Platform breakdown
+        </p>
+        <table className="w-full text-left">
+          <thead>
+            <tr className="border-b border-neutral-100 dark:border-neutral-800 text-[7px] uppercase text-neutral-500">
+              <th className="px-1.5 py-0.5 font-semibold">Platform</th>
+              <th className="px-1 py-0.5 font-semibold">Followers</th>
+              <th className="px-1 py-0.5 font-semibold">Views</th>
+              <th className="px-1 py-0.5 font-semibold">Eng.</th>
+              <th className="px-1 py-0.5 font-semibold">Posts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {platformRows.map((row) => (
+              <tr key={row.platform} className="border-b border-neutral-50 dark:border-neutral-800/80 last:border-0">
+                <td className="px-1.5 py-0.5 text-[8px] font-semibold text-neutral-800 dark:text-neutral-200">{row.platform}</td>
+                <td className="px-1 py-0.5 text-[8px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.followers}</td>
+                <td className="px-1 py-0.5 text-[8px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.views}</td>
+                <td className="px-1 py-0.5 text-[8px] tabular-nums text-emerald-600 dark:text-emerald-400">{row.eng}</td>
+                <td className="px-1 py-0.5 text-[8px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.posts}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="grid grid-cols-3 gap-1">
+        {[
+          { label: 'Best day', value: 'Sat', sub: '31.2K views' },
+          { label: 'Top format', value: 'Reels', sub: '42% of reach' },
+          { label: 'Growth', value: '+18%', sub: 'vs last month' },
+        ].map((item) => (
+          <div
+            key={item.label}
+            className="rounded-md border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 px-1.5 py-1"
+          >
+            <p className="text-[7px] uppercase text-neutral-500">{item.label}</p>
+            <p className="text-[10px] font-bold text-neutral-900 dark:text-neutral-100">{item.value}</p>
+            <p className="text-[7px] text-neutral-500">{item.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 gap-1">
         {[
           { title: 'Simplified report', sub: 'PDF · 4 pages' },
           { title: 'Detailed report', sub: 'PDF · 12 pages' },
         ].map((card, i) => (
           <div
             key={card.title}
-            className={`rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 ${
+            className={`rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-1.5 ${
               progress > 0.32 + i * 0.12 || progress >= 1 ? 'opacity-100' : 'opacity-40'
             }`}
           >
-            <FileText size={14} className="text-[#7C3AED] mb-1" />
-            <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 leading-snug">{card.title}</p>
-            <p className="text-[8px] text-neutral-500">{card.sub}</p>
+            <FileText size={12} className="text-[#7C3AED] mb-0.5" />
+            <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 leading-snug">{card.title}</p>
+            <p className="text-[7px] text-neutral-500">{card.sub}</p>
           </div>
         ))}
       </div>
       {showDownload ? (
-        <p className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--primary)]">
-          <CheckCircle2 size={11} /> analytics-report-mar.pdf ready
+        <p className="inline-flex items-center gap-1 text-[9px] font-semibold text-[var(--primary)]">
+          <CheckCircle2 size={10} /> analytics-report-mar.pdf ready
         </p>
       ) : null}
     </div>

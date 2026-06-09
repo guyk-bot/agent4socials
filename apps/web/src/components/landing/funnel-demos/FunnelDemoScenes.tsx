@@ -8,14 +8,15 @@ import {
 import { PlatformPostPreviewGrid } from '@/components/shared/PlatformPostPreviewSquare';
 import { FunnelDemoAllowBar, FunnelDemoScheduledChip } from './FunnelDemoShared';
 import {
+  FUNNEL_DEMO_AVATARS,
   FUNNEL_DEMO_BRAINSTORM_WINNER_SRC,
   FUNNEL_DEMO_POST_VIDEO_SRC,
   FUNNEL_DEMO_PROFILE_AVATAR_SRC,
 } from './funnel-demo-assets';
 import {
   AdsPerformanceChart,
+  AdsTopCreativesCandleChart,
   AnalyticsReportPreview,
-  ChatAttachmentImage,
   ChatAttachmentReel,
   CommentRow,
   InstagramWeeklyAnalyticsPanel,
@@ -25,9 +26,10 @@ import {
 } from './FunnelDemoVisuals';
 
 const USER_SCHEDULE = 'Upload this to Instagram, TikTok, and YouTube Shorts at 9:30.';
-const USER_REPLY = 'Reply to comments on my last post in my brand voice.';
+const USER_REPLY = 'Reply to all of the comments from Instagram and YouTube.';
 const USER_ANALYTICS = 'Show me weekly analytics for Instagram.';
-const USER_LEADS = 'Send me a spreadsheet of leads from comments with AI DM suggestions.';
+const USER_LEADS =
+  'Send me a list of new potential leads from the last 24 hours from the comments and DMs.';
 const USER_BRAINSTORM = 'Brainstorm new ideas based on my best YouTube video.';
 const USER_ADS = 'Compare Google, Meta, and TikTok ad ROAS side by side.';
 const USER_TEAM = 'Invite my editor and show who has been active on the account this week.';
@@ -78,30 +80,56 @@ const COMMENT_DRAFTS = [
   {
     name: 'Maya Rodriguez',
     avatar: 'MR',
+    avatarSrc: FUNNEL_DEMO_AVATARS.maya,
     colorClass: 'bg-violet-500',
-    text: 'Love this! Exactly what I needed.',
+    text: 'Love this Reel! Exactly what I needed.',
     replyText: 'Thank you, Maya! So glad it helped. Let me know if you want the full checklist.',
+    replyPlatform: 'instagram' as const,
   },
   {
     name: 'James Okonkwo',
     avatar: 'JO',
+    avatarSrc: FUNNEL_DEMO_AVATARS.james,
     colorClass: 'bg-emerald-500',
     text: 'Does this work for small teams too?',
     replyText: 'Yes, James. Most teams start with one hook and scale from there.',
+    replyPlatform: 'youtube' as const,
   },
   {
     name: 'Alex Kim',
     avatar: 'AK',
+    avatarSrc: FUNNEL_DEMO_AVATARS.alex,
     colorClass: 'bg-sky-500',
     text: 'Where can I buy this? Ship to Canada?',
     replyText: 'Yes! Link in bio ships worldwide, including Canada.',
+    replyPlatform: 'instagram' as const,
   },
   {
     name: 'Priya Sharma',
     avatar: 'PS',
+    avatarSrc: FUNNEL_DEMO_AVATARS.priya,
     colorClass: 'bg-amber-500',
-    text: 'Can you share the template?',
+    text: 'Can you share the template from the video?',
     replyText: 'Absolutely. I will DM you the template right after this goes live.',
+    replyPlatform: 'youtube' as const,
+  },
+  {
+    name: 'Daniel Frost',
+    avatar: 'DF',
+    avatarSrc: FUNNEL_DEMO_AVATARS.daniel,
+    colorClass: 'bg-amber-500',
+    text: 'This hook is fire. Saving for later.',
+    replyText: 'Appreciate you, Daniel! Full breakdown is in the pinned comment.',
+    replyPlatform: 'instagram' as const,
+  },
+  {
+    name: 'Lina Park',
+    avatar: 'LP',
+    avatarSrc: FUNNEL_DEMO_AVATARS.lina,
+    colorClass: 'bg-rose-500',
+    text: 'Subbed after this Short. More like this?',
+    replyText: 'Yes! Part 2 drops tomorrow on the same topic.',
+    replyPlatform: 'youtube' as const,
   },
 ];
 
@@ -119,14 +147,14 @@ export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
   return (
     <>
       <div className="flex w-full flex-col items-end gap-1.5">
-        <ChatAttachmentReel src={FUNNEL_DEMO_POST_VIDEO_SRC} alt="Parkour reel, 1080 by 1920" />
+        <ChatAttachmentReel src={FUNNEL_DEMO_POST_VIDEO_SRC} alt="Parkour reel vertical video" />
         <FunnelDemoUserBubble show visual={false}>
           {USER_SCHEDULE}
         </FunnelDemoUserBubble>
       </div>
       <FunnelDemoAssistantBubble show visual wide>
         <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
-          I drafted Shorts previews for 9:30 AM (1080×1920):
+          I drafted Shorts previews for 9:30 AM:
         </p>
         <PlatformPostPreviewGrid previews={SCHEDULE_PREVIEWS} compact hideCaptions />
         <FunnelDemoScheduledChip
@@ -151,7 +179,7 @@ export function FunnelDemoSceneComments({ progress }: { progress: number }) {
       <FunnelDemoUserBubble show>{USER_REPLY}</FunnelDemoUserBubble>
       <FunnelDemoAssistantBubble show visual wide contained>
         <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
-          You got 12 comments on your Summer launch Reel. Here are draft replies:
+          14 comments on Instagram and YouTube. Here are draft replies:
         </p>
         <ul className="space-y-1">
           {COMMENT_DRAFTS.map((row) => (
@@ -160,10 +188,12 @@ export function FunnelDemoSceneComments({ progress }: { progress: number }) {
               show
               name={row.name}
               avatar={row.avatar}
+              avatarSrc={row.avatarSrc}
               colorClass={row.colorClass}
               text={row.text}
               replied
               replyText={row.replyText}
+              replyPlatform={row.replyPlatform}
               draft
             />
           ))}
@@ -171,7 +201,7 @@ export function FunnelDemoSceneComments({ progress }: { progress: number }) {
         <p className="mt-1.5 text-[9px] text-neutral-500 dark:text-neutral-400">
           + 8 more replies ready in the same voice.
         </p>
-        <FunnelDemoAllowBar message="Would you like me to send these 12 replies?" />
+        <FunnelDemoAllowBar message="Would you like me to send these 14 replies?" />
       </FunnelDemoAssistantBubble>
     </DemoSceneScroll>
   );
@@ -213,10 +243,15 @@ export function FunnelDemoSceneLeads({ progress }: { progress: number }) {
       <FunnelDemoUserBubble show>{USER_LEADS}</FunnelDemoUserBubble>
       <FunnelDemoAssistantBubble show visual wide contained>
         <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
-          I found 9 high-intent leads from recent comments:
+          9 high-intent leads from the last 24 hours:
         </p>
         <LeadsSpreadsheet show progress={1} />
-        <FunnelDemoAllowBar message="Should I export this spreadsheet and queue personalized DMs for each lead?" />
+        <FunnelDemoAllowBar
+          primaryLabel="Download"
+          showRegenerate={false}
+          compact
+          message="Export this list as CSV and queue personalized DMs for each lead?"
+        />
       </FunnelDemoAssistantBubble>
     </DemoSceneScroll>
   );
@@ -263,8 +298,9 @@ export function FunnelDemoSceneAdsRoas({ progress }: { progress: number }) {
             </span>
           </div>
           <AdsPerformanceChart show />
+          <AdsTopCreativesCandleChart />
           <p className="text-[10px] text-neutral-700 dark:text-neutral-300 leading-snug">
-            TikTok leads on ROAS (4.17x) with the lowest CPA. Meta spend is highest but still profitable at 2.91x.
+            TikTok leads on ROAS (4.17x) with the lowest CPA. Task Complete is your top creative at 4.82x.
           </p>
           <FunnelDemoAllowBar message="Want a weekly ROAS snapshot emailed when cross-platform ads tracking launches?" />
         </div>
