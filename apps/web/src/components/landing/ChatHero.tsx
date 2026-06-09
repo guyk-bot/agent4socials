@@ -160,10 +160,13 @@ function TypingIndicator() {
     );
   }
 
+  const { theme } = useTheme();
+  const logoSrc = siteLogoSrcForTheme(theme);
+
   return (
     <div className="flex items-center gap-3 chat-hero-message-enter">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={SITE_LOGO_SRC} alt="" className="h-7 w-7 shrink-0 object-contain" />
+      <img src={logoSrc} alt="" className="h-7 w-7 shrink-0 object-contain bg-transparent" />
       <div className="flex items-center gap-1.5 py-1">
         {[0, 1, 2].map((i) => (
           <span
@@ -231,7 +234,8 @@ function OpeningAiMessage({
     {
       key: 'body',
       text: body,
-      className: 'block text-[15px] sm:text-[16px] font-normal leading-[1.6] mt-2',
+      className:
+        'block text-[13px] sm:text-[15px] font-normal leading-[1.6] mt-2 whitespace-nowrap',
     },
   ];
 
@@ -638,7 +642,7 @@ export default function ChatHero() {
       >
         <ChatHeroSideDemoColumn side="left" />
         <div
-          className={`flex flex-1 min-h-0 flex-col w-full max-w-xl xl:max-w-md 2xl:max-w-lg mx-auto px-3 sm:px-4 lg:px-3 pt-2 sm:pt-2 pb-3 sm:pb-4 transition-all duration-400 ${
+          className={`flex flex-1 min-h-0 flex-col w-full max-w-xl xl:max-w-xl 2xl:max-w-2xl mx-auto px-3 sm:px-4 lg:px-3 pt-2 sm:pt-2 pb-3 sm:pb-4 transition-all duration-400 ${
             chatReady ? 'opacity-100' : 'opacity-0 translate-y-1'
           }`}
         >

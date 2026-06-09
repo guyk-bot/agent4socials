@@ -29,7 +29,7 @@ function applyTheme(theme: Theme) {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('dark');
+  const [theme, setThemeState] = useState<Theme>(() => readTheme());
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
