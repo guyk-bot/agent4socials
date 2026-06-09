@@ -225,7 +225,7 @@ function PlatformSquareButton({
       onClick={onClick}
       style={{ animationDelay: staggerIndex !== undefined ? `${staggerIndex * 60}ms` : undefined }}
       className={[
-        'chat-hero-pill-enter flex aspect-square w-full flex-col items-center justify-center gap-2.5 rounded-xl border p-3 sm:p-4 transition-all duration-150',
+        'chat-hero-pill-enter flex h-[64px] sm:h-[70px] w-full flex-col items-center justify-center gap-1 rounded-lg border p-2 transition-all duration-150',
         'active:scale-[0.97]',
         selected
           ? 'border-[#7C3AED] bg-[rgba(124,58,237,0.08)] shadow-[0_0_0_1px_rgba(124,58,237,0.2)]'
@@ -233,9 +233,9 @@ function PlatformSquareButton({
         disabled ? 'opacity-50 pointer-events-none' : '',
       ].join(' ')}
     >
-      <span className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center">{icon}</span>
+      <span className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center">{icon}</span>
       <span
-        className={`text-center text-xs sm:text-sm font-medium leading-tight ${
+        className={`text-center text-[10px] sm:text-xs font-medium leading-tight ${
           selected ? 'text-[#5B21B6]' : 'text-[#1a1a1a]'
         }`}
       >
@@ -505,27 +505,27 @@ export default function ChatHero() {
   const canPainContinue = selectedPain !== null && !busy;
 
   return (
-    <section className="chat-hero relative flex min-h-[100svh] sm:min-h-screen flex-col bg-white text-[#1a1a1a] overflow-hidden pt-14 sm:pt-16">
+    <section className="chat-hero relative flex h-[100dvh] max-h-[100dvh] flex-col bg-white text-[#1a1a1a] overflow-hidden pt-14 sm:pt-16">
       <div
         className={`flex flex-1 min-h-0 flex-col w-full transition-opacity duration-500 ${
           heroReady ? 'opacity-100' : 'opacity-0'
         }`}
       >
         <div
-          className={`flex flex-1 min-h-0 flex-col w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 pt-4 sm:pt-6 pb-5 sm:pb-6 transition-all duration-400 ${
+          className={`flex flex-1 min-h-0 flex-col w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 sm:pt-3 pb-3 sm:pb-4 transition-all duration-400 ${
             chatReady ? 'opacity-100' : 'opacity-0 translate-y-1'
           }`}
         >
           <div
-            className={`shrink-0 mb-6 sm:mb-8 text-center sm:text-left transition-all duration-500 ${
+            className={`shrink-0 mb-3 sm:mb-4 text-center sm:text-left transition-all duration-500 ${
               headlineReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
             }`}
           >
-            <h1 className="text-[28px] sm:text-[40px] lg:text-[48px] font-semibold tracking-[-0.5px] text-[#1a1a1a]">
+            <h1 className="text-[24px] sm:text-[32px] lg:text-[36px] font-semibold tracking-[-0.5px] text-[#1a1a1a]">
               Meet your AI social media manager.
             </h1>
             <p
-              className={`mt-2 text-base sm:text-lg text-[#888780] max-w-2xl mx-auto sm:mx-0 transition-all duration-500 ${
+              className={`mt-1.5 text-sm sm:text-base text-[#888780] max-w-2xl mx-auto sm:mx-0 transition-all duration-500 ${
                 subheadReady ? 'opacity-100' : 'opacity-0'
               }`}
             >
@@ -534,7 +534,7 @@ export default function ChatHero() {
           </div>
 
           <div ref={scrollRef} className="flex flex-1 min-h-0 flex-col overflow-y-auto pr-1 -mr-1 pb-4">
-            <div className="space-y-5 shrink-0">
+            <div className="space-y-3 shrink-0">
               {blocks.map((block, index) => {
                 if (block.kind === 'ai') {
                   const isFirst = index === 0 && block.text === INITIAL_AI_TEXT;
@@ -622,7 +622,7 @@ export default function ChatHero() {
             </div>
 
             {showPlatformOptions ? (
-              <div className="mt-5 sm:mt-6 flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 min-h-[240px] sm:min-h-[320px] content-stretch">
+              <div className="mt-3 grid grid-cols-4 gap-2 sm:gap-2.5 w-full max-w-2xl lg:max-w-3xl shrink-0">
                 {CHAT_HERO_PLATFORMS.map((platform, i) => {
                   const Icon = PLATFORM_ICONS[platform.id];
                   const selected = selectedPlatforms.includes(platform.id);
@@ -633,7 +633,7 @@ export default function ChatHero() {
                       selected={selected}
                       disabled={busy}
                       staggerIndex={i}
-                      icon={<Icon size={28} />}
+                      icon={<Icon size={22} />}
                       onClick={() => togglePlatform(platform.id)}
                     />
                   );
@@ -642,7 +642,7 @@ export default function ChatHero() {
             ) : null}
           </div>
 
-          <div className="shrink-0 space-y-4 border-t border-[#E8E6DF] pt-4 pb-2">
+          <div className="shrink-0 space-y-3 border-t border-[#E8E6DF] pt-3 pb-2">
               {showPainOptions ? (
                 <div className="flex flex-wrap gap-2">
                   {CHAT_HERO_PAIN_POINTS.map((pain, i) => (
@@ -668,7 +668,7 @@ export default function ChatHero() {
                 </button>
               ) : null}
 
-              <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-[#888780]">
+              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11px] sm:text-xs text-[#888780]">
                 <span className="flex items-center gap-1.5">
                   <Check className="h-3.5 w-3.5 text-[#10B981]" />
                   No credit card required
