@@ -1,4 +1,5 @@
 export const FUNNEL_DEMO_POST_VIDEO_SRC = '/funnel-demo-post-video.png';
+export const FUNNEL_DEMO_PROFILE_AVATAR_SRC = '/funnel-demo-profile-avatar.png';
 export const FUNNEL_DEMO_BRAINSTORM_WINNER_SRC = '/funnel-demo-brainstorm-winner.png';
 export const FUNNEL_DEMO_PARKOUR_POST_SRC = '/funnel-demo-parkour-post.png';
 

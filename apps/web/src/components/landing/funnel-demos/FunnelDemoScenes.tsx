@@ -10,6 +10,7 @@ import { FunnelDemoAllowBar, FunnelDemoScheduledChip } from './FunnelDemoShared'
 import {
   FUNNEL_DEMO_BRAINSTORM_WINNER_SRC,
   FUNNEL_DEMO_POST_VIDEO_SRC,
+  FUNNEL_DEMO_PROFILE_AVATAR_SRC,
 } from './funnel-demo-assets';
 import {
   AdsPerformanceChart,
@@ -31,10 +32,17 @@ const USER_ADS = 'Compare Google, Meta, and TikTok ad ROAS side by side.';
 const USER_TEAM = 'Invite my editor and show who has been active on the account this week.';
 const USER_REPORTS = 'Export an analytic report for all platforms as a PDF.';
 
+const SCHEDULE_PROFILE = {
+  profileAvatarSrc: FUNNEL_DEMO_PROFILE_AVATAR_SRC,
+  profileName: 'Levitate Crew',
+} as const;
+
 const SCHEDULE_PREVIEWS = [
   {
     platformLabel: 'Instagram',
     accentClass: 'bg-gradient-to-r from-[#E1306C] to-[#FCAF45]',
+    ...SCHEDULE_PROFILE,
+    profileHandle: 'levitate.crew',
     caption:
       'City flow at dawn. Precision jumps, core control, zero fear. @levitate.crew trains parkour the smart way. Who is hitting a line this week? #Parkour #UrbanAthlete',
     imageSrc: FUNNEL_DEMO_POST_VIDEO_SRC,
@@ -43,6 +51,8 @@ const SCHEDULE_PREVIEWS = [
   {
     platformLabel: 'X',
     accentClass: 'bg-neutral-900',
+    ...SCHEDULE_PROFILE,
+    profileHandle: 'levitate',
     caption:
       'New line. Same discipline. Parkour is not reckless, it is calculated movement. Watch the full sequence.',
     imageSrc: FUNNEL_DEMO_POST_VIDEO_SRC,
@@ -51,6 +61,7 @@ const SCHEDULE_PREVIEWS = [
   {
     platformLabel: 'Facebook',
     accentClass: 'bg-[#1877F2]',
+    ...SCHEDULE_PROFILE,
     caption:
       'From ledge to launch: how we train explosive control without a gym. Full breakdown in comments. Built for athletes who move differently.',
     imageSrc: FUNNEL_DEMO_POST_VIDEO_SRC,
