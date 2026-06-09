@@ -14,7 +14,7 @@ import {
   XTwitterIcon,
   YoutubeIcon,
 } from '@/components/SocialPlatformIcons';
-import { SITE_LOGO_DARK_SRC } from '@/lib/site-brand-assets';
+import { SITE_LOGO_SRC } from '@/lib/site-brand-assets';
 import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
 import {
@@ -154,19 +154,20 @@ const OPENING_PRIMARY =
 const OPENING_HEADLINE_SIZE =
   'block text-[24px] sm:text-[28px] lg:text-[32px] tracking-[-0.04em] leading-[1.1]';
 
-/** White mark on black — circle size fixed; mark slightly inset inside. */
-const FUNNEL_AI_AVATAR_BOX = 'h-9 w-9 shrink-0';
+/** Brand mark beside AI messages — no chrome, sized to match opening headline. */
+const FUNNEL_AI_AVATAR_BOX = 'h-11 w-11 sm:h-12 sm:w-12 shrink-0';
+const FUNNEL_AI_CONTENT_INDENT = 'pl-12 sm:pl-[3.75rem]';
 
 function FunnelAiMessageAvatar({ className }: { className?: string }) {
   const boxClass = className ?? FUNNEL_AI_AVATAR_BOX;
   return (
-    <span
-      className={`inline-flex items-center justify-center rounded-full bg-black overflow-hidden ${boxClass}`}
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={SITE_LOGO_SRC}
+      alt=""
+      className={`object-contain ${boxClass}`}
       aria-hidden
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={SITE_LOGO_DARK_SRC} alt="" className="h-[62%] w-[62%] object-contain" />
-    </span>
+    />
   );
 }
 
@@ -659,7 +660,7 @@ export default function ChatHero() {
                 }
                 if (block.kind === 'stats') {
                   return (
-                    <div key={block.id} className="flex flex-wrap gap-2 chat-hero-message-enter pl-9">
+                    <div key={block.id} className={`flex flex-wrap gap-2 chat-hero-message-enter ${FUNNEL_AI_CONTENT_INDENT}`}>
                       {block.items.map((item) => (
                         <div
                           key={item.label}
@@ -674,7 +675,7 @@ export default function ChatHero() {
                 }
                 if (block.kind === 'mock_chat') {
                   return (
-                    <div key={block.id} className="space-y-3 pl-9 chat-hero-message-enter">
+                    <div key={block.id} className={`space-y-3 ${FUNNEL_AI_CONTENT_INDENT} chat-hero-message-enter`}>
                       <div className="rounded-xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-surface)] px-4 py-3 text-sm text-[var(--chat-hero-muted)]">
                         {block.user}
                       </div>
@@ -686,7 +687,7 @@ export default function ChatHero() {
                 }
                 if (block.kind === 'ideas') {
                   return (
-                    <div key={block.id} className="space-y-2 pl-9 chat-hero-message-enter">
+                    <div key={block.id} className={`space-y-2 ${FUNNEL_AI_CONTENT_INDENT} chat-hero-message-enter`}>
                       {block.items.map((idea, i) => (
                         <div
                           key={idea}
@@ -700,7 +701,7 @@ export default function ChatHero() {
                   );
                 }
                 return (
-                  <div key={block.id} className="flex flex-wrap gap-2 pl-9 chat-hero-message-enter">
+                  <div key={block.id} className={`flex flex-wrap gap-2 ${FUNNEL_AI_CONTENT_INDENT} chat-hero-message-enter`}>
                     {block.items.map((badge) => (
                       <span
                         key={badge}
