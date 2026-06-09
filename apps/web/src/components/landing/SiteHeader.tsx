@@ -3,9 +3,8 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Menu, X, Sun, Moon } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { useAuthModal } from '@/context/AuthModalContext';
-import { useTheme } from '@/context/ThemeContext';
 import { BrandWordmark } from '@/components/BrandWordmark';
 import { BRAND_NAME, SITE_LOGO_DARK_SRC } from '@/lib/site-brand-assets';
 
@@ -20,7 +19,6 @@ const navLinks = [
 export default function SiteHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { openLogin, openSignup } = useAuthModal();
-  const { theme, toggleTheme } = useTheme();
   const pathname = usePathname();
 
   const navLinkClass = (href: string) => {
@@ -51,15 +49,6 @@ export default function SiteHeader() {
                 {link.label}
               </Link>
             ))}
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="funnel-nav-link inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors"
-              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              {theme === 'dark' ? <Sun className="h-4 w-4 shrink-0" /> : <Moon className="h-4 w-4 shrink-0" />}
-              <span className="hidden lg:inline">{theme === 'dark' ? 'Light' : 'Dark'}</span>
-            </button>
             <button type="button" onClick={openLogin} className="funnel-nav-link rounded-lg px-2 py-1.5 text-sm font-medium transition-colors">
               Log in
             </button>
@@ -72,14 +61,6 @@ export default function SiteHeader() {
             </button>
           </nav>
           <div className="flex items-center gap-2 md:hidden">
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="funnel-nav-link rounded-lg p-2 transition-colors"
-              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </button>
             <button
               type="button"
               onClick={openSignup}
@@ -109,14 +90,6 @@ export default function SiteHeader() {
                 {link.label}
               </Link>
             ))}
-            <button
-              type="button"
-              onClick={() => { setMobileOpen(false); toggleTheme(); }}
-              className="funnel-nav-link inline-flex items-center gap-2 py-3 px-3 rounded-xl font-medium transition-colors w-full text-left"
-            >
-              {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            </button>
             <button
               type="button"
               onClick={() => { setMobileOpen(false); openLogin(); }}
