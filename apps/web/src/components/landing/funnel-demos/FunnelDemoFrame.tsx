@@ -15,7 +15,7 @@ export function FunnelDemoFrame({
 }) {
   return (
     <div
-      className={`funnel-demo-card pointer-events-auto flex h-full min-h-[300px] w-full max-w-[400px] 2xl:max-w-[440px] flex-col rounded-xl border border-neutral-200 dark:border-neutral-800 bg-[var(--bg-primary)] shadow-lg transition-opacity duration-300 ${
+      className={`funnel-demo-card pointer-events-auto flex h-full min-h-0 w-full max-w-[400px] 2xl:max-w-[440px] flex-col rounded-xl border border-neutral-200 dark:border-neutral-800 bg-[var(--bg-primary)] shadow-lg transition-opacity duration-300 ${
         visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
       } ${entering && visible ? 'funnel-demo-card-enter' : ''}`}
       aria-hidden={!visible}

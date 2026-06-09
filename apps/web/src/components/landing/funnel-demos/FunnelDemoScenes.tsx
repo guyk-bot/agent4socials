@@ -24,13 +24,19 @@ import {
 import {
   AdsPerformanceChart,
   AnalyticsChart,
+  ChatMediaDropStack,
   CommentRow,
-  InstagramPostPreview,
   LeadsSpreadsheet,
   YouTubeVideoPreview,
 } from './FunnelDemoVisuals';
 
-const USER_SCHEDULE = 'Post this Instagram reel at 9:30 AM on all platforms';
+const USER_SCHEDULE = 'Post this post at 9:30 on all platforms';
+const SCHEDULE_ATTACHMENTS = [
+  FUNNEL_DEMO_POST_VIDEO_SRC,
+  FUNNEL_DEMO_POST_VIDEO_SRC,
+  FUNNEL_DEMO_POST_VIDEO_SRC,
+  FUNNEL_DEMO_POST_VIDEO_SRC,
+];
 const USER_REPLY =
   'Reply to every comment on my last post. Use my brand voice and answer product questions.';
 const USER_ANALYTICS = 'Show my weekly analytics: views, engagement, and followers';
@@ -55,17 +61,23 @@ function TypeCursor({ active }: { active: boolean }) {
 }
 
 export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
-  const showImage = progress > 0.06;
-  const userText = typewriterSlice(USER_SCHEDULE, progress, 0.18, 0.5);
-  const showUser = progress > 0.1;
-  const showAssistant = progress > 0.56;
+  const userText = typewriterSlice(USER_SCHEDULE, progress, 0.58, 0.88);
+  const showUser = progress > 0.06;
+  const showAssistant = progress > 0.9;
+  const showAttachments = progress > 0.08;
 
   return (
     <>
       <FunnelDemoUserBubble show={showUser} visual>
-        {showImage ? <InstagramPostPreview src={FUNNEL_DEMO_POST_VIDEO_SRC} alt="Instagram post preview" /> : null}
-        <p className="mt-1.5">{userText}</p>
-        <TypeCursor active={progress > 0.18 && progress < 0.5} />
+        {showAttachments ? (
+          <ChatMediaDropStack progress={progress} items={SCHEDULE_ATTACHMENTS} />
+        ) : null}
+        {(progress >= 0.58 || userText.length > 0) && (
+          <p className={showAttachments ? 'mt-2' : ''}>
+            {userText}
+            <TypeCursor active={progress > 0.58 && progress < 0.88} />
+          </p>
+        )}
       </FunnelDemoUserBubble>
       <FunnelDemoAssistantBubble show={showAssistant} visual>
         <div className="grid grid-cols-4 gap-1.5">

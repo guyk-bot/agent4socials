@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { CheckCircle2, Play } from 'lucide-react';
 import {
   Area,
@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { InstagramIcon, YoutubeIcon } from '@/components/SocialPlatformIcons';
+import { YoutubeIcon } from '@/components/SocialPlatformIcons';
 
 const BRAND = {
   primary: '#7C3AED',
@@ -84,20 +84,86 @@ export function DemoImage({
   );
 }
 
-/** Instagram post frame: portrait 3:4, full image visible */
-export function InstagramPostPreview({ src, alt }: { src: string; alt: string }) {
+/** Matches AysopMessageAttachments image styling in user bubbles */
+export function ChatAttachmentImage({
+  src,
+  alt,
+  className = '',
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+}) {
   return (
-    <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950">
-      <div className="flex items-center gap-1.5 border-b border-neutral-100 dark:border-neutral-800 px-2 py-1.5">
-        <InstagramIcon size={14} />
-        <span className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-100">yourbrand</span>
-        <span className="ml-auto text-[9px] text-neutral-400">Post</span>
-      </div>
-      <div className="relative aspect-[3/4] w-full bg-neutral-100 dark:bg-neutral-900">
-        <DemoImage src={src} alt={alt} objectFit="contain" />
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      className={`block w-full rounded-lg border border-white/20 object-contain bg-black/10 ${className}`}
+      draggable={false}
+    />
+  );
+}
+
+const ATTACH_DROP_THRESHOLDS = [0.1, 0.24, 0.38, 0.52];
+
+/** Simulates dropping media into chat: stacks underneath, scroll shows last 2 when 3+ */
+export function ChatMediaDropStack({
+  progress,
+  items,
+}: {
+  progress: number;
+  items: string[];
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const visibleCount = ATTACH_DROP_THRESHOLDS.filter((t) => progress >= t).length;
+  const scrollIndex = Math.max(0, visibleCount - 2);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (visibleCount <= 2) {
+      el.scrollTop = 0;
+      return;
+    }
+    const firstItem = el.querySelector('[data-attach-item]') as HTMLElement | null;
+    const gap = 8;
+    const itemH = firstItem?.offsetHeight ?? 84;
+    el.scrollTo({ top: scrollIndex * (itemH + gap), behavior: 'smooth' });
+  }, [visibleCount, scrollIndex]);
+
+  if (visibleCount === 0) return null;
+
+  return (
+    <div className="relative w-full">
+      {visibleCount > 2 ? (
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-5 rounded-t-lg bg-gradient-to-b from-black/25 to-transparent"
+          aria-hidden
+        />
+      ) : null}
+      <div
+        ref={scrollRef}
+        className="funnel-demo-attach-scroll max-h-[176px] overflow-y-auto overscroll-contain space-y-2"
+        aria-label="Attached media"
+      >
+        {items.slice(0, visibleCount).map((src, i) => (
+          <div
+            key={`attach-${i}`}
+            data-attach-item
+            className="funnel-demo-attach-drop h-[84px] shrink-0"
+          >
+            <ChatAttachmentImage src={src} alt={`Video ${i + 1}`} className="h-full max-h-full" />
+          </div>
+        ))}
       </div>
     </div>
   );
+}
+
+/** @deprecated use ChatAttachmentImage or ChatMediaDropStack */
+export function InstagramPostPreview({ src, alt }: { src: string; alt: string }) {
+  return <ChatAttachmentImage src={src} alt={alt} className="max-h-48" />;
 }
 
 /** YouTube video frame: landscape 16:9, full thumbnail visible */

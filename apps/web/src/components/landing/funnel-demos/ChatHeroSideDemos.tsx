@@ -104,7 +104,6 @@ export function ChatHeroDemoLoopProvider({ children }: { children: React.ReactNo
         if (index < DEMO_COUNT - 1) {
           startDemo(index + 1);
         }
-        // After the last demo freezes, keep all six visible (no loop reset).
       }, FUNNEL_DEMO_MS);
     };
 
@@ -119,32 +118,103 @@ export function ChatHeroDemoLoopProvider({ children }: { children: React.ReactNo
   );
 }
 
-export function ChatHeroSideDemoColumn({ side }: { side: 'left' | 'right' }) {
+function SideDemoScrollColumn({ side }: { side: 'left' | 'right' }) {
   const ctx = useContext(DemoLoopContext);
-  if (!ctx) return null;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const [slotHeight, setSlotHeight] = useState(148);
 
   const indices = SLOT_SIDE.map((s, i) => (s === side ? i : -1)).filter((i) => i >= 0);
+  const visibleIndices = ctx ? indices.filter((i) => ctx.phases[i] !== 'hidden') : [];
+  const visibleCount = visibleIndices.length;
+  const phasesKey = ctx?.phases.join(',') ?? '';
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const measure = () => {
+      const gap = 12;
+      setSlotHeight(Math.max(136, Math.floor((el.clientHeight - gap) / 2)));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (visibleCount === 0) return;
+    const el = scrollRef.current;
+    if (!el) return;
+
+    if (visibleCount <= 2) {
+      el.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [visibleCount, phasesKey]);
+
+  if (!ctx) return null;
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const measure = () => {
+      const gap = 12;
+      setSlotHeight(Math.max(136, Math.floor((el.clientHeight - gap) / 2)));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (visibleCount === 0) return;
+    const el = scrollRef.current;
+    if (!el) return;
+
+    if (visibleCount <= 2) {
+      el.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [visibleCount, phasesKey]);
 
   return (
-    <div
-      className={`hidden xl:grid h-full min-h-0 w-[400px] shrink-0 grid-rows-3 gap-3 py-3 2xl:w-[440px] ${
-        side === 'left' ? 'pl-0' : 'pr-0'
-      }`}
-    >
-      {indices.map((index) => {
-        return (
+    <div className="hidden xl:flex h-full min-h-0 w-[400px] shrink-0 flex-col py-3 2xl:w-[440px]">
+      <div
+        ref={scrollRef}
+        className={`funnel-demo-column-scroll relative min-h-0 flex-1 overflow-y-auto overscroll-contain ${
+          side === 'left' ? 'pr-1' : 'pl-1'
+        }`}
+      >
+        {visibleCount > 2 ? (
           <div
-            key={index}
-            className="flex h-full min-h-0 w-full items-stretch justify-center"
-          >
-            <DemoSlot
-              index={index}
-              phase={ctx.phases[index]}
-              justEntered={ctx.enteredIndex === index}
-            />
-          </div>
-        );
-      })}
+            className="pointer-events-none sticky top-0 z-10 mb-1 h-4 bg-gradient-to-b from-[var(--bg-primary)] to-transparent"
+            aria-hidden
+          />
+        ) : null}
+
+        <div className="flex flex-col gap-3">
+          {visibleIndices.map((index) => (
+            <div key={index} className="shrink-0" style={{ height: slotHeight }}>
+              <DemoSlot
+                index={index}
+                phase={ctx.phases[index]}
+                justEntered={ctx.enteredIndex === index}
+              />
+            </div>
+          ))}
+          <div ref={bottomRef} className="h-px shrink-0" aria-hidden />
+        </div>
+      </div>
     </div>
   );
+}
+
+export function ChatHeroSideDemoColumn({ side }: { side: 'left' | 'right' }) {
+  return <SideDemoScrollColumn side={side} />;
 }
