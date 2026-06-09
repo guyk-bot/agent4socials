@@ -1,4 +1,4 @@
-import { Calendar, BarChart3, MessageCircle, MessageSquare, Sparkles, Table2 } from 'lucide-react';
+import { Calendar, BarChart3, Hash, MessageCircle, MessageSquare, Sparkles, Table2 } from 'lucide-react';
 
 const CARDS = [
   {
@@ -33,6 +33,11 @@ const CARDS = [
     icon: MessageCircle,
     title: 'Unified inbox',
     desc: 'Every DM and comment from every platform in one feed. Never miss a message. Reply without switching apps.',
+  },
+  {
+    icon: Hash,
+    title: 'Hashtag pool',
+    desc: 'Save your best hashtag sets and drop them into any post in one click. Never retype hashtags again.',
   },
 ];
 

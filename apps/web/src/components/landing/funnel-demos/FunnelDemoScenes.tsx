@@ -17,7 +17,7 @@ import {
   FunnelDemoUserBubble,
   typewriterSlice,
 } from './FunnelDemoFrame';
-import { FUNNEL_DEMO_POST_VIDEO_SRC } from './funnel-demo-assets';
+import { FUNNEL_DEMO_BRAINSTORM_WINNER_SRC, FUNNEL_DEMO_POST_VIDEO_SRC } from './funnel-demo-assets';
 import {
   AdsPerformanceChart,
   AnalyticsChart,
@@ -26,11 +26,15 @@ import {
   CommentRow,
   LeadsSpreadsheet,
   TeamMembersPanel,
+  TeamPerformancePanel,
+  YouTubeVideoPreview,
 } from './FunnelDemoVisuals';
 
 const USER_SCHEDULE = 'Post this post at 9:30 on all platforms';
 const USER_REPLY =
   'Reply to every comment on my last post. Use my brand voice and answer product questions.';
+const USER_BRAINSTORM = 'Brainstorm new ideas based on my best YouTube video';
+const USER_TEAM_PERF = 'How did my team perform this week? Who was most active?';
 const USER_ANALYTICS = 'Show my weekly analytics: views, engagement, and followers';
 const USER_LEADS = 'Send me a spreadsheet of leads from comments with AI DM suggestions';
 const USER_IZOP_AI =
@@ -78,13 +82,13 @@ export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
           {PLATFORM_ICONS.map((Icon, i) => (
             <span
               key={i}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
+              className="funnel-inner-card inline-flex h-7 w-7 items-center justify-center"
             >
               <Icon size={15} />
             </span>
           ))}
         </div>
-        <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-emerald-600 dark:text-emerald-400">
+        <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-emerald-400">
           <CheckCircle2 size={13} /> Scheduled for 9:30 AM across 8 platforms
         </p>
       </FunnelDemoAssistantBubble>
@@ -103,7 +107,7 @@ export function FunnelDemoSceneComments({ progress }: { progress: number }) {
         <TypeCursor active={progress > 0.08 && progress < 0.38} />
       </FunnelDemoUserBubble>
       <FunnelDemoAssistantBubble show={showAssistant} visual wide>
-        <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
+        <p className="mb-1.5 text-[10px] font-semibold text-white">
           Summer launch Reel · 847 comments
         </p>
         <ul className="space-y-1">
@@ -201,7 +205,7 @@ export function FunnelDemoSceneIzopAI({ progress }: { progress: number }) {
           {captions.map((cap, i) => (
             <div
               key={cap.text}
-              className={`rounded-lg border border-[#1E1E2A] bg-[#1A1A24] p-2 ${
+              className={`funnel-inner-card p-2 ${
                 progress > 0.42 + i * 0.14 || progress >= 1 ? 'opacity-100' : 'opacity-0'
               }`}
             >
@@ -310,6 +314,61 @@ export function FunnelDemoSceneReports({ progress }: { progress: number }) {
   );
 }
 
+export function FunnelDemoSceneBrainstorm({ progress }: { progress: number }) {
+  const userText = typewriterSlice(USER_BRAINSTORM, progress, 0.08, 0.32);
+  const showAssistant = progress > 0.38;
+  const ideas = [
+    'Behind-the-scenes: how we plan a week of content in 20 minutes',
+    'Carousel: 5 hooks that doubled your saves last month',
+    'Reel: trend remix with your product as the punchline',
+  ];
+
+  return (
+    <>
+      <FunnelDemoUserBubble show={progress > 0.06}>
+        {userText}
+        <TypeCursor active={progress > 0.08 && progress < 0.32} />
+      </FunnelDemoUserBubble>
+      <FunnelDemoAssistantBubble show={showAssistant} visual wide contained>
+        <YouTubeVideoPreview
+          src={FUNNEL_DEMO_BRAINSTORM_WINNER_SRC}
+          alt="Top performing YouTube video"
+          title="3 Hooks that 10X my savings"
+        />
+        <div className="mt-2 space-y-1.5">
+          {ideas.map((idea, i) => (
+            <div
+              key={idea}
+              className={`funnel-inner-card px-2 py-1.5 text-[10px] leading-snug text-white ${
+                progress > 0.5 + i * 0.12 || progress >= 1 ? 'opacity-100' : 'opacity-0'
+              }`}
+            >
+              {idea}
+            </div>
+          ))}
+        </div>
+      </FunnelDemoAssistantBubble>
+    </>
+  );
+}
+
+export function FunnelDemoSceneTeamPerformance({ progress }: { progress: number }) {
+  const userText = typewriterSlice(USER_TEAM_PERF, progress, 0.08, 0.34);
+  const showAssistant = progress > 0.4;
+
+  return (
+    <>
+      <FunnelDemoUserBubble show={progress > 0.06}>
+        {userText}
+        <TypeCursor active={progress > 0.08 && progress < 0.34} />
+      </FunnelDemoUserBubble>
+      <FunnelDemoAssistantBubble show={showAssistant} visual wide>
+        <TeamPerformancePanel show={showAssistant} progress={progress} />
+      </FunnelDemoAssistantBubble>
+    </>
+  );
+}
+
 export const FUNNEL_DEMO_SCENE_COMPONENTS = [
   FunnelDemoSceneSchedule,
   FunnelDemoSceneComments,
@@ -319,4 +378,6 @@ export const FUNNEL_DEMO_SCENE_COMPONENTS = [
   FunnelDemoSceneAdsRoas,
   FunnelDemoSceneTeamMembers,
   FunnelDemoSceneReports,
+  FunnelDemoSceneBrainstorm,
+  FunnelDemoSceneTeamPerformance,
 ] as const;

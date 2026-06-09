@@ -19,6 +19,7 @@ import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
 import {
   ChatHeroDemoLoopProvider,
+  ChatHeroMobileDemoCarousel,
   ChatHeroSideDemoColumn,
 } from '@/components/landing/funnel-demos/ChatHeroSideDemos';
 import {
@@ -465,7 +466,7 @@ export default function ChatHero() {
   const canPainContinue = selectedPain !== null && !busy;
 
   return (
-    <section className="chat-hero relative flex min-h-[60vh] md:min-h-0 md:h-[calc(100dvh-3px)] md:max-h-[calc(100dvh-3px)] flex-col overflow-hidden pt-[calc(3px+3.5rem)] sm:pt-[calc(3px+4rem)]">
+    <section className="chat-hero relative flex min-h-[100dvh] h-[100dvh] max-h-[100dvh] flex-col overflow-hidden pt-[calc(3px+3.5rem)] sm:pt-[calc(3px+4rem)]">
       <ChatHeroDemoLoopProvider active={sideDemosReady}>
         <div className="flex flex-1 min-h-0 w-full max-w-[1920px] mx-auto">
           <ChatHeroSideDemoColumn side="left" visible={sideDemosReady} />
@@ -474,7 +475,7 @@ export default function ChatHero() {
 
             <div
               ref={scrollRef}
-              className="flex flex-1 min-h-0 w-full flex-col overflow-y-auto pb-4 pt-2 sm:pt-3 px-2 md:px-0"
+              className="flex flex-1 min-h-0 w-full flex-col justify-between overflow-y-auto pb-4 pt-2 sm:pt-3 px-2 md:px-0"
             >
               <div className="w-full space-y-3 shrink-0">
                 {blocks.map((block) => {
@@ -498,40 +499,48 @@ export default function ChatHero() {
                 {isTyping ? <TypingIndicator /> : null}
               </div>
 
-              {showPlatformOptions ? (
-                <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3 w-full shrink-0">
-                  {CHAT_HERO_PLATFORMS.map((platform) => {
-                    const Icon = PLATFORM_ICONS[platform.id];
-                    const selected = selectedPlatforms.includes(platform.id);
-                    return (
-                      <PlatformButton
-                        key={platform.id}
-                        label={platform.label}
-                        selected={selected}
-                        disabled={busy}
-                        icon={<Icon size={24} />}
-                        onClick={() => togglePlatform(platform.id)}
-                      />
-                    );
-                  })}
-                </div>
-              ) : null}
+              {showPlatformOptions || showPainOptions ? (
+                <div className="flex flex-1 min-h-[8rem] w-full flex-col justify-center py-4">
+                  {showPlatformOptions ? (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3 w-full">
+                      {CHAT_HERO_PLATFORMS.map((platform) => {
+                        const Icon = PLATFORM_ICONS[platform.id];
+                        const selected = selectedPlatforms.includes(platform.id);
+                        return (
+                          <PlatformButton
+                            key={platform.id}
+                            label={platform.label}
+                            selected={selected}
+                            disabled={busy}
+                            icon={<Icon size={24} />}
+                            onClick={() => togglePlatform(platform.id)}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : null}
 
-              {showPainOptions ? (
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-2.5 w-full shrink-0">
-                  {CHAT_HERO_PAIN_POINTS.map((pain, i) => (
-                    <PainOptionButton
-                      key={pain.id}
-                      label={pain.label}
-                      selected={selectedPain === pain.id}
-                      disabled={busy}
-                      staggerIndex={i}
-                      onClick={() => setSelectedPain(pain.id)}
-                    />
-                  ))}
+                  {showPainOptions ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-2.5 w-full">
+                      {CHAT_HERO_PAIN_POINTS.map((pain, i) => (
+                        <PainOptionButton
+                          key={pain.id}
+                          label={pain.label}
+                          selected={selectedPain === pain.id}
+                          disabled={busy}
+                          staggerIndex={i}
+                          onClick={() => setSelectedPain(pain.id)}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
+              ) : (
+                <div className="flex-1 min-h-0" aria-hidden />
+              )}
             </div>
+
+            <ChatHeroMobileDemoCarousel visible={sideDemosReady} />
 
             <div className="shrink-0 border-t border-[var(--chat-hero-border)] pt-3 pb-3 px-2 md:px-0">
               <div className="space-y-3">
@@ -641,7 +650,7 @@ export default function ChatHero() {
               </div>
             </div>
 
-            <div className="xl:hidden mt-2 px-2 pb-1 overflow-x-auto">
+            <div className="xl:hidden mt-1 px-2 pb-1 overflow-x-auto shrink-0">
               <div className="flex gap-2 w-max min-w-full justify-start sm:justify-center">
                 {MOBILE_FEATURE_CHIPS.map((chip) => (
                   <span key={chip.label} className="chat-hero-mobile-chip whitespace-nowrap">

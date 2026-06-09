@@ -8,4 +8,6 @@ export const FUNNEL_DEMO_TITLES = [
   'Compare ads',
   'Add team members',
   'Analytic reports',
+  'Brainstorm ideas',
+  'Team performance report',
 ] as const;
