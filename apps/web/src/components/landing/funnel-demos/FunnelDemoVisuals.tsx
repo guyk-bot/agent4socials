@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef } from 'react';
-import { CheckCircle2, Play } from 'lucide-react';
+import { CheckCircle2, FileText, Play, Users } from 'lucide-react';
 import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { YoutubeIcon } from '@/components/SocialPlatformIcons';
 
@@ -596,6 +596,142 @@ export function LeadsSpreadsheet({ show, progress = 1 }: { show: boolean; progre
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+const TEAM_DEMO_ROWS = [
+  {
+    name: 'Guy K.',
+    avatar: 'GK',
+    color: 'bg-violet-500',
+    role: 'Admin',
+    roleStyle: 'border-violet-300 bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300',
+    activity: 'Active now',
+    activityStyle: 'text-emerald-600 dark:text-emerald-400',
+    showAt: 0.12,
+  },
+  {
+    name: 'Maya Rodriguez',
+    avatar: 'MR',
+    color: 'bg-sky-500',
+    role: 'Editor',
+    roleStyle: 'border-sky-300 bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300',
+    activity: '2h ago',
+    activityStyle: 'text-neutral-500',
+    showAt: 0.28,
+  },
+  {
+    name: 'Alex Kim',
+    avatar: 'AK',
+    color: 'bg-emerald-500',
+    role: 'Viewer',
+    roleStyle: 'border-neutral-300 bg-neutral-50 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300',
+    activity: 'Yesterday',
+    activityStyle: 'text-neutral-500',
+    showAt: 0.44,
+  },
+] as const;
+
+export function TeamMembersPanel({ show, progress = 1 }: { show: boolean; progress?: number }) {
+  if (!show) return null;
+  const visibleRows = TEAM_DEMO_ROWS.filter((row) => progress >= row.showAt || progress >= 1);
+
+  return (
+    <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
+      <div className="flex items-center gap-1.5 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 px-2 py-1.5">
+        <Users size={12} className="text-[#7C3AED]" />
+        <span className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">Team activity</span>
+      </div>
+      <table className="w-full text-left">
+        <thead>
+          <tr className="border-b border-neutral-100 dark:border-neutral-800 text-[9px] uppercase tracking-wide text-neutral-500">
+            <th className="px-1.5 py-1 font-semibold">Member</th>
+            <th className="px-1.5 py-1 font-semibold">Role</th>
+            <th className="px-1.5 py-1 font-semibold text-right">Last active</th>
+          </tr>
+        </thead>
+        <tbody>
+          {visibleRows.map((row) => (
+            <tr key={row.name} className="border-b border-neutral-100 dark:border-neutral-800 last:border-0">
+              <td className="px-1.5 py-1.5 align-middle">
+                <div className="flex items-center gap-1.5">
+                  <DemoAvatar label={row.avatar} colorClass={row.color} size="md" />
+                  <span className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 whitespace-nowrap">
+                    {row.name}
+                  </span>
+                </div>
+              </td>
+              <td className="px-1.5 py-1.5 align-middle">
+                <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${row.roleStyle}`}>
+                  {row.role}
+                </span>
+              </td>
+              <td className={`px-1.5 py-1.5 text-right text-[9px] font-medium tabular-nums ${row.activityStyle}`}>
+                {row.activity}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {(progress > 0.58 || progress >= 1) && (
+        <p className="flex items-center gap-1 border-t border-neutral-100 dark:border-neutral-800 px-2 py-1.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+          <CheckCircle2 size={11} /> Invite sent to maya@studio.com
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function AnalyticsReportPreview({ show, progress = 1 }: { show: boolean; progress?: number }) {
+  if (!show) return null;
+  const showDownload = progress > 0.55 || progress >= 1;
+
+  return (
+    <div className="space-y-2">
+      <div className="rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950/25 dark:border-orange-900/60 p-2">
+        <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
+          Mar 1 to Mar 31 · 8 platforms
+        </p>
+        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+          {[
+            { label: 'Impressions', value: '1.2M' },
+            { label: 'Engagement', value: '48.3K' },
+            { label: 'Posts', value: '124' },
+            { label: 'Audience', value: '89.4K' },
+          ].map((m) => (
+            <div
+              key={m.label}
+              className="rounded-md border border-orange-100 bg-white/80 dark:bg-neutral-900/60 dark:border-orange-900/40 px-1.5 py-1"
+            >
+              <p className="text-[11px] font-bold tabular-nums text-neutral-900 dark:text-neutral-100">{m.value}</p>
+              <p className="text-[8px] text-neutral-500">{m.label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        {[
+          { title: 'Simplified report', sub: 'PDF · 4 pages' },
+          { title: 'Detailed report', sub: 'PDF · 12 pages' },
+        ].map((card, i) => (
+          <div
+            key={card.title}
+            className={`rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 ${
+              progress > 0.32 + i * 0.12 || progress >= 1 ? 'opacity-100' : 'opacity-40'
+            }`}
+          >
+            <FileText size={14} className="text-[#7C3AED] mb-1" />
+            <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 leading-snug">{card.title}</p>
+            <p className="text-[8px] text-neutral-500">{card.sub}</p>
+          </div>
+        ))}
+      </div>
+      {showDownload ? (
+        <p className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--primary)]">
+          <CheckCircle2 size={11} /> analytics-report-mar.pdf ready
+        </p>
+      ) : null}
     </div>
   );
 }

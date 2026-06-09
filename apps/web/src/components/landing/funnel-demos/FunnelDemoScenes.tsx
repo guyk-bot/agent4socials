@@ -24,9 +24,11 @@ import {
 import {
   AdsPerformanceChart,
   AnalyticsChart,
+  AnalyticsReportPreview,
   ChatDragDropImage,
   CommentRow,
   LeadsSpreadsheet,
+  TeamMembersPanel,
   YouTubeVideoPreview,
 } from './FunnelDemoVisuals';
 
@@ -37,6 +39,8 @@ const USER_ANALYTICS = 'Show my weekly analytics: views, engagement, and followe
 const USER_LEADS = 'Send me a spreadsheet of leads from comments with AI DM suggestions';
 const USER_BRAINSTORM = 'Brainstorm new ideas based on my best YouTube video';
 const USER_ADS = 'Compare Google, Meta, and TikTok ad ROAS side by side';
+const USER_TEAM = 'Invite my editor and show me who has been active on the account this week';
+const USER_REPORTS = 'Export an analytic report for all platforms as a PDF';
 
 const PLATFORM_ICONS = [
   InstagramIcon,
@@ -264,6 +268,40 @@ export function FunnelDemoSceneAdsRoas({ progress }: { progress: number }) {
   );
 }
 
+export function FunnelDemoSceneTeamMembers({ progress }: { progress: number }) {
+  const userText = typewriterSlice(USER_TEAM, progress, 0.08, 0.36);
+  const showAssistant = progress > 0.42;
+
+  return (
+    <>
+      <FunnelDemoUserBubble show={progress > 0.06}>
+        {userText}
+        <TypeCursor active={progress > 0.08 && progress < 0.36} />
+      </FunnelDemoUserBubble>
+      <FunnelDemoAssistantBubble show={showAssistant} visual wide>
+        <TeamMembersPanel show={showAssistant} progress={progress} />
+      </FunnelDemoAssistantBubble>
+    </>
+  );
+}
+
+export function FunnelDemoSceneReports({ progress }: { progress: number }) {
+  const userText = typewriterSlice(USER_REPORTS, progress, 0.08, 0.34);
+  const showAssistant = progress > 0.4;
+
+  return (
+    <>
+      <FunnelDemoUserBubble show={progress > 0.06}>
+        {userText}
+        <TypeCursor active={progress > 0.08 && progress < 0.34} />
+      </FunnelDemoUserBubble>
+      <FunnelDemoAssistantBubble show={showAssistant} visual wide>
+        <AnalyticsReportPreview show={showAssistant} progress={progress} />
+      </FunnelDemoAssistantBubble>
+    </>
+  );
+}
+
 export const FUNNEL_DEMO_SCENE_COMPONENTS = [
   FunnelDemoSceneSchedule,
   FunnelDemoSceneComments,
@@ -271,4 +309,6 @@ export const FUNNEL_DEMO_SCENE_COMPONENTS = [
   FunnelDemoSceneLeads,
   FunnelDemoSceneTikTokIdeas,
   FunnelDemoSceneAdsRoas,
+  FunnelDemoSceneTeamMembers,
+  FunnelDemoSceneReports,
 ] as const;

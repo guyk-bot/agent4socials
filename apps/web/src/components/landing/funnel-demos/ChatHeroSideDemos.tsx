@@ -8,7 +8,16 @@ import { FUNNEL_DEMO_SCENE_COMPONENTS } from './FunnelDemoScenes';
 export const FUNNEL_DEMO_MS = 3000;
 const DEMO_COUNT = FUNNEL_DEMO_SCENE_COMPONENTS.length;
 
-const SLOT_SIDE: ('left' | 'right')[] = ['left', 'right', 'left', 'right', 'left', 'right'];
+const SLOT_SIDE: ('left' | 'right')[] = [
+  'left',
+  'right',
+  'left',
+  'right',
+  'left',
+  'right',
+  'left',
+  'right',
+];
 
 type SlotPhase = 'hidden' | 'playing' | 'frozen';
 

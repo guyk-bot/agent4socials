@@ -6,4 +6,6 @@ export const FUNNEL_DEMO_TITLES = [
   'Extract leads',
   'Brainstorm ideas',
   'Compare ads',
+  'Add team members',
+  'Analytic reports',
 ] as const;
