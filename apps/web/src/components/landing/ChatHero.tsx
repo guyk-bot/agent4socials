@@ -62,6 +62,9 @@ const PLATFORM_ICONS: Record<
   pinterest: PinterestIcon,
 };
 
+const INTRO_AI_TEXT =
+  'Meet your AI social media manager.\n\nTell us what platforms you\'re on, we\'ll show you what iZop can do.';
+
 const INITIAL_AI_TEXT = 'Hey! What platforms are you currently posting on?';
 
 function delay(ms: number): Promise<void> {
@@ -242,8 +245,6 @@ export default function ChatHero() {
   const { openSignup } = useAuthModal();
 
   const [heroReady, setHeroReady] = useState(false);
-  const [headlineReady, setHeadlineReady] = useState(false);
-  const [subheadReady, setSubheadReady] = useState(false);
   const [chatReady, setChatReady] = useState(false);
 
   const [step, setStep] = useState<FlowStep>(0);
@@ -306,19 +307,26 @@ export default function ChatHero() {
 
   useEffect(() => {
     trackChatHeroEvent('chat_started');
-    const t1 = window.setTimeout(() => setHeroReady(true), 50);
-    const t2 = window.setTimeout(() => setHeadlineReady(true), 100);
-    const t3 = window.setTimeout(() => setSubheadReady(true), 300);
-    const t4 = window.setTimeout(() => setChatReady(true), 500);
-    const t5 = window.setTimeout(() => {
-      setBlocks([{ id: blockId('ai'), kind: 'ai', text: INITIAL_AI_TEXT, animate: true }]);
-    }, 700);
+    const timers: number[] = [];
+    timers.push(window.setTimeout(() => setHeroReady(true), 50));
+    timers.push(window.setTimeout(() => setChatReady(true), 200));
+    timers.push(
+      window.setTimeout(() => {
+        setBlocks([{ id: blockId('ai'), kind: 'ai', text: INTRO_AI_TEXT }]);
+      }, 350)
+    );
+    timers.push(window.setTimeout(() => setIsTyping(true), 650));
+    timers.push(
+      window.setTimeout(() => {
+        setIsTyping(false);
+        setBlocks((prev) => [
+          ...prev,
+          { id: blockId('ai'), kind: 'ai', text: INITIAL_AI_TEXT, animate: true },
+        ]);
+      }, 1150)
+    );
     return () => {
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
-      window.clearTimeout(t3);
-      window.clearTimeout(t4);
-      window.clearTimeout(t5);
+      for (const id of timers) window.clearTimeout(id);
     };
   }, []);
 
@@ -532,35 +540,20 @@ export default function ChatHero() {
             chatReady ? 'opacity-100' : 'opacity-0 translate-y-1'
           }`}
         >
-          <div
-            className={`shrink-0 mb-2 sm:mb-3 text-center sm:text-left transition-all duration-500 ${
-              headlineReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
-            }`}
-          >
-            <h1 className="text-[22px] sm:text-[28px] lg:text-[32px] font-semibold tracking-[-0.5px] text-[var(--chat-hero-text)]">
-              Meet your AI social media manager.
-            </h1>
-            <p
-              className={`mt-1.5 text-sm sm:text-base text-[var(--chat-hero-muted)] max-w-2xl mx-auto sm:mx-0 transition-all duration-500 ${
-                subheadReady ? 'opacity-100' : 'opacity-0'
-              }`}
-            >
-              Tell us what platforms you&apos;re on — we&apos;ll show you what iZop can do.
-            </p>
-          </div>
+          <h1 className="sr-only">Meet your AI social media manager</h1>
 
-          <div ref={scrollRef} className="flex flex-1 min-h-0 flex-col overflow-y-auto pr-1 -mr-1 pb-4">
+          <div ref={scrollRef} className="flex flex-1 min-h-0 flex-col overflow-y-auto pr-1 -mr-1 pb-4 pt-1">
             <div className="space-y-3 shrink-0">
               {blocks.map((block, index) => {
                 if (block.kind === 'ai') {
-                  const isFirst = index === 0 && block.text === INITIAL_AI_TEXT;
+                  const isPlatformPrompt = block.text === INITIAL_AI_TEXT;
                   return (
                     <AiMessage
                       key={block.id}
                       text={block.text}
-                      typewriter={isFirst}
-                      typewriterActive={isFirst && !typewriterDone}
-                      onTypewriterComplete={isFirst ? handleTypewriterComplete : undefined}
+                      typewriter={isPlatformPrompt}
+                      typewriterActive={isPlatformPrompt && !typewriterDone}
+                      onTypewriterComplete={isPlatformPrompt ? handleTypewriterComplete : undefined}
                     />
                   );
                 }
