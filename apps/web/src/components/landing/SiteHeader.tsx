@@ -9,6 +9,14 @@ import { useTheme } from '@/context/ThemeContext';
 import { BrandWordmark } from '@/components/BrandWordmark';
 import { BRAND_NAME, SITE_LOGO_DARK_SRC } from '@/lib/site-brand-assets';
 
+function TryForFreeLabel() {
+  return (
+    <>
+      Try for <span className="text-[#c1ff72]">free</span>
+    </>
+  );
+}
+
 const navLinks = [
   { href: '/#features', label: 'Features' },
   { href: '/#how-it-works', label: 'How it works' },
@@ -68,7 +76,7 @@ export default function SiteHeader() {
               onClick={openSignup}
               className="rounded-full gradient-cta-pro px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(124,58,237,0.28)] transition-all hover:scale-[1.02]"
             >
-              Try for free
+              <TryForFreeLabel />
             </button>
           </nav>
           <div className="flex items-center gap-2 md:hidden">
@@ -85,7 +93,7 @@ export default function SiteHeader() {
               onClick={openSignup}
               className="rounded-full gradient-cta-pro px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(124,58,237,0.26)]"
             >
-              Try for free
+              <TryForFreeLabel />
             </button>
             <button
               type="button"
@@ -129,7 +137,7 @@ export default function SiteHeader() {
               onClick={() => { setMobileOpen(false); openSignup(); }}
               className="mt-2 mx-3 py-3 rounded-full gradient-cta-pro text-center font-semibold text-white w-full shadow-[0_10px_22px_rgba(124,58,237,0.26)]"
             >
-              Try for free
+              <TryForFreeLabel />
             </button>
           </nav>
         )}

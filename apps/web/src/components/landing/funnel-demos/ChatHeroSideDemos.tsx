@@ -73,14 +73,24 @@ function DemoSlot({
   );
 }
 
-export function ChatHeroDemoLoopProvider({ children }: { children: React.ReactNode }) {
+export function ChatHeroDemoLoopProvider({
+  children,
+  active = true,
+}: {
+  children: React.ReactNode;
+  /** When false, side demos stay idle (chat loads first). */
+  active?: boolean;
+}) {
   const [phases, setPhases] = useState<SlotPhase[]>(() =>
     Array.from({ length: DEMO_COUNT }, () => 'hidden' as SlotPhase)
   );
   const [enteredIndex, setEnteredIndex] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startedRef = useRef(false);
 
   useEffect(() => {
+    if (!active) return;
+
     const clearTimer = () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
@@ -110,9 +120,12 @@ export function ChatHeroDemoLoopProvider({ children }: { children: React.ReactNo
       }, FUNNEL_DEMO_MS);
     };
 
-    startDemo(0);
+    if (!startedRef.current) {
+      startedRef.current = true;
+      startDemo(0);
+    }
     return clearTimer;
-  }, []);
+  }, [active]);
 
   return (
     <DemoLoopContext.Provider value={{ phases, enteredIndex }}>
@@ -161,7 +174,7 @@ function SideDemoScrollColumn({ side }: { side: 'left' | 'right' }) {
   if (!ctx) return null;
 
   return (
-    <div className="hidden xl:flex h-full min-h-0 w-[400px] shrink-0 flex-col py-3 2xl:w-[440px]">
+    <div className="flex h-full min-h-0 w-full flex-col py-3">
       <div
         ref={scrollRef}
         className={`funnel-demo-column-scroll relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y ${
@@ -192,6 +205,20 @@ function SideDemoScrollColumn({ side }: { side: 'left' | 'right' }) {
   );
 }
 
-export function ChatHeroSideDemoColumn({ side }: { side: 'left' | 'right' }) {
-  return <SideDemoScrollColumn side={side} />;
+export function ChatHeroSideDemoColumn({
+  side,
+  visible = true,
+}: {
+  side: 'left' | 'right';
+  /** Fade in after chat shell is ready. */
+  visible?: boolean;
+}) {
+  if (!visible) {
+    return <div className="hidden xl:block h-full min-h-0 w-[400px] shrink-0 2xl:w-[440px]" aria-hidden />;
+  }
+  return (
+    <div className="hidden xl:flex h-full min-h-0 w-[400px] shrink-0 flex-col funnel-demo-column-enter 2xl:w-[440px]">
+      <SideDemoScrollColumn side={side} />
+    </div>
+  );
 }

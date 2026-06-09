@@ -331,6 +331,21 @@
   overscroll-behavior-y: contain;
 }
 
+@keyframes funnel-demo-column-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.funnel-demo-column-enter {
+  animation: funnel-demo-column-enter 420ms ease-out both;
+}
+
 .chat-hero-opening-headline {
   background: linear-gradient(
     180deg,
