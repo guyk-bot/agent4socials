@@ -14,7 +14,7 @@ import {
   XTwitterIcon,
   YoutubeIcon,
 } from '@/components/SocialPlatformIcons';
-import { SITE_LOGO_SRC } from '@/lib/site-brand-assets';
+import { CHAT_HERO_LOGO_SRC } from '@/lib/site-brand-assets';
 import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
 import {
@@ -163,7 +163,7 @@ function FunnelAiMessageAvatar({ className }: { className?: string }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={SITE_LOGO_SRC}
+      src={CHAT_HERO_LOGO_SRC}
       alt=""
       className={`object-contain ${boxClass}`}
       aria-hidden
