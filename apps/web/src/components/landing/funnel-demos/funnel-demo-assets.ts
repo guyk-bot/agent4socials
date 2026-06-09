@@ -4,24 +4,24 @@ export const FUNNEL_DEMO_BRAINSTORM_WINNER_SRC = '/funnel-demo-brainstorm-winner
 export const FUNNEL_DEMO_PARKOUR_POST_SRC = '/funnel-demo-parkour-post.png';
 export const FUNNEL_DEMO_BEST_POST_WEEK_SRC = '/funnel-demo-best-post-week.png';
 
-/** Unique demo profile photos (not post thumbnails). */
+/** Realistic demo profile photos for leads, comments, and team (not post thumbnails). */
 export const FUNNEL_DEMO_PEOPLE_AVATARS = {
-  sarah: '/funnel-demo-avatar-sarah-chen.png',
-  priya: '/funnel-demo-avatar-priya-sharma.png',
-  mike: '/funnel-demo-avatar-mike-torres.png',
-  daniel: '/funnel-demo-avatar-daniel-frost.png',
-  james: '/funnel-demo-avatar-james-okonkwo.png',
-  alex: '/funnel-demo-avatar-alex-kim.png',
-  maya: '/funnel-demo-avatar-maya-rodriguez.png',
-  lina: '/funnel-demo-avatar-lina-park.png',
-  chris: '/funnel-demo-avatar-chris-webb.png',
-  emma: '/funnel-demo-avatar-emma-walsh.png',
-  noah: '/funnel-demo-avatar-noah-patel.png',
-  zoe: '/funnel-demo-avatar-zoe-martin.png',
-  guy: '/funnel-demo-avatar-guy-kogen.png',
-  nina: '/funnel-demo-avatar-nina-cho.png',
-  omar: '/funnel-demo-avatar-omar-hassan.png',
-  julia: '/funnel-demo-avatar-julia-ross.png',
+  sarah: '/funnel-demo-avatar-sarah-chen.jpg',
+  priya: '/funnel-demo-avatar-priya-sharma.jpg',
+  mike: '/funnel-demo-avatar-mike-torres.jpg',
+  daniel: '/funnel-demo-avatar-daniel-frost.jpg',
+  james: '/funnel-demo-avatar-james-okonkwo.jpg',
+  alex: '/funnel-demo-avatar-alex-kim.jpg',
+  maya: '/funnel-demo-avatar-maya-rodriguez.jpg',
+  lina: '/funnel-demo-avatar-lina-park.jpg',
+  chris: '/funnel-demo-avatar-chris-webb.jpg',
+  emma: '/funnel-demo-avatar-emma-walsh.jpg',
+  noah: '/funnel-demo-avatar-noah-patel.jpg',
+  zoe: '/funnel-demo-avatar-zoe-martin.jpg',
+  guy: '/funnel-demo-avatar-guy-kogen.jpg',
+  nina: '/funnel-demo-avatar-nina-cho.jpg',
+  omar: '/funnel-demo-avatar-omar-hassan.jpg',
+  julia: '/funnel-demo-avatar-julia-ross.jpg',
 } as const;
 
 /** @deprecated use FUNNEL_DEMO_PEOPLE_AVATARS */
