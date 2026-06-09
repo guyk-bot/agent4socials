@@ -105,22 +105,31 @@ export function FunnelDemoSceneComments({ progress }: { progress: number }) {
         </p>
         <ul className="space-y-1">
           <CommentRow
-            show={progress > 0.48 || progress >= 1}
+            show={progress > 0.2 || progress >= 1}
             name="Maya Rodriguez"
             avatar="MR"
             colorClass="bg-violet-500"
             text="Love this! Exactly what I needed."
-            replied={progress > 0.62 || progress >= 1}
+            replied={progress > 0.34 || progress >= 1}
             replyText="Thank you, Maya! So glad it helped."
           />
           <CommentRow
-            show={progress > 0.58 || progress >= 1}
+            show={progress > 0.38 || progress >= 1}
+            name="Guy Capara"
+            avatar="GC"
+            colorClass="bg-emerald-500"
+            text="תכלנו בהצלחה"
+            highlight
+            replied={progress > 0.52 || progress >= 1}
+            replyText="Great to connect, Guy! Check your DMs."
+          />
+          <CommentRow
+            show={progress > 0.56 || progress >= 1}
             name="Alex Kim"
             avatar="AK"
             colorClass="bg-sky-500"
             text="Where can I buy this? Ship to Canada?"
-            highlight
-            replied={progress > 0.75 || progress >= 1}
+            replied={progress > 0.7 || progress >= 1}
             replyText="Yes! Link in bio ships worldwide."
           />
         </ul>
@@ -162,7 +171,7 @@ export function FunnelDemoSceneLeads({ progress }: { progress: number }) {
         <TypeCursor active={progress > 0.1 && progress < 0.34} />
       </FunnelDemoUserBubble>
       <FunnelDemoAssistantBubble show={showAssistant} visual wide>
-        <LeadsSpreadsheet show={showAssistant} />
+        <LeadsSpreadsheet show={showAssistant} progress={progress} />
       </FunnelDemoAssistantBubble>
     </>
   );

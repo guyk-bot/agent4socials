@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { FUNNEL_DEMO_TITLES } from './funnel-demo-meta';
-import { FunnelDemoFrame } from './FunnelDemoFrame';
+import { funnelDemoContentProgress, FunnelDemoFrame } from './FunnelDemoFrame';
 import { FUNNEL_DEMO_SCENE_COMPONENTS } from './FunnelDemoScenes';
 
 export const FUNNEL_DEMO_MS = 3000;
@@ -59,13 +59,16 @@ function DemoSlot({
   const Scene = FUNNEL_DEMO_SCENE_COMPONENTS[index];
   const visible = phase !== 'hidden';
 
+  const contentProgress = funnelDemoContentProgress(progress);
+
   return (
     <FunnelDemoFrame
       visible={visible}
       entering={justEntered && phase === 'playing'}
       title={FUNNEL_DEMO_TITLES[index]}
+      progress={progress}
     >
-      <Scene progress={progress} />
+      <Scene progress={contentProgress} />
     </FunnelDemoFrame>
   );
 }
@@ -156,32 +159,6 @@ function SideDemoScrollColumn({ side }: { side: 'left' | 'right' }) {
   }, [visibleCount, phasesKey]);
 
   if (!ctx) return null;
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const measure = () => {
-      const gap = 12;
-      setSlotHeight(Math.max(136, Math.floor((el.clientHeight - gap) / 2)));
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (visibleCount === 0) return;
-    const el = scrollRef.current;
-    if (!el) return;
-
-    if (visibleCount <= 2) {
-      el.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [visibleCount, phasesKey]);
 
   return (
     <div className="hidden xl:flex h-full min-h-0 w-[400px] shrink-0 flex-col py-3 2xl:w-[440px]">

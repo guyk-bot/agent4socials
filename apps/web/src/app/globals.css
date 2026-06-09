@@ -255,6 +255,23 @@
 .funnel-demo-card-enter {
   animation: funnel-demo-card-in 400ms ease-out both;
 }
+@keyframes funnel-demo-title-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.88) translateY(-8px);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.05) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+.funnel-demo-title-pop {
+  animation: funnel-demo-title-pop 520ms cubic-bezier(0.34, 1.45, 0.64, 1) both;
+}
 .funnel-demo-message-in {
   animation: funnel-demo-message-in 300ms ease-out both;
 }

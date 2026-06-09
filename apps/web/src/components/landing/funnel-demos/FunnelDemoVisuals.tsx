@@ -97,7 +97,9 @@ export function DemoImage({
   );
 }
 
-/** Matches AysopMessageAttachments image styling in user bubbles */
+const USER_ATTACH_HEIGHT = 'h-[148px]';
+
+/** User-sent media: large, border flush to image (object-cover, no side gaps). */
 export function ChatAttachmentImage({
   src,
   alt,
@@ -108,13 +110,10 @@ export function ChatAttachmentImage({
   className?: string;
 }) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt={alt}
-      className={`block w-full rounded-lg border border-white/20 object-contain bg-black/10 ${className}`}
-      draggable={false}
-    />
+    <div className={`overflow-hidden rounded-lg border-2 border-white/35 ${USER_ATTACH_HEIGHT} w-full ${className}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt={alt} className="block h-full w-full object-cover" draggable={false} />
+    </div>
   );
 }
 
@@ -137,10 +136,10 @@ export function ChatDragDropImage({
   if (progress < 0.08) return null;
 
   return (
-    <div className={`relative w-full ${showImage ? 'min-h-[88px]' : ''}`}>
+    <div className={`relative w-full ${showImage ? USER_ATTACH_HEIGHT : ''}`}>
       {showZone ? (
         <div
-          className={`flex h-[88px] items-center justify-center rounded-lg border-2 border-dashed border-white/45 bg-white/10 text-[10px] font-medium text-white/80 transition-opacity ${
+          className={`flex ${USER_ATTACH_HEIGHT} items-center justify-center rounded-lg border-2 border-dashed border-white/45 bg-white/10 text-[11px] font-medium text-white/80 transition-opacity ${
             showImage ? 'opacity-40' : 'opacity-100'
           }`}
           aria-hidden
@@ -154,7 +153,7 @@ export function ChatDragDropImage({
             dragging ? 'funnel-demo-drag-into-chat' : ''
           }`}
         >
-          <ChatAttachmentImage src={src} alt={alt} className="max-h-[88px] w-full" />
+          <ChatAttachmentImage src={src} alt={alt} />
         </div>
       ) : null}
     </div>
@@ -483,26 +482,43 @@ export function CommentRow({
   );
 }
 
-export function LeadsSpreadsheet({ show }: { show: boolean }) {
+const LEADS_DEMO_ROWS = [
+  {
+    name: 'Sarah Chen',
+    avatar: 'SC',
+    color: 'bg-violet-500',
+    comment: 'How much for my team?',
+    intent: 'High',
+    intentStyle: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300',
+    dm: 'Happy to share pricing in DM',
+    showAt: 0.12,
+  },
+  {
+    name: 'Guy Capara',
+    avatar: 'GC',
+    color: 'bg-emerald-500',
+    comment: 'תכלנו בהצלחה',
+    intent: 'Contact',
+    intentStyle: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300',
+    dm: 'Great to connect! Sending details in DM',
+    showAt: 0.28,
+  },
+  {
+    name: 'Mike Torres',
+    avatar: 'MT',
+    color: 'bg-sky-500',
+    comment: 'Available in Europe?',
+    intent: 'Medium',
+    intentStyle: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
+    dm: 'Yes, we ship worldwide',
+    showAt: 0.44,
+  },
+] as const;
+
+export function LeadsSpreadsheet({ show, progress = 1 }: { show: boolean; progress?: number }) {
   if (!show) return null;
-  const rows = [
-    {
-      name: 'Sarah Chen',
-      avatar: 'SC',
-      color: 'bg-violet-500',
-      comment: 'How much for my team?',
-      intent: 'High',
-      dm: 'Happy to share pricing in DM',
-    },
-    {
-      name: 'Mike Torres',
-      avatar: 'MT',
-      color: 'bg-sky-500',
-      comment: 'Available in Europe?',
-      intent: 'Medium',
-      dm: 'Yes, we ship worldwide',
-    },
-  ];
+  const visibleRows = LEADS_DEMO_ROWS.filter((row) => progress >= row.showAt || progress >= 1);
+
   return (
     <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
       <table className="w-full text-left">
@@ -515,8 +531,8 @@ export function LeadsSpreadsheet({ show }: { show: boolean }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={row.name} className="border-b border-neutral-100 dark:border-neutral-800 last:border-0">
+          {visibleRows.map((row) => (
+            <tr key={row.name} className="border-b border-neutral-100 dark:border-neutral-800 last:border-0 funnel-demo-message-in">
               <td className="px-1.5 py-1.5 align-top">
                 <div className="flex items-center gap-1.5">
                   <DemoAvatar label={row.avatar} colorClass={row.color} size="md" />
@@ -529,13 +545,7 @@ export function LeadsSpreadsheet({ show }: { show: boolean }) {
                 {row.comment}
               </td>
               <td className="px-1.5 py-1.5 align-top">
-                <span
-                  className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
-                    row.intent === 'High'
-                      ? 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300'
-                      : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
-                  }`}
-                >
+                <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${row.intentStyle}`}>
                   {row.intent}
                 </span>
               </td>
