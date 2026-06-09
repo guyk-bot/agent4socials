@@ -22,7 +22,7 @@ export const BRAND_HEADER_BG = BRAND_PAGE_BG;
 export const BRAND_CHROME_TEXT = '#FFFFFF';
 
 /** Bumped when shared logo mark assets change (cache bust for browsers and CDNs). */
-export const SITE_LOGO_V = '51';
+export const SITE_LOGO_V = '52';
 
 /** Static path for next/image (no query string; see next.config images.localPatterns). */
 export const SITE_LOGO_PATH = '/logo-mark.png';
