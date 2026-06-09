@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowUp, ChevronDown } from 'lucide-react';
+import { ArrowUp, Check } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAuthModal } from '@/context/AuthModalContext';
 import {
@@ -56,7 +56,7 @@ const PLATFORM_ICONS: Record<
   pinterest: PinterestIcon,
 };
 
-const INITIAL_AI_TEXT = "Hey! 👋 What platforms are you currently posting on?";
+const INITIAL_AI_TEXT = 'Hey! What platforms are you currently posting on?';
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -174,14 +174,12 @@ function PillButton({
   label,
   selected,
   disabled,
-  icon,
   onClick,
   staggerIndex,
 }: {
   label: string;
   selected: boolean;
   disabled?: boolean;
-  icon?: React.ReactNode;
   onClick: () => void;
   staggerIndex?: number;
 }) {
@@ -192,7 +190,7 @@ function PillButton({
       onClick={onClick}
       style={{ animationDelay: staggerIndex !== undefined ? `${staggerIndex * 80}ms` : undefined }}
       className={[
-        'chat-hero-pill-enter inline-flex items-center gap-2 rounded-full border px-[18px] py-[11px] text-sm transition-all duration-150',
+        'chat-hero-pill-enter inline-flex items-center rounded-full border px-[18px] py-[11px] text-sm transition-all duration-150',
         'active:scale-[0.97]',
         selected
           ? 'border-[#7C3AED] bg-[rgba(124,58,237,0.12)] text-[#5B21B6]'
@@ -200,8 +198,49 @@ function PillButton({
         disabled ? 'opacity-50 pointer-events-none' : '',
       ].join(' ')}
     >
-      {icon}
       <span>{label}</span>
+    </button>
+  );
+}
+
+function PlatformSquareButton({
+  label,
+  selected,
+  disabled,
+  icon,
+  onClick,
+  staggerIndex,
+}: {
+  label: string;
+  selected: boolean;
+  disabled?: boolean;
+  icon: React.ReactNode;
+  onClick: () => void;
+  staggerIndex?: number;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      style={{ animationDelay: staggerIndex !== undefined ? `${staggerIndex * 60}ms` : undefined }}
+      className={[
+        'chat-hero-pill-enter flex aspect-square w-full flex-col items-center justify-center gap-2.5 rounded-xl border p-3 sm:p-4 transition-all duration-150',
+        'active:scale-[0.97]',
+        selected
+          ? 'border-[#7C3AED] bg-[rgba(124,58,237,0.08)] shadow-[0_0_0_1px_rgba(124,58,237,0.2)]'
+          : 'border-[#E8E6DF] bg-[#F8F7FC] hover:border-[#7C3AED]/50 hover:bg-white',
+        disabled ? 'opacity-50 pointer-events-none' : '',
+      ].join(' ')}
+    >
+      <span className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center">{icon}</span>
+      <span
+        className={`text-center text-xs sm:text-sm font-medium leading-tight ${
+          selected ? 'text-[#5B21B6]' : 'text-[#1a1a1a]'
+        }`}
+      >
+        {label}
+      </span>
     </button>
   );
 }
@@ -466,19 +505,19 @@ export default function ChatHero() {
   const canPainContinue = selectedPain !== null && !busy;
 
   return (
-    <section className="chat-hero relative flex h-[calc(100svh-3.5rem)] sm:h-[calc(100vh-4rem)] flex-col bg-white text-[#1a1a1a] overflow-hidden">
+    <section className="chat-hero relative flex min-h-[100svh] sm:min-h-screen flex-col bg-white text-[#1a1a1a] overflow-hidden pt-14 sm:pt-16">
       <div
         className={`flex flex-1 min-h-0 flex-col w-full transition-opacity duration-500 ${
           heroReady ? 'opacity-100' : 'opacity-0'
         }`}
       >
         <div
-          className={`flex flex-1 min-h-0 flex-col w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-6 transition-all duration-400 ${
+          className={`flex flex-1 min-h-0 flex-col w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 pt-4 sm:pt-6 pb-5 sm:pb-6 transition-all duration-400 ${
             chatReady ? 'opacity-100' : 'opacity-0 translate-y-1'
           }`}
         >
           <div
-            className={`shrink-0 mb-5 sm:mb-6 text-center sm:text-left transition-all duration-500 ${
+            className={`shrink-0 mb-6 sm:mb-8 text-center sm:text-left transition-all duration-500 ${
               headlineReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
             }`}
           >
@@ -494,7 +533,8 @@ export default function ChatHero() {
             </p>
           </div>
 
-          <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto space-y-5 pr-1 -mr-1 pb-4">
+          <div ref={scrollRef} className="flex flex-1 min-h-0 flex-col overflow-y-auto pr-1 -mr-1 pb-4">
+            <div className="space-y-5 shrink-0">
               {blocks.map((block, index) => {
                 if (block.kind === 'ai') {
                   const isFirst = index === 0 && block.text === INITIAL_AI_TEXT;
@@ -579,29 +619,30 @@ export default function ChatHero() {
               })}
 
               {isTyping ? <TypingIndicator /> : null}
+            </div>
+
+            {showPlatformOptions ? (
+              <div className="mt-5 sm:mt-6 flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 min-h-[240px] sm:min-h-[320px] content-stretch">
+                {CHAT_HERO_PLATFORMS.map((platform, i) => {
+                  const Icon = PLATFORM_ICONS[platform.id];
+                  const selected = selectedPlatforms.includes(platform.id);
+                  return (
+                    <PlatformSquareButton
+                      key={platform.id}
+                      label={platform.label}
+                      selected={selected}
+                      disabled={busy}
+                      staggerIndex={i}
+                      icon={<Icon size={28} />}
+                      onClick={() => togglePlatform(platform.id)}
+                    />
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
 
           <div className="shrink-0 space-y-4 border-t border-[#E8E6DF] pt-4 pb-2">
-              {showPlatformOptions ? (
-                <div className="flex flex-wrap gap-2">
-                  {CHAT_HERO_PLATFORMS.map((platform, i) => {
-                    const Icon = PLATFORM_ICONS[platform.id];
-                    const selected = selectedPlatforms.includes(platform.id);
-                    return (
-                      <PillButton
-                        key={platform.id}
-                        label={platform.label}
-                        selected={selected}
-                        disabled={busy}
-                        staggerIndex={i}
-                        icon={<Icon size={16} />}
-                        onClick={() => togglePlatform(platform.id)}
-                      />
-                    );
-                  })}
-                </div>
-              ) : null}
-
               {showPainOptions ? (
                 <div className="flex flex-wrap gap-2">
                   {CHAT_HERO_PAIN_POINTS.map((pain, i) => (
@@ -626,6 +667,21 @@ export default function ChatHero() {
                   Continue →
                 </button>
               ) : null}
+
+              <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-[#888780]">
+                <span className="flex items-center gap-1.5">
+                  <Check className="h-3.5 w-3.5 text-[#10B981]" />
+                  No credit card required
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Check className="h-3.5 w-3.5 text-[#10B981]" />
+                  Free plan forever
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Check className="h-3.5 w-3.5 text-[#10B981]" />
+                  Cancel anytime
+                </span>
+              </div>
 
               {showPainOptions && canPainContinue ? (
                 <button
@@ -708,16 +764,6 @@ export default function ChatHero() {
             </form>
           </div>
         </div>
-
-        <a
-          href="#features"
-          className={`shrink-0 flex flex-col items-center gap-0.5 py-3 text-xs text-[#888780] hover:text-[#7C3AED] transition-colors ${
-            heroReady ? 'opacity-100' : 'opacity-0'
-          }`}
-        >
-          <span>Scroll to learn more</span>
-          <ChevronDown className="h-4 w-4 animate-bounce" />
-        </a>
       </div>
     </section>
   );
