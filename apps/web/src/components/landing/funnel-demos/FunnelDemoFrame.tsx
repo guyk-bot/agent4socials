@@ -45,8 +45,8 @@ export function FunnelDemoUserBubble({
   return (
     <div className="flex justify-end funnel-demo-message-in">
       <div
-        className={`max-w-[92%] rounded-2xl rounded-br-md leading-snug aysop-bubble-user whitespace-pre-wrap ${
-          visual ? 'p-1.5 text-[10px] sm:text-[11px]' : 'px-3 py-2 text-[11px] sm:text-[12px]'
+        className={`max-w-[94%] rounded-2xl rounded-br-md leading-snug aysop-bubble-user whitespace-pre-wrap ${
+          visual ? 'p-2 text-[12px] sm:text-[13px]' : 'px-3 py-2.5 text-[13px] sm:text-[14px]'
         }`}
       >
         {children}
@@ -59,17 +59,19 @@ export function FunnelDemoAssistantBubble({
   children,
   show,
   visual,
+  wide,
 }: {
   children: React.ReactNode;
   show: boolean;
   visual?: boolean;
+  wide?: boolean;
 }) {
   if (!show) return null;
   return (
     <div className="flex justify-start funnel-demo-message-in">
       <div
-        className={`max-w-[96%] rounded-2xl rounded-bl-md leading-snug aysop-bubble-assistant shadow-sm ${
-          visual ? 'p-1.5 text-[10px] sm:text-[11px]' : 'px-3 py-2 text-[11px] sm:text-[12px]'
+        className={`${wide ? 'max-w-[98%]' : 'max-w-[96%]'} rounded-2xl rounded-bl-md leading-snug aysop-bubble-assistant shadow-sm ${
+          visual ? 'p-2 text-[12px] sm:text-[13px]' : 'px-3 py-2.5 text-[13px] sm:text-[14px]'
         }`}
       >
         {children}

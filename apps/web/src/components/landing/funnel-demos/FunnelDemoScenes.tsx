@@ -25,16 +25,18 @@ import {
   AdsPerformanceChart,
   AnalyticsChart,
   CommentRow,
-  DemoImage,
+  InstagramPostPreview,
   LeadsSpreadsheet,
+  YouTubeVideoPreview,
 } from './FunnelDemoVisuals';
 
-const USER_SCHEDULE = 'Post this at 9:30 on all platforms';
-const USER_REPLY = 'Reply to all comments on my last post';
-const USER_ANALYTICS = 'Show my analytics for the week';
-const USER_LEADS = 'Send me leads from comments';
-const USER_BRAINSTORM = 'Brainstorm ideas like my best post';
-const USER_ADS = 'Compare ad campaign performance';
+const USER_SCHEDULE = 'Post this Instagram reel at 9:30 AM on all platforms';
+const USER_REPLY =
+  'Reply to every comment on my last post. Use my brand voice and answer product questions.';
+const USER_ANALYTICS = 'Show my weekly analytics: views, engagement, and followers';
+const USER_LEADS = 'Send me a spreadsheet of leads from comments with AI DM suggestions';
+const USER_BRAINSTORM = 'Brainstorm new ideas based on my best YouTube video';
+const USER_ADS = 'Compare Google, Meta, and TikTok ad ROAS side by side';
 
 const PLATFORM_ICONS = [
   InstagramIcon,
@@ -49,39 +51,35 @@ const PLATFORM_ICONS = [
 
 function TypeCursor({ active }: { active: boolean }) {
   if (!active) return null;
-  return <span className="inline-block w-px h-3 ml-0.5 bg-white/70 animate-pulse align-middle" />;
+  return <span className="inline-block w-px h-3.5 ml-0.5 bg-white/70 animate-pulse align-middle" />;
 }
 
 export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
   const showImage = progress > 0.06;
-  const userText = typewriterSlice(USER_SCHEDULE, progress, 0.2, 0.52);
+  const userText = typewriterSlice(USER_SCHEDULE, progress, 0.18, 0.5);
   const showUser = progress > 0.1;
-  const showAssistant = progress > 0.58;
+  const showAssistant = progress > 0.56;
 
   return (
     <>
       <FunnelDemoUserBubble show={showUser} visual>
-        {showImage ? (
-          <div className="mb-1 overflow-hidden rounded-lg border border-white/20">
-            <DemoImage src={FUNNEL_DEMO_POST_VIDEO_SRC} alt="Post video preview" className="aspect-[4/3] max-h-[120px]" />
-          </div>
-        ) : null}
-        {userText}
-        <TypeCursor active={progress > 0.2 && progress < 0.52} />
+        {showImage ? <InstagramPostPreview src={FUNNEL_DEMO_POST_VIDEO_SRC} alt="Instagram post preview" /> : null}
+        <p className="mt-1.5">{userText}</p>
+        <TypeCursor active={progress > 0.18 && progress < 0.5} />
       </FunnelDemoUserBubble>
       <FunnelDemoAssistantBubble show={showAssistant} visual>
-        <div className="grid grid-cols-4 gap-1">
+        <div className="grid grid-cols-4 gap-1.5">
           {PLATFORM_ICONS.map((Icon, i) => (
             <span
               key={i}
-              className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
             >
-              <Icon size={13} />
+              <Icon size={15} />
             </span>
           ))}
         </div>
-        <p className="mt-1.5 inline-flex items-center gap-1 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">
-          <CheckCircle2 size={10} /> Scheduled · 9:30 AM
+        <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-emerald-600 dark:text-emerald-400">
+          <CheckCircle2 size={13} /> Scheduled for 9:30 AM across 8 platforms
         </p>
       </FunnelDemoAssistantBubble>
     </>
@@ -89,59 +87,61 @@ export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
 }
 
 export function FunnelDemoSceneComments({ progress }: { progress: number }) {
-  const userText = typewriterSlice(USER_REPLY, progress, 0.1, 0.4);
-  const showAssistant = progress > 0.46;
+  const userText = typewriterSlice(USER_REPLY, progress, 0.08, 0.38);
+  const showAssistant = progress > 0.44;
 
   return (
     <>
-      <FunnelDemoUserBubble show={progress > 0.08}>
+      <FunnelDemoUserBubble show={progress > 0.06}>
         {userText}
-        <TypeCursor active={progress > 0.1 && progress < 0.4} />
+        <TypeCursor active={progress > 0.08 && progress < 0.38} />
       </FunnelDemoUserBubble>
       <FunnelDemoAssistantBubble show={showAssistant} visual>
-        <ul className="space-y-1">
+        <p className="mb-2 text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">
+          Summer launch Reel · 847 comments
+        </p>
+        <ul className="space-y-1.5">
           <CommentRow
-            show={progress > 0.5 || progress >= 1}
-            name="Maya R."
+            show={progress > 0.48 || progress >= 1}
+            name="Maya Rodriguez"
             avatar="MR"
             colorClass="bg-violet-500"
-            text="Love this!"
-            replied={progress > 0.68 || progress >= 1}
+            text="Love this! Exactly what I needed for my morning routine."
+            replied={progress > 0.62 || progress >= 1}
+            replyText="Thank you, Maya! So glad it helped."
           />
           <CommentRow
-            show={progress > 0.58 || progress >= 1}
-            name="Alex K."
+            show={progress > 0.56 || progress >= 1}
+            name="Alex Kim"
             avatar="AK"
             colorClass="bg-sky-500"
-            text="Where can I buy?"
+            text="Where can I buy this? Do you ship to Canada?"
             highlight
-            replied={progress > 0.78 || progress >= 1}
+            replied={progress > 0.72 || progress >= 1}
+            replyText="Yes! Link in bio ships worldwide, including Canada."
+          />
+          <CommentRow
+            show={progress > 0.64 || progress >= 1}
+            name="Jordan Lee"
+            avatar="JL"
+            colorClass="bg-amber-500"
+            text="Can you share the full product list from the video?"
+            replied={progress > 0.82 || progress >= 1}
+            replyText="Just sent you the full list in DM."
           />
         </ul>
+        {(progress > 0.85 || progress >= 1) && (
+          <p className="mt-2 text-[11px] font-semibold text-[var(--primary)]">
+            847 personalized replies sent in 4 min
+          </p>
+        )}
       </FunnelDemoAssistantBubble>
     </>
   );
 }
 
 export function FunnelDemoSceneAnalytics({ progress }: { progress: number }) {
-  const userText = typewriterSlice(USER_ANALYTICS, progress, 0.1, 0.38);
-  const showAssistant = progress > 0.44;
-
-  return (
-    <>
-      <FunnelDemoUserBubble show={progress > 0.08}>
-        {userText}
-        <TypeCursor active={progress > 0.1 && progress < 0.38} />
-      </FunnelDemoUserBubble>
-      <FunnelDemoAssistantBubble show={showAssistant} visual>
-        <AnalyticsChart show={showAssistant} />
-      </FunnelDemoAssistantBubble>
-    </>
-  );
-}
-
-export function FunnelDemoSceneLeads({ progress }: { progress: number }) {
-  const userText = typewriterSlice(USER_LEADS, progress, 0.1, 0.36);
+  const userText = typewriterSlice(USER_ANALYTICS, progress, 0.1, 0.36);
   const showAssistant = progress > 0.42;
 
   return (
@@ -150,7 +150,24 @@ export function FunnelDemoSceneLeads({ progress }: { progress: number }) {
         {userText}
         <TypeCursor active={progress > 0.1 && progress < 0.36} />
       </FunnelDemoUserBubble>
-      <FunnelDemoAssistantBubble show={showAssistant} visual>
+      <FunnelDemoAssistantBubble show={showAssistant} visual wide>
+        <AnalyticsChart show={showAssistant} />
+      </FunnelDemoAssistantBubble>
+    </>
+  );
+}
+
+export function FunnelDemoSceneLeads({ progress }: { progress: number }) {
+  const userText = typewriterSlice(USER_LEADS, progress, 0.1, 0.34);
+  const showAssistant = progress > 0.4;
+
+  return (
+    <>
+      <FunnelDemoUserBubble show={progress > 0.08}>
+        {userText}
+        <TypeCursor active={progress > 0.1 && progress < 0.34} />
+      </FunnelDemoUserBubble>
+      <FunnelDemoAssistantBubble show={showAssistant} visual wide>
         <LeadsSpreadsheet show={showAssistant} />
       </FunnelDemoAssistantBubble>
     </>
@@ -158,27 +175,26 @@ export function FunnelDemoSceneLeads({ progress }: { progress: number }) {
 }
 
 export function FunnelDemoSceneTikTokIdeas({ progress }: { progress: number }) {
-  const userText = typewriterSlice(USER_BRAINSTORM, progress, 0.08, 0.34);
-  const showAssistant = progress > 0.4;
+  const userText = typewriterSlice(USER_BRAINSTORM, progress, 0.08, 0.32);
+  const showAssistant = progress > 0.38;
 
   return (
     <>
       <FunnelDemoUserBubble show={progress > 0.06}>
         {userText}
-        <TypeCursor active={progress > 0.08 && progress < 0.34} />
+        <TypeCursor active={progress > 0.08 && progress < 0.32} />
       </FunnelDemoUserBubble>
-      <FunnelDemoAssistantBubble show={showAssistant} visual>
-        <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700">
-          <DemoImage
-            src={FUNNEL_DEMO_BRAINSTORM_WINNER_SRC}
-            alt="Top performing post"
-            className="aspect-[4/3] max-h-[130px]"
-          />
-          <div className="flex items-center justify-between gap-2 bg-neutral-50 dark:bg-neutral-950 px-1.5 py-1">
-            <span className="text-[8px] font-semibold text-emerald-600 dark:text-emerald-400">Top performer</span>
-            <span className="text-[7px] text-neutral-500">2.1M views · 184K likes</span>
-          </div>
-        </div>
+      <FunnelDemoAssistantBubble show={showAssistant} visual wide>
+        <YouTubeVideoPreview
+          src={FUNNEL_DEMO_BRAINSTORM_WINNER_SRC}
+          alt="Top performing YouTube video"
+          title="3 Hooks that 10X my savings"
+        />
+        {(progress > 0.7 || progress >= 1) && (
+          <p className="mt-2 text-[11px] text-neutral-700 dark:text-neutral-300 leading-snug">
+            Your best format: bold hook on screen + quick tip in the first 3 seconds. I can draft 3 scripts in your voice.
+          </p>
+        )}
       </FunnelDemoAssistantBubble>
     </>
   );
@@ -190,28 +206,29 @@ export function FunnelDemoSceneAdsRoas({ progress }: { progress: number }) {
   return (
     <>
       <FunnelDemoUserBubble show={progress > 0.06}>
-        {typewriterSlice(USER_ADS, progress, 0.06, 0.3)}
-        <TypeCursor active={progress > 0.06 && progress < 0.3} />
+        {typewriterSlice(USER_ADS, progress, 0.06, 0.28)}
+        <TypeCursor active={progress > 0.06 && progress < 0.28} />
       </FunnelDemoUserBubble>
-      <FunnelDemoAssistantBubble show={showAssistant} visual>
+      <FunnelDemoAssistantBubble show={showAssistant} visual wide>
         <div className="relative">
-          <div className="absolute top-0 right-0 rounded-full bg-neutral-900/90 px-1.5 py-0.5 text-[6px] font-semibold uppercase tracking-wide text-white z-10">
+          <div className="absolute top-0 right-0 rounded-full bg-neutral-900/90 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white z-10">
             Coming soon
           </div>
+          <p className="mb-2 pr-16 text-[12px] font-bold text-neutral-900 dark:text-neutral-100">Paid ads ROAS</p>
           <AdsPerformanceChart show={showAssistant} />
-          <table className="w-full text-[7px]">
+          <table className="w-full text-[11px]">
             <thead>
               <tr className="text-neutral-500 border-b border-neutral-200 dark:border-neutral-700">
-                <th className="text-left py-0.5 font-medium">Platform</th>
-                <th className="text-right py-0.5 font-medium">Spend</th>
-                <th className="text-right py-0.5 font-medium">ROAS</th>
+                <th className="text-left py-1 font-semibold">Platform</th>
+                <th className="text-right py-1 font-semibold">Spend</th>
+                <th className="text-right py-1 font-semibold">ROAS</th>
               </tr>
             </thead>
             <tbody className="text-neutral-800 dark:text-neutral-200">
               {[
-                { name: 'Google', spend: '$2.4K', roas: '3.8×', hot: true },
-                { name: 'Meta', spend: '$5.1K', roas: '2.9×', hot: false },
-                { name: 'TikTok', spend: '$1.8K', roas: '4.2×', hot: true },
+                { name: 'Google', spend: '$2,400', roas: '3.8×', hot: true },
+                { name: 'Meta', spend: '$5,100', roas: '2.9×', hot: false },
+                { name: 'TikTok', spend: '$1,800', roas: '4.2×', hot: true },
               ].map((row, i) => (
                 <tr
                   key={row.name}
@@ -219,10 +236,10 @@ export function FunnelDemoSceneAdsRoas({ progress }: { progress: number }) {
                     progress > 0.35 + i * 0.15 || progress >= 1 ? 'opacity-100' : 'opacity-30'
                   }`}
                 >
-                  <td className="py-0.5">{row.name}</td>
-                  <td className="text-right py-0.5">{row.spend}</td>
+                  <td className="py-1 font-medium">{row.name}</td>
+                  <td className="text-right py-1 tabular-nums">{row.spend}</td>
                   <td
-                    className={`text-right py-0.5 font-semibold ${
+                    className={`text-right py-1 font-bold tabular-nums ${
                       row.hot ? 'text-emerald-600 dark:text-emerald-400' : ''
                     }`}
                   >
