@@ -41,7 +41,7 @@ import {
 type FlowStep = 0 | 1 | 2 | 3;
 
 type RenderBlock =
-  | { id: string; kind: 'ai'; text: string; animate?: boolean }
+  | { id: string; kind: 'ai'; text: string; animate?: boolean; prominent?: boolean }
   | { id: string; kind: 'user_pills'; labels: string[] }
   | { id: string; kind: 'stats'; items: { value: string; label: string }[] }
   | { id: string; kind: 'mock_chat'; user: string; ai: string }
@@ -62,10 +62,8 @@ const PLATFORM_ICONS: Record<
   pinterest: PinterestIcon,
 };
 
-const INTRO_AI_TEXT =
-  'Meet your AI social media manager.\n\nTell us what platforms you\'re on, we\'ll show you what iZop can do.';
-
-const INITIAL_AI_TEXT = 'Hey! What platforms are you currently posting on?';
+const INITIAL_AI_TEXT =
+  "Hi 👋 I'm iZop, your personal AI social media manager. Tell me what platforms you're on, and I'll show you what I can do.";
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -168,11 +166,13 @@ function AiMessage({
   typewriter,
   typewriterActive,
   onTypewriterComplete,
+  prominent,
 }: {
   text: string;
   typewriter?: boolean;
   typewriterActive?: boolean;
   onTypewriterComplete?: () => void;
+  prominent?: boolean;
 }) {
   const { theme } = useTheme();
   const logoSrc = siteLogoSrcForTheme(theme);
@@ -180,8 +180,18 @@ function AiMessage({
   return (
     <div className="flex items-start gap-3 chat-hero-message-enter">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={logoSrc} alt="" className="h-7 w-7 shrink-0 object-contain mt-0.5" />
-      <p className="text-[16px] leading-[1.6] text-[var(--chat-hero-text)] whitespace-pre-line flex-1 min-w-0">
+      <img
+        src={logoSrc}
+        alt=""
+        className={`shrink-0 object-contain mt-0.5 ${prominent ? 'h-8 w-8 sm:h-9 sm:w-9' : 'h-7 w-7'}`}
+      />
+      <p
+        className={`text-[var(--chat-hero-text)] whitespace-pre-line flex-1 min-w-0 ${
+          prominent
+            ? 'text-[18px] sm:text-[20px] lg:text-[21px] font-medium leading-[1.5]'
+            : 'text-[16px] leading-[1.6]'
+        }`}
+      >
         {typewriter ? (
           <TypewriterText text={text} active={!!typewriterActive} onComplete={onTypewriterComplete} />
         ) : (
@@ -310,20 +320,20 @@ export default function ChatHero() {
     const timers: number[] = [];
     timers.push(window.setTimeout(() => setHeroReady(true), 50));
     timers.push(window.setTimeout(() => setChatReady(true), 200));
-    timers.push(
-      window.setTimeout(() => {
-        setBlocks([{ id: blockId('ai'), kind: 'ai', text: INTRO_AI_TEXT }]);
-      }, 350)
-    );
-    timers.push(window.setTimeout(() => setIsTyping(true), 650));
+    timers.push(window.setTimeout(() => setIsTyping(true), 350));
     timers.push(
       window.setTimeout(() => {
         setIsTyping(false);
-        setBlocks((prev) => [
-          ...prev,
-          { id: blockId('ai'), kind: 'ai', text: INITIAL_AI_TEXT, animate: true },
+        setBlocks([
+          {
+            id: blockId('ai'),
+            kind: 'ai',
+            text: INITIAL_AI_TEXT,
+            animate: true,
+            prominent: true,
+          },
         ]);
-      }, 1150)
+      }, 900)
     );
     return () => {
       for (const id of timers) window.clearTimeout(id);
@@ -540,20 +550,21 @@ export default function ChatHero() {
             chatReady ? 'opacity-100' : 'opacity-0 translate-y-1'
           }`}
         >
-          <h1 className="sr-only">Meet your AI social media manager</h1>
+          <h1 className="sr-only">iZop, your personal AI social media manager</h1>
 
           <div ref={scrollRef} className="flex flex-1 min-h-0 flex-col overflow-y-auto pr-1 -mr-1 pb-4 pt-1">
             <div className="space-y-3 shrink-0">
               {blocks.map((block, index) => {
                 if (block.kind === 'ai') {
-                  const isPlatformPrompt = block.text === INITIAL_AI_TEXT;
+                  const isOpeningPrompt = block.text === INITIAL_AI_TEXT;
                   return (
                     <AiMessage
                       key={block.id}
                       text={block.text}
-                      typewriter={isPlatformPrompt}
-                      typewriterActive={isPlatformPrompt && !typewriterDone}
-                      onTypewriterComplete={isPlatformPrompt ? handleTypewriterComplete : undefined}
+                      prominent={block.prominent}
+                      typewriter={isOpeningPrompt}
+                      typewriterActive={isOpeningPrompt && !typewriterDone}
+                      onTypewriterComplete={isOpeningPrompt ? handleTypewriterComplete : undefined}
                     />
                   );
                 }
