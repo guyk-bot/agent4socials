@@ -229,7 +229,7 @@ function OpeningAiMessage({
       key: 'headline',
       text: headline,
       className:
-        'block text-[22px] sm:text-[26px] lg:text-[28px] font-bold leading-[1.25] mt-1.5 sm:mt-2',
+        'block text-[22px] sm:text-[26px] lg:text-[28px] font-black tracking-[-0.02em] leading-[1.2] mt-1.5 sm:mt-2',
     },
     {
       key: 'body',
