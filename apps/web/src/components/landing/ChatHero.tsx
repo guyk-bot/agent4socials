@@ -642,14 +642,14 @@ export default function ChatHero() {
       >
         <ChatHeroSideDemoColumn side="left" />
         <div
-          className={`flex flex-1 min-h-0 flex-col w-full max-w-xl xl:max-w-xl 2xl:max-w-2xl mx-auto px-3 sm:px-4 lg:px-3 pt-2 sm:pt-2 pb-3 sm:pb-4 transition-all duration-400 ${
+          className={`flex flex-1 min-h-0 min-w-0 flex-col w-full px-2 sm:px-3 xl:px-4 pt-2 sm:pt-2 pb-3 sm:pb-4 transition-all duration-400 ${
             chatReady ? 'opacity-100' : 'opacity-0 translate-y-1'
           }`}
         >
           <h1 className="sr-only">iZop, your personal AI social media manager</h1>
 
-          <div ref={scrollRef} className="flex flex-1 min-h-0 flex-col overflow-y-auto pr-1 -mr-1 pb-4 pt-2 sm:pt-3">
-            <div className="space-y-3 shrink-0">
+          <div ref={scrollRef} className="flex flex-1 min-h-0 w-full flex-col overflow-y-auto pb-4 pt-2 sm:pt-3">
+            <div className="w-full space-y-3 shrink-0">
               {blocks.map((block, index) => {
                 if (block.kind === 'ai') {
                   if (block.isOpening) {
@@ -743,7 +743,7 @@ export default function ChatHero() {
             </div>
 
             {showPlatformOptions ? (
-              <div className="mt-3 grid grid-cols-4 gap-2.5 sm:gap-3 w-full max-w-3xl lg:max-w-4xl shrink-0">
+              <div className="mt-3 grid grid-cols-4 gap-2.5 sm:gap-3 w-full shrink-0">
                 {CHAT_HERO_PLATFORMS.map((platform, i) => {
                   const Icon = PLATFORM_ICONS[platform.id];
                   const selected = selectedPlatforms.includes(platform.id);
@@ -763,7 +763,7 @@ export default function ChatHero() {
             ) : null}
 
             {showPainOptions ? (
-              <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-2.5 w-full max-w-3xl shrink-0">
+              <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-2.5 w-full shrink-0">
                 {CHAT_HERO_PAIN_POINTS.map((pain, i) => (
                   <OptionSquareButton
                     key={pain.id}
@@ -845,9 +845,9 @@ export default function ChatHero() {
               ) : null}
             </div>
 
-            <div className="mt-3 flex flex-col gap-2">
+            <div className="mt-3 flex w-full flex-col gap-2">
             <form
-              className="flex items-center gap-2 rounded-2xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-input-bg)] px-3 py-2 sm:px-4 sm:py-2.5 shadow-sm focus-within:border-[#7C3AED]/40 focus-within:ring-2 focus-within:ring-[#7C3AED]/15"
+              className="flex w-full items-center gap-2 rounded-2xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-input-bg)] px-3 py-2 sm:px-4 sm:py-2.5 shadow-sm focus-within:border-[#7C3AED]/40 focus-within:ring-2 focus-within:ring-[#7C3AED]/15"
               onSubmit={(e) => {
                 e.preventDefault();
                 void handleFreeTextSubmit();
