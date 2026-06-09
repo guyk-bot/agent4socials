@@ -32,6 +32,7 @@ export type ThemePreset = {
 };
 
 export const FONT_OPTIONS = [
+  { id: 'georgia', name: 'Georgia', family: 'Georgia, "Times New Roman", Times, serif' },
   { id: 'inter', name: 'Inter', family: 'Inter, system-ui, sans-serif' },
   { id: 'poppins', name: 'Poppins', family: 'Poppins, sans-serif' },
   { id: 'playfair', name: 'Playfair Display', family: '"Playfair Display", serif' },
@@ -49,7 +50,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       theme: 'minimal-light',
       bgType: 'solid',
       bgColor: '#ffffff',
-      fontFamily: 'Inter, system-ui, sans-serif',
+      fontFamily: 'Georgia, "Times New Roman", Times, serif',
       buttonStyle: 'rounded',
       buttonColor: '#0f172a',
       buttonTextColor: '#ffffff',
@@ -65,7 +66,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       theme: 'minimal-dark',
       bgType: 'solid',
       bgColor: '#0f172a',
-      fontFamily: 'Inter, system-ui, sans-serif',
+      fontFamily: 'Georgia, "Times New Roman", Times, serif',
       buttonStyle: 'rounded',
       buttonColor: '#ffffff',
       buttonTextColor: '#0f172a',
@@ -132,7 +133,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       bgType: 'gradient',
       bgGradient: 'linear-gradient(135deg, #c7d2fe 0%, #ddd6fe 50%, #fbcfe8 100%)',
       bgGradientColors: ['#c7d2fe', '#ddd6fe', '#fbcfe8'],
-      fontFamily: 'Inter, system-ui, sans-serif',
+      fontFamily: 'Georgia, "Times New Roman", Times, serif',
       buttonStyle: 'glass',
       buttonColor: 'rgba(255,255,255,0.25)',
       buttonTextColor: '#1e1b4b',

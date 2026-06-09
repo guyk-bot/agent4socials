@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
-import { satoshi } from "@/lib/fonts/satoshi";
 import { AuthProvider } from "@/context/AuthContext";
 import { AuthModalProvider } from "@/context/AuthModalContext";
 import { WhiteLabelProvider } from "@/context/WhiteLabelContext";
@@ -90,7 +89,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={satoshi.variable} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body className="antialiased min-h-screen min-h-dvh">
         <script
           dangerouslySetInnerHTML={{

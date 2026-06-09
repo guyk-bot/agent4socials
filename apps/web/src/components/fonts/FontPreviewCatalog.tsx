@@ -6,7 +6,7 @@ import { satoshi } from '@/lib/fonts/satoshi';
 import {
   FONT_PREVIEW_CATALOG,
   FONT_PREVIEW_GROUPS,
-  SATOSHI_PREVIEW_ENTRY,
+  GEORGIA_PREVIEW_ENTRY,
   googleFontsStylesheetUrls,
   type FontPreviewEntry,
 } from '@/lib/fonts/font-preview-catalog';
@@ -14,6 +14,8 @@ import {
 const GREETING = "Hi 👋 I'm iZop,";
 const HEADLINE = 'your personal AI social media manager.';
 const BODY = "Tell me what platforms you're on, and I'll show you what I can do.";
+
+const GEORGIA_FAMILY = 'Georgia, "Times New Roman", Times, serif';
 
 function SampleBlock({ family }: { family: string }) {
   return (
@@ -46,8 +48,9 @@ function SatoshiWeights() {
   );
 }
 
-function FontSection({ entry }: { entry: FontPreviewEntry | typeof SATOSHI_PREVIEW_ENTRY }) {
+function FontSection({ entry }: { entry: FontPreviewEntry | typeof GEORGIA_PREVIEW_ENTRY }) {
   const isSatoshi = entry.id === 'satoshi';
+  const isGeorgia = entry.id === 'georgia';
 
   return (
     <section className="rounded-2xl border border-[#E8E6DF] bg-white p-5 sm:p-6 shadow-sm">
@@ -55,7 +58,11 @@ function FontSection({ entry }: { entry: FontPreviewEntry | typeof SATOSHI_PREVI
         <h2 className="text-base font-semibold text-neutral-900">{entry.label}</h2>
         {entry.note ? <span className="text-xs text-neutral-500">{entry.note}</span> : null}
       </div>
-      {isSatoshi ? <SatoshiWeights /> : <SampleBlock family={(entry as FontPreviewEntry).family} />}
+      {isSatoshi ? (
+        <SatoshiWeights />
+      ) : (
+        <SampleBlock family={isGeorgia ? GEORGIA_FAMILY : (entry as FontPreviewEntry).family} />
+      )}
     </section>
   );
 }
@@ -78,7 +85,7 @@ export function FontPreviewCatalog() {
     };
   }, []);
 
-  const totalCount = FONT_PREVIEW_CATALOG.length + 1;
+  const totalCount = FONT_PREVIEW_CATALOG.filter((f) => f.id !== 'georgia').length + 1;
 
   return (
     <div className="min-h-screen bg-[#F8F7FC] text-neutral-900">
@@ -98,8 +105,8 @@ export function FontPreviewCatalog() {
         {FONT_PREVIEW_GROUPS.map((group) => {
           const entries =
             group.id === 'app'
-              ? [SATOSHI_PREVIEW_ENTRY, ...FONT_PREVIEW_CATALOG.filter((f) => f.group === 'app')]
-              : FONT_PREVIEW_CATALOG.filter((f) => f.group === group.id);
+              ? [GEORGIA_PREVIEW_ENTRY, ...FONT_PREVIEW_CATALOG.filter((f) => f.group === 'app')]
+              : FONT_PREVIEW_CATALOG.filter((f) => f.group === group.id && f.id !== 'georgia');
           if (entries.length === 0) return null;
 
           return (

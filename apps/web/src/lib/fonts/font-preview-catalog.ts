@@ -12,14 +12,21 @@ export type FontPreviewEntry = {
 };
 
 /** Self-hosted Satoshi is handled separately in the preview UI. */
-export const SATOSHI_PREVIEW_ENTRY: Pick<FontPreviewEntry, 'id' | 'label' | 'note' | 'group'> = {
-  id: 'satoshi',
-  label: 'Satoshi',
-  note: 'Current app + funnel default (self-hosted)',
+export const GEORGIA_PREVIEW_ENTRY: Pick<FontPreviewEntry, 'id' | 'label' | 'note' | 'group'> = {
+  id: 'georgia',
+  label: 'Georgia',
+  note: 'Current app + funnel default',
   group: 'app',
 };
 
 const APP_FONTS: FontPreviewEntry[] = [
+  {
+    id: 'satoshi',
+    label: 'Satoshi',
+    family: 'Satoshi, sans-serif',
+    note: 'Previous app default (self-hosted)',
+    group: 'app',
+  },
   {
     id: 'inter',
     label: 'Inter',
@@ -78,12 +85,11 @@ const SERIF_FONTS: FontPreviewEntry[] = [
   { id: 'libre-baskerville', label: 'Libre Baskerville', family: '"Libre Baskerville", serif', group: 'serif', googleParam: 'Libre+Baskerville:wght@400;700' },
   { id: 'source-serif-4', label: 'Source Serif 4', family: '"Source Serif 4", serif', group: 'serif', googleParam: 'Source+Serif+4:wght@400;500;700' },
   { id: 'fraunces', label: 'Fraunces', family: 'Fraunces, serif', group: 'serif', googleParam: 'Fraunces:wght@400;500;700' },
-  { id: 'bebas-neue', label: 'Bebas Neue', family: '"Bebas Neue", sans-serif', note: 'Brand wordmark X styling only', group: 'serif', googleParam: 'Bebas+Neue' },
+  { id: 'bebas-neue', label: 'Bebas Neue', family: '"Bebas Neue", sans-serif', group: 'serif', googleParam: 'Bebas+Neue' },
 ];
 
 const SYSTEM_FONTS: FontPreviewEntry[] = [
   { id: 'system-ui', label: 'System UI', family: 'system-ui, sans-serif', note: 'Browser default sans', group: 'system' },
-  { id: 'georgia', label: 'Georgia', family: 'Georgia, serif', note: 'System serif reference', group: 'system' },
 ];
 
 export const FONT_PREVIEW_GROUPS: Array<{ id: FontPreviewEntry['group']; title: string; description: string }> = [

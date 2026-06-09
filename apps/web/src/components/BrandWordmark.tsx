@@ -1,12 +1,10 @@
 'use client';
 
 /** Marketing / funnel header only (e.g. `SiteHeader`). Dashboard uses plain text in `AppHeader`. */
-import { Bebas_Neue } from 'next/font/google';
 import { BRAND_NAME, isLegacyProductBrandName } from '@/lib/site-brand-assets';
 
-const brandXFont = Bebas_Neue({ weight: '400', subsets: ['latin'] });
-
-const xSpanClass = `${brandXFont.className} text-red-500 uppercase inline-block align-middle mx-[0.04em] text-[1.22em] leading-none translate-y-[0.06em]`;
+const xSpanClass =
+  'text-red-500 uppercase inline-block align-middle mx-[0.04em] text-[1.22em] leading-none translate-y-[0.06em] font-bold';
 
 type BrandWordmarkProps = {
   /** Display name; default is iZop (no Twitter X in the logo). */

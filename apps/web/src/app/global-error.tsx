@@ -15,7 +15,7 @@ export default function GlobalError({
 
   return (
     <html lang="en">
-      <body style={{ fontFamily: 'system-ui', padding: '2rem', background: '#f9fafb' }}>
+      <body style={{ fontFamily: 'Georgia, "Times New Roman", Times, serif', padding: '2rem', background: '#f9fafb' }}>
         <div style={{ maxWidth: '42rem', margin: '0 auto' }}>
           <h1 style={{ color: '#b91c1c', fontSize: '1.25rem', fontWeight: 600 }}>
             Application error
