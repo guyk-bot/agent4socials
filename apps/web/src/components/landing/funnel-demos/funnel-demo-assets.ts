@@ -7,7 +7,7 @@ export const BRAND_LIME_DOT = '#c1ff72';
 /** Funnel analytics demo KPIs (cards + chart must stay in sync). */
 export const FUNNEL_ANALYTICS_KPIS = {
   followers: 14_847,
-  followersGain: 142,
+  followersGain: 135,
   views: 18_432,
   engagement: 937,
 } as const;

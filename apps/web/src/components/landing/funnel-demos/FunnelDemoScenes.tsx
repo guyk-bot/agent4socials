@@ -61,15 +61,17 @@ export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
 
   return (
     <>
-      <FunnelDemoUserBubble show={showUser} visual>
-        <ChatDragDropImage progress={progress} src={FUNNEL_DEMO_POST_VIDEO_SRC} alt="Post media" />
-        {(progress >= 0.48 || userText.length > 0) && (
-          <p className="mt-2">
-            {userText}
-            <TypeCursor active={progress > 0.48 && progress < 0.82} />
-          </p>
-        )}
-      </FunnelDemoUserBubble>
+      {showUser ? (
+        <div className="flex w-full flex-col items-end gap-1.5">
+          <ChatDragDropImage progress={progress} src={FUNNEL_DEMO_POST_VIDEO_SRC} alt="Post media" />
+          {(progress >= 0.48 || userText.length > 0) && (
+            <FunnelDemoUserBubble show visual={false}>
+              {userText}
+              <TypeCursor active={progress > 0.48 && progress < 0.82} />
+            </FunnelDemoUserBubble>
+          )}
+        </div>
+      ) : null}
       <FunnelDemoAssistantBubble show={showAssistant} visual>
         <div className="grid grid-cols-4 gap-1.5">
           {PLATFORM_ICONS.map((Icon, i) => (
@@ -99,7 +101,7 @@ export function FunnelDemoSceneComments({ progress }: { progress: number }) {
         {userText}
         <TypeCursor active={progress > 0.08 && progress < 0.38} />
       </FunnelDemoUserBubble>
-      <FunnelDemoAssistantBubble show={showAssistant} visual contained>
+      <FunnelDemoAssistantBubble show={showAssistant} visual wide>
         <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
           Summer launch Reel · 847 comments
         </p>

@@ -15,7 +15,6 @@ import {
   YoutubeIcon,
 } from '@/components/SocialPlatformIcons';
 import { SITE_LOGO_DARK_SRC } from '@/lib/site-brand-assets';
-import { BRAND_LIME_DOT } from '@/components/landing/funnel-demos/funnel-demo-assets';
 import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
 import {
@@ -151,8 +150,8 @@ function TypewriterText({
 const OPENING_PRIMARY =
   'block text-[22px] sm:text-[26px] lg:text-[28px] tracking-[-0.03em] leading-[1.15]';
 
-/** White mark on black — same in light and dark; circular crop softens the square asset. */
-const FUNNEL_AI_AVATAR_BOX = 'h-7 w-7 shrink-0';
+/** White mark on black — circle size fixed; mark slightly inset inside. */
+const FUNNEL_AI_AVATAR_BOX = 'h-9 w-9 shrink-0';
 
 function FunnelAiMessageAvatar({ className }: { className?: string }) {
   const boxClass = className ?? FUNNEL_AI_AVATAR_BOX;
@@ -162,7 +161,7 @@ function FunnelAiMessageAvatar({ className }: { className?: string }) {
       aria-hidden
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={SITE_LOGO_DARK_SRC} alt="" className="h-[86%] w-[86%] object-contain" />
+      <img src={SITE_LOGO_DARK_SRC} alt="" className="h-[62%] w-[62%] object-contain" />
     </span>
   );
 }
@@ -242,15 +241,11 @@ function OpeningAiMessage({
           if (!row.text && !(showCursor && index === activeLine)) return null;
           if (row.key === 'headline') {
             return (
-              <p key={row.key} className={`${row.className} flex flex-wrap items-center gap-1.5`}>
-                <span
-                  className="chat-hero-opening-headline"
-                  style={
-                    {
-                      '--headline-lime': BRAND_LIME_DOT,
-                    } as React.CSSProperties
-                  }
-                >
+              <p
+                key={row.key}
+                className={`${row.className} flex flex-wrap items-center gap-1.5 text-[#0a0a0a] dark:text-[#f5f5f5]`}
+              >
+                <span>
                   {row.text}
                   {showCursor && index === activeLine ? (
                     <span className="inline-block w-[2px] h-[1em] ml-0.5 bg-[var(--chat-hero-cursor)] animate-pulse align-middle" />

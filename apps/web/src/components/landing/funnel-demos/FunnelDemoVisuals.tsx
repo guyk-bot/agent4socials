@@ -5,7 +5,7 @@ import { CheckCircle2, Play } from 'lucide-react';
 import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { YoutubeIcon } from '@/components/SocialPlatformIcons';
 
-import { FUNNEL_ANALYTICS_KPIS } from './funnel-demo-assets';
+import { BRAND_LIME_DOT, FUNNEL_ANALYTICS_KPIS } from './funnel-demo-assets';
 
 const BRAND = {
   primary: '#7C3AED',
@@ -14,15 +14,17 @@ const BRAND = {
   grid: 'rgba(0, 0, 0, 0.018)',
 } as const;
 
-/** Daily points; card totals and chart cumulative series derived from these. */
+/** Daily points with realistic ups/downs; card totals derived from cumulative series. */
 const FUNNEL_GROWTH_DAILY = [
-  { date: 'Feb 18', followers: 14_705, views: 2_187, engagement: 98 },
-  { date: 'Feb 22', followers: 14_738, views: 2_643, engagement: 121 },
-  { date: 'Feb 26', followers: 14_761, views: 2_904, engagement: 134 },
-  { date: 'Mar 01', followers: 14_789, views: 2_712, engagement: 118 },
-  { date: 'Mar 04', followers: 14_812, views: 3_156, engagement: 147 },
-  { date: 'Mar 07', followers: 14_831, views: 3_389, engagement: 156 },
-  { date: 'Mar 10', followers: 14_847, views: 1_441, engagement: 163 },
+  { date: 'Feb 18', followers: 14_712, views: 1_920, engagement: 94 },
+  { date: 'Feb 20', followers: 14_728, views: 2_100, engagement: 108 },
+  { date: 'Feb 22', followers: 14_701, views: 1_680, engagement: 82 },
+  { date: 'Feb 24', followers: 14_734, views: 2_380, engagement: 121 },
+  { date: 'Feb 26', followers: 14_719, views: 1_980, engagement: 97 },
+  { date: 'Mar 01', followers: 14_768, views: 2_240, engagement: 115 },
+  { date: 'Mar 04', followers: 14_751, views: 1_750, engagement: 88 },
+  { date: 'Mar 07', followers: 14_809, views: 2_510, engagement: 134 },
+  { date: 'Mar 10', followers: 14_847, views: 1_872, engagement: 98 },
 ];
 
 function buildFunnelGrowthChartData() {
@@ -89,11 +91,11 @@ export function DemoImage({
   );
 }
 
-/** Portrait frame: 3:4, compact, full frame visible in one shot. */
+/** Portrait frame: 3:4, fills card without crowding text below. */
 const USER_ATTACH_FRAME =
-  'mx-auto aspect-[3/4] w-full max-w-[72%] max-h-[132px]';
+  'ml-auto aspect-[3/4] w-full max-w-[86%] max-h-[156px]';
 
-/** User-sent media: thinner faded border; object-contain shows the full clip. */
+/** Thin border on the image only (not the purple chat bubble). */
 export function ChatAttachmentImage({
   src,
   alt,
@@ -105,13 +107,13 @@ export function ChatAttachmentImage({
 }) {
   return (
     <div
-      className={`overflow-hidden rounded-lg border border-white/10 bg-black/15 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] ${USER_ATTACH_FRAME} ${className}`}
+      className={`overflow-hidden rounded-md border border-white/25 ${USER_ATTACH_FRAME} ${className}`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
         alt={alt}
-        className="block h-full w-full object-contain object-center pointer-events-none select-none"
+        className="block h-full w-full object-cover object-center pointer-events-none select-none"
         draggable={false}
       />
     </div>
@@ -132,13 +134,12 @@ export function ChatDragDropImage({
 }) {
   const showZone = progress >= 0.08 && progress < 0.16;
   const showImage = progress >= 0.14;
-  const dragging = showImage && progress < 0.42;
 
   if (progress < 0.08) return null;
 
   if (showImage) {
     return (
-      <div className={dragging ? 'funnel-demo-drag-into-chat' : undefined}>
+      <div className="funnel-demo-drag-into-chat">
         <ChatAttachmentImage src={src} alt={alt} />
       </div>
     );
@@ -147,7 +148,7 @@ export function ChatDragDropImage({
   if (showZone) {
     return (
       <div
-        className={`flex ${USER_ATTACH_FRAME} items-center justify-center rounded-lg border border-dashed border-white/20 bg-white/5 text-[11px] font-medium text-white/70`}
+        className={`flex ${USER_ATTACH_FRAME} items-center justify-center rounded-md border border-dashed border-white/25 bg-white/5 text-[11px] font-medium text-white/70`}
         aria-hidden
       >
         Drop media here
@@ -285,7 +286,8 @@ export function AnalyticsChart({ show }: { show: boolean }) {
     FUNNEL_GROWTH_DAILY[0].followers - 40,
     followers + 40,
   ];
-  const viewsDomain: [number, number] = [0, views + 2_000];
+  const maxDailyViews = Math.max(...FUNNEL_GROWTH_DAILY.map((d) => d.views));
+  const viewsDomain: [number, number] = [maxDailyViews * 0.55, maxDailyViews + 180];
   const engagementDomain: [number, number] = [0, engagement + 120];
 
   return (
@@ -347,11 +349,11 @@ export function AnalyticsChart({ show }: { show: boolean }) {
               <Line
                 yAxisId="views"
                 type="linear"
-                dataKey="viewsCumulative"
+                dataKey="views"
                 stroke="#2563eb"
                 strokeWidth={1.5}
                 strokeDasharray="4 3"
-                dot={false}
+                dot={{ r: 1.5, fill: '#2563eb', strokeWidth: 0 }}
                 isAnimationActive={false}
               />
               <Line
@@ -375,33 +377,33 @@ export function AnalyticsChart({ show }: { show: boolean }) {
 const ADS_PLATFORM_STATS = [
   {
     label: 'Google',
-    h: 54,
+    hPct: 72,
     roas: '3.84×',
     spend: '$2,437',
     cpa: '$12.40',
     conv: 196,
-    colorFrom: '#1a73e8',
-    colorTo: '#8ab4f8',
+    colorFrom: '#8ecf3a',
+    colorTo: BRAND_LIME_DOT,
   },
   {
     label: 'Meta',
-    h: 36,
+    hPct: 48,
     roas: '2.91×',
     spend: '$5,084',
     cpa: '$18.20',
     conv: 279,
-    colorFrom: '#0866ff',
-    colorTo: '#6ea8fe',
+    colorFrom: '#5B21B6',
+    colorTo: '#7C3AED',
   },
   {
     label: 'TikTok',
-    h: 62,
+    hPct: 88,
     roas: '4.17×',
     spend: '$1,792',
     cpa: '$9.85',
     conv: 182,
-    colorFrom: '#ee1d52',
-    colorTo: '#ff6b8a',
+    colorFrom: '#ea580c',
+    colorTo: '#fb923c',
   },
 ] as const;
 
@@ -424,19 +426,25 @@ export function AdsPerformanceChart({ show }: { show: boolean }) {
           <p className="text-sm font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{blendedRoas}</p>
         </div>
       </div>
-      <div className="flex items-end justify-between gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-2.5 py-2.5 min-h-[108px]">
+      <div className="flex items-end gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-2 py-2">
         {ADS_PLATFORM_STATS.map((b) => (
-          <div key={b.label} className="flex flex-1 flex-col items-center gap-0.5">
-            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{b.roas}</span>
-            <div
-              className="w-full max-w-[34px] rounded-t-md"
-              style={{
-                height: `${b.h}px`,
-                background: `linear-gradient(to top, ${b.colorFrom}, ${b.colorTo})`,
-              }}
-            />
-            <span className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">{b.label}</span>
-            <span className="text-[9px] text-neutral-500 tabular-nums">{b.spend}</span>
+          <div key={b.label} className="flex min-w-0 flex-1 flex-col items-stretch gap-0.5">
+            <span className="text-center text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+              {b.roas}
+            </span>
+            <div className="flex h-[80px] items-end">
+              <div
+                className="w-full rounded-t-md"
+                style={{
+                  height: `${Math.round(80 * (b.hPct / 100))}px`,
+                  background: `linear-gradient(to top, ${b.colorFrom}, ${b.colorTo})`,
+                }}
+              />
+            </div>
+            <span className="text-center text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
+              {b.label}
+            </span>
+            <span className="text-center text-[9px] text-neutral-500 tabular-nums">{b.spend}</span>
           </div>
         ))}
       </div>
