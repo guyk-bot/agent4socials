@@ -5,7 +5,17 @@ import { CheckCircle2, FileText, Play, Users } from 'lucide-react';
 import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, XAxis, YAxis, PieChart, Pie, Cell } from 'recharts';
 import { YoutubeIcon, InstagramIcon } from '@/components/SocialPlatformIcons';
 
-import { BRAND_LIME_DOT, FUNNEL_ANALYTICS_KPIS, FUNNEL_DEMO_BEST_POST_WEEK_SRC, FUNNEL_DEMO_IG_WEEK_POSTS, FUNNEL_DEMO_POST_VIDEO_SRC, FUNNEL_DEMO_TOP_ADS } from './funnel-demo-assets';
+import { Lightbulb, Sparkles } from 'lucide-react';
+import {
+  BRAND_LIME_DOT,
+  FUNNEL_ANALYTICS_KPIS,
+  FUNNEL_DEMO_BEST_POST_WEEK_SRC,
+  FUNNEL_DEMO_BRAINSTORM_WINNER_SRC,
+  FUNNEL_DEMO_IG_WEEK_POSTS,
+  FUNNEL_DEMO_PEOPLE_AVATARS,
+  FUNNEL_DEMO_POST_VIDEO_SRC,
+  FUNNEL_DEMO_TOP_ADS,
+} from './funnel-demo-assets';
 
 const BRAND = {
   primary: '#7C3AED',
@@ -304,6 +314,89 @@ export function YouTubeVideoPreview({ src, alt, title }: { src: string; alt: str
   );
 }
 
+const BRAINSTORM_DEMO_SECTIONS = [
+  {
+    title: 'Hooks',
+    items: [
+      'POV: You find $200/month without cutting coffee',
+      'Stop doing this with your savings account',
+      'The 30-second rule that fixed my budget',
+    ],
+  },
+  {
+    title: 'Ideas',
+    items: [
+      'Film your morning routine as a 3-tip Reel',
+      'Carousel: 5 apps that replaced my spreadsheet',
+      'Behind the scenes: how I batch a week of posts',
+    ],
+  },
+  {
+    title: 'Content pillars',
+    items: [
+      'Money habits for creators',
+      'Quick wins under 60 seconds',
+      'Tool reviews and workflows',
+    ],
+  },
+] as const;
+
+/** Mini Brainstorm board matching /dashboard/brainstorm. */
+export function BrainstormIdeasPanel() {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-2 py-1.5 dark:border-neutral-700 dark:bg-neutral-950">
+        <span className="rounded-md bg-[#7C3AED]/10 p-1 text-[#7C3AED]">
+          <Lightbulb size={12} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[12px] font-bold text-neutral-900 dark:text-neutral-100">Brainstorm</p>
+          <p className="text-[10px] text-neutral-500">9 ideas saved from your top YouTube video</p>
+        </div>
+      </div>
+      <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={FUNNEL_DEMO_BRAINSTORM_WINNER_SRC}
+          alt="Source video: 3 Hooks that 10X my savings"
+          className="h-full w-full object-cover object-center"
+          draggable={false}
+        />
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/20">
+          <span className="flex h-8 w-11 items-center justify-center rounded-lg bg-red-600/95 shadow">
+            <Play size={16} className="ml-0.5 fill-white text-white" />
+          </span>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-1.5">
+        {BRAINSTORM_DEMO_SECTIONS.map((section) => (
+          <div
+            key={section.title}
+            className="rounded-xl border border-neutral-200 bg-white p-2 dark:border-neutral-700 dark:bg-neutral-900"
+          >
+            <div className="mb-1 flex items-center justify-between gap-1">
+              <p className="text-[11px] font-bold text-neutral-900 dark:text-neutral-100">{section.title}</p>
+              <span className="inline-flex items-center gap-0.5 rounded-md bg-[#7C3AED] px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                <Sparkles size={8} /> AI
+              </span>
+            </div>
+            <ul className="space-y-1">
+              {section.items.map((item) => (
+                <li
+                  key={item}
+                  className="rounded-md bg-neutral-50 px-2 py-1 text-[11px] leading-snug text-neutral-800 dark:bg-neutral-950 dark:text-neutral-200"
+                >
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function MiniKpiCard({
   label,
   value,
@@ -547,59 +640,56 @@ function IgPostPerformanceChart({
 
   const activePoint = points.find((p) => p.day === activeDay);
 
-  const linePoints = points
-    .map((p) => {
-      const yPct = p.score === 0 ? 92 : 8 + (1 - p.score / maxScore) * 78;
-      return `${p.xPct},${yPct}`;
-    })
-    .join(' ');
+  const popupForPoint = (p: (typeof points)[number]) => {
+    const yPct = p.score === 0 ? 92 : 8 + (1 - p.score / maxScore) * 78;
+    const topPx = (yPct / 100) * chartH - 6;
+    if (p.xPct <= 14) {
+      return { left: 4, top: topPx, transform: 'translate(0, calc(-100% - 6px))' as const };
+    }
+    if (p.xPct >= 86) {
+      return { left: 'calc(100% - 4px)', top: topPx, transform: 'translate(-100%, calc(-100% - 6px))' as const };
+    }
+    return { left: `${p.xPct}%`, top: topPx, transform: 'translate(-50%, calc(-100% - 6px))' as const };
+  };
 
   return (
-    <div className="relative h-[88px] w-full">
-      <svg className="h-[72px] w-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
-        <polyline
-          fill="none"
-          stroke={BRAND.primary}
-          strokeWidth="1.5"
-          vectorEffect="non-scaling-stroke"
-          points={linePoints}
-        />
+    <div className="relative h-[96px] w-full overflow-visible pt-[92px] -mt-[92px]">
+      <svg className="h-[76px] w-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
         {points.map((p) => {
           const yPct = p.score === 0 ? 92 : 8 + (1 - p.score / maxScore) * 78;
+          const hasPost = p.postIndices.length > 0;
           return (
             <circle
               key={p.day}
               cx={p.xPct}
               cy={yPct}
-              r={activeDay === p.day ? 2.8 : 1.8}
-              fill={p.postIndex >= 0 ? BRAND.primary : '#d4d4d4'}
-              className="cursor-pointer"
-              onMouseEnter={() => onActiveDayChange(p.postIndices.length > 0 ? p.day : null)}
+              r={activeDay === p.day ? 3.2 : 2.4}
+              fill={hasPost ? BRAND.primary : '#d4d4d4'}
+              stroke={activeDay === p.day ? '#fff' : 'transparent'}
+              strokeWidth={0.8}
+              className={hasPost ? 'cursor-pointer' : ''}
+              onMouseEnter={() => onActiveDayChange(hasPost ? p.day : null)}
             />
           );
         })}
       </svg>
       <div className="flex justify-between px-0.5">
         {points.map((p) => (
-          <span key={p.day} className="text-[7px] text-neutral-500">
+          <span key={p.day} className="text-[9px] text-neutral-500">
             {p.day}
           </span>
         ))}
       </div>
       {activePoint && activePoint.postIndex >= 0 ? (
         <div
-          className="pointer-events-none absolute z-20 w-[72px] -translate-x-1/2 transition-all duration-150 ease-out"
-          style={{
-            left: `${activePoint.xPct}%`,
-            top: `${((activePoint.score === 0 ? 92 : 8 + (1 - activePoint.score / maxScore) * 78) / 100) * chartH - 4}px`,
-            transform: 'translate(-50%, -100%)',
-          }}
+          className="pointer-events-none absolute z-30 w-[80px] transition-all duration-150 ease-out"
+          style={popupForPoint(activePoint)}
         >
           <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-950">
-            <div className="aspect-[3/4] w-[72px]">
+            <div className="aspect-[3/4] w-[80px]">
               <IgPostThumb postIndex={activePoint.postIndex} showPlay className="h-full w-full" />
             </div>
-            <p className="px-1.5 py-1 text-[8px] font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">
+            <p className="px-1.5 py-1 text-[9px] font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">
               {FUNNEL_DEMO_IG_WEEK_POSTS[activePoint.postIndex]?.label}
             </p>
           </div>
@@ -653,7 +743,7 @@ function IgInteractiveFormatPie() {
           </div>
         </div>
       ) : null}
-      <div className="flex flex-wrap gap-x-1.5 gap-y-0.5 text-[7px] text-neutral-500">
+      <div className="flex flex-wrap gap-x-1.5 gap-y-0.5 text-[8px] text-neutral-500">
         {IG_FORMAT_MIX.map((f) => (
           <span
             key={f.name}
@@ -682,9 +772,11 @@ function IgPostsWeekBarChart({
   return (
     <div className="relative h-[52px] w-full">
       <div className="flex h-full items-end justify-between gap-1 px-0.5">
-        {IG_WEEK_BY_DAY.map((row) => {
+        {IG_WEEK_BY_DAY.map((row, i) => {
           const heightPct = row.posts === 0 ? 8 : Math.max(18, (row.posts / maxPosts) * 100);
           const isActive = activeDay === row.day;
+          const isLeftEdge = i === 0;
+          const isRightEdge = i === IG_WEEK_BY_DAY.length - 1;
           return (
             <div
               key={row.day}
@@ -699,8 +791,9 @@ function IgPostsWeekBarChart({
                   showPlay
                   style={{
                     bottom: `calc(${heightPct}% + 6px)`,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
+                    left: isLeftEdge ? 0 : isRightEdge ? 'auto' : '50%',
+                    right: isRightEdge ? 0 : undefined,
+                    transform: isLeftEdge ? 'translateX(0)' : isRightEdge ? 'translateX(0)' : 'translateX(-50%)',
                   }}
                 />
               ) : null}
@@ -743,7 +836,7 @@ export function InstagramWeeklyAnalyticsPanel() {
         className="relative overflow-visible px-2 py-1.5 border-b border-neutral-100 dark:border-neutral-800"
         onMouseLeave={() => setActiveLineDay(null)}
       >
-        <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">
+        <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">
           Post performance (hover for previews)
         </p>
         <IgPostPerformanceChart activeDay={activeLineDay} onActiveDayChange={setActiveLineDay} />
@@ -751,19 +844,19 @@ export function InstagramWeeklyAnalyticsPanel() {
 
       <div className="grid grid-cols-2 gap-2 p-2 border-b border-neutral-100 dark:border-neutral-800">
         <div className="relative overflow-visible">
-          <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">
+          <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">
             Posts last 7 days
           </p>
           <IgPostsWeekBarChart activeDay={activeDay} onActiveDayChange={setActiveDay} />
         </div>
         <div>
-          <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">Post formats</p>
+          <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">Post formats</p>
           <IgInteractiveFormatPie />
         </div>
       </div>
 
       <div className="p-2 border-b border-neutral-100 dark:border-neutral-800">
-        <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">Published this week</p>
+        <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">Published this week</p>
         <div className="flex gap-1.5 overflow-x-auto pb-0.5 funnel-demo-scene-scroll">
           {FUNNEL_DEMO_IG_WEEK_POSTS.map((post, i) => (
             <div key={post.src} className="group relative w-[56px] shrink-0">
@@ -787,7 +880,7 @@ export function InstagramWeeklyAnalyticsPanel() {
       </div>
 
       <div className="p-2">
-        <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1">Best post this week</p>
+        <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1">Best post this week</p>
         <div className="flex gap-2">
           <div className="relative aspect-[3/4] w-[56px] shrink-0 overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -800,8 +893,8 @@ export function InstagramWeeklyAnalyticsPanel() {
             <DemoReelPlayOverlay show />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[9px] font-semibold text-neutral-900 dark:text-neutral-100">The best app for content creators</p>
-            <p className="mt-0.5 text-[8px] leading-snug text-neutral-600 dark:text-neutral-400">
+            <p className="text-[10px] font-semibold text-neutral-900 dark:text-neutral-100">The best app for content creators</p>
+            <p className="mt-0.5 text-[9px] leading-snug text-neutral-600 dark:text-neutral-400">
               420 likes · 86 comments · 6.8K views. Your Reel outperformed carousels by 2.1x.
             </p>
             <p className="mt-1 text-[8px] text-neutral-500">Reel · with audio</p>
@@ -907,32 +1000,28 @@ export function AdsTopCreativesCandleChart() {
 
   return (
     <div className="space-y-1">
-      <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200">Best performing ads</p>
-      <div className="flex items-end gap-1 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-1.5 py-2">
+      <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">Best performing ads</p>
+      <div className="flex gap-1.5 overflow-x-auto pb-0.5 funnel-demo-scene-scroll">
         {FUNNEL_DEMO_TOP_ADS.map((ad) => {
-          const bodyH = Math.max(14, Math.round((ad.roas / maxRoas) * 44));
-          const wickTop = bodyH + 10;
+          const bodyH = Math.max(18, Math.round((ad.roas / maxRoas) * 36));
           return (
-            <div key={ad.label} className="group flex min-w-0 flex-1 flex-col items-center gap-0.5">
-              <span className="text-[8px] font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+            <div key={ad.label} className="group w-[62px] shrink-0">
+              <span className="block text-center text-[9px] font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
                 {ad.roas.toFixed(2)}x
               </span>
-              <div className="relative flex h-[58px] w-full items-end justify-center">
+              <div className="relative mx-auto mt-0.5 flex h-[40px] w-[22px] items-end justify-center">
                 <div
-                  className="absolute bottom-0 w-px bg-neutral-300 dark:bg-neutral-600"
-                  style={{ height: `${wickTop}px` }}
-                />
-                <div
-                  className="relative z-[1] w-[58%] min-w-[10px] rounded-[2px] bg-gradient-to-t from-[#6D28D9] to-[#A78BFA] transition-transform group-hover:scale-105"
+                  className="w-full rounded-t-sm bg-gradient-to-t from-[#6D28D9] to-[#A78BFA] transition-transform group-hover:scale-105"
                   style={{ height: `${bodyH}px` }}
                 />
               </div>
-              <div className="h-7 w-full overflow-hidden rounded border border-neutral-200 dark:border-neutral-700">
+              <div className="relative mt-1 aspect-[4/3] w-full overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={ad.src} alt={ad.label} className="h-full w-full object-cover object-center" draggable={false} />
+                {ad.isVideo ? <DemoReelPlayOverlay show /> : null}
               </div>
-              <span className="w-full truncate text-center text-[7px] text-neutral-600 dark:text-neutral-400">{ad.label}</span>
-              <span className="text-[7px] tabular-nums text-neutral-500">{ad.cpa} CPA</span>
+              <p className="mt-0.5 truncate text-center text-[9px] font-medium text-neutral-700 dark:text-neutral-300">{ad.label}</p>
+              <p className="text-center text-[9px] tabular-nums text-neutral-500">{ad.cpa}</p>
             </div>
           );
         })}
@@ -980,20 +1069,20 @@ export function CommentRow({
     >
       <DemoProfilePhoto src={avatarSrc} label={avatar} colorClass={colorClass} size="md" />
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 truncate">{name}</p>
-        <p className="text-[10px] text-neutral-600 dark:text-neutral-400 leading-snug line-clamp-2">{text}</p>
+        <p className="text-[12px] font-semibold text-neutral-800 dark:text-neutral-200 truncate">{name}</p>
+        <p className="text-[11px] text-neutral-600 dark:text-neutral-400 leading-snug line-clamp-2">{text}</p>
         {replied && replyText ? (
-          <p className="mt-1 rounded-md border border-violet-200/80 bg-violet-50/80 dark:bg-violet-950/30 dark:border-violet-800/50 px-1.5 py-0.5 text-[9px] text-violet-900 dark:text-violet-200 leading-snug line-clamp-3">
+          <p className="mt-1 rounded-md border border-violet-200/80 bg-violet-50/80 dark:bg-violet-950/30 dark:border-violet-800/50 px-1.5 py-0.5 text-[10px] text-violet-900 dark:text-violet-200 leading-snug line-clamp-3">
             <span className="inline-flex items-center gap-1 font-semibold">
-              {PlatformIcon ? <PlatformIcon size={10} className="shrink-0" /> : null}
+              {PlatformIcon ? <PlatformIcon size={11} className="shrink-0" /> : null}
               {draft ? 'Draft reply: ' : 'AI reply: '}
             </span>
             {replyText}
           </p>
         ) : null}
         {replied && !draft ? (
-          <p className="mt-0.5 inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-700 dark:text-emerald-300">
-            <CheckCircle2 size={10} /> Reply sent
+          <p className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
+            <CheckCircle2 size={11} /> Reply sent
           </p>
         ) : null}
       </div>
@@ -1002,116 +1091,27 @@ export function CommentRow({
 }
 
 const LEADS_DEMO_ROWS = [
-  {
-    name: 'Sarah Chen',
-    avatar: 'SC',
-    avatarSrc: '/funnel-demo-profile-avatar.png',
-    color: 'bg-violet-500',
-    comment: 'How much for my team?',
-    intent: 'High',
-    intentStyle: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300',
-    dm: 'Happy to share pricing in DM',
-    showAt: 0.08,
-  },
-  {
-    name: 'Priya Sharma',
-    avatar: 'PS',
-    avatarSrc: '/funnel-demo-ig-week-3.png',
-    color: 'bg-emerald-500',
-    comment: 'Does this integrate with Shopify?',
-    intent: 'Contact',
-    intentStyle: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300',
-    dm: 'Yes, setup takes 5 min in DM',
-    showAt: 0.16,
-  },
-  {
-    name: 'Mike Torres',
-    avatar: 'MT',
-    avatarSrc: '/funnel-demo-ig-week-1.png',
-    color: 'bg-sky-500',
-    comment: 'Available in Europe?',
-    intent: 'Medium',
-    intentStyle: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
-    dm: 'Yes, we ship worldwide',
-    showAt: 0.24,
-  },
-  {
-    name: 'Daniel Frost',
-    avatar: 'DF',
-    avatarSrc: '/funnel-demo-ig-week-2.png',
-    color: 'bg-amber-500',
-    comment: 'Can I book a demo this week?',
-    intent: 'High',
-    intentStyle: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300',
-    dm: 'Sending calendar link now',
-    showAt: 0.32,
-  },
-  {
-    name: 'James Okonkwo',
-    avatar: 'JO',
-    avatarSrc: '/funnel-demo-ig-week-4.png',
-    color: 'bg-emerald-500',
-    comment: 'DM me the onboarding link?',
-    intent: 'High',
-    intentStyle: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300',
-    dm: 'Onboarding link queued',
-    showAt: 0.4,
-  },
-  {
-    name: 'Alex Kim',
-    avatar: 'AK',
-    avatarSrc: '/funnel-demo-ig-week-5.png',
-    color: 'bg-sky-500',
-    comment: 'Need pricing for 3 seats',
-    intent: 'Contact',
-    intentStyle: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300',
-    dm: 'Team plan breakdown sent',
-    showAt: 0.48,
-  },
-  {
-    name: 'Maya Rodriguez',
-    avatar: 'MR',
-    avatarSrc: '/funnel-demo-ig-week-6.png',
-    color: 'bg-violet-500',
-    comment: 'Is there a free trial?',
-    intent: 'Medium',
-    intentStyle: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
-    dm: 'Free plan details in DM',
-    showAt: 0.56,
-  },
-  {
-    name: 'Lina Park',
-    avatar: 'LP',
-    avatarSrc: '/funnel-demo-ig-week-3.png',
-    color: 'bg-rose-500',
-    comment: 'Can you handle DMs too?',
-    intent: 'High',
-    intentStyle: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300',
-    dm: 'Yes, inbox automation included',
-    showAt: 0.64,
-  },
-  {
-    name: 'Chris Webb',
-    avatar: 'CW',
-    avatarSrc: '/funnel-demo-profile-avatar.png',
-    color: 'bg-neutral-500',
-    comment: 'Interested in agency plan',
-    intent: 'Contact',
-    intentStyle: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300',
-    dm: 'Agency tier overview ready',
-    showAt: 0.72,
-  },
+  { name: 'Sarah Chen', avatar: 'SC', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.sarah, color: 'bg-violet-500', comment: 'How much for my team?', intent: 'High', intentStyle: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300', dm: 'Happy to share pricing in DM' },
+  { name: 'Priya Sharma', avatar: 'PS', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.priya, color: 'bg-emerald-500', comment: 'Does this integrate with Shopify?', intent: 'Contact', intentStyle: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300', dm: 'Yes, setup takes 5 min in DM' },
+  { name: 'Mike Torres', avatar: 'MT', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.mike, color: 'bg-sky-500', comment: 'Available in Europe?', intent: 'Medium', intentStyle: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300', dm: 'Yes, we ship worldwide' },
+  { name: 'Daniel Frost', avatar: 'DF', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.daniel, color: 'bg-amber-500', comment: 'Can I book a demo this week?', intent: 'High', intentStyle: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300', dm: 'Sending calendar link now' },
+  { name: 'James Okonkwo', avatar: 'JO', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.james, color: 'bg-emerald-500', comment: 'DM me the onboarding link?', intent: 'High', intentStyle: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300', dm: 'Onboarding link queued' },
+  { name: 'Alex Kim', avatar: 'AK', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.alex, color: 'bg-sky-500', comment: 'Need pricing for 3 seats', intent: 'Contact', intentStyle: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300', dm: 'Team plan breakdown sent' },
+  { name: 'Maya Rodriguez', avatar: 'MR', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.maya, color: 'bg-violet-500', comment: 'Is there a free trial?', intent: 'Medium', intentStyle: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300', dm: 'Free plan details in DM' },
+  { name: 'Lina Park', avatar: 'LP', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.lina, color: 'bg-rose-500', comment: 'Can you handle DMs too?', intent: 'High', intentStyle: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300', dm: 'Yes, inbox automation included' },
+  { name: 'Chris Webb', avatar: 'CW', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.chris, color: 'bg-neutral-500', comment: 'Interested in agency plan', intent: 'Contact', intentStyle: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300', dm: 'Agency tier overview ready' },
+  { name: 'Emma Walsh', avatar: 'EW', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.emma, color: 'bg-indigo-500', comment: 'Saw your Reel, need help scaling', intent: 'High', intentStyle: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300', dm: 'Scaling playbook in DM' },
+  { name: 'Noah Patel', avatar: 'NP', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.noah, color: 'bg-cyan-500', comment: 'Do you support TikTok Shop?', intent: 'Medium', intentStyle: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300', dm: 'TikTok workflow guide sent' },
 ] as const;
 
 export function LeadsSpreadsheet({ show, progress = 1 }: { show: boolean; progress?: number }) {
   if (!show) return null;
-  const visibleRows = LEADS_DEMO_ROWS.filter((row) => progress >= row.showAt || progress >= 1);
 
   return (
     <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
       <table className="w-full text-left">
         <thead>
-          <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 text-[9px] uppercase tracking-wide text-neutral-500">
+          <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 text-[11px] uppercase tracking-wide text-neutral-500">
             <th className="px-1.5 py-1 font-semibold">Lead</th>
             <th className="px-1.5 py-1 font-semibold">Comment</th>
             <th className="px-1.5 py-1 font-semibold">Class</th>
@@ -1119,25 +1119,25 @@ export function LeadsSpreadsheet({ show, progress = 1 }: { show: boolean; progre
           </tr>
         </thead>
         <tbody>
-          {visibleRows.map((row) => (
+          {LEADS_DEMO_ROWS.map((row) => (
             <tr key={row.name} className="border-b border-neutral-100 dark:border-neutral-800 last:border-0 funnel-demo-message-in">
               <td className="px-1.5 py-1 align-top">
                 <div className="flex items-center gap-1">
                   <DemoProfilePhoto src={row.avatarSrc} label={row.avatar} colorClass={row.color} size="sm" />
-                  <span className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 whitespace-nowrap">
+                  <span className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 whitespace-nowrap">
                     {row.name.split(' ')[0]}
                   </span>
                 </div>
               </td>
-              <td className="px-1.5 py-1 text-[9px] text-neutral-600 dark:text-neutral-400 align-top max-w-[72px] leading-snug line-clamp-2">
+              <td className="px-1.5 py-1 text-[11px] text-neutral-600 dark:text-neutral-400 align-top max-w-[76px] leading-snug line-clamp-2">
                 {row.comment}
               </td>
               <td className="px-1.5 py-1 align-top">
-                <span className={`rounded-full px-1 py-0.5 text-[8px] font-semibold ${row.intentStyle}`}>
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${row.intentStyle}`}>
                   {row.intent}
                 </span>
               </td>
-              <td className="px-1.5 py-1 text-[9px] text-[var(--primary)] align-top max-w-[80px] leading-snug font-medium line-clamp-2">
+              <td className="px-1.5 py-1 text-[11px] text-[var(--primary)] align-top max-w-[84px] leading-snug font-medium line-clamp-2">
                 {row.dm}
               </td>
             </tr>
@@ -1149,84 +1149,57 @@ export function LeadsSpreadsheet({ show, progress = 1 }: { show: boolean; progre
 }
 
 const TEAM_DEMO_ROWS = [
-  {
-    name: 'Guy K.',
-    avatar: 'GK',
-    color: 'bg-violet-500',
-    role: 'Admin',
-    roleStyle: 'border-violet-300 bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300',
-    activity: 'Active now',
-    activityStyle: 'text-emerald-600 dark:text-emerald-400',
-    showAt: 0.12,
-  },
-  {
-    name: 'Maya Rodriguez',
-    avatar: 'MR',
-    color: 'bg-sky-500',
-    role: 'Editor',
-    roleStyle: 'border-sky-300 bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300',
-    activity: '2h ago',
-    activityStyle: 'text-neutral-500',
-    showAt: 0.28,
-  },
-  {
-    name: 'Alex Kim',
-    avatar: 'AK',
-    color: 'bg-emerald-500',
-    role: 'Viewer',
-    roleStyle: 'border-neutral-300 bg-neutral-50 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300',
-    activity: 'Yesterday',
-    activityStyle: 'text-neutral-500',
-    showAt: 0.44,
-  },
+  { name: 'Guy K.', avatar: 'GK', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.guy, color: 'bg-violet-500', role: 'Admin', roleStyle: 'border-violet-300 bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300', activity: 'Active now', activityStyle: 'text-emerald-600 dark:text-emerald-400' },
+  { name: 'Maya Rodriguez', avatar: 'MR', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.maya, color: 'bg-sky-500', role: 'Editor', roleStyle: 'border-sky-300 bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300', activity: '2h ago', activityStyle: 'text-neutral-500' },
+  { name: 'Alex Kim', avatar: 'AK', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.alex, color: 'bg-emerald-500', role: 'Viewer', roleStyle: 'border-neutral-300 bg-neutral-50 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300', activity: 'Yesterday', activityStyle: 'text-neutral-500' },
+  { name: 'Nina Cho', avatar: 'NC', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.nina, color: 'bg-rose-500', role: 'Editor', roleStyle: 'border-rose-300 bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300', activity: '4h ago', activityStyle: 'text-neutral-500' },
+  { name: 'Omar Hassan', avatar: 'OH', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.omar, color: 'bg-amber-500', role: 'Analyst', roleStyle: 'border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300', activity: '6h ago', activityStyle: 'text-neutral-500' },
+  { name: 'Julia Ross', avatar: 'JR', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.julia, color: 'bg-indigo-500', role: 'Viewer', roleStyle: 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300', activity: '1d ago', activityStyle: 'text-neutral-500' },
 ] as const;
 
 export function TeamMembersPanel({ show, progress = 1 }: { show: boolean; progress?: number }) {
   if (!show) return null;
-  const visibleRows = TEAM_DEMO_ROWS.filter((row) => progress >= row.showAt || progress >= 1);
 
   return (
     <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
       <div className="flex items-center gap-1.5 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 px-2 py-1.5">
-        <Users size={12} className="text-[#7C3AED]" />
-        <span className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">Team activity</span>
+        <Users size={13} className="text-[#7C3AED]" />
+        <span className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">Team activity</span>
       </div>
       <table className="w-full text-left">
         <thead>
-          <tr className="border-b border-neutral-100 dark:border-neutral-800 text-[9px] uppercase tracking-wide text-neutral-500">
+          <tr className="border-b border-neutral-100 dark:border-neutral-800 text-[10px] uppercase tracking-wide text-neutral-500">
             <th className="px-1.5 py-1 font-semibold">Member</th>
             <th className="px-1.5 py-1 font-semibold">Role</th>
             <th className="px-1.5 py-1 font-semibold text-right">Last active</th>
           </tr>
         </thead>
         <tbody>
-          {visibleRows.map((row) => (
+          {TEAM_DEMO_ROWS.map((row) => (
             <tr key={row.name} className="border-b border-neutral-100 dark:border-neutral-800 last:border-0">
-              <td className="px-1.5 py-1.5 align-middle">
+              <td className="px-1.5 py-1 align-middle">
                 <div className="flex items-center gap-1.5">
-                  <DemoAvatar label={row.avatar} colorClass={row.color} size="md" />
-                  <span className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 whitespace-nowrap">
+                  <DemoProfilePhoto src={row.avatarSrc} label={row.avatar} colorClass={row.color} size="md" />
+                  <span className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 whitespace-nowrap">
                     {row.name}
                   </span>
                 </div>
               </td>
-              <td className="px-1.5 py-1.5 align-middle">
-                <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${row.roleStyle}`}>
+              <td className="px-1.5 py-1 align-middle">
+                <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${row.roleStyle}`}>
                   {row.role}
                 </span>
               </td>
-              <td className={`px-1.5 py-1.5 text-right text-[9px] font-medium tabular-nums ${row.activityStyle}`}>
+              <td className={`px-1.5 py-1 text-right text-[10px] font-medium tabular-nums ${row.activityStyle}`}>
                 {row.activity}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      {(progress > 0.58 || progress >= 1) && (
-        <p className="flex items-center gap-1 border-t border-neutral-100 dark:border-neutral-800 px-2 py-1.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-          <CheckCircle2 size={11} /> Invite sent to maya@studio.com
-        </p>
-      )}
+      <p className="flex items-center gap-1 border-t border-neutral-100 dark:border-neutral-800 px-2 py-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+        <CheckCircle2 size={12} /> Invite sent to maya@studio.com
+      </p>
     </div>
   );
 }
@@ -1241,12 +1214,15 @@ export function AnalyticsReportPreview({ show, progress = 1 }: { show: boolean; 
     { platform: 'YouTube', followers: '9.4K', views: '256K', eng: '5.1%', posts: 18 },
     { platform: 'Facebook', followers: '6.2K', views: '98K', eng: '3.8%', posts: 14 },
     { platform: 'X', followers: '4.1K', views: '44K', eng: '2.9%', posts: 23 },
+    { platform: 'LinkedIn', followers: '3.8K', views: '31K', eng: '4.4%', posts: 12 },
+    { platform: 'Threads', followers: '2.9K', views: '18K', eng: '3.1%', posts: 9 },
+    { platform: 'Pinterest', followers: '1.6K', views: '12K', eng: '2.4%', posts: 7 },
   ];
 
   return (
     <div className="space-y-1.5">
       <div className="rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950/25 dark:border-orange-900/60 p-2">
-        <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
           Mar 1 to Mar 31 · 8 platforms
         </p>
         <div className="mt-1 grid grid-cols-4 gap-1">
@@ -1260,21 +1236,21 @@ export function AnalyticsReportPreview({ show, progress = 1 }: { show: boolean; 
               key={m.label}
               className="rounded-md border border-orange-100 bg-white/80 dark:bg-neutral-900/60 dark:border-orange-900/40 px-1 py-0.5"
             >
-              <p className="text-[10px] font-bold tabular-nums text-neutral-900 dark:text-neutral-100">{m.value}</p>
-              <p className="text-[7px] text-neutral-500">{m.label}</p>
-              <p className="text-[7px] font-semibold text-emerald-600 dark:text-emerald-400">{m.delta}</p>
+              <p className="text-[11px] font-bold tabular-nums text-neutral-900 dark:text-neutral-100">{m.value}</p>
+              <p className="text-[8px] text-neutral-500">{m.label}</p>
+              <p className="text-[8px] font-semibold text-emerald-600 dark:text-emerald-400">{m.delta}</p>
             </div>
           ))}
         </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
-        <p className="border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 px-2 py-1 text-[8px] font-semibold uppercase tracking-wide text-neutral-500">
+        <p className="border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-neutral-500">
           Platform breakdown
         </p>
         <table className="w-full text-left">
           <thead>
-            <tr className="border-b border-neutral-100 dark:border-neutral-800 text-[7px] uppercase text-neutral-500">
+            <tr className="border-b border-neutral-100 dark:border-neutral-800 text-[9px] uppercase text-neutral-500">
               <th className="px-1.5 py-0.5 font-semibold">Platform</th>
               <th className="px-1 py-0.5 font-semibold">Followers</th>
               <th className="px-1 py-0.5 font-semibold">Views</th>
@@ -1285,32 +1261,49 @@ export function AnalyticsReportPreview({ show, progress = 1 }: { show: boolean; 
           <tbody>
             {platformRows.map((row) => (
               <tr key={row.platform} className="border-b border-neutral-50 dark:border-neutral-800/80 last:border-0">
-                <td className="px-1.5 py-0.5 text-[8px] font-semibold text-neutral-800 dark:text-neutral-200">{row.platform}</td>
-                <td className="px-1 py-0.5 text-[8px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.followers}</td>
-                <td className="px-1 py-0.5 text-[8px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.views}</td>
-                <td className="px-1 py-0.5 text-[8px] tabular-nums text-emerald-600 dark:text-emerald-400">{row.eng}</td>
-                <td className="px-1 py-0.5 text-[8px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.posts}</td>
+                <td className="px-1.5 py-0.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">{row.platform}</td>
+                <td className="px-1 py-0.5 text-[10px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.followers}</td>
+                <td className="px-1 py-0.5 text-[10px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.views}</td>
+                <td className="px-1 py-0.5 text-[10px] tabular-nums text-emerald-600 dark:text-emerald-400">{row.eng}</td>
+                <td className="px-1 py-0.5 text-[10px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.posts}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <div className="grid grid-cols-3 gap-1">
+      <div className="grid grid-cols-4 gap-1">
         {[
           { label: 'Best day', value: 'Sat', sub: '31.2K views' },
-          { label: 'Top format', value: 'Reels', sub: '42% of reach' },
-          { label: 'Growth', value: '+18%', sub: 'vs last month' },
+          { label: 'Top format', value: 'Reels', sub: '42% reach' },
+          { label: 'Growth', value: '+18%', sub: 'vs last mo.' },
+          { label: 'Saves', value: '8.4K', sub: '+22%' },
         ].map((item) => (
           <div
             key={item.label}
-            className="rounded-md border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 px-1.5 py-1"
+            className="rounded-md border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 px-1 py-1"
           >
-            <p className="text-[7px] uppercase text-neutral-500">{item.label}</p>
-            <p className="text-[10px] font-bold text-neutral-900 dark:text-neutral-100">{item.value}</p>
-            <p className="text-[7px] text-neutral-500">{item.sub}</p>
+            <p className="text-[8px] uppercase text-neutral-500">{item.label}</p>
+            <p className="text-[11px] font-bold text-neutral-900 dark:text-neutral-100">{item.value}</p>
+            <p className="text-[8px] text-neutral-500">{item.sub}</p>
           </div>
         ))}
+      </div>
+
+      <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-1.5">
+        <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1">Top content this month</p>
+        <div className="flex gap-1">
+          {FUNNEL_DEMO_IG_WEEK_POSTS.slice(0, 4).map((post) => (
+            <div key={post.src} className="relative w-[44px] shrink-0">
+              <div className="aspect-[3/4] overflow-hidden rounded border border-neutral-200 dark:border-neutral-700">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={post.src} alt={post.label} className="h-full w-full object-cover" draggable={false} />
+                {post.format === 'reel' ? <DemoReelPlayOverlay show /> : null}
+              </div>
+              <p className="mt-0.5 text-[7px] tabular-nums text-neutral-500">{post.views}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-1">
@@ -1324,15 +1317,15 @@ export function AnalyticsReportPreview({ show, progress = 1 }: { show: boolean; 
               progress > 0.32 + i * 0.12 || progress >= 1 ? 'opacity-100' : 'opacity-40'
             }`}
           >
-            <FileText size={12} className="text-[#7C3AED] mb-0.5" />
-            <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 leading-snug">{card.title}</p>
-            <p className="text-[7px] text-neutral-500">{card.sub}</p>
+            <FileText size={13} className="text-[#7C3AED] mb-0.5" />
+            <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 leading-snug">{card.title}</p>
+            <p className="text-[8px] text-neutral-500">{card.sub}</p>
           </div>
         ))}
       </div>
       {showDownload ? (
-        <p className="inline-flex items-center gap-1 text-[9px] font-semibold text-[var(--primary)]">
-          <CheckCircle2 size={10} /> analytics-report-mar.pdf ready
+        <p className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--primary)]">
+          <CheckCircle2 size={11} /> analytics-report-mar.pdf ready
         </p>
       ) : null}
     </div>

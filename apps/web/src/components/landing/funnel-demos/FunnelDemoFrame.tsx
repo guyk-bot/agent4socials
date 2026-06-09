@@ -86,22 +86,26 @@ export function FunnelDemoAssistantBubble({
   visual,
   wide,
   contained,
+  allowOverflow,
 }: {
   children: React.ReactNode;
   show: boolean;
   visual?: boolean;
   wide?: boolean;
   contained?: boolean;
+  /** Let hover popups (charts) extend outside the bubble without clipping. */
+  allowOverflow?: boolean;
 }) {
   if (!show) return null;
+  const overflowClass = allowOverflow ? 'overflow-visible' : 'overflow-hidden';
   return (
     <div className="flex min-h-0 shrink justify-start funnel-demo-message-in">
       <div
         className={`${wide ? 'max-w-[98%]' : 'max-w-[96%]'} min-w-0 rounded-2xl rounded-bl-md leading-snug aysop-bubble-assistant shadow-sm ${
           visual ? 'p-2 text-[12px] sm:text-[13px]' : 'px-3 py-2.5 text-[13px] sm:text-[14px]'
-        } ${contained ? 'max-h-[min(100%,240px)] overflow-hidden flex flex-col min-h-0' : ''}`}
+        } ${contained ? `max-h-[min(100%,380px)] ${overflowClass} flex flex-col min-h-0` : ''}`}
       >
-        <div className={contained ? 'min-h-0 flex-1 flex flex-col overflow-hidden' : undefined}>
+        <div className={contained ? `min-h-0 flex-1 flex flex-col ${overflowClass}` : undefined}>
           {children}
         </div>
       </div>

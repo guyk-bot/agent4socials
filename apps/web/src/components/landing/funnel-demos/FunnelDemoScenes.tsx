@@ -8,8 +8,7 @@ import {
 import { PlatformPostPreviewGrid } from '@/components/shared/PlatformPostPreviewSquare';
 import { FunnelDemoAllowBar, FunnelDemoScheduledChip } from './FunnelDemoShared';
 import {
-  FUNNEL_DEMO_AVATARS,
-  FUNNEL_DEMO_BRAINSTORM_WINNER_SRC,
+  FUNNEL_DEMO_PEOPLE_AVATARS,
   FUNNEL_DEMO_POST_VIDEO_SRC,
   FUNNEL_DEMO_PROFILE_AVATAR_SRC,
 } from './funnel-demo-assets';
@@ -17,12 +16,12 @@ import {
   AdsPerformanceChart,
   AdsTopCreativesCandleChart,
   AnalyticsReportPreview,
+  BrainstormIdeasPanel,
   ChatAttachmentReel,
   CommentRow,
   InstagramWeeklyAnalyticsPanel,
   LeadsSpreadsheet,
   TeamMembersPanel,
-  YouTubeVideoPreview,
 } from './FunnelDemoVisuals';
 
 const USER_SCHEDULE = 'Upload this to Instagram, TikTok, and YouTube Shorts at 9:30.';
@@ -77,60 +76,14 @@ const SCHEDULE_PREVIEWS = [
 ];
 
 const COMMENT_DRAFTS = [
-  {
-    name: 'Maya Rodriguez',
-    avatar: 'MR',
-    avatarSrc: FUNNEL_DEMO_AVATARS.maya,
-    colorClass: 'bg-violet-500',
-    text: 'Love this Reel! Exactly what I needed.',
-    replyText: 'Thank you, Maya! So glad it helped. Let me know if you want the full checklist.',
-    replyPlatform: 'instagram' as const,
-  },
-  {
-    name: 'James Okonkwo',
-    avatar: 'JO',
-    avatarSrc: FUNNEL_DEMO_AVATARS.james,
-    colorClass: 'bg-emerald-500',
-    text: 'Does this work for small teams too?',
-    replyText: 'Yes, James. Most teams start with one hook and scale from there.',
-    replyPlatform: 'youtube' as const,
-  },
-  {
-    name: 'Alex Kim',
-    avatar: 'AK',
-    avatarSrc: FUNNEL_DEMO_AVATARS.alex,
-    colorClass: 'bg-sky-500',
-    text: 'Where can I buy this? Ship to Canada?',
-    replyText: 'Yes! Link in bio ships worldwide, including Canada.',
-    replyPlatform: 'instagram' as const,
-  },
-  {
-    name: 'Priya Sharma',
-    avatar: 'PS',
-    avatarSrc: FUNNEL_DEMO_AVATARS.priya,
-    colorClass: 'bg-amber-500',
-    text: 'Can you share the template from the video?',
-    replyText: 'Absolutely. I will DM you the template right after this goes live.',
-    replyPlatform: 'youtube' as const,
-  },
-  {
-    name: 'Daniel Frost',
-    avatar: 'DF',
-    avatarSrc: FUNNEL_DEMO_AVATARS.daniel,
-    colorClass: 'bg-amber-500',
-    text: 'This hook is fire. Saving for later.',
-    replyText: 'Appreciate you, Daniel! Full breakdown is in the pinned comment.',
-    replyPlatform: 'instagram' as const,
-  },
-  {
-    name: 'Lina Park',
-    avatar: 'LP',
-    avatarSrc: FUNNEL_DEMO_AVATARS.lina,
-    colorClass: 'bg-rose-500',
-    text: 'Subbed after this Short. More like this?',
-    replyText: 'Yes! Part 2 drops tomorrow on the same topic.',
-    replyPlatform: 'youtube' as const,
-  },
+  { name: 'Maya Rodriguez', avatar: 'MR', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.maya, colorClass: 'bg-violet-500', text: 'Love this Reel! Exactly what I needed.', replyText: 'Thank you, Maya! So glad it helped. Let me know if you want the full checklist.', replyPlatform: 'instagram' as const },
+  { name: 'James Okonkwo', avatar: 'JO', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.james, colorClass: 'bg-emerald-500', text: 'Does this work for small teams too?', replyText: 'Yes, James. Most teams start with one hook and scale from there.', replyPlatform: 'youtube' as const },
+  { name: 'Alex Kim', avatar: 'AK', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.alex, colorClass: 'bg-sky-500', text: 'Where can I buy this? Ship to Canada?', replyText: 'Yes! Link in bio ships worldwide, including Canada.', replyPlatform: 'instagram' as const },
+  { name: 'Priya Sharma', avatar: 'PS', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.priya, colorClass: 'bg-amber-500', text: 'Can you share the template from the video?', replyText: 'Absolutely. I will DM you the template right after this goes live.', replyPlatform: 'youtube' as const },
+  { name: 'Daniel Frost', avatar: 'DF', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.daniel, colorClass: 'bg-amber-500', text: 'This hook is fire. Saving for later.', replyText: 'Appreciate you, Daniel! Full breakdown is in the pinned comment.', replyPlatform: 'instagram' as const },
+  { name: 'Lina Park', avatar: 'LP', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.lina, colorClass: 'bg-rose-500', text: 'Subbed after this Short. More like this?', replyText: 'Yes! Part 2 drops tomorrow on the same topic.', replyPlatform: 'youtube' as const },
+  { name: 'Zoe Martin', avatar: 'ZM', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.zoe, colorClass: 'bg-indigo-500', text: 'How long did this take to edit?', replyText: 'About 20 minutes in Composer with AI captions.', replyPlatform: 'instagram' as const },
+  { name: 'Emma Walsh', avatar: 'EW', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.emma, colorClass: 'bg-cyan-500', text: 'Pinned! Need the full workflow.', replyText: 'Workflow breakdown is in your YouTube reply draft.', replyPlatform: 'youtube' as const },
 ];
 
 function DemoSceneScroll({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -178,8 +131,8 @@ export function FunnelDemoSceneComments({ progress }: { progress: number }) {
     <DemoSceneScroll>
       <FunnelDemoUserBubble show>{USER_REPLY}</FunnelDemoUserBubble>
       <FunnelDemoAssistantBubble show visual wide contained>
-        <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
-          14 comments on Instagram and YouTube. Here are draft replies:
+        <p className="mb-1.5 text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">
+          16 comments on Instagram and YouTube. Here are draft replies:
         </p>
         <ul className="space-y-1">
           {COMMENT_DRAFTS.map((row) => (
@@ -198,10 +151,10 @@ export function FunnelDemoSceneComments({ progress }: { progress: number }) {
             />
           ))}
         </ul>
-        <p className="mt-1.5 text-[9px] text-neutral-500 dark:text-neutral-400">
+        <p className="mt-1.5 text-[10px] text-neutral-500 dark:text-neutral-400">
           + 8 more replies ready in the same voice.
         </p>
-        <FunnelDemoAllowBar message="Would you like me to send these 14 replies?" />
+        <FunnelDemoAllowBar message="Would you like me to send these 16 replies?" />
       </FunnelDemoAssistantBubble>
     </DemoSceneScroll>
   );
@@ -213,8 +166,8 @@ export function FunnelDemoSceneAnalytics({ progress }: { progress: number }) {
   return (
     <>
       <FunnelDemoUserBubble show>{USER_ANALYTICS}</FunnelDemoUserBubble>
-      <FunnelDemoAssistantBubble show visual wide contained>
-        <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <FunnelDemoAssistantBubble show visual wide contained allowOverflow>
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-visible">
           <div className="funnel-demo-scene-scroll min-h-0 flex-1 overflow-y-auto overflow-x-visible overscroll-contain pr-0.5">
             <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
               Instagram weekly snapshot:
@@ -242,8 +195,8 @@ export function FunnelDemoSceneLeads({ progress }: { progress: number }) {
     <DemoSceneScroll>
       <FunnelDemoUserBubble show>{USER_LEADS}</FunnelDemoUserBubble>
       <FunnelDemoAssistantBubble show visual wide contained>
-        <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
-          9 high-intent leads from the last 24 hours:
+        <p className="mb-1.5 text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">
+          11 high-intent leads from the last 24 hours:
         </p>
         <LeadsSpreadsheet show progress={1} />
         <FunnelDemoAllowBar
@@ -264,20 +217,12 @@ export function FunnelDemoSceneTikTokIdeas({ progress }: { progress: number }) {
     <DemoSceneScroll>
       <FunnelDemoUserBubble show>{USER_BRAINSTORM}</FunnelDemoUserBubble>
       <FunnelDemoAssistantBubble show visual wide contained>
-        <YouTubeVideoPreview
-          src={FUNNEL_DEMO_BRAINSTORM_WINNER_SRC}
-          alt="Top performing YouTube video"
-          title="3 Hooks that 10X my savings"
+        <BrainstormIdeasPanel />
+        <FunnelDemoAllowBar
+          compact
+          showRegenerate={false}
+          message="Want me to open these as Composer drafts for TikTok and Instagram Reels?"
         />
-        <p className="mt-2 text-[11px] text-neutral-700 dark:text-neutral-300 leading-snug">
-          Your best format: bold hook on screen + quick tip in the first 3 seconds. I drafted 3 TikTok scripts in your voice.
-        </p>
-        <ol className="mt-1.5 space-y-1 text-[10px] text-neutral-700 dark:text-neutral-300">
-          <li>1. POV: You find $200/month without cutting coffee.</li>
-          <li>2. Stop doing this with your savings account.</li>
-          <li>3. The 30-second rule that fixed my budget.</li>
-        </ol>
-        <FunnelDemoAllowBar message="Want me to open these as Composer drafts for TikTok and Instagram Reels?" />
       </FunnelDemoAssistantBubble>
     </DemoSceneScroll>
   );
@@ -302,7 +247,11 @@ export function FunnelDemoSceneAdsRoas({ progress }: { progress: number }) {
           <p className="text-[10px] text-neutral-700 dark:text-neutral-300 leading-snug">
             TikTok leads on ROAS (4.17x) with the lowest CPA. Task Complete is your top creative at 4.82x.
           </p>
-          <FunnelDemoAllowBar message="Want a weekly ROAS snapshot emailed when cross-platform ads tracking launches?" />
+          <FunnelDemoAllowBar
+            compact
+            showRegenerate={false}
+            message="Want a weekly ROAS snapshot emailed when cross-platform ads tracking launches?"
+          />
         </div>
       </FunnelDemoAssistantBubble>
     </DemoSceneScroll>

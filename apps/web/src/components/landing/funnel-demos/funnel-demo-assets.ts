@@ -4,26 +4,37 @@ export const FUNNEL_DEMO_BRAINSTORM_WINNER_SRC = '/funnel-demo-brainstorm-winner
 export const FUNNEL_DEMO_PARKOUR_POST_SRC = '/funnel-demo-parkour-post.png';
 export const FUNNEL_DEMO_BEST_POST_WEEK_SRC = '/funnel-demo-best-post-week.png';
 
-/** Top-performing ad creatives for compare-ads candle chart. */
-export const FUNNEL_DEMO_TOP_ADS = [
-  { src: '/funnel-demo-ad-task-complete.png', label: 'Task Complete', roas: 4.82, cpa: '$8.40' },
-  { src: '/funnel-demo-ad-unlock-insights.png', label: 'Unlock Insights', roas: 4.31, cpa: '$9.10' },
-  { src: '/funnel-demo-ad-automate.png', label: 'Automate', roas: 3.94, cpa: '$10.20' },
-  { src: '/funnel-demo-ad-security.png', label: 'Security Core', roas: 3.58, cpa: '$11.05' },
-  { src: '/funnel-demo-ad-accessible.png', label: 'Accessible', roas: 3.21, cpa: '$12.80' },
-] as const;
-
-/** Demo avatars re-used across leads + comment replies. */
-export const FUNNEL_DEMO_AVATARS = {
-  sarah: FUNNEL_DEMO_PROFILE_AVATAR_SRC,
-  priya: '/funnel-demo-ig-week-3.png',
-  mike: '/funnel-demo-ig-week-1.png',
-  daniel: '/funnel-demo-ig-week-2.png',
-  james: '/funnel-demo-ig-week-4.png',
-  alex: '/funnel-demo-ig-week-5.png',
-  maya: '/funnel-demo-ig-week-6.png',
-  lina: '/funnel-demo-ig-week-3.png',
+/** Unique demo profile photos (not post thumbnails). */
+export const FUNNEL_DEMO_PEOPLE_AVATARS = {
+  sarah: '/funnel-demo-avatar-sarah-chen.png',
+  priya: '/funnel-demo-avatar-priya-sharma.png',
+  mike: '/funnel-demo-avatar-mike-torres.png',
+  daniel: '/funnel-demo-avatar-daniel-frost.png',
+  james: '/funnel-demo-avatar-james-okonkwo.png',
+  alex: '/funnel-demo-avatar-alex-kim.png',
+  maya: '/funnel-demo-avatar-maya-rodriguez.png',
+  lina: '/funnel-demo-avatar-lina-park.png',
+  chris: '/funnel-demo-avatar-chris-webb.png',
+  emma: '/funnel-demo-avatar-emma-walsh.png',
+  noah: '/funnel-demo-avatar-noah-patel.png',
+  zoe: '/funnel-demo-avatar-zoe-martin.png',
+  guy: '/funnel-demo-avatar-guy-kogen.png',
+  nina: '/funnel-demo-avatar-nina-cho.png',
+  omar: '/funnel-demo-avatar-omar-hassan.png',
+  julia: '/funnel-demo-avatar-julia-ross.png',
 } as const;
+
+/** @deprecated use FUNNEL_DEMO_PEOPLE_AVATARS */
+export const FUNNEL_DEMO_AVATARS = FUNNEL_DEMO_PEOPLE_AVATARS;
+
+/** Top-performing ad creatives for compare-ads chart. */
+export const FUNNEL_DEMO_TOP_ADS = [
+  { src: '/funnel-demo-ad-task-complete.png', label: 'Task Complete', roas: 4.82, cpa: '$8.40', isVideo: true },
+  { src: '/funnel-demo-ad-unlock-insights.png', label: 'Unlock Insights', roas: 4.31, cpa: '$9.10', isVideo: false },
+  { src: '/funnel-demo-ad-automate.png', label: 'Automate', roas: 3.94, cpa: '$10.20', isVideo: true },
+  { src: '/funnel-demo-ad-security.png', label: 'Security Core', roas: 3.58, cpa: '$11.05', isVideo: false },
+  { src: '/funnel-demo-ad-accessible.png', label: 'Accessible', roas: 3.21, cpa: '$12.80', isVideo: true },
+] as const;
 
 /** Portrait posts for Instagram weekly analytics demo (3:4). */
 export const FUNNEL_DEMO_IG_WEEK_POSTS = [
