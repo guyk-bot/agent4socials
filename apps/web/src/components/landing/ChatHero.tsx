@@ -65,7 +65,8 @@ const OPENING_HEADLINE = 'your personal AI social media manager.';
 const OPENING_BODY =
   "Tell me what platforms you're on, and I'll show you what I can do.";
 
-const INITIAL_AI_TEXT = `${OPENING_GREETING}\n${OPENING_HEADLINE}\n${OPENING_BODY}`;
+/** Typewriter stops after headline; body + platforms appear together when it finishes. */
+const OPENING_TYPEWRITER_TEXT = `${OPENING_GREETING}\n${OPENING_HEADLINE}`;
 
 function getOpeningLineParts(displayed: string): [string, string, string] {
   const lines = displayed.split('\n');
@@ -176,10 +177,13 @@ function TypingIndicator() {
 
 function OpeningAiMessage({
   typewriterActive,
-  onTypewriterComplete,
+  showFollowUp,
+  onHeadlineComplete,
 }: {
   typewriterActive?: boolean;
-  onTypewriterComplete?: () => void;
+  /** Body line appears in full after headline typewriter finishes. */
+  showFollowUp?: boolean;
+  onHeadlineComplete?: () => void;
 }) {
   const [displayed, setDisplayed] = useState('');
   const doneRef = useRef(false);
@@ -191,11 +195,11 @@ function OpeningAiMessage({
     let i = 0;
     const tick = () => {
       i += 1;
-      setDisplayed(INITIAL_AI_TEXT.slice(0, i));
-      if (i >= INITIAL_AI_TEXT.length) {
+      setDisplayed(OPENING_TYPEWRITER_TEXT.slice(0, i));
+      if (i >= OPENING_TYPEWRITER_TEXT.length) {
         if (!doneRef.current) {
           doneRef.current = true;
-          onTypewriterComplete?.();
+          onHeadlineComplete?.();
         }
         return;
       }
@@ -203,12 +207,13 @@ function OpeningAiMessage({
     };
     const start = window.setTimeout(tick, 40);
     return () => window.clearTimeout(start);
-  }, [typewriterActive, onTypewriterComplete]);
+  }, [typewriterActive, onHeadlineComplete]);
 
-  const [greeting, headline, body] = typewriterActive
+  const [greeting, headline] = typewriterActive
     ? getOpeningLineParts(displayed)
-    : [OPENING_GREETING, OPENING_HEADLINE, OPENING_BODY];
-  const showCursor = !!typewriterActive && displayed.length < INITIAL_AI_TEXT.length;
+    : [OPENING_GREETING, OPENING_HEADLINE];
+  const body = showFollowUp ? OPENING_BODY : '';
+  const showCursor = !!typewriterActive && displayed.length < OPENING_TYPEWRITER_TEXT.length;
   const activeLine = getActiveOpeningLineIndex(displayed);
 
   const rows: { key: string; text: string; className: string }[] = [
@@ -282,6 +287,7 @@ function OptionSquareButton({
   icon,
   onClick,
   staggerIndex,
+  animateEnter = true,
   variant = 'compact',
 }: {
   label: string;
@@ -290,6 +296,7 @@ function OptionSquareButton({
   icon?: React.ReactNode;
   onClick: () => void;
   staggerIndex?: number;
+  animateEnter?: boolean;
   variant?: 'compact' | 'tall';
 }) {
   const isTall = variant === 'tall';
@@ -298,9 +305,10 @@ function OptionSquareButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      style={{ animationDelay: staggerIndex !== undefined ? `${staggerIndex * 60}ms` : undefined }}
+      style={{ animationDelay: animateEnter && staggerIndex !== undefined ? `${staggerIndex * 60}ms` : undefined }}
       className={[
-        'chat-hero-pill-enter flex w-full flex-col items-center justify-center rounded-lg border p-2 transition-all duration-150',
+        animateEnter ? 'chat-hero-pill-enter' : '',
+        'flex w-full flex-col items-center justify-center rounded-lg border p-2 transition-all duration-150',
         isTall ? 'min-h-[96px] sm:min-h-[108px] gap-1.5' : 'h-[80px] sm:h-[92px] gap-1.5',
         'active:scale-[0.97]',
         selected
@@ -338,6 +346,7 @@ export default function ChatHero() {
   const [selectedPain, setSelectedPain] = useState<ChatHeroPainPointId | null>(null);
 
   const [showPlatformOptions, setShowPlatformOptions] = useState(false);
+  const [showOpeningFollowUp, setShowOpeningFollowUp] = useState(false);
   const [showPainOptions, setShowPainOptions] = useState(false);
   const [showDemoCta, setShowDemoCta] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
@@ -393,7 +402,7 @@ export default function ChatHero() {
       {
         id: blockId('ai'),
         kind: 'ai',
-        text: INITIAL_AI_TEXT,
+            text: OPENING_TYPEWRITER_TEXT,
         animate: true,
         prominent: true,
         isOpening: true,
@@ -401,8 +410,9 @@ export default function ChatHero() {
     ]);
   }, []);
 
-  const handleTypewriterComplete = useCallback(() => {
+  const handleHeadlineComplete = useCallback(() => {
     setTypewriterDone(true);
+    setShowOpeningFollowUp(true);
     setShowPlatformOptions(true);
     requestAnimationFrame(() => {
       requestAnimationFrame(() => setSideDemosReady(true));
@@ -593,9 +603,11 @@ export default function ChatHero() {
     if (showSignup) return 'Ask anything, or use the signup buttons below…';
     if (showDemoCta) return 'Type a question, or tap Start for free…';
     if (showPainOptions) return 'Describe your biggest challenge…';
-    if (showPlatformOptions) return 'Ask anything - pricing, features, platforms, how it works…';
+    if (step === 0 && !showPainOptions && !showDemoCta && !showSignup) {
+      return 'Ask anything - pricing, features, platforms, how it works…';
+    }
     return 'Message iZop…';
-  }, [showDemoCta, showPainOptions, showPlatformOptions, showSignup]);
+  }, [showDemoCta, showPainOptions, showSignup, step]);
 
   const canPlatformContinue = selectedPlatforms.length > 0 && !busy;
   const canPainContinue = selectedPain !== null && !busy;
@@ -617,7 +629,8 @@ export default function ChatHero() {
                       <OpeningAiMessage
                         key={block.id}
                         typewriterActive={!typewriterDone}
-                        onTypewriterComplete={handleTypewriterComplete}
+                        showFollowUp={showOpeningFollowUp}
+                        onHeadlineComplete={handleHeadlineComplete}
                       />
                     );
                   }
@@ -713,7 +726,7 @@ export default function ChatHero() {
                       label={platform.label}
                       selected={selected}
                       disabled={busy}
-                      staggerIndex={i}
+                      animateEnter={false}
                       icon={<Icon size={30} />}
                       onClick={() => togglePlatform(platform.id)}
                     />
