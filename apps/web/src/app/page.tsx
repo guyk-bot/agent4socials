@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
 import { PricingBillingToggle, PricingCard } from '@/components/landing/pricing';
+import FunnelOnboardingChat from '@/components/landing/FunnelOnboardingChat';
 import { PRICING_YEARLY_DISCOUNT_PERCENT, PRO_PLAN_PRICING, STANDARD_PLAN_PRICING } from '@/lib/pricing/constants';
 
 const FREE_HIGHLIGHTS = [
@@ -341,33 +342,10 @@ export default function Home() {
             <div className="absolute bottom-0 left-0 right-0 h-72 bg-gradient-to-t from-[rgba(124, 58, 237, 0.08)] via-[rgba(124, 58, 237, 0.08)] to-transparent" />
           </div>
 
-          <div className="relative mx-auto max-w-5xl px-4 sm:px-6 text-center">
-            <h1 className="mt-1 text-[40px] font-bold tracking-[-0.028em] leading-[1.06] text-[var(--text-primary)] sm:text-5xl md:text-[60px] lg:text-[72px]">
-              The all-in-one platform for social media growth.
-            </h1>
+          <div className="relative mx-auto max-w-5xl px-4 sm:px-6">
+            <FunnelOnboardingChat />
 
-            <p className="mx-auto mt-5 max-w-[860px] text-[15px] font-medium sm:text-[19px] text-[var(--text-muted)] leading-relaxed">
-              Schedule posts, automate replies, track analytics, and create content with AI, all across 8 platforms in one dashboard.
-            </p>
-
-            <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3.5 sm:gap-4">
-              <button
-                type="button"
-                onClick={openSignup}
-                className="group inline-flex min-w-[196px] items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#7C3AED_0%,#A78BFA_100%)] px-8 py-3.5 text-base font-semibold text-white shadow-[0_10px_30px_rgba(124, 58, 237,0.24)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_35px_rgba(79, 70, 229,0.28)] active:translate-y-0"
-              >
-                Get started free
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-              </button>
-              <Link
-                href="/pricing"
-                className="inline-flex min-w-[196px] items-center justify-center rounded-full border border-[#E8E6DF] bg-white px-8 py-3.5 text-base font-semibold text-[#A78BFA] shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0"
-              >
-                See pricing
-              </Link>
-            </div>
-
-            <div className="relative z-[4] mx-auto mt-8 inline-flex flex-wrap items-center justify-center gap-x-5 gap-y-2 rounded-full border border-[rgba(124, 58, 237, 0.2)] bg-white px-4 py-2 text-xs text-[var(--text-muted)] sm:px-5">
+            <div className="relative z-[4] mx-auto mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-center text-xs text-[var(--text-muted)]">
               <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#10B981]" /> No credit card required</span>
               <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#10B981]" /> Free plan forever</span>
               <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#10B981]" /> Cancel anytime</span>

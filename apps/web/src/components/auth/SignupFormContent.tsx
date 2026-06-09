@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from 'lucide-react';
+import { dashboardPathAfterAuth } from '@/lib/funnel-onboarding';
 
 const RESEND_COOLDOWN_MS = 30_000;
 
@@ -146,7 +147,7 @@ export default function SignupFormContent() {
       }
       await signInWithEmail(email.trim().toLowerCase(), password);
       closeModal();
-      router.push('/dashboard');
+      router.push(dashboardPathAfterAuth());
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Verification failed');
     } finally {
@@ -205,10 +206,10 @@ export default function SignupFormContent() {
   };
 
   const inputClass =
-    'block w-full rounded-xl border border-[#F3EDFF] bg-white py-2.5 pl-10 pr-10 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#A78BFA]/50 focus:outline-none focus:ring-2 focus:ring-[#A78BFA]/25';
+    'block w-full rounded-xl border border-[#E8E6DF] bg-white py-2.5 pl-10 pr-10 text-[#1a161f] placeholder-[#8d8799] transition-colors focus:border-[#A78BFA]/50 focus:outline-none focus:ring-2 focus:ring-[#A78BFA]/25';
 
   const otpBoxClass =
-    'h-12 w-10 sm:w-11 rounded-xl border border-[#F3EDFF] bg-white text-center text-lg font-semibold text-[#1a161f] transition-colors focus:border-[#A78BFA]/50 focus:outline-none focus:ring-2 focus:ring-[#A78BFA]/25';
+    'h-12 w-10 sm:w-11 rounded-xl border border-[#E8E6DF] bg-white text-center text-lg font-semibold text-[#1a161f] transition-colors focus:border-[#A78BFA]/50 focus:outline-none focus:ring-2 focus:ring-[#A78BFA]/25';
 
   const lockoutActive = lockoutUntilMs !== null && Date.now() < lockoutUntilMs;
   const cooldownActive = !lockoutActive && cooldownUntil !== null && Date.now() < cooldownUntil;
@@ -224,7 +225,7 @@ export default function SignupFormContent() {
             type="button"
             onClick={handleGoogle}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 rounded-xl border border-[#F3EDFF] bg-white px-4 py-3 text-[#1a161f] transition-colors hover:bg-[#E8F4FF] disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-3 rounded-xl border border-[#E8E6DF] bg-white px-4 py-3 text-[#1a161f] transition-colors hover:bg-[#F8F7FC] disabled:opacity-50"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -237,10 +238,10 @@ export default function SignupFormContent() {
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-[#F3EDFF]" />
+              <div className="w-full border-t border-[#E8E6DF]" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="bg-[#E8F4FF] px-2 text-[#5d5768]">or sign up with email</span>
+              <span className="bg-white px-2 text-[#5d5768]">or sign up with email</span>
             </div>
           </div>
 
@@ -295,7 +296,7 @@ export default function SignupFormContent() {
                 type="checkbox"
                 checked={termsAccepted}
                 onChange={(e) => setTermsAccepted(e.target.checked)}
-                className="mt-0.5 rounded border-[#C8E4FF] bg-white text-[#A78BFA] focus:ring-[#A78BFA]/40"
+                className="mt-0.5 rounded border-[#E8E6DF] bg-white text-[#A78BFA] focus:ring-[#A78BFA]/40"
               />
               <span>
                 I agree to the{' '}
@@ -309,7 +310,7 @@ export default function SignupFormContent() {
                 type="checkbox"
                 checked={marketingConsent}
                 onChange={(e) => setMarketingConsent(e.target.checked)}
-                className="rounded border-[#C8E4FF] bg-white text-[#A78BFA] focus:ring-[#A78BFA]/40"
+                className="rounded border-[#E8E6DF] bg-white text-[#A78BFA] focus:ring-[#A78BFA]/40"
               />
               Send me product updates and tips (optional)
             </label>

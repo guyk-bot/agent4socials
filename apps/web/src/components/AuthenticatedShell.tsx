@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { useTheme } from '@/context/ThemeContext';
 import { BRAND_HEADER_BG } from '@/lib/site-brand-assets';
+import { consumeFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 
 /** Above in-page overlays (e.g. z-300 loaders); below portaled modals (8.5k+). */
 const CHROME_Z = 8000;
@@ -116,6 +117,16 @@ export default function AuthenticatedShell({
     React.useEffect(() => {
         if (!loading && !user) {
             router.push('/');
+        }
+    }, [user, loading, router]);
+
+    React.useEffect(() => {
+        if (loading || !user || typeof window === 'undefined') return;
+        const saved = consumeFunnelPostAuthRedirect();
+        if (!saved) return;
+        const current = `${window.location.pathname}${window.location.search}`;
+        if (current !== saved) {
+            router.replace(saved);
         }
     }, [user, loading, router]);
 

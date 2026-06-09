@@ -176,6 +176,15 @@
   background: #F8F7FC;
   color: #1a1a1a;
 }
+.funnel-footer {
+  background: #000000;
+  color: #a3a3a3;
+}
+[data-theme='dark'] .funnel-footer {
+  background: #000000;
+  color: #a3a3a3;
+}
+
 [data-theme='dark'] .funnel-page {
   --bg-primary: #F8F7FC;
   --bg-surface: #FFFFFF;

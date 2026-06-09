@@ -6,7 +6,7 @@ import { useAuthModal } from '@/context/AuthModalContext';
 import LoginFormContent from './LoginFormContent';
 import SignupFormContent from './SignupFormContent';
 import Image from 'next/image';
-import { BRAND_NAME, SITE_LOGO_PATH } from '@/lib/site-brand-assets';
+import { BRAND_NAME, SITE_LOGO_DARK_SRC } from '@/lib/site-brand-assets';
 
 function AuthModalInner() {
   const { modal, closeModal } = useAuthModal();
@@ -34,7 +34,7 @@ function AuthModalInner() {
       aria-label={modal === 'login' ? 'Log in' : 'Sign up'}
     >
       <div
-        className="relative w-full max-w-md rounded-[24px] border border-[#C8E4FF] bg-[#E8F4FF] p-8 shadow-[0_24px_60px_rgba(26,22,31,0.12)]"
+        className="relative w-full max-w-md rounded-[24px] border border-[#E8E6DF] bg-white p-8 shadow-[0_24px_60px_rgba(26,22,31,0.12)]"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -47,8 +47,8 @@ function AuthModalInner() {
           </svg>
         </button>
         <div className="text-center mb-6">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-neutral-950 p-2">
-            <Image src={SITE_LOGO_PATH} alt={BRAND_NAME} width={40} height={40} className="h-10 w-10 object-contain" />
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-black p-2">
+            <Image src={SITE_LOGO_DARK_SRC} alt={BRAND_NAME} width={40} height={40} unoptimized className="h-10 w-10 object-contain" />
           </div>
         </div>
         {modal === 'login' && (
