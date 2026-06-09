@@ -5,9 +5,8 @@ import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 import { useAuthModal } from '@/context/AuthModalContext';
-import { useTheme } from '@/context/ThemeContext';
 import { BrandWordmark } from '@/components/BrandWordmark';
-import { BRAND_NAME, siteLogoSrcForTheme } from '@/lib/site-brand-assets';
+import { BRAND_NAME, SITE_LOGO_DARK_SRC } from '@/lib/site-brand-assets';
 import LandingGradientBar from '@/components/landing/LandingGradientBar';
 
 const navLinks = [
@@ -21,7 +20,6 @@ const navLinks = [
 export default function SiteHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { openLogin, openSignup } = useAuthModal();
-  const { theme } = useTheme();
   const pathname = usePathname();
 
   const navLinkClass = (href: string) => {
@@ -29,7 +27,7 @@ export default function SiteHeader() {
     return `funnel-nav-link rounded-lg px-2 py-1.5 text-sm font-medium transition-colors ${isPricing ? 'is-active' : ''}`;
   };
 
-  const logoSrc = siteLogoSrcForTheme(theme);
+  const logoSrc = SITE_LOGO_DARK_SRC;
 
   return (
     <>

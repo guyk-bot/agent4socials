@@ -145,13 +145,9 @@
   color: #ffffff;
 }
 .aysop-bubble-assistant {
-  background: var(--bg-surface, #111118);
-  border: 1px solid var(--bg-border, #1E1E2A);
-  color: var(--foreground);
-}
-[data-theme='light'] .aysop-bubble-assistant {
-  background: #ffffff;
-  border-color: #E8E6DF;
+  background: #111118;
+  border: 1px solid #1e1e2a;
+  color: #ffffff;
 }
 
 /* Metric colors */
@@ -491,7 +487,30 @@
   color: #ffffff;
 }
 
-/* Landing chat hero theme tokens */
+/* Landing chat hero — always dark */
+.chat-hero-scroll-root {
+  position: relative;
+  background: #0a0a0f;
+  color: #ffffff;
+}
+.chat-hero-sticky-shell {
+  position: sticky;
+  top: calc(3px + 3.5rem);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 3px - 3.5rem);
+  max-height: calc(100dvh - 3px - 3.5rem);
+  overflow: hidden;
+  background: #0a0a0f;
+}
+@media (min-width: 640px) {
+  .chat-hero-sticky-shell {
+    top: calc(3px + 4rem);
+    height: calc(100dvh - 3px - 4rem);
+    max-height: calc(100dvh - 3px - 4rem);
+  }
+}
 .chat-hero {
   --chat-hero-bg: #0a0a0f;
   --chat-hero-text: #ffffff;
@@ -499,44 +518,22 @@
   --chat-hero-border: #1e1e2a;
   --chat-hero-surface: #111118;
   --chat-hero-input-bg: #111118;
-  --chat-hero-platform-bg: #1a1a24;
-  --chat-hero-platform-border: #2a2a38;
-  --chat-hero-platform-text: #888780;
+  --chat-hero-platform-bg: #111118;
+  --chat-hero-platform-border: #1e1e2a;
+  --chat-hero-platform-text: #ffffff;
   --chat-hero-accent-soft: rgba(124, 58, 237, 0.15);
   --chat-hero-trust-check: #aaff45;
   --funnel-panel-bg: #0d0d14;
   --funnel-panel-border: #1e1e2a;
   --funnel-panel-title: #ffffff;
   --funnel-panel-body: #888780;
-  background: var(--chat-hero-bg);
-  color: var(--chat-hero-text);
-}
-[data-theme='light'] .chat-hero {
-  --chat-hero-bg: #ffffff;
-  --chat-hero-text: #1a1a1a;
-  --chat-hero-muted: #888780;
-  --chat-hero-border: #e8e6df;
-  --chat-hero-surface: #f8f7fc;
-  --chat-hero-input-bg: #f8f7fc;
-  --chat-hero-platform-bg: #f8f7fc;
-  --chat-hero-platform-border: #e8e6df;
-  --chat-hero-platform-text: #1a1a1a;
-  --chat-hero-accent-soft: rgba(124, 58, 237, 0.12);
-  --chat-hero-trust-check: #7c3aed;
-  --funnel-panel-bg: #ffffff;
-  --funnel-panel-border: #e8e6df;
-  --funnel-panel-title: #1a1a1a;
-  --funnel-panel-body: #444440;
+  background: #0a0a0f;
+  color: #ffffff;
 }
 .chat-hero__main {
-  background: var(--chat-hero-bg);
-  border: 0.5px solid var(--chat-hero-border);
+  background: transparent;
+  border: none;
   border-radius: 0;
-}
-@media (min-width: 768px) {
-  .chat-hero__main {
-    border-radius: 16px;
-  }
 }
 .chat-hero-opening-greeting {
   font-family: var(--font-inter), Inter, sans-serif;
@@ -559,9 +556,6 @@
     font-size: 48px;
   }
 }
-[data-theme='light'] .chat-hero-opening-headline {
-  color: #1a1a1a;
-}
 .chat-hero-opening-body {
   font-family: var(--font-inter), Inter, sans-serif;
   font-size: 16px;
@@ -571,25 +565,20 @@
   margin-top: 8px;
 }
 .chat-hero-platform-btn {
-  background: var(--chat-hero-platform-bg);
-  border-color: var(--chat-hero-platform-border);
-  color: var(--chat-hero-platform-text);
+  background: #111118;
+  border: 0.5px solid #1e1e2a;
+  color: #ffffff;
 }
 .chat-hero-platform-btn:hover:not(:disabled) {
   border-color: #7c3aed;
   color: #ffffff;
-}
-[data-theme='light'] .chat-hero-platform-btn:hover:not(:disabled) {
-  color: #1a1a1a;
 }
 .chat-hero-platform-btn--selected {
   background: var(--chat-hero-accent-soft);
   border-color: #7c3aed;
   color: #ffffff;
 }
-[data-theme='light'] .chat-hero-platform-btn--selected {
-  color: #1a1a1a;
-}
+.chat-hero-demo-user-bubble,
 .chat-hero-user-pill {
   border-radius: 100px;
   border: 1px solid #7c3aed;
@@ -598,6 +587,32 @@
   font-size: 14px;
   font-weight: 500;
   color: var(--chat-hero-text);
+}
+.chat-hero-demo-user-bubble {
+  display: inline-block;
+  max-width: 100%;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  color: #ffffff;
+  padding: 12px 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  white-space: normal;
+}
+.funnel-demo-user-bubble {
+  background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  white-space: normal;
+  margin-bottom: 16px;
 }
 .chat-hero-continue-btn {
   background: linear-gradient(135deg, #7c3aed, #4f46e5);
@@ -612,11 +627,17 @@
   filter: brightness(1.08);
 }
 .chat-hero-input-form {
-  background: var(--chat-hero-input-bg);
-  border: 1px solid var(--chat-hero-border);
+  background: #111118;
+  border: 1px solid #1e1e2a;
   border-radius: 100px;
   padding: 14px 20px;
   transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.chat-hero-input-form input {
+  color: #ffffff;
+}
+.chat-hero-input-form input::placeholder {
+  color: #888780;
 }
 .chat-hero-input-form:focus-within {
   border-color: #7c3aed;
@@ -660,11 +681,6 @@
   color: #888780;
   font-size: 12px;
   padding: 8px 12px;
-}
-[data-theme='light'] .chat-hero-mobile-chip {
-  background: #f8f7fc;
-  border: 0.5px solid #e8e6df;
-  color: #888780;
 }
 .funnel-gradient-bar {
   background: linear-gradient(90deg, #7c3aed, #4f46e5, #0ea5e9, #aaff45);
@@ -859,20 +875,27 @@
   padding: 20px 0;
 }
 .funnel-demo-card--hero {
-  background: var(--funnel-panel-bg);
-  border: 0.5px solid var(--funnel-panel-border);
+  background: #0d0d14;
+  border: 0.5px solid #1e1e2a;
   border-radius: 16px;
   padding: 20px;
+  box-shadow:
+    0 0 0 1px rgba(124, 58, 237, 0.08),
+    0 8px 32px rgba(0, 0, 0, 0.4);
   transition: box-shadow 200ms ease;
 }
 .funnel-demo-card--hero:hover {
-  box-shadow: 0 0 0 1px rgba(170, 255, 69, 0.2);
+  box-shadow:
+    0 0 0 1px rgba(124, 58, 237, 0.12),
+    0 8px 32px rgba(0, 0, 0, 0.45);
 }
 .funnel-demo-card--hero.funnel-demo-card--featured {
-  box-shadow: 0 0 0 1px rgba(170, 255, 69, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(170, 255, 69, 0.12),
+    0 8px 32px rgba(0, 0, 0, 0.4);
 }
 .funnel-demo-card__header {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 .funnel-demo-card__label {
   display: block;
@@ -885,13 +908,14 @@
 }
 .funnel-demo-card__title {
   display: block;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
-  color: var(--funnel-panel-title);
+  color: #ffffff;
   line-height: 1.25;
+  margin-bottom: 0;
 }
 .funnel-demo-card__body {
-  color: var(--funnel-panel-body);
+  color: #888780;
 }
 
 /* Dark-mode Z thinking loop (from standalone animation spec) */

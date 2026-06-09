@@ -16,19 +16,12 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 function readTheme(): Theme {
-  if (typeof window === 'undefined') return 'dark';
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === 'dark' || stored === 'light') return stored;
-    const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
-    if (legacy === 'dark' || legacy === 'light') return legacy;
-  } catch (_) {}
   return 'dark';
 }
 
-function applyTheme(theme: Theme) {
+function applyTheme() {
   if (typeof document === 'undefined') return;
-  document.documentElement.setAttribute('data-theme', theme);
+  document.documentElement.setAttribute('data-theme', 'dark');
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -36,28 +29,27 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const value = readTheme();
-    setThemeState(value);
-    applyTheme(value);
+    setThemeState('dark');
+    applyTheme();
     setMounted(true);
   }, []);
 
   useEffect(() => {
     if (!mounted) return;
-    applyTheme(theme);
-  }, [mounted, theme]);
+    applyTheme();
+  }, [mounted]);
 
-  const setTheme = (value: Theme) => {
-    setThemeState(value);
+  const setTheme = (_value: Theme) => {
+    setThemeState('dark');
     try {
-      localStorage.setItem(STORAGE_KEY, value);
+      localStorage.setItem(STORAGE_KEY, 'dark');
       localStorage.removeItem(LEGACY_STORAGE_KEY);
     } catch (_) {}
-    applyTheme(value);
+    applyTheme();
   };
 
   const toggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark');
+    setTheme('dark');
   };
 
   return (

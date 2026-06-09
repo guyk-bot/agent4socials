@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { Sun, Moon } from 'lucide-react';
 import {
   InstagramIcon,
   LinkedinIcon,
@@ -10,7 +9,6 @@ import {
   YoutubeIcon,
 } from '@/components/SocialPlatformIcons';
 import { BRAND_NAME, SITE_LOGO_DARK_SRC } from '@/lib/site-brand-assets';
-import { useTheme } from '@/context/ThemeContext';
 
 const PRODUCT_LINKS = [
   { href: '/#features', label: 'Features' },
@@ -44,8 +42,6 @@ const SOCIAL_LINKS = [
 ];
 
 export default function SiteFooter() {
-  const { theme, toggleTheme } = useTheme();
-
   return (
     <footer className="landing-footer">
       <div className="landing-container pt-14 pb-10 md:pt-16">
@@ -115,17 +111,8 @@ export default function SiteFooter() {
       </div>
 
       <div className="border-t border-[#1E1E2A]">
-        <div className="landing-container flex flex-col sm:flex-row items-center justify-between gap-4 py-5">
+        <div className="landing-container flex flex-col sm:flex-row items-center justify-center gap-4 py-5">
           <p className="text-sm text-[#888780]">© {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.</p>
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="inline-flex items-center gap-2 text-sm text-[#888780] hover:text-white transition-colors"
-            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            {theme === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-            {theme === 'dark' ? 'Dark mode' : 'Light mode'}
-          </button>
         </div>
       </div>
     </footer>

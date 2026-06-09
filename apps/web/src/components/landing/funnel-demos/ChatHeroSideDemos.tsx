@@ -1,124 +1,129 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import { funnelDemoContentProgress, FunnelDemoFrame } from './FunnelDemoFrame';
+import React from 'react';
+import { FunnelDemoFrame } from './FunnelDemoFrame';
 import { getFunnelScene } from './funnel-demo-registry';
 import {
-  FUNNEL_DEMO_COLUMN_OFFSET_MS,
-  FUNNEL_DEMO_FADE_MS,
-  FUNNEL_DEMO_ROTATE_MS,
-  LEFT_COLUMN_SCENE_INDICES,
-  MOBILE_SCENE_INDICES,
-  RIGHT_COLUMN_SCENE_INDICES,
-} from './funnel-landing-variant';
+  HERO_PANEL_HEIGHT_PX,
+  HERO_SCROLL_SECTIONS,
+  SCROLL_HERO_PANEL_PAIRS,
+} from './hero-scroll-config';
 
-export const FUNNEL_DEMO_MS = FUNNEL_DEMO_ROTATE_MS;
+const PANEL_EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
 
-function useSceneProgress(active: boolean, resetKey: number) {
-  const [progress, setProgress] = useState(0);
-  const rafRef = useRef(0);
+function panelLayerStyle(segmentFloat: number, index: number): React.CSSProperties {
+  const clamped = Math.min(segmentFloat, HERO_SCROLL_SECTIONS - 1);
+  const base = Math.floor(clamped);
+  const frac = clamped - base;
 
-  useEffect(() => {
-    if (!active) {
-      setProgress(0);
-      return;
+  if (base >= HERO_SCROLL_SECTIONS - 1) {
+    if (index === HERO_SCROLL_SECTIONS - 1) {
+      return { opacity: 1, transform: 'translateY(0)', pointerEvents: 'auto' };
     }
-    setProgress(0);
-    const start = performance.now();
-    const duration = FUNNEL_DEMO_ROTATE_MS - FUNNEL_DEMO_FADE_MS;
+    return { opacity: 0, transform: 'translateY(20px)', pointerEvents: 'none' };
+  }
 
-    const tick = (now: number) => {
-      const p = Math.min(1, (now - start) / duration);
-      setProgress(p);
-      if (p < 1) rafRef.current = requestAnimationFrame(tick);
+  if (index === base) {
+    return {
+      opacity: 1 - frac,
+      transform: `translateY(${-20 * frac}px)`,
+      pointerEvents: frac < 0.5 ? 'auto' : 'none',
     };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
-  }, [active, resetKey]);
+  }
 
-  return progress;
+  if (index === base + 1) {
+    return {
+      opacity: frac,
+      transform: `translateY(${20 * (1 - frac)}px)`,
+      pointerEvents: frac >= 0.5 ? 'auto' : 'none',
+    };
+  }
+
+  return { opacity: 0, transform: 'translateY(20px)', pointerEvents: 'none' };
 }
 
-function ProgressDots({ active, count }: { active: number; count: number }) {
-  const dotCount = count;
-  return (
-    <div className="flex justify-center gap-1.5 pt-2" aria-hidden>
-      {Array.from({ length: dotCount }, (_, i) => (
-        <span
-          key={i}
-          className={`h-1.5 w-1.5 rounded-full transition-colors duration-300 ${
-            i === active ? 'bg-[#AAFF45]' : 'bg-[#2A2A38]'
-          }`}
-        />
-      ))}
-    </div>
-  );
-}
-
-function SideDemoCarousel({
+function ScrollDrivenPanelColumn({
   side,
-  sceneIndices,
-  startDelayMs,
-  panelMinHeight = 380,
+  segmentFloat,
 }: {
   side: 'left' | 'right';
-  sceneIndices: readonly number[];
-  startDelayMs: number;
-  panelMinHeight?: number;
+  segmentFloat: number;
 }) {
-  const [slot, setSlot] = useState(0);
-  const [opaque, setOpaque] = useState(true);
-  const [started, setStarted] = useState(false);
-  const timerRef = useRef<number | null>(null);
-  const fadeRef = useRef<number | null>(null);
-
-  const sceneIndex = sceneIndices[slot] ?? sceneIndices[0];
-  const { Component: Scene, title } = getFunnelScene(sceneIndex);
-  const progress = useSceneProgress(opaque && started, slot * 1000 + sceneIndex);
-  const contentProgress = funnelDemoContentProgress(progress);
-
-  useEffect(() => {
-    const startTimer = window.setTimeout(() => setStarted(true), startDelayMs);
-
-    const scheduleNext = () => {
-      timerRef.current = window.setTimeout(() => {
-        setOpaque(false);
-        fadeRef.current = window.setTimeout(() => {
-          setSlot((s) => (s + 1) % sceneIndices.length);
-          setOpaque(true);
-          scheduleNext();
-        }, FUNNEL_DEMO_FADE_MS);
-      }, FUNNEL_DEMO_ROTATE_MS);
-    };
-
-    const initial = window.setTimeout(scheduleNext, startDelayMs + FUNNEL_DEMO_ROTATE_MS);
-
-    return () => {
-      window.clearTimeout(startTimer);
-      window.clearTimeout(initial);
-      if (timerRef.current) window.clearTimeout(timerRef.current);
-      if (fadeRef.current) window.clearTimeout(fadeRef.current);
-    };
-  }, [sceneIndices, startDelayMs]);
+  const sceneIndices = SCROLL_HERO_PANEL_PAIRS.map((pair) =>
+    side === 'left' ? pair.left : pair.right
+  );
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col py-3">
-      <div
-        className={`relative min-h-0 flex-1 transition-opacity duration-500 ${
-          opaque ? 'opacity-100' : 'opacity-0'
-        }`}
-        style={{ minHeight: panelMinHeight }}
-      >
-        <FunnelDemoFrame visible title={title} progress={progress} entering={opaque}>
-          <Scene progress={contentProgress} />
-        </FunnelDemoFrame>
-      </div>
-      <ProgressDots active={slot} count={sceneIndices.length} />
+    <div
+      className="relative w-full max-w-[400px] 2xl:max-w-[440px] shrink-0"
+      style={{ height: HERO_PANEL_HEIGHT_PX }}
+    >
+      {sceneIndices.map((sceneIndex, i) => {
+        const { Component: Scene, title } = getFunnelScene(sceneIndex);
+        const layerStyle = panelLayerStyle(segmentFloat, i);
+
+        return (
+          <div
+            key={`${side}-${i}-${sceneIndex}`}
+            className="absolute inset-0 overflow-hidden will-change-[opacity,transform]"
+            style={{
+              ...layerStyle,
+              transition: `opacity 400ms ${PANEL_EASE}, transform 400ms ${PANEL_EASE}`,
+            }}
+            aria-hidden={layerStyle.opacity === 0}
+          >
+            <FunnelDemoFrame visible title={title} progress={1} entering staticMode>
+              <Scene progress={1} />
+            </FunnelDemoFrame>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-/** Legacy provider — columns manage their own rotation. */
+export function HeroScrollProgress({
+  segmentFloat,
+}: {
+  segmentFloat: number;
+}) {
+  return (
+    <div
+      className="pointer-events-none fixed left-3 top-1/2 z-40 hidden -translate-y-1/2 flex-col gap-2.5 lg:flex xl:left-4"
+      aria-hidden
+    >
+      {Array.from({ length: HERO_SCROLL_SECTIONS }, (_, i) => {
+        const isActive = Math.round(segmentFloat) === i || (segmentFloat >= i && segmentFloat < i + 1);
+        return (
+          <span
+            key={i}
+            className="rounded-full transition-all duration-300"
+            style={{
+              width: isActive ? 8 : 6,
+              height: isActive ? 8 : 6,
+              background: isActive ? '#AAFF45' : '#2A2A38',
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+export function HeroScrollHint({ visible }: { visible: boolean }) {
+  return (
+    <p
+      className={`pointer-events-none absolute bottom-3 left-1/2 z-20 -translate-x-1/2 text-center text-xs text-[#888780] transition-opacity duration-500 ${
+        visible ? 'opacity-100' : 'opacity-0'
+      }`}
+      aria-hidden={!visible}
+    >
+      Scroll to explore ↓
+    </p>
+  );
+}
+
+/** @deprecated Panels are scroll-driven; provider is a passthrough. */
 export function ChatHeroDemoLoopProvider({
   children,
 }: {
@@ -130,37 +135,43 @@ export function ChatHeroDemoLoopProvider({
 
 export function ChatHeroSideDemoColumn({
   side,
+  segmentFloat,
   visible = true,
 }: {
   side: 'left' | 'right';
+  segmentFloat: number;
   visible?: boolean;
 }) {
   if (!visible) {
-    return <div className="hidden xl:block h-full min-h-0 w-[400px] shrink-0 2xl:w-[440px]" aria-hidden />;
+    return (
+      <div
+        className="hidden xl:block w-[400px] shrink-0 2xl:w-[440px]"
+        style={{ height: HERO_PANEL_HEIGHT_PX }}
+        aria-hidden
+      />
+    );
   }
 
-  const sceneIndices = side === 'left' ? LEFT_COLUMN_SCENE_INDICES : RIGHT_COLUMN_SCENE_INDICES;
-  const startDelay = side === 'right' ? FUNNEL_DEMO_COLUMN_OFFSET_MS : 0;
-
   return (
-    <div className="hidden xl:flex h-full min-h-0 w-[400px] shrink-0 flex-col funnel-demo-column-enter 2xl:w-[440px]">
-      <SideDemoCarousel side={side} sceneIndices={sceneIndices} startDelayMs={startDelay} />
+    <div className="hidden xl:flex shrink-0 flex-col items-center justify-center funnel-demo-column-enter py-2">
+      <ScrollDrivenPanelColumn side={side} segmentFloat={segmentFloat} />
     </div>
   );
 }
 
-/** Single-column auto-advance carousel for viewports below xl. */
-export function ChatHeroMobileDemoCarousel({ visible = true }: { visible?: boolean }) {
+/** Mobile: single scroll-driven panel (left feature of active pair). */
+export function ChatHeroMobileDemoPanel({
+  segmentFloat,
+  visible = true,
+}: {
+  segmentFloat: number;
+  visible?: boolean;
+}) {
   if (!visible) return null;
 
   return (
-    <div className="xl:hidden w-full px-2 pb-2">
-      <SideDemoCarousel
-        side="left"
-        sceneIndices={MOBILE_SCENE_INDICES}
-        startDelayMs={FUNNEL_DEMO_COLUMN_OFFSET_MS}
-        panelMinHeight={280}
-      />
+    <div className="xl:hidden w-full px-2 pb-2 shrink-0">
+      <ScrollDrivenPanelColumn side="left" segmentFloat={segmentFloat} />
     </div>
   );
 }

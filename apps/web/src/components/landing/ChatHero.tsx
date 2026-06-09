@@ -19,9 +19,13 @@ import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
 import {
   ChatHeroDemoLoopProvider,
-  ChatHeroMobileDemoCarousel,
+  ChatHeroMobileDemoPanel,
   ChatHeroSideDemoColumn,
+  HeroScrollHint,
+  HeroScrollProgress,
 } from '@/components/landing/funnel-demos/ChatHeroSideDemos';
+import { HERO_SCROLL_TOTAL_VH } from '@/components/landing/funnel-demos/hero-scroll-config';
+import { useHeroScrollProgress } from '@/components/landing/funnel-demos/useHeroScrollProgress';
 import {
   CHAT_HERO_PAIN_POINTS,
   CHAT_HERO_PLATFORMS,
@@ -76,13 +80,13 @@ function blockId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-const FUNNEL_AI_AVATAR_BOX = 'h-9 w-9 shrink-0';
+const FUNNEL_AI_AVATAR_BOX = 'h-8 w-8 shrink-0';
 
 function FunnelAiMessageAvatar({ className }: { className?: string }) {
   const boxClass = className ?? FUNNEL_AI_AVATAR_BOX;
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-full bg-black overflow-hidden ${boxClass}`}
+      className={`inline-flex items-center justify-center self-start rounded-full bg-black overflow-hidden ${boxClass}`}
       aria-hidden
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -99,7 +103,7 @@ function FunnelAiMessageAvatar({ className }: { className?: string }) {
 function TypingIndicator() {
   return (
     <div className="flex items-start gap-3 chat-hero-message-enter" aria-label="iZop is typing">
-      <FunnelAiMessageAvatar className={`${FUNNEL_AI_AVATAR_BOX} mt-0.5`} />
+      <FunnelAiMessageAvatar />
       <div className="flex items-center gap-1 pt-2">
         <span className="chat-hero-typing-dot h-1.5 w-1.5 rounded-full bg-[var(--chat-hero-muted)]" style={{ animationDelay: '0ms' }} />
         <span className="chat-hero-typing-dot h-1.5 w-1.5 rounded-full bg-[var(--chat-hero-muted)]" style={{ animationDelay: '150ms' }} />
@@ -112,8 +116,8 @@ function TypingIndicator() {
 function OpeningMessage() {
   return (
     <div className="flex items-start gap-3 chat-hero-message-enter mt-5 sm:mt-7">
-      <FunnelAiMessageAvatar className={`${FUNNEL_AI_AVATAR_BOX} mt-1`} />
-      <div className="flex-1 min-w-0">
+      <FunnelAiMessageAvatar />
+      <div className="flex-1 min-w-0 pt-0.5">
         <p className="chat-hero-opening-greeting">{OPENING_GREETING}</p>
         <p className="chat-hero-opening-headline">{OPENING_HEADLINE}</p>
         <p className="chat-hero-opening-body">{OPENING_BODY}</p>
@@ -122,11 +126,30 @@ function OpeningMessage() {
   );
 }
 
+function SampleConversation() {
+  return (
+    <div className="mt-5 w-full space-y-4 shrink-0 chat-hero-message-enter">
+      <div className="flex justify-end">
+        <span className="chat-hero-demo-user-bubble">
+          Which of my posts performed best this week?
+        </span>
+      </div>
+      <div className="flex items-start gap-3">
+        <FunnelAiMessageAvatar />
+        <p className="flex-1 min-w-0 text-sm leading-relaxed text-[#ffffff] pt-0.5">
+          Your Tuesday Reel got 4.2x your average reach. Short hook + trending audio was the
+          formula. Want me to draft a similar post?
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function AiMessage({ text }: { text: string }) {
   return (
     <div className="flex items-start gap-3 chat-hero-message-enter">
-      <FunnelAiMessageAvatar className={`${FUNNEL_AI_AVATAR_BOX} mt-0.5`} />
-      <p className="text-base leading-relaxed text-[var(--chat-hero-text)] whitespace-pre-line flex-1 min-w-0">
+      <FunnelAiMessageAvatar />
+      <p className="text-base leading-relaxed text-[var(--chat-hero-text)] whitespace-pre-line flex-1 min-w-0 pt-0.5">
         {text}
       </p>
     </div>
@@ -217,7 +240,10 @@ export default function ChatHero() {
   const [draftText, setDraftText] = useState('');
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollRootRef = useRef<HTMLElement>(null);
   const flowLock = useRef(false);
+
+  const { segmentFloat, hasScrolled } = useHeroScrollProgress(scrollRootRef);
 
   const platformLabels = useMemo(
     () =>
@@ -466,42 +492,53 @@ export default function ChatHero() {
   const canPainContinue = selectedPain !== null && !busy;
 
   return (
-    <section className="chat-hero relative flex min-h-[100dvh] h-[100dvh] max-h-[100dvh] flex-col overflow-hidden pt-[calc(3px+3.5rem)] sm:pt-[calc(3px+4rem)]">
-      <ChatHeroDemoLoopProvider active={sideDemosReady}>
-        <div className="flex flex-1 min-h-0 w-full max-w-[1920px] mx-auto">
-          <ChatHeroSideDemoColumn side="left" visible={sideDemosReady} />
-          <div className="chat-hero__main flex flex-1 min-h-0 min-w-0 flex-col w-full px-0 md:px-3 xl:px-4 pt-2 sm:pt-2 pb-3 sm:pb-4">
-            <h1 className="sr-only">iZop, your personal AI social media manager</h1>
+    <section
+      ref={scrollRootRef}
+      className="chat-hero-scroll-root chat-hero relative"
+      style={{ minHeight: `${HERO_SCROLL_TOTAL_VH}vh` }}
+    >
+      <HeroScrollProgress segmentFloat={segmentFloat} />
 
-            <div
-              ref={scrollRef}
-              className="flex flex-1 min-h-0 w-full flex-col justify-between overflow-y-auto pb-4 pt-2 sm:pt-3 px-2 md:px-0"
-            >
-              <div className="w-full space-y-3 shrink-0">
-                {blocks.map((block) => {
-                  if (block.kind === 'ai') {
-                    if (block.isOpening) {
-                      return <OpeningMessage key={block.id} />;
+      <div className="chat-hero-sticky-shell">
+        <ChatHeroDemoLoopProvider active={sideDemosReady}>
+          <div className="relative flex h-full w-full max-w-[1920px] mx-auto items-stretch">
+            <ChatHeroSideDemoColumn
+              side="left"
+              segmentFloat={segmentFloat}
+              visible={sideDemosReady}
+            />
+
+            <div className="chat-hero__main flex flex-1 min-h-0 min-w-0 flex-col w-full px-0 md:px-3 xl:px-4 pt-2 sm:pt-2 pb-3 sm:pb-4">
+              <h1 className="sr-only">iZop, your personal AI social media manager</h1>
+
+              <div
+                ref={scrollRef}
+                className="flex flex-1 min-h-0 w-full flex-col overflow-y-auto pb-2 pt-2 sm:pt-3 px-2 md:px-0"
+              >
+                <div className="w-full space-y-3 shrink-0">
+                  {blocks.map((block) => {
+                    if (block.kind === 'ai') {
+                      if (block.isOpening) {
+                        return <OpeningMessage key={block.id} />;
+                      }
+                      return <AiMessage key={block.id} text={block.text} />;
                     }
-                    return <AiMessage key={block.id} text={block.text} />;
-                  }
-                  return (
-                    <div key={block.id} className="flex flex-wrap justify-end gap-2 chat-hero-message-enter">
-                      {block.labels.map((label) => (
-                        <span key={label} className="chat-hero-user-pill">
-                          {label}
-                        </span>
-                      ))}
-                    </div>
-                  );
-                })}
+                    return (
+                      <div key={block.id} className="flex flex-wrap justify-end gap-2 chat-hero-message-enter">
+                        {block.labels.map((label) => (
+                          <span key={label} className="chat-hero-user-pill">
+                            {label}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })}
 
-                {isTyping ? <TypingIndicator /> : null}
-              </div>
+                  {isTyping ? <TypingIndicator /> : null}
+                </div>
 
-              {showPlatformOptions || showPainOptions ? (
-                <div className="flex flex-1 min-h-[8rem] w-full flex-col justify-center py-4">
-                  {showPlatformOptions ? (
+                {showPlatformOptions ? (
+                  <div className="mt-4 w-full shrink-0">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3 w-full">
                       {CHAT_HERO_PLATFORMS.map((platform) => {
                         const Icon = PLATFORM_ICONS[platform.id];
@@ -518,31 +555,29 @@ export default function ChatHero() {
                         );
                       })}
                     </div>
-                  ) : null}
+                    <SampleConversation />
+                  </div>
+                ) : null}
 
-                  {showPainOptions ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-2.5 w-full">
-                      {CHAT_HERO_PAIN_POINTS.map((pain, i) => (
-                        <PainOptionButton
-                          key={pain.id}
-                          label={pain.label}
-                          selected={selectedPain === pain.id}
-                          disabled={busy}
-                          staggerIndex={i}
-                          onClick={() => setSelectedPain(pain.id)}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="flex-1 min-h-0" aria-hidden />
-              )}
-            </div>
+                {showPainOptions ? (
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-2.5 w-full shrink-0">
+                    {CHAT_HERO_PAIN_POINTS.map((pain, i) => (
+                      <PainOptionButton
+                        key={pain.id}
+                        label={pain.label}
+                        selected={selectedPain === pain.id}
+                        disabled={busy}
+                        staggerIndex={i}
+                        onClick={() => setSelectedPain(pain.id)}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
 
-            <ChatHeroMobileDemoCarousel visible={sideDemosReady} />
+              <ChatHeroMobileDemoPanel segmentFloat={segmentFloat} visible={sideDemosReady} />
 
-            <div className="shrink-0 border-t border-[var(--chat-hero-border)] pt-3 pb-3 px-2 md:px-0">
+              <div className="shrink-0 pt-3 pb-3 px-2 md:px-0">
               <div className="space-y-3">
                 {showPlatformOptions && canPlatformContinue ? (
                   <button
@@ -660,9 +695,16 @@ export default function ChatHero() {
               </div>
             </div>
           </div>
-          <ChatHeroSideDemoColumn side="right" visible={sideDemosReady} />
-        </div>
-      </ChatHeroDemoLoopProvider>
+
+            <ChatHeroSideDemoColumn
+              side="right"
+              segmentFloat={segmentFloat}
+              visible={sideDemosReady}
+            />
+          </div>
+          <HeroScrollHint visible={!hasScrolled} />
+        </ChatHeroDemoLoopProvider>
+      </div>
     </section>
   );
 }

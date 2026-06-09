@@ -15,6 +15,7 @@ export function FunnelDemoFrame({
   title,
   progress = 1,
   featured = false,
+  staticMode = false,
 }: {
   children: React.ReactNode;
   visible: boolean;
@@ -22,18 +23,19 @@ export function FunnelDemoFrame({
   title: string;
   progress?: number;
   featured?: boolean;
+  staticMode?: boolean;
 }) {
-  const titleReady = visible && (entering || progress > 0.02);
-  const contentVisible = progress > 0.22;
+  const titleReady = staticMode || (visible && (entering || progress > 0.02));
+  const contentVisible = staticMode || progress > 0.22;
 
   return (
     <div
-      className={`funnel-demo-card funnel-demo-card--hero pointer-events-auto flex h-full min-h-0 w-full max-w-[400px] 2xl:max-w-[440px] flex-col overflow-hidden transition-opacity duration-300 ${
+      className={`funnel-demo-card funnel-demo-card--hero pointer-events-auto flex h-full w-full flex-col overflow-hidden ${
         featured ? 'funnel-demo-card--featured' : ''
-      } ${visible ? 'opacity-100' : 'opacity-0 pointer-events-none'} ${
-        entering && visible ? 'funnel-demo-card-enter' : ''
+      } ${visible || staticMode ? 'opacity-100' : 'opacity-0 pointer-events-none'} ${
+        entering && visible && !staticMode ? 'funnel-demo-card-enter' : ''
       }`}
-      aria-hidden={!visible}
+      aria-hidden={!visible && !staticMode}
     >
       <div className="funnel-demo-card__header shrink-0">
         <span className="funnel-demo-card__label">Feature</span>
@@ -41,9 +43,9 @@ export function FunnelDemoFrame({
           {title}
         </span>
       </div>
-      <div className="funnel-demo-card__body min-h-0 flex-1 overflow-hidden">
+      <div className="funnel-demo-card__body min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         <div
-          className={`flex min-h-0 flex-col gap-2 overflow-hidden transition-opacity duration-300 ${
+          className={`flex min-h-0 flex-col gap-2 break-words ${
             contentVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
         >
@@ -65,10 +67,10 @@ export function FunnelDemoUserBubble({
 }) {
   if (!show) return null;
   return (
-    <div className="flex justify-end funnel-demo-message-in">
+    <div className="flex w-full justify-end funnel-demo-message-in">
       <div
-        className={`${visual ? 'max-w-[98%]' : 'max-w-[94%]'} rounded-2xl rounded-br-md leading-snug aysop-bubble-user whitespace-pre-wrap ${
-          visual ? 'p-1.5 text-[12px] sm:text-[13px]' : 'px-3 py-2.5 text-[13px] sm:text-[14px]'
+        className={`funnel-demo-user-bubble w-full max-w-full ${
+          visual ? 'text-[12px] sm:text-[13px]' : 'text-[14px]'
         }`}
       >
         {children}
@@ -92,13 +94,15 @@ export function FunnelDemoAssistantBubble({
 }) {
   if (!show) return null;
   return (
-    <div className="flex min-h-0 shrink justify-start funnel-demo-message-in">
+    <div className="flex min-h-0 w-full shrink justify-start funnel-demo-message-in">
       <div
-        className={`${wide ? 'max-w-[98%]' : 'max-w-[96%]'} min-w-0 rounded-2xl rounded-bl-md leading-snug aysop-bubble-assistant shadow-sm ${
+        className={`${wide ? 'w-full max-w-full' : 'max-w-[96%]'} min-w-0 rounded-2xl rounded-bl-md leading-snug aysop-bubble-assistant shadow-sm ${
           visual ? 'p-2 text-[12px] sm:text-[13px]' : 'px-3 py-2.5 text-[13px] sm:text-[14px]'
         } ${contained ? 'max-h-[min(100%,240px)] overflow-hidden flex flex-col' : ''}`}
       >
-        <div className={contained ? 'min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain' : undefined}>
+        <div
+          className={`${contained ? 'min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain' : ''} break-words`}
+        >
           {children}
         </div>
       </div>

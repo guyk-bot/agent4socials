@@ -116,7 +116,7 @@ export default function RootLayout({
       <body className="antialiased min-h-screen min-h-dvh">
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var t=localStorage.getItem('izop-theme')||localStorage.getItem('agent4socials-theme');if(t!=='dark'&&t!=='light')t='dark';document.documentElement.setAttribute('data-theme',t);})();`,
+            __html: `(function(){document.documentElement.setAttribute('data-theme','dark');})();`,
           }}
         />
         <script
