@@ -17,10 +17,7 @@ import {
   FunnelDemoUserBubble,
   typewriterSlice,
 } from './FunnelDemoFrame';
-import {
-  FUNNEL_DEMO_BRAINSTORM_WINNER_SRC,
-  FUNNEL_DEMO_POST_VIDEO_SRC,
-} from './funnel-demo-assets';
+import { FUNNEL_DEMO_POST_VIDEO_SRC } from './funnel-demo-assets';
 import {
   AdsPerformanceChart,
   AnalyticsChart,
@@ -29,7 +26,6 @@ import {
   CommentRow,
   LeadsSpreadsheet,
   TeamMembersPanel,
-  YouTubeVideoPreview,
 } from './FunnelDemoVisuals';
 
 const USER_SCHEDULE = 'Post this post at 9:30 on all platforms';
@@ -37,7 +33,8 @@ const USER_REPLY =
   'Reply to every comment on my last post. Use my brand voice and answer product questions.';
 const USER_ANALYTICS = 'Show my weekly analytics: views, engagement, and followers';
 const USER_LEADS = 'Send me a spreadsheet of leads from comments with AI DM suggestions';
-const USER_BRAINSTORM = 'Brainstorm new ideas based on my best YouTube video';
+const USER_IZOP_AI =
+  'Write 5 Instagram captions for our summer sale in our brand voice';
 const USER_ADS = 'Compare Google, Meta, and TikTok ad ROAS side by side';
 const USER_TEAM = 'Invite my editor and show me who has been active on the account this week';
 const USER_REPORTS = 'Export an analytic report for all platforms as a PDF';
@@ -183,9 +180,15 @@ export function FunnelDemoSceneLeads({ progress }: { progress: number }) {
   );
 }
 
-export function FunnelDemoSceneTikTokIdeas({ progress }: { progress: number }) {
-  const userText = typewriterSlice(USER_BRAINSTORM, progress, 0.08, 0.32);
+export function FunnelDemoSceneIzopAI({ progress }: { progress: number }) {
+  const userText = typewriterSlice(USER_IZOP_AI, progress, 0.08, 0.32);
   const showAssistant = progress > 0.38;
+
+  const captions = [
+    { text: 'Summer sale starts now — 30% off everything you have been eyeing.', likes: '2.4K', saves: '890' },
+    { text: 'Hot days, hotter deals. Tap the link in bio before sizes run out.', likes: '1.8K', saves: '640' },
+    { text: 'Your summer wardrobe refresh is one caption away. Sale ends Sunday.', likes: '3.1K', saves: '1.2K' },
+  ];
 
   return (
     <>
@@ -193,17 +196,22 @@ export function FunnelDemoSceneTikTokIdeas({ progress }: { progress: number }) {
         {userText}
         <TypeCursor active={progress > 0.08 && progress < 0.32} />
       </FunnelDemoUserBubble>
-      <FunnelDemoAssistantBubble show={showAssistant} visual wide>
-        <YouTubeVideoPreview
-          src={FUNNEL_DEMO_BRAINSTORM_WINNER_SRC}
-          alt="Top performing YouTube video"
-          title="3 Hooks that 10X my savings"
-        />
-        {(progress > 0.7 || progress >= 1) && (
-          <p className="mt-2 text-[11px] text-neutral-700 dark:text-neutral-300 leading-snug">
-            Your best format: bold hook on screen + quick tip in the first 3 seconds. I can draft 3 scripts in your voice.
-          </p>
-        )}
+      <FunnelDemoAssistantBubble show={showAssistant} visual wide contained>
+        <div className="space-y-1.5">
+          {captions.map((cap, i) => (
+            <div
+              key={cap.text}
+              className={`rounded-lg border border-[#1E1E2A] bg-[#1A1A24] p-2 ${
+                progress > 0.42 + i * 0.14 || progress >= 1 ? 'opacity-100' : 'opacity-0'
+              }`}
+            >
+              <p className="text-[10px] leading-snug text-white">{cap.text}</p>
+              <p className="mt-1 text-[8px] text-[#888780]">
+                {cap.likes} likes · {cap.saves} saves est.
+              </p>
+            </div>
+          ))}
+        </div>
       </FunnelDemoAssistantBubble>
     </>
   );
@@ -307,7 +315,7 @@ export const FUNNEL_DEMO_SCENE_COMPONENTS = [
   FunnelDemoSceneComments,
   FunnelDemoSceneAnalytics,
   FunnelDemoSceneLeads,
-  FunnelDemoSceneTikTokIdeas,
+  FunnelDemoSceneIzopAI,
   FunnelDemoSceneAdsRoas,
   FunnelDemoSceneTeamMembers,
   FunnelDemoSceneReports,

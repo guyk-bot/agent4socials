@@ -669,21 +669,189 @@
 .funnel-gradient-bar {
   background: linear-gradient(90deg, #7c3aed, #4f46e5, #aaff45);
 }
-.funnel-social-proof {
+/* Landing page below hero — always dark premium */
+.landing-below-hero {
+  background: #0a0a0f;
+  color: #888780;
+}
+.landing-container {
+  width: 100%;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+@media (min-width: 768px) {
+  .landing-container {
+    padding-left: 40px;
+    padding-right: 40px;
+  }
+}
+.landing-section {
+  padding-top: 60px;
+  padding-bottom: 60px;
+  border-top: 0.5px solid #1e1e2a;
+}
+@media (min-width: 768px) {
+  .landing-section {
+    padding-top: 100px;
+    padding-bottom: 100px;
+  }
+}
+.landing-section--void {
+  background: #0a0a0f;
+}
+.landing-section--surface {
+  background: #0d0d14;
+}
+.landing-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #aaff45;
+}
+.landing-heading {
+  font-size: 28px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -1px;
+  line-height: 1.15;
+}
+@media (min-width: 768px) {
+  .landing-heading {
+    font-size: 48px;
+  }
+}
+.landing-subheading {
+  font-size: 16px;
+  color: #888780;
+  line-height: 1.6;
+}
+@media (min-width: 768px) {
+  .landing-subheading {
+    font-size: 18px;
+  }
+}
+.landing-card {
+  background: #111118;
+  border: 0.5px solid #1e1e2a;
+  border-radius: 16px;
+  padding: 24px;
+  transition: border-color 200ms ease, transform 200ms ease;
+}
+.landing-card--compact {
+  padding: 20px;
+}
+.landing-card--hover:hover {
+  border-color: #2a2a38;
+  transform: translateY(-2px);
+}
+.landing-card--hero {
+  border: 1px solid rgba(170, 255, 69, 0.3);
+  box-shadow: 0 0 30px rgba(170, 255, 69, 0.05);
+}
+.landing-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #1a1a24;
+}
+.landing-card__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+}
+.landing-card__body {
+  font-size: 14px;
+  color: #888780;
+  line-height: 1.65;
+}
+.landing-chat-pill {
+  display: inline-block;
+  width: 100%;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #ffffff;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.35), rgba(79, 70, 229, 0.25));
+  border: 0.5px solid rgba(124, 58, 237, 0.35);
+}
+.landing-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 100px;
+  border: 0.5px solid;
+}
+.landing-pricing-card {
+  display: flex;
+  flex-direction: column;
+  background: #111118;
+  border: 0.5px solid #1e1e2a;
+  border-radius: 20px;
+  padding: 32px;
+}
+.landing-pricing-card--highlighted {
+  border: 1px solid rgba(124, 58, 237, 0.4);
+  box-shadow: 0 0 30px rgba(124, 58, 237, 0.1);
+}
+.landing-pricing-badge {
+  display: inline-block;
+  width: fit-content;
+  margin-bottom: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #000000;
+  background: #aaff45;
+  padding: 4px 10px;
+  border-radius: 100px;
+}
+.landing-testimonial-card {
+  background: #111118;
+  border: 0.5px solid #1e1e2a;
+  border-radius: 16px;
+  padding: 24px;
+  overflow: hidden;
+}
+.landing-testimonial-quote-mark {
+  position: absolute;
+  top: 8px;
+  right: 16px;
+  font-size: 64px;
+  line-height: 1;
+  color: #1e1e2a;
+  font-family: Georgia, serif;
+  pointer-events: none;
+}
+.landing-final-cta__glow {
+  background: radial-gradient(ellipse at center, rgba(124, 58, 237, 0.15) 0%, transparent 70%);
+}
+.landing-footer {
+  background: #0d0d14;
+  border-top: 0.5px solid #1e1e2a;
+  color: #888780;
+}
+.landing-footer-link {
+  font-size: 14px;
+  color: #888780;
+  transition: color 150ms ease;
+}
+.landing-footer-link:hover {
+  color: #ffffff;
+}
+.landing-social-proof {
   background: #0d0d14;
   border-top: 0.5px solid #1e1e2a;
   border-bottom: 0.5px solid #1e1e2a;
-  padding: 16px 0;
-}
-[data-theme='light'] .funnel-social-proof {
-  background: #f8f7fc;
-  border-color: #e8e6df;
-}
-.funnel-social-proof__text {
-  font-size: 13px;
-  color: #888780;
-  letter-spacing: 0.04em;
-  line-height: 1.5;
+  padding: 20px 0;
 }
 .funnel-demo-card--hero {
   background: var(--funnel-panel-bg);

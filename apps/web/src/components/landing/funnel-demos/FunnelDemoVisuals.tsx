@@ -693,7 +693,7 @@ export function AnalyticsReportPreview({ show, progress = 1 }: { show: boolean; 
     <div className="space-y-2">
       <div className="rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950/25 dark:border-orange-900/60 p-2">
         <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
-          Mar 1 to Mar 31 · 8 platforms
+          MAR 1 TO MAR 31 · 8 PLATFORMS
         </p>
         <div className="mt-1.5 grid grid-cols-2 gap-1.5">
           {[
@@ -714,8 +714,8 @@ export function AnalyticsReportPreview({ show, progress = 1 }: { show: boolean; 
       </div>
       <div className="grid grid-cols-2 gap-1.5">
         {[
-          { title: 'Simplified report', sub: 'PDF · 4 pages' },
-          { title: 'Detailed report', sub: 'PDF · 12 pages' },
+          { title: 'Simplified report PDF', sub: '4 pages' },
+          { title: 'Detailed report PDF', sub: '12 pages' },
         ].map((card, i) => (
           <div
             key={card.title}

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Menu, X, Sun, Moon } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { useTheme } from '@/context/ThemeContext';
 import { BrandWordmark } from '@/components/BrandWordmark';
@@ -15,32 +15,21 @@ const navLinks = [
   { href: '/#how-it-works', label: 'How it works' },
   { href: '/#product', label: 'Product' },
   { href: '/#faq', label: 'FAQ' },
-  { href: '/pricing', label: 'Pricing' },
+  { href: '/#pricing', label: 'Pricing' },
 ];
 
 export default function SiteHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { openLogin, openSignup } = useAuthModal();
-  const { theme, toggleTheme } = useTheme();
+  const { theme } = useTheme();
   const pathname = usePathname();
 
   const navLinkClass = (href: string) => {
-    const isPricing = href === '/pricing' && pathname === '/pricing';
+    const isPricing = href === '/#pricing' && pathname === '/pricing';
     return `funnel-nav-link rounded-lg px-2 py-1.5 text-sm font-medium transition-colors ${isPricing ? 'is-active' : ''}`;
   };
 
   const logoSrc = siteLogoSrcForTheme(theme);
-
-  const themeToggle = (
-    <button
-      type="button"
-      onClick={toggleTheme}
-      className="funnel-nav-theme-toggle rounded-lg p-2 transition-colors"
-      aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-    >
-      {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-    </button>
-  );
 
   return (
     <>
@@ -72,7 +61,6 @@ export default function SiteHeader() {
             >
               Log in
             </button>
-            {themeToggle}
             <button type="button" onClick={openSignup} className="btn-funnel-lime-cta rounded-full px-[22px] py-[10px] text-sm font-semibold">
               Try for free
             </button>
@@ -110,9 +98,6 @@ export default function SiteHeader() {
             >
               Log in
             </button>
-            <div className="py-2 px-3">
-              {themeToggle}
-            </div>
             <button
               type="button"
               onClick={() => { setMobileOpen(false); openSignup(); }}

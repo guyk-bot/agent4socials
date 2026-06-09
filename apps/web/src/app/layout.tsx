@@ -43,13 +43,30 @@ const organizationJsonLd = {
   },
 };
 
+const productJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "iZop",
+  applicationCategory: "BusinessApplication",
+  description: "AI social media management platform",
+  url: "https://izop.io",
+  offers: {
+    "@type": "AggregateOffer",
+    lowPrice: "0",
+    highPrice: "99",
+    priceCurrency: "USD",
+    offerCount: "4",
+  },
+};
+
 export const metadata: Metadata = {
   metadataBase: getMetadataBase(),
   title: {
-    default: "iZop | Schedule Posts & Analytics for Instagram, YouTube, TikTok, Facebook, Twitter & LinkedIn",
+    default: "iZop — Your AI Social Media Manager",
     template: "%s | iZop",
   },
-  description: "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. Try for free. From $29/mo.",
+  description:
+    "Schedule posts, bulk reply to comments, extract leads, and get analytics — just by talking to iZop AI. Free plan available.",
   keywords: ["social media scheduler", "schedule Instagram posts", "schedule TikTok", "social media analytics", "post scheduler", "Instagram analytics", "TikTok scheduler", "Facebook scheduler", "LinkedIn scheduler"],
   authors: [{ name: "iZop" }],
   creator: "iZop",
@@ -105,6 +122,10 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
         />
         <script
           dangerouslySetInnerHTML={{

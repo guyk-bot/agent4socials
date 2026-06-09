@@ -2,12 +2,12 @@
  * Funnel landing layout configuration.
  *
  * Side panel order (4 hero demos only):
- * Left: bulk reply, lead extraction
- * Right: analytics, scheduling
+ * Left: bulk reply, iZop AI
+ * Right: analytic reports, scheduling
  */
 
 /** Scene index order into FUNNEL_DEMO_SCENE_COMPONENTS / TITLES. */
-export const FUNNEL_DEMO_SCENE_ORDER = [1, 3, 2, 0] as const;
+export const FUNNEL_DEMO_SCENE_ORDER = [1, 4, 7, 0] as const;
 
 /** Which column each ordered demo slot appears in. */
 export const FUNNEL_DEMO_SLOT_SIDES: ('left' | 'right')[] = [
