@@ -285,6 +285,13 @@
 .funnel-demo-card {
   backdrop-filter: blur(8px);
 }
+.funnel-demo-card--static .funnel-demo-message-in,
+.funnel-demo-card--static .funnel-demo-title-pop {
+  animation: none;
+}
+.funnel-demo-card--static .funnel-demo-drag-into-chat {
+  animation: none;
+}
 .funnel-demo-attach-drop {
   animation: funnel-demo-attach-drop 320ms ease-out both;
 }

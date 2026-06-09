@@ -14,22 +14,26 @@ export function FunnelDemoFrame({
   entering,
   title,
   progress = 1,
+  staticMode = false,
 }: {
   children: React.ReactNode;
   visible: boolean;
   entering?: boolean;
   title: string;
   progress?: number;
+  staticMode?: boolean;
 }) {
-  const titleReady = visible && (entering || progress > 0.02);
-  const contentVisible = progress > 0.22;
+  const titleReady = staticMode || (visible && (entering || progress > 0.02));
+  const contentVisible = staticMode || progress > 0.22;
 
   return (
     <div
-      className={`funnel-demo-card pointer-events-auto flex h-full min-h-0 w-full max-w-[400px] 2xl:max-w-[440px] flex-col overflow-hidden rounded-xl border-2 border-neutral-200 bg-[var(--bg-primary)] shadow-md transition-opacity duration-300 dark:border-neutral-700 ${
-        visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
-      } ${entering && visible ? 'funnel-demo-card-enter' : ''}`}
-      aria-hidden={!visible}
+      className={`funnel-demo-card pointer-events-auto flex h-full min-h-0 w-full max-w-[400px] 2xl:max-w-[440px] flex-col overflow-hidden rounded-xl border-2 border-neutral-200 bg-[var(--bg-primary)] shadow-md dark:border-neutral-700 ${
+        staticMode ? 'funnel-demo-card--static' : ''
+      } ${visible || staticMode ? 'opacity-100' : 'opacity-0 pointer-events-none'} ${
+        !staticMode && entering && visible ? 'funnel-demo-card-enter' : ''
+      }`}
+      aria-hidden={!visible && !staticMode}
     >
       <div className="shrink-0 px-3 pt-3 pb-2">
         <span

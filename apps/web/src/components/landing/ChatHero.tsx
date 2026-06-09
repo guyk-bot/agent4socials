@@ -239,7 +239,7 @@ function OpeningAiMessage({
   ];
 
   return (
-    <div className="flex items-start gap-3 chat-hero-message-enter mt-5 sm:mt-7">
+    <div className="flex items-start gap-3 mt-5 sm:mt-7">
       <FunnelAiMessageAvatar className={`${FUNNEL_AI_AVATAR_BOX} mt-1`} />
       <div className="flex-1 min-w-0 text-[var(--chat-hero-text)]">
         {rows.map((row, index) => {
@@ -338,7 +338,7 @@ export default function ChatHero() {
   const { signInWithGoogle } = useAuth();
   const { openSignup } = useAuthModal();
 
-  const [sideDemosReady, setSideDemosReady] = useState(false);
+  const [sideDemosReady, setSideDemosReady] = useState(true);
 
   const [step, setStep] = useState<FlowStep>(0);
   const [blocks, setBlocks] = useState<RenderBlock[]>([]);
@@ -348,12 +348,12 @@ export default function ChatHero() {
   const [selectedPlatforms, setSelectedPlatforms] = useState<ChatHeroPlatformId[]>([]);
   const [selectedPain, setSelectedPain] = useState<ChatHeroPainPointId | null>(null);
 
-  const [showPlatformOptions, setShowPlatformOptions] = useState(false);
-  const [showOpeningFollowUp, setShowOpeningFollowUp] = useState(false);
+  const [showPlatformOptions, setShowPlatformOptions] = useState(true);
+  const [showOpeningFollowUp, setShowOpeningFollowUp] = useState(true);
   const [showPainOptions, setShowPainOptions] = useState(false);
   const [showDemoCta, setShowDemoCta] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
-  const [typewriterDone, setTypewriterDone] = useState(false);
+  const [typewriterDone, setTypewriterDone] = useState(true);
 
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
@@ -405,21 +405,19 @@ export default function ChatHero() {
       {
         id: blockId('ai'),
         kind: 'ai',
-            text: OPENING_TYPEWRITER_TEXT,
+        text: OPENING_TYPEWRITER_TEXT,
         animate: true,
         prominent: true,
         isOpening: true,
       },
     ]);
+    setSideDemosReady(true);
   }, []);
 
   const handleHeadlineComplete = useCallback(() => {
     setTypewriterDone(true);
     setShowOpeningFollowUp(true);
     setShowPlatformOptions(true);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => setSideDemosReady(true));
-    });
   }, []);
 
   const togglePlatform = useCallback((id: ChatHeroPlatformId) => {
@@ -631,7 +629,7 @@ export default function ChatHero() {
                     return (
                       <OpeningAiMessage
                         key={block.id}
-                        typewriterActive={!typewriterDone}
+                        typewriterActive={false}
                         showFollowUp={showOpeningFollowUp}
                         onHeadlineComplete={handleHeadlineComplete}
                       />
