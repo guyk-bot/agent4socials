@@ -16,6 +16,7 @@ import {
   AdsPerformanceChart,
   AnalyticsReportPreview,
   ChatAttachmentImage,
+  ChatAttachmentReel,
   CommentRow,
   InstagramWeeklyAnalyticsPanel,
   LeadsSpreadsheet,
@@ -23,7 +24,7 @@ import {
   YouTubeVideoPreview,
 } from './FunnelDemoVisuals';
 
-const USER_SCHEDULE = 'Post this on Instagram, X, Facebook at 9:30.';
+const USER_SCHEDULE = 'Upload this to Instagram, TikTok, and YouTube Shorts at 9:30.';
 const USER_REPLY = 'Reply to comments on my last post in my brand voice.';
 const USER_ANALYTICS = 'Show me weekly analytics for Instagram.';
 const USER_LEADS = 'Send me a spreadsheet of leads from comments with AI DM suggestions.';
@@ -39,33 +40,37 @@ const SCHEDULE_PROFILE = {
 
 const SCHEDULE_PREVIEWS = [
   {
-    platformLabel: 'Instagram',
+    platformLabel: 'Reels',
     accentClass: 'bg-gradient-to-r from-[#E1306C] to-[#FCAF45]',
     ...SCHEDULE_PROFILE,
     profileHandle: 'levitate.crew',
+    mediaFormat: 'shorts' as const,
     caption:
-      'City flow at dawn. Precision jumps, core control, zero fear. @levitate.crew trains parkour the smart way. Who is hitting a line this week? #Parkour #UrbanAthlete',
+      'City flow at dawn. Precision jumps, core control, zero fear. Train parkour the smart way. #Parkour #Reels',
     imageSrc: FUNNEL_DEMO_POST_VIDEO_SRC,
-    imageAlt: 'Parkour athlete training on a city ledge',
+    imageAlt: 'Parkour reel preview for Instagram Reels',
   },
   {
-    platformLabel: 'X',
-    accentClass: 'bg-neutral-900',
+    platformLabel: 'TikTok',
+    accentClass: 'bg-neutral-950',
     ...SCHEDULE_PROFILE,
     profileHandle: 'levitate',
+    mediaFormat: 'shorts' as const,
     caption:
-      'New line. Same discipline. Parkour is not reckless, it is calculated movement. Watch the full sequence.',
+      'New line. Same discipline. Parkour is calculated movement, not reckless. Watch the full sequence.',
     imageSrc: FUNNEL_DEMO_POST_VIDEO_SRC,
-    imageAlt: 'Parkour athlete post preview for X',
+    imageAlt: 'Parkour reel preview for TikTok',
   },
   {
-    platformLabel: 'Facebook',
-    accentClass: 'bg-[#1877F2]',
+    platformLabel: 'Shorts',
+    accentClass: 'bg-[#FF0000]',
     ...SCHEDULE_PROFILE,
+    profileHandle: 'levitatecrew',
+    mediaFormat: 'shorts' as const,
     caption:
-      'From ledge to launch: how we train explosive control without a gym. Full breakdown in comments. Built for athletes who move differently.',
+      'From ledge to launch: explosive control without a gym. Full breakdown in the comments. Built for athletes who move differently.',
     imageSrc: FUNNEL_DEMO_POST_VIDEO_SRC,
-    imageAlt: 'Parkour athlete post preview for Facebook',
+    imageAlt: 'Parkour reel preview for YouTube Shorts',
   },
 ];
 
@@ -114,24 +119,24 @@ export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
   return (
     <>
       <div className="flex w-full flex-col items-end gap-1.5">
-        <ChatAttachmentImage src={FUNNEL_DEMO_POST_VIDEO_SRC} alt="Parkour athlete training on a city ledge" />
+        <ChatAttachmentReel src={FUNNEL_DEMO_POST_VIDEO_SRC} alt="Parkour reel, 1080 by 1920" />
         <FunnelDemoUserBubble show visual={false}>
           {USER_SCHEDULE}
         </FunnelDemoUserBubble>
       </div>
       <FunnelDemoAssistantBubble show visual wide>
         <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
-          I drafted platform-specific previews for 9:30 AM:
+          I drafted Shorts previews for 9:30 AM (1080×1920):
         </p>
         <PlatformPostPreviewGrid previews={SCHEDULE_PREVIEWS} compact />
         <FunnelDemoScheduledChip
           timeLabel="9:30 AM"
-          platforms="Instagram, X, and Facebook"
+          platforms="Instagram Reels, TikTok, and YouTube Shorts"
         />
       </FunnelDemoAssistantBubble>
       <FunnelDemoAllowBar
         compact
-        message="Post scheduled for 9:30 AM. Allow me to confirm?"
+        message="Reel scheduled for 9:30 AM on all three platforms. Allow me to confirm?"
       />
     </>
   );

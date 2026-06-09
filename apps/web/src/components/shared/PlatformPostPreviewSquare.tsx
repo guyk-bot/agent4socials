@@ -1,9 +1,13 @@
 'use client';
 
 import React from 'react';
+import { Play } from 'lucide-react';
 
-/** Portrait post frame used across funnel schedule previews (3:4). */
+/** Portrait post frame (3:4). */
 export const PORTRAIT_POST_ASPECT = 'aspect-[3/4]';
+
+/** Vertical Shorts / Reels frame (1080×1920, 9:16). */
+export const SHORTS_POST_ASPECT = 'aspect-[9/16]';
 
 export type PlatformPostPreview = {
   platformLabel: string;
@@ -15,7 +19,23 @@ export type PlatformPostPreview = {
   profileAvatarSrc?: string;
   profileName?: string;
   profileHandle?: string;
+  /** Vertical 9:16 Shorts/Reels vs default portrait post. */
+  mediaFormat?: 'portrait' | 'shorts';
 };
+
+function ReelPlayButton({ size = 'sm' }: { size?: 'sm' | 'md' }) {
+  const dim = size === 'md' ? 'h-10 w-10' : 'h-6 w-6';
+  const icon = size === 'md' ? 18 : 11;
+  return (
+    <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+      <span
+        className={`flex ${dim} items-center justify-center rounded-full border border-white/35 bg-black/45 shadow-md backdrop-blur-[2px]`}
+      >
+        <Play size={icon} className="ml-0.5 fill-white text-white" />
+      </span>
+    </div>
+  );
+}
 
 function PlatformPostPreviewProfileRow({ preview }: { preview: PlatformPostPreview }) {
   if (!preview.profileAvatarSrc && !preview.profileName) return null;
@@ -57,6 +77,32 @@ export function PlatformPostPreviewSquare({
   preview: PlatformPostPreview;
   compact?: boolean;
 }) {
+  const isShorts = preview.mediaFormat === 'shorts';
+
+  const mediaFrameClass = (() => {
+    if (isShorts) {
+      return compact
+        ? 'relative mx-auto w-full max-w-[54px] aspect-[9/16] overflow-hidden bg-neutral-100 dark:bg-neutral-900'
+        : `relative ${SHORTS_POST_ASPECT} w-full overflow-hidden bg-neutral-100 dark:bg-neutral-900`;
+    }
+    if (compact) {
+      return 'relative h-[58px] w-full overflow-hidden bg-neutral-100 dark:bg-neutral-900';
+    }
+    return `relative ${PORTRAIT_POST_ASPECT} w-full overflow-hidden bg-neutral-100 dark:bg-neutral-900`;
+  })();
+
+  const emptyFrameClass = (() => {
+    if (isShorts) {
+      return compact
+        ? 'mx-auto w-full max-w-[54px] aspect-[9/16] bg-neutral-50 dark:bg-neutral-900'
+        : `${SHORTS_POST_ASPECT} w-full bg-neutral-50 dark:bg-neutral-900`;
+    }
+    if (compact) {
+      return 'h-[58px] w-full bg-neutral-50 dark:bg-neutral-900';
+    }
+    return `${PORTRAIT_POST_ASPECT} w-full bg-neutral-50 dark:bg-neutral-900`;
+  })();
+
   return (
     <div className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-950">
       <div className={`px-2 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white ${preview.accentClass}`}>
@@ -64,13 +110,7 @@ export function PlatformPostPreviewSquare({
       </div>
       <PlatformPostPreviewProfileRow preview={preview} />
       {preview.imageSrc ? (
-        <div
-          className={
-            compact
-              ? 'h-[58px] w-full overflow-hidden bg-neutral-100 dark:bg-neutral-900'
-              : `${PORTRAIT_POST_ASPECT} w-full overflow-hidden bg-neutral-100 dark:bg-neutral-900`
-          }
-        >
+        <div className={mediaFrameClass}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={preview.imageSrc}
@@ -78,15 +118,10 @@ export function PlatformPostPreviewSquare({
             className="h-full w-full object-cover object-center"
             draggable={false}
           />
+          {isShorts ? <ReelPlayButton size={compact ? 'sm' : 'md'} /> : null}
         </div>
       ) : (
-        <div
-          className={
-            compact
-              ? 'h-[58px] w-full bg-neutral-50 dark:bg-neutral-900'
-              : `${PORTRAIT_POST_ASPECT} w-full bg-neutral-50 dark:bg-neutral-900`
-          }
-        />
+        <div className={emptyFrameClass} />
       )}
       <p
         className={`px-2 py-1.5 text-neutral-700 dark:text-neutral-300 ${

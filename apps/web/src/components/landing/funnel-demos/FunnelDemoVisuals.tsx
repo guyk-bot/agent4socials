@@ -94,6 +94,9 @@ export function DemoImage({
 /** Portrait frame: 3:4 for schedule demo attachments (slightly smaller in chat bubble). */
 const USER_ATTACH_FRAME = 'ml-auto aspect-[3/4] w-full max-w-[52%]';
 
+/** Vertical Reel / Shorts attachment in chat (1080×1920, 9:16). */
+const USER_REEL_ATTACH_FRAME = 'ml-auto aspect-[9/16] w-full max-w-[38%]';
+
 /** Thin border on the image only (not the purple chat bubble). */
 export function ChatAttachmentImage({
   src,
@@ -115,6 +118,39 @@ export function ChatAttachmentImage({
         className="block h-full w-full object-cover object-center pointer-events-none select-none"
         draggable={false}
       />
+    </div>
+  );
+}
+
+/** Reel / Shorts attachment with play overlay and 1080×1920 badge. */
+export function ChatAttachmentReel({
+  src,
+  alt,
+  className = '',
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`relative overflow-hidden rounded-md border border-white/25 ${USER_REEL_ATTACH_FRAME} ${className}`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt}
+        className="block h-full w-full object-cover object-center pointer-events-none select-none"
+        draggable={false}
+      />
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <span className="flex h-11 w-11 items-center justify-center rounded-full border border-white/35 bg-black/45 shadow-lg backdrop-blur-[2px]">
+          <Play size={20} className="ml-0.5 fill-white text-white" />
+        </span>
+      </div>
+      <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/60 px-1 py-0.5 text-[8px] font-semibold tracking-wide text-white">
+        1080×1920
+      </span>
     </div>
   );
 }
