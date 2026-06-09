@@ -74,8 +74,6 @@ function DemoSlot({
       visible={visible}
       entering={justEntered && phase === 'playing'}
       title={meta.title}
-      learnMoreHref={meta.href}
-      showLearnMore={phase === 'frozen'}
     >
       <Scene progress={progress} />
     </FunnelDemoFrame>

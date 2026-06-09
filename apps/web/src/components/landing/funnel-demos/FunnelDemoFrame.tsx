@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { siteLogoSrcForTheme } from '@/lib/site-brand-assets';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -10,15 +9,11 @@ export function FunnelDemoFrame({
   visible,
   entering,
   title,
-  learnMoreHref,
-  showLearnMore,
 }: {
   children: React.ReactNode;
   visible: boolean;
   entering?: boolean;
   title: string;
-  learnMoreHref: string;
-  showLearnMore?: boolean;
 }) {
   const { theme } = useTheme();
   const logoSrc = siteLogoSrcForTheme(theme);
@@ -32,23 +27,17 @@ export function FunnelDemoFrame({
     >
       <div className="flex shrink-0 items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 bg-[var(--bg-surface)] px-3 py-2.5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={logoSrc} alt="" className="h-5 w-5 shrink-0 object-contain" />
+        <img
+          src={logoSrc}
+          alt=""
+          className="h-5 w-5 shrink-0 object-contain bg-transparent"
+        />
         <span className="text-[11px] sm:text-xs font-semibold text-neutral-800 dark:text-neutral-100 leading-snug">
           {title}
         </span>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden px-2.5 py-2.5 space-y-2 bg-[var(--bg-primary)]">
         {children}
-      </div>
-      <div className="flex h-10 shrink-0 items-center border-t border-neutral-200 dark:border-neutral-800 px-3 bg-[var(--bg-surface)]">
-        {showLearnMore ? (
-          <Link
-            href={learnMoreHref}
-            className="text-[11px] sm:text-xs font-medium text-[#7C3AED] hover:text-[#6D28D9] dark:text-violet-300 dark:hover:text-violet-200 transition-colors"
-          >
-            Learn more...
-          </Link>
-        ) : null}
       </div>
     </div>
   );

@@ -183,7 +183,7 @@ function AiMessage({
       <img
         src={logoSrc}
         alt=""
-        className={`shrink-0 object-contain mt-0.5 ${prominent ? 'h-8 w-8 sm:h-9 sm:w-9' : 'h-7 w-7'}`}
+        className={`shrink-0 object-contain bg-transparent mt-0.5 ${prominent ? 'h-8 w-8 sm:h-9 sm:w-9' : 'h-7 w-7'}`}
       />
       <p
         className={`text-[var(--chat-hero-text)] whitespace-pre-line flex-1 min-w-0 ${
