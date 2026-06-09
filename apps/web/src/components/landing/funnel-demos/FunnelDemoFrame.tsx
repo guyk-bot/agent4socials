@@ -23,32 +23,33 @@ export function FunnelDemoFrame({
   const { theme } = useTheme();
   const logoSrc = siteLogoSrcForTheme(theme);
 
-  if (!visible) return null;
-
   return (
     <div
-      className={`funnel-demo-card pointer-events-auto w-[372px] 2xl:w-[412px] rounded-xl border border-neutral-200 dark:border-neutral-800 bg-[var(--bg-primary)] shadow-lg ${
-        entering ? 'funnel-demo-card-enter' : ''
-      }`}
+      className={`funnel-demo-card pointer-events-auto flex h-[300px] w-[372px] 2xl:h-[320px] 2xl:w-[412px] flex-col rounded-xl border border-neutral-200 dark:border-neutral-800 bg-[var(--bg-primary)] shadow-lg transition-opacity duration-300 ${
+        visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
+      } ${entering && visible ? 'funnel-demo-card-enter' : ''}`}
+      aria-hidden={!visible}
     >
-      <div className="flex items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 bg-[var(--bg-surface)] px-3 py-2.5">
+      <div className="flex shrink-0 items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 bg-[var(--bg-surface)] px-3 py-2.5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={logoSrc} alt="" className="h-5 w-5 shrink-0 object-contain" />
         <span className="text-[11px] sm:text-xs font-semibold text-neutral-800 dark:text-neutral-100 leading-snug">
           {title}
         </span>
       </div>
-      <div className="px-2.5 py-2.5 space-y-2 bg-[var(--bg-primary)]">{children}</div>
-      {showLearnMore ? (
-        <div className="border-t border-neutral-200 dark:border-neutral-800 px-3 py-2.5 bg-[var(--bg-surface)]">
+      <div className="min-h-0 flex-1 overflow-hidden px-2.5 py-2.5 space-y-2 bg-[var(--bg-primary)]">
+        {children}
+      </div>
+      <div className="flex h-10 shrink-0 items-center border-t border-neutral-200 dark:border-neutral-800 px-3 bg-[var(--bg-surface)]">
+        {showLearnMore ? (
           <Link
             href={learnMoreHref}
             className="text-[11px] sm:text-xs font-medium text-[#7C3AED] hover:text-[#6D28D9] dark:text-violet-300 dark:hover:text-violet-200 transition-colors"
           >
             Learn more...
           </Link>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 }

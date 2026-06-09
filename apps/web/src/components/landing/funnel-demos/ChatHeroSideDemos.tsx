@@ -137,9 +137,15 @@ export function ChatHeroSideDemoColumn({ side }: { side: 'left' | 'right' }) {
 
   const indices = SLOT_SIDE.map((s, i) => (s === side ? i : -1)).filter((i) => i >= 0);
 
+  const rowAlign: Record<'top' | 'middle' | 'bottom', string> = {
+    top: 'items-start',
+    middle: 'items-center',
+    bottom: 'items-end',
+  };
+
   return (
     <div
-      className={`hidden xl:flex w-[380px] 2xl:w-[420px] shrink-0 flex-col justify-between gap-3 py-3 ${
+      className={`hidden xl:grid h-full min-h-0 w-[380px] shrink-0 grid-rows-3 gap-3 py-3 2xl:w-[420px] ${
         side === 'left' ? 'pl-0' : 'pr-0'
       }`}
     >
@@ -148,9 +154,7 @@ export function ChatHeroSideDemoColumn({ side }: { side: 'left' | 'right' }) {
         return (
           <div
             key={index}
-            className={
-              row === 'top' ? 'self-start' : row === 'middle' ? 'self-center' : 'self-end'
-            }
+            className={`flex min-h-0 justify-center ${rowAlign[row]}`}
           >
             <DemoSlot
               index={index}
