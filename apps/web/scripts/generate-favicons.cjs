@@ -39,10 +39,10 @@ const CENTER = CANVAS / 2;
 /** Rounded tab corners (~26% radius, similar to macOS / Cursor tab icons). */
 const RX = Math.round(CANVAS * 0.26);
 /** Slightly zoom the mark so it reads larger at 16–32px in the tab. */
-const TAB_SQUIRCLE_ZOOM = 1.1;
+const TAB_SQUIRCLE_ZOOM = 1.24;
 const CLIP_R = CENTER;
 /** Tab squircle: fill most of the canvas so the mark stays legible at 16–32px. */
-const TAB_LOGO_FRAC = 1.18;
+const TAB_LOGO_FRAC = 1.28;
 /** Circle (Google): slightly smaller so padded artwork stays inside the inscribed circle. */
 const GOOGLE_LOGO_FRAC = 0.92;
 /** Tight-crop mark fills this fraction of the raster square before compositing. */
