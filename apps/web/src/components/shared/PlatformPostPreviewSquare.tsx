@@ -21,6 +21,8 @@ export type PlatformPostPreview = {
   profileHandle?: string;
   /** Vertical 9:16 Shorts/Reels vs default portrait post. */
   mediaFormat?: 'portrait' | 'shorts';
+  /** Hide caption under preview (schedule demo cards). */
+  hideCaption?: boolean;
 };
 
 function ReelPlayButton({ size = 'sm' }: { size?: 'sm' | 'md' }) {
@@ -123,15 +125,17 @@ export function PlatformPostPreviewSquare({
       ) : (
         <div className={emptyFrameClass} />
       )}
-      <p
-        className={`px-2 py-1.5 text-neutral-700 dark:text-neutral-300 ${
-          compact
-            ? 'line-clamp-3 text-[9px] leading-snug sm:text-[10px]'
-            : 'whitespace-pre-wrap py-2 text-[11px] leading-snug sm:text-[12px]'
-        }`}
-      >
-        {preview.caption}
-      </p>
+      {!preview.hideCaption ? (
+        <p
+          className={`px-2 py-1.5 text-neutral-700 dark:text-neutral-300 ${
+            compact
+              ? 'line-clamp-3 text-[9px] leading-snug sm:text-[10px]'
+              : 'whitespace-pre-wrap py-2 text-[11px] leading-snug sm:text-[12px]'
+          }`}
+        >
+          {preview.caption}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -139,9 +143,11 @@ export function PlatformPostPreviewSquare({
 export function PlatformPostPreviewGrid({
   previews,
   compact = false,
+  hideCaptions = false,
 }: {
   previews: PlatformPostPreview[];
   compact?: boolean;
+  hideCaptions?: boolean;
 }) {
   const cols = previews.length >= 3 ? 3 : previews.length;
   return (
@@ -150,7 +156,11 @@ export function PlatformPostPreviewGrid({
       style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
     >
       {previews.map((preview) => (
-        <PlatformPostPreviewSquare key={preview.platformLabel} preview={preview} compact={compact} />
+        <PlatformPostPreviewSquare
+          key={preview.platformLabel}
+          preview={{ ...preview, hideCaption: hideCaptions || preview.hideCaption }}
+          compact={compact}
+        />
       ))}
     </div>
   );

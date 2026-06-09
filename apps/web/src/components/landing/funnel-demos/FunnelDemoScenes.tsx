@@ -40,7 +40,7 @@ const SCHEDULE_PROFILE = {
 
 const SCHEDULE_PREVIEWS = [
   {
-    platformLabel: 'Reels',
+    platformLabel: 'Instagram',
     accentClass: 'bg-gradient-to-r from-[#E1306C] to-[#FCAF45]',
     ...SCHEDULE_PROFILE,
     profileHandle: 'levitate.crew',
@@ -48,7 +48,7 @@ const SCHEDULE_PREVIEWS = [
     caption:
       'City flow at dawn. Precision jumps, core control, zero fear. Train parkour the smart way. #Parkour #Reels',
     imageSrc: FUNNEL_DEMO_POST_VIDEO_SRC,
-    imageAlt: 'Parkour reel preview for Instagram Reels',
+    imageAlt: 'Parkour reel preview for Instagram',
   },
   {
     platformLabel: 'TikTok',
@@ -62,13 +62,13 @@ const SCHEDULE_PREVIEWS = [
     imageAlt: 'Parkour reel preview for TikTok',
   },
   {
-    platformLabel: 'Shorts',
+    platformLabel: 'YouTube Shorts',
     accentClass: 'bg-[#FF0000]',
     ...SCHEDULE_PROFILE,
     profileHandle: 'levitatecrew',
     mediaFormat: 'shorts' as const,
     caption:
-      'From ledge to launch: explosive control without a gym. Full breakdown in the comments. Built for athletes who move differently.',
+      'From ledge to launch: explosive control without a gym. Full breakdown in the comments.',
     imageSrc: FUNNEL_DEMO_POST_VIDEO_SRC,
     imageAlt: 'Parkour reel preview for YouTube Shorts',
   },
@@ -128,10 +128,11 @@ export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
         <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
           I drafted Shorts previews for 9:30 AM (1080×1920):
         </p>
-        <PlatformPostPreviewGrid previews={SCHEDULE_PREVIEWS} compact />
+        <PlatformPostPreviewGrid previews={SCHEDULE_PREVIEWS} compact hideCaptions />
         <FunnelDemoScheduledChip
           timeLabel="9:30 AM"
-          platforms="Instagram Reels, TikTok, and YouTube Shorts"
+          platforms="Instagram, TikTok, and YouTube Shorts"
+          calendarHint=""
         />
       </FunnelDemoAssistantBubble>
       <FunnelDemoAllowBar
@@ -193,7 +194,11 @@ export function FunnelDemoSceneAnalytics({ progress }: { progress: number }) {
               Views up 18%, engagement up 12%, followers net +135. Reels drove most of the lift this week.
             </p>
           </div>
-          <FunnelDemoAllowBar message="Want me to pin this report to your Console and email a PDF every Monday?" />
+          <FunnelDemoAllowBar
+            compact
+            showRegenerate={false}
+            message="Want me to pin this report to your Console and email a PDF every Monday?"
+          />
         </div>
       </FunnelDemoAssistantBubble>
     </>

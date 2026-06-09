@@ -5,7 +5,7 @@ import { CheckCircle2, FileText, Play, Users } from 'lucide-react';
 import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, XAxis, YAxis, PieChart, Pie, Cell } from 'recharts';
 import { YoutubeIcon } from '@/components/SocialPlatformIcons';
 
-import { BRAND_LIME_DOT, FUNNEL_ANALYTICS_KPIS, FUNNEL_DEMO_IG_WEEK_POSTS, FUNNEL_DEMO_POST_VIDEO_SRC } from './funnel-demo-assets';
+import { BRAND_LIME_DOT, FUNNEL_ANALYTICS_KPIS, FUNNEL_DEMO_BEST_POST_WEEK_SRC, FUNNEL_DEMO_IG_WEEK_POSTS, FUNNEL_DEMO_POST_VIDEO_SRC } from './funnel-demo-assets';
 
 const BRAND = {
   primary: '#7C3AED',
@@ -409,15 +409,26 @@ export function AnalyticsChart({ show }: { show: boolean }) {
   );
 }
 
-const IG_WEEKLY_LINE = [
-  { day: 'Mon', followers: 14_712, views: 1920, engagement: 94 },
-  { day: 'Tue', followers: 14_728, views: 2100, engagement: 108 },
-  { day: 'Wed', followers: 14_701, views: 1680, engagement: 82 },
-  { day: 'Thu', followers: 14_734, views: 2380, engagement: 121 },
-  { day: 'Fri', followers: 14_768, views: 2240, engagement: 115 },
-  { day: 'Sat', followers: 14_809, views: 2510, engagement: 134 },
-  { day: 'Sun', followers: 14_847, views: 1872, engagement: 98 },
-];
+function parseDemoMetric(value: string): number {
+  const n = parseFloat(value.replace(/[^0-9.]/g, ''));
+  if (value.toUpperCase().includes('K')) return n * 1000;
+  return n;
+}
+
+function DemoReelPlayOverlay({ show = true, onHover = false }: { show?: boolean; onHover?: boolean }) {
+  if (!show) return null;
+  return (
+    <div
+      className={`pointer-events-none absolute inset-0 flex items-center justify-center bg-black/10 ${
+        onHover ? 'opacity-0 transition-opacity group-hover:opacity-100' : ''
+      }`}
+    >
+      <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/35 bg-black/50 shadow-sm backdrop-blur-[1px]">
+        <Play size={10} className="ml-0.5 fill-white text-white" />
+      </span>
+    </div>
+  );
+}
 
 const IG_FORMAT_MIX = [
   { name: 'Reels', value: 42, color: '#7C3AED' },
@@ -431,18 +442,41 @@ const IG_WEEK_BY_DAY = [
   { day: 'Wed', posts: 2, postIndices: [1, 2] as number[] },
   { day: 'Thu', posts: 1, postIndices: [3] as number[] },
   { day: 'Fri', posts: 1, postIndices: [4] as number[] },
-  { day: 'Sat', posts: 2, postIndices: [5, 6] as number[] },
+  { day: 'Sat', posts: 1, postIndices: [5] as number[] },
   { day: 'Sun', posts: 0, postIndices: [] as number[] },
 ];
+
+function IgPostThumb({
+  postIndex,
+  showPlay,
+  className = '',
+}: {
+  postIndex: number;
+  showPlay?: boolean;
+  className?: string;
+}) {
+  const post = FUNNEL_DEMO_IG_WEEK_POSTS[postIndex];
+  if (!post) return null;
+  const isReel = post.format === 'reel';
+  return (
+    <div className={`relative overflow-hidden ${className}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={post.src} alt={post.label} className="h-full w-full object-cover" draggable={false} />
+      <DemoReelPlayOverlay show={showPlay && isReel} />
+    </div>
+  );
+}
 
 function IgPostsHoverPopup({
   day,
   postIndices,
   style,
+  showPlay,
 }: {
   day: string;
   postIndices: number[];
   style?: React.CSSProperties;
+  showPlay?: boolean;
 }) {
   if (!postIndices.length) return null;
   return (
@@ -457,8 +491,7 @@ function IgPostsHoverPopup({
           return (
             <div key={idx} className="w-[84px] shrink-0">
               <div className="aspect-[3/4] overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={post.src} alt={post.label} className="h-full w-full object-cover" draggable={false} />
+                <IgPostThumb postIndex={idx} showPlay={showPlay} className="h-full w-full" />
               </div>
               <p className="mt-1 text-[9px] font-medium text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">
                 {post.label}
@@ -467,6 +500,147 @@ function IgPostsHoverPopup({
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function IgPostPerformanceChart({
+  activeDay,
+  onActiveDayChange,
+}: {
+  activeDay: string | null;
+  onActiveDayChange: (day: string | null) => void;
+}) {
+  const chartH = 72;
+  const points = IG_WEEK_BY_DAY.map((row, i) => {
+    const primaryIdx = row.postIndices[0];
+    const post = primaryIdx != null ? FUNNEL_DEMO_IG_WEEK_POSTS[primaryIdx] : null;
+    const score = post ? parseDemoMetric(post.views) : 0;
+    return { ...row, score, postIndex: primaryIdx ?? -1, xPct: (i / (IG_WEEK_BY_DAY.length - 1)) * 100 };
+  });
+  const maxScore = Math.max(...points.map((p) => p.score), 1);
+
+  const activePoint = points.find((p) => p.day === activeDay);
+
+  const linePoints = points
+    .map((p) => {
+      const yPct = p.score === 0 ? 92 : 8 + (1 - p.score / maxScore) * 78;
+      return `${p.xPct},${yPct}`;
+    })
+    .join(' ');
+
+  return (
+    <div className="relative h-[88px] w-full">
+      <svg className="h-[72px] w-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <polyline
+          fill="none"
+          stroke={BRAND.primary}
+          strokeWidth="1.5"
+          vectorEffect="non-scaling-stroke"
+          points={linePoints}
+        />
+        {points.map((p) => {
+          const yPct = p.score === 0 ? 92 : 8 + (1 - p.score / maxScore) * 78;
+          return (
+            <circle
+              key={p.day}
+              cx={p.xPct}
+              cy={yPct}
+              r={activeDay === p.day ? 2.8 : 1.8}
+              fill={p.postIndex >= 0 ? BRAND.primary : '#d4d4d4'}
+              className="cursor-pointer"
+              onMouseEnter={() => onActiveDayChange(p.postIndices.length > 0 ? p.day : null)}
+            />
+          );
+        })}
+      </svg>
+      <div className="flex justify-between px-0.5">
+        {points.map((p) => (
+          <span key={p.day} className="text-[7px] text-neutral-500">
+            {p.day}
+          </span>
+        ))}
+      </div>
+      {activePoint && activePoint.postIndex >= 0 ? (
+        <div
+          className="pointer-events-none absolute z-20 w-[72px] -translate-x-1/2 transition-all duration-150 ease-out"
+          style={{
+            left: `${activePoint.xPct}%`,
+            top: `${((activePoint.score === 0 ? 92 : 8 + (1 - activePoint.score / maxScore) * 78) / 100) * chartH - 4}px`,
+            transform: 'translate(-50%, -100%)',
+          }}
+        >
+          <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-950">
+            <div className="aspect-[3/4] w-[72px]">
+              <IgPostThumb postIndex={activePoint.postIndex} showPlay className="h-full w-full" />
+            </div>
+            <p className="px-1.5 py-1 text-[8px] font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">
+              {FUNNEL_DEMO_IG_WEEK_POSTS[activePoint.postIndex]?.label}
+            </p>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function IgInteractiveFormatPie() {
+  const [activeFormat, setActiveFormat] = useState<string | null>(null);
+
+  return (
+    <div className="relative">
+      <div className="h-[52px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={IG_FORMAT_MIX}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              innerRadius={activeFormat ? 10 : 12}
+              outerRadius={activeFormat ? 26 : 22}
+              paddingAngle={2}
+              isAnimationActive={false}
+              onMouseLeave={() => setActiveFormat(null)}
+            >
+              {IG_FORMAT_MIX.map((entry) => (
+                <Cell
+                  key={entry.name}
+                  fill={entry.color}
+                  opacity={activeFormat && activeFormat !== entry.name ? 0.35 : 1}
+                  stroke={activeFormat === entry.name ? entry.color : 'transparent'}
+                  strokeWidth={activeFormat === entry.name ? 2 : 0}
+                  onMouseEnter={() => setActiveFormat(entry.name)}
+                />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      {activeFormat ? (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="rounded-lg bg-white/95 px-2 py-1 text-center shadow-md dark:bg-neutral-950/95">
+            <p className="text-[10px] font-bold text-neutral-900 dark:text-neutral-100">{activeFormat}</p>
+            <p className="text-[13px] font-black tabular-nums text-[#7C3AED]">
+              {IG_FORMAT_MIX.find((f) => f.name === activeFormat)?.value}%
+            </p>
+          </div>
+        </div>
+      ) : null}
+      <div className="flex flex-wrap gap-x-1.5 gap-y-0.5 text-[7px] text-neutral-500">
+        {IG_FORMAT_MIX.map((f) => (
+          <span
+            key={f.name}
+            className={`inline-flex items-center gap-0.5 transition-all ${activeFormat === f.name ? 'font-bold text-neutral-800 dark:text-neutral-200 scale-105' : ''}`}
+            onMouseEnter={() => setActiveFormat(f.name)}
+            onMouseLeave={() => setActiveFormat(null)}
+          >
+            <span className="h-1 w-1 rounded-full" style={{ backgroundColor: f.color }} />
+            {f.name} {f.value}%
+          </span>
+        ))}
       </div>
     </div>
   );
@@ -498,6 +672,7 @@ function IgPostsWeekBarChart({
                 <IgPostsHoverPopup
                   day={row.day}
                   postIndices={row.postIndices}
+                  showPlay
                   style={{
                     bottom: `calc(${heightPct}% + 6px)`,
                     left: '50%',
@@ -522,12 +697,9 @@ function IgPostsWeekBarChart({
 
 /** Instagram weekly analytics with hover post popups, week strip, and KPIs. */
 export function InstagramWeeklyAnalyticsPanel() {
-  const [chartHovered, setChartHovered] = useState(false);
   const [activeDay, setActiveDay] = useState<string | null>(null);
   const [activeLineDay, setActiveLineDay] = useState<string | null>(null);
   const { followers, followersGain, views, engagement } = FUNNEL_ANALYTICS_KPIS;
-
-  const lineDayPosts = IG_WEEK_BY_DAY.find((d) => d.day === activeLineDay);
 
   return (
     <div
@@ -544,106 +716,25 @@ export function InstagramWeeklyAnalyticsPanel() {
       </div>
 
       <div
-        className="relative px-2 py-1.5 border-b border-neutral-100 dark:border-neutral-800"
-        onMouseEnter={() => setChartHovered(true)}
+        className="relative overflow-visible px-2 py-1.5 border-b border-neutral-100 dark:border-neutral-800"
         onMouseLeave={() => setActiveLineDay(null)}
       >
-        <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
-          Weekly trend {chartHovered ? '' : '(hover for lines + posts)'}
+        <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">
+          Post performance (hover for previews)
         </p>
-        <div className="relative h-[72px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart
-              data={IG_WEEKLY_LINE}
-              margin={{ top: 4, right: 2, left: -16, bottom: 0 }}
-              onMouseMove={(state) => {
-                const label = state?.activeLabel;
-                setActiveLineDay(typeof label === 'string' ? label : null);
-              }}
-              onMouseLeave={() => setActiveLineDay(null)}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke={BRAND.grid} vertical={false} />
-              <XAxis dataKey="day" tick={{ fontSize: 8, fill: '#737373' }} axisLine={false} tickLine={false} />
-              <YAxis hide domain={['dataMin - 20', 'dataMax + 20']} />
-              {chartHovered ? (
-                <>
-                  <Line
-                    type="monotone"
-                    dataKey="followers"
-                    stroke={BRAND.primary}
-                    strokeWidth={2}
-                    dot={{ r: 2, fill: BRAND.primary, strokeWidth: 0 }}
-                    isAnimationActive={false}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="views"
-                    stroke="#2563eb"
-                    strokeWidth={1.5}
-                    strokeDasharray="4 3"
-                    dot={{ r: 1.5, fill: '#2563eb', strokeWidth: 0 }}
-                    isAnimationActive={false}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="engagement"
-                    stroke="#059669"
-                    strokeWidth={1.5}
-                    dot={{ r: 1.5, fill: '#059669', strokeWidth: 0 }}
-                    isAnimationActive={false}
-                  />
-                </>
-              ) : (
-                <Line type="monotone" dataKey="followers" stroke="transparent" dot={false} />
-              )}
-            </ComposedChart>
-          </ResponsiveContainer>
-          {activeLineDay && lineDayPosts && lineDayPosts.postIndices.length > 0 ? (
-            <div className="pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2">
-              <IgPostsHoverPopup day={activeLineDay} postIndices={lineDayPosts.postIndices.slice(0, 2)} />
-            </div>
-          ) : null}
-        </div>
+        <IgPostPerformanceChart activeDay={activeLineDay} onActiveDayChange={setActiveLineDay} />
       </div>
 
       <div className="grid grid-cols-2 gap-2 p-2 border-b border-neutral-100 dark:border-neutral-800">
         <div className="relative overflow-visible">
           <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">
-            Posts last 7 days (hover bars)
+            Posts last 7 days
           </p>
           <IgPostsWeekBarChart activeDay={activeDay} onActiveDayChange={setActiveDay} />
         </div>
         <div>
           <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">Post formats</p>
-          <div className="h-[52px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={IG_FORMAT_MIX}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={12}
-                  outerRadius={22}
-                  paddingAngle={2}
-                  isAnimationActive={false}
-                >
-                  {IG_FORMAT_MIX.map((entry) => (
-                    <Cell key={entry.name} fill={entry.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex flex-wrap gap-x-1.5 gap-y-0.5 text-[7px] text-neutral-500">
-            {IG_FORMAT_MIX.map((f) => (
-              <span key={f.name} className="inline-flex items-center gap-0.5">
-                <span className="h-1 w-1 rounded-full" style={{ backgroundColor: f.color }} />
-                {f.name} {f.value}%
-              </span>
-            ))}
-          </div>
+          <IgInteractiveFormatPie />
         </div>
       </div>
 
@@ -652,14 +743,16 @@ export function InstagramWeeklyAnalyticsPanel() {
         <div className="flex gap-1.5 overflow-x-auto pb-0.5 funnel-demo-scene-scroll">
           {FUNNEL_DEMO_IG_WEEK_POSTS.map((post, i) => (
             <div key={post.src} className="group relative w-[56px] shrink-0">
-              <div className="aspect-[3/4] overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700">
+              <div className="relative aspect-[3/4] overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={post.src} alt={post.label} className="h-full w-full object-cover" draggable={false} />
+                <DemoReelPlayOverlay show={post.format === 'reel'} onHover />
               </div>
               <div className="funnel-demo-ig-post-popup funnel-demo-ig-post-popup--animate pointer-events-none absolute bottom-full left-1/2 z-30 mb-1 hidden w-[96px] -translate-x-1/2 rounded-lg border border-neutral-200 bg-white p-2 shadow-lg group-hover:block dark:border-neutral-700 dark:bg-neutral-950">
-                <div className="aspect-[3/4] overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700 mb-1">
+                <div className="relative aspect-[3/4] overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700 mb-1">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={post.src} alt={post.label} className="h-full w-full object-cover" draggable={false} />
+                  <DemoReelPlayOverlay show={post.format === 'reel'} onHover />
                 </div>
                 <p className="text-[9px] font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">{post.label}</p>
                 <p className="mt-0.5 text-[8px] text-neutral-500">{post.views} views · {post.likes} likes</p>
@@ -672,21 +765,22 @@ export function InstagramWeeklyAnalyticsPanel() {
       <div className="p-2">
         <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1">Best post this week</p>
         <div className="flex gap-2">
-          <div className="aspect-[3/4] w-[56px] shrink-0 overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700">
+          <div className="relative aspect-[3/4] w-[56px] shrink-0 overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={FUNNEL_DEMO_POST_VIDEO_SRC}
-              alt="Best performing parkour post"
+              src={FUNNEL_DEMO_BEST_POST_WEEK_SRC}
+              alt="Best performing creator app Reel"
               className="h-full w-full object-cover object-center"
               draggable={false}
             />
+            <DemoReelPlayOverlay show />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[9px] font-semibold text-neutral-900 dark:text-neutral-100">Precision line at sunrise</p>
+            <p className="text-[9px] font-semibold text-neutral-900 dark:text-neutral-100">The best app for content creators</p>
             <p className="mt-0.5 text-[8px] leading-snug text-neutral-600 dark:text-neutral-400">
-              4.2K likes · 318 comments · 89K views. Your parkour post outperformed carousels by 2.1x.
+              420 likes · 86 comments · 6.8K views. Your Reel outperformed carousels by 2.1x.
             </p>
-            <p className="mt-1 text-[8px] text-neutral-500">Photo · no audio</p>
+            <p className="mt-1 text-[8px] text-neutral-500">Reel · with audio</p>
           </div>
         </div>
       </div>

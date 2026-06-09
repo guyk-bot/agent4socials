@@ -71,7 +71,9 @@ export function FunnelDemoScheduledChip({
         <CalendarClock size={11} />
         Scheduled for {timeLabel} on {platforms}
       </p>
-      <p className="mt-0.5 text-[9px] text-emerald-700/90 dark:text-emerald-300/90">{calendarHint}</p>
+      {calendarHint ? (
+        <p className="mt-0.5 text-[9px] text-emerald-700/90 dark:text-emerald-300/90">{calendarHint}</p>
+      ) : null}
     </div>
   );
 }
