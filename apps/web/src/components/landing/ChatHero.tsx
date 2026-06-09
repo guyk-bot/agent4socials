@@ -16,7 +16,7 @@ import {
   XTwitterIcon,
   YoutubeIcon,
 } from '@/components/SocialPlatformIcons';
-import { BRAND_NAME, SITE_LOGO_DARK_SRC } from '@/lib/site-brand-assets';
+import { BRAND_NAME, SITE_LOGO_DARK_SRC, SITE_LOGO_SRC } from '@/lib/site-brand-assets';
 import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
 import {
@@ -119,7 +119,7 @@ function TypewriterText({
     <span>
       {displayed}
       {displayed.length < text.length ? (
-        <span className="inline-block w-[2px] h-[1em] ml-0.5 bg-white/70 animate-pulse align-middle" />
+        <span className="inline-block w-[2px] h-[1em] ml-0.5 bg-[#1a1a1a]/50 animate-pulse align-middle" />
       ) : null}
     </span>
   );
@@ -129,7 +129,7 @@ function TypingIndicator() {
   return (
     <div className="flex items-center gap-3 chat-hero-message-enter">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={SITE_LOGO_DARK_SRC} alt="" className="h-6 w-6 shrink-0 object-contain" />
+      <img src={SITE_LOGO_SRC} alt="" className="h-7 w-7 shrink-0 object-contain" />
       <div className="flex items-center gap-1.5 py-1">
         {[0, 1, 2].map((i) => (
           <span
@@ -157,8 +157,8 @@ function AiMessage({
   return (
     <div className="flex items-start gap-3 chat-hero-message-enter">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={SITE_LOGO_DARK_SRC} alt="" className="h-6 w-6 shrink-0 object-contain mt-0.5" />
-      <p className="text-[15px] leading-[1.6] text-white whitespace-pre-line flex-1 min-w-0">
+      <img src={SITE_LOGO_SRC} alt="" className="h-7 w-7 shrink-0 object-contain mt-0.5" />
+      <p className="text-[16px] leading-[1.6] text-[#1a1a1a] whitespace-pre-line flex-1 min-w-0">
         {typewriter ? (
           <TypewriterText text={text} active={!!typewriterActive} onComplete={onTypewriterComplete} />
         ) : (
@@ -191,11 +191,11 @@ function PillButton({
       onClick={onClick}
       style={{ animationDelay: staggerIndex !== undefined ? `${staggerIndex * 80}ms` : undefined }}
       className={[
-        'chat-hero-pill-enter inline-flex items-center gap-2 rounded-full border px-[18px] py-[10px] text-sm transition-all duration-150',
+        'chat-hero-pill-enter inline-flex items-center gap-2 rounded-full border px-[18px] py-[11px] text-sm transition-all duration-150',
         'active:scale-[0.97]',
         selected
-          ? 'border-[#7C3AED] bg-[rgba(124,58,237,0.15)] text-white'
-          : 'border-[#2A2A38] bg-[#1E1E2A] text-[#888780] hover:border-[#7C3AED] hover:text-white',
+          ? 'border-[#7C3AED] bg-[rgba(124,58,237,0.12)] text-[#5B21B6]'
+          : 'border-[#E8E6DF] bg-[#F8F7FC] text-[#888780] hover:border-[#7C3AED] hover:text-[#1a1a1a]',
         disabled ? 'opacity-50 pointer-events-none' : '',
       ].join(' ')}
     >
@@ -444,7 +444,7 @@ export default function ChatHero() {
           heroReady ? 'opacity-100' : 'opacity-0'
         }`}
       >
-        <div className="mx-auto flex w-full max-w-[680px] items-center justify-between">
+        <div className="mx-auto flex w-full max-w-[960px] items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5 min-w-0 hover:opacity-90 transition-opacity">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={SITE_LOGO_DARK_SRC} alt={BRAND_NAME} className="h-7 w-7 object-contain shrink-0" />
@@ -461,7 +461,7 @@ export default function ChatHero() {
       </header>
 
       {/* Hero content */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 pb-10 pt-24 sm:pt-28 max-w-[680px] mx-auto w-full">
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 pb-10 pt-24 sm:pt-28 max-w-[960px] mx-auto w-full">
         <h1
           className={`text-[28px] sm:text-[48px] font-semibold tracking-[-0.5px] text-white text-center mb-2 transition-all duration-600 ${
             headlineReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'
@@ -479,26 +479,26 @@ export default function ChatHero() {
 
         {/* Chat container */}
         <div
-          className={`relative w-full max-w-[640px] transition-all duration-400 sticky top-20 sm:top-24 ${
+          className={`relative w-full max-w-[900px] transition-all duration-400 sticky top-20 sm:top-24 ${
             chatReady ? 'opacity-100 scale-100' : 'opacity-0 scale-[0.97]'
           }`}
         >
           <div
-            className="relative rounded-[12px] md:rounded-[16px] border border-[#1E1E2A] bg-[#111118] p-6 min-h-[420px] flex flex-col"
+            className="relative rounded-[16px] md:rounded-[20px] border border-[#E8E6DF] bg-white p-6 sm:p-8 min-h-[520px] sm:min-h-[560px] flex flex-col"
             style={{
               boxShadow:
-                '0 0 0 1px rgba(124,58,237,0.1), 0 20px 60px rgba(0,0,0,0.4), 0 0 80px rgba(124,58,237,0.08)',
+                '0 0 0 1px rgba(124,58,237,0.08), 0 24px 64px rgba(0,0,0,0.18), 0 0 100px rgba(124,58,237,0.12)',
             }}
           >
             {/* Progress */}
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#1E1E2A] rounded-t-2xl overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#F1EFF8] rounded-t-[20px] overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-[#7C3AED] to-[#4F46E5] transition-all duration-500 ease-out"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
 
-            <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-5 pr-1 -mr-1 mt-1">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-5 pr-1 -mr-1 mt-2 max-h-[min(62vh,580px)]">
               {blocks.map((block, index) => {
                 if (block.kind === 'ai') {
                   const isFirst = index === 0 && block.text === INITIAL_AI_TEXT;
@@ -518,7 +518,7 @@ export default function ChatHero() {
                       {block.labels.map((label) => (
                         <span
                           key={label}
-                          className="rounded-full border border-[#7C3AED] bg-[rgba(124,58,237,0.15)] px-[18px] py-[10px] text-sm text-white"
+                          className="rounded-full border border-[#7C3AED] bg-[rgba(124,58,237,0.1)] px-[18px] py-[10px] text-sm text-[#5B21B6] font-medium"
                         >
                           {label}
                         </span>
@@ -532,9 +532,9 @@ export default function ChatHero() {
                       {block.items.map((item) => (
                         <div
                           key={item.label}
-                          className="rounded-xl border border-[#2A2A38] bg-[#1A1A24] px-4 py-3 min-w-[120px]"
+                          className="rounded-xl border border-[#E8E6DF] bg-[#F8F7FC] px-5 py-4 min-w-[140px]"
                         >
-                          <p className="text-lg font-semibold text-white">{item.value}</p>
+                          <p className="text-xl font-semibold text-[#1a1a1a]">{item.value}</p>
                           <p className="text-xs text-[#888780] mt-0.5">{item.label}</p>
                         </div>
                       ))}
@@ -544,10 +544,10 @@ export default function ChatHero() {
                 if (block.kind === 'mock_chat') {
                   return (
                     <div key={block.id} className="space-y-3 pl-9 chat-hero-message-enter">
-                      <div className="rounded-xl border border-[#2A2A38] bg-[#1A1A24] px-4 py-3 text-sm text-[#C4C4CC]">
+                      <div className="rounded-xl border border-[#E8E6DF] bg-[#F8F7FC] px-4 py-3 text-sm text-[#888780]">
                         {block.user}
                       </div>
-                      <div className="rounded-xl border border-[#7C3AED]/30 bg-[rgba(124,58,237,0.08)] px-4 py-3 text-sm text-white leading-relaxed">
+                      <div className="rounded-xl border border-[#7C3AED]/25 bg-[rgba(124,58,237,0.06)] px-4 py-3 text-sm text-[#1a1a1a] leading-relaxed">
                         {block.ai}
                       </div>
                     </div>
@@ -559,7 +559,7 @@ export default function ChatHero() {
                       {block.items.map((idea, i) => (
                         <div
                           key={idea}
-                          className="rounded-xl border border-[#2A2A38] bg-[#1A1A24] px-4 py-3 text-sm text-white/90"
+                          className="rounded-xl border border-[#E8E6DF] bg-[#F8F7FC] px-4 py-3 text-sm text-[#1a1a1a]"
                         >
                           <span className="text-[#7C3AED] font-medium mr-2">{i + 1}.</span>
                           {idea}
@@ -573,7 +573,7 @@ export default function ChatHero() {
                     {block.items.map((badge) => (
                       <span
                         key={badge}
-                        className="rounded-full border border-[#2A2A38] bg-[#1A1A24] px-3 py-1.5 text-xs text-[#C4C4CC]"
+                        className="rounded-full border border-[#E8E6DF] bg-[#F8F7FC] px-3 py-1.5 text-xs text-[#888780]"
                       >
                         {badge}
                       </span>
@@ -656,7 +656,7 @@ export default function ChatHero() {
               {showSignup ? (
                 <div className="space-y-3 chat-hero-continue-enter">
                   {authError ? (
-                    <p className="text-sm text-red-400">{authError}</p>
+                    <p className="text-sm text-red-600">{authError}</p>
                   ) : null}
                   <button
                     type="button"
@@ -675,7 +675,7 @@ export default function ChatHero() {
                   <button
                     type="button"
                     onClick={handleEmailSignup}
-                    className="w-full rounded-full border border-[#2A2A38] bg-transparent px-7 py-3 text-[15px] font-medium text-[#C4C4CC] hover:border-[#7C3AED] hover:text-white transition-all"
+                    className="w-full rounded-full border border-[#E8E6DF] bg-white px-7 py-3 text-[15px] font-medium text-[#888780] hover:border-[#7C3AED] hover:text-[#1a1a1a] transition-all"
                   >
                     Continue with email
                   </button>
