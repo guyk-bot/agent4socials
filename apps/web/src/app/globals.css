@@ -176,6 +176,61 @@
   background: #F8F7FC;
   color: #1a1a1a;
 }
+
+/* Landing chat hero animations */
+@keyframes chat-hero-message-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes chat-hero-pill-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes chat-hero-continue-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes chat-hero-typing-pulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.chat-hero-message-enter {
+  animation: chat-hero-message-in 400ms ease-out both;
+}
+.chat-hero-pill-enter {
+  animation: chat-hero-pill-in 300ms ease-out both;
+}
+.chat-hero-continue-enter {
+  animation: chat-hero-continue-in 300ms ease-out both;
+}
+.chat-hero-typing-dot {
+  animation: chat-hero-typing-pulse 1.2s ease-in-out infinite;
+}
+
 .funnel-footer {
   background: #000000;
   color: #a3a3a3;

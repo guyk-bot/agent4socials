@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import DashboardPreview from '@/components/landing/DashboardPreview';
+import { useEffect, useState } from 'react';
 import Testimonials from '@/components/landing/Testimonials';
 import Link from 'next/link';
-import SiteHeader from '@/components/landing/SiteHeader';
 import SiteFooter from '@/components/landing/SiteFooter';
+import ChatHero from '@/components/landing/ChatHero';
 import { useAuthModal } from '@/context/AuthModalContext';
 import {
   Calendar,
@@ -22,9 +21,7 @@ import {
   Sparkles,
   Hash,
 } from 'lucide-react';
-import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
 import { PricingBillingToggle, PricingCard } from '@/components/landing/pricing';
-import FunnelOnboardingChat from '@/components/landing/FunnelOnboardingChat';
 import { PRICING_YEARLY_DISCOUNT_PERCENT, PRO_PLAN_PRICING, STANDARD_PLAN_PRICING } from '@/lib/pricing/constants';
 
 const FREE_HIGHLIGHTS = [
@@ -57,240 +54,6 @@ const PRO_HIGHLIGHTS = [
   'Detailed reports',
   'Priority support',
 ];
-
-const HERO_PLATFORMS = [
-  { Icon: FacebookIcon, label: 'Facebook' },
-  { Icon: InstagramIcon, label: 'Instagram' },
-  { Icon: YoutubeIcon, label: 'YouTube' },
-  { Icon: TikTokIcon, label: 'TikTok' },
-  { Icon: XTwitterIcon, label: 'Twitter/X' },
-  { Icon: ThreadsIcon, label: 'Threads' },
-  { Icon: LinkedinIcon, label: 'LinkedIn' },
-  { Icon: PinterestIcon, label: 'Pinterest' },
-] as const;
-
-// Brand colors for each social platform icon
-const PLATFORM_COLORS: Record<string, string> = {
-  Facebook: '#1877f2',
-  Instagram: '#e1306c',
-  YouTube: '#ff0000',
-  TikTok: '#010101',
-  Threads: '#000000',
-  'Twitter/X': '#000000',
-  LinkedIn: '#0a66c2',
-  Pinterest: '#e60023',
-};
-
-// Desktop positions
-const RANDOM_ICON_SLOTS = [
-  { x: 1,  y: 15 }, // Facebook
-  { x: 9,  y: 37 }, // Instagram
-  { x: 10, y: 63 }, // YouTube
-  { x: 22, y: 75 }, // TikTok
-  { x: 97, y: 12 }, // X/Twitter
-  { x: 94, y: 27 }, // Threads (between X and LinkedIn)
-  { x: 91, y: 42 }, // LinkedIn
-  { x: 76, y: 69 }, // Pinterest
-] as const;
-
-// Mobile positions
-const MOBILE_ICON_SLOTS = [
-  { x: 7,  y: 5  }, // Facebook
-  { x: 7,  y: 20 }, // Instagram
-  { x: 12, y: 35 }, // YouTube
-  { x: 8,  y: 52 }, // TikTok
-  { x: 94, y: 4  }, // X/Twitter
-  { x: 92, y: 12 }, // Threads
-  { x: 91, y: 20 }, // LinkedIn
-  { x: 87, y: 45 }, // Pinterest
-] as const;
-
-const STATIC_ICON_ROTATIONS = [-14, 9, -18, 6, 12, -11, -9, 16] as const;
-// Randomised notification counts (mixed realistic spread).
-const LOGO_NOTIFICATIONS = [7, 23, 41, 15, 38, 19, 12, 29] as const;
-// Keep the roadmap/funnel neutral segment fixed across themes.
-const FUNNEL_NEUTRAL = '#9ca3af';
-
-function PlatformsOrbit({ platforms }: { platforms: typeof HERO_PLATFORMS }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const media = window.matchMedia('(max-width: 639px)');
-    const update = () => setIsMobile(media.matches);
-    update();
-    media.addEventListener('change', update);
-    return () => media.removeEventListener('change', update);
-  }, []);
-
-  // Road segments use explicit per-segment gradients between neighboring icon colors.
-  const desktopLeftRoadSegments = [
-    { id: 'dl-0', d: 'M 1 15 C 12 20, -3 28, 9 37', from: '#1877f2', to: '#fd1d8e', x1: 1, y1: 15, x2: 9, y2: 37 },
-    { id: 'dl-1', d: 'M 9 37 C 20 44, -2 52, 10 63', from: '#fd1d8e', to: '#ff0000', x1: 9, y1: 37, x2: 10, y2: 63 },
-    { id: 'dl-2', d: 'M 10 63 C 18 68, 20 72, 22 75', from: '#ff0000', to: '#010101', x1: 10, y1: 63, x2: 22, y2: 75 },
-    { id: 'dl-3', d: 'M 22 75 C 24 82, 36 94, 50 103', from: '#010101', to: FUNNEL_NEUTRAL, x1: 22, y1: 75, x2: 50, y2: 103 },
-  ] as const;
-  const desktopRightRoadSegments = [
-    { id: 'dr-0', d: 'M 97 12 C 96 18, 95 23, 94 27', from: FUNNEL_NEUTRAL, to: '#000000', x1: 97, y1: 12, x2: 94, y2: 27 },
-    { id: 'dr-1', d: 'M 94 27 C 93 34, 92 38, 91 42', from: '#000000', to: '#0a66c2', x1: 94, y1: 27, x2: 91, y2: 42 },
-    { id: 'dr-2', d: 'M 91 42 C 80 52, 100 60, 76 69', from: '#0a66c2', to: '#e60023', x1: 91, y1: 42, x2: 76, y2: 69 },
-    { id: 'dr-3', d: 'M 76 69 C 66 78, 68 90, 70 103', from: '#e60023', to: '#e60023', x1: 76, y1: 69, x2: 70, y2: 103 },
-  ] as const;
-
-  const mobileLeftRoadSegments = [
-    { id: 'ml-0', d: 'M 7 5 C 12 10, 3 16, 7 20', from: '#1877f2', to: '#fd1d8e', x1: 7, y1: 5, x2: 7, y2: 20 },
-    { id: 'ml-1', d: 'M 7 20 C 15 26, 5 32, 12 35', from: '#fd1d8e', to: '#ff0000', x1: 7, y1: 20, x2: 12, y2: 35 },
-    { id: 'ml-2', d: 'M 12 35 C 16 40, 10 48, 8 52', from: '#ff0000', to: '#010101', x1: 12, y1: 35, x2: 8, y2: 52 },
-    { id: 'ml-3', d: 'M 8 52 C 10 58, 28 78, 46 88 C 48 94, 49 99, 49 103', from: '#010101', to: FUNNEL_NEUTRAL, x1: 8, y1: 52, x2: 49, y2: 103 },
-  ] as const;
-  const mobileRightRoadSegments = [
-    { id: 'mr-0', d: 'M 94 4 C 93 7, 93 9, 92 12', from: FUNNEL_NEUTRAL, to: '#000000', x1: 94, y1: 4, x2: 92, y2: 12 },
-    { id: 'mr-1', d: 'M 92 12 C 91 16, 91 18, 91 20', from: '#000000', to: '#0a66c2', x1: 92, y1: 12, x2: 91, y2: 20 },
-    { id: 'mr-2', d: 'M 91 20 C 96 27, 98 38, 87 45', from: '#0a66c2', to: '#e60023', x1: 91, y1: 20, x2: 87, y2: 45 },
-    { id: 'mr-3', d: 'M 87 45 C 79 54, 60 79, 52 88 C 51 94, 50 99, 50 103', from: '#e60023', to: '#e60023', x1: 87, y1: 45, x2: 50, y2: 103 },
-  ] as const;
-
-  const activeLeftSegments = isMobile ? mobileLeftRoadSegments : desktopLeftRoadSegments;
-  const activeRightSegments = isMobile ? mobileRightRoadSegments : desktopRightRoadSegments;
-  const activeSegments = [...activeLeftSegments, ...activeRightSegments];
-
-  // Tune mobile stroke rendering to visually match desktop roadmap pills.
-  const roadGlowStrokeWidth = isMobile ? 2.8 : 2.4;
-  const roadDashStrokeWidth = isMobile ? 1.35 : 1.1;
-  const roadDashArray = isMobile ? '2.7 3.1' : '2.2 2.6';
-  const roadGlowOpacity = isMobile ? 0.1 : 0.08;
-  const roadDashOpacity = isMobile ? 0.56 : 0.46;
-
-  return (
-    <div
-      ref={ref}
-      className="pointer-events-none absolute inset-x-0 top-[8rem] z-[3] mx-auto h-[680px] max-w-6xl px-2 sm:top-[5.5rem] sm:h-[560px] sm:px-0"
-      aria-hidden="true"
-    >
-      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-        <defs>
-          {activeSegments.map((segment) => (
-            <linearGradient
-              key={`grad-${segment.id}`}
-              id={`grad-${segment.id}`}
-              x1={segment.x1}
-              y1={segment.y1}
-              x2={segment.x2}
-              y2={segment.y2}
-              gradientUnits="userSpaceOnUse"
-            >
-              <stop offset="0%" stopColor={segment.from} />
-              <stop offset="100%" stopColor={segment.to} />
-            </linearGradient>
-          ))}
-        </defs>
-        {activeLeftSegments.map((segment) => (
-          <g key={`left-segment-${segment.id}`}>
-            <path
-              d={segment.d}
-              fill="none"
-              stroke={`url(#grad-${segment.id})`}
-              strokeWidth={roadGlowStrokeWidth}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity={roadGlowOpacity}
-              style={{ filter: 'blur(3px)' }}
-            />
-            <path
-              d={segment.d}
-              fill="none"
-              stroke={`url(#grad-${segment.id})`}
-              strokeWidth={roadDashStrokeWidth}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeDasharray={roadDashArray}
-              opacity={roadDashOpacity}
-            />
-          </g>
-        ))}
-        {activeRightSegments.map((segment) => (
-          <g key={`right-segment-${segment.id}`}>
-            <path
-              d={segment.d}
-              fill="none"
-              stroke={`url(#grad-${segment.id})`}
-              strokeWidth={roadGlowStrokeWidth}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity={roadGlowOpacity}
-              style={{ filter: 'blur(3px)' }}
-            />
-            <path
-              d={segment.d}
-              fill="none"
-              stroke={`url(#grad-${segment.id})`}
-              strokeWidth={roadDashStrokeWidth}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeDasharray={roadDashArray}
-              opacity={roadDashOpacity}
-            />
-          </g>
-        ))}
-      </svg>
-      {platforms.map(({ Icon, label }, i) => {
-        const slots = isMobile ? MOBILE_ICON_SLOTS : RANDOM_ICON_SLOTS;
-        const slot = slots[i % slots.length];
-        const color = PLATFORM_COLORS[label] ?? '#7C3AED';
-        const iconSize = isMobile ? 26 : 34;
-        const rotation = STATIC_ICON_ROTATIONS[i % STATIC_ICON_ROTATIONS.length];
-        const notificationCount = LOGO_NOTIFICATIONS[i % LOGO_NOTIFICATIONS.length];
-        return (
-          <div
-            key={label}
-            className="absolute"
-            style={{
-              left: `${slot.x}%`,
-              top: `${slot.y}%`,
-              transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
-              opacity: 1,
-              zIndex: 8 + i,
-            }}
-          >
-            <div
-              className="absolute inset-0 rounded-full pointer-events-none"
-              style={{
-                background: `radial-gradient(circle, ${color}55 0%, transparent 70%)`,
-                transform: 'scale(2)',
-                opacity: 0.66,
-                filter: 'blur(8px)',
-              }}
-            />
-            <div
-              className="relative"
-              style={{
-                filter: `drop-shadow(0 0 12px ${color}aa)`,
-              }}
-            >
-              <Icon size={iconSize} softenOnLight />
-              <span
-                className="absolute flex items-center justify-center rounded-full text-[9px] font-bold text-white"
-                style={{
-                  minWidth: isMobile ? 13 : 15,
-                  height: isMobile ? 13 : 15,
-                  padding: isMobile ? '0 3px' : '0 4px',
-                  right: isMobile ? -5 : -6,
-                  top: isMobile ? -5 : -6,
-                  background: 'linear-gradient(135deg, #ef4444, #A78BFA)',
-                  boxShadow: '0 6px 16px rgba(225,29,72,0.35)',
-                  lineHeight: 1,
-                }}
-              >
-                {notificationCount}
-              </span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 function FaqItem({ question, answer }: { question: string; answer: string }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -329,64 +92,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen funnel-page overflow-x-hidden">
-      <SiteHeader />
       <main>
-
-        {/* HERO */}
-        <section className="relative overflow-hidden pt-20 pb-20 sm:pt-28 sm:pb-28">
-          {/* Design system: radial glow + light streaks feel */}
-          <div className="pointer-events-none absolute inset-0">
-            <div className="absolute left-1/2 top-0 -translate-x-1/2 h-[600px] w-[900px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(124, 58, 237,0.14)_0%,rgba(79, 70, 229,0.06)_42%,transparent_72%)]" />
-            <div className="absolute -right-32 top-20 h-[450px] w-[550px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(79, 70, 229,0.08)_0%,transparent_65%)]" />
-            <div className="absolute -left-24 bottom-10 h-[380px] w-[480px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(255,176,0,0.08)_0%,transparent_65%)]" />
-            <div className="absolute bottom-0 left-0 right-0 h-72 bg-gradient-to-t from-[rgba(124, 58, 237, 0.08)] via-[rgba(124, 58, 237, 0.08)] to-transparent" />
-          </div>
-
-          <div className="relative mx-auto max-w-5xl px-4 sm:px-6">
-            <FunnelOnboardingChat />
-
-            <div className="relative z-[4] mx-auto mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-center text-xs text-[var(--text-muted)]">
-              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#10B981]" /> No credit card required</span>
-              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#10B981]" /> Free plan forever</span>
-              <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#10B981]" /> Cancel anytime</span>
-            </div>
-          </div>
-
-          {/* Platforms: animated orbit burst */}
-          <PlatformsOrbit platforms={HERO_PLATFORMS} />
-
-          {/* Dashboard preview + floating glass badges (design: detached UI, blur, glow) */}
-          <div className="relative mx-auto max-w-5xl px-4 sm:px-6 mt-14">
-            <div className="hidden sm:block absolute -left-2 top-10 z-10">
-              <div className="rounded-[16px] border border-[rgba(124, 58, 237, 0.2)] bg-white px-4 py-3 shadow-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#7C3AED] mb-0.5">Platforms</p>
-                <p className="text-lg font-bold text-[var(--text-primary)]">8 connected</p>
-              </div>
-            </div>
-            <div className="hidden sm:block absolute -right-2 top-10 z-10">
-              <div className="rounded-[16px] border border-[rgba(124, 58, 237, 0.2)] bg-white px-4 py-3 shadow-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#A78BFA] mb-0.5">AI Assistant</p>
-                <p className="text-lg font-bold text-[var(--text-primary)]">Always on</p>
-              </div>
-            </div>
-            <div className="hidden sm:block absolute -left-2 bottom-14 z-10">
-              <div className="rounded-[16px] border border-[rgba(124, 58, 237, 0.2)] bg-white px-4 py-3 shadow-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#7C3AED] mb-0.5">Analytics</p>
-                <p className="text-lg font-bold text-[var(--text-primary)]">Real-time</p>
-              </div>
-            </div>
-            <div className="hidden sm:block absolute -right-2 bottom-14 z-10">
-              <div className="rounded-[16px] border border-[rgba(124, 58, 237, 0.2)] bg-white px-4 py-3 shadow-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#7C3AED] mb-0.5">Scheduling</p>
-                <p className="text-lg font-bold text-[var(--text-primary)]">Unlimited</p>
-              </div>
-            </div>
-            <div className="absolute inset-x-16 top-1/2 -translate-y-1/2 h-64 bg-[radial-gradient(circle,rgba(123,44,191,0.18),transparent)] blur-3xl pointer-events-none rounded-full" />
-            <div className="relative rounded-[24px] border border-[rgba(124, 58, 237, 0.2)] overflow-hidden shadow-[0_14px_30px_rgba(124, 58, 237,0.12)] bg-white">
-              <DashboardPreview />
-            </div>
-          </div>
-        </section>
+        <ChatHero />
 
         {/* FEATURES - glassmorphism cards, neon accents */}
         <section id="features" className="relative border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28">
