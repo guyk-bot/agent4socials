@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { FUNNEL_DEMO_META } from '@/lib/funnel-feature-pages';
+import { FUNNEL_DEMO_TITLES } from './funnel-demo-meta';
 import { FunnelDemoFrame } from './FunnelDemoFrame';
 import { FUNNEL_DEMO_SCENE_COMPONENTS } from './FunnelDemoScenes';
 
@@ -9,14 +9,6 @@ export const FUNNEL_DEMO_MS = 3000;
 const DEMO_COUNT = FUNNEL_DEMO_SCENE_COMPONENTS.length;
 
 const SLOT_SIDE: ('left' | 'right')[] = ['left', 'right', 'left', 'right', 'left', 'right'];
-const SLOT_ROW: ('top' | 'middle' | 'bottom')[] = [
-  'top',
-  'top',
-  'middle',
-  'middle',
-  'bottom',
-  'bottom',
-];
 
 type SlotPhase = 'hidden' | 'playing' | 'frozen';
 
@@ -67,13 +59,11 @@ function DemoSlot({
   const Scene = FUNNEL_DEMO_SCENE_COMPONENTS[index];
   const visible = phase !== 'hidden';
 
-  const meta = FUNNEL_DEMO_META[index];
-
   return (
     <FunnelDemoFrame
       visible={visible}
       entering={justEntered && phase === 'playing'}
-      title={meta.title}
+      title={FUNNEL_DEMO_TITLES[index]}
     >
       <Scene progress={progress} />
     </FunnelDemoFrame>
@@ -135,24 +125,17 @@ export function ChatHeroSideDemoColumn({ side }: { side: 'left' | 'right' }) {
 
   const indices = SLOT_SIDE.map((s, i) => (s === side ? i : -1)).filter((i) => i >= 0);
 
-  const rowAlign: Record<'top' | 'middle' | 'bottom', string> = {
-    top: 'items-start',
-    middle: 'items-center',
-    bottom: 'items-end',
-  };
-
   return (
     <div
-      className={`hidden xl:grid h-full min-h-0 w-[380px] shrink-0 grid-rows-3 gap-3 py-3 2xl:w-[420px] ${
+      className={`hidden xl:grid h-full min-h-0 w-[400px] shrink-0 grid-rows-3 gap-3 py-3 2xl:w-[440px] ${
         side === 'left' ? 'pl-0' : 'pr-0'
       }`}
     >
       {indices.map((index) => {
-        const row = SLOT_ROW[index];
         return (
           <div
             key={index}
-            className={`flex min-h-0 justify-center ${rowAlign[row]}`}
+            className="flex h-full min-h-0 w-full items-stretch justify-center"
           >
             <DemoSlot
               index={index}

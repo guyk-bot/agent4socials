@@ -251,7 +251,7 @@ export function FunnelDemoSceneTikTokIdeas({ progress }: { progress: number }) {
           Your top TikTok from last month:
         </p>
         <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden mb-1">
-          <div className="relative aspect-[9/16] max-h-[72px] w-full bg-neutral-900">
+          <div className="relative aspect-[9/16] max-h-[110px] w-full bg-neutral-900">
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
             <div className="absolute bottom-1 left-1 right-1">
               <p className="text-[8px] font-semibold text-white truncate">3 hooks that 10× my saves</p>
