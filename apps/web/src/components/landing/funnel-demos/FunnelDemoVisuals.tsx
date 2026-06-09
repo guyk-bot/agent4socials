@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { CheckCircle2, Play } from 'lucide-react';
 import {
   Area,
-  Bar,
   CartesianGrid,
   ComposedChart,
   Line,
@@ -14,6 +13,8 @@ import {
 } from 'recharts';
 import { YoutubeIcon } from '@/components/SocialPlatformIcons';
 
+import { FUNNEL_ANALYTICS_KPIS } from './funnel-demo-assets';
+
 const BRAND = {
   primary: '#7C3AED',
   strong: '#A58DF6',
@@ -21,21 +22,33 @@ const BRAND = {
   grid: 'rgba(0, 0, 0, 0.018)',
 } as const;
 
-const POSTS_CHART_COLOR = { stroke: '#A58DF6', fill: '#F3EDFF' };
-
-const FUNNEL_GROWTH_DATA = [
-  { date: 'Feb 18', followers: 8200, views: 820, posts: 0 },
-  { date: 'Feb 22', followers: 8310, views: 940, posts: 1 },
-  { date: 'Feb 26', followers: 8450, views: 1100, posts: 1 },
-  { date: 'Mar 01', followers: 8580, views: 1280, posts: 0 },
-  { date: 'Mar 04', followers: 8720, views: 1450, posts: 2 },
-  { date: 'Mar 07', followers: 8890, views: 1620, posts: 1 },
-  { date: 'Mar 10', followers: 9120, views: 1840, posts: 0 },
+/** Daily points; card totals and chart cumulative series derived from these. */
+const FUNNEL_GROWTH_DAILY = [
+  { date: 'Feb 18', followers: 14_830, views: 2_500, engagement: 130 },
+  { date: 'Feb 22', followers: 14_855, views: 2_800, engagement: 145 },
+  { date: 'Feb 26', followers: 14_880, views: 3_000, engagement: 150 },
+  { date: 'Mar 01', followers: 14_910, views: 2_900, engagement: 140 },
+  { date: 'Mar 04', followers: 14_940, views: 3_100, engagement: 155 },
+  { date: 'Mar 07', followers: 14_975, views: 3_200, engagement: 160 },
+  { date: 'Mar 10', followers: 15_000, views: 2_500, engagement: 120 },
 ];
 
-function formatKpi(n: number): string {
-  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}K`;
-  return n.toLocaleString();
+function buildFunnelGrowthChartData() {
+  let viewsSum = 0;
+  let engagementSum = 0;
+  return FUNNEL_GROWTH_DAILY.map((d) => {
+    viewsSum += d.views;
+    engagementSum += d.engagement;
+    return {
+      ...d,
+      viewsCumulative: viewsSum,
+      engagementCumulative: engagementSum,
+    };
+  });
+}
+
+function formatKpiNumber(n: number): string {
+  return n.toLocaleString('en-US');
 }
 
 export function DemoAvatar({
@@ -107,7 +120,48 @@ export function ChatAttachmentImage({
 
 const ATTACH_DROP_THRESHOLDS = [0.1, 0.24, 0.38, 0.52];
 
-/** Simulates dropping media into chat: stacks underneath, scroll shows last 2 when 3+ */
+/** Single image drag-and-drop into chat (matches real attachment UI). */
+export function ChatDragDropImage({
+  progress,
+  src,
+  alt,
+}: {
+  progress: number;
+  src: string;
+  alt: string;
+}) {
+  const showZone = progress >= 0.08 && progress < 0.18;
+  const showImage = progress >= 0.14;
+  const dragging = showImage && progress < 0.42;
+
+  if (progress < 0.08) return null;
+
+  return (
+    <div className={`relative w-full ${showImage ? 'min-h-[88px]' : ''}`}>
+      {showZone ? (
+        <div
+          className={`flex h-[88px] items-center justify-center rounded-lg border-2 border-dashed border-white/45 bg-white/10 text-[10px] font-medium text-white/80 transition-opacity ${
+            showImage ? 'opacity-40' : 'opacity-100'
+          }`}
+          aria-hidden
+        >
+          Drop media here
+        </div>
+      ) : null}
+      {showImage ? (
+        <div
+          className={`${showZone || dragging ? 'absolute inset-x-0 top-0 z-10' : ''} ${
+            dragging ? 'funnel-demo-drag-into-chat' : ''
+          }`}
+        >
+          <ChatAttachmentImage src={src} alt={alt} className="max-h-[88px] w-full" />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** @deprecated use ChatDragDropImage for schedule demo */
 export function ChatMediaDropStack({
   progress,
   items,
@@ -225,21 +279,29 @@ function MiniKpiCard({
 
 /** Matches dashboard Growth section: KPI cards + composed chart */
 export function AnalyticsChart({ show }: { show: boolean }) {
-  const chartData = useMemo(() => FUNNEL_GROWTH_DATA, []);
+  const chartData = useMemo(() => buildFunnelGrowthChartData(), []);
+  const { followers, followersGain, views, engagement } = FUNNEL_ANALYTICS_KPIS;
 
   if (!show) return null;
 
-  const last = chartData[chartData.length - 1];
-  const first = chartData[0];
-  const followersGain = last.followers - first.followers;
-  const totalViews = chartData.reduce((s, d) => s + d.views, 0);
+  const followersDomain: [number, number] = [
+    FUNNEL_GROWTH_DAILY[0].followers - 40,
+    followers + 40,
+  ];
+  const viewsDomain: [number, number] = [0, views + 2_000];
+  const engagementDomain: [number, number] = [0, engagement + 120];
 
   return (
     <div className="rounded-2xl border border-neutral-100 bg-white dark:bg-neutral-900 dark:border-neutral-800 shadow-md overflow-hidden">
       <div className="grid grid-cols-3 gap-1.5 p-2 border-b border-neutral-100 dark:border-neutral-800">
-        <MiniKpiCard label="Followers" value={formatKpi(last.followers)} trend={`+${followersGain}`} tint="violet" />
-        <MiniKpiCard label="Views" value={formatKpi(totalViews)} tint="blue" />
-        <MiniKpiCard label="Engagement" value="8.2K" tint="emerald" />
+        <MiniKpiCard
+          label="Followers"
+          value={formatKpiNumber(followers)}
+          trend={`+${followersGain}`}
+          tint="violet"
+        />
+        <MiniKpiCard label="Views" value={formatKpiNumber(views)} tint="blue" />
+        <MiniKpiCard label="Engagement" value={formatKpiNumber(engagement)} tint="emerald" />
       </div>
       <div className="px-1 pb-1">
         <p className="px-2 pt-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
@@ -247,7 +309,7 @@ export function AnalyticsChart({ show }: { show: boolean }) {
         </p>
         <div className="h-[88px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: 4, right: 2, left: -16, bottom: 0 }}>
               <defs>
                 <linearGradient id="funnelFollowersArea" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={BRAND.soft} stopOpacity={0.2} />
@@ -256,6 +318,10 @@ export function AnalyticsChart({ show }: { show: boolean }) {
                 <linearGradient id="funnelViewsArea" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#93c5fd" stopOpacity={0.15} />
                   <stop offset="100%" stopColor="#2563eb" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="funnelEngagementArea" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#6ee7b7" stopOpacity={0.2} />
+                  <stop offset="100%" stopColor="#059669" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke={BRAND.grid} vertical={false} />
@@ -267,24 +333,27 @@ export function AnalyticsChart({ show }: { show: boolean }) {
                 interval={1}
               />
               <YAxis
-                yAxisId="left"
-                tick={{ fontSize: 8, fill: '#737373' }}
+                yAxisId="followers"
+                tick={{ fontSize: 7, fill: '#737373' }}
+                axisLine={false}
+                tickLine={false}
+                width={32}
+                domain={followersDomain}
+                tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`}
+              />
+              <YAxis
+                yAxisId="views"
+                orientation="right"
+                tick={{ fontSize: 7, fill: '#737373' }}
                 axisLine={false}
                 tickLine={false}
                 width={28}
-                domain={['dataMin - 200', 'dataMax + 200']}
+                domain={viewsDomain}
+                tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`}
               />
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                tick={{ fontSize: 8, fill: '#737373' }}
-                axisLine={false}
-                tickLine={false}
-                width={24}
-                domain={[0, 'dataMax + 400']}
-              />
+              <YAxis yAxisId="engagement" hide domain={engagementDomain} />
               <Area
-                yAxisId="left"
+                yAxisId="followers"
                 type="monotone"
                 dataKey="followers"
                 stroke="none"
@@ -292,7 +361,7 @@ export function AnalyticsChart({ show }: { show: boolean }) {
                 isAnimationActive={false}
               />
               <Line
-                yAxisId="left"
+                yAxisId="followers"
                 type="monotone"
                 dataKey="followers"
                 stroke={BRAND.primary}
@@ -301,28 +370,37 @@ export function AnalyticsChart({ show }: { show: boolean }) {
                 isAnimationActive={false}
               />
               <Area
-                yAxisId="right"
+                yAxisId="views"
                 type="monotone"
-                dataKey="views"
+                dataKey="viewsCumulative"
                 stroke="none"
                 fill="url(#funnelViewsArea)"
                 isAnimationActive={false}
               />
               <Line
-                yAxisId="right"
+                yAxisId="views"
                 type="monotone"
-                dataKey="views"
+                dataKey="viewsCumulative"
                 stroke="#2563eb"
                 strokeWidth={1.5}
                 dot={false}
                 isAnimationActive={false}
               />
-              <Bar
-                yAxisId="right"
-                dataKey="posts"
-                fill={POSTS_CHART_COLOR.stroke}
-                radius={[2, 2, 0, 0]}
-                barSize={6}
+              <Area
+                yAxisId="engagement"
+                type="monotone"
+                dataKey="engagementCumulative"
+                stroke="none"
+                fill="url(#funnelEngagementArea)"
+                isAnimationActive={false}
+              />
+              <Line
+                yAxisId="engagement"
+                type="monotone"
+                dataKey="engagementCumulative"
+                stroke="#059669"
+                strokeWidth={1.5}
+                dot={false}
                 isAnimationActive={false}
               />
             </ComposedChart>
@@ -379,25 +457,25 @@ export function CommentRow({
   if (!show) return null;
   return (
     <li
-      className={`flex items-start gap-2 rounded-lg border p-2 ${
+      className={`flex items-start gap-1.5 rounded-md border p-1.5 ${
         highlight
           ? 'border-[#7C3AED]/50 bg-[#7C3AED]/10 dark:bg-[#7C3AED]/15'
           : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900'
       }`}
     >
-      <DemoAvatar label={avatar} colorClass={colorClass} size="lg" />
+      <DemoAvatar label={avatar} colorClass={colorClass} size="md" />
       <div className="min-w-0 flex-1">
-        <p className="text-[12px] font-semibold text-neutral-800 dark:text-neutral-200">{name}</p>
-        <p className="text-[11px] text-neutral-600 dark:text-neutral-400 leading-snug mt-0.5">{text}</p>
+        <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 truncate">{name}</p>
+        <p className="text-[10px] text-neutral-600 dark:text-neutral-400 leading-snug line-clamp-2">{text}</p>
         {replied && replyText ? (
-          <p className="mt-1.5 rounded-md border border-emerald-200/80 bg-emerald-50/80 dark:bg-emerald-950/30 dark:border-emerald-800/50 px-2 py-1 text-[10px] text-emerald-800 dark:text-emerald-200 leading-snug">
+          <p className="mt-1 rounded-md border border-emerald-200/80 bg-emerald-50/80 dark:bg-emerald-950/30 dark:border-emerald-800/50 px-1.5 py-0.5 text-[9px] text-emerald-800 dark:text-emerald-200 leading-snug line-clamp-2">
             <span className="font-semibold">AI reply: </span>
             {replyText}
           </p>
         ) : null}
         {replied ? (
-          <p className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
-            <CheckCircle2 size={11} /> Reply sent
+          <p className="mt-0.5 inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-700 dark:text-emerald-300">
+            <CheckCircle2 size={10} /> Reply sent
           </p>
         ) : null}
       </div>

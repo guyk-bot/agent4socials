@@ -24,19 +24,13 @@ import {
 import {
   AdsPerformanceChart,
   AnalyticsChart,
-  ChatMediaDropStack,
+  ChatDragDropImage,
   CommentRow,
   LeadsSpreadsheet,
   YouTubeVideoPreview,
 } from './FunnelDemoVisuals';
 
 const USER_SCHEDULE = 'Post this post at 9:30 on all platforms';
-const SCHEDULE_ATTACHMENTS = [
-  FUNNEL_DEMO_POST_VIDEO_SRC,
-  FUNNEL_DEMO_POST_VIDEO_SRC,
-  FUNNEL_DEMO_POST_VIDEO_SRC,
-  FUNNEL_DEMO_POST_VIDEO_SRC,
-];
 const USER_REPLY =
   'Reply to every comment on my last post. Use my brand voice and answer product questions.';
 const USER_ANALYTICS = 'Show my weekly analytics: views, engagement, and followers';
@@ -61,21 +55,18 @@ function TypeCursor({ active }: { active: boolean }) {
 }
 
 export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
-  const userText = typewriterSlice(USER_SCHEDULE, progress, 0.58, 0.88);
+  const userText = typewriterSlice(USER_SCHEDULE, progress, 0.48, 0.82);
   const showUser = progress > 0.06;
-  const showAssistant = progress > 0.9;
-  const showAttachments = progress > 0.08;
+  const showAssistant = progress > 0.88;
 
   return (
     <>
       <FunnelDemoUserBubble show={showUser} visual>
-        {showAttachments ? (
-          <ChatMediaDropStack progress={progress} items={SCHEDULE_ATTACHMENTS} />
-        ) : null}
-        {(progress >= 0.58 || userText.length > 0) && (
-          <p className={showAttachments ? 'mt-2' : ''}>
+        <ChatDragDropImage progress={progress} src={FUNNEL_DEMO_POST_VIDEO_SRC} alt="Post media" />
+        {(progress >= 0.48 || userText.length > 0) && (
+          <p className="mt-2">
             {userText}
-            <TypeCursor active={progress > 0.58 && progress < 0.88} />
+            <TypeCursor active={progress > 0.48 && progress < 0.82} />
           </p>
         )}
       </FunnelDemoUserBubble>
@@ -108,42 +99,33 @@ export function FunnelDemoSceneComments({ progress }: { progress: number }) {
         {userText}
         <TypeCursor active={progress > 0.08 && progress < 0.38} />
       </FunnelDemoUserBubble>
-      <FunnelDemoAssistantBubble show={showAssistant} visual>
-        <p className="mb-2 text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">
+      <FunnelDemoAssistantBubble show={showAssistant} visual contained>
+        <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
           Summer launch Reel · 847 comments
         </p>
-        <ul className="space-y-1.5">
+        <ul className="space-y-1">
           <CommentRow
             show={progress > 0.48 || progress >= 1}
             name="Maya Rodriguez"
             avatar="MR"
             colorClass="bg-violet-500"
-            text="Love this! Exactly what I needed for my morning routine."
+            text="Love this! Exactly what I needed."
             replied={progress > 0.62 || progress >= 1}
             replyText="Thank you, Maya! So glad it helped."
           />
           <CommentRow
-            show={progress > 0.56 || progress >= 1}
+            show={progress > 0.58 || progress >= 1}
             name="Alex Kim"
             avatar="AK"
             colorClass="bg-sky-500"
-            text="Where can I buy this? Do you ship to Canada?"
+            text="Where can I buy this? Ship to Canada?"
             highlight
-            replied={progress > 0.72 || progress >= 1}
-            replyText="Yes! Link in bio ships worldwide, including Canada."
-          />
-          <CommentRow
-            show={progress > 0.64 || progress >= 1}
-            name="Jordan Lee"
-            avatar="JL"
-            colorClass="bg-amber-500"
-            text="Can you share the full product list from the video?"
-            replied={progress > 0.82 || progress >= 1}
-            replyText="Just sent you the full list in DM."
+            replied={progress > 0.75 || progress >= 1}
+            replyText="Yes! Link in bio ships worldwide."
           />
         </ul>
-        {(progress > 0.85 || progress >= 1) && (
-          <p className="mt-2 text-[11px] font-semibold text-[var(--primary)]">
+        {(progress > 0.82 || progress >= 1) && (
+          <p className="mt-1.5 text-[10px] font-semibold text-[var(--primary)]">
             847 personalized replies sent in 4 min
           </p>
         )}
