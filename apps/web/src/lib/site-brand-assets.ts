@@ -22,7 +22,7 @@ export const BRAND_HEADER_BG = BRAND_PAGE_BG;
 export const BRAND_CHROME_TEXT = '#FFFFFF';
 
 /** Bumped when shared logo mark assets change (cache bust for browsers and CDNs). */
-export const SITE_LOGO_V = '59';
+export const SITE_LOGO_V = '60';
 
 /** Funnel chat hero mark (beside "Hi, I'm iZop" and AI messages). */
 export const CHAT_HERO_LOGO_PATH = '/chat-hero-logo.png';
