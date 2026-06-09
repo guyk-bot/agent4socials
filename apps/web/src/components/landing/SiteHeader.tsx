@@ -24,9 +24,7 @@ export default function SiteHeader() {
   const pathname = usePathname();
 
   const navLinkClass = (href: string) => {
-    const isPricing =
-      (href === '/#pricing' || href === '/pricing') &&
-      (pathname === '/pricing' || (pathname === '/' && typeof window !== 'undefined' && window.location.hash === '#pricing'));
+    const isPricing = href.includes('pricing') && pathname === '/pricing';
     const isActive = isPricing;
     return `funnel-nav-link rounded-lg px-2 py-1.5 text-sm font-medium transition-colors ${isActive ? 'is-active' : ''}`;
   };
