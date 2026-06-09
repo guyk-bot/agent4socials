@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 import { useAuthModal } from '@/context/AuthModalContext';
 import { BrandWordmark } from '@/components/BrandWordmark';
-import { BRAND_NAME, SITE_LOGO_DARK_SRC } from '@/lib/site-brand-assets';
+import { BRAND_NAME, SITE_HEADER_LOGO_CLASS, SITE_LOGO_DARK_SRC } from '@/lib/site-brand-assets';
 
 const navLinks = [
   { href: '/#features', label: 'Features' },
@@ -36,7 +36,7 @@ export default function SiteHeader() {
             <img
               src={SITE_LOGO_DARK_SRC}
               alt={BRAND_NAME}
-              className="h-6 w-6 sm:h-7 sm:w-7 shrink-0 object-contain"
+              className={SITE_HEADER_LOGO_CLASS}
             />
             <BrandWordmark
               name={BRAND_NAME}

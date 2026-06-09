@@ -14,7 +14,7 @@ import {
   XTwitterIcon,
   YoutubeIcon,
 } from '@/components/SocialPlatformIcons';
-import { CHAT_HERO_LOGO_SRC } from '@/lib/site-brand-assets';
+import { CHAT_HERO_LOGO_SRC, SITE_HEADER_LOGO_CLASS } from '@/lib/site-brand-assets';
 import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
 import {
@@ -154,8 +154,8 @@ const OPENING_PRIMARY =
 const OPENING_HEADLINE_SIZE =
   'block text-[24px] sm:text-[28px] lg:text-[32px] tracking-[-0.04em] leading-[1.1]';
 
-/** Chat hero mark (black squircle) — smaller, same box as funnel header logo. */
-const FUNNEL_AI_AVATAR_BOX = 'h-6 w-6 sm:h-7 sm:w-7 shrink-0';
+/** Chat hero squircle — same box as funnel header logo. */
+const FUNNEL_AI_AVATAR_BOX = SITE_HEADER_LOGO_CLASS;
 const FUNNEL_AI_CONTENT_INDENT = 'pl-9 sm:pl-10';
 
 function FunnelAiMessageAvatar({ className }: { className?: string }) {
@@ -165,7 +165,7 @@ function FunnelAiMessageAvatar({ className }: { className?: string }) {
     <img
       src={CHAT_HERO_LOGO_SRC}
       alt=""
-      className={`object-contain ${boxClass}`}
+      className={boxClass}
       aria-hidden
     />
   );

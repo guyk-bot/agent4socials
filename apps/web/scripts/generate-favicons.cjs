@@ -500,6 +500,18 @@ function buildFlatLogoSvg(pngBuffer, width, height) {
   }
   fs.writeFileSync(markCachePath, tabMarkPng);
 
+  const chatHeroLogoPath = path.join(publicDir, "chat-hero-logo.png");
+  const chatHeroSource = fs.existsSync(izopFaviconSourcePath)
+    ? izopFaviconSourcePath
+    : fs.existsSync(path.join(publicDir, "chat-hero-logo-source.png"))
+      ? path.join(publicDir, "chat-hero-logo-source.png")
+      : null;
+  if (chatHeroSource) {
+    const squareForChat = await loadSquareIconBuffer(chatHeroSource, CANVAS);
+    const chatSvg = Buffer.from(buildSquircleTabSvg(squareForChat));
+    await sharp(chatSvg).resize(CANVAS, CANVAS).png().toFile(chatHeroLogoPath);
+  }
+
   const svgTab = Buffer.from(buildSquircleTabSvg(squareTabPng));
 
   fs.writeFileSync(svgOutTab, svgTab);
