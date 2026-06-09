@@ -18,15 +18,6 @@ import { SITE_LOGO_DARK_SRC } from '@/lib/site-brand-assets';
 import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
 import {
-  ChatHeroDemoLoopProvider,
-  ChatHeroMobileDemoPanel,
-  ChatHeroSideDemoColumn,
-  HeroScrollHint,
-  HeroScrollProgress,
-} from '@/components/landing/funnel-demos/ChatHeroSideDemos';
-import { HERO_SCROLL_TOTAL_VH } from '@/components/landing/funnel-demos/hero-scroll-config';
-import { useHeroScrollProgress } from '@/components/landing/funnel-demos/useHeroScrollProgress';
-import {
   CHAT_HERO_PAIN_POINTS,
   CHAT_HERO_PLATFORMS,
   connectRedirectForPlatforms,
@@ -39,6 +30,21 @@ import {
   type ChatHeroPainPointId,
   type ChatHeroPlatformId,
 } from '@/lib/chat-hero-script';
+import { FunnelDemoFrame } from '@/components/landing/funnel-demos/FunnelDemoFrame';
+import { getFunnelScene } from '@/components/landing/funnel-demos/funnel-demo-registry';
+
+/* ── Layout & rotation ───────────────────────────────────────────── */
+
+const SIDE_PANEL_WIDTH = 300;
+const SIDE_PANEL_HEIGHT = 480;
+const ROTATE_MS = 6000;
+const CROSSFADE_MS = 800;
+const RIGHT_COLUMN_DELAY_MS = 3000;
+
+/** Left column: Comments, iZop AI, Reports, Brainstorm */
+const LEFT_SCENE_INDICES = [1, 4, 7, 8] as const;
+/** Right column: Leads, Schedule, Team, Team performance */
+const RIGHT_SCENE_INDICES = [3, 0, 6, 9] as const;
 
 type FlowStep = 0 | 1 | 2 | 3;
 
@@ -65,13 +71,6 @@ const OPENING_HEADLINE = 'your personal AI social media manager.';
 const OPENING_BODY =
   "Tell me what platforms you're on, and I'll show you what I can do.";
 
-const MOBILE_FEATURE_CHIPS = [
-  { emoji: '🤖', label: 'Bulk replies' },
-  { emoji: '📊', label: 'Analytics' },
-  { emoji: '📋', label: 'Lead extraction' },
-  { emoji: '📅', label: 'Scheduling' },
-] as const;
-
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -80,44 +79,47 @@ function blockId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-const FUNNEL_AI_AVATAR_BOX = 'h-8 w-8 shrink-0';
+function useRotatingPanelIndex(length: number, intervalMs: number, startDelayMs: number) {
+  const [index, setIndex] = useState(0);
 
-function FunnelAiMessageAvatar({ className }: { className?: string }) {
-  const boxClass = className ?? FUNNEL_AI_AVATAR_BOX;
+  useEffect(() => {
+    if (length <= 1) return;
+
+    let intervalId: number | undefined;
+    const startId = window.setTimeout(() => {
+      intervalId = window.setInterval(() => {
+        setIndex((i) => (i + 1) % length);
+      }, intervalMs);
+    }, startDelayMs);
+
+    return () => {
+      window.clearTimeout(startId);
+      if (intervalId) window.clearInterval(intervalId);
+    };
+  }, [length, intervalMs, startDelayMs]);
+
+  return index;
+}
+
+/* ── Sub-components ──────────────────────────────────────────────── */
+
+function AiAvatar() {
   return (
     <span
-      className={`inline-flex items-center justify-center self-start rounded-full bg-black overflow-hidden ${boxClass}`}
+      className="inline-flex h-8 w-8 shrink-0 items-center justify-center self-start rounded-full bg-black overflow-hidden"
       aria-hidden
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={SITE_LOGO_DARK_SRC}
-        alt=""
-        className="h-[62%] w-[62%] object-contain"
-        loading="eager"
-      />
+      <img src={SITE_LOGO_DARK_SRC} alt="" className="h-[62%] w-[62%] object-contain" loading="eager" />
     </span>
-  );
-}
-
-function TypingIndicator() {
-  return (
-    <div className="flex items-start gap-3 chat-hero-message-enter" aria-label="iZop is typing">
-      <FunnelAiMessageAvatar />
-      <div className="flex items-center gap-1 pt-2">
-        <span className="chat-hero-typing-dot h-1.5 w-1.5 rounded-full bg-[var(--chat-hero-muted)]" style={{ animationDelay: '0ms' }} />
-        <span className="chat-hero-typing-dot h-1.5 w-1.5 rounded-full bg-[var(--chat-hero-muted)]" style={{ animationDelay: '150ms' }} />
-        <span className="chat-hero-typing-dot h-1.5 w-1.5 rounded-full bg-[var(--chat-hero-muted)]" style={{ animationDelay: '300ms' }} />
-      </div>
-    </div>
   );
 }
 
 function OpeningMessage() {
   return (
-    <div className="flex items-start gap-3 chat-hero-message-enter mt-5 sm:mt-7">
-      <FunnelAiMessageAvatar />
-      <div className="flex-1 min-w-0 pt-0.5">
+    <div className="flex items-start gap-3 chat-hero-message-enter mt-4 sm:mt-6">
+      <AiAvatar />
+      <div className="min-w-0 flex-1 pt-0.5">
         <p className="chat-hero-opening-greeting">{OPENING_GREETING}</p>
         <p className="chat-hero-opening-headline">{OPENING_HEADLINE}</p>
         <p className="chat-hero-opening-body">{OPENING_BODY}</p>
@@ -126,32 +128,41 @@ function OpeningMessage() {
   );
 }
 
+function AiMessage({ text }: { text: string }) {
+  return (
+    <div className="flex items-start gap-3 chat-hero-message-enter">
+      <AiAvatar />
+      <p className="min-w-0 flex-1 pt-0.5 text-base leading-relaxed text-white whitespace-pre-line">{text}</p>
+    </div>
+  );
+}
+
 function SampleConversation() {
   return (
     <div className="mt-5 w-full space-y-4 shrink-0 chat-hero-message-enter">
       <div className="flex justify-end">
-        <span className="chat-hero-demo-user-bubble">
-          Which of my posts performed best this week?
-        </span>
+        <span className="chat-hero-demo-user-bubble">Which of my posts performed best this week?</span>
       </div>
       <div className="flex items-start gap-3">
-        <FunnelAiMessageAvatar />
-        <p className="flex-1 min-w-0 text-sm leading-relaxed text-[#ffffff] pt-0.5">
-          Your Tuesday Reel got 4.2x your average reach. Short hook + trending audio was the
-          formula. Want me to draft a similar post?
+        <AiAvatar />
+        <p className="min-w-0 flex-1 pt-0.5 text-sm leading-relaxed text-white">
+          Your Tuesday Reel got 4.2x your average reach. Short hook + trending audio was the formula.
+          Want me to draft a similar post?
         </p>
       </div>
     </div>
   );
 }
 
-function AiMessage({ text }: { text: string }) {
+function TypingIndicator() {
   return (
-    <div className="flex items-start gap-3 chat-hero-message-enter">
-      <FunnelAiMessageAvatar />
-      <p className="text-base leading-relaxed text-[var(--chat-hero-text)] whitespace-pre-line flex-1 min-w-0 pt-0.5">
-        {text}
-      </p>
+    <div className="flex items-start gap-3 chat-hero-message-enter" aria-label="iZop is typing">
+      <AiAvatar />
+      <div className="flex items-center gap-1 pt-2">
+        <span className="chat-hero-typing-dot h-1.5 w-1.5 rounded-full bg-[#888780]" style={{ animationDelay: '0ms' }} />
+        <span className="chat-hero-typing-dot h-1.5 w-1.5 rounded-full bg-[#888780]" style={{ animationDelay: '150ms' }} />
+        <span className="chat-hero-typing-dot h-1.5 w-1.5 rounded-full bg-[#888780]" style={{ animationDelay: '300ms' }} />
+      </div>
     </div>
   );
 }
@@ -177,7 +188,7 @@ function PlatformButton({
       className={[
         'chat-hero-platform-btn flex w-full items-center gap-2.5 rounded-xl border px-4 py-3 text-left transition-all duration-150 active:scale-[0.98]',
         selected ? 'chat-hero-platform-btn--selected' : '',
-        disabled ? 'opacity-50 pointer-events-none' : '',
+        disabled ? 'pointer-events-none opacity-50' : '',
       ].join(' ')}
     >
       <span className="flex h-8 w-8 shrink-0 items-center justify-center">{icon}</span>
@@ -206,9 +217,9 @@ function PainOptionButton({
       onClick={onClick}
       style={{ animationDelay: `${staggerIndex * 60}ms` }}
       className={[
-        'chat-hero-pill-enter chat-hero-platform-btn flex w-full items-center justify-center rounded-xl border px-4 py-3 text-center text-sm font-medium transition-all duration-150 min-h-[72px]',
+        'chat-hero-pill-enter chat-hero-platform-btn flex min-h-[72px] w-full items-center justify-center rounded-xl border px-4 py-3 text-center text-sm font-medium transition-all duration-150',
         selected ? 'chat-hero-platform-btn--selected' : '',
-        disabled ? 'opacity-50 pointer-events-none' : '',
+        disabled ? 'pointer-events-none opacity-50' : '',
       ].join(' ')}
     >
       {label}
@@ -216,11 +227,77 @@ function PainOptionButton({
   );
 }
 
+function SideFeaturePanel({
+  sceneIndices,
+  activeIndex,
+}: {
+  sceneIndices: readonly number[];
+  activeIndex: number;
+}) {
+  return (
+    <div
+      className="relative overflow-hidden"
+      style={{ width: SIDE_PANEL_WIDTH, height: SIDE_PANEL_HEIGHT }}
+    >
+      {sceneIndices.map((sceneIndex, i) => {
+        const { Component: Scene, title } = getFunnelScene(sceneIndex);
+        const isActive = activeIndex === i;
+
+        return (
+          <div
+            key={`${sceneIndex}-${i}`}
+            className="absolute inset-0"
+            style={{
+              opacity: isActive ? 1 : 0,
+              pointerEvents: isActive ? 'auto' : 'none',
+              transition: `opacity ${CROSSFADE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
+            }}
+            aria-hidden={!isActive}
+          >
+            <FunnelDemoFrame visible title={title} progress={1} staticMode>
+              <Scene progress={1} />
+            </FunnelDemoFrame>
+          </div>
+        );
+      })}
+
+      <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-1.5 pb-1" aria-hidden>
+        {sceneIndices.map((_, i) => (
+          <span
+            key={i}
+            className={`rounded-full transition-colors duration-300 ${
+              i === activeIndex ? 'h-2 w-2 bg-[#AAFF45]' : 'h-1.5 w-1.5 bg-[#2A2A38]'
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SideFeatureColumn({
+  sceneIndices,
+  startDelayMs,
+  className,
+}: {
+  sceneIndices: readonly number[];
+  startDelayMs: number;
+  className?: string;
+}) {
+  const activeIndex = useRotatingPanelIndex(sceneIndices.length, ROTATE_MS, startDelayMs);
+
+  return (
+    <aside className={className}>
+      <SideFeaturePanel sceneIndices={sceneIndices} activeIndex={activeIndex} />
+    </aside>
+  );
+}
+
+/* ── Main hero ─────────────────────────────────────────────────── */
+
 export default function ChatHero() {
   const { signInWithGoogle } = useAuth();
   const { openSignup } = useAuthModal();
-
-  const [sideDemosReady, setSideDemosReady] = useState(true);
 
   const [step, setStep] = useState<FlowStep>(0);
   const [blocks, setBlocks] = useState<RenderBlock[]>([]);
@@ -240,10 +317,7 @@ export default function ChatHero() {
   const [draftText, setDraftText] = useState('');
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const scrollRootRef = useRef<HTMLElement>(null);
   const flowLock = useRef(false);
-
-  const { segmentFloat, hasScrolled } = useHeroScrollProgress(scrollRootRef);
 
   const platformLabels = useMemo(
     () =>
@@ -284,7 +358,6 @@ export default function ChatHero() {
   useEffect(() => {
     trackChatHeroEvent('chat_started');
     setBlocks([{ id: blockId('ai'), kind: 'ai', text: '', isOpening: true }]);
-    setSideDemosReady(true);
   }, []);
 
   const togglePlatform = useCallback((id: ChatHeroPlatformId) => {
@@ -298,27 +371,11 @@ export default function ChatHero() {
     flowLock.current = true;
     setBusy(true);
     setShowPlatformOptions(false);
-
     trackChatHeroEvent('platforms_selected', { platforms: selectedPlatforms });
-
-    appendBlocks([
-      {
-        id: blockId('user'),
-        kind: 'user_pills',
-        labels: platformLabels,
-      },
-    ]);
-
+    appendBlocks([{ id: blockId('user'), kind: 'user_pills', labels: platformLabels }]);
     setStep(1);
-
     await playTypingThen(800, async () => {
-      appendBlocks([
-        {
-          id: blockId('ai'),
-          kind: 'ai',
-          text: painDiscoveryMessage(platformLabels),
-        },
-      ]);
+      appendBlocks([{ id: blockId('ai'), kind: 'ai', text: painDiscoveryMessage(platformLabels) }]);
       await delay(400);
       setShowPainOptions(true);
       setBusy(false);
@@ -331,33 +388,17 @@ export default function ChatHero() {
     flowLock.current = true;
     setBusy(true);
     setShowPainOptions(false);
-
     const painLabel = CHAT_HERO_PAIN_POINTS.find((p) => p.id === selectedPain)?.label ?? '';
     trackChatHeroEvent('pain_point_selected', { pain_point: selectedPain });
-
     appendBlocks([{ id: blockId('user'), kind: 'user_pills', labels: [painLabel] }]);
-
     setStep(2);
-
     await playTypingThen(800, async () => {
-      appendBlocks([
-        {
-          id: blockId('ai'),
-          kind: 'ai',
-          text: demoMessageForPainPoint(selectedPain),
-        },
-      ]);
-
+      appendBlocks([{ id: blockId('ai'), kind: 'ai', text: demoMessageForPainPoint(selectedPain) }]);
       trackChatHeroEvent('demo_completed', { pain_point: selectedPain });
       await delay(400);
-
       await playTypingThen(800, async () => {
         appendBlocks([
-          {
-            id: blockId('ai'),
-            kind: 'ai',
-            text: 'Want to see this working on your actual accounts?',
-          },
+          { id: blockId('ai'), kind: 'ai', text: 'Want to see this working on your actual accounts?' },
         ]);
         setShowDemoCta(true);
         setBusy(false);
@@ -372,7 +413,6 @@ export default function ChatHero() {
     setShowDemoCta(false);
     trackChatHeroEvent('signup_clicked', { platforms: selectedPlatforms });
     setStep(3);
-
     await playTypingThen(800, async () => {
       appendBlocks([
         {
@@ -410,43 +450,22 @@ export default function ChatHero() {
   const handleFreeTextSubmit = useCallback(async () => {
     const trimmed = draftText.trim();
     if (!trimmed || busy || isTyping) return;
-
     if (step === 0 && /^(hi|hello|hey|yo)\b/i.test(trimmed)) {
       setDraftText('');
       return;
     }
-
     setDraftText('');
-
     const matchedPlatforms = matchPlatformsFromText(trimmed);
     const matchedPain = matchPainPointFromText(trimmed);
-
     if (showPlatformOptions && matchedPlatforms.length > 0) {
       setSelectedPlatforms((prev) => [...new Set([...prev, ...matchedPlatforms])]);
     }
-    if (showPlatformOptions) {
-      const lower = trimmed.toLowerCase();
-      if (/instagram|ig\b|insta/.test(lower) && /post|publish|reel/.test(lower)) {
-        setSelectedPlatforms((prev) => [...new Set([...prev, 'instagram' as ChatHeroPlatformId])]);
-      }
-      if (/tiktok|tik tok/.test(lower) && /post|publish|video|from here|can you|can i/.test(lower)) {
-        setSelectedPlatforms((prev) => [...new Set([...prev, 'tiktok' as ChatHeroPlatformId])]);
-      }
-    }
-    if (showPainOptions && matchedPain) {
-      setSelectedPain(matchedPain);
-    }
-
+    if (showPainOptions && matchedPain) setSelectedPain(matchedPain);
     const isPlatformOnly =
-      step === 0 &&
-      showPlatformOptions &&
-      matchedPlatforms.length > 0 &&
-      trimmed.split(/\s+/).length <= 3;
-
+      step === 0 && showPlatformOptions && matchedPlatforms.length > 0 && trimmed.split(/\s+/).length <= 3;
     if (!isPlatformOnly) {
       appendBlocks([{ id: blockId('user'), kind: 'user_pills', labels: [trimmed] }]);
     }
-
     setBusy(true);
     await playTypingThen(800, async () => {
       appendBlocks([
@@ -458,9 +477,7 @@ export default function ChatHero() {
             text: trimmed,
             matchedPlatforms,
             matchedPain,
-            selectedPlatformIds: [
-              ...new Set([...selectedPlatforms, ...matchedPlatforms]),
-            ],
+            selectedPlatformIds: [...new Set([...selectedPlatforms, ...matchedPlatforms])],
           }),
         },
       ]);
@@ -492,218 +509,185 @@ export default function ChatHero() {
   const canPainContinue = selectedPain !== null && !busy;
 
   return (
-    <section
-      ref={scrollRootRef}
-      className="chat-hero-scroll-root chat-hero relative"
-      style={{ minHeight: `${HERO_SCROLL_TOTAL_VH}vh` }}
-    >
-      <HeroScrollProgress segmentFloat={segmentFloat} />
+    <section className="chat-hero flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden bg-[#0A0A0F] pt-[calc(3px+3.5rem)] sm:pt-[calc(3px+4rem)]">
+      <div className="mx-auto flex min-h-0 w-full max-w-[1280px] flex-1 items-center gap-4 px-3 py-3 sm:px-4 lg:px-6">
+        <SideFeatureColumn
+          sceneIndices={LEFT_SCENE_INDICES}
+          startDelayMs={0}
+          className="hidden shrink-0 xl:block"
+        />
 
-      <div className="chat-hero-sticky-shell">
-        <ChatHeroDemoLoopProvider active={sideDemosReady}>
-          <div className="relative flex h-full w-full max-w-[1920px] mx-auto items-stretch">
-            <ChatHeroSideDemoColumn
-              side="left"
-              segmentFloat={segmentFloat}
-              visible={sideDemosReady}
-            />
+        <div className="chat-hero__main flex min-h-0 min-w-0 flex-1 flex-col">
+          <h1 className="sr-only">iZop, your personal AI social media manager</h1>
 
-            <div className="chat-hero__main flex flex-1 min-h-0 min-w-0 flex-col w-full px-0 md:px-3 xl:px-4 pt-2 sm:pt-2 pb-3 sm:pb-4">
-              <h1 className="sr-only">iZop, your personal AI social media manager</h1>
-
-              <div
-                ref={scrollRef}
-                className="flex flex-1 min-h-0 w-full flex-col overflow-y-auto pb-2 pt-2 sm:pt-3 px-2 md:px-0"
-              >
-                <div className="w-full space-y-3 shrink-0">
-                  {blocks.map((block) => {
-                    if (block.kind === 'ai') {
-                      if (block.isOpening) {
-                        return <OpeningMessage key={block.id} />;
-                      }
-                      return <AiMessage key={block.id} text={block.text} />;
-                    }
-                    return (
-                      <div key={block.id} className="flex flex-wrap justify-end gap-2 chat-hero-message-enter">
-                        {block.labels.map((label) => (
-                          <span key={label} className="chat-hero-user-pill">
-                            {label}
-                          </span>
-                        ))}
-                      </div>
-                    );
-                  })}
-
-                  {isTyping ? <TypingIndicator /> : null}
-                </div>
-
-                {showPlatformOptions ? (
-                  <div className="mt-4 w-full shrink-0">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3 w-full">
-                      {CHAT_HERO_PLATFORMS.map((platform) => {
-                        const Icon = PLATFORM_ICONS[platform.id];
-                        const selected = selectedPlatforms.includes(platform.id);
-                        return (
-                          <PlatformButton
-                            key={platform.id}
-                            label={platform.label}
-                            selected={selected}
-                            disabled={busy}
-                            icon={<Icon size={24} />}
-                            onClick={() => togglePlatform(platform.id)}
-                          />
-                        );
-                      })}
-                    </div>
-                    <SampleConversation />
-                  </div>
-                ) : null}
-
-                {showPainOptions ? (
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-2.5 w-full shrink-0">
-                    {CHAT_HERO_PAIN_POINTS.map((pain, i) => (
-                      <PainOptionButton
-                        key={pain.id}
-                        label={pain.label}
-                        selected={selectedPain === pain.id}
-                        disabled={busy}
-                        staggerIndex={i}
-                        onClick={() => setSelectedPain(pain.id)}
-                      />
+          <div
+            ref={scrollRef}
+            className="flex min-h-0 flex-1 flex-col overflow-y-auto px-1 sm:px-2"
+          >
+            <div className="w-full shrink-0 space-y-3">
+              {blocks.map((block) => {
+                if (block.kind === 'ai') {
+                  if (block.isOpening) return <OpeningMessage key={block.id} />;
+                  return <AiMessage key={block.id} text={block.text} />;
+                }
+                return (
+                  <div key={block.id} className="chat-hero-message-enter flex flex-wrap justify-end gap-2">
+                    {block.labels.map((label) => (
+                      <span key={label} className="chat-hero-user-pill">
+                        {label}
+                      </span>
                     ))}
                   </div>
-                ) : null}
-              </div>
-
-              <ChatHeroMobileDemoPanel segmentFloat={segmentFloat} visible={sideDemosReady} />
-
-              <div className="shrink-0 pt-3 pb-3 px-2 md:px-0">
-              <div className="space-y-3">
-                {showPlatformOptions && canPlatformContinue ? (
-                  <button
-                    type="button"
-                    onClick={() => void handlePlatformsContinue()}
-                    className="chat-hero-continue-btn chat-hero-continue-enter"
-                  >
-                    Continue →
-                  </button>
-                ) : null}
-
-                {showPainOptions && canPainContinue ? (
-                  <button
-                    type="button"
-                    onClick={() => void handlePainContinue()}
-                    className="chat-hero-continue-btn chat-hero-continue-enter"
-                  >
-                    Show me →
-                  </button>
-                ) : null}
-
-                {showDemoCta ? (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void handleStartForFree()}
-                    className="chat-hero-continue-btn chat-hero-continue-enter"
-                  >
-                    Start for free — no credit card →
-                  </button>
-                ) : null}
-
-                {showSignup ? (
-                  <div className="space-y-3 chat-hero-continue-enter">
-                    {authError ? <p className="text-sm text-red-600">{authError}</p> : null}
-                    <button
-                      type="button"
-                      disabled={authLoading}
-                      onClick={() => void handleGoogleSignup()}
-                      className="btn-google-lime w-full flex items-center justify-center gap-3 rounded-full px-7 py-3 text-[15px] font-semibold disabled:cursor-not-allowed"
-                    >
-                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                      </svg>
-                      {authLoading ? 'Redirecting…' : 'Continue with Google'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleEmailSignup}
-                      className="w-full rounded-full border border-[var(--chat-hero-border)] bg-[var(--chat-hero-bg)] px-7 py-3 text-[15px] font-medium text-[var(--chat-hero-muted)] hover:border-[#7C3AED] hover:text-[var(--chat-hero-text)] transition-all"
-                    >
-                      Continue with email
-                    </button>
-                    <p className="text-center text-xs text-[var(--chat-hero-muted)]">
-                      Free forever plan available · No credit card required
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="mt-3 flex w-full flex-col gap-2">
-                <form
-                  className="chat-hero-input-form flex w-full items-center gap-2"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void handleFreeTextSubmit();
-                  }}
-                >
-                  <input
-                    type="text"
-                    value={draftText}
-                    onChange={(e) => setDraftText(e.target.value)}
-                    placeholder={inputPlaceholder}
-                    disabled={busy || isTyping}
-                    className="flex-1 min-w-0 bg-transparent text-[15px] text-[var(--chat-hero-text)] placeholder:text-[var(--chat-hero-muted)] outline-none disabled:opacity-50"
-                    aria-label="Message iZop"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!draftText.trim() || busy || isTyping}
-                    className="chat-hero-send-btn flex h-9 w-9 shrink-0 items-center justify-center disabled:opacity-40 disabled:pointer-events-none"
-                    aria-label="Send message"
-                  >
-                    <ArrowUp className="h-4 w-4 text-white" />
-                  </button>
-                </form>
-
-                <div className="chat-hero-trust-signals">
-                  <span className="chat-hero-trust-item">
-                    <Check className="chat-hero-trust-check h-3.5 w-3.5" />
-                    No credit card required
-                  </span>
-                  <span className="chat-hero-trust-item">
-                    <Check className="chat-hero-trust-check h-3.5 w-3.5" />
-                    Free plan forever
-                  </span>
-                  <span className="chat-hero-trust-item">
-                    <Check className="chat-hero-trust-check h-3.5 w-3.5" />
-                    Cancel anytime
-                  </span>
-                </div>
-              </div>
+                );
+              })}
+              {isTyping ? <TypingIndicator /> : null}
             </div>
 
-            <div className="xl:hidden mt-1 px-2 pb-1 overflow-x-auto shrink-0">
-              <div className="flex gap-2 w-max min-w-full justify-start sm:justify-center">
-                {MOBILE_FEATURE_CHIPS.map((chip) => (
-                  <span key={chip.label} className="chat-hero-mobile-chip whitespace-nowrap">
-                    {chip.emoji} {chip.label}
-                  </span>
+            {showPlatformOptions ? (
+              <div className="mt-4 w-full shrink-0">
+                <div className="grid w-full grid-cols-2 gap-2.5 md:grid-cols-4 sm:gap-3">
+                  {CHAT_HERO_PLATFORMS.map((platform) => {
+                    const Icon = PLATFORM_ICONS[platform.id];
+                    const selected = selectedPlatforms.includes(platform.id);
+                    return (
+                      <PlatformButton
+                        key={platform.id}
+                        label={platform.label}
+                        selected={selected}
+                        disabled={busy}
+                        icon={<Icon size={24} />}
+                        onClick={() => togglePlatform(platform.id)}
+                      />
+                    );
+                  })}
+                </div>
+                <SampleConversation />
+              </div>
+            ) : null}
+
+            {showPainOptions ? (
+              <div className="mt-4 grid w-full shrink-0 grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-2.5 lg:grid-cols-3">
+                {CHAT_HERO_PAIN_POINTS.map((pain, i) => (
+                  <PainOptionButton
+                    key={pain.id}
+                    label={pain.label}
+                    selected={selectedPain === pain.id}
+                    disabled={busy}
+                    staggerIndex={i}
+                    onClick={() => setSelectedPain(pain.id)}
+                  />
                 ))}
               </div>
+            ) : null}
+          </div>
+
+          <div className="shrink-0 px-1 pb-2 pt-3 sm:px-2">
+            <div className="space-y-3">
+              {showPlatformOptions && canPlatformContinue ? (
+                <button
+                  type="button"
+                  onClick={() => void handlePlatformsContinue()}
+                  className="chat-hero-continue-btn chat-hero-continue-enter"
+                >
+                  Continue →
+                </button>
+              ) : null}
+              {showPainOptions && canPainContinue ? (
+                <button
+                  type="button"
+                  onClick={() => void handlePainContinue()}
+                  className="chat-hero-continue-btn chat-hero-continue-enter"
+                >
+                  Show me →
+                </button>
+              ) : null}
+              {showDemoCta ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void handleStartForFree()}
+                  className="chat-hero-continue-btn chat-hero-continue-enter"
+                >
+                  Start for free — no credit card →
+                </button>
+              ) : null}
+              {showSignup ? (
+                <div className="chat-hero-continue-enter space-y-3">
+                  {authError ? <p className="text-sm text-red-400">{authError}</p> : null}
+                  <button
+                    type="button"
+                    disabled={authLoading}
+                    onClick={() => void handleGoogleSignup()}
+                    className="btn-google-lime flex w-full items-center justify-center gap-3 rounded-full px-7 py-3 text-[15px] font-semibold disabled:cursor-not-allowed"
+                  >
+                    {authLoading ? 'Redirecting…' : 'Continue with Google'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleEmailSignup}
+                    className="w-full rounded-full border border-[#1E1E2A] bg-[#111118] px-7 py-3 text-[15px] font-medium text-[#888780] transition-all hover:border-[#7C3AED] hover:text-white"
+                  >
+                    Continue with email
+                  </button>
+                  <p className="text-center text-xs text-[#888780]">
+                    Free forever plan available · No credit card required
+                  </p>
+                </div>
+              ) : null}
+            </div>
+
+            <form
+              className="chat-hero-input-form mt-3 flex w-full items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void handleFreeTextSubmit();
+              }}
+            >
+              <input
+                type="text"
+                value={draftText}
+                onChange={(e) => setDraftText(e.target.value)}
+                placeholder={inputPlaceholder}
+                disabled={busy || isTyping}
+                className="min-w-0 flex-1 bg-transparent text-[15px] text-white outline-none placeholder:text-[#888780] disabled:opacity-50"
+                aria-label="Message iZop"
+              />
+              <button
+                type="submit"
+                disabled={!draftText.trim() || busy || isTyping}
+                className="chat-hero-send-btn flex h-9 w-9 shrink-0 items-center justify-center disabled:pointer-events-none disabled:opacity-40"
+                aria-label="Send message"
+              >
+                <ArrowUp className="h-4 w-4 text-white" />
+              </button>
+            </form>
+
+            <div className="chat-hero-trust-signals">
+              <span className="chat-hero-trust-item">
+                <Check className="chat-hero-trust-check h-3.5 w-3.5" />
+                No credit card required
+              </span>
+              <span className="chat-hero-trust-item">
+                <Check className="chat-hero-trust-check h-3.5 w-3.5" />
+                Free plan forever
+              </span>
+              <span className="chat-hero-trust-item">
+                <Check className="chat-hero-trust-check h-3.5 w-3.5" />
+                Cancel anytime
+              </span>
             </div>
           </div>
 
-            <ChatHeroSideDemoColumn
-              side="right"
-              segmentFloat={segmentFloat}
-              visible={sideDemosReady}
-            />
+          <div className="xl:hidden flex shrink-0 justify-center px-2 pb-2">
+            <SideFeatureColumn sceneIndices={LEFT_SCENE_INDICES} startDelayMs={RIGHT_COLUMN_DELAY_MS} />
           </div>
-          <HeroScrollHint visible={!hasScrolled} />
-        </ChatHeroDemoLoopProvider>
+        </div>
+
+        <SideFeatureColumn
+          sceneIndices={RIGHT_SCENE_INDICES}
+          startDelayMs={RIGHT_COLUMN_DELAY_MS}
+          className="hidden shrink-0 xl:block"
+        />
       </div>
     </section>
   );

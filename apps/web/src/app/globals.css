@@ -487,30 +487,7 @@
   color: #ffffff;
 }
 
-/* Landing chat hero — always dark */
-.chat-hero-scroll-root {
-  position: relative;
-  background: #0a0a0f;
-  color: #ffffff;
-}
-.chat-hero-sticky-shell {
-  position: sticky;
-  top: calc(3px + 3.5rem);
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  height: calc(100dvh - 3px - 3.5rem);
-  max-height: calc(100dvh - 3px - 3.5rem);
-  overflow: hidden;
-  background: #0a0a0f;
-}
-@media (min-width: 640px) {
-  .chat-hero-sticky-shell {
-    top: calc(3px + 4rem);
-    height: calc(100dvh - 3px - 4rem);
-    max-height: calc(100dvh - 3px - 4rem);
-  }
-}
+/* Landing chat hero — always dark, single viewport */
 .chat-hero {
   --chat-hero-bg: #0a0a0f;
   --chat-hero-text: #ffffff;
