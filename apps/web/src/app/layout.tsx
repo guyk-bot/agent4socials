@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Outfit } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
+import { satoshi } from "@/lib/fonts/satoshi";
 import { AuthProvider } from "@/context/AuthContext";
 import { AuthModalProvider } from "@/context/AuthModalContext";
 import { WhiteLabelProvider } from "@/context/WhiteLabelContext";
@@ -16,8 +16,7 @@ import { siteTabIcons } from "@/lib/site-tab-icons";
 import { SITE_LOGO_V } from "@/lib/site-brand-assets";
 import { resolveAppBaseUrl } from "@/lib/app-base-url";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
-const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit", display: "swap" });
+const siteUrl = resolveAppBaseUrl();
 
 function getMetadataBase(): URL {
   try {
@@ -26,8 +25,6 @@ function getMetadataBase(): URL {
     return new URL("https://www.izop.io");
   }
 }
-
-const siteUrl = resolveAppBaseUrl();
 
 // Organization JSON-LD so Google can show the correct logo in search results (favicon + optional Knowledge Panel).
 const organizationJsonLd = {
@@ -93,7 +90,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${outfit.variable}`} suppressHydrationWarning>
+    <html lang="en" className={satoshi.variable} suppressHydrationWarning>
       <body className="antialiased min-h-screen min-h-dvh">
         <script
           dangerouslySetInnerHTML={{
