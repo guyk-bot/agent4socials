@@ -160,7 +160,6 @@ function TypingIndicator() {
     );
   }
 
-  const { theme } = useTheme();
   const logoSrc = siteLogoSrcForTheme(theme);
 
   return (

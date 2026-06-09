@@ -21,7 +21,7 @@ export function FunnelDemoFrame({
       aria-hidden={!visible}
     >
       <div className="flex shrink-0 items-center border-b border-neutral-200 dark:border-neutral-800 bg-[var(--bg-surface)] px-3 py-2.5">
-        <span className="text-[11px] sm:text-xs font-semibold text-neutral-800 dark:text-neutral-100 leading-snug">
+        <span className="text-sm sm:text-base font-bold text-neutral-800 dark:text-neutral-100 leading-snug">
           {title}
         </span>
       </div>
@@ -35,14 +35,20 @@ export function FunnelDemoFrame({
 export function FunnelDemoUserBubble({
   children,
   show,
+  visual,
 }: {
   children: React.ReactNode;
   show: boolean;
+  visual?: boolean;
 }) {
   if (!show) return null;
   return (
     <div className="flex justify-end funnel-demo-message-in">
-      <div className="max-w-[92%] rounded-2xl rounded-br-md px-3 py-2 text-[11px] sm:text-[12px] leading-snug aysop-bubble-user whitespace-pre-wrap">
+      <div
+        className={`max-w-[92%] rounded-2xl rounded-br-md leading-snug aysop-bubble-user whitespace-pre-wrap ${
+          visual ? 'p-1.5 text-[10px] sm:text-[11px]' : 'px-3 py-2 text-[11px] sm:text-[12px]'
+        }`}
+      >
         {children}
       </div>
     </div>
@@ -52,14 +58,20 @@ export function FunnelDemoUserBubble({
 export function FunnelDemoAssistantBubble({
   children,
   show,
+  visual,
 }: {
   children: React.ReactNode;
   show: boolean;
+  visual?: boolean;
 }) {
   if (!show) return null;
   return (
     <div className="flex justify-start funnel-demo-message-in">
-      <div className="max-w-[96%] rounded-2xl rounded-bl-md px-3 py-2 text-[11px] sm:text-[12px] leading-snug aysop-bubble-assistant shadow-sm">
+      <div
+        className={`max-w-[96%] rounded-2xl rounded-bl-md leading-snug aysop-bubble-assistant shadow-sm ${
+          visual ? 'p-1.5 text-[10px] sm:text-[11px]' : 'px-3 py-2 text-[11px] sm:text-[12px]'
+        }`}
+      >
         {children}
       </div>
     </div>
