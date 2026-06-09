@@ -1,6 +1,8 @@
 import { MetadataRoute } from "next";
+import { resolveAppBaseUrl } from "@/lib/app-base-url";
+import { FUNNEL_FEATURE_PAGES } from "@/lib/funnel-feature-pages";
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://agent4socials.com";
+const baseUrl = resolveAppBaseUrl();
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const publicPaths: { path: string; changeFrequency: "weekly" | "monthly"; priority: number }[] = [
@@ -13,10 +15,20 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/signup", changeFrequency: "monthly", priority: 0.7 },
   ];
 
-  return publicPaths.map(({ path, changeFrequency, priority }) => ({
-    url: `${baseUrl}${path}`,
+  const featurePaths = FUNNEL_FEATURE_PAGES.map((page) => ({
+    url: `${baseUrl}/features/${page.slug}`,
     lastModified: new Date(),
-    changeFrequency,
-    priority,
+    changeFrequency: "monthly" as const,
+    priority: 0.75,
   }));
+
+  return [
+    ...publicPaths.map(({ path, changeFrequency, priority }) => ({
+      url: `${baseUrl}${path}`,
+      lastModified: new Date(),
+      changeFrequency,
+      priority,
+    })),
+    ...featurePaths,
+  ];
 }

@@ -1,37 +1,54 @@
 'use client';
 
 import React from 'react';
-import { BRAND_NAME, SITE_LOGO_DARK_SRC, SITE_LOGO_SRC } from '@/lib/site-brand-assets';
+import Link from 'next/link';
+import { siteLogoSrcForTheme } from '@/lib/site-brand-assets';
 import { useTheme } from '@/context/ThemeContext';
 
 export function FunnelDemoFrame({
   children,
   visible,
   entering,
+  title,
+  learnMoreHref,
+  showLearnMore,
 }: {
   children: React.ReactNode;
   visible: boolean;
   entering?: boolean;
+  title: string;
+  learnMoreHref: string;
+  showLearnMore?: boolean;
 }) {
   const { theme } = useTheme();
-  const logoSrc = theme === 'dark' ? SITE_LOGO_DARK_SRC : SITE_LOGO_SRC;
+  const logoSrc = siteLogoSrcForTheme(theme);
 
   if (!visible) return null;
 
   return (
     <div
-      className={`funnel-demo-card w-[300px] 2xl:w-[320px] rounded-xl border border-neutral-200 dark:border-neutral-800 bg-[var(--bg-primary)] shadow-lg ${
+      className={`funnel-demo-card pointer-events-auto w-[372px] 2xl:w-[412px] rounded-xl border border-neutral-200 dark:border-neutral-800 bg-[var(--bg-primary)] shadow-lg ${
         entering ? 'funnel-demo-card-enter' : ''
       }`}
     >
-      <div className="flex items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 bg-[var(--bg-surface)] px-3 py-2">
+      <div className="flex items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 bg-[var(--bg-surface)] px-3 py-2.5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={logoSrc} alt="" className="h-5 w-5 shrink-0 object-contain" />
-        <span className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-100 truncate">
-          {BRAND_NAME} AI
+        <span className="text-[11px] sm:text-xs font-semibold text-neutral-800 dark:text-neutral-100 leading-snug">
+          {title}
         </span>
       </div>
       <div className="px-2.5 py-2.5 space-y-2 bg-[var(--bg-primary)]">{children}</div>
+      {showLearnMore ? (
+        <div className="border-t border-neutral-200 dark:border-neutral-800 px-3 py-2.5 bg-[var(--bg-surface)]">
+          <Link
+            href={learnMoreHref}
+            className="text-[11px] sm:text-xs font-medium text-[#7C3AED] hover:text-[#6D28D9] dark:text-violet-300 dark:hover:text-violet-200 transition-colors"
+          >
+            Learn more...
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -46,7 +63,7 @@ export function FunnelDemoUserBubble({
   if (!show) return null;
   return (
     <div className="flex justify-end funnel-demo-message-in">
-      <div className="max-w-[92%] rounded-2xl rounded-br-md px-3 py-2 text-[11px] leading-snug aysop-bubble-user whitespace-pre-wrap">
+      <div className="max-w-[92%] rounded-2xl rounded-br-md px-3 py-2 text-[11px] sm:text-[12px] leading-snug aysop-bubble-user whitespace-pre-wrap">
         {children}
       </div>
     </div>
@@ -63,7 +80,7 @@ export function FunnelDemoAssistantBubble({
   if (!show) return null;
   return (
     <div className="flex justify-start funnel-demo-message-in">
-      <div className="max-w-[96%] rounded-2xl rounded-bl-md px-3 py-2 text-[11px] leading-snug aysop-bubble-assistant shadow-sm">
+      <div className="max-w-[96%] rounded-2xl rounded-bl-md px-3 py-2 text-[11px] sm:text-[12px] leading-snug aysop-bubble-assistant shadow-sm">
         {children}
       </div>
     </div>

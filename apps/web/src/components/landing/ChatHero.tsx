@@ -14,7 +14,7 @@ import {
   XTwitterIcon,
   YoutubeIcon,
 } from '@/components/SocialPlatformIcons';
-import { SITE_LOGO_SRC, SITE_LOGO_DARK_SRC } from '@/lib/site-brand-assets';
+import { SITE_LOGO_SRC, siteLogoSrcForTheme } from '@/lib/site-brand-assets';
 import { useTheme } from '@/context/ThemeContext';
 import { ZThinkingLoopAnimation } from '@/components/ZThinkingLoopAnimation';
 import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
@@ -175,7 +175,7 @@ function AiMessage({
   onTypewriterComplete?: () => void;
 }) {
   const { theme } = useTheme();
-  const logoSrc = theme === 'dark' ? SITE_LOGO_DARK_SRC : SITE_LOGO_SRC;
+  const logoSrc = siteLogoSrcForTheme(theme);
 
   return (
     <div className="flex items-start gap-3 chat-hero-message-enter">
@@ -530,13 +530,13 @@ export default function ChatHero() {
     <section className="chat-hero relative flex h-[calc(100dvh-0.5rem)] max-h-[calc(100dvh-0.5rem)] flex-col overflow-hidden pt-14 sm:pt-16">
       <ChatHeroDemoLoopProvider>
       <div
-        className={`flex flex-1 min-h-0 w-full max-w-[1680px] mx-auto transition-opacity duration-500 ${
+        className={`flex flex-1 min-h-0 w-full max-w-[1920px] mx-auto transition-opacity duration-500 ${
           heroReady ? 'opacity-100' : 'opacity-0'
         }`}
       >
         <ChatHeroSideDemoColumn side="left" />
         <div
-          className={`flex flex-1 min-h-0 flex-col w-full max-w-3xl xl:max-w-2xl 2xl:max-w-3xl mx-auto px-4 sm:px-6 lg:px-4 pt-2 sm:pt-2 pb-3 sm:pb-4 transition-all duration-400 ${
+          className={`flex flex-1 min-h-0 flex-col w-full max-w-xl xl:max-w-md 2xl:max-w-lg mx-auto px-3 sm:px-4 lg:px-3 pt-2 sm:pt-2 pb-3 sm:pb-4 transition-all duration-400 ${
             chatReady ? 'opacity-100' : 'opacity-0 translate-y-1'
           }`}
         >

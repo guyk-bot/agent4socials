@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { FUNNEL_DEMO_META } from '@/lib/funnel-feature-pages';
 import { FunnelDemoFrame } from './FunnelDemoFrame';
 import { FUNNEL_DEMO_SCENE_COMPONENTS } from './FunnelDemoScenes';
 
@@ -66,8 +67,16 @@ function DemoSlot({
   const Scene = FUNNEL_DEMO_SCENE_COMPONENTS[index];
   const visible = phase !== 'hidden';
 
+  const meta = FUNNEL_DEMO_META[index];
+
   return (
-    <FunnelDemoFrame visible={visible} entering={justEntered && phase === 'playing'}>
+    <FunnelDemoFrame
+      visible={visible}
+      entering={justEntered && phase === 'playing'}
+      title={meta.title}
+      learnMoreHref={meta.href}
+      showLearnMore={phase === 'frozen'}
+    >
       <Scene progress={progress} />
     </FunnelDemoFrame>
   );
@@ -130,10 +139,9 @@ export function ChatHeroSideDemoColumn({ side }: { side: 'left' | 'right' }) {
 
   return (
     <div
-      className={`hidden xl:flex w-[308px] 2xl:w-[328px] shrink-0 flex-col justify-between gap-4 py-4 pointer-events-none select-none ${
-        side === 'left' ? 'pl-0.5' : 'pr-0.5'
+      className={`hidden xl:flex w-[380px] 2xl:w-[420px] shrink-0 flex-col justify-between gap-3 py-3 ${
+        side === 'left' ? 'pl-0' : 'pr-0'
       }`}
-      aria-hidden
     >
       {indices.map((index) => {
         const row = SLOT_ROW[index];
