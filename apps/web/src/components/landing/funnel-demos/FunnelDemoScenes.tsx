@@ -1,22 +1,12 @@
 'use client';
 
 import React from 'react';
-import { CheckCircle2 } from 'lucide-react';
-import {
-  FacebookIcon,
-  InstagramIcon,
-  LinkedinIcon,
-  PinterestIcon,
-  ThreadsIcon,
-  TikTokIcon,
-  XTwitterIcon,
-  YoutubeIcon,
-} from '@/components/SocialPlatformIcons';
 import {
   FunnelDemoAssistantBubble,
   FunnelDemoUserBubble,
-  typewriterSlice,
 } from './FunnelDemoFrame';
+import { PlatformPostPreviewGrid } from '@/components/shared/PlatformPostPreviewSquare';
+import { FunnelDemoAllowBar, FunnelDemoScheduledChip } from './FunnelDemoShared';
 import {
   FUNNEL_DEMO_BRAINSTORM_WINNER_SRC,
   FUNNEL_DEMO_POST_VIDEO_SRC,
@@ -25,200 +15,223 @@ import {
   AdsPerformanceChart,
   AnalyticsChart,
   AnalyticsReportPreview,
-  ChatDragDropImage,
+  ChatAttachmentImage,
   CommentRow,
   LeadsSpreadsheet,
   TeamMembersPanel,
   YouTubeVideoPreview,
 } from './FunnelDemoVisuals';
 
-const USER_SCHEDULE = 'Post this post at 9:30 on all platforms';
-const USER_REPLY =
-  'Reply to every comment on my last post. Use my brand voice and answer product questions.';
-const USER_ANALYTICS = 'Show my weekly analytics: views, engagement, and followers';
-const USER_LEADS = 'Send me a spreadsheet of leads from comments with AI DM suggestions';
-const USER_BRAINSTORM = 'Brainstorm new ideas based on my best YouTube video';
-const USER_ADS = 'Compare Google, Meta, and TikTok ad ROAS side by side';
-const USER_TEAM = 'Invite my editor and show me who has been active on the account this week';
-const USER_REPORTS = 'Export an analytic report for all platforms as a PDF';
+const USER_SCHEDULE = 'Post this on Instagram, X, Facebook at 9:30.';
+const USER_REPLY = 'Reply to comments on my last post in my brand voice.';
+const USER_ANALYTICS = 'Show my weekly analytics: views, engagement, and followers.';
+const USER_LEADS = 'Send me a spreadsheet of leads from comments with AI DM suggestions.';
+const USER_BRAINSTORM = 'Brainstorm new ideas based on my best YouTube video.';
+const USER_ADS = 'Compare Google, Meta, and TikTok ad ROAS side by side.';
+const USER_TEAM = 'Invite my editor and show who has been active on the account this week.';
+const USER_REPORTS = 'Export an analytic report for all platforms as a PDF.';
 
-const PLATFORM_ICONS = [
-  InstagramIcon,
-  TikTokIcon,
-  YoutubeIcon,
-  FacebookIcon,
-  XTwitterIcon,
-  LinkedinIcon,
-  ThreadsIcon,
-  PinterestIcon,
+const SCHEDULE_PREVIEWS = [
+  {
+    platformLabel: 'Instagram',
+    accentClass: 'bg-gradient-to-r from-[#E1306C] to-[#FCAF45]',
+    caption: 'Morning savings tip: 3 hooks that 10X my savings. Which one would you try first?',
+    imageSrc: FUNNEL_DEMO_POST_VIDEO_SRC,
+    imageAlt: 'Instagram post preview',
+  },
+  {
+    platformLabel: 'X',
+    accentClass: 'bg-neutral-900',
+    caption: '3 hooks that 10X my savings. Thread-worthy tip inside.',
+    imageSrc: FUNNEL_DEMO_POST_VIDEO_SRC,
+    imageAlt: 'X post preview',
+  },
+  {
+    platformLabel: 'Facebook',
+    accentClass: 'bg-[#1877F2]',
+    caption: 'Quick savings win: 3 hooks that helped me 10X what I put away this month.',
+    imageSrc: FUNNEL_DEMO_POST_VIDEO_SRC,
+    imageAlt: 'Facebook post preview',
+  },
 ];
 
-function TypeCursor({ active }: { active: boolean }) {
-  if (!active) return null;
-  return <span className="inline-block w-px h-3.5 ml-0.5 bg-white/70 animate-pulse align-middle" />;
+const COMMENT_DRAFTS = [
+  {
+    name: 'Maya Rodriguez',
+    avatar: 'MR',
+    colorClass: 'bg-violet-500',
+    text: 'Love this! Exactly what I needed.',
+    replyText: 'Thank you, Maya! So glad it helped. Let me know if you want the full checklist.',
+  },
+  {
+    name: 'James Okonkwo',
+    avatar: 'JO',
+    colorClass: 'bg-emerald-500',
+    text: 'Does this work for small teams too?',
+    replyText: 'Yes, James. Most teams start with one hook and scale from there.',
+  },
+  {
+    name: 'Alex Kim',
+    avatar: 'AK',
+    colorClass: 'bg-sky-500',
+    text: 'Where can I buy this? Ship to Canada?',
+    replyText: 'Yes! Link in bio ships worldwide, including Canada.',
+  },
+  {
+    name: 'Priya Sharma',
+    avatar: 'PS',
+    colorClass: 'bg-amber-500',
+    text: 'Can you share the template?',
+    replyText: 'Absolutely. I will DM you the template right after this goes live.',
+  },
+];
+
+function DemoSceneScroll({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="funnel-demo-scene-scroll flex min-h-0 flex-col gap-2 overflow-y-auto overscroll-contain pr-0.5">
+      {children}
+    </div>
+  );
 }
 
 export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
-  const userText = typewriterSlice(USER_SCHEDULE, progress, 0.48, 0.82);
-  const showUser = progress > 0.06;
-  const showAssistant = progress > 0.88;
+  if (progress < 1) return null;
 
   return (
-    <>
-      {showUser ? (
-        <div className="flex w-full flex-col items-end gap-1.5">
-          <ChatDragDropImage progress={progress} src={FUNNEL_DEMO_POST_VIDEO_SRC} alt="Post media" />
-          {(progress >= 0.48 || userText.length > 0) && (
-            <FunnelDemoUserBubble show visual={false}>
-              {userText}
-              <TypeCursor active={progress > 0.48 && progress < 0.82} />
-            </FunnelDemoUserBubble>
-          )}
-        </div>
-      ) : null}
-      <FunnelDemoAssistantBubble show={showAssistant} visual>
-        <div className="grid grid-cols-4 gap-1.5">
-          {PLATFORM_ICONS.map((Icon, i) => (
-            <span
-              key={i}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
-            >
-              <Icon size={15} />
-            </span>
-          ))}
-        </div>
-        <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-emerald-600 dark:text-emerald-400">
-          <CheckCircle2 size={13} /> Scheduled for 9:30 AM across 8 platforms
+    <DemoSceneScroll>
+      <div className="flex w-full flex-col items-end gap-1.5">
+        <ChatAttachmentImage src={FUNNEL_DEMO_POST_VIDEO_SRC} alt="Post media" />
+        <FunnelDemoUserBubble show visual={false}>
+          {USER_SCHEDULE}
+        </FunnelDemoUserBubble>
+      </div>
+      <FunnelDemoAssistantBubble show visual wide contained>
+        <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
+          I drafted platform-specific previews for 9:30 AM:
         </p>
+        <PlatformPostPreviewGrid previews={SCHEDULE_PREVIEWS} />
+        <div className="mt-2 space-y-1">
+          <p className="text-[10px] text-neutral-700 dark:text-neutral-300 leading-snug">
+            Caption added for each platform with your brand voice and a clear CTA.
+          </p>
+          <FunnelDemoScheduledChip
+            timeLabel="9:30 AM"
+            platforms="Instagram, X, and Facebook"
+          />
+        </div>
+        <FunnelDemoAllowBar message="Post scheduled to go live at 9:30 AM. Allow me to confirm?" />
       </FunnelDemoAssistantBubble>
-    </>
+    </DemoSceneScroll>
   );
 }
 
 export function FunnelDemoSceneComments({ progress }: { progress: number }) {
-  const userText = typewriterSlice(USER_REPLY, progress, 0.08, 0.38);
-  const showAssistant = progress > 0.44;
+  if (progress < 1) return null;
 
   return (
-    <>
-      <FunnelDemoUserBubble show={progress > 0.06}>
-        {userText}
-        <TypeCursor active={progress > 0.08 && progress < 0.38} />
-      </FunnelDemoUserBubble>
-      <FunnelDemoAssistantBubble show={showAssistant} visual wide>
+    <DemoSceneScroll>
+      <FunnelDemoUserBubble show>{USER_REPLY}</FunnelDemoUserBubble>
+      <FunnelDemoAssistantBubble show visual wide contained>
         <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
-          Summer launch Reel · 847 comments
+          You got 12 comments on your Summer launch Reel. Here are draft replies:
         </p>
         <ul className="space-y-1">
-          <CommentRow
-            show={progress > 0.2 || progress >= 1}
-            name="Maya Rodriguez"
-            avatar="MR"
-            colorClass="bg-violet-500"
-            text="Love this! Exactly what I needed."
-            replied={progress > 0.34 || progress >= 1}
-            replyText="Thank you, Maya! So glad it helped."
-          />
-          <CommentRow
-            show={progress > 0.38 || progress >= 1}
-            name="James Okonkwo"
-            avatar="JO"
-            colorClass="bg-emerald-500"
-            text="We crushed it, huge win for the team!"
-            highlight
-            replied={progress > 0.52 || progress >= 1}
-            replyText="Love that energy, James! Check your DMs."
-          />
-          <CommentRow
-            show={progress > 0.56 || progress >= 1}
-            name="Alex Kim"
-            avatar="AK"
-            colorClass="bg-sky-500"
-            text="Where can I buy this? Ship to Canada?"
-            replied={progress > 0.7 || progress >= 1}
-            replyText="Yes! Link in bio ships worldwide."
-          />
+          {COMMENT_DRAFTS.map((row) => (
+            <CommentRow
+              key={row.name}
+              show
+              name={row.name}
+              avatar={row.avatar}
+              colorClass={row.colorClass}
+              text={row.text}
+              replied
+              replyText={row.replyText}
+              draft
+            />
+          ))}
         </ul>
-        {(progress > 0.82 || progress >= 1) && (
-          <p className="mt-1.5 text-[10px] font-semibold text-[var(--primary)]">
-            847 personalized replies sent in 4 min
-          </p>
-        )}
+        <p className="mt-1.5 text-[9px] text-neutral-500 dark:text-neutral-400">
+          + 8 more replies ready in the same voice.
+        </p>
+        <FunnelDemoAllowBar message="Would you like me to send these 12 replies?" />
       </FunnelDemoAssistantBubble>
-    </>
+    </DemoSceneScroll>
   );
 }
 
 export function FunnelDemoSceneAnalytics({ progress }: { progress: number }) {
-  const userText = typewriterSlice(USER_ANALYTICS, progress, 0.1, 0.36);
-  const showAssistant = progress > 0.42;
+  if (progress < 1) return null;
 
   return (
-    <>
-      <FunnelDemoUserBubble show={progress > 0.08}>
-        {userText}
-        <TypeCursor active={progress > 0.1 && progress < 0.36} />
-      </FunnelDemoUserBubble>
-      <FunnelDemoAssistantBubble show={showAssistant} visual wide>
-        <AnalyticsChart show={showAssistant} />
+    <DemoSceneScroll>
+      <FunnelDemoUserBubble show>{USER_ANALYTICS}</FunnelDemoUserBubble>
+      <FunnelDemoAssistantBubble show visual wide contained>
+        <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
+          Last 7 days across connected accounts:
+        </p>
+        <AnalyticsChart show />
+        <p className="mt-2 text-[10px] text-neutral-700 dark:text-neutral-300 leading-snug">
+          Views up 18%, engagement up 12%, followers net +136. Instagram Reels drove most of the lift.
+        </p>
+        <FunnelDemoAllowBar
+          message="Want me to pin this report to your Console and email a PDF every Monday?"
+          approvedLabel="Weekly report enabled"
+        />
       </FunnelDemoAssistantBubble>
-    </>
+    </DemoSceneScroll>
   );
 }
 
 export function FunnelDemoSceneLeads({ progress }: { progress: number }) {
-  const userText = typewriterSlice(USER_LEADS, progress, 0.1, 0.34);
-  const showAssistant = progress > 0.4;
+  if (progress < 1) return null;
 
   return (
-    <>
-      <FunnelDemoUserBubble show={progress > 0.08}>
-        {userText}
-        <TypeCursor active={progress > 0.1 && progress < 0.34} />
-      </FunnelDemoUserBubble>
-      <FunnelDemoAssistantBubble show={showAssistant} visual wide>
-        <LeadsSpreadsheet show={showAssistant} progress={progress} />
+    <DemoSceneScroll>
+      <FunnelDemoUserBubble show>{USER_LEADS}</FunnelDemoUserBubble>
+      <FunnelDemoAssistantBubble show visual wide contained>
+        <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
+          I found 9 high-intent leads from recent comments:
+        </p>
+        <LeadsSpreadsheet show progress={1} />
+        <FunnelDemoAllowBar message="Should I export this spreadsheet and queue personalized DMs for each lead?" />
       </FunnelDemoAssistantBubble>
-    </>
+    </DemoSceneScroll>
   );
 }
 
 export function FunnelDemoSceneTikTokIdeas({ progress }: { progress: number }) {
-  const userText = typewriterSlice(USER_BRAINSTORM, progress, 0.08, 0.32);
-  const showAssistant = progress > 0.38;
+  if (progress < 1) return null;
 
   return (
-    <>
-      <FunnelDemoUserBubble show={progress > 0.06}>
-        {userText}
-        <TypeCursor active={progress > 0.08 && progress < 0.32} />
-      </FunnelDemoUserBubble>
-      <FunnelDemoAssistantBubble show={showAssistant} visual wide>
+    <DemoSceneScroll>
+      <FunnelDemoUserBubble show>{USER_BRAINSTORM}</FunnelDemoUserBubble>
+      <FunnelDemoAssistantBubble show visual wide contained>
         <YouTubeVideoPreview
           src={FUNNEL_DEMO_BRAINSTORM_WINNER_SRC}
           alt="Top performing YouTube video"
           title="3 Hooks that 10X my savings"
         />
-        {(progress > 0.7 || progress >= 1) && (
-          <p className="mt-2 text-[11px] text-neutral-700 dark:text-neutral-300 leading-snug">
-            Your best format: bold hook on screen + quick tip in the first 3 seconds. I can draft 3 scripts in your voice.
-          </p>
-        )}
+        <p className="mt-2 text-[11px] text-neutral-700 dark:text-neutral-300 leading-snug">
+          Your best format: bold hook on screen + quick tip in the first 3 seconds. I drafted 3 TikTok scripts in your voice.
+        </p>
+        <ol className="mt-1.5 space-y-1 text-[10px] text-neutral-700 dark:text-neutral-300">
+          <li>1. POV: You find $200/month without cutting coffee.</li>
+          <li>2. Stop doing this with your savings account.</li>
+          <li>3. The 30-second rule that fixed my budget.</li>
+        </ol>
+        <FunnelDemoAllowBar message="Want me to open these as Composer drafts for TikTok and Instagram Reels?" />
       </FunnelDemoAssistantBubble>
-    </>
+    </DemoSceneScroll>
   );
 }
 
 export function FunnelDemoSceneAdsRoas({ progress }: { progress: number }) {
-  const showAssistant = progress > 0.2;
+  if (progress < 1) return null;
 
   return (
-    <>
-      <FunnelDemoUserBubble show={progress > 0.06}>
-        {typewriterSlice(USER_ADS, progress, 0.06, 0.28)}
-        <TypeCursor active={progress > 0.06 && progress < 0.28} />
-      </FunnelDemoUserBubble>
-      <FunnelDemoAssistantBubble show={showAssistant} visual wide>
+    <DemoSceneScroll>
+      <FunnelDemoUserBubble show>{USER_ADS}</FunnelDemoUserBubble>
+      <FunnelDemoAssistantBubble show visual wide contained>
         <div className="flex flex-col gap-2 min-h-0">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[12px] font-bold text-neutral-900 dark:text-neutral-100">Paid ads ROAS</p>
@@ -226,79 +239,42 @@ export function FunnelDemoSceneAdsRoas({ progress }: { progress: number }) {
               Coming soon
             </span>
           </div>
-          <AdsPerformanceChart show={showAssistant} />
-          <table className="w-full text-[10px]">
-            <thead>
-              <tr className="text-neutral-500 border-b border-neutral-200 dark:border-neutral-700">
-                <th className="text-left py-1 font-semibold">Platform</th>
-                <th className="text-right py-1 font-semibold">Spend</th>
-                <th className="text-right py-1 font-semibold">ROAS</th>
-                <th className="text-right py-1 font-semibold">CPA</th>
-              </tr>
-            </thead>
-            <tbody className="text-neutral-800 dark:text-neutral-200">
-              {[
-                { name: 'Google', spend: '$2,437', roas: '3.84×', cpa: '$12.40', hot: true },
-                { name: 'Meta', spend: '$5,084', roas: '2.91×', cpa: '$18.20', hot: false },
-                { name: 'TikTok', spend: '$1,792', roas: '4.17×', cpa: '$9.85', hot: true },
-              ].map((row, i) => (
-                <tr
-                  key={row.name}
-                  className={`border-b border-neutral-100 dark:border-neutral-800 last:border-0 ${
-                    progress > 0.35 + i * 0.12 || progress >= 1 ? 'opacity-100' : 'opacity-30'
-                  }`}
-                >
-                  <td className="py-1 font-medium">{row.name}</td>
-                  <td className="text-right py-1 tabular-nums">{row.spend}</td>
-                  <td
-                    className={`text-right py-1 font-bold tabular-nums ${
-                      row.hot ? 'text-emerald-600 dark:text-emerald-400' : ''
-                    }`}
-                  >
-                    {row.roas}
-                  </td>
-                  <td className="text-right py-1 tabular-nums text-neutral-600 dark:text-neutral-400">{row.cpa}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <AdsPerformanceChart show />
+          <p className="text-[10px] text-neutral-700 dark:text-neutral-300 leading-snug">
+            TikTok leads on ROAS (4.17x) with the lowest CPA. Meta spend is highest but still profitable at 2.91x.
+          </p>
+          <FunnelDemoAllowBar message="Want a weekly ROAS snapshot emailed when cross-platform ads tracking launches?" />
         </div>
       </FunnelDemoAssistantBubble>
-    </>
+    </DemoSceneScroll>
   );
 }
 
 export function FunnelDemoSceneTeamMembers({ progress }: { progress: number }) {
-  const userText = typewriterSlice(USER_TEAM, progress, 0.08, 0.36);
-  const showAssistant = progress > 0.42;
+  if (progress < 1) return null;
 
   return (
-    <>
-      <FunnelDemoUserBubble show={progress > 0.06}>
-        {userText}
-        <TypeCursor active={progress > 0.08 && progress < 0.36} />
-      </FunnelDemoUserBubble>
-      <FunnelDemoAssistantBubble show={showAssistant} visual wide>
-        <TeamMembersPanel show={showAssistant} progress={progress} />
+    <DemoSceneScroll>
+      <FunnelDemoUserBubble show>{USER_TEAM}</FunnelDemoUserBubble>
+      <FunnelDemoAssistantBubble show visual wide contained>
+        <TeamMembersPanel show progress={1} />
+        <FunnelDemoAllowBar message="Should I send an invite to your editor and share this activity summary?" />
       </FunnelDemoAssistantBubble>
-    </>
+    </DemoSceneScroll>
   );
 }
 
 export function FunnelDemoSceneReports({ progress }: { progress: number }) {
-  const userText = typewriterSlice(USER_REPORTS, progress, 0.08, 0.34);
-  const showAssistant = progress > 0.4;
+  if (progress < 1) return null;
 
   return (
-    <>
-      <FunnelDemoUserBubble show={progress > 0.06}>
-        {userText}
-        <TypeCursor active={progress > 0.08 && progress < 0.34} />
-      </FunnelDemoUserBubble>
-      <FunnelDemoAssistantBubble show={showAssistant} visual wide>
-        <AnalyticsReportPreview show={showAssistant} progress={progress} />
+    <DemoSceneScroll>
+      <FunnelDemoUserBubble show>{USER_REPORTS}</FunnelDemoUserBubble>
+      <FunnelDemoAssistantBubble show visual wide contained>
+        <AnalyticsReportPreview show progress={1} />
+        <FunnelDemoAllowBar message="Allow me to generate and download the full PDF report now?" />
       </FunnelDemoAssistantBubble>
-    </>
+    </DemoSceneScroll>
   );
 }
 

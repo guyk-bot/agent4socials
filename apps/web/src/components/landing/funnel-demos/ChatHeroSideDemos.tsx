@@ -1,17 +1,17 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FUNNEL_DEMO_TITLES } from './funnel-demo-meta';
 import { FunnelDemoFrame } from './FunnelDemoFrame';
 import { FUNNEL_DEMO_SCENE_COMPONENTS } from './FunnelDemoScenes';
 
-/** Time each side demo stays visible before scrolling to the next. */
+/** Time each side demo stays visible before advancing the carousel. */
 export const FUNNEL_DEMO_MS = 5000;
 
 const LEFT_DEMO_INDICES = [0, 2, 4, 6] as const;
 const RIGHT_DEMO_INDICES = [1, 3, 5, 7] as const;
 
-const SLOT_GAP_PX = 12;
+const SLIDE_MS = 700;
 
 function StaticDemoCard({ sceneIndex }: { sceneIndex: number }) {
   const Scene = FUNNEL_DEMO_SCENE_COMPONENTS[sceneIndex];
@@ -24,67 +24,64 @@ function StaticDemoCard({ sceneIndex }: { sceneIndex: number }) {
   );
 }
 
-function SideDemoScrollColumn({ side }: { side: 'left' | 'right' }) {
+function slideClasses(side: 'left' | 'right', role: 'active' | 'exit' | 'hidden'): string {
+  const base = 'funnel-demo-carousel-slide absolute inset-x-0 top-0 bottom-0';
+  if (role === 'active') return `${base} translate-x-0 opacity-100 z-20`;
+  if (role === 'exit') {
+    return side === 'left'
+      ? `${base} translate-x-full opacity-0 z-10 pointer-events-none`
+      : `${base} -translate-x-full opacity-0 z-10 pointer-events-none`;
+  }
+  return side === 'left'
+    ? `${base} -translate-x-full opacity-0 z-0 pointer-events-none`
+    : `${base} translate-x-full opacity-0 z-0 pointer-events-none`;
+}
+
+function SideDemoCarouselColumn({ side }: { side: 'left' | 'right' }) {
   const indices = side === 'left' ? LEFT_DEMO_INDICES : RIGHT_DEMO_INDICES;
-  const scrollRef = useRef<HTMLDivElement>(null);
   const [activeSlot, setActiveSlot] = useState(0);
-  const [slotHeight, setSlotHeight] = useState(320);
+  const [prevSlot, setPrevSlot] = useState<number | null>(null);
+  const [paused, setPaused] = useState(false);
 
   useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-
-    const measure = () => {
-      setSlotHeight(Math.max(280, el.clientHeight));
-    };
-
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  useEffect(() => {
+    if (paused) return;
     const id = window.setInterval(() => {
-      setActiveSlot((s) => (s + 1) % indices.length);
+      setActiveSlot((current) => {
+        setPrevSlot(current);
+        return (current + 1) % indices.length;
+      });
     }, FUNNEL_DEMO_MS);
-
     return () => window.clearInterval(id);
-  }, [indices.length]);
+  }, [paused, indices.length]);
 
   useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const top = activeSlot * (slotHeight + SLOT_GAP_PX);
-    el.scrollTo({ top, behavior: 'smooth' });
-  }, [activeSlot, slotHeight]);
+    if (prevSlot === null) return;
+    const id = window.setTimeout(() => setPrevSlot(null), SLIDE_MS);
+    return () => window.clearTimeout(id);
+  }, [prevSlot, activeSlot]);
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col py-3">
-      <div
-        ref={scrollRef}
-        className={`funnel-demo-column-scroll relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y scroll-smooth ${
-          side === 'left' ? 'pr-1' : 'pl-1'
-        }`}
-        style={{ scrollSnapType: 'y mandatory' }}
-      >
-        <div className="flex flex-col" style={{ gap: SLOT_GAP_PX }}>
-          {indices.map((sceneIndex) => (
-            <div
-              key={sceneIndex}
-              className="shrink-0"
-              style={{ height: slotHeight, scrollSnapAlign: 'start' }}
-            >
+    <div
+      className="relative flex h-full min-h-0 w-full flex-col py-3"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+    >
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        {indices.map((sceneIndex, i) => {
+          const isActive = i === activeSlot;
+          const isExit = prevSlot !== null && i === prevSlot && !isActive;
+          const role = isActive ? 'active' : isExit ? 'exit' : 'hidden';
+          return (
+            <div key={sceneIndex} className={slideClasses(side, role)} aria-hidden={!isActive && !isExit}>
               <StaticDemoCard sceneIndex={sceneIndex} />
             </div>
-          ))}
-        </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-/** Side columns manage their own 5s scroll; provider is a passthrough. */
 export function ChatHeroDemoLoopProvider({
   children,
 }: {
@@ -109,7 +106,7 @@ export function ChatHeroSideDemoColumn({
 
   return (
     <div className="hidden xl:flex h-full min-h-0 w-[400px] shrink-0 flex-col 2xl:w-[440px]">
-      <SideDemoScrollColumn side={side} />
+      <SideDemoCarouselColumn side={side} />
     </div>
   );
 }

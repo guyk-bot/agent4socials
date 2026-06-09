@@ -473,6 +473,7 @@ export function CommentRow({
   replied,
   replyText,
   show,
+  draft,
 }: {
   name: string;
   avatar: string;
@@ -482,6 +483,8 @@ export function CommentRow({
   replied?: boolean;
   replyText?: string;
   show: boolean;
+  /** Draft reply pending approval (no "Reply sent" badge). */
+  draft?: boolean;
 }) {
   if (!show) return null;
   return (
@@ -497,12 +500,12 @@ export function CommentRow({
         <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 truncate">{name}</p>
         <p className="text-[10px] text-neutral-600 dark:text-neutral-400 leading-snug line-clamp-2">{text}</p>
         {replied && replyText ? (
-          <p className="mt-1 rounded-md border border-emerald-200/80 bg-emerald-50/80 dark:bg-emerald-950/30 dark:border-emerald-800/50 px-1.5 py-0.5 text-[9px] text-emerald-800 dark:text-emerald-200 leading-snug line-clamp-2">
-            <span className="font-semibold">AI reply: </span>
+          <p className="mt-1 rounded-md border border-violet-200/80 bg-violet-50/80 dark:bg-violet-950/30 dark:border-violet-800/50 px-1.5 py-0.5 text-[9px] text-violet-900 dark:text-violet-200 leading-snug line-clamp-3">
+            <span className="font-semibold">{draft ? 'Draft reply: ' : 'AI reply: '}</span>
             {replyText}
           </p>
         ) : null}
-        {replied ? (
+        {replied && !draft ? (
           <p className="mt-0.5 inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-700 dark:text-emerald-300">
             <CheckCircle2 size={10} /> Reply sent
           </p>

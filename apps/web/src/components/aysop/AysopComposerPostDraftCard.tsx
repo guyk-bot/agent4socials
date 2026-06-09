@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CalendarClock, CheckCircle2, Loader2, Send } from 'lucide-react';
+import Link from 'next/link';
+import { CalendarClock, CheckCircle2, ExternalLink, Loader2, Send } from 'lucide-react';
 import api from '@/lib/api';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 import { ComposerOpenLink } from '@/components/aysop/ComposerOpenLink';
@@ -78,7 +79,9 @@ export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
       setScheduled(true);
       setConfirming(false);
       setScheduling(false);
-      setStatus(`Scheduled for ${new Date(scheduleAt).toLocaleString()}.`);
+      setStatus(
+        `Scheduled for ${new Date(scheduleAt).toLocaleString()}. Preview on Calendar or History anytime.`
+      );
     } catch (e) {
       const msg =
         (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
@@ -189,7 +192,7 @@ export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
                 className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--dark)] text-chrome-text px-3 py-2 text-xs font-medium hover:opacity-90"
               >
                 <Send size={14} />
-                Approve & publish
+                Allow
               </button>
               <button
                 type="button"
@@ -220,7 +223,19 @@ export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
       </div>
 
       {status ? (
-        <p className="px-3 pb-3 text-xs text-emerald-700 dark:text-emerald-300">{status}</p>
+        <div className="px-3 pb-3 space-y-1.5">
+          <p className="text-xs text-emerald-700 dark:text-emerald-300">{status}</p>
+          {scheduled ? (
+            <div className="flex flex-wrap gap-3 text-xs">
+              <Link href="/calendar" className="inline-flex items-center gap-1 font-medium text-[var(--primary)] hover:underline">
+                Open Calendar <ExternalLink size={12} />
+              </Link>
+              <Link href="/posts" className="inline-flex items-center gap-1 font-medium text-[var(--primary)] hover:underline">
+                Open History <ExternalLink size={12} />
+              </Link>
+            </div>
+          ) : null}
+        </div>
       ) : null}
       {error ? <p className="px-3 pb-3 text-xs text-red-600 dark:text-red-300">{error}</p> : null}
     </div>

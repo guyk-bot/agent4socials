@@ -421,8 +421,8 @@ export function AysopArtifactCards({
 
           return (
             <div key={key} className="space-y-2">
-              <div className="rounded-lg border border-amber-200 dark:border-amber-800/80 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
-                Review each preview below. Nothing is published until you click Approve & publish.
+              <div className="rounded-lg border border-[#7C3AED]/25 bg-[#7C3AED]/5 dark:bg-[#7C3AED]/10 px-3 py-2 text-xs text-neutral-800 dark:text-neutral-200">
+                Review each platform preview below. Nothing is published until you click Allow or type allow in chat.
               </div>
               {draftRun.map((draft, j) => (
                 <AysopComposerPostDraftCard key={`${key}-${j}`} draft={draft} />

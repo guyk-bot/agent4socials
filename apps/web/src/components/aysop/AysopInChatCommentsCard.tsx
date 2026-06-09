@@ -124,6 +124,14 @@ export function AysopInChatCommentsCard({ artifact }: { artifact: CommentsArtifa
           );
         })}
       </ul>
+      <div className="mt-3 rounded-lg border border-[#7C3AED]/25 bg-[#7C3AED]/5 dark:bg-[#7C3AED]/10 px-3 py-2">
+        <p className="text-xs text-neutral-800 dark:text-neutral-200">
+          Would you like me to send replies to all comments above?
+        </p>
+        <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+          Click Allow on each reply, or type allow in chat for bulk send when available.
+        </p>
+      </div>
       {error ? <p className="mt-2 text-xs text-red-600 dark:text-red-300">{error}</p> : null}
     </div>
   );

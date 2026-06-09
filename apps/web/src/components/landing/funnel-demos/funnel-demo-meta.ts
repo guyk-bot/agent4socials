@@ -1,6 +1,6 @@
 /** Side-demo card headers (index matches FUNNEL_DEMO_SCENE_COMPONENTS). */
 export const FUNNEL_DEMO_TITLES = [
-  'Create drafts, post, schedule',
+  'Create drafts, post / schedule',
   'Reply / bulk reply to comments & DMs',
   'Post analytics',
   'Extract leads',
