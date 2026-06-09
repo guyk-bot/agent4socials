@@ -170,54 +170,24 @@ function AiMessage({
   );
 }
 
-function PillButton({
-  label,
-  selected,
-  disabled,
-  onClick,
-  staggerIndex,
-}: {
-  label: string;
-  selected: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-  staggerIndex?: number;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      style={{ animationDelay: staggerIndex !== undefined ? `${staggerIndex * 80}ms` : undefined }}
-      className={[
-        'chat-hero-pill-enter inline-flex items-center rounded-full border px-[18px] py-[11px] text-sm transition-all duration-150',
-        'active:scale-[0.97]',
-        selected
-          ? 'border-[#7C3AED] bg-[rgba(124,58,237,0.12)] text-[#5B21B6]'
-          : 'border-[#E8E6DF] bg-[#F8F7FC] text-[#888780] hover:border-[#7C3AED] hover:text-[#1a1a1a]',
-        disabled ? 'opacity-50 pointer-events-none' : '',
-      ].join(' ')}
-    >
-      <span>{label}</span>
-    </button>
-  );
-}
-
-function PlatformSquareButton({
+function OptionSquareButton({
   label,
   selected,
   disabled,
   icon,
   onClick,
   staggerIndex,
+  variant = 'compact',
 }: {
   label: string;
   selected: boolean;
   disabled?: boolean;
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   onClick: () => void;
   staggerIndex?: number;
+  variant?: 'compact' | 'tall';
 }) {
+  const isTall = variant === 'tall';
   return (
     <button
       type="button"
@@ -225,7 +195,8 @@ function PlatformSquareButton({
       onClick={onClick}
       style={{ animationDelay: staggerIndex !== undefined ? `${staggerIndex * 60}ms` : undefined }}
       className={[
-        'chat-hero-pill-enter flex h-[64px] sm:h-[70px] w-full flex-col items-center justify-center gap-1 rounded-lg border p-2 transition-all duration-150',
+        'chat-hero-pill-enter flex w-full flex-col items-center justify-center rounded-lg border p-2 transition-all duration-150',
+        isTall ? 'min-h-[84px] sm:min-h-[92px] gap-1' : 'h-[64px] sm:h-[70px] gap-1',
         'active:scale-[0.97]',
         selected
           ? 'border-[#7C3AED] bg-[rgba(124,58,237,0.08)] shadow-[0_0_0_1px_rgba(124,58,237,0.2)]'
@@ -233,11 +204,13 @@ function PlatformSquareButton({
         disabled ? 'opacity-50 pointer-events-none' : '',
       ].join(' ')}
     >
-      <span className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center">{icon}</span>
+      {icon ? (
+        <span className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center">{icon}</span>
+      ) : null}
       <span
-        className={`text-center text-[10px] sm:text-xs font-medium leading-tight ${
-          selected ? 'text-[#5B21B6]' : 'text-[#1a1a1a]'
-        }`}
+        className={`text-center font-medium leading-snug px-1 ${
+          isTall ? 'text-[11px] sm:text-xs' : 'text-[10px] sm:text-xs'
+        } ${selected ? 'text-[#5B21B6]' : 'text-[#1a1a1a]'}`}
       >
         {label}
       </span>
@@ -627,7 +600,7 @@ export default function ChatHero() {
                   const Icon = PLATFORM_ICONS[platform.id];
                   const selected = selectedPlatforms.includes(platform.id);
                   return (
-                    <PlatformSquareButton
+                    <OptionSquareButton
                       key={platform.id}
                       label={platform.label}
                       selected={selected}
@@ -640,24 +613,25 @@ export default function ChatHero() {
                 })}
               </div>
             ) : null}
+
+            {showPainOptions ? (
+              <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-2.5 w-full max-w-3xl shrink-0">
+                {CHAT_HERO_PAIN_POINTS.map((pain, i) => (
+                  <OptionSquareButton
+                    key={pain.id}
+                    label={pain.label}
+                    selected={selectedPain === pain.id}
+                    disabled={busy}
+                    staggerIndex={i}
+                    variant="tall"
+                    onClick={() => setSelectedPain(pain.id)}
+                  />
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <div className="shrink-0 space-y-3 border-t border-[#E8E6DF] pt-3 pb-2">
-              {showPainOptions ? (
-                <div className="flex flex-wrap gap-2">
-                  {CHAT_HERO_PAIN_POINTS.map((pain, i) => (
-                    <PillButton
-                      key={pain.id}
-                      label={pain.label}
-                      selected={selectedPain === pain.id}
-                      disabled={busy}
-                      staggerIndex={i}
-                      onClick={() => setSelectedPain(pain.id)}
-                    />
-                  ))}
-                </div>
-              ) : null}
-
               {showPlatformOptions && canPlatformContinue ? (
                 <button
                   type="button"
@@ -667,21 +641,6 @@ export default function ChatHero() {
                   Continue →
                 </button>
               ) : null}
-
-              <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11px] sm:text-xs text-[#888780]">
-                <span className="flex items-center gap-1.5">
-                  <Check className="h-3.5 w-3.5 text-[#10B981]" />
-                  No credit card required
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Check className="h-3.5 w-3.5 text-[#10B981]" />
-                  Free plan forever
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Check className="h-3.5 w-3.5 text-[#10B981]" />
-                  Cancel anytime
-                </span>
-              </div>
 
               {showPainOptions && canPainContinue ? (
                 <button
@@ -762,6 +721,21 @@ export default function ChatHero() {
                 <ArrowUp className="h-4 w-4" />
               </button>
             </form>
+
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11px] sm:text-xs text-[#888780]">
+              <span className="flex items-center gap-1.5">
+                <Check className="h-3.5 w-3.5 text-[#10B981]" />
+                No credit card required
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Check className="h-3.5 w-3.5 text-[#10B981]" />
+                Free plan forever
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Check className="h-3.5 w-3.5 text-[#10B981]" />
+                Cancel anytime
+              </span>
+            </div>
           </div>
         </div>
       </div>
