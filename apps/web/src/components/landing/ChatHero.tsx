@@ -1,11 +1,9 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
-import { ChevronDown } from 'lucide-react';
+import { ArrowUp, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAuthModal } from '@/context/AuthModalContext';
-import { BrandWordmark } from '@/components/BrandWordmark';
 import {
   FacebookIcon,
   InstagramIcon,
@@ -16,7 +14,7 @@ import {
   XTwitterIcon,
   YoutubeIcon,
 } from '@/components/SocialPlatformIcons';
-import { BRAND_NAME, SITE_LOGO_DARK_SRC, SITE_LOGO_SRC } from '@/lib/site-brand-assets';
+import { SITE_LOGO_SRC } from '@/lib/site-brand-assets';
 import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
 import {
@@ -25,6 +23,9 @@ import {
   connectRedirectForPlatforms,
   demoBlocksForPainPoint,
   formatPlatformList,
+  freeTextReplyForStep,
+  matchPainPointFromText,
+  matchPlatformsFromText,
   painDiscoveryMessage,
   type ChatHeroPainPointId,
   type ChatHeroPlatformId,
@@ -207,7 +208,7 @@ function PillButton({
 
 export default function ChatHero() {
   const { signInWithGoogle } = useAuth();
-  const { openLogin, openSignup } = useAuthModal();
+  const { openSignup } = useAuthModal();
 
   const [heroReady, setHeroReady] = useState(false);
   const [headlineReady, setHeadlineReady] = useState(false);
@@ -230,8 +231,10 @@ export default function ChatHero() {
 
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [draftText, setDraftText] = useState('');
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const flowLock = useRef(false);
 
   const platformLabels = useMemo(
@@ -241,13 +244,6 @@ export default function ChatHero() {
         .filter((l): l is string => Boolean(l)),
     [selectedPlatforms]
   );
-
-  const progressPct = useMemo(() => {
-    if (step === 0) return 25;
-    if (step === 1) return 50;
-    if (step === 2) return 75;
-    return 100;
-  }, [step]);
 
   const scrollToLatest = useCallback(() => {
     const el = scrollRef.current;
@@ -419,86 +415,86 @@ export default function ChatHero() {
     openSignup();
   }, [openSignup, selectedPlatforms]);
 
+  const handleFreeTextSubmit = useCallback(async () => {
+    const trimmed = draftText.trim();
+    if (!trimmed || busy || isTyping) return;
+
+    setDraftText('');
+    appendBlocks([{ id: blockId('user'), kind: 'user_pills', labels: [trimmed] }]);
+
+    const matchedPlatforms = matchPlatformsFromText(trimmed);
+    const matchedPain = matchPainPointFromText(trimmed);
+
+    if (showPlatformOptions && matchedPlatforms.length > 0) {
+      setSelectedPlatforms((prev) => [...new Set([...prev, ...matchedPlatforms])]);
+    }
+    if (showPainOptions && matchedPain) {
+      setSelectedPain(matchedPain);
+    }
+
+    setBusy(true);
+    await playTypingThen(800, async () => {
+      appendBlocks([
+        {
+          id: blockId('ai'),
+          kind: 'ai',
+          text: freeTextReplyForStep(step, trimmed, matchedPlatforms, matchedPain),
+        },
+      ]);
+      setBusy(false);
+    });
+  }, [
+    appendBlocks,
+    busy,
+    draftText,
+    isTyping,
+    playTypingThen,
+    showPainOptions,
+    showPlatformOptions,
+    step,
+  ]);
+
+  const inputPlaceholder = useMemo(() => {
+    if (showSignup) return 'Ask anything, or use the signup buttons below…';
+    if (showDemoCta) return 'Type a question, or tap Start for free…';
+    if (showPainOptions) return 'Describe your biggest challenge…';
+    if (showPlatformOptions) return 'Type your platforms, e.g. Instagram and TikTok…';
+    return 'Message iZop…';
+  }, [showDemoCta, showPainOptions, showPlatformOptions, showSignup]);
+
   const canPlatformContinue = selectedPlatforms.length > 0 && !busy;
   const canPainContinue = selectedPain !== null && !busy;
 
   return (
-    <section className="chat-hero relative min-h-[100svh] md:min-h-screen flex flex-col bg-[#0A0A0F] text-white overflow-hidden">
-      {/* Bottom fade into light page */}
+    <section className="chat-hero relative flex h-[calc(100svh-3.5rem)] sm:h-[calc(100vh-4rem)] flex-col bg-white text-[#1a1a1a] overflow-hidden">
       <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-40 z-[1]"
-        style={{
-          background: 'linear-gradient(to bottom, transparent, rgba(248,247,252,0.92))',
-        }}
-      />
-
-      {/* Purple glow behind chat */}
-      <div
-        className="pointer-events-none absolute left-1/2 top-[48%] -translate-x-1/2 -translate-y-1/2 h-[420px] w-[min(92vw,720px)] rounded-full z-0"
-        style={{ boxShadow: '0 0 80px rgba(124,58,237,0.08)' }}
-      />
-
-      {/* Minimal header (persists while browsing landing sections below) */}
-      <header
-        className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-6 py-4 bg-[#0A0A0F]/90 backdrop-blur-md border-b border-[#1E1E2A]/60 transition-opacity duration-600 ${
+        className={`flex flex-1 min-h-0 flex-col w-full transition-opacity duration-500 ${
           heroReady ? 'opacity-100' : 'opacity-0'
         }`}
       >
-        <div className="mx-auto flex w-full max-w-[960px] items-center justify-between">
-        <Link href="/" className="flex items-center gap-2.5 min-w-0 hover:opacity-90 transition-opacity">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={SITE_LOGO_DARK_SRC} alt={BRAND_NAME} className="h-7 w-7 object-contain shrink-0" />
-          <BrandWordmark name={BRAND_NAME} className="text-base font-semibold tracking-tight text-white" />
-        </Link>
-        <button
-          type="button"
-          onClick={openLogin}
-          className="text-sm text-[#888780] hover:text-white transition-colors"
-        >
-          Log in
-        </button>
-        </div>
-      </header>
-
-      {/* Hero content */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 pb-10 pt-24 sm:pt-28 max-w-[960px] mx-auto w-full">
-        <h1
-          className={`text-[28px] sm:text-[48px] font-semibold tracking-[-0.5px] text-white text-center mb-2 transition-all duration-600 ${
-            headlineReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'
-          }`}
-        >
-          Meet your AI social media manager.
-        </h1>
-        <p
-          className={`text-base sm:text-lg text-[#888780] text-center mb-8 max-w-xl transition-all duration-500 ${
-            subheadReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'
-          }`}
-        >
-          Tell us what platforms you&apos;re on — we&apos;ll show you what iZop can do.
-        </p>
-
-        {/* Chat container */}
         <div
-          className={`relative w-full max-w-[900px] transition-all duration-400 sticky top-20 sm:top-24 ${
-            chatReady ? 'opacity-100 scale-100' : 'opacity-0 scale-[0.97]'
+          className={`flex flex-1 min-h-0 flex-col w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-10 py-5 sm:py-6 transition-all duration-400 ${
+            chatReady ? 'opacity-100' : 'opacity-0 translate-y-1'
           }`}
         >
           <div
-            className="relative rounded-[16px] md:rounded-[20px] border border-[#E8E6DF] bg-white p-6 sm:p-8 min-h-[520px] sm:min-h-[560px] flex flex-col"
-            style={{
-              boxShadow:
-                '0 0 0 1px rgba(124,58,237,0.08), 0 24px 64px rgba(0,0,0,0.18), 0 0 100px rgba(124,58,237,0.12)',
-            }}
+            className={`shrink-0 mb-5 sm:mb-6 text-center sm:text-left transition-all duration-500 ${
+              headlineReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+            }`}
           >
-            {/* Progress */}
-            <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#F1EFF8] rounded-t-[20px] overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-[#7C3AED] to-[#4F46E5] transition-all duration-500 ease-out"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
+            <h1 className="text-[28px] sm:text-[40px] lg:text-[48px] font-semibold tracking-[-0.5px] text-[#1a1a1a]">
+              Meet your AI social media manager.
+            </h1>
+            <p
+              className={`mt-2 text-base sm:text-lg text-[#888780] max-w-2xl mx-auto sm:mx-0 transition-all duration-500 ${
+                subheadReady ? 'opacity-100' : 'opacity-0'
+              }`}
+            >
+              Tell us what platforms you&apos;re on — we&apos;ll show you what iZop can do.
+            </p>
+          </div>
 
-            <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-5 pr-1 -mr-1 mt-2 max-h-[min(62vh,580px)]">
+          <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto space-y-5 pr-1 -mr-1 pb-4">
               {blocks.map((block, index) => {
                 if (block.kind === 'ai') {
                   const isFirst = index === 0 && block.text === INITIAL_AI_TEXT;
@@ -583,10 +579,9 @@ export default function ChatHero() {
               })}
 
               {isTyping ? <TypingIndicator /> : null}
-            </div>
+          </div>
 
-            {/* Interactive controls */}
-            <div className="mt-5 space-y-4">
+          <div className="shrink-0 space-y-4 border-t border-[#E8E6DF] pt-4 pb-2">
               {showPlatformOptions ? (
                 <div className="flex flex-wrap gap-2">
                   {CHAT_HERO_PLATFORMS.map((platform, i) => {
@@ -684,14 +679,39 @@ export default function ChatHero() {
                   </p>
                 </div>
               ) : null}
-            </div>
+
+            <form
+              className="flex items-center gap-2 rounded-2xl border border-[#E8E6DF] bg-[#F8F7FC] px-3 py-2 sm:px-4 sm:py-2.5 shadow-sm focus-within:border-[#7C3AED]/40 focus-within:ring-2 focus-within:ring-[#7C3AED]/15"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void handleFreeTextSubmit();
+              }}
+            >
+              <input
+                ref={inputRef}
+                type="text"
+                value={draftText}
+                onChange={(e) => setDraftText(e.target.value)}
+                placeholder={inputPlaceholder}
+                disabled={busy || isTyping}
+                className="flex-1 min-w-0 bg-transparent text-[15px] text-[#1a1a1a] placeholder:text-[#888780] outline-none disabled:opacity-50"
+                aria-label="Message iZop"
+              />
+              <button
+                type="submit"
+                disabled={!draftText.trim() || busy || isTyping}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#7C3AED] to-[#4F46E5] text-white transition-all hover:brightness-110 disabled:opacity-40 disabled:pointer-events-none"
+                aria-label="Send message"
+              >
+                <ArrowUp className="h-4 w-4" />
+              </button>
+            </form>
           </div>
         </div>
 
-        {/* Scroll hint */}
         <a
           href="#features"
-          className={`mt-8 flex flex-col items-center gap-1 text-xs text-[#888780] hover:text-white transition-colors ${
+          className={`shrink-0 flex flex-col items-center gap-0.5 py-3 text-xs text-[#888780] hover:text-[#7C3AED] transition-colors ${
             heroReady ? 'opacity-100' : 'opacity-0'
           }`}
         >

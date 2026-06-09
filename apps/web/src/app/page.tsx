@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Testimonials from '@/components/landing/Testimonials';
 import Link from 'next/link';
 import SiteFooter from '@/components/landing/SiteFooter';
+import SiteHeader from '@/components/landing/SiteHeader';
 import ChatHero from '@/components/landing/ChatHero';
 import { useAuthModal } from '@/context/AuthModalContext';
 import {
@@ -92,6 +93,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen funnel-page overflow-x-hidden">
+      <SiteHeader />
       <main>
         <ChatHero />
 

@@ -164,3 +164,69 @@ export function connectRedirectForPlatforms(platformIds: ChatHeroPlatformId[]): 
   const first = platformIds[0] ?? 'instagram';
   return `/dashboard?connect=${first}`;
 }
+
+const PLATFORM_TEXT_ALIASES: Record<ChatHeroPlatformId, string[]> = {
+  instagram: ['instagram', 'ig', 'insta'],
+  tiktok: ['tiktok', 'tik tok'],
+  youtube: ['youtube', 'yt'],
+  facebook: ['facebook', 'fb'],
+  x: ['twitter', 'x / twitter', ' x '],
+  linkedin: ['linkedin'],
+  threads: ['threads'],
+  pinterest: ['pinterest'],
+};
+
+export function matchPlatformsFromText(text: string): ChatHeroPlatformId[] {
+  const lower = text.toLowerCase();
+  const found = new Set<ChatHeroPlatformId>();
+  for (const platform of CHAT_HERO_PLATFORMS) {
+    const aliases = PLATFORM_TEXT_ALIASES[platform.id];
+    const matched = aliases.some((alias) => {
+      const a = alias.trim();
+      if (a.length <= 2) {
+        return new RegExp(`\\b${a.replace('/', '\\/')}\\b`, 'i').test(lower);
+      }
+      return lower.includes(a);
+    });
+    if (matched) found.add(platform.id);
+  }
+  return [...found];
+}
+
+export function matchPainPointFromText(text: string): ChatHeroPainPointId | null {
+  const lower = text.toLowerCase();
+  if (/comment|dm|inbox|repl/i.test(lower)) return 'comments_dms';
+  if (/schedul|posting|consistent|calendar/i.test(lower)) return 'posting_consistently';
+  if (/analytic|working|performance|metric|data/i.test(lower)) return 'understanding_analytics';
+  if (/idea|content|caption|blank/i.test(lower)) return 'content_ideas';
+  if (/brand|client|agency|multiple/i.test(lower)) return 'multiple_brands';
+  if (/all|everything|honestly/i.test(lower)) return 'all_above';
+  return null;
+}
+
+export function freeTextReplyForStep(
+  step: 0 | 1 | 2 | 3,
+  text: string,
+  matchedPlatforms: ChatHeroPlatformId[],
+  matchedPain: ChatHeroPainPointId | null
+): string {
+  if (step === 0) {
+    if (matchedPlatforms.length > 0) {
+      return 'Got those platforms. Tap any others you use, then hit Continue when you are ready.';
+    }
+    return 'Thanks for sharing. Pick your platforms with the buttons below, or name them here and I will match them.';
+  }
+  if (step === 1) {
+    if (matchedPain) {
+      return 'That helps. You can tap the option that fits best, then Show me when you are ready.';
+    }
+    return 'Tell me more if you like, or choose the challenge that sounds most like you below.';
+  }
+  if (step === 2) {
+    return 'When you are ready, tap Start for free to connect your accounts and try iZop.';
+  }
+  if (/sign up|signup|start|free|google|account/i.test(text)) {
+    return 'Use the buttons below to continue with Google or email. No credit card required.';
+  }
+  return 'Create your free account below and we will connect your platforms right away.';
+}
