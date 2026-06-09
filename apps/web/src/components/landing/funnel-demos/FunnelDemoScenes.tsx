@@ -82,8 +82,6 @@ const COMMENT_DRAFTS = [
   { name: 'Priya Sharma', avatar: 'PS', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.priya, colorClass: 'bg-amber-500', text: 'Can you share the template from the video?', replyText: 'Absolutely. I will DM you the template right after this goes live.', replyPlatform: 'youtube' as const },
   { name: 'Daniel Frost', avatar: 'DF', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.daniel, colorClass: 'bg-amber-500', text: 'This hook is fire. Saving for later.', replyText: 'Appreciate you, Daniel! Full breakdown is in the pinned comment.', replyPlatform: 'instagram' as const },
   { name: 'Lina Park', avatar: 'LP', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.lina, colorClass: 'bg-rose-500', text: 'Subbed after this Short. More like this?', replyText: 'Yes! Part 2 drops tomorrow on the same topic.', replyPlatform: 'youtube' as const },
-  { name: 'Zoe Martin', avatar: 'ZM', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.zoe, colorClass: 'bg-indigo-500', text: 'How long did this take to edit?', replyText: 'About 20 minutes in Composer with AI captions.', replyPlatform: 'instagram' as const },
-  { name: 'Emma Walsh', avatar: 'EW', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.emma, colorClass: 'bg-cyan-500', text: 'Pinned! Need the full workflow.', replyText: 'Workflow breakdown is in your YouTube reply draft.', replyPlatform: 'youtube' as const },
 ];
 
 function DemoSceneScroll({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -106,10 +104,10 @@ export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
         </FunnelDemoUserBubble>
       </div>
       <FunnelDemoAssistantBubble show visual wide>
-        <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
+        <p className="mb-1.5 text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">
           I drafted Shorts previews for 9:30 AM:
         </p>
-        <PlatformPostPreviewGrid previews={SCHEDULE_PREVIEWS} compact />
+        <PlatformPostPreviewGrid previews={SCHEDULE_PREVIEWS} compact scheduleDemo />
         <FunnelDemoScheduledChip
           timeLabel="9:30 AM"
           platforms="Instagram, TikTok, and YouTube Shorts"
@@ -131,10 +129,10 @@ export function FunnelDemoSceneComments({ progress }: { progress: number }) {
     <DemoSceneScroll>
       <FunnelDemoUserBubble show>{USER_REPLY}</FunnelDemoUserBubble>
       <FunnelDemoAssistantBubble show visual wide contained>
-        <p className="mb-1.5 text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">
-          16 comments on Instagram and YouTube. Here are draft replies:
+        <p className="mb-1.5 text-[13px] font-semibold text-neutral-800 dark:text-neutral-200">
+          14 comments on Instagram and YouTube. Here are draft replies:
         </p>
-        <ul className="space-y-1">
+        <ul className="space-y-1.5">
           {COMMENT_DRAFTS.map((row) => (
             <CommentRow
               key={row.name}
@@ -154,7 +152,7 @@ export function FunnelDemoSceneComments({ progress }: { progress: number }) {
         <p className="mt-1.5 text-[10px] text-neutral-500 dark:text-neutral-400">
           + 8 more replies ready in the same voice.
         </p>
-        <FunnelDemoAllowBar message="Would you like me to send these 16 replies?" />
+        <FunnelDemoAllowBar primaryLabel="Send" message="Would you like me to send these 14 replies?" />
       </FunnelDemoAssistantBubble>
     </DemoSceneScroll>
   );
@@ -169,11 +167,11 @@ export function FunnelDemoSceneAnalytics({ progress }: { progress: number }) {
       <FunnelDemoAssistantBubble show visual wide contained allowOverflow>
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-visible">
           <div className="funnel-demo-scene-scroll min-h-0 flex-1 overflow-y-auto overflow-x-visible overscroll-contain pr-0.5">
-            <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
+            <p className="mb-1.5 text-[12px] font-semibold text-neutral-800 dark:text-neutral-200">
               Instagram weekly snapshot:
             </p>
             <InstagramWeeklyAnalyticsPanel />
-            <p className="mt-2 text-[10px] text-neutral-700 dark:text-neutral-300 leading-snug">
+            <p className="mt-2 text-[11px] text-neutral-700 dark:text-neutral-300 leading-snug">
               Views up 18%, engagement up 12%, followers net +135. Reels drove most of the lift this week.
             </p>
           </div>
@@ -195,7 +193,7 @@ export function FunnelDemoSceneLeads({ progress }: { progress: number }) {
     <DemoSceneScroll>
       <FunnelDemoUserBubble show>{USER_LEADS}</FunnelDemoUserBubble>
       <FunnelDemoAssistantBubble show visual wide contained>
-        <p className="mb-1.5 text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">
+        <p className="mb-1.5 text-[13px] font-semibold text-neutral-800 dark:text-neutral-200">
           11 high-intent leads from the last 24 hours:
         </p>
         <LeadsSpreadsheet show progress={1} />
@@ -237,14 +235,14 @@ export function FunnelDemoSceneAdsRoas({ progress }: { progress: number }) {
       <FunnelDemoAssistantBubble show visual wide contained>
         <div className="flex flex-col gap-2 min-h-0">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[12px] font-bold text-neutral-900 dark:text-neutral-100">Paid ads ROAS</p>
-            <span className="shrink-0 rounded-full bg-orange-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+            <p className="text-[14px] font-bold text-neutral-900 dark:text-neutral-100">Paid ads ROAS</p>
+            <span className="shrink-0 rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
               Coming soon
             </span>
           </div>
           <AdsPerformanceChart show />
           <AdsTopCreativesCandleChart />
-          <p className="text-[10px] text-neutral-700 dark:text-neutral-300 leading-snug">
+          <p className="text-[11px] text-neutral-700 dark:text-neutral-300 leading-snug">
             TikTok leads on ROAS (4.17x) with the lowest CPA. Task Complete is your top creative at 4.82x.
           </p>
           <FunnelDemoAllowBar

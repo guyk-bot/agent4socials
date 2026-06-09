@@ -62,14 +62,16 @@ export function DemoAvatar({
 }: {
   label: string;
   colorClass: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }) {
   const dim =
-    size === 'lg'
-      ? 'h-9 w-9 text-[11px]'
-      : size === 'md'
-        ? 'h-7 w-7 text-[10px]'
-        : 'h-6 w-6 text-[9px]';
+    size === 'xl'
+      ? 'h-8 w-8 text-[11px]'
+      : size === 'lg'
+        ? 'h-9 w-9 text-[11px]'
+        : size === 'md'
+          ? 'h-7 w-7 text-[10px]'
+          : 'h-6 w-6 text-[9px]';
   return (
     <span
       className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white ${colorClass} ${dim}`}
@@ -88,10 +90,10 @@ export function DemoProfilePhoto({
   src?: string;
   label: string;
   colorClass: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }) {
   const dim =
-    size === 'lg' ? 'h-9 w-9' : size === 'md' ? 'h-7 w-7' : 'h-6 w-6';
+    size === 'lg' ? 'h-9 w-9' : size === 'md' ? 'h-7 w-7' : size === 'xl' ? 'h-8 w-8' : 'h-6 w-6';
   if (src) {
     return (
       /* eslint-disable-next-line @next/next/no-img-element */
@@ -416,13 +418,13 @@ function MiniKpiCard({
 
   return (
     <div
-      className={`relative rounded-xl border-2 ${styles.border} ${styles.bg} px-2 py-1.5 shadow-sm min-h-[52px] flex flex-col justify-center`}
+      className={`relative rounded-xl border-2 ${styles.border} ${styles.bg} px-2 py-2 shadow-sm min-h-[58px] flex flex-col justify-center`}
     >
       {trend ? (
-        <span className="absolute top-1 right-1.5 text-[9px] font-medium text-emerald-600">{trend}</span>
+        <span className="absolute top-1 right-1.5 text-[10px] font-medium text-emerald-600">{trend}</span>
       ) : null}
-      <p className={`text-base font-semibold tabular-nums leading-none ${styles.text}`}>{value}</p>
-      <p className="text-[10px] text-neutral-500 mt-0.5">{label}</p>
+      <p className={`text-lg font-semibold tabular-nums leading-none ${styles.text}`}>{value}</p>
+      <p className="text-[11px] text-neutral-500 mt-0.5">{label}</p>
     </div>
   );
 }
@@ -629,7 +631,6 @@ function IgPostPerformanceChart({
   activeDay: string | null;
   onActiveDayChange: (day: string | null) => void;
 }) {
-  const chartH = 72;
   const points = IG_WEEK_BY_DAY.map((row, i) => {
     const primaryIdx = row.postIndices[0];
     const post = primaryIdx != null ? FUNNEL_DEMO_IG_WEEK_POSTS[primaryIdx] : null;
@@ -641,60 +642,64 @@ function IgPostPerformanceChart({
   const activePoint = points.find((p) => p.day === activeDay);
 
   const popupForPoint = (p: (typeof points)[number]) => {
-    const yPct = p.score === 0 ? 92 : 8 + (1 - p.score / maxScore) * 78;
-    const topPx = (yPct / 100) * chartH - 6;
     if (p.xPct <= 14) {
-      return { left: 4, top: topPx, transform: 'translate(0, calc(-100% - 6px))' as const };
+      return { left: 0, transform: 'translateX(0)' as const };
     }
     if (p.xPct >= 86) {
-      return { left: 'calc(100% - 4px)', top: topPx, transform: 'translate(-100%, calc(-100% - 6px))' as const };
+      return { right: 0, left: 'auto', transform: 'translateX(0)' as const };
     }
-    return { left: `${p.xPct}%`, top: topPx, transform: 'translate(-50%, calc(-100% - 6px))' as const };
+    return { left: `${p.xPct}%`, transform: 'translateX(-50%)' as const };
   };
 
   return (
-    <div className="relative h-[96px] w-full overflow-visible pt-[92px] -mt-[92px]">
-      <svg className="h-[76px] w-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
-        {points.map((p) => {
-          const yPct = p.score === 0 ? 92 : 8 + (1 - p.score / maxScore) * 78;
-          const hasPost = p.postIndices.length > 0;
-          return (
-            <circle
-              key={p.day}
-              cx={p.xPct}
-              cy={yPct}
-              r={activeDay === p.day ? 3.2 : 2.4}
-              fill={hasPost ? BRAND.primary : '#d4d4d4'}
-              stroke={activeDay === p.day ? '#fff' : 'transparent'}
-              strokeWidth={0.8}
-              className={hasPost ? 'cursor-pointer' : ''}
-              onMouseEnter={() => onActiveDayChange(hasPost ? p.day : null)}
-            />
-          );
-        })}
-      </svg>
+    <div className="w-full">
+      <div className="relative mb-1 h-[74px] w-full overflow-hidden">
+        {activePoint && activePoint.postIndex >= 0 ? (
+          <div
+            className="pointer-events-none absolute top-0 z-20 w-[72px] transition-all duration-150 ease-out"
+            style={popupForPoint(activePoint)}
+          >
+            <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-950">
+              <div className="aspect-[3/4] w-[72px]">
+                <IgPostThumb postIndex={activePoint.postIndex} showPlay className="h-full w-full" />
+              </div>
+              <p className="px-1.5 py-1 text-[9px] font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">
+                {FUNNEL_DEMO_IG_WEEK_POSTS[activePoint.postIndex]?.label}
+              </p>
+            </div>
+          </div>
+        ) : null}
+        <svg
+          className="absolute bottom-4 left-0 right-0 h-[40px] w-full"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+        >
+          {points.map((p) => {
+            const yPct = p.score === 0 ? 92 : 8 + (1 - p.score / maxScore) * 78;
+            const hasPost = p.postIndices.length > 0;
+            return (
+              <circle
+                key={p.day}
+                cx={p.xPct}
+                cy={yPct}
+                r={activeDay === p.day ? 3.4 : 2.6}
+                fill={hasPost ? BRAND.primary : '#d4d4d4'}
+                stroke={activeDay === p.day ? BRAND.primary : 'transparent'}
+                strokeWidth={activeDay === p.day ? 1.2 : 0}
+                className={hasPost ? 'cursor-pointer' : ''}
+                onMouseEnter={() => onActiveDayChange(hasPost ? p.day : null)}
+              />
+            );
+          })}
+        </svg>
+      </div>
       <div className="flex justify-between px-0.5">
         {points.map((p) => (
-          <span key={p.day} className="text-[9px] text-neutral-500">
+          <span key={p.day} className="text-[10px] text-neutral-500">
             {p.day}
           </span>
         ))}
       </div>
-      {activePoint && activePoint.postIndex >= 0 ? (
-        <div
-          className="pointer-events-none absolute z-30 w-[80px] transition-all duration-150 ease-out"
-          style={popupForPoint(activePoint)}
-        >
-          <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-950">
-            <div className="aspect-[3/4] w-[80px]">
-              <IgPostThumb postIndex={activePoint.postIndex} showPlay className="h-full w-full" />
-            </div>
-            <p className="px-1.5 py-1 text-[9px] font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">
-              {FUNNEL_DEMO_IG_WEEK_POSTS[activePoint.postIndex]?.label}
-            </p>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -770,7 +775,7 @@ function IgPostsWeekBarChart({
   const maxPosts = Math.max(...IG_WEEK_BY_DAY.map((d) => d.posts), 1);
 
   return (
-    <div className="relative h-[52px] w-full">
+    <div className="relative h-[60px] w-full overflow-hidden">
       <div className="flex h-full items-end justify-between gap-1 px-0.5">
         {IG_WEEK_BY_DAY.map((row, i) => {
           const heightPct = row.posts === 0 ? 8 : Math.max(18, (row.posts / maxPosts) * 100);
@@ -798,12 +803,12 @@ function IgPostsWeekBarChart({
                 />
               ) : null}
               <div
-                className={`w-full max-w-[22px] rounded-t-sm transition-colors ${
+                className={`w-full max-w-[24px] rounded-t-sm transition-colors ${
                   isActive ? 'bg-[#6D28D9]' : row.posts > 0 ? 'bg-[#7C3AED]' : 'bg-neutral-200 dark:bg-neutral-700'
                 }`}
                 style={{ height: `${heightPct}%` }}
               />
-              <span className="mt-0.5 text-[7px] text-neutral-500">{row.day}</span>
+              <span className="mt-0.5 text-[9px] text-neutral-500">{row.day}</span>
             </div>
           );
         })}
@@ -833,33 +838,33 @@ export function InstagramWeeklyAnalyticsPanel() {
       </div>
 
       <div
-        className="relative overflow-visible px-2 py-1.5 border-b border-neutral-100 dark:border-neutral-800"
+        className="relative overflow-hidden px-2 py-1.5 border-b border-neutral-100 dark:border-neutral-800"
         onMouseLeave={() => setActiveLineDay(null)}
       >
-        <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">
+        <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">
           Post performance (hover for previews)
         </p>
         <IgPostPerformanceChart activeDay={activeLineDay} onActiveDayChange={setActiveLineDay} />
       </div>
 
       <div className="grid grid-cols-2 gap-2 p-2 border-b border-neutral-100 dark:border-neutral-800">
-        <div className="relative overflow-visible">
-          <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">
+        <div className="relative overflow-hidden">
+          <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">
             Posts last 7 days
           </p>
           <IgPostsWeekBarChart activeDay={activeDay} onActiveDayChange={setActiveDay} />
         </div>
         <div>
-          <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">Post formats</p>
+          <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">Post formats</p>
           <IgInteractiveFormatPie />
         </div>
       </div>
 
       <div className="p-2 border-b border-neutral-100 dark:border-neutral-800">
-        <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">Published this week</p>
+        <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">Published this week</p>
         <div className="flex gap-1.5 overflow-x-auto pb-0.5 funnel-demo-scene-scroll">
           {FUNNEL_DEMO_IG_WEEK_POSTS.map((post, i) => (
-            <div key={post.src} className="group relative w-[56px] shrink-0">
+            <div key={post.src} className="group relative w-[62px] shrink-0">
               <div className="relative aspect-[3/4] overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={post.src} alt={post.label} className="h-full w-full object-cover" draggable={false} />
@@ -880,9 +885,9 @@ export function InstagramWeeklyAnalyticsPanel() {
       </div>
 
       <div className="p-2">
-        <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1">Best post this week</p>
+        <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1">Best post this week</p>
         <div className="flex gap-2">
-          <div className="relative aspect-[3/4] w-[56px] shrink-0 overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700">
+          <div className="relative aspect-[3/4] w-[62px] shrink-0 overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={FUNNEL_DEMO_BEST_POST_WEEK_SRC}
@@ -893,11 +898,11 @@ export function InstagramWeeklyAnalyticsPanel() {
             <DemoReelPlayOverlay show />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold text-neutral-900 dark:text-neutral-100">The best app for content creators</p>
-            <p className="mt-0.5 text-[9px] leading-snug text-neutral-600 dark:text-neutral-400">
+            <p className="text-[11px] font-semibold text-neutral-900 dark:text-neutral-100">The best app for content creators</p>
+            <p className="mt-0.5 text-[10px] leading-snug text-neutral-600 dark:text-neutral-400">
               420 likes · 86 comments · 6.8K views. Your Reel outperformed carousels by 2.1x.
             </p>
-            <p className="mt-1 text-[8px] text-neutral-500">Reel · with audio</p>
+            <p className="mt-1 text-[9px] text-neutral-500">Reel · with audio</p>
           </div>
         </div>
       </div>
@@ -946,48 +951,48 @@ export function AdsPerformanceChart({ show }: { show: boolean }) {
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-2 gap-1.5">
-        <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 px-2 py-1.5">
-          <p className="text-[9px] uppercase tracking-wide text-neutral-500">Total spend</p>
-          <p className="text-sm font-bold tabular-nums text-neutral-900 dark:text-neutral-100">
+        <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 px-2.5 py-2">
+          <p className="text-[10px] uppercase tracking-wide text-neutral-500">Total spend</p>
+          <p className="text-base font-bold tabular-nums text-neutral-900 dark:text-neutral-100">
             ${totalSpend.toLocaleString('en-US')}
           </p>
         </div>
-        <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 px-2 py-1.5">
-          <p className="text-[9px] uppercase tracking-wide text-neutral-500">Blended ROAS</p>
-          <p className="text-sm font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{blendedRoas}</p>
+        <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 px-2.5 py-2">
+          <p className="text-[10px] uppercase tracking-wide text-neutral-500">Blended ROAS</p>
+          <p className="text-base font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{blendedRoas}</p>
         </div>
       </div>
-      <div className="flex items-end gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-2 py-2">
+      <div className="flex items-end gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-2 py-2.5">
         {ADS_PLATFORM_STATS.map((b) => (
           <div key={b.label} className="flex min-w-0 flex-1 flex-col items-stretch gap-0.5">
-            <span className="text-center text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+            <span className="text-center text-[11px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
               {b.roas}
             </span>
-            <div className="flex h-[80px] items-end">
+            <div className="flex h-[92px] items-end">
               <div
                 className="w-full rounded-t-md"
                 style={{
-                  height: `${Math.round(80 * (b.hPct / 100))}px`,
+                  height: `${Math.round(92 * (b.hPct / 100))}px`,
                   background: `linear-gradient(to top, ${b.colorFrom}, ${b.colorTo})`,
                 }}
               />
             </div>
-            <span className="text-center text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
+            <span className="text-center text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">
               {b.label}
             </span>
-            <span className="text-center text-[9px] text-neutral-500 tabular-nums">{b.spend}</span>
+            <span className="text-center text-[10px] text-neutral-500 tabular-nums">{b.spend}</span>
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-3 gap-1">
+      <div className="grid grid-cols-3 gap-1.5">
         {ADS_PLATFORM_STATS.map((b) => (
           <div
             key={`${b.label}-cpa`}
-            className="rounded-md border border-neutral-100 dark:border-neutral-800 bg-neutral-50/80 dark:bg-neutral-900/80 px-1.5 py-1 text-center"
+            className="rounded-md border border-neutral-100 dark:border-neutral-800 bg-neutral-50/80 dark:bg-neutral-900/80 px-2 py-1.5 text-center"
           >
-            <p className="text-[8px] uppercase text-neutral-500">{b.label} CPA</p>
-            <p className="text-[10px] font-semibold tabular-nums text-neutral-800 dark:text-neutral-200">{b.cpa}</p>
-            <p className="text-[8px] text-neutral-500 tabular-nums">{b.conv} conv.</p>
+            <p className="text-[9px] uppercase text-neutral-500">{b.label} CPA</p>
+            <p className="text-[11px] font-semibold tabular-nums text-neutral-800 dark:text-neutral-200">{b.cpa}</p>
+            <p className="text-[9px] text-neutral-500 tabular-nums">{b.conv} conv.</p>
           </div>
         ))}
       </div>
@@ -999,17 +1004,17 @@ export function AdsTopCreativesCandleChart() {
   const maxRoas = Math.max(...FUNNEL_DEMO_TOP_ADS.map((a) => a.roas));
 
   return (
-    <div className="space-y-1">
-      <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">Best performing ads</p>
-      <div className="flex gap-1.5 overflow-x-auto pb-0.5 funnel-demo-scene-scroll">
+    <div className="space-y-1.5">
+      <p className="text-[12px] font-semibold text-neutral-800 dark:text-neutral-200">Best performing ads</p>
+      <div className="flex gap-2 overflow-x-auto pb-0.5 funnel-demo-scene-scroll">
         {FUNNEL_DEMO_TOP_ADS.map((ad) => {
-          const bodyH = Math.max(18, Math.round((ad.roas / maxRoas) * 36));
+          const bodyH = Math.max(20, Math.round((ad.roas / maxRoas) * 42));
           return (
-            <div key={ad.label} className="group w-[62px] shrink-0">
-              <span className="block text-center text-[9px] font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+            <div key={ad.label} className="group w-[72px] shrink-0">
+              <span className="block text-center text-[10px] font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
                 {ad.roas.toFixed(2)}x
               </span>
-              <div className="relative mx-auto mt-0.5 flex h-[40px] w-[22px] items-end justify-center">
+              <div className="relative mx-auto mt-0.5 flex h-[44px] w-[24px] items-end justify-center">
                 <div
                   className="w-full rounded-t-sm bg-gradient-to-t from-[#6D28D9] to-[#A78BFA] transition-transform group-hover:scale-105"
                   style={{ height: `${bodyH}px` }}
@@ -1020,8 +1025,8 @@ export function AdsTopCreativesCandleChart() {
                 <img src={ad.src} alt={ad.label} className="h-full w-full object-cover object-center" draggable={false} />
                 {ad.isVideo ? <DemoReelPlayOverlay show /> : null}
               </div>
-              <p className="mt-0.5 truncate text-center text-[9px] font-medium text-neutral-700 dark:text-neutral-300">{ad.label}</p>
-              <p className="text-center text-[9px] tabular-nums text-neutral-500">{ad.cpa}</p>
+              <p className="mt-0.5 truncate text-center text-[10px] font-medium text-neutral-700 dark:text-neutral-300">{ad.label}</p>
+              <p className="text-center text-[10px] tabular-nums text-neutral-500">{ad.cpa}</p>
             </div>
           );
         })}
@@ -1061,20 +1066,20 @@ export function CommentRow({
 
   return (
     <li
-      className={`flex items-start gap-1.5 rounded-md border p-1.5 ${
+      className={`flex items-start gap-2 rounded-md border p-2 ${
         highlight
           ? 'border-[#7C3AED]/50 bg-[#7C3AED]/10 dark:bg-[#7C3AED]/15'
           : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900'
       }`}
     >
-      <DemoProfilePhoto src={avatarSrc} label={avatar} colorClass={colorClass} size="md" />
+      <DemoProfilePhoto src={avatarSrc} label={avatar} colorClass={colorClass} size="lg" />
       <div className="min-w-0 flex-1">
-        <p className="text-[12px] font-semibold text-neutral-800 dark:text-neutral-200 truncate">{name}</p>
-        <p className="text-[11px] text-neutral-600 dark:text-neutral-400 leading-snug line-clamp-2">{text}</p>
+        <p className="text-[13px] font-semibold text-neutral-800 dark:text-neutral-200 truncate">{name}</p>
+        <p className="text-[12px] text-neutral-600 dark:text-neutral-400 leading-snug line-clamp-2">{text}</p>
         {replied && replyText ? (
-          <p className="mt-1 rounded-md border border-violet-200/80 bg-violet-50/80 dark:bg-violet-950/30 dark:border-violet-800/50 px-1.5 py-0.5 text-[10px] text-violet-900 dark:text-violet-200 leading-snug line-clamp-3">
+          <p className="mt-1 rounded-md border border-violet-200/80 bg-violet-50/80 dark:bg-violet-950/30 dark:border-violet-800/50 px-1.5 py-1 text-[11px] text-violet-900 dark:text-violet-200 leading-snug line-clamp-2">
             <span className="inline-flex items-center gap-1 font-semibold">
-              {PlatformIcon ? <PlatformIcon size={11} className="shrink-0" /> : null}
+              {PlatformIcon ? <PlatformIcon size={12} className="shrink-0" /> : null}
               {draft ? 'Draft reply: ' : 'AI reply: '}
             </span>
             {replyText}
@@ -1111,33 +1116,33 @@ export function LeadsSpreadsheet({ show, progress = 1 }: { show: boolean; progre
     <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
       <table className="w-full text-left">
         <thead>
-          <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 text-[11px] uppercase tracking-wide text-neutral-500">
-            <th className="px-1.5 py-1 font-semibold">Lead</th>
-            <th className="px-1.5 py-1 font-semibold">Comment</th>
-            <th className="px-1.5 py-1 font-semibold">Class</th>
-            <th className="px-1.5 py-1 font-semibold">AI DM</th>
+          <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 text-[12px] uppercase tracking-wide text-neutral-500">
+            <th className="px-2 py-1.5 font-semibold">Lead</th>
+            <th className="px-2 py-1.5 font-semibold">Comment</th>
+            <th className="px-2 py-1.5 font-semibold">Class</th>
+            <th className="px-2 py-1.5 font-semibold">AI DM</th>
           </tr>
         </thead>
         <tbody>
           {LEADS_DEMO_ROWS.map((row) => (
             <tr key={row.name} className="border-b border-neutral-100 dark:border-neutral-800 last:border-0 funnel-demo-message-in">
-              <td className="px-1.5 py-1 align-top">
-                <div className="flex items-center gap-1">
-                  <DemoProfilePhoto src={row.avatarSrc} label={row.avatar} colorClass={row.color} size="sm" />
-                  <span className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 whitespace-nowrap">
+              <td className="px-2 py-1.5 align-top">
+                <div className="flex items-center gap-1.5">
+                  <DemoProfilePhoto src={row.avatarSrc} label={row.avatar} colorClass={row.color} size="xl" />
+                  <span className="text-[12px] font-semibold text-neutral-800 dark:text-neutral-200 whitespace-nowrap">
                     {row.name.split(' ')[0]}
                   </span>
                 </div>
               </td>
-              <td className="px-1.5 py-1 text-[11px] text-neutral-600 dark:text-neutral-400 align-top max-w-[76px] leading-snug line-clamp-2">
+              <td className="px-2 py-1.5 text-[12px] text-neutral-600 dark:text-neutral-400 align-top max-w-[80px] leading-snug line-clamp-2">
                 {row.comment}
               </td>
-              <td className="px-1.5 py-1 align-top">
-                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${row.intentStyle}`}>
+              <td className="px-2 py-1.5 align-top">
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${row.intentStyle}`}>
                   {row.intent}
                 </span>
               </td>
-              <td className="px-1.5 py-1 text-[11px] text-[var(--primary)] align-top max-w-[84px] leading-snug font-medium line-clamp-2">
+              <td className="px-2 py-1.5 text-[12px] text-[var(--primary)] align-top max-w-[88px] leading-snug font-medium line-clamp-2">
                 {row.dm}
               </td>
             </tr>
@@ -1148,12 +1153,15 @@ export function LeadsSpreadsheet({ show, progress = 1 }: { show: boolean; progre
   );
 }
 
+const TEAM_EDITOR_ROLE_STYLE =
+  'border-sky-300 bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300';
+
 const TEAM_DEMO_ROWS = [
-  { name: 'Guy K.', avatar: 'GK', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.guy, color: 'bg-violet-500', role: 'Admin', roleStyle: 'border-violet-300 bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300', activity: 'Active now', activityStyle: 'text-emerald-600 dark:text-emerald-400' },
-  { name: 'Maya Rodriguez', avatar: 'MR', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.maya, color: 'bg-sky-500', role: 'Editor', roleStyle: 'border-sky-300 bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300', activity: '2h ago', activityStyle: 'text-neutral-500' },
+  { name: 'Marcus Reed', avatar: 'MR', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.guy, color: 'bg-violet-500', role: 'Admin', roleStyle: 'border-violet-300 bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300', activity: 'Active now', activityStyle: 'text-emerald-600 dark:text-emerald-400' },
+  { name: 'Maya Rodriguez', avatar: 'MY', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.maya, color: 'bg-sky-500', role: 'Editor', roleStyle: TEAM_EDITOR_ROLE_STYLE, activity: '2h ago', activityStyle: 'text-neutral-500' },
   { name: 'Alex Kim', avatar: 'AK', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.alex, color: 'bg-emerald-500', role: 'Viewer', roleStyle: 'border-neutral-300 bg-neutral-50 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300', activity: 'Yesterday', activityStyle: 'text-neutral-500' },
-  { name: 'Nina Cho', avatar: 'NC', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.nina, color: 'bg-rose-500', role: 'Editor', roleStyle: 'border-rose-300 bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300', activity: '4h ago', activityStyle: 'text-neutral-500' },
-  { name: 'Omar Hassan', avatar: 'OH', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.omar, color: 'bg-amber-500', role: 'Analyst', roleStyle: 'border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300', activity: '6h ago', activityStyle: 'text-neutral-500' },
+  { name: 'Nina Cho', avatar: 'NC', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.nina, color: 'bg-rose-500', role: 'Editor', roleStyle: TEAM_EDITOR_ROLE_STYLE, activity: '4h ago', activityStyle: 'text-neutral-500' },
+  { name: 'Omar Hassan', avatar: 'OH', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.omar, color: 'bg-amber-500', role: 'Editor', roleStyle: TEAM_EDITOR_ROLE_STYLE, activity: '6h ago', activityStyle: 'text-neutral-500' },
   { name: 'Julia Ross', avatar: 'JR', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.julia, color: 'bg-indigo-500', role: 'Viewer', roleStyle: 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300', activity: '1d ago', activityStyle: 'text-neutral-500' },
 ] as const;
 
@@ -1162,42 +1170,42 @@ export function TeamMembersPanel({ show, progress = 1 }: { show: boolean; progre
 
   return (
     <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
-      <div className="flex items-center gap-1.5 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 px-2 py-1.5">
-        <Users size={13} className="text-[#7C3AED]" />
-        <span className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">Team activity</span>
+      <div className="flex items-center gap-1.5 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 px-2 py-2">
+        <Users size={15} className="text-[#7C3AED]" />
+        <span className="text-[13px] font-semibold text-neutral-800 dark:text-neutral-200">Team activity</span>
       </div>
       <table className="w-full text-left">
         <thead>
-          <tr className="border-b border-neutral-100 dark:border-neutral-800 text-[10px] uppercase tracking-wide text-neutral-500">
-            <th className="px-1.5 py-1 font-semibold">Member</th>
-            <th className="px-1.5 py-1 font-semibold">Role</th>
-            <th className="px-1.5 py-1 font-semibold text-right">Last active</th>
+          <tr className="border-b border-neutral-100 dark:border-neutral-800 text-[11px] uppercase tracking-wide text-neutral-500">
+            <th className="px-2 py-1.5 font-semibold">Member</th>
+            <th className="px-2 py-1.5 font-semibold">Role</th>
+            <th className="px-2 py-1.5 font-semibold text-right">Last active</th>
           </tr>
         </thead>
         <tbody>
           {TEAM_DEMO_ROWS.map((row) => (
             <tr key={row.name} className="border-b border-neutral-100 dark:border-neutral-800 last:border-0">
-              <td className="px-1.5 py-1 align-middle">
+              <td className="px-2 py-1.5 align-middle">
                 <div className="flex items-center gap-1.5">
-                  <DemoProfilePhoto src={row.avatarSrc} label={row.avatar} colorClass={row.color} size="md" />
-                  <span className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 whitespace-nowrap">
+                  <DemoProfilePhoto src={row.avatarSrc} label={row.avatar} colorClass={row.color} size="lg" />
+                  <span className="text-[12px] font-semibold text-neutral-800 dark:text-neutral-200 whitespace-nowrap">
                     {row.name}
                   </span>
                 </div>
               </td>
-              <td className="px-1.5 py-1 align-middle">
-                <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${row.roleStyle}`}>
+              <td className="px-2 py-1.5 align-middle">
+                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${row.roleStyle}`}>
                   {row.role}
                 </span>
               </td>
-              <td className={`px-1.5 py-1 text-right text-[10px] font-medium tabular-nums ${row.activityStyle}`}>
+              <td className={`px-2 py-1.5 text-right text-[11px] font-medium tabular-nums ${row.activityStyle}`}>
                 {row.activity}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      <p className="flex items-center gap-1 border-t border-neutral-100 dark:border-neutral-800 px-2 py-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+      <p className="flex items-center gap-1 border-t border-neutral-100 dark:border-neutral-800 px-2 py-2 text-[12px] font-semibold text-emerald-600 dark:text-emerald-400">
         <CheckCircle2 size={12} /> Invite sent to maya@studio.com
       </p>
     </div>
@@ -1220,12 +1228,12 @@ export function AnalyticsReportPreview({ show, progress = 1 }: { show: boolean; 
   ];
 
   return (
-    <div className="space-y-1.5">
-      <div className="rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950/25 dark:border-orange-900/60 p-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
+    <div className="space-y-2">
+      <div className="rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950/25 dark:border-orange-900/60 p-2.5">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
           Mar 1 to Mar 31 · 8 platforms
         </p>
-        <div className="mt-1 grid grid-cols-4 gap-1">
+        <div className="mt-1.5 grid grid-cols-4 gap-1.5">
           {[
             { label: 'Impressions', value: '1.2M', delta: '+14%' },
             { label: 'Engagement', value: '48.3K', delta: '+9%' },
@@ -1234,45 +1242,45 @@ export function AnalyticsReportPreview({ show, progress = 1 }: { show: boolean; 
           ].map((m) => (
             <div
               key={m.label}
-              className="rounded-md border border-orange-100 bg-white/80 dark:bg-neutral-900/60 dark:border-orange-900/40 px-1 py-0.5"
+              className="rounded-md border border-orange-100 bg-white/80 dark:bg-neutral-900/60 dark:border-orange-900/40 px-1.5 py-1"
             >
-              <p className="text-[11px] font-bold tabular-nums text-neutral-900 dark:text-neutral-100">{m.value}</p>
-              <p className="text-[8px] text-neutral-500">{m.label}</p>
-              <p className="text-[8px] font-semibold text-emerald-600 dark:text-emerald-400">{m.delta}</p>
+              <p className="text-[13px] font-bold tabular-nums text-neutral-900 dark:text-neutral-100">{m.value}</p>
+              <p className="text-[9px] text-neutral-500">{m.label}</p>
+              <p className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">{m.delta}</p>
             </div>
           ))}
         </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
-        <p className="border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 px-2 py-1 text-[9px] font-semibold uppercase tracking-wide text-neutral-500">
+        <p className="border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
           Platform breakdown
         </p>
         <table className="w-full text-left">
           <thead>
-            <tr className="border-b border-neutral-100 dark:border-neutral-800 text-[9px] uppercase text-neutral-500">
-              <th className="px-1.5 py-0.5 font-semibold">Platform</th>
-              <th className="px-1 py-0.5 font-semibold">Followers</th>
-              <th className="px-1 py-0.5 font-semibold">Views</th>
-              <th className="px-1 py-0.5 font-semibold">Eng.</th>
-              <th className="px-1 py-0.5 font-semibold">Posts</th>
+            <tr className="border-b border-neutral-100 dark:border-neutral-800 text-[10px] uppercase text-neutral-500">
+              <th className="px-2 py-1 font-semibold">Platform</th>
+              <th className="px-1.5 py-1 font-semibold">Followers</th>
+              <th className="px-1.5 py-1 font-semibold">Views</th>
+              <th className="px-1.5 py-1 font-semibold">Eng.</th>
+              <th className="px-1.5 py-1 font-semibold">Posts</th>
             </tr>
           </thead>
           <tbody>
             {platformRows.map((row) => (
               <tr key={row.platform} className="border-b border-neutral-50 dark:border-neutral-800/80 last:border-0">
-                <td className="px-1.5 py-0.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">{row.platform}</td>
-                <td className="px-1 py-0.5 text-[10px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.followers}</td>
-                <td className="px-1 py-0.5 text-[10px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.views}</td>
-                <td className="px-1 py-0.5 text-[10px] tabular-nums text-emerald-600 dark:text-emerald-400">{row.eng}</td>
-                <td className="px-1 py-0.5 text-[10px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.posts}</td>
+                <td className="px-2 py-1 text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">{row.platform}</td>
+                <td className="px-1.5 py-1 text-[11px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.followers}</td>
+                <td className="px-1.5 py-1 text-[11px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.views}</td>
+                <td className="px-1.5 py-1 text-[11px] tabular-nums text-emerald-600 dark:text-emerald-400">{row.eng}</td>
+                <td className="px-1.5 py-1 text-[11px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.posts}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <div className="grid grid-cols-4 gap-1">
+      <div className="grid grid-cols-4 gap-1.5">
         {[
           { label: 'Best day', value: 'Sat', sub: '31.2K views' },
           { label: 'Top format', value: 'Reels', sub: '42% reach' },
@@ -1281,51 +1289,51 @@ export function AnalyticsReportPreview({ show, progress = 1 }: { show: boolean; 
         ].map((item) => (
           <div
             key={item.label}
-            className="rounded-md border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 px-1 py-1"
+            className="rounded-md border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 px-1.5 py-1.5"
           >
-            <p className="text-[8px] uppercase text-neutral-500">{item.label}</p>
-            <p className="text-[11px] font-bold text-neutral-900 dark:text-neutral-100">{item.value}</p>
-            <p className="text-[8px] text-neutral-500">{item.sub}</p>
+            <p className="text-[9px] uppercase text-neutral-500">{item.label}</p>
+            <p className="text-[12px] font-bold text-neutral-900 dark:text-neutral-100">{item.value}</p>
+            <p className="text-[9px] text-neutral-500">{item.sub}</p>
           </div>
         ))}
       </div>
 
-      <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-1.5">
-        <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1">Top content this month</p>
-        <div className="flex gap-1">
+      <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2">
+        <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">Top content this month</p>
+        <div className="flex gap-1.5">
           {FUNNEL_DEMO_IG_WEEK_POSTS.slice(0, 4).map((post) => (
-            <div key={post.src} className="relative w-[44px] shrink-0">
+            <div key={post.src} className="relative w-[52px] shrink-0">
               <div className="aspect-[3/4] overflow-hidden rounded border border-neutral-200 dark:border-neutral-700">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={post.src} alt={post.label} className="h-full w-full object-cover" draggable={false} />
                 {post.format === 'reel' ? <DemoReelPlayOverlay show /> : null}
               </div>
-              <p className="mt-0.5 text-[7px] tabular-nums text-neutral-500">{post.views}</p>
+              <p className="mt-0.5 text-[8px] tabular-nums text-neutral-500">{post.views}</p>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-1">
+      <div className="grid grid-cols-2 gap-1.5">
         {[
           { title: 'Simplified report', sub: 'PDF · 4 pages' },
           { title: 'Detailed report', sub: 'PDF · 12 pages' },
         ].map((card, i) => (
           <div
             key={card.title}
-            className={`rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-1.5 ${
+            className={`rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 ${
               progress > 0.32 + i * 0.12 || progress >= 1 ? 'opacity-100' : 'opacity-40'
             }`}
           >
-            <FileText size={13} className="text-[#7C3AED] mb-0.5" />
-            <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 leading-snug">{card.title}</p>
-            <p className="text-[8px] text-neutral-500">{card.sub}</p>
+            <FileText size={15} className="text-[#7C3AED] mb-0.5" />
+            <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 leading-snug">{card.title}</p>
+            <p className="text-[9px] text-neutral-500">{card.sub}</p>
           </div>
         ))}
       </div>
       {showDownload ? (
-        <p className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--primary)]">
-          <CheckCircle2 size={11} /> analytics-report-mar.pdf ready
+        <p className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--primary)]">
+          <CheckCircle2 size={12} /> analytics-report-mar.pdf ready
         </p>
       ) : null}
     </div>
