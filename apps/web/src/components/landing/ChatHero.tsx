@@ -21,12 +21,11 @@ import {
   ChatHeroDemoLoopProvider,
   ChatHeroSideDemoColumn,
 } from '@/components/landing/funnel-demos/ChatHeroSideDemos';
-import { FUNNEL_LANDING_EXPERIMENTAL } from '@/components/landing/funnel-demos/funnel-landing-variant';
 import {
   CHAT_HERO_PAIN_POINTS,
   CHAT_HERO_PLATFORMS,
   connectRedirectForPlatforms,
-  demoBlocksForPainPoint,
+  demoMessageForPainPoint,
   formatPlatformList,
   answerLandingChatQuestion,
   matchPainPointFromText,
@@ -34,18 +33,13 @@ import {
   painDiscoveryMessage,
   type ChatHeroPainPointId,
   type ChatHeroPlatformId,
-  type DemoBlock,
 } from '@/lib/chat-hero-script';
 
 type FlowStep = 0 | 1 | 2 | 3;
 
 type RenderBlock =
-  | { id: string; kind: 'ai'; text: string; animate?: boolean; prominent?: boolean; isOpening?: boolean }
-  | { id: string; kind: 'user_pills'; labels: string[] }
-  | { id: string; kind: 'stats'; items: { value: string; label: string }[] }
-  | { id: string; kind: 'mock_chat'; user: string; ai: string }
-  | { id: string; kind: 'ideas'; items: string[] }
-  | { id: string; kind: 'badges'; items: string[] };
+  | { id: string; kind: 'ai'; text: string; isOpening?: boolean }
+  | { id: string; kind: 'user_pills'; labels: string[] };
 
 const PLATFORM_ICONS: Record<
   ChatHeroPlatformId,
@@ -66,22 +60,12 @@ const OPENING_HEADLINE = 'your personal AI social media manager.';
 const OPENING_BODY =
   "Tell me what platforms you're on, and I'll show you what I can do.";
 
-function getOpeningTypewriterText(): string {
-  if (FUNNEL_LANDING_EXPERIMENTAL) return OPENING_HEADLINE;
-  return `${OPENING_GREETING}\n${OPENING_HEADLINE}`;
-}
-
-function getOpeningLineParts(displayed: string): [string, string, string] {
-  const lines = displayed.split('\n');
-  return [lines[0] ?? '', lines[1] ?? '', lines[2] ?? ''];
-}
-
-function getActiveOpeningLineIndex(displayed: string): number {
-  const lines = displayed.split('\n');
-  if (lines.length <= 1) return 0;
-  if (lines.length === 2) return 1;
-  return 2;
-}
+const MOBILE_FEATURE_CHIPS = [
+  { emoji: '🤖', label: 'Bulk replies' },
+  { emoji: '📊', label: 'Analytics' },
+  { emoji: '📋', label: 'Lead extraction' },
+  { emoji: '📅', label: 'Scheduling' },
+] as const;
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -91,73 +75,6 @@ function blockId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function demoBlockToRender(block: DemoBlock): RenderBlock[] {
-  if (block.kind === 'text') {
-    return [{ id: blockId('ai'), kind: 'ai', text: block.text }];
-  }
-  if (block.kind === 'stats') {
-    return [{ id: blockId('stats'), kind: 'stats', items: block.items }];
-  }
-  if (block.kind === 'mock_chat') {
-    return [{ id: blockId('mock'), kind: 'mock_chat', user: block.user, ai: block.ai }];
-  }
-  if (block.kind === 'ideas') {
-    return [{ id: blockId('ideas'), kind: 'ideas', items: block.items }];
-  }
-  return [{ id: blockId('badges'), kind: 'badges', items: block.items }];
-}
-
-function TypewriterText({
-  text,
-  active,
-  onComplete,
-}: {
-  text: string;
-  active: boolean;
-  onComplete?: () => void;
-}) {
-  const [displayed, setDisplayed] = useState('');
-  const doneRef = useRef(false);
-
-  useEffect(() => {
-    if (!active) return;
-    setDisplayed('');
-    doneRef.current = false;
-    let i = 0;
-    const tick = () => {
-      i += 1;
-      setDisplayed(text.slice(0, i));
-      if (i >= text.length) {
-        if (!doneRef.current) {
-          doneRef.current = true;
-          onComplete?.();
-        }
-        return;
-      }
-      window.setTimeout(tick, 22);
-    };
-    const start = window.setTimeout(tick, 120);
-    return () => window.clearTimeout(start);
-  }, [active, text, onComplete]);
-
-  if (!active) return <span>{text}</span>;
-  return (
-    <span>
-      {displayed}
-      {displayed.length < text.length ? (
-        <span className="inline-block w-[2px] h-[1em] ml-0.5 bg-[var(--chat-hero-cursor)] animate-pulse align-middle" />
-      ) : null}
-    </span>
-  );
-}
-
-const OPENING_PRIMARY =
-  'block text-[22px] sm:text-[26px] lg:text-[28px] tracking-[-0.03em] leading-[1.15]';
-
-const OPENING_HEADLINE_SIZE =
-  'block text-[24px] sm:text-[28px] lg:text-[32px] tracking-[-0.04em] leading-[1.1]';
-
-/** White mark on black — circle size fixed; mark slightly inset inside. */
 const FUNNEL_AI_AVATAR_BOX = 'h-9 w-9 shrink-0';
 
 function FunnelAiMessageAvatar({ className }: { className?: string }) {
@@ -168,206 +85,109 @@ function FunnelAiMessageAvatar({ className }: { className?: string }) {
       aria-hidden
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={SITE_LOGO_DARK_SRC} alt="" className="h-[62%] w-[62%] object-contain" />
+      <img
+        src={SITE_LOGO_DARK_SRC}
+        alt=""
+        className="h-[62%] w-[62%] object-contain"
+        loading="eager"
+      />
     </span>
   );
 }
 
 function TypingIndicator() {
   return (
-    <div className="flex items-start gap-3 chat-hero-message-enter" aria-label="Thinking">
+    <div className="flex items-start gap-3 chat-hero-message-enter" aria-label="iZop is typing">
       <FunnelAiMessageAvatar className={`${FUNNEL_AI_AVATAR_BOX} mt-0.5`} />
-    </div>
-  );
-}
-
-function OpeningAiMessage({
-  typewriterActive,
-  showFollowUp,
-  onHeadlineComplete,
-}: {
-  typewriterActive?: boolean;
-  /** Body line appears in full after headline typewriter finishes. */
-  showFollowUp?: boolean;
-  onHeadlineComplete?: () => void;
-}) {
-  const [displayed, setDisplayed] = useState('');
-  const doneRef = useRef(false);
-
-  const typewriterText = getOpeningTypewriterText();
-
-  useEffect(() => {
-    if (!typewriterActive) return;
-    setDisplayed('');
-    doneRef.current = false;
-    let i = 0;
-    const tick = () => {
-      i += 1;
-      setDisplayed(typewriterText.slice(0, i));
-      if (i >= typewriterText.length) {
-        if (!doneRef.current) {
-          doneRef.current = true;
-          onHeadlineComplete?.();
-        }
-        return;
-      }
-      window.setTimeout(tick, 14);
-    };
-    const start = window.setTimeout(tick, 40);
-    return () => window.clearTimeout(start);
-  }, [typewriterActive, onHeadlineComplete, typewriterText]);
-
-  const greeting = FUNNEL_LANDING_EXPERIMENTAL
-    ? showFollowUp
-      ? OPENING_GREETING
-      : ''
-    : typewriterActive
-      ? getOpeningLineParts(displayed)[0]
-      : OPENING_GREETING;
-  const headline = FUNNEL_LANDING_EXPERIMENTAL
-    ? typewriterActive
-      ? displayed
-      : OPENING_HEADLINE
-    : typewriterActive
-      ? getOpeningLineParts(displayed)[1]
-      : OPENING_HEADLINE;
-  const body = showFollowUp ? OPENING_BODY : '';
-  const showCursor = !!typewriterActive && displayed.length < typewriterText.length;
-  const activeLine = FUNNEL_LANDING_EXPERIMENTAL
-    ? 0
-    : getActiveOpeningLineIndex(displayed);
-
-  const rows: { key: string; text: string; className: string }[] = FUNNEL_LANDING_EXPERIMENTAL
-    ? [
-        {
-          key: 'headline',
-          text: headline,
-          className:
-            'block text-[28px] sm:text-[34px] lg:text-[40px] tracking-[-0.045em] leading-[1.08] chat-hero-opening-headline-hero',
-        },
-        {
-          key: 'greeting',
-          text: showFollowUp ? OPENING_GREETING : '',
-          className: `${OPENING_PRIMARY} font-normal text-[#888780] mt-2 sm:mt-2.5`,
-        },
-        {
-          key: 'body',
-          text: body,
-          className:
-            'block text-[13px] sm:text-[15px] font-normal leading-[1.6] text-[#888780] mt-2 whitespace-nowrap',
-        },
-      ]
-    : [
-        {
-          key: 'greeting',
-          text: greeting,
-          className: `${OPENING_PRIMARY} font-medium text-[var(--chat-hero-text)]`,
-        },
-        {
-          key: 'headline',
-          text: headline,
-          className: `${OPENING_HEADLINE_SIZE} chat-hero-opening-headline-bold mt-1 sm:mt-1.5`,
-        },
-        {
-          key: 'body',
-          text: body,
-          className:
-            'block text-[13px] sm:text-[15px] font-normal leading-[1.6] mt-2 whitespace-nowrap',
-        },
-      ];
-
-  return (
-    <div className="flex items-start gap-3 chat-hero-message-enter mt-5 sm:mt-7">
-      <FunnelAiMessageAvatar className={`${FUNNEL_AI_AVATAR_BOX} mt-1`} />
-      <div className="flex-1 min-w-0 text-[var(--chat-hero-text)]">
-        {rows.map((row, index) => {
-          if (!row.text && !(showCursor && index === activeLine)) return null;
-          return (
-            <p key={row.key} className={row.className}>
-              {row.text}
-              {showCursor && index === activeLine ? (
-                <span className="inline-block w-[2px] h-[1em] ml-0.5 bg-[var(--chat-hero-cursor)] animate-pulse align-middle" />
-              ) : null}
-            </p>
-          );
-        })}
+      <div className="flex items-center gap-1 pt-2">
+        <span className="chat-hero-typing-dot h-1.5 w-1.5 rounded-full bg-[var(--chat-hero-muted)]" style={{ animationDelay: '0ms' }} />
+        <span className="chat-hero-typing-dot h-1.5 w-1.5 rounded-full bg-[var(--chat-hero-muted)]" style={{ animationDelay: '150ms' }} />
+        <span className="chat-hero-typing-dot h-1.5 w-1.5 rounded-full bg-[var(--chat-hero-muted)]" style={{ animationDelay: '300ms' }} />
       </div>
     </div>
   );
 }
 
-function AiMessage({
-  text,
-  typewriter,
-  typewriterActive,
-  onTypewriterComplete,
-}: {
-  text: string;
-  typewriter?: boolean;
-  typewriterActive?: boolean;
-  onTypewriterComplete?: () => void;
-}) {
+function OpeningMessage() {
+  return (
+    <div className="flex items-start gap-3 chat-hero-message-enter mt-5 sm:mt-7">
+      <FunnelAiMessageAvatar className={`${FUNNEL_AI_AVATAR_BOX} mt-1`} />
+      <div className="flex-1 min-w-0">
+        <p className="chat-hero-opening-greeting">{OPENING_GREETING}</p>
+        <p className="chat-hero-opening-headline">{OPENING_HEADLINE}</p>
+        <p className="chat-hero-opening-body">{OPENING_BODY}</p>
+      </div>
+    </div>
+  );
+}
+
+function AiMessage({ text }: { text: string }) {
   return (
     <div className="flex items-start gap-3 chat-hero-message-enter">
       <FunnelAiMessageAvatar className={`${FUNNEL_AI_AVATAR_BOX} mt-0.5`} />
-      <p className="text-[16px] leading-[1.6] text-[var(--chat-hero-text)] whitespace-pre-line flex-1 min-w-0">
-        {typewriter ? (
-          <TypewriterText text={text} active={!!typewriterActive} onComplete={onTypewriterComplete} />
-        ) : (
-          text
-        )}
+      <p className="text-base leading-relaxed text-[var(--chat-hero-text)] whitespace-pre-line flex-1 min-w-0">
+        {text}
       </p>
     </div>
   );
 }
 
-function OptionSquareButton({
+function PlatformButton({
   label,
   selected,
   disabled,
   icon,
   onClick,
-  staggerIndex,
-  animateEnter = true,
-  variant = 'compact',
 }: {
   label: string;
   selected: boolean;
   disabled?: boolean;
-  icon?: React.ReactNode;
+  icon: React.ReactNode;
   onClick: () => void;
-  staggerIndex?: number;
-  animateEnter?: boolean;
-  variant?: 'compact' | 'tall';
 }) {
-  const isTall = variant === 'tall';
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
-      style={{ animationDelay: animateEnter && staggerIndex !== undefined ? `${staggerIndex * 60}ms` : undefined }}
       className={[
-        animateEnter ? 'chat-hero-pill-enter' : '',
-        'flex w-full flex-col items-center justify-center rounded-lg border p-2 transition-all duration-150',
-        isTall ? 'min-h-[96px] sm:min-h-[108px] gap-1.5' : 'h-[80px] sm:h-[92px] gap-1.5',
-        'active:scale-[0.97]',
-        selected
-          ? 'border-[#7C3AED] bg-[var(--chat-hero-accent-soft)] shadow-[0_0_0_1px_rgba(124,58,237,0.2)]'
-          : 'border-[var(--chat-hero-border)] bg-[var(--chat-hero-surface)] hover:border-[#7C3AED]/50 hover:bg-[var(--chat-hero-bg)]',
+        'chat-hero-platform-btn flex w-full items-center gap-2.5 rounded-xl border px-4 py-3 text-left transition-all duration-150 active:scale-[0.98]',
+        selected ? 'chat-hero-platform-btn--selected' : '',
         disabled ? 'opacity-50 pointer-events-none' : '',
       ].join(' ')}
     >
-      {icon ? (
-        <span className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center">{icon}</span>
-      ) : null}
-      <span
-        className={`text-center font-medium leading-snug px-1 ${
-          isTall ? 'text-xs sm:text-sm' : 'text-[11px] sm:text-xs'
-        } ${selected ? 'text-[var(--chat-hero-accent-text)]' : 'text-[var(--chat-hero-text)]'}`}
-      >
-        {label}
-      </span>
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center">{icon}</span>
+      <span className="text-sm font-medium leading-snug">{label}</span>
+    </button>
+  );
+}
+
+function PainOptionButton({
+  label,
+  selected,
+  disabled,
+  onClick,
+  staggerIndex,
+}: {
+  label: string;
+  selected: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  staggerIndex: number;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      style={{ animationDelay: `${staggerIndex * 60}ms` }}
+      className={[
+        'chat-hero-pill-enter chat-hero-platform-btn flex w-full items-center justify-center rounded-xl border px-4 py-3 text-center text-sm font-medium transition-all duration-150 min-h-[72px]',
+        selected ? 'chat-hero-platform-btn--selected' : '',
+        disabled ? 'opacity-50 pointer-events-none' : '',
+      ].join(' ')}
+    >
+      {label}
     </button>
   );
 }
@@ -376,7 +196,7 @@ export default function ChatHero() {
   const { signInWithGoogle } = useAuth();
   const { openSignup } = useAuthModal();
 
-  const [sideDemosReady, setSideDemosReady] = useState(false);
+  const [sideDemosReady, setSideDemosReady] = useState(true);
 
   const [step, setStep] = useState<FlowStep>(0);
   const [blocks, setBlocks] = useState<RenderBlock[]>([]);
@@ -386,19 +206,16 @@ export default function ChatHero() {
   const [selectedPlatforms, setSelectedPlatforms] = useState<ChatHeroPlatformId[]>([]);
   const [selectedPain, setSelectedPain] = useState<ChatHeroPainPointId | null>(null);
 
-  const [showPlatformOptions, setShowPlatformOptions] = useState(false);
-  const [showOpeningFollowUp, setShowOpeningFollowUp] = useState(false);
+  const [showPlatformOptions, setShowPlatformOptions] = useState(true);
   const [showPainOptions, setShowPainOptions] = useState(false);
   const [showDemoCta, setShowDemoCta] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
-  const [typewriterDone, setTypewriterDone] = useState(false);
 
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
   const [draftText, setDraftText] = useState('');
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const flowLock = useRef(false);
 
   const platformLabels = useMemo(
@@ -439,25 +256,8 @@ export default function ChatHero() {
 
   useEffect(() => {
     trackChatHeroEvent('chat_started');
-    setBlocks([
-      {
-        id: blockId('ai'),
-        kind: 'ai',
-        text: getOpeningTypewriterText(),
-        animate: true,
-        prominent: true,
-        isOpening: true,
-      },
-    ]);
-  }, []);
-
-  const handleHeadlineComplete = useCallback(() => {
-    setTypewriterDone(true);
-    setShowOpeningFollowUp(true);
-    setShowPlatformOptions(true);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => setSideDemosReady(true));
-    });
+    setBlocks([{ id: blockId('ai'), kind: 'ai', text: '', isOpening: true }]);
+    setSideDemosReady(true);
   }, []);
 
   const togglePlatform = useCallback((id: ChatHeroPlatformId) => {
@@ -492,7 +292,7 @@ export default function ChatHero() {
           text: painDiscoveryMessage(platformLabels),
         },
       ]);
-      await delay(600);
+      await delay(400);
       setShowPainOptions(true);
       setBusy(false);
       flowLock.current = false;
@@ -512,13 +312,14 @@ export default function ChatHero() {
 
     setStep(2);
 
-    await playTypingThen(1200, async () => {
-      const demo = demoBlocksForPainPoint(selectedPain);
-      for (let i = 0; i < demo.length; i += 1) {
-        const rendered = demoBlockToRender(demo[i]);
-        appendBlocks(rendered);
-        if (i < demo.length - 1) await delay(600);
-      }
+    await playTypingThen(800, async () => {
+      appendBlocks([
+        {
+          id: blockId('ai'),
+          kind: 'ai',
+          text: demoMessageForPainPoint(selectedPain),
+        },
+      ]);
 
       trackChatHeroEvent('demo_completed', { pain_point: selectedPain });
       await delay(400);
@@ -583,8 +384,12 @@ export default function ChatHero() {
     const trimmed = draftText.trim();
     if (!trimmed || busy || isTyping) return;
 
+    if (step === 0 && /^(hi|hello|hey|yo)\b/i.test(trimmed)) {
+      setDraftText('');
+      return;
+    }
+
     setDraftText('');
-    appendBlocks([{ id: blockId('user'), kind: 'user_pills', labels: [trimmed] }]);
 
     const matchedPlatforms = matchPlatformsFromText(trimmed);
     const matchedPain = matchPainPointFromText(trimmed);
@@ -592,7 +397,6 @@ export default function ChatHero() {
     if (showPlatformOptions && matchedPlatforms.length > 0) {
       setSelectedPlatforms((prev) => [...new Set([...prev, ...matchedPlatforms])]);
     }
-    // Also select platform when user asks about posting on a specific one
     if (showPlatformOptions) {
       const lower = trimmed.toLowerCase();
       if (/instagram|ig\b|insta/.test(lower) && /post|publish|reel/.test(lower)) {
@@ -604,6 +408,16 @@ export default function ChatHero() {
     }
     if (showPainOptions && matchedPain) {
       setSelectedPain(matchedPain);
+    }
+
+    const isPlatformOnly =
+      step === 0 &&
+      showPlatformOptions &&
+      matchedPlatforms.length > 0 &&
+      trimmed.split(/\s+/).length <= 3;
+
+    if (!isPlatformOnly) {
+      appendBlocks([{ id: blockId('user'), kind: 'user_pills', labels: [trimmed] }]);
     }
 
     setBusy(true);
@@ -618,10 +432,7 @@ export default function ChatHero() {
             matchedPlatforms,
             matchedPain,
             selectedPlatformIds: [
-              ...new Set([
-                ...selectedPlatforms,
-                ...matchedPlatforms,
-              ]),
+              ...new Set([...selectedPlatforms, ...matchedPlatforms]),
             ],
           }),
         },
@@ -645,10 +456,7 @@ export default function ChatHero() {
     if (showDemoCta) return 'Type a question, or tap Start for free…';
     if (showPainOptions) return 'Describe your biggest challenge…';
     if (step === 0 && !showPainOptions && !showDemoCta && !showSignup) {
-      if (FUNNEL_LANDING_EXPERIMENTAL) {
-        return "Try: 'Reply to all my Instagram comments from today'";
-      }
-      return 'Ask anything - pricing, features, platforms, how it works…';
+      return "Try: 'Reply to all my Instagram comments from today'";
     }
     return 'Message iZop…';
   }, [showDemoCta, showPainOptions, showSignup, step]);
@@ -657,262 +465,194 @@ export default function ChatHero() {
   const canPainContinue = selectedPain !== null && !busy;
 
   return (
-    <section
-      className={`chat-hero relative flex h-[calc(100dvh-0.5rem)] max-h-[calc(100dvh-0.5rem)] flex-col overflow-hidden pt-14 sm:pt-16 ${
-        FUNNEL_LANDING_EXPERIMENTAL ? 'chat-hero--experimental' : ''
-      }`}
-    >
+    <section className="chat-hero relative flex min-h-[60vh] md:min-h-0 md:h-[calc(100dvh-3px)] md:max-h-[calc(100dvh-3px)] flex-col overflow-hidden pt-[calc(3px+3.5rem)] sm:pt-[calc(3px+4rem)]">
       <ChatHeroDemoLoopProvider active={sideDemosReady}>
-      <div className="flex flex-1 min-h-0 w-full max-w-[1920px] mx-auto">
-        <ChatHeroSideDemoColumn side="left" visible={sideDemosReady} />
-        <div className="flex flex-1 min-h-0 min-w-0 flex-col w-full px-2 sm:px-3 xl:px-4 pt-2 sm:pt-2 pb-3 sm:pb-4">
-          <h1 className="sr-only">iZop, your personal AI social media manager</h1>
+        <div className="flex flex-1 min-h-0 w-full max-w-[1920px] mx-auto">
+          <ChatHeroSideDemoColumn side="left" visible={sideDemosReady} />
+          <div className="chat-hero__main flex flex-1 min-h-0 min-w-0 flex-col w-full px-0 md:px-3 xl:px-4 pt-2 sm:pt-2 pb-3 sm:pb-4">
+            <h1 className="sr-only">iZop, your personal AI social media manager</h1>
 
-          <div ref={scrollRef} className="flex flex-1 min-h-0 w-full flex-col overflow-y-auto pb-4 pt-2 sm:pt-3">
-            <div className="w-full space-y-3 shrink-0">
-              {blocks.map((block, index) => {
-                if (block.kind === 'ai') {
-                  if (block.isOpening) {
-                    return (
-                      <OpeningAiMessage
-                        key={block.id}
-                        typewriterActive={!typewriterDone}
-                        showFollowUp={showOpeningFollowUp}
-                        onHeadlineComplete={handleHeadlineComplete}
-                      />
-                    );
+            <div
+              ref={scrollRef}
+              className="flex flex-1 min-h-0 w-full flex-col overflow-y-auto pb-4 pt-2 sm:pt-3 px-2 md:px-0"
+            >
+              <div className="w-full space-y-3 shrink-0">
+                {blocks.map((block) => {
+                  if (block.kind === 'ai') {
+                    if (block.isOpening) {
+                      return <OpeningMessage key={block.id} />;
+                    }
+                    return <AiMessage key={block.id} text={block.text} />;
                   }
-                  return (
-                    <AiMessage
-                      key={block.id}
-                      text={block.text}
-                      typewriter={false}
-                    />
-                  );
-                }
-                if (block.kind === 'user_pills') {
                   return (
                     <div key={block.id} className="flex flex-wrap justify-end gap-2 chat-hero-message-enter">
                       {block.labels.map((label) => (
-                        <span
-                          key={label}
-                          className="rounded-full border border-[#7C3AED] bg-[var(--chat-hero-accent-soft)] px-[18px] py-[10px] text-sm text-[var(--chat-hero-accent-text)] font-medium"
-                        >
+                        <span key={label} className="chat-hero-user-pill">
                           {label}
                         </span>
                       ))}
                     </div>
                   );
-                }
-                if (block.kind === 'stats') {
-                  return (
-                    <div key={block.id} className="flex flex-wrap gap-2 chat-hero-message-enter pl-9">
-                      {block.items.map((item) => (
-                        <div
-                          key={item.label}
-                          className="rounded-xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-surface)] px-5 py-4 min-w-[140px]"
-                        >
-                          <p className="text-xl font-semibold text-[var(--chat-hero-text)]">{item.value}</p>
-                          <p className="text-xs text-[var(--chat-hero-muted)] mt-0.5">{item.label}</p>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                }
-                if (block.kind === 'mock_chat') {
-                  return (
-                    <div key={block.id} className="space-y-3 pl-9 chat-hero-message-enter">
-                      <div className="rounded-xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-surface)] px-4 py-3 text-sm text-[var(--chat-hero-muted)]">
-                        {block.user}
-                      </div>
-                      <div className="rounded-xl border border-[#7C3AED]/25 bg-[var(--chat-hero-accent-soft)] px-4 py-3 text-sm text-[var(--chat-hero-text)] leading-relaxed">
-                        {block.ai}
-                      </div>
-                    </div>
-                  );
-                }
-                if (block.kind === 'ideas') {
-                  return (
-                    <div key={block.id} className="space-y-2 pl-9 chat-hero-message-enter">
-                      {block.items.map((idea, i) => (
-                        <div
-                          key={idea}
-                          className="rounded-xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-surface)] px-4 py-3 text-sm text-[var(--chat-hero-text)]"
-                        >
-                          <span className="text-[#7C3AED] font-medium mr-2">{i + 1}.</span>
-                          {idea}
-                        </div>
-                      ))}
-                    </div>
-                  );
-                }
-                return (
-                  <div key={block.id} className="flex flex-wrap gap-2 pl-9 chat-hero-message-enter">
-                    {block.items.map((badge) => (
-                      <span
-                        key={badge}
-                        className="rounded-full border border-[var(--chat-hero-border)] bg-[var(--chat-hero-surface)] px-3 py-1.5 text-xs text-[var(--chat-hero-muted)]"
-                      >
-                        {badge}
-                      </span>
-                    ))}
-                  </div>
-                );
-              })}
-
-              {isTyping ? <TypingIndicator /> : null}
-            </div>
-
-            {showPlatformOptions ? (
-              <div className="mt-3 grid grid-cols-4 gap-2.5 sm:gap-3 w-full shrink-0">
-                {CHAT_HERO_PLATFORMS.map((platform, i) => {
-                  const Icon = PLATFORM_ICONS[platform.id];
-                  const selected = selectedPlatforms.includes(platform.id);
-                  return (
-                    <OptionSquareButton
-                      key={platform.id}
-                      label={platform.label}
-                      selected={selected}
-                      disabled={busy}
-                      animateEnter={false}
-                      icon={<Icon size={30} />}
-                      onClick={() => togglePlatform(platform.id)}
-                    />
-                  );
                 })}
+
+                {isTyping ? <TypingIndicator /> : null}
               </div>
-            ) : null}
 
-            {showPainOptions ? (
-              <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-2.5 w-full shrink-0">
-                {CHAT_HERO_PAIN_POINTS.map((pain, i) => (
-                  <OptionSquareButton
-                    key={pain.id}
-                    label={pain.label}
-                    selected={selectedPain === pain.id}
-                    disabled={busy}
-                    staggerIndex={i}
-                    variant="tall"
-                    onClick={() => setSelectedPain(pain.id)}
-                  />
-                ))}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="shrink-0 border-t border-[var(--chat-hero-border)] pt-3 pb-3">
-            <div className="space-y-3">
-              {showPlatformOptions && canPlatformContinue ? (
-                <button
-                  type="button"
-                  onClick={() => void handlePlatformsContinue()}
-                  className="chat-hero-continue-enter w-full sm:w-auto rounded-full bg-gradient-to-br from-[#7C3AED] to-[#4F46E5] px-7 py-3 text-[15px] font-medium text-white hover:brightness-110 transition-all"
-                >
-                  Continue →
-                </button>
+              {showPlatformOptions ? (
+                <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3 w-full shrink-0">
+                  {CHAT_HERO_PLATFORMS.map((platform) => {
+                    const Icon = PLATFORM_ICONS[platform.id];
+                    const selected = selectedPlatforms.includes(platform.id);
+                    return (
+                      <PlatformButton
+                        key={platform.id}
+                        label={platform.label}
+                        selected={selected}
+                        disabled={busy}
+                        icon={<Icon size={24} />}
+                        onClick={() => togglePlatform(platform.id)}
+                      />
+                    );
+                  })}
+                </div>
               ) : null}
 
-              {showPainOptions && canPainContinue ? (
-                <button
-                  type="button"
-                  onClick={() => void handlePainContinue()}
-                  className="chat-hero-continue-enter w-full sm:w-auto rounded-full bg-gradient-to-br from-[#7C3AED] to-[#4F46E5] px-7 py-3 text-[15px] font-medium text-white hover:brightness-110 transition-all"
-                >
-                  Show me →
-                </button>
-              ) : null}
-
-              {showDemoCta ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void handleStartForFree()}
-                  className="chat-hero-continue-enter w-full sm:w-auto rounded-full bg-gradient-to-br from-[#7C3AED] to-[#4F46E5] px-7 py-3 text-[15px] font-medium text-white hover:brightness-110 transition-all"
-                >
-                  Start for free — no credit card →
-                </button>
-              ) : null}
-
-              {showSignup ? (
-                <div className="space-y-3 chat-hero-continue-enter">
-                  {authError ? (
-                    <p className="text-sm text-red-600">{authError}</p>
-                  ) : null}
-                  <button
-                    type="button"
-                    disabled={authLoading}
-                    onClick={() => void handleGoogleSignup()}
-                    className="btn-google-lime w-full flex items-center justify-center gap-3 rounded-full px-7 py-3 text-[15px] font-semibold disabled:cursor-not-allowed"
-                  >
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                    </svg>
-                    {authLoading ? 'Redirecting…' : 'Continue with Google'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleEmailSignup}
-                    className="w-full rounded-full border border-[var(--chat-hero-border)] bg-[var(--chat-hero-bg)] px-7 py-3 text-[15px] font-medium text-[var(--chat-hero-muted)] hover:border-[#7C3AED] hover:text-[var(--chat-hero-text)] transition-all"
-                  >
-                    Continue with email
-                  </button>
-                  <p className="text-center text-xs text-[var(--chat-hero-muted)]">
-                    Free forever plan available · No credit card required
-                  </p>
+              {showPainOptions ? (
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-2.5 w-full shrink-0">
+                  {CHAT_HERO_PAIN_POINTS.map((pain, i) => (
+                    <PainOptionButton
+                      key={pain.id}
+                      label={pain.label}
+                      selected={selectedPain === pain.id}
+                      disabled={busy}
+                      staggerIndex={i}
+                      onClick={() => setSelectedPain(pain.id)}
+                    />
+                  ))}
                 </div>
               ) : null}
             </div>
 
-            <div className="mt-3 flex w-full flex-col gap-2">
-            <form
-              className="flex w-full items-center gap-2 rounded-2xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-input-bg)] px-3 py-2 sm:px-4 sm:py-2.5 shadow-sm focus-within:border-[#7C3AED]/40 focus-within:ring-2 focus-within:ring-[#7C3AED]/15"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void handleFreeTextSubmit();
-              }}
-            >
-              <input
-                ref={inputRef}
-                type="text"
-                value={draftText}
-                onChange={(e) => setDraftText(e.target.value)}
-                placeholder={inputPlaceholder}
-                disabled={busy || isTyping}
-                className="flex-1 min-w-0 bg-transparent text-[15px] text-[var(--chat-hero-text)] placeholder:text-[var(--chat-hero-muted)] outline-none disabled:opacity-50"
-                aria-label="Message iZop"
-              />
-              <button
-                type="submit"
-                disabled={!draftText.trim() || busy || isTyping}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#7C3AED] to-[#4F46E5] text-white transition-all hover:brightness-110 disabled:opacity-40 disabled:pointer-events-none"
-                aria-label="Send message"
-              >
-                <ArrowUp className="h-4 w-4" />
-              </button>
-            </form>
+            <div className="shrink-0 border-t border-[var(--chat-hero-border)] pt-3 pb-3 px-2 md:px-0">
+              <div className="space-y-3">
+                {showPlatformOptions && canPlatformContinue ? (
+                  <button
+                    type="button"
+                    onClick={() => void handlePlatformsContinue()}
+                    className="chat-hero-continue-btn chat-hero-continue-enter"
+                  >
+                    Continue →
+                  </button>
+                ) : null}
 
-            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11px] sm:text-xs text-[var(--chat-hero-muted)] pt-0.5">
-              <span className="flex items-center gap-1.5">
-                <Check className="h-3.5 w-3.5 text-[#10B981]" />
-                No credit card required
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Check className="h-3.5 w-3.5 text-[#10B981]" />
-                Free plan forever
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Check className="h-3.5 w-3.5 text-[#10B981]" />
-                Cancel anytime
-              </span>
+                {showPainOptions && canPainContinue ? (
+                  <button
+                    type="button"
+                    onClick={() => void handlePainContinue()}
+                    className="chat-hero-continue-btn chat-hero-continue-enter"
+                  >
+                    Show me →
+                  </button>
+                ) : null}
+
+                {showDemoCta ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void handleStartForFree()}
+                    className="chat-hero-continue-btn chat-hero-continue-enter"
+                  >
+                    Start for free — no credit card →
+                  </button>
+                ) : null}
+
+                {showSignup ? (
+                  <div className="space-y-3 chat-hero-continue-enter">
+                    {authError ? <p className="text-sm text-red-600">{authError}</p> : null}
+                    <button
+                      type="button"
+                      disabled={authLoading}
+                      onClick={() => void handleGoogleSignup()}
+                      className="btn-google-lime w-full flex items-center justify-center gap-3 rounded-full px-7 py-3 text-[15px] font-semibold disabled:cursor-not-allowed"
+                    >
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                      </svg>
+                      {authLoading ? 'Redirecting…' : 'Continue with Google'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleEmailSignup}
+                      className="w-full rounded-full border border-[var(--chat-hero-border)] bg-[var(--chat-hero-bg)] px-7 py-3 text-[15px] font-medium text-[var(--chat-hero-muted)] hover:border-[#7C3AED] hover:text-[var(--chat-hero-text)] transition-all"
+                    >
+                      Continue with email
+                    </button>
+                    <p className="text-center text-xs text-[var(--chat-hero-muted)]">
+                      Free forever plan available · No credit card required
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-3 flex w-full flex-col gap-2">
+                <form
+                  className="chat-hero-input-form flex w-full items-center gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void handleFreeTextSubmit();
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={draftText}
+                    onChange={(e) => setDraftText(e.target.value)}
+                    placeholder={inputPlaceholder}
+                    disabled={busy || isTyping}
+                    className="flex-1 min-w-0 bg-transparent text-[15px] text-[var(--chat-hero-text)] placeholder:text-[var(--chat-hero-muted)] outline-none disabled:opacity-50"
+                    aria-label="Message iZop"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!draftText.trim() || busy || isTyping}
+                    className="chat-hero-send-btn flex h-9 w-9 shrink-0 items-center justify-center disabled:opacity-40 disabled:pointer-events-none"
+                    aria-label="Send message"
+                  >
+                    <ArrowUp className="h-4 w-4 text-white" />
+                  </button>
+                </form>
+
+                <div className="chat-hero-trust-signals">
+                  <span className="chat-hero-trust-item">
+                    <Check className="chat-hero-trust-check h-3.5 w-3.5" />
+                    No credit card required
+                  </span>
+                  <span className="chat-hero-trust-item">
+                    <Check className="chat-hero-trust-check h-3.5 w-3.5" />
+                    Free plan forever
+                  </span>
+                  <span className="chat-hero-trust-item">
+                    <Check className="chat-hero-trust-check h-3.5 w-3.5" />
+                    Cancel anytime
+                  </span>
+                </div>
+              </div>
             </div>
+
+            <div className="xl:hidden mt-2 px-2 pb-1 overflow-x-auto">
+              <div className="flex gap-2 w-max min-w-full justify-start sm:justify-center">
+                {MOBILE_FEATURE_CHIPS.map((chip) => (
+                  <span key={chip.label} className="chat-hero-mobile-chip whitespace-nowrap">
+                    {chip.emoji} {chip.label}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
+          <ChatHeroSideDemoColumn side="right" visible={sideDemosReady} />
         </div>
-        <ChatHeroSideDemoColumn side="right" visible={sideDemosReady} />
-      </div>
       </ChatHeroDemoLoopProvider>
     </section>
   );

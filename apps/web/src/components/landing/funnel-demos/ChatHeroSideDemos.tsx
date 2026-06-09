@@ -3,23 +3,13 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { funnelDemoContentProgress, FunnelDemoFrame } from './FunnelDemoFrame';
 import { getFunnelDemoRegistry } from './funnel-demo-registry';
-import { FUNNEL_LANDING_EXPERIMENTAL } from './funnel-landing-variant';
+import { getFunnelDemoSlotSides } from './funnel-landing-variant';
 
 export const FUNNEL_DEMO_MS = 3000;
 
 const FUNNEL_REGISTRY = getFunnelDemoRegistry();
 const DEMO_COUNT = FUNNEL_REGISTRY.count;
-
-const SLOT_SIDE: ('left' | 'right')[] = [
-  'left',
-  'right',
-  'left',
-  'right',
-  'left',
-  'right',
-  'left',
-  'right',
-];
+const SLOT_SIDE = getFunnelDemoSlotSides();
 
 type SlotPhase = 'hidden' | 'playing' | 'frozen';
 
@@ -71,7 +61,6 @@ function DemoSlot({
   const progress = useSlotProgress(phase);
   const Scene = FUNNEL_REGISTRY.components[index];
   const visible = phase !== 'hidden';
-
   const contentProgress = funnelDemoContentProgress(progress);
 
   return (
@@ -92,7 +81,6 @@ export function ChatHeroDemoLoopProvider({
   active = true,
 }: {
   children: React.ReactNode;
-  /** When false, side demos stay idle (chat loads first). */
   active?: boolean;
 }) {
   const [phases, setPhases] = useState<SlotPhase[]>(() =>
@@ -195,15 +183,6 @@ function SideDemoScrollColumn({ side }: { side: 'left' | 'right' }) {
           side === 'left' ? 'pr-1' : 'pl-1'
         }`}
       >
-        {visibleCount > 2 ? (
-          <div
-            className={`pointer-events-none sticky top-0 z-10 mb-1 h-4 bg-gradient-to-b to-transparent ${
-              FUNNEL_LANDING_EXPERIMENTAL ? 'from-[#0A0A0F]' : 'from-[var(--bg-primary)]'
-            }`}
-            aria-hidden
-          />
-        ) : null}
-
         <div className="flex flex-col gap-3">
           {visibleIndices.map((index) => (
             <div key={index} className="shrink-0" style={{ height: slotHeight }}>
@@ -211,7 +190,7 @@ function SideDemoScrollColumn({ side }: { side: 'left' | 'right' }) {
                 index={index}
                 phase={ctx.phases[index]}
                 justEntered={ctx.enteredIndex === index}
-                featured={FUNNEL_LANDING_EXPERIMENTAL && index < 2}
+                featured={index < 2}
               />
             </div>
           ))}
@@ -227,7 +206,6 @@ export function ChatHeroSideDemoColumn({
   visible = true,
 }: {
   side: 'left' | 'right';
-  /** Fade in after chat shell is ready. */
   visible?: boolean;
 }) {
   if (!visible) {

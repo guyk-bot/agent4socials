@@ -63,101 +63,28 @@ export type DemoBlock =
   | { kind: 'ideas'; items: string[] }
   | { kind: 'badges'; items: string[] };
 
-export function demoBlocksForPainPoint(pain: ChatHeroPainPointId): DemoBlock[] {
+/** Short conversational demo reply after pain-point selection (no bullet lists). */
+export function demoMessageForPainPoint(pain: ChatHeroPainPointId): string {
   switch (pain) {
     case 'comments_dms':
-      return [
-        {
-          kind: 'text',
-          text: "That's exactly what iZop AI was built for. ✦\n\nHere's what just happened on a real account:\n\n→ 847 comments came in after a viral Reel\n→ iZop AI bulk-replied to all 847 in 4 minutes\n→ Every reply matched the brand's tone perfectly\n→ 23 comments were flagged as potential leads\n→ Those 23 were exported to a spreadsheet automatically\n\nYou type one message. iZop handles the rest.",
-        },
-        {
-          kind: 'stats',
-          items: [
-            { value: '847', label: 'replies sent' },
-            { value: '4 min', label: 'total time' },
-            { value: '23', label: 'leads found' },
-          ],
-        },
-      ];
+      return "That's exactly what I'm built for. Tell me to bulk-reply to today's comments and I'll handle hundreds of replies in your brand voice — and flag potential leads from the thread.";
     case 'posting_consistently':
-      return [
-        {
-          kind: 'text',
-          text: "Most creators spend 6+ hours a week just on scheduling. Here's a better way. ✦\n\nJust tell iZop AI:\n'Schedule 3 posts a week for the next month based on what's worked before'\n\niZop AI will:\n→ Analyze your top performing content\n→ Suggest topics and formats that work for you\n→ Write the captions in your brand voice\n→ Schedule everything across all your platforms\n\nOne conversation. A month of content. Done.",
-        },
-        {
-          kind: 'stats',
-          items: [
-            { value: '1', label: 'conversation' },
-            { value: '30 days', label: 'scheduled' },
-            { value: '8', label: 'platforms' },
-          ],
-        },
-      ];
+      return "Got it. Ask me to schedule a week of posts and I'll draft captions, pick times, and publish across your connected platforms — all from one conversation.";
     case 'understanding_analytics':
-      return [
-        {
-          kind: 'text',
-          text: "Most analytics dashboards show you numbers. iZop AI tells you what they mean. ✦\n\nInstead of staring at graphs, just ask:\n\n'Which of my posts made the most impact this month and why?'\n\niZop AI responds with a plain-English breakdown:\n→ Your best performing post\n→ Why it worked (format, timing, topic, length)\n→ What to do next based on the data\n\nNo spreadsheets. No dashboards. Just answers.",
-        },
-        {
-          kind: 'mock_chat',
-          user: 'Which post performed best this week?',
-          ai: 'Your Tuesday Reel got 4.2x your average reach. Short-form video + a question in the caption is your highest-converting format right now.',
-        },
-      ];
+      return "Instead of digging through dashboards, just ask me which posts performed best and why. I'll give you a plain-English answer you can act on right away.";
     case 'content_ideas':
-      return [
-        {
-          kind: 'text',
-          text: "Never stare at a blank page again. ✦\n\nTell iZop AI about your brand once. Then ask it anything:\n\n'Give me 10 Instagram post ideas for this week that fit my brand and what's trending'\n\niZop AI knows:\n→ Your brand voice and tone\n→ Your best performing content formats\n→ What's trending on each platform\n→ Your target audience\n\nIdeas in seconds. Content that actually sounds like you.",
-        },
-        {
-          kind: 'ideas',
-          items: [
-            'Behind-the-scenes: how you plan a week of content in 20 minutes',
-            'Carousel: 5 hooks that doubled your saves last month',
-            'Reel: trend remix with your product as the punchline',
-          ],
-        },
-      ];
+      return "Tell me your niche once, then ask for post ideas anytime. I'll suggest topics and hooks that match your brand voice and what's working on each platform.";
     case 'multiple_brands':
-      return [
-        {
-          kind: 'text',
-          text: "iZop was built for this. ✦\n\nEach brand gets its own workspace with:\n→ Separate social accounts connected\n→ Its own AI brand voice and context\n→ Individual analytics and reporting\n→ Team member access controls\n\nAsk iZop AI: 'How did all my clients perform this week?'\n\nIt generates a full performance report for every brand in your account. One conversation. Complete overview.",
-        },
-        {
-          kind: 'stats',
-          items: [
-            { value: '10', label: 'brands' },
-            { value: '1', label: 'dashboard' },
-            { value: 'instant', label: 'reports' },
-          ],
-        },
-      ];
+      return "Each client gets its own workspace with separate accounts, brand voice, and reporting. Ask how all your brands performed this week and I'll summarize everything.";
     case 'all_above':
     default:
-      return [
-        {
-          kind: 'text',
-          text: "You need a social media manager that never sleeps. That's exactly what iZop AI is. ✦\n\nHere's what iZop handles for you:\n\n→ Schedules posts across 8 platforms\n→ Bulk replies to hundreds of comments instantly\n→ Extracts leads from comments into spreadsheets\n→ Generates analytics reports on demand\n→ Brainstorms content ideas in your brand voice\n→ Tracks your team's performance\n→ Manages multiple brands from one place\n\nAll through a single conversation. No dashboards. No clicking around. Just ask.",
-        },
-        {
-          kind: 'badges',
-          items: [
-            '8-platform scheduling',
-            'Bulk comment replies',
-            'Lead extraction',
-            'AI analytics',
-            'Content ideas',
-            'Team performance',
-            'Multi-brand workspaces',
-          ],
-        },
-      ];
+      return "I can handle scheduling, bulk replies, lead extraction, analytics, and content ideas — all through chat. Let's get your accounts connected and I'll show you.";
   }
+}
+
+/** @deprecated Use demoMessageForPainPoint for funnel chat. */
+export function demoBlocksForPainPoint(pain: ChatHeroPainPointId): DemoBlock[] {
+  return [{ kind: 'text', text: demoMessageForPainPoint(pain) }];
 }
 
 export function connectRedirectForPlatforms(platformIds: ChatHeroPlatformId[]): string {
@@ -182,17 +109,7 @@ function selectedLabels(ids: ChatHeroPlatformId[]): string[] {
 }
 
 export function landingChatCapabilityOverview(): string {
-  return `Here is what iZop can do for you:
-
-→ Schedule and publish to Instagram, TikTok, YouTube, Facebook, X, LinkedIn, Threads, and Pinterest
-→ Manage comments and DMs from one inbox
-→ Bulk-reply with AI in your brand voice
-→ Get plain-English analytics (ask "what worked this week?")
-→ Generate content ideas and captions
-→ Extract leads from comments to a spreadsheet
-→ Manage multiple brands from one dashboard
-
-Free plan available, no credit card. Ask me about pricing, a specific platform, or how connecting works.`;
+  return "I schedule and publish across Instagram, TikTok, YouTube, Facebook, X, LinkedIn, Threads, and Pinterest. I also manage inbox replies, bulk-reply to comments, extract leads, and answer analytics questions in plain English. Free plan available, no credit card — ask me about pricing, a platform, or how connecting works.";
 }
 
 const LANDING_CHAT_SOFT_PLATFORM_HINT =
@@ -257,7 +174,10 @@ export function answerLandingChatQuestion(ctx: LandingChatContext): string {
   const allNames = [...new Set([...namesFromMessage, ...namesSelected])];
 
   if (/^(hi|hello|hey|yo)\b/.test(lower)) {
-    return `Hey! I am iZop, your AI social media manager. Ask me anything about scheduling, analytics, inbox, pricing, or connecting accounts.${ctx.step === 0 ? ' Which platforms are you on?' : softStepHint(ctx, ctx.matchedPlatforms)}`;
+    if (ctx.step === 0) {
+      return "Hey! Pick your platforms below and tap Continue when you're ready — or ask me about pricing, features, or how connecting works.";
+    }
+    return `Hey! I am iZop, your AI social media manager. Ask me anything about scheduling, analytics, inbox, pricing, or connecting accounts.${softStepHint(ctx, ctx.matchedPlatforms)}`;
   }
 
   if (asksAboutCapabilities(lower)) {

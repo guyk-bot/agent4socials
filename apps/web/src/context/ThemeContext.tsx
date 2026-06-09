@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-const STORAGE_KEY = 'agent4socials-theme';
+const STORAGE_KEY = 'izop-theme';
+const LEGACY_STORAGE_KEY = 'agent4socials-theme';
 
 export type Theme = 'light' | 'dark';
 
@@ -15,12 +16,14 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 function readTheme(): Theme {
-  if (typeof window === 'undefined') return 'light';
+  if (typeof window === 'undefined') return 'dark';
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === 'dark' || stored === 'light') return stored;
+    const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacy === 'dark' || legacy === 'light') return legacy;
   } catch (_) {}
-  return 'light';
+  return 'dark';
 }
 
 function applyTheme(theme: Theme) {
@@ -48,6 +51,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setThemeState(value);
     try {
       localStorage.setItem(STORAGE_KEY, value);
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
     } catch (_) {}
     applyTheme(value);
   };

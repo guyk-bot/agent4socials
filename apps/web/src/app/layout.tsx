@@ -56,17 +56,19 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: siteUrl,
+    url: "https://izop.io",
     siteName: "iZop",
-    title: "iZop | Schedule Posts & Analytics for All Major Social Platforms",
-    description: "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. Try for free.",
-    images: [{ url: `/logo-192.png?v=${SITE_LOGO_V}`, width: 192, height: 192, alt: "iZop" }],
+    title: "iZop — Your AI Social Media Manager",
+    description:
+      "Schedule posts, bulk reply to comments, extract leads, and get analytics — just by talking to iZop AI.",
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "iZop — Your AI Social Media Manager" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "iZop | Schedule Posts & Analytics",
-    description: "One dashboard for scheduling and analytics. Try for free.",
-    images: [`/logo-192.png?v=${SITE_LOGO_V}`],
+    title: "iZop — Your AI Social Media Manager",
+    description:
+      "Schedule posts, bulk reply to comments, extract leads, and get analytics — just by talking to iZop AI.",
+    images: ["/og-image.png"],
   },
   robots: {
     index: true,
@@ -97,7 +99,7 @@ export default function RootLayout({
       <body className="antialiased min-h-screen min-h-dvh">
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var t=localStorage.getItem('agent4socials-theme');if(t!=='dark'&&t!=='light')t='light';if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);})();`,
+            __html: `(function(){var t=localStorage.getItem('izop-theme')||localStorage.getItem('agent4socials-theme');if(t!=='dark'&&t!=='light')t='dark';document.documentElement.setAttribute('data-theme',t);})();`,
           }}
         />
         <script

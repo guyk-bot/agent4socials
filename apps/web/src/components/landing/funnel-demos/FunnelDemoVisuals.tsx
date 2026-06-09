@@ -85,6 +85,7 @@ export function DemoImage({
     <img
       src={src}
       alt={alt}
+      loading="lazy"
       className={`block w-full h-full ${objectFit === 'contain' ? 'object-contain' : 'object-cover'} ${className}`}
       draggable={false}
     />
@@ -113,6 +114,7 @@ export function ChatAttachmentImage({
       <img
         src={src}
         alt={alt}
+        loading="lazy"
         className="block h-full w-full object-cover object-center pointer-events-none select-none"
         draggable={false}
       />

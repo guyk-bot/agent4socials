@@ -6,6 +6,7 @@ import Link from 'next/link';
 import SiteFooter from '@/components/landing/SiteFooter';
 import SiteHeader from '@/components/landing/SiteHeader';
 import ChatHero from '@/components/landing/ChatHero';
+import LandingSocialProof from '@/components/landing/LandingSocialProof';
 import { useAuthModal } from '@/context/AuthModalContext';
 import {
   Calendar,
@@ -96,6 +97,7 @@ export default function Home() {
       <SiteHeader />
       <main>
         <ChatHero />
+        <LandingSocialProof />
 
         {/* FEATURES - glassmorphism cards, neon accents */}
         <section id="features" className="relative border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28">
