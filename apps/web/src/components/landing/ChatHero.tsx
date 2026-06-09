@@ -14,8 +14,8 @@ import {
   XTwitterIcon,
   YoutubeIcon,
 } from '@/components/SocialPlatformIcons';
+import { siteLogoSrcForTheme } from '@/lib/site-brand-assets';
 import { useTheme } from '@/context/ThemeContext';
-import { funnelAiMessageLogoSrc } from '@/components/landing/funnel-demos/funnel-demo-assets';
 import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
 import {
@@ -150,14 +150,24 @@ function TypewriterText({
 
 function FunnelAiMessageAvatar({ className }: { className?: string }) {
   const { theme } = useTheme();
+  const logoSrc = siteLogoSrcForTheme(theme);
+  const boxClass = className ?? 'h-8 w-8 sm:h-9 sm:w-9';
+
+  if (theme === 'light') {
+    return (
+      <span
+        className={`inline-flex shrink-0 items-center justify-center rounded-full border border-neutral-200/90 bg-white shadow-sm ${boxClass}`}
+        aria-hidden
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={logoSrc} alt="" className="h-[68%] w-[68%] object-contain" />
+      </span>
+    );
+  }
+
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={funnelAiMessageLogoSrc(theme)}
-      alt=""
-      className={className ?? 'h-8 w-8 sm:h-9 sm:w-9 shrink-0 object-contain'}
-      aria-hidden
-    />
+    <img src={logoSrc} alt="" className={`${boxClass} shrink-0 object-contain bg-transparent`} aria-hidden />
   );
 }
 
