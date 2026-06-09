@@ -43,49 +43,30 @@ const organizationJsonLd = {
   },
 };
 
-const productJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  name: "iZop",
-  applicationCategory: "BusinessApplication",
-  description: "AI social media management platform",
-  url: "https://izop.io",
-  offers: {
-    "@type": "AggregateOffer",
-    lowPrice: "0",
-    highPrice: "99",
-    priceCurrency: "USD",
-    offerCount: "4",
-  },
-};
-
 export const metadata: Metadata = {
   metadataBase: getMetadataBase(),
   title: {
-    default: "iZop — Your AI Social Media Manager",
+    default: "iZop | Schedule Posts & Analytics for Instagram, YouTube, TikTok, Facebook, Twitter & LinkedIn",
     template: "%s | iZop",
   },
-  description:
-    "Schedule posts, bulk reply to comments, extract leads, and get analytics — just by talking to iZop AI. Free plan available.",
+  description: "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. Try for free. From $29/mo.",
   keywords: ["social media scheduler", "schedule Instagram posts", "schedule TikTok", "social media analytics", "post scheduler", "Instagram analytics", "TikTok scheduler", "Facebook scheduler", "LinkedIn scheduler"],
   authors: [{ name: "iZop" }],
   creator: "iZop",
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://izop.io",
+    url: siteUrl,
     siteName: "iZop",
-    title: "iZop — Your AI Social Media Manager",
-    description:
-      "Schedule posts, bulk reply to comments, extract leads, and get analytics — just by talking to iZop AI.",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "iZop — Your AI Social Media Manager" }],
+    title: "iZop | Schedule Posts & Analytics for All Major Social Platforms",
+    description: "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. Try for free.",
+    images: [{ url: `/logo-192.png?v=${SITE_LOGO_V}`, width: 192, height: 192, alt: "iZop" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "iZop — Your AI Social Media Manager",
-    description:
-      "Schedule posts, bulk reply to comments, extract leads, and get analytics — just by talking to iZop AI.",
-    images: ["/og-image.png"],
+    title: "iZop | Schedule Posts & Analytics",
+    description: "One dashboard for scheduling and analytics. Try for free.",
+    images: [`/logo-192.png?v=${SITE_LOGO_V}`],
   },
   robots: {
     index: true,
@@ -116,16 +97,12 @@ export default function RootLayout({
       <body className="antialiased min-h-screen min-h-dvh">
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){document.documentElement.setAttribute('data-theme','dark');})();`,
+            __html: `(function(){var t=localStorage.getItem('agent4socials-theme');if(t!=='dark'&&t!=='light')t='light';if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);})();`,
           }}
         />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
         />
         <script
           dangerouslySetInnerHTML={{

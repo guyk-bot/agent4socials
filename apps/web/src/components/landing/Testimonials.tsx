@@ -1,93 +1,82 @@
-const TESTIMONIALS = [
+import { Star, ArrowRight } from 'lucide-react';
+import Image from 'next/image';
+
+const testimonials = [
   {
-    initials: 'SM',
-    color: '#7C3AED',
-    name: 'Sarah M.',
-    meta: '@sarahm.creates · 47K followers',
-    role: 'Instagram creator',
-    quote:
-      "I asked iZop AI to pull everyone who commented 'link' on my last 10 posts and put them in a spreadsheet. It did it in seconds. That list turned into $3,400 in sales.",
+    name: 'Sarah Jenkins',
+    role: 'Lifestyle Creator',
+    handle: '@sarahstyle',
+    content: "iZop completely changed my workflow. I used to spend hours every Sunday scheduling posts. Now it takes me 20 minutes.",
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150&h=150',
   },
   {
-    initials: 'JO',
-    color: '#0EA5E9',
-    name: 'James Okafor',
-    meta: 'Social Media Manager, Bloom Studio',
-    role: '',
-    quote:
-      'We manage 6 client accounts. Monday mornings used to be 3 hours of reports. Now I ask iZop AI and have branded PDFs for every client in minutes.',
+    name: 'Marcus Chen',
+    role: 'Tech Reviewer',
+    handle: '@techmarcus',
+    content: "The analytics are actually useful. I can see which platform is driving the most growth without logging into 5 different apps.",
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150&h=150',
   },
   {
-    initials: 'PS',
-    color: '#AAFF45',
-    name: 'Priya Sharma',
-    meta: '@priyacooks · 89K followers',
-    role: 'Food creator',
-    quote:
-      'Got 400 comments on a Reel and replied to all of them in one click with messages that actually sounded like me. Engagement went up 34%.',
+    name: 'Elena Rodriguez',
+    role: 'Small Business Owner',
+    handle: '@elenasbakery',
+    content: "Simple, affordable, and just works. Exactly what I needed for my bakery's Instagram and Facebook pages.",
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150&h=150',
   },
   {
-    initials: 'DT',
-    color: '#F59E0B',
-    name: 'Daniel Torres',
-    meta: 'Founder, Coastline Apparel',
-    role: '',
-    quote:
-      "I told iZop AI our brand voice once. Now every caption suggestion is spot on. It's like having a strategist on call 24/7.",
-  },
-  {
-    initials: 'MK',
-    color: '#EC4899',
-    name: 'Michelle K.',
-    meta: '@michellefitlife · 23K followers',
-    role: '',
-    quote:
-      'Asked it which videos performed best this quarter and why. It gave me a full breakdown by platform and time of day. Restructured my entire content strategy.',
-  },
-  {
-    initials: 'MW',
-    color: '#6366F1',
-    name: 'Marcus Webb',
-    meta: 'Agency Owner, Webb Digital',
-    role: '',
-    quote:
-      'My team of 4 uses iZop. I asked the AI how each person performed last month — got a full breakdown of who posted what, response times, engagement rates. First real performance review ever.',
+    name: 'David Kim',
+    role: 'Fitness Coach',
+    handle: '@coachkim',
+    content: "I love the calendar view. It makes planning my content strategy so much easier visually.",
+    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150&h=150',
   },
 ];
 
 export default function Testimonials() {
   return (
-    <section className="landing-section landing-section--void">
-      <div className="landing-container">
-        <div className="text-center max-w-2xl mx-auto mb-14">
-          <h2 className="landing-heading">Loved by creators and agencies</h2>
-          <p className="landing-subheading mt-4">
-            Join thousands who&apos;ve replaced 5 tools with one conversation.
+    <section className="py-24 sm:py-32 border-t border-[var(--bg-border)] relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(123,44,191,0.08)_0%,rgba(215,38,61,0.03)_38%,transparent_72%)] pointer-events-none" />
+      
+      <div className="mx-auto max-w-7xl px-6 lg:px-8 relative z-10">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="text-3xl font-bold tracking-tight text-[var(--text-primary)] sm:text-4xl">
+            Loved by creators and businesses
+          </h2>
+          <p className="mt-6 text-lg leading-8 text-[var(--text-muted)]">
+            Join thousands who trust iZop to manage their online presence.
           </p>
         </div>
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {TESTIMONIALS.map((t) => (
-            <div key={t.name} className="landing-testimonial-card relative">
-              <span className="landing-testimonial-quote-mark" aria-hidden>&ldquo;</span>
-              <div className="flex items-center gap-3 relative z-10">
-                <span
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-black"
-                  style={{ backgroundColor: t.color }}
-                >
-                  {t.initials}
-                </span>
+        
+        <div className="mx-auto mt-16 grid max-w-2xl grid-cols-1 grid-rows-1 gap-8 text-sm leading-6 text-[#5d5768] sm:mt-20 sm:grid-cols-2 xl:mx-0 xl:max-w-none xl:grid-cols-4">
+          {testimonials.map((testimonial) => (
+            <div key={testimonial.handle} className="group relative rounded-2xl border border-[#efe7f7] bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:border-[#d7c5e9] hover:shadow-lg">
+              <div className="flex items-center gap-x-4 border-b border-[#f3ecf9] pb-4 mb-4">
+                <img className="h-10 w-10 rounded-full bg-[#f4ecfb] object-cover" src={testimonial.avatar} alt="" />
                 <div>
-                  <p className="text-sm font-semibold text-white">{t.name}</p>
-                  <p className="text-[13px] text-[#888780]">{t.meta}</p>
-                  {t.role ? <p className="text-[12px] text-[#888780]">{t.role}</p> : null}
+                  <h3 className="font-semibold text-[#1a161f]">{testimonial.name}</h3>
+                  <p className="text-[#8f7ca9]">{testimonial.handle}</p>
                 </div>
               </div>
-              <p className="mt-3 text-[#AAFF45] text-sm" aria-label="5 stars">
-                ⭐⭐⭐⭐⭐
-              </p>
-              <p className="mt-3 text-sm text-white leading-relaxed relative z-10">{t.quote}</p>
+              <div className="flex gap-0.5 text-[#2f9e44] mb-3">
+                <Star className="h-4 w-4 fill-current" />
+                <Star className="h-4 w-4 fill-current" />
+                <Star className="h-4 w-4 fill-current" />
+                <Star className="h-4 w-4 fill-current" />
+                <Star className="h-4 w-4 fill-current" />
+              </div>
+              <p className="text-[#5d5768] italic">"{testimonial.content}"</p>
             </div>
           ))}
+        </div>
+
+        {/* Scrolling logos */}
+        <div className="mt-24 border-t border-[#f1e9f8] pt-16">
+          <p className="text-center text-sm font-semibold text-[#8f7ca9] mb-8 uppercase tracking-widest">Trusted by teams at</p>
+          <div className="flex justify-center gap-8 md:gap-16 opacity-70 flex-wrap text-[#473f55]">
+            {['Acme Corp', 'GlobalBank', 'Nebula', 'Sisyphus', 'Catalog'].map((logo) => (
+               <span key={logo} className="text-xl font-bold font-serif">{logo}</span>
+            ))}
+          </div>
         </div>
       </div>
     </section>

@@ -2,8 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-const STORAGE_KEY = 'izop-theme';
-const LEGACY_STORAGE_KEY = 'agent4socials-theme';
+const STORAGE_KEY = 'agent4socials-theme';
 
 export type Theme = 'light' | 'dark';
 
@@ -16,12 +15,17 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 function readTheme(): Theme {
-  return 'dark';
+  if (typeof window === 'undefined') return 'light';
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === 'dark' || stored === 'light') return stored;
+  } catch (_) {}
+  return 'light';
 }
 
-function applyTheme() {
+function applyTheme(theme: Theme) {
   if (typeof document === 'undefined') return;
-  document.documentElement.setAttribute('data-theme', 'dark');
+  document.documentElement.setAttribute('data-theme', theme);
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -29,27 +33,27 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setThemeState('dark');
-    applyTheme();
+    const value = readTheme();
+    setThemeState(value);
+    applyTheme(value);
     setMounted(true);
   }, []);
 
   useEffect(() => {
     if (!mounted) return;
-    applyTheme();
-  }, [mounted]);
+    applyTheme(theme);
+  }, [mounted, theme]);
 
-  const setTheme = (_value: Theme) => {
-    setThemeState('dark');
+  const setTheme = (value: Theme) => {
+    setThemeState(value);
     try {
-      localStorage.setItem(STORAGE_KEY, 'dark');
-      localStorage.removeItem(LEGACY_STORAGE_KEY);
+      localStorage.setItem(STORAGE_KEY, value);
     } catch (_) {}
-    applyTheme();
+    applyTheme(value);
   };
 
   const toggleTheme = () => {
-    setTheme('dark');
+    setTheme(theme === 'dark' ? 'light' : 'dark');
   };
 
   return (

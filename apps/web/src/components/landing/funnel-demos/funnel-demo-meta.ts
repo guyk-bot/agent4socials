@@ -4,10 +4,8 @@ export const FUNNEL_DEMO_TITLES = [
   'Reply / bulk reply to comments & DMs',
   'Post analytics',
   'Extract leads',
-  'iZop AI knows your brand',
+  'Brainstorm ideas',
   'Compare ads',
   'Add team members',
   'Analytic reports',
-  'Brainstorm ideas',
-  'Team performance report',
 ] as const;

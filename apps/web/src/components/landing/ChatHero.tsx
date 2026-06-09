@@ -18,10 +18,14 @@ import { SITE_LOGO_DARK_SRC } from '@/lib/site-brand-assets';
 import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
 import {
+  ChatHeroDemoLoopProvider,
+  ChatHeroSideDemoColumn,
+} from '@/components/landing/funnel-demos/ChatHeroSideDemos';
+import {
   CHAT_HERO_PAIN_POINTS,
   CHAT_HERO_PLATFORMS,
   connectRedirectForPlatforms,
-  demoMessageForPainPoint,
+  demoBlocksForPainPoint,
   formatPlatformList,
   answerLandingChatQuestion,
   matchPainPointFromText,
@@ -29,28 +33,18 @@ import {
   painDiscoveryMessage,
   type ChatHeroPainPointId,
   type ChatHeroPlatformId,
+  type DemoBlock,
 } from '@/lib/chat-hero-script';
-import { FunnelDemoFrame } from '@/components/landing/funnel-demos/FunnelDemoFrame';
-import { getFunnelScene } from '@/components/landing/funnel-demos/funnel-demo-registry';
-
-/* ── Layout & rotation ───────────────────────────────────────────── */
-
-const SIDE_PANEL_WIDTH = 300;
-const SIDE_PANEL_HEIGHT = 480;
-const ROTATE_MS = 6000;
-const CROSSFADE_MS = 800;
-const RIGHT_COLUMN_DELAY_MS = 3000;
-
-/** Left column: Comments, iZop AI, Reports, Brainstorm */
-const LEFT_SCENE_INDICES = [1, 4, 7, 8] as const;
-/** Right column: Leads, Schedule, Team, Team performance */
-const RIGHT_SCENE_INDICES = [3, 0, 6, 9] as const;
 
 type FlowStep = 0 | 1 | 2 | 3;
 
 type RenderBlock =
-  | { id: string; kind: 'ai'; text: string; isOpening?: boolean }
-  | { id: string; kind: 'user_pills'; labels: string[] };
+  | { id: string; kind: 'ai'; text: string; animate?: boolean; prominent?: boolean; isOpening?: boolean }
+  | { id: string; kind: 'user_pills'; labels: string[] }
+  | { id: string; kind: 'stats'; items: { value: string; label: string }[] }
+  | { id: string; kind: 'mock_chat'; user: string; ai: string }
+  | { id: string; kind: 'ideas'; items: string[] }
+  | { id: string; kind: 'badges'; items: string[] };
 
 const PLATFORM_ICONS: Record<
   ChatHeroPlatformId,
@@ -71,6 +65,21 @@ const OPENING_HEADLINE = 'your personal AI social media manager.';
 const OPENING_BODY =
   "Tell me what platforms you're on, and I'll show you what I can do.";
 
+/** Typewriter stops after headline; body + platforms appear together when it finishes. */
+const OPENING_TYPEWRITER_TEXT = `${OPENING_GREETING}\n${OPENING_HEADLINE}`;
+
+function getOpeningLineParts(displayed: string): [string, string, string] {
+  const lines = displayed.split('\n');
+  return [lines[0] ?? '', lines[1] ?? '', lines[2] ?? ''];
+}
+
+function getActiveOpeningLineIndex(displayed: string): number {
+  const lines = displayed.split('\n');
+  if (lines.length <= 1) return 0;
+  if (lines.length === 2) return 1;
+  return 2;
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -79,225 +88,257 @@ function blockId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function useRotatingPanelIndex(length: number, intervalMs: number, startDelayMs: number) {
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    if (length <= 1) return;
-
-    let intervalId: number | undefined;
-    const startId = window.setTimeout(() => {
-      intervalId = window.setInterval(() => {
-        setIndex((i) => (i + 1) % length);
-      }, intervalMs);
-    }, startDelayMs);
-
-    return () => {
-      window.clearTimeout(startId);
-      if (intervalId) window.clearInterval(intervalId);
-    };
-  }, [length, intervalMs, startDelayMs]);
-
-  return index;
+function demoBlockToRender(block: DemoBlock): RenderBlock[] {
+  if (block.kind === 'text') {
+    return [{ id: blockId('ai'), kind: 'ai', text: block.text }];
+  }
+  if (block.kind === 'stats') {
+    return [{ id: blockId('stats'), kind: 'stats', items: block.items }];
+  }
+  if (block.kind === 'mock_chat') {
+    return [{ id: blockId('mock'), kind: 'mock_chat', user: block.user, ai: block.ai }];
+  }
+  if (block.kind === 'ideas') {
+    return [{ id: blockId('ideas'), kind: 'ideas', items: block.items }];
+  }
+  return [{ id: blockId('badges'), kind: 'badges', items: block.items }];
 }
 
-/* ── Sub-components ──────────────────────────────────────────────── */
+function TypewriterText({
+  text,
+  active,
+  onComplete,
+}: {
+  text: string;
+  active: boolean;
+  onComplete?: () => void;
+}) {
+  const [displayed, setDisplayed] = useState('');
+  const doneRef = useRef(false);
 
-function AiAvatar() {
+  useEffect(() => {
+    if (!active) return;
+    setDisplayed('');
+    doneRef.current = false;
+    let i = 0;
+    const tick = () => {
+      i += 1;
+      setDisplayed(text.slice(0, i));
+      if (i >= text.length) {
+        if (!doneRef.current) {
+          doneRef.current = true;
+          onComplete?.();
+        }
+        return;
+      }
+      window.setTimeout(tick, 22);
+    };
+    const start = window.setTimeout(tick, 120);
+    return () => window.clearTimeout(start);
+  }, [active, text, onComplete]);
+
+  if (!active) return <span>{text}</span>;
   return (
-    <span
-      className="inline-flex h-8 w-8 shrink-0 items-center justify-center self-start rounded-full bg-black overflow-hidden"
-      aria-hidden
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={SITE_LOGO_DARK_SRC} alt="" className="h-[62%] w-[62%] object-contain" loading="eager" />
+    <span>
+      {displayed}
+      {displayed.length < text.length ? (
+        <span className="inline-block w-[2px] h-[1em] ml-0.5 bg-[var(--chat-hero-cursor)] animate-pulse align-middle" />
+      ) : null}
     </span>
   );
 }
 
-function OpeningMessage() {
-  return (
-    <div className="flex items-start gap-3 chat-hero-message-enter mt-4 sm:mt-6">
-      <AiAvatar />
-      <div className="min-w-0 flex-1 pt-0.5">
-        <p className="chat-hero-opening-greeting">{OPENING_GREETING}</p>
-        <p className="chat-hero-opening-headline">{OPENING_HEADLINE}</p>
-        <p className="chat-hero-opening-body">{OPENING_BODY}</p>
-      </div>
-    </div>
-  );
-}
+const OPENING_PRIMARY =
+  'block text-[22px] sm:text-[26px] lg:text-[28px] tracking-[-0.03em] leading-[1.15]';
 
-function AiMessage({ text }: { text: string }) {
-  return (
-    <div className="flex items-start gap-3 chat-hero-message-enter">
-      <AiAvatar />
-      <p className="min-w-0 flex-1 pt-0.5 text-base leading-relaxed text-white whitespace-pre-line">{text}</p>
-    </div>
-  );
-}
+const OPENING_HEADLINE_SIZE =
+  'block text-[24px] sm:text-[28px] lg:text-[32px] tracking-[-0.04em] leading-[1.1]';
 
-function SampleConversation() {
+/** White mark on black — circle size fixed; mark slightly inset inside. */
+const FUNNEL_AI_AVATAR_BOX = 'h-9 w-9 shrink-0';
+
+function FunnelAiMessageAvatar({ className }: { className?: string }) {
+  const boxClass = className ?? FUNNEL_AI_AVATAR_BOX;
   return (
-    <div className="mt-5 w-full space-y-4 shrink-0 chat-hero-message-enter">
-      <div className="flex justify-end">
-        <span className="chat-hero-demo-user-bubble">Which of my posts performed best this week?</span>
-      </div>
-      <div className="flex items-start gap-3">
-        <AiAvatar />
-        <p className="min-w-0 flex-1 pt-0.5 text-sm leading-relaxed text-white">
-          Your Tuesday Reel got 4.2x your average reach. Short hook + trending audio was the formula.
-          Want me to draft a similar post?
-        </p>
-      </div>
-    </div>
+    <span
+      className={`inline-flex items-center justify-center rounded-full bg-black overflow-hidden ${boxClass}`}
+      aria-hidden
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={SITE_LOGO_DARK_SRC} alt="" className="h-[62%] w-[62%] object-contain" />
+    </span>
   );
 }
 
 function TypingIndicator() {
   return (
-    <div className="flex items-start gap-3 chat-hero-message-enter" aria-label="iZop is typing">
-      <AiAvatar />
-      <div className="flex items-center gap-1 pt-2">
-        <span className="chat-hero-typing-dot h-1.5 w-1.5 rounded-full bg-[#888780]" style={{ animationDelay: '0ms' }} />
-        <span className="chat-hero-typing-dot h-1.5 w-1.5 rounded-full bg-[#888780]" style={{ animationDelay: '150ms' }} />
-        <span className="chat-hero-typing-dot h-1.5 w-1.5 rounded-full bg-[#888780]" style={{ animationDelay: '300ms' }} />
+    <div className="flex items-start gap-3 chat-hero-message-enter" aria-label="Thinking">
+      <FunnelAiMessageAvatar className={`${FUNNEL_AI_AVATAR_BOX} mt-0.5`} />
+    </div>
+  );
+}
+
+function OpeningAiMessage({
+  typewriterActive,
+  showFollowUp,
+  onHeadlineComplete,
+}: {
+  typewriterActive?: boolean;
+  /** Body line appears in full after headline typewriter finishes. */
+  showFollowUp?: boolean;
+  onHeadlineComplete?: () => void;
+}) {
+  const [displayed, setDisplayed] = useState('');
+  const doneRef = useRef(false);
+
+  useEffect(() => {
+    if (!typewriterActive) return;
+    setDisplayed('');
+    doneRef.current = false;
+    let i = 0;
+    const tick = () => {
+      i += 1;
+      setDisplayed(OPENING_TYPEWRITER_TEXT.slice(0, i));
+      if (i >= OPENING_TYPEWRITER_TEXT.length) {
+        if (!doneRef.current) {
+          doneRef.current = true;
+          onHeadlineComplete?.();
+        }
+        return;
+      }
+      window.setTimeout(tick, 14);
+    };
+    const start = window.setTimeout(tick, 40);
+    return () => window.clearTimeout(start);
+  }, [typewriterActive, onHeadlineComplete]);
+
+  const [greeting, headline] = typewriterActive
+    ? getOpeningLineParts(displayed)
+    : [OPENING_GREETING, OPENING_HEADLINE];
+  const body = showFollowUp ? OPENING_BODY : '';
+  const showCursor = !!typewriterActive && displayed.length < OPENING_TYPEWRITER_TEXT.length;
+  const activeLine = getActiveOpeningLineIndex(displayed);
+
+  const rows: { key: string; text: string; className: string }[] = [
+    {
+      key: 'greeting',
+      text: greeting,
+      className: `${OPENING_PRIMARY} font-medium text-[var(--chat-hero-text)]`,
+    },
+    {
+      key: 'headline',
+      text: headline,
+      className: `${OPENING_HEADLINE_SIZE} chat-hero-opening-headline-bold mt-1 sm:mt-1.5`,
+    },
+    {
+      key: 'body',
+      text: body,
+      className:
+        'block text-[13px] sm:text-[15px] font-normal leading-[1.6] mt-2 whitespace-nowrap',
+    },
+  ];
+
+  return (
+    <div className="flex items-start gap-3 chat-hero-message-enter mt-5 sm:mt-7">
+      <FunnelAiMessageAvatar className={`${FUNNEL_AI_AVATAR_BOX} mt-1`} />
+      <div className="flex-1 min-w-0 text-[var(--chat-hero-text)]">
+        {rows.map((row, index) => {
+          if (!row.text && !(showCursor && index === activeLine)) return null;
+          return (
+            <p key={row.key} className={row.className}>
+              {row.text}
+              {showCursor && index === activeLine ? (
+                <span className="inline-block w-[2px] h-[1em] ml-0.5 bg-[var(--chat-hero-cursor)] animate-pulse align-middle" />
+              ) : null}
+            </p>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function PlatformButton({
+function AiMessage({
+  text,
+  typewriter,
+  typewriterActive,
+  onTypewriterComplete,
+}: {
+  text: string;
+  typewriter?: boolean;
+  typewriterActive?: boolean;
+  onTypewriterComplete?: () => void;
+}) {
+  return (
+    <div className="flex items-start gap-3 chat-hero-message-enter">
+      <FunnelAiMessageAvatar className={`${FUNNEL_AI_AVATAR_BOX} mt-0.5`} />
+      <p className="text-[16px] leading-[1.6] text-[var(--chat-hero-text)] whitespace-pre-line flex-1 min-w-0">
+        {typewriter ? (
+          <TypewriterText text={text} active={!!typewriterActive} onComplete={onTypewriterComplete} />
+        ) : (
+          text
+        )}
+      </p>
+    </div>
+  );
+}
+
+function OptionSquareButton({
   label,
   selected,
   disabled,
   icon,
   onClick,
-}: {
-  label: string;
-  selected: boolean;
-  disabled?: boolean;
-  icon: React.ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={[
-        'chat-hero-platform-btn flex w-full items-center gap-2.5 rounded-xl border px-4 py-3 text-left transition-all duration-150 active:scale-[0.98]',
-        selected ? 'chat-hero-platform-btn--selected' : '',
-        disabled ? 'pointer-events-none opacity-50' : '',
-      ].join(' ')}
-    >
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center">{icon}</span>
-      <span className="text-sm font-medium leading-snug">{label}</span>
-    </button>
-  );
-}
-
-function PainOptionButton({
-  label,
-  selected,
-  disabled,
-  onClick,
   staggerIndex,
+  animateEnter = true,
+  variant = 'compact',
 }: {
   label: string;
   selected: boolean;
   disabled?: boolean;
+  icon?: React.ReactNode;
   onClick: () => void;
-  staggerIndex: number;
+  staggerIndex?: number;
+  animateEnter?: boolean;
+  variant?: 'compact' | 'tall';
 }) {
+  const isTall = variant === 'tall';
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
-      style={{ animationDelay: `${staggerIndex * 60}ms` }}
+      style={{ animationDelay: animateEnter && staggerIndex !== undefined ? `${staggerIndex * 60}ms` : undefined }}
       className={[
-        'chat-hero-pill-enter chat-hero-platform-btn flex min-h-[72px] w-full items-center justify-center rounded-xl border px-4 py-3 text-center text-sm font-medium transition-all duration-150',
-        selected ? 'chat-hero-platform-btn--selected' : '',
-        disabled ? 'pointer-events-none opacity-50' : '',
+        animateEnter ? 'chat-hero-pill-enter' : '',
+        'flex w-full flex-col items-center justify-center rounded-lg border p-2 transition-all duration-150',
+        isTall ? 'min-h-[96px] sm:min-h-[108px] gap-1.5' : 'h-[80px] sm:h-[92px] gap-1.5',
+        'active:scale-[0.97]',
+        selected
+          ? 'border-[#7C3AED] bg-[var(--chat-hero-accent-soft)] shadow-[0_0_0_1px_rgba(124,58,237,0.2)]'
+          : 'border-[var(--chat-hero-border)] bg-[var(--chat-hero-surface)] hover:border-[#7C3AED]/50 hover:bg-[var(--chat-hero-bg)]',
+        disabled ? 'opacity-50 pointer-events-none' : '',
       ].join(' ')}
     >
-      {label}
+      {icon ? (
+        <span className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center">{icon}</span>
+      ) : null}
+      <span
+        className={`text-center font-medium leading-snug px-1 ${
+          isTall ? 'text-xs sm:text-sm' : 'text-[11px] sm:text-xs'
+        } ${selected ? 'text-[var(--chat-hero-accent-text)]' : 'text-[var(--chat-hero-text)]'}`}
+      >
+        {label}
+      </span>
     </button>
   );
 }
-
-function SideFeaturePanel({
-  sceneIndices,
-  activeIndex,
-}: {
-  sceneIndices: readonly number[];
-  activeIndex: number;
-}) {
-  return (
-    <div
-      className="relative overflow-hidden"
-      style={{ width: SIDE_PANEL_WIDTH, height: SIDE_PANEL_HEIGHT }}
-    >
-      {sceneIndices.map((sceneIndex, i) => {
-        const { Component: Scene, title } = getFunnelScene(sceneIndex);
-        const isActive = activeIndex === i;
-
-        return (
-          <div
-            key={`${sceneIndex}-${i}`}
-            className="absolute inset-0"
-            style={{
-              opacity: isActive ? 1 : 0,
-              pointerEvents: isActive ? 'auto' : 'none',
-              transition: `opacity ${CROSSFADE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
-            }}
-            aria-hidden={!isActive}
-          >
-            <FunnelDemoFrame visible title={title} progress={1} staticMode>
-              <Scene progress={1} />
-            </FunnelDemoFrame>
-          </div>
-        );
-      })}
-
-      <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-1.5 pb-1" aria-hidden>
-        {sceneIndices.map((_, i) => (
-          <span
-            key={i}
-            className={`rounded-full transition-colors duration-300 ${
-              i === activeIndex ? 'h-2 w-2 bg-[#AAFF45]' : 'h-1.5 w-1.5 bg-[#2A2A38]'
-            }`}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function SideFeatureColumn({
-  sceneIndices,
-  startDelayMs,
-  className,
-}: {
-  sceneIndices: readonly number[];
-  startDelayMs: number;
-  className?: string;
-}) {
-  const activeIndex = useRotatingPanelIndex(sceneIndices.length, ROTATE_MS, startDelayMs);
-
-  return (
-    <aside className={className}>
-      <SideFeaturePanel sceneIndices={sceneIndices} activeIndex={activeIndex} />
-    </aside>
-  );
-}
-
-/* ── Main hero ─────────────────────────────────────────────────── */
 
 export default function ChatHero() {
   const { signInWithGoogle } = useAuth();
   const { openSignup } = useAuthModal();
+
+  const [sideDemosReady, setSideDemosReady] = useState(false);
 
   const [step, setStep] = useState<FlowStep>(0);
   const [blocks, setBlocks] = useState<RenderBlock[]>([]);
@@ -307,16 +348,19 @@ export default function ChatHero() {
   const [selectedPlatforms, setSelectedPlatforms] = useState<ChatHeroPlatformId[]>([]);
   const [selectedPain, setSelectedPain] = useState<ChatHeroPainPointId | null>(null);
 
-  const [showPlatformOptions, setShowPlatformOptions] = useState(true);
+  const [showPlatformOptions, setShowPlatformOptions] = useState(false);
+  const [showOpeningFollowUp, setShowOpeningFollowUp] = useState(false);
   const [showPainOptions, setShowPainOptions] = useState(false);
   const [showDemoCta, setShowDemoCta] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
+  const [typewriterDone, setTypewriterDone] = useState(false);
 
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
   const [draftText, setDraftText] = useState('');
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const flowLock = useRef(false);
 
   const platformLabels = useMemo(
@@ -357,7 +401,25 @@ export default function ChatHero() {
 
   useEffect(() => {
     trackChatHeroEvent('chat_started');
-    setBlocks([{ id: blockId('ai'), kind: 'ai', text: '', isOpening: true }]);
+    setBlocks([
+      {
+        id: blockId('ai'),
+        kind: 'ai',
+            text: OPENING_TYPEWRITER_TEXT,
+        animate: true,
+        prominent: true,
+        isOpening: true,
+      },
+    ]);
+  }, []);
+
+  const handleHeadlineComplete = useCallback(() => {
+    setTypewriterDone(true);
+    setShowOpeningFollowUp(true);
+    setShowPlatformOptions(true);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setSideDemosReady(true));
+    });
   }, []);
 
   const togglePlatform = useCallback((id: ChatHeroPlatformId) => {
@@ -371,12 +433,28 @@ export default function ChatHero() {
     flowLock.current = true;
     setBusy(true);
     setShowPlatformOptions(false);
+
     trackChatHeroEvent('platforms_selected', { platforms: selectedPlatforms });
-    appendBlocks([{ id: blockId('user'), kind: 'user_pills', labels: platformLabels }]);
+
+    appendBlocks([
+      {
+        id: blockId('user'),
+        kind: 'user_pills',
+        labels: platformLabels,
+      },
+    ]);
+
     setStep(1);
+
     await playTypingThen(800, async () => {
-      appendBlocks([{ id: blockId('ai'), kind: 'ai', text: painDiscoveryMessage(platformLabels) }]);
-      await delay(400);
+      appendBlocks([
+        {
+          id: blockId('ai'),
+          kind: 'ai',
+          text: painDiscoveryMessage(platformLabels),
+        },
+      ]);
+      await delay(600);
       setShowPainOptions(true);
       setBusy(false);
       flowLock.current = false;
@@ -388,17 +466,32 @@ export default function ChatHero() {
     flowLock.current = true;
     setBusy(true);
     setShowPainOptions(false);
+
     const painLabel = CHAT_HERO_PAIN_POINTS.find((p) => p.id === selectedPain)?.label ?? '';
     trackChatHeroEvent('pain_point_selected', { pain_point: selectedPain });
+
     appendBlocks([{ id: blockId('user'), kind: 'user_pills', labels: [painLabel] }]);
+
     setStep(2);
-    await playTypingThen(800, async () => {
-      appendBlocks([{ id: blockId('ai'), kind: 'ai', text: demoMessageForPainPoint(selectedPain) }]);
+
+    await playTypingThen(1200, async () => {
+      const demo = demoBlocksForPainPoint(selectedPain);
+      for (let i = 0; i < demo.length; i += 1) {
+        const rendered = demoBlockToRender(demo[i]);
+        appendBlocks(rendered);
+        if (i < demo.length - 1) await delay(600);
+      }
+
       trackChatHeroEvent('demo_completed', { pain_point: selectedPain });
       await delay(400);
+
       await playTypingThen(800, async () => {
         appendBlocks([
-          { id: blockId('ai'), kind: 'ai', text: 'Want to see this working on your actual accounts?' },
+          {
+            id: blockId('ai'),
+            kind: 'ai',
+            text: 'Want to see this working on your actual accounts?',
+          },
         ]);
         setShowDemoCta(true);
         setBusy(false);
@@ -413,6 +506,7 @@ export default function ChatHero() {
     setShowDemoCta(false);
     trackChatHeroEvent('signup_clicked', { platforms: selectedPlatforms });
     setStep(3);
+
     await playTypingThen(800, async () => {
       appendBlocks([
         {
@@ -450,22 +544,30 @@ export default function ChatHero() {
   const handleFreeTextSubmit = useCallback(async () => {
     const trimmed = draftText.trim();
     if (!trimmed || busy || isTyping) return;
-    if (step === 0 && /^(hi|hello|hey|yo)\b/i.test(trimmed)) {
-      setDraftText('');
-      return;
-    }
+
     setDraftText('');
+    appendBlocks([{ id: blockId('user'), kind: 'user_pills', labels: [trimmed] }]);
+
     const matchedPlatforms = matchPlatformsFromText(trimmed);
     const matchedPain = matchPainPointFromText(trimmed);
+
     if (showPlatformOptions && matchedPlatforms.length > 0) {
       setSelectedPlatforms((prev) => [...new Set([...prev, ...matchedPlatforms])]);
     }
-    if (showPainOptions && matchedPain) setSelectedPain(matchedPain);
-    const isPlatformOnly =
-      step === 0 && showPlatformOptions && matchedPlatforms.length > 0 && trimmed.split(/\s+/).length <= 3;
-    if (!isPlatformOnly) {
-      appendBlocks([{ id: blockId('user'), kind: 'user_pills', labels: [trimmed] }]);
+    // Also select platform when user asks about posting on a specific one
+    if (showPlatformOptions) {
+      const lower = trimmed.toLowerCase();
+      if (/instagram|ig\b|insta/.test(lower) && /post|publish|reel/.test(lower)) {
+        setSelectedPlatforms((prev) => [...new Set([...prev, 'instagram' as ChatHeroPlatformId])]);
+      }
+      if (/tiktok|tik tok/.test(lower) && /post|publish|video|from here|can you|can i/.test(lower)) {
+        setSelectedPlatforms((prev) => [...new Set([...prev, 'tiktok' as ChatHeroPlatformId])]);
+      }
     }
+    if (showPainOptions && matchedPain) {
+      setSelectedPain(matchedPain);
+    }
+
     setBusy(true);
     await playTypingThen(800, async () => {
       appendBlocks([
@@ -477,7 +579,12 @@ export default function ChatHero() {
             text: trimmed,
             matchedPlatforms,
             matchedPain,
-            selectedPlatformIds: [...new Set([...selectedPlatforms, ...matchedPlatforms])],
+            selectedPlatformIds: [
+              ...new Set([
+                ...selectedPlatforms,
+                ...matchedPlatforms,
+              ]),
+            ],
           }),
         },
       ]);
@@ -500,7 +607,7 @@ export default function ChatHero() {
     if (showDemoCta) return 'Type a question, or tap Start for free…';
     if (showPainOptions) return 'Describe your biggest challenge…';
     if (step === 0 && !showPainOptions && !showDemoCta && !showSignup) {
-      return "Try: 'Reply to all my Instagram comments from today'";
+      return 'Ask anything - pricing, features, platforms, how it works…';
     }
     return 'Message iZop…';
   }, [showDemoCta, showPainOptions, showSignup, step]);
@@ -509,71 +616,138 @@ export default function ChatHero() {
   const canPainContinue = selectedPain !== null && !busy;
 
   return (
-    <section className="chat-hero flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden bg-[#0A0A0F] pt-[calc(3px+3.5rem)] sm:pt-[calc(3px+4rem)]">
-      <div className="mx-auto flex min-h-0 w-full max-w-[1280px] flex-1 items-center gap-4 px-3 py-3 sm:px-4 lg:px-6">
-        <SideFeatureColumn
-          sceneIndices={LEFT_SCENE_INDICES}
-          startDelayMs={0}
-          className="hidden shrink-0 xl:block"
-        />
-
-        <div className="chat-hero__main flex min-h-0 min-w-0 flex-1 flex-col">
+    <section className="chat-hero relative flex h-[calc(100dvh-0.5rem)] max-h-[calc(100dvh-0.5rem)] flex-col overflow-hidden pt-14 sm:pt-16">
+      <ChatHeroDemoLoopProvider active={sideDemosReady}>
+      <div className="flex flex-1 min-h-0 w-full max-w-[1920px] mx-auto">
+        <ChatHeroSideDemoColumn side="left" visible={sideDemosReady} />
+        <div className="flex flex-1 min-h-0 min-w-0 flex-col w-full px-2 sm:px-3 xl:px-4 pt-2 sm:pt-2 pb-3 sm:pb-4">
           <h1 className="sr-only">iZop, your personal AI social media manager</h1>
 
-          <div
-            ref={scrollRef}
-            className="flex min-h-0 flex-1 flex-col overflow-y-auto px-1 sm:px-2"
-          >
-            <div className="w-full shrink-0 space-y-3">
-              {blocks.map((block) => {
+          <div ref={scrollRef} className="flex flex-1 min-h-0 w-full flex-col overflow-y-auto pb-4 pt-2 sm:pt-3">
+            <div className="w-full space-y-3 shrink-0">
+              {blocks.map((block, index) => {
                 if (block.kind === 'ai') {
-                  if (block.isOpening) return <OpeningMessage key={block.id} />;
-                  return <AiMessage key={block.id} text={block.text} />;
+                  if (block.isOpening) {
+                    return (
+                      <OpeningAiMessage
+                        key={block.id}
+                        typewriterActive={!typewriterDone}
+                        showFollowUp={showOpeningFollowUp}
+                        onHeadlineComplete={handleHeadlineComplete}
+                      />
+                    );
+                  }
+                  return (
+                    <AiMessage
+                      key={block.id}
+                      text={block.text}
+                      typewriter={false}
+                    />
+                  );
+                }
+                if (block.kind === 'user_pills') {
+                  return (
+                    <div key={block.id} className="flex flex-wrap justify-end gap-2 chat-hero-message-enter">
+                      {block.labels.map((label) => (
+                        <span
+                          key={label}
+                          className="rounded-full border border-[#7C3AED] bg-[var(--chat-hero-accent-soft)] px-[18px] py-[10px] text-sm text-[var(--chat-hero-accent-text)] font-medium"
+                        >
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  );
+                }
+                if (block.kind === 'stats') {
+                  return (
+                    <div key={block.id} className="flex flex-wrap gap-2 chat-hero-message-enter pl-9">
+                      {block.items.map((item) => (
+                        <div
+                          key={item.label}
+                          className="rounded-xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-surface)] px-5 py-4 min-w-[140px]"
+                        >
+                          <p className="text-xl font-semibold text-[var(--chat-hero-text)]">{item.value}</p>
+                          <p className="text-xs text-[var(--chat-hero-muted)] mt-0.5">{item.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+                if (block.kind === 'mock_chat') {
+                  return (
+                    <div key={block.id} className="space-y-3 pl-9 chat-hero-message-enter">
+                      <div className="rounded-xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-surface)] px-4 py-3 text-sm text-[var(--chat-hero-muted)]">
+                        {block.user}
+                      </div>
+                      <div className="rounded-xl border border-[#7C3AED]/25 bg-[var(--chat-hero-accent-soft)] px-4 py-3 text-sm text-[var(--chat-hero-text)] leading-relaxed">
+                        {block.ai}
+                      </div>
+                    </div>
+                  );
+                }
+                if (block.kind === 'ideas') {
+                  return (
+                    <div key={block.id} className="space-y-2 pl-9 chat-hero-message-enter">
+                      {block.items.map((idea, i) => (
+                        <div
+                          key={idea}
+                          className="rounded-xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-surface)] px-4 py-3 text-sm text-[var(--chat-hero-text)]"
+                        >
+                          <span className="text-[#7C3AED] font-medium mr-2">{i + 1}.</span>
+                          {idea}
+                        </div>
+                      ))}
+                    </div>
+                  );
                 }
                 return (
-                  <div key={block.id} className="chat-hero-message-enter flex flex-wrap justify-end gap-2">
-                    {block.labels.map((label) => (
-                      <span key={label} className="chat-hero-user-pill">
-                        {label}
+                  <div key={block.id} className="flex flex-wrap gap-2 pl-9 chat-hero-message-enter">
+                    {block.items.map((badge) => (
+                      <span
+                        key={badge}
+                        className="rounded-full border border-[var(--chat-hero-border)] bg-[var(--chat-hero-surface)] px-3 py-1.5 text-xs text-[var(--chat-hero-muted)]"
+                      >
+                        {badge}
                       </span>
                     ))}
                   </div>
                 );
               })}
+
               {isTyping ? <TypingIndicator /> : null}
             </div>
 
             {showPlatformOptions ? (
-              <div className="mt-4 w-full shrink-0">
-                <div className="grid w-full grid-cols-2 gap-2.5 md:grid-cols-4 sm:gap-3">
-                  {CHAT_HERO_PLATFORMS.map((platform) => {
-                    const Icon = PLATFORM_ICONS[platform.id];
-                    const selected = selectedPlatforms.includes(platform.id);
-                    return (
-                      <PlatformButton
-                        key={platform.id}
-                        label={platform.label}
-                        selected={selected}
-                        disabled={busy}
-                        icon={<Icon size={24} />}
-                        onClick={() => togglePlatform(platform.id)}
-                      />
-                    );
-                  })}
-                </div>
-                <SampleConversation />
+              <div className="mt-3 grid grid-cols-4 gap-2.5 sm:gap-3 w-full shrink-0">
+                {CHAT_HERO_PLATFORMS.map((platform, i) => {
+                  const Icon = PLATFORM_ICONS[platform.id];
+                  const selected = selectedPlatforms.includes(platform.id);
+                  return (
+                    <OptionSquareButton
+                      key={platform.id}
+                      label={platform.label}
+                      selected={selected}
+                      disabled={busy}
+                      animateEnter={false}
+                      icon={<Icon size={30} />}
+                      onClick={() => togglePlatform(platform.id)}
+                    />
+                  );
+                })}
               </div>
             ) : null}
 
             {showPainOptions ? (
-              <div className="mt-4 grid w-full shrink-0 grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-2.5 lg:grid-cols-3">
+              <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-2.5 w-full shrink-0">
                 {CHAT_HERO_PAIN_POINTS.map((pain, i) => (
-                  <PainOptionButton
+                  <OptionSquareButton
                     key={pain.id}
                     label={pain.label}
                     selected={selectedPain === pain.id}
                     disabled={busy}
                     staggerIndex={i}
+                    variant="tall"
                     onClick={() => setSelectedPain(pain.id)}
                   />
                 ))}
@@ -581,114 +755,120 @@ export default function ChatHero() {
             ) : null}
           </div>
 
-          <div className="shrink-0 px-1 pb-2 pt-3 sm:px-2">
+          <div className="shrink-0 border-t border-[var(--chat-hero-border)] pt-3 pb-3">
             <div className="space-y-3">
               {showPlatformOptions && canPlatformContinue ? (
                 <button
                   type="button"
                   onClick={() => void handlePlatformsContinue()}
-                  className="chat-hero-continue-btn chat-hero-continue-enter"
+                  className="chat-hero-continue-enter w-full sm:w-auto rounded-full bg-gradient-to-br from-[#7C3AED] to-[#4F46E5] px-7 py-3 text-[15px] font-medium text-white hover:brightness-110 transition-all"
                 >
                   Continue →
                 </button>
               ) : null}
+
               {showPainOptions && canPainContinue ? (
                 <button
                   type="button"
                   onClick={() => void handlePainContinue()}
-                  className="chat-hero-continue-btn chat-hero-continue-enter"
+                  className="chat-hero-continue-enter w-full sm:w-auto rounded-full bg-gradient-to-br from-[#7C3AED] to-[#4F46E5] px-7 py-3 text-[15px] font-medium text-white hover:brightness-110 transition-all"
                 >
                   Show me →
                 </button>
               ) : null}
+
               {showDemoCta ? (
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => void handleStartForFree()}
-                  className="chat-hero-continue-btn chat-hero-continue-enter"
+                  className="chat-hero-continue-enter w-full sm:w-auto rounded-full bg-gradient-to-br from-[#7C3AED] to-[#4F46E5] px-7 py-3 text-[15px] font-medium text-white hover:brightness-110 transition-all"
                 >
                   Start for free — no credit card →
                 </button>
               ) : null}
+
               {showSignup ? (
-                <div className="chat-hero-continue-enter space-y-3">
-                  {authError ? <p className="text-sm text-red-400">{authError}</p> : null}
+                <div className="space-y-3 chat-hero-continue-enter">
+                  {authError ? (
+                    <p className="text-sm text-red-600">{authError}</p>
+                  ) : null}
                   <button
                     type="button"
                     disabled={authLoading}
                     onClick={() => void handleGoogleSignup()}
-                    className="btn-google-lime flex w-full items-center justify-center gap-3 rounded-full px-7 py-3 text-[15px] font-semibold disabled:cursor-not-allowed"
+                    className="btn-google-lime w-full flex items-center justify-center gap-3 rounded-full px-7 py-3 text-[15px] font-semibold disabled:cursor-not-allowed"
                   >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                    </svg>
                     {authLoading ? 'Redirecting…' : 'Continue with Google'}
                   </button>
                   <button
                     type="button"
                     onClick={handleEmailSignup}
-                    className="w-full rounded-full border border-[#1E1E2A] bg-[#111118] px-7 py-3 text-[15px] font-medium text-[#888780] transition-all hover:border-[#7C3AED] hover:text-white"
+                    className="w-full rounded-full border border-[var(--chat-hero-border)] bg-[var(--chat-hero-bg)] px-7 py-3 text-[15px] font-medium text-[var(--chat-hero-muted)] hover:border-[#7C3AED] hover:text-[var(--chat-hero-text)] transition-all"
                   >
                     Continue with email
                   </button>
-                  <p className="text-center text-xs text-[#888780]">
+                  <p className="text-center text-xs text-[var(--chat-hero-muted)]">
                     Free forever plan available · No credit card required
                   </p>
                 </div>
               ) : null}
             </div>
 
+            <div className="mt-3 flex w-full flex-col gap-2">
             <form
-              className="chat-hero-input-form mt-3 flex w-full items-center gap-2"
+              className="flex w-full items-center gap-2 rounded-2xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-input-bg)] px-3 py-2 sm:px-4 sm:py-2.5 shadow-sm focus-within:border-[#7C3AED]/40 focus-within:ring-2 focus-within:ring-[#7C3AED]/15"
               onSubmit={(e) => {
                 e.preventDefault();
                 void handleFreeTextSubmit();
               }}
             >
               <input
+                ref={inputRef}
                 type="text"
                 value={draftText}
                 onChange={(e) => setDraftText(e.target.value)}
                 placeholder={inputPlaceholder}
                 disabled={busy || isTyping}
-                className="min-w-0 flex-1 bg-transparent text-[15px] text-white outline-none placeholder:text-[#888780] disabled:opacity-50"
+                className="flex-1 min-w-0 bg-transparent text-[15px] text-[var(--chat-hero-text)] placeholder:text-[var(--chat-hero-muted)] outline-none disabled:opacity-50"
                 aria-label="Message iZop"
               />
               <button
                 type="submit"
                 disabled={!draftText.trim() || busy || isTyping}
-                className="chat-hero-send-btn flex h-9 w-9 shrink-0 items-center justify-center disabled:pointer-events-none disabled:opacity-40"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#7C3AED] to-[#4F46E5] text-white transition-all hover:brightness-110 disabled:opacity-40 disabled:pointer-events-none"
                 aria-label="Send message"
               >
-                <ArrowUp className="h-4 w-4 text-white" />
+                <ArrowUp className="h-4 w-4" />
               </button>
             </form>
 
-            <div className="chat-hero-trust-signals">
-              <span className="chat-hero-trust-item">
-                <Check className="chat-hero-trust-check h-3.5 w-3.5" />
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11px] sm:text-xs text-[var(--chat-hero-muted)] pt-0.5">
+              <span className="flex items-center gap-1.5">
+                <Check className="h-3.5 w-3.5 text-[#10B981]" />
                 No credit card required
               </span>
-              <span className="chat-hero-trust-item">
-                <Check className="chat-hero-trust-check h-3.5 w-3.5" />
+              <span className="flex items-center gap-1.5">
+                <Check className="h-3.5 w-3.5 text-[#10B981]" />
                 Free plan forever
               </span>
-              <span className="chat-hero-trust-item">
-                <Check className="chat-hero-trust-check h-3.5 w-3.5" />
+              <span className="flex items-center gap-1.5">
+                <Check className="h-3.5 w-3.5 text-[#10B981]" />
                 Cancel anytime
               </span>
             </div>
-          </div>
-
-          <div className="xl:hidden flex shrink-0 justify-center px-2 pb-2">
-            <SideFeatureColumn sceneIndices={LEFT_SCENE_INDICES} startDelayMs={RIGHT_COLUMN_DELAY_MS} />
+            </div>
           </div>
         </div>
-
-        <SideFeatureColumn
-          sceneIndices={RIGHT_SCENE_INDICES}
-          startDelayMs={RIGHT_COLUMN_DELAY_MS}
-          className="hidden shrink-0 xl:block"
-        />
+        <ChatHeroSideDemoColumn side="right" visible={sideDemosReady} />
       </div>
+      </ChatHeroDemoLoopProvider>
     </section>
   );
 }

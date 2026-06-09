@@ -85,7 +85,6 @@ export function DemoImage({
     <img
       src={src}
       alt={alt}
-      loading="lazy"
       className={`block w-full h-full ${objectFit === 'contain' ? 'object-contain' : 'object-cover'} ${className}`}
       draggable={false}
     />
@@ -114,7 +113,6 @@ export function ChatAttachmentImage({
       <img
         src={src}
         alt={alt}
-        loading="lazy"
         className="block h-full w-full object-cover object-center pointer-events-none select-none"
         draggable={false}
       />
@@ -223,8 +221,8 @@ export function InstagramPostPreview({ src, alt }: { src: string; alt: string })
 /** YouTube video frame: landscape 16:9, full thumbnail visible */
 export function YouTubeVideoPreview({ src, alt, title }: { src: string; alt: string; title?: string }) {
   return (
-    <div className="funnel-inner-card overflow-hidden">
-      <div className="relative aspect-video w-full bg-black">
+    <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950">
+      <div className="relative aspect-video w-full bg-neutral-900">
         <DemoImage src={src} alt={alt} objectFit="contain" />
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <span className="flex h-10 w-14 items-center justify-center rounded-xl bg-red-600/95 shadow-lg">
@@ -233,14 +231,14 @@ export function YouTubeVideoPreview({ src, alt, title }: { src: string; alt: str
         </div>
       </div>
       <div className="flex items-start gap-2 px-2 py-1.5">
-        <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#1A1A24]">
+        <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-neutral-200 dark:bg-neutral-800">
           <YoutubeIcon size={14} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold leading-snug text-white line-clamp-2">
+          <p className="text-[11px] font-semibold leading-snug text-neutral-900 dark:text-neutral-100 line-clamp-2">
             {title ?? 'Top performing video'}
           </p>
-          <p className="text-[10px] text-[#888780]">2.1M views · 184K likes</p>
+          <p className="text-[10px] text-neutral-500">2.1M views · 184K likes</p>
         </div>
       </div>
     </div>
@@ -488,22 +486,24 @@ export function CommentRow({
   if (!show) return null;
   return (
     <li
-      className={`funnel-inner-card flex items-start gap-1.5 p-1.5 ${
-        highlight ? 'border-[#7C3AED]/40' : ''
+      className={`flex items-start gap-1.5 rounded-md border p-1.5 ${
+        highlight
+          ? 'border-[#7C3AED]/50 bg-[#7C3AED]/10 dark:bg-[#7C3AED]/15'
+          : 'border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900'
       }`}
     >
       <DemoAvatar label={avatar} colorClass={colorClass} size="md" />
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] font-semibold text-white truncate">{name}</p>
-        <p className="text-[10px] text-[#888780] leading-snug line-clamp-2">{text}</p>
+        <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 truncate">{name}</p>
+        <p className="text-[10px] text-neutral-600 dark:text-neutral-400 leading-snug line-clamp-2">{text}</p>
         {replied && replyText ? (
-          <p className="mt-1 rounded-md border border-emerald-800/50 bg-emerald-950/40 px-1.5 py-0.5 text-[9px] text-emerald-300 leading-snug line-clamp-2">
+          <p className="mt-1 rounded-md border border-emerald-200/80 bg-emerald-50/80 dark:bg-emerald-950/30 dark:border-emerald-800/50 px-1.5 py-0.5 text-[9px] text-emerald-800 dark:text-emerald-200 leading-snug line-clamp-2">
             <span className="font-semibold">AI reply: </span>
             {replyText}
           </p>
         ) : null}
         {replied ? (
-          <p className="mt-0.5 inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-400">
+          <p className="mt-0.5 inline-flex items-center gap-0.5 text-[9px] font-medium text-emerald-700 dark:text-emerald-300">
             <CheckCircle2 size={10} /> Reply sent
           </p>
         ) : null}
@@ -560,10 +560,10 @@ export function LeadsSpreadsheet({ show, progress = 1 }: { show: boolean; progre
   const visibleRows = LEADS_DEMO_ROWS.filter((row) => progress >= row.showAt || progress >= 1);
 
   return (
-    <div className="funnel-inner-card overflow-hidden">
+    <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
       <table className="w-full text-left">
         <thead>
-          <tr className="border-b border-[#1E1E2A] text-[9px] uppercase tracking-wide text-[#888780]">
+          <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 text-[9px] uppercase tracking-wide text-neutral-500">
             <th className="px-1.5 py-1.5 font-semibold">Lead</th>
             <th className="px-1.5 py-1.5 font-semibold">Comment</th>
             <th className="px-1.5 py-1.5 font-semibold">Class</th>
@@ -572,22 +572,24 @@ export function LeadsSpreadsheet({ show, progress = 1 }: { show: boolean; progre
         </thead>
         <tbody>
           {visibleRows.map((row) => (
-            <tr key={row.name} className="border-b border-[#1E1E2A] last:border-0 funnel-demo-message-in">
+            <tr key={row.name} className="border-b border-neutral-100 dark:border-neutral-800 last:border-0 funnel-demo-message-in">
               <td className="px-1.5 py-1.5 align-top">
                 <div className="flex items-center gap-1.5">
                   <DemoAvatar label={row.avatar} colorClass={row.color} size="md" />
-                  <span className="text-[10px] font-semibold text-white whitespace-nowrap">{row.name}</span>
+                  <span className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 whitespace-nowrap">
+                    {row.name}
+                  </span>
                 </div>
               </td>
-              <td className="px-1.5 py-1.5 text-[10px] text-[#888780] align-top max-w-[80px] leading-snug">
+              <td className="px-1.5 py-1.5 text-[10px] text-neutral-600 dark:text-neutral-400 align-top max-w-[80px] leading-snug">
                 {row.comment}
               </td>
               <td className="px-1.5 py-1.5 align-top">
-                <span className="rounded-full border border-[#2A2A38] bg-[#1A1A24] px-1.5 py-0.5 text-[9px] font-semibold text-[#AAFF45]">
+                <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${row.intentStyle}`}>
                   {row.intent}
                 </span>
               </td>
-              <td className="px-1.5 py-1.5 text-[10px] text-[#A78BFA] align-top max-w-[90px] leading-snug font-medium">
+              <td className="px-1.5 py-1.5 text-[10px] text-[var(--primary)] align-top max-w-[90px] leading-snug font-medium">
                 {row.dm}
               </td>
             </tr>
@@ -636,14 +638,14 @@ export function TeamMembersPanel({ show, progress = 1 }: { show: boolean; progre
   const visibleRows = TEAM_DEMO_ROWS.filter((row) => progress >= row.showAt || progress >= 1);
 
   return (
-    <div className="funnel-inner-card overflow-hidden">
-      <div className="flex items-center gap-1.5 border-b border-[#1E1E2A] px-2 py-1.5">
+    <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
+      <div className="flex items-center gap-1.5 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 px-2 py-1.5">
         <Users size={12} className="text-[#7C3AED]" />
-        <span className="text-[10px] font-semibold text-white">Team activity</span>
+        <span className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">Team activity</span>
       </div>
       <table className="w-full text-left">
         <thead>
-          <tr className="border-b border-[#1E1E2A] text-[9px] uppercase tracking-wide text-[#888780]">
+          <tr className="border-b border-neutral-100 dark:border-neutral-800 text-[9px] uppercase tracking-wide text-neutral-500">
             <th className="px-1.5 py-1 font-semibold">Member</th>
             <th className="px-1.5 py-1 font-semibold">Role</th>
             <th className="px-1.5 py-1 font-semibold text-right">Last active</th>
@@ -651,23 +653,21 @@ export function TeamMembersPanel({ show, progress = 1 }: { show: boolean; progre
         </thead>
         <tbody>
           {visibleRows.map((row) => (
-            <tr key={row.name} className="border-b border-[#1E1E2A] last:border-0">
+            <tr key={row.name} className="border-b border-neutral-100 dark:border-neutral-800 last:border-0">
               <td className="px-1.5 py-1.5 align-middle">
                 <div className="flex items-center gap-1.5">
                   <DemoAvatar label={row.avatar} colorClass={row.color} size="md" />
-                  <span className="text-[10px] font-semibold text-white whitespace-nowrap">{row.name}</span>
+                  <span className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 whitespace-nowrap">
+                    {row.name}
+                  </span>
                 </div>
               </td>
               <td className="px-1.5 py-1.5 align-middle">
-                <span className="rounded-full border border-[#2A2A38] bg-[#1A1A24] px-1.5 py-0.5 text-[9px] font-semibold text-[#888780]">
+                <span className={`rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${row.roleStyle}`}>
                   {row.role}
                 </span>
               </td>
-              <td
-                className={`px-1.5 py-1.5 text-right text-[9px] font-medium tabular-nums ${
-                  row.activity === 'Active now' ? 'text-emerald-400' : 'text-[#888780]'
-                }`}
-              >
+              <td className={`px-1.5 py-1.5 text-right text-[9px] font-medium tabular-nums ${row.activityStyle}`}>
                 {row.activity}
               </td>
             </tr>
@@ -675,50 +675,10 @@ export function TeamMembersPanel({ show, progress = 1 }: { show: boolean; progre
         </tbody>
       </table>
       {(progress > 0.58 || progress >= 1) && (
-        <p className="flex items-center gap-1 border-t border-[#1E1E2A] px-2 py-1.5 text-[10px] font-semibold text-emerald-400">
+        <p className="flex items-center gap-1 border-t border-neutral-100 dark:border-neutral-800 px-2 py-1.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
           <CheckCircle2 size={11} /> Invite sent to maya@studio.com
         </p>
       )}
-    </div>
-  );
-}
-
-const TEAM_PERF_ROWS = [
-  { name: 'Maya Rodriguez', posts: 8, replies: 124, rate: '4.2%' },
-  { name: 'Alex Kim', posts: 6, replies: 89, rate: '3.8%' },
-  { name: 'Guy K.', posts: 5, replies: 67, rate: '3.1%' },
-] as const;
-
-export function TeamPerformancePanel({ show, progress = 1 }: { show: boolean; progress?: number }) {
-  if (!show) return null;
-
-  return (
-    <div className="funnel-inner-card overflow-hidden">
-      <table className="w-full text-left">
-        <thead>
-          <tr className="border-b border-[#1E1E2A] text-[9px] uppercase tracking-wide text-[#888780]">
-            <th className="px-1.5 py-1.5 font-semibold">Member</th>
-            <th className="px-1.5 py-1.5 font-semibold text-right">Posts</th>
-            <th className="px-1.5 py-1.5 font-semibold text-right">Replies</th>
-            <th className="px-1.5 py-1.5 font-semibold text-right">Eng. rate</th>
-          </tr>
-        </thead>
-        <tbody>
-          {TEAM_PERF_ROWS.map((row, i) => (
-            <tr
-              key={row.name}
-              className={`border-b border-[#1E1E2A] last:border-0 ${
-                progress > 0.2 + i * 0.15 || progress >= 1 ? 'opacity-100' : 'opacity-30'
-              }`}
-            >
-              <td className="px-1.5 py-1.5 text-[10px] font-semibold text-white">{row.name}</td>
-              <td className="px-1.5 py-1.5 text-right text-[10px] text-white tabular-nums">{row.posts}</td>
-              <td className="px-1.5 py-1.5 text-right text-[10px] text-white tabular-nums">{row.replies}</td>
-              <td className="px-1.5 py-1.5 text-right text-[10px] text-[#AAFF45] tabular-nums">{row.rate}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }
@@ -729,9 +689,9 @@ export function AnalyticsReportPreview({ show, progress = 1 }: { show: boolean; 
 
   return (
     <div className="space-y-2">
-      <div className="funnel-inner-card p-2">
-        <p className="text-[9px] font-semibold uppercase tracking-wide text-[#888780]">
-          MAR 1 TO MAR 31 · 8 PLATFORMS
+      <div className="rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950/25 dark:border-orange-900/60 p-2">
+        <p className="text-[9px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
+          Mar 1 to Mar 31 · 8 platforms
         </p>
         <div className="mt-1.5 grid grid-cols-2 gap-1.5">
           {[
@@ -740,27 +700,30 @@ export function AnalyticsReportPreview({ show, progress = 1 }: { show: boolean; 
             { label: 'Posts', value: '124' },
             { label: 'Audience', value: '89.4K' },
           ].map((m) => (
-            <div key={m.label} className="rounded-md border border-[#1E1E2A] bg-[#1A1A24] px-1.5 py-1">
-              <p className="text-[11px] font-bold tabular-nums text-white">{m.value}</p>
-              <p className="text-[8px] text-[#888780]">{m.label}</p>
+            <div
+              key={m.label}
+              className="rounded-md border border-orange-100 bg-white/80 dark:bg-neutral-900/60 dark:border-orange-900/40 px-1.5 py-1"
+            >
+              <p className="text-[11px] font-bold tabular-nums text-neutral-900 dark:text-neutral-100">{m.value}</p>
+              <p className="text-[8px] text-neutral-500">{m.label}</p>
             </div>
           ))}
         </div>
       </div>
       <div className="grid grid-cols-2 gap-1.5">
         {[
-          { title: 'Simplified report PDF', sub: '4 pages' },
-          { title: 'Detailed report PDF', sub: '12 pages' },
+          { title: 'Simplified report', sub: 'PDF · 4 pages' },
+          { title: 'Detailed report', sub: 'PDF · 12 pages' },
         ].map((card, i) => (
           <div
             key={card.title}
-            className={`funnel-inner-card p-2 ${
+            className={`rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2 ${
               progress > 0.32 + i * 0.12 || progress >= 1 ? 'opacity-100' : 'opacity-40'
             }`}
           >
             <FileText size={14} className="text-[#7C3AED] mb-1" />
-            <p className="text-[10px] font-semibold text-white leading-snug">{card.title}</p>
-            <p className="text-[8px] text-[#888780]">{card.sub}</p>
+            <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 leading-snug">{card.title}</p>
+            <p className="text-[8px] text-neutral-500">{card.sub}</p>
           </div>
         ))}
       </div>
