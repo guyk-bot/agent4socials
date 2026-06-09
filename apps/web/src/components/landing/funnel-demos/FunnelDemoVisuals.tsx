@@ -2,15 +2,7 @@
 
 import React, { useEffect, useMemo, useRef } from 'react';
 import { CheckCircle2, Play } from 'lucide-react';
-import {
-  Area,
-  CartesianGrid,
-  ComposedChart,
-  Line,
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, XAxis, YAxis } from 'recharts';
 import { YoutubeIcon } from '@/components/SocialPlatformIcons';
 
 import { FUNNEL_ANALYTICS_KPIS } from './funnel-demo-assets';
@@ -24,13 +16,13 @@ const BRAND = {
 
 /** Daily points; card totals and chart cumulative series derived from these. */
 const FUNNEL_GROWTH_DAILY = [
-  { date: 'Feb 18', followers: 14_830, views: 2_500, engagement: 130 },
-  { date: 'Feb 22', followers: 14_855, views: 2_800, engagement: 145 },
-  { date: 'Feb 26', followers: 14_880, views: 3_000, engagement: 150 },
-  { date: 'Mar 01', followers: 14_910, views: 2_900, engagement: 140 },
-  { date: 'Mar 04', followers: 14_940, views: 3_100, engagement: 155 },
-  { date: 'Mar 07', followers: 14_975, views: 3_200, engagement: 160 },
-  { date: 'Mar 10', followers: 15_000, views: 2_500, engagement: 120 },
+  { date: 'Feb 18', followers: 14_705, views: 2_187, engagement: 98 },
+  { date: 'Feb 22', followers: 14_738, views: 2_643, engagement: 121 },
+  { date: 'Feb 26', followers: 14_761, views: 2_904, engagement: 134 },
+  { date: 'Mar 01', followers: 14_789, views: 2_712, engagement: 118 },
+  { date: 'Mar 04', followers: 14_812, views: 3_156, engagement: 147 },
+  { date: 'Mar 07', followers: 14_831, views: 3_389, engagement: 156 },
+  { date: 'Mar 10', followers: 14_847, views: 1_441, engagement: 163 },
 ];
 
 function buildFunnelGrowthChartData() {
@@ -97,10 +89,11 @@ export function DemoImage({
   );
 }
 
-/** Instagram-style portrait frame: 3:4, border flush, object-cover fills frame. */
-const USER_ATTACH_FRAME = 'aspect-[3/4] w-full';
+/** Portrait frame: 3:4, compact, full frame visible in one shot. */
+const USER_ATTACH_FRAME =
+  'mx-auto aspect-[3/4] w-full max-w-[72%] max-h-[132px]';
 
-/** User-sent media: large, border flush to image (object-cover, no side gaps). */
+/** User-sent media: thinner faded border; object-contain shows the full clip. */
 export function ChatAttachmentImage({
   src,
   alt,
@@ -111,9 +104,16 @@ export function ChatAttachmentImage({
   className?: string;
 }) {
   return (
-    <div className={`overflow-hidden rounded-lg border-2 border-white/35 ${USER_ATTACH_FRAME} ${className}`}>
+    <div
+      className={`overflow-hidden rounded-lg border border-white/10 bg-black/15 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] ${USER_ATTACH_FRAME} ${className}`}
+    >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={alt} className="block h-full w-full object-cover object-center pointer-events-none select-none" draggable={false} />
+      <img
+        src={src}
+        alt={alt}
+        className="block h-full w-full object-contain object-center pointer-events-none select-none"
+        draggable={false}
+      />
     </div>
   );
 }
@@ -147,7 +147,7 @@ export function ChatDragDropImage({
   if (showZone) {
     return (
       <div
-        className={`flex ${USER_ATTACH_FRAME} items-center justify-center rounded-lg border-2 border-dashed border-white/45 bg-white/10 text-[11px] font-medium text-white/80`}
+        className={`flex ${USER_ATTACH_FRAME} items-center justify-center rounded-lg border border-dashed border-white/20 bg-white/5 text-[11px] font-medium text-white/70`}
         aria-hidden
       >
         Drop media here
@@ -304,23 +304,9 @@ export function AnalyticsChart({ show }: { show: boolean }) {
         <p className="px-2 pt-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
           Audience growth over time
         </p>
-        <div className="h-[88px] w-full">
+        <div className="h-[96px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 4, right: 2, left: -16, bottom: 0 }}>
-              <defs>
-                <linearGradient id="funnelFollowersArea" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={BRAND.soft} stopOpacity={0.2} />
-                  <stop offset="100%" stopColor={BRAND.primary} stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="funnelViewsArea" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#93c5fd" stopOpacity={0.15} />
-                  <stop offset="100%" stopColor="#2563eb" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="funnelEngagementArea" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#6ee7b7" stopOpacity={0.2} />
-                  <stop offset="100%" stopColor="#059669" stopOpacity={0} />
-                </linearGradient>
-              </defs>
               <CartesianGrid strokeDasharray="3 3" stroke={BRAND.grid} vertical={false} />
               <XAxis
                 dataKey="date"
@@ -336,7 +322,7 @@ export function AnalyticsChart({ show }: { show: boolean }) {
                 tickLine={false}
                 width={32}
                 domain={followersDomain}
-                tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`}
+                tickFormatter={(v) => `${(Number(v) / 1000).toFixed(1)}k`}
               />
               <YAxis
                 yAxisId="views"
@@ -349,54 +335,32 @@ export function AnalyticsChart({ show }: { show: boolean }) {
                 tickFormatter={(v) => `${Math.round(Number(v) / 1000)}k`}
               />
               <YAxis yAxisId="engagement" hide domain={engagementDomain} />
-              <Area
-                yAxisId="followers"
-                type="monotone"
-                dataKey="followers"
-                stroke="none"
-                fill="url(#funnelFollowersArea)"
-                isAnimationActive={false}
-              />
               <Line
                 yAxisId="followers"
-                type="monotone"
+                type="linear"
                 dataKey="followers"
                 stroke={BRAND.primary}
                 strokeWidth={2}
-                dot={false}
-                isAnimationActive={false}
-              />
-              <Area
-                yAxisId="views"
-                type="monotone"
-                dataKey="viewsCumulative"
-                stroke="none"
-                fill="url(#funnelViewsArea)"
+                dot={{ r: 2, fill: BRAND.primary, strokeWidth: 0 }}
                 isAnimationActive={false}
               />
               <Line
                 yAxisId="views"
-                type="monotone"
+                type="linear"
                 dataKey="viewsCumulative"
                 stroke="#2563eb"
                 strokeWidth={1.5}
+                strokeDasharray="4 3"
                 dot={false}
-                isAnimationActive={false}
-              />
-              <Area
-                yAxisId="engagement"
-                type="monotone"
-                dataKey="engagementCumulative"
-                stroke="none"
-                fill="url(#funnelEngagementArea)"
                 isAnimationActive={false}
               />
               <Line
                 yAxisId="engagement"
-                type="monotone"
+                type="linear"
                 dataKey="engagementCumulative"
                 stroke="#059669"
                 strokeWidth={1.5}
+                strokeDasharray="2 2"
                 dot={false}
                 isAnimationActive={false}
               />
@@ -408,26 +372,86 @@ export function AnalyticsChart({ show }: { show: boolean }) {
   );
 }
 
+const ADS_PLATFORM_STATS = [
+  {
+    label: 'Google',
+    h: 54,
+    roas: '3.84×',
+    spend: '$2,437',
+    cpa: '$12.40',
+    conv: 196,
+    colorFrom: '#1a73e8',
+    colorTo: '#8ab4f8',
+  },
+  {
+    label: 'Meta',
+    h: 36,
+    roas: '2.91×',
+    spend: '$5,084',
+    cpa: '$18.20',
+    conv: 279,
+    colorFrom: '#0866ff',
+    colorTo: '#6ea8fe',
+  },
+  {
+    label: 'TikTok',
+    h: 62,
+    roas: '4.17×',
+    spend: '$1,792',
+    cpa: '$9.85',
+    conv: 182,
+    colorFrom: '#ee1d52',
+    colorTo: '#ff6b8a',
+  },
+] as const;
+
 export function AdsPerformanceChart({ show }: { show: boolean }) {
   if (!show) return null;
-  const bars = [
-    { label: 'Google', h: 52, roas: '3.8×', spend: '$2.4K' },
-    { label: 'Meta', h: 38, roas: '2.9×', spend: '$5.1K' },
-    { label: 'TikTok', h: 60, roas: '4.2×', spend: '$1.8K' },
-  ];
+  const totalSpend = 9431;
+  const blendedRoas = '3.42×';
+
   return (
-    <div className="mb-2 flex items-end justify-between gap-3 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-3 py-3">
-      {bars.map((b) => (
-        <div key={b.label} className="flex flex-1 flex-col items-center gap-1">
-          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{b.roas}</span>
-          <div
-            className="w-full max-w-[36px] rounded-t-md bg-gradient-to-t from-[#7C3AED] to-[#A78BFA]"
-            style={{ height: `${b.h}px` }}
-          />
-          <span className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">{b.label}</span>
-          <span className="text-[10px] text-neutral-500">{b.spend}</span>
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 gap-1.5">
+        <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 px-2 py-1.5">
+          <p className="text-[9px] uppercase tracking-wide text-neutral-500">Total spend</p>
+          <p className="text-sm font-bold tabular-nums text-neutral-900 dark:text-neutral-100">
+            ${totalSpend.toLocaleString('en-US')}
+          </p>
         </div>
-      ))}
+        <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 px-2 py-1.5">
+          <p className="text-[9px] uppercase tracking-wide text-neutral-500">Blended ROAS</p>
+          <p className="text-sm font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{blendedRoas}</p>
+        </div>
+      </div>
+      <div className="flex items-end justify-between gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-2.5 py-2.5 min-h-[108px]">
+        {ADS_PLATFORM_STATS.map((b) => (
+          <div key={b.label} className="flex flex-1 flex-col items-center gap-0.5">
+            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{b.roas}</span>
+            <div
+              className="w-full max-w-[34px] rounded-t-md"
+              style={{
+                height: `${b.h}px`,
+                background: `linear-gradient(to top, ${b.colorFrom}, ${b.colorTo})`,
+              }}
+            />
+            <span className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">{b.label}</span>
+            <span className="text-[9px] text-neutral-500 tabular-nums">{b.spend}</span>
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-3 gap-1">
+        {ADS_PLATFORM_STATS.map((b) => (
+          <div
+            key={`${b.label}-cpa`}
+            className="rounded-md border border-neutral-100 dark:border-neutral-800 bg-neutral-50/80 dark:bg-neutral-900/80 px-1.5 py-1 text-center"
+          >
+            <p className="text-[8px] uppercase text-neutral-500">{b.label} CPA</p>
+            <p className="text-[10px] font-semibold tabular-nums text-neutral-800 dark:text-neutral-200">{b.cpa}</p>
+            <p className="text-[8px] text-neutral-500 tabular-nums">{b.conv} conv.</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -489,17 +513,17 @@ const LEADS_DEMO_ROWS = [
     intent: 'High',
     intentStyle: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300',
     dm: 'Happy to share pricing in DM',
-    showAt: 0.12,
+    showAt: 0.1,
   },
   {
-    name: 'Guy Capara',
-    avatar: 'GC',
+    name: 'Priya Sharma',
+    avatar: 'PS',
     color: 'bg-emerald-500',
-    comment: 'תכלנו בהצלחה',
+    comment: 'Does this integrate with Shopify?',
     intent: 'Contact',
     intentStyle: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300',
-    dm: 'Great to connect! Sending details in DM',
-    showAt: 0.28,
+    dm: 'Yes, setup takes 5 min in DM',
+    showAt: 0.22,
   },
   {
     name: 'Mike Torres',
@@ -509,7 +533,17 @@ const LEADS_DEMO_ROWS = [
     intent: 'Medium',
     intentStyle: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
     dm: 'Yes, we ship worldwide',
-    showAt: 0.44,
+    showAt: 0.34,
+  },
+  {
+    name: 'Daniel Frost',
+    avatar: 'DF',
+    color: 'bg-amber-500',
+    comment: 'Can I book a demo this week?',
+    intent: 'High',
+    intentStyle: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300',
+    dm: 'Sending calendar link now',
+    showAt: 0.46,
   },
 ] as const;
 

@@ -115,13 +115,13 @@ export function FunnelDemoSceneComments({ progress }: { progress: number }) {
           />
           <CommentRow
             show={progress > 0.38 || progress >= 1}
-            name="Guy Capara"
-            avatar="GC"
+            name="James Okonkwo"
+            avatar="JO"
             colorClass="bg-emerald-500"
-            text="תכלנו בהצלחה"
+            text="We crushed it, huge win for the team!"
             highlight
             replied={progress > 0.52 || progress >= 1}
-            replyText="Great to connect, Guy! Check your DMs."
+            replyText="Love that energy, James! Check your DMs."
           />
           <CommentRow
             show={progress > 0.56 || progress >= 1}
@@ -213,30 +213,33 @@ export function FunnelDemoSceneAdsRoas({ progress }: { progress: number }) {
         <TypeCursor active={progress > 0.06 && progress < 0.28} />
       </FunnelDemoUserBubble>
       <FunnelDemoAssistantBubble show={showAssistant} visual wide>
-        <div className="relative">
-          <div className="absolute top-0 right-0 rounded-full bg-neutral-900/90 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white z-10">
-            Coming soon
+        <div className="flex flex-col gap-2 min-h-0">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[12px] font-bold text-neutral-900 dark:text-neutral-100">Paid ads ROAS</p>
+            <span className="shrink-0 rounded-full bg-orange-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+              Coming soon
+            </span>
           </div>
-          <p className="mb-2 pr-16 text-[12px] font-bold text-neutral-900 dark:text-neutral-100">Paid ads ROAS</p>
           <AdsPerformanceChart show={showAssistant} />
-          <table className="w-full text-[11px]">
+          <table className="w-full text-[10px]">
             <thead>
               <tr className="text-neutral-500 border-b border-neutral-200 dark:border-neutral-700">
                 <th className="text-left py-1 font-semibold">Platform</th>
                 <th className="text-right py-1 font-semibold">Spend</th>
                 <th className="text-right py-1 font-semibold">ROAS</th>
+                <th className="text-right py-1 font-semibold">CPA</th>
               </tr>
             </thead>
             <tbody className="text-neutral-800 dark:text-neutral-200">
               {[
-                { name: 'Google', spend: '$2,400', roas: '3.8×', hot: true },
-                { name: 'Meta', spend: '$5,100', roas: '2.9×', hot: false },
-                { name: 'TikTok', spend: '$1,800', roas: '4.2×', hot: true },
+                { name: 'Google', spend: '$2,437', roas: '3.84×', cpa: '$12.40', hot: true },
+                { name: 'Meta', spend: '$5,084', roas: '2.91×', cpa: '$18.20', hot: false },
+                { name: 'TikTok', spend: '$1,792', roas: '4.17×', cpa: '$9.85', hot: true },
               ].map((row, i) => (
                 <tr
                   key={row.name}
                   className={`border-b border-neutral-100 dark:border-neutral-800 last:border-0 ${
-                    progress > 0.35 + i * 0.15 || progress >= 1 ? 'opacity-100' : 'opacity-30'
+                    progress > 0.35 + i * 0.12 || progress >= 1 ? 'opacity-100' : 'opacity-30'
                   }`}
                 >
                   <td className="py-1 font-medium">{row.name}</td>
@@ -248,6 +251,7 @@ export function FunnelDemoSceneAdsRoas({ progress }: { progress: number }) {
                   >
                     {row.roas}
                   </td>
+                  <td className="text-right py-1 tabular-nums text-neutral-600 dark:text-neutral-400">{row.cpa}</td>
                 </tr>
               ))}
             </tbody>

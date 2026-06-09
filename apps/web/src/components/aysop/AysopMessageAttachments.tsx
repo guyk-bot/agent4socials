@@ -31,7 +31,7 @@ export function AysopMessageAttachments({ attachments, variant = 'user' }: Props
               <img
                 src={att.fileUrl}
                 alt={att.fileName}
-                className="max-h-48 rounded-lg border border-white/20 object-cover"
+                className="max-h-48 rounded-lg border border-white/10 object-contain bg-black/15 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]"
               />
             </a>
           );

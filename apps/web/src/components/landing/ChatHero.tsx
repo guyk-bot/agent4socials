@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowUp, Check } from 'lucide-react';
+import { ArrowUp, BadgeCheck, Check } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAuthModal } from '@/context/AuthModalContext';
 import {
@@ -15,6 +15,7 @@ import {
   YoutubeIcon,
 } from '@/components/SocialPlatformIcons';
 import { SITE_LOGO_DARK_SRC } from '@/lib/site-brand-assets';
+import { BRAND_LIME_DOT } from '@/components/landing/funnel-demos/funnel-demo-assets';
 import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
 import {
@@ -151,7 +152,7 @@ const OPENING_PRIMARY =
   'block text-[22px] sm:text-[26px] lg:text-[28px] tracking-[-0.03em] leading-[1.15]';
 
 /** White mark on black — same in light and dark; circular crop softens the square asset. */
-const FUNNEL_AI_AVATAR_BOX = 'h-9 w-9 shrink-0';
+const FUNNEL_AI_AVATAR_BOX = 'h-7 w-7 shrink-0';
 
 function FunnelAiMessageAvatar({ className }: { className?: string }) {
   const boxClass = className ?? FUNNEL_AI_AVATAR_BOX;
@@ -211,11 +212,14 @@ function OpeningAiMessage({
   const showCursor = !!typewriterActive && displayed.length < INITIAL_AI_TEXT.length;
   const activeLine = getActiveOpeningLineIndex(displayed);
 
+  const headlineComplete =
+    !typewriterActive || (headline.length >= OPENING_HEADLINE.length && activeLine >= 1);
+
   const rows: { key: string; text: string; className: string }[] = [
     {
       key: 'greeting',
       text: greeting,
-      className: `${OPENING_PRIMARY} font-semibold`,
+      className: `${OPENING_PRIMARY} font-medium text-[var(--chat-hero-text)]`,
     },
     {
       key: 'headline',
@@ -236,6 +240,33 @@ function OpeningAiMessage({
       <div className="flex-1 min-w-0 text-[var(--chat-hero-text)]">
         {rows.map((row, index) => {
           if (!row.text && !(showCursor && index === activeLine)) return null;
+          if (row.key === 'headline') {
+            return (
+              <p key={row.key} className={`${row.className} flex flex-wrap items-center gap-1.5`}>
+                <span
+                  className="chat-hero-opening-headline"
+                  style={
+                    {
+                      '--headline-lime': BRAND_LIME_DOT,
+                    } as React.CSSProperties
+                  }
+                >
+                  {row.text}
+                  {showCursor && index === activeLine ? (
+                    <span className="inline-block w-[2px] h-[1em] ml-0.5 bg-[var(--chat-hero-cursor)] animate-pulse align-middle" />
+                  ) : null}
+                </span>
+                {headlineComplete && row.text.length > 0 ? (
+                  <BadgeCheck
+                    size={22}
+                    strokeWidth={2.5}
+                    className="chat-hero-verified-pop shrink-0 text-[#7C3AED]"
+                    aria-hidden
+                  />
+                ) : null}
+              </p>
+            );
+          }
           return (
             <p key={row.key} className={row.className}>
               {row.text}
@@ -603,7 +634,7 @@ export default function ChatHero() {
     if (showSignup) return 'Ask anything, or use the signup buttons below…';
     if (showDemoCta) return 'Type a question, or tap Start for free…';
     if (showPainOptions) return 'Describe your biggest challenge…';
-    if (showPlatformOptions) return 'Ask anything — pricing, features, platforms, how it works…';
+    if (showPlatformOptions) return 'Ask anything - pricing, features, platforms, how it works…';
     return 'Message iZop…';
   }, [showDemoCta, showPainOptions, showPlatformOptions, showSignup]);
 

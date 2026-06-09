@@ -66,7 +66,9 @@ export function AysopChatVideoPreview({
 
   const frameClass = [
     'relative overflow-hidden rounded-lg bg-black',
-    onDarkBubble ? 'border border-white/30' : 'border border-neutral-300 dark:border-neutral-600',
+    onDarkBubble
+      ? 'border border-white/10 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]'
+      : 'border border-neutral-200/80 dark:border-neutral-600/80',
     className,
   ].join(' ');
 
