@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import type { LucideIcon } from 'lucide-react';
 
 /** Scene progress after headline intro (first ~22% of card timeline). */
 export function funnelDemoContentProgress(progress: number): number {
@@ -13,6 +14,7 @@ export function FunnelDemoFrame({
   visible,
   entering,
   title,
+  titleIcon: TitleIcon,
   progress = 1,
   staticMode = false,
 }: {
@@ -20,6 +22,7 @@ export function FunnelDemoFrame({
   visible: boolean;
   entering?: boolean;
   title: string;
+  titleIcon?: LucideIcon;
   progress?: number;
   staticMode?: boolean;
 }) {
@@ -37,11 +40,19 @@ export function FunnelDemoFrame({
     >
       <div className="shrink-0 px-3 pt-3 pb-2">
         <span
-          className={`block text-base font-black leading-snug tracking-tight text-neutral-900 dark:text-neutral-100 sm:text-lg ${
+          className={`flex items-start gap-2 text-base font-black leading-snug tracking-tight text-neutral-900 dark:text-neutral-100 sm:text-lg ${
             titleReady ? 'funnel-demo-title-pop' : 'opacity-0'
           }`}
         >
-          {title}
+          {TitleIcon ? (
+            <span
+              className="mt-0.5 inline-flex shrink-0 items-center justify-center rounded-md bg-[#7C3AED]/10 p-1 text-[#7C3AED] dark:bg-[#7C3AED]/20 dark:text-[#A78BFA]"
+              aria-hidden
+            >
+              <TitleIcon size={18} strokeWidth={2.25} />
+            </span>
+          ) : null}
+          <span className="min-w-0 flex-1">{title}</span>
         </span>
       </div>
       <div className="min-h-0 flex-1 overflow-hidden px-2.5 pb-2.5 bg-[var(--bg-primary)]">

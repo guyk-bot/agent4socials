@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { FUNNEL_DEMO_TITLES } from './funnel-demo-meta';
+import { FUNNEL_DEMO_META } from './funnel-demo-meta';
 import { FunnelDemoFrame } from './FunnelDemoFrame';
 import { FUNNEL_DEMO_SCENE_COMPONENTS } from './FunnelDemoScenes';
 
@@ -18,10 +18,10 @@ type SlideDirection = 'forward' | 'backward';
 
 function StaticDemoCard({ sceneIndex }: { sceneIndex: number }) {
   const Scene = FUNNEL_DEMO_SCENE_COMPONENTS[sceneIndex];
-  const title = FUNNEL_DEMO_TITLES[sceneIndex];
+  const { title, Icon } = FUNNEL_DEMO_META[sceneIndex];
 
   return (
-    <FunnelDemoFrame visible title={title} progress={1} staticMode>
+    <FunnelDemoFrame visible title={title} titleIcon={Icon} progress={1} staticMode>
       <Scene progress={1} />
     </FunnelDemoFrame>
   );
