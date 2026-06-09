@@ -97,7 +97,8 @@ export function DemoImage({
   );
 }
 
-const USER_ATTACH_HEIGHT = 'h-[148px]';
+/** Instagram-style portrait frame: 3:4, border flush, object-cover fills frame. */
+const USER_ATTACH_FRAME = 'aspect-[3/4] w-full';
 
 /** User-sent media: large, border flush to image (object-cover, no side gaps). */
 export function ChatAttachmentImage({
@@ -110,9 +111,9 @@ export function ChatAttachmentImage({
   className?: string;
 }) {
   return (
-    <div className={`overflow-hidden rounded-lg border-2 border-white/35 ${USER_ATTACH_HEIGHT} w-full ${className}`}>
+    <div className={`overflow-hidden rounded-lg border-2 border-white/35 ${USER_ATTACH_FRAME} ${className}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={alt} className="block h-full w-full object-cover" draggable={false} />
+      <img src={src} alt={alt} className="block h-full w-full object-cover object-center" draggable={false} />
     </div>
   );
 }
@@ -136,10 +137,10 @@ export function ChatDragDropImage({
   if (progress < 0.08) return null;
 
   return (
-    <div className={`relative w-full ${showImage ? USER_ATTACH_HEIGHT : ''}`}>
+    <div className={`relative w-full ${showImage ? USER_ATTACH_FRAME : ''}`}>
       {showZone ? (
         <div
-          className={`flex ${USER_ATTACH_HEIGHT} items-center justify-center rounded-lg border-2 border-dashed border-white/45 bg-white/10 text-[11px] font-medium text-white/80 transition-opacity ${
+          className={`flex ${USER_ATTACH_FRAME} items-center justify-center rounded-lg border-2 border-dashed border-white/45 bg-white/10 text-[11px] font-medium text-white/80 transition-opacity ${
             showImage ? 'opacity-40' : 'opacity-100'
           }`}
           aria-hidden

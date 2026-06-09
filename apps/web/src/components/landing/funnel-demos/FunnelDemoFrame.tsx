@@ -33,15 +33,14 @@ export function FunnelDemoFrame({
       aria-hidden={!visible}
     >
       <div
-        className={`flex shrink-0 items-center border-b-2 border-neutral-900/10 px-3 py-3 shadow-sm dark:border-white/10 ${
-          titleReady ? 'funnel-demo-title-pop' : 'opacity-0'
-        }`}
-        style={{
-          backgroundColor: BRAND_LIME_DOT,
-          boxShadow: titleReady ? `0 4px 14px ${BRAND_LIME_DOT}66` : undefined,
-        }}
+        className="flex shrink-0 items-center overflow-hidden border-b-2 border-black/10 px-3 py-3"
+        style={{ backgroundColor: BRAND_LIME_DOT }}
       >
-        <span className="text-base sm:text-lg font-black tracking-tight text-neutral-900 leading-snug">
+        <span
+          className={`text-base sm:text-lg font-black tracking-tight leading-snug text-[#0a0a0a] dark:text-[#0a0a0a] ${
+            titleReady ? 'funnel-demo-title-pop' : 'opacity-0'
+          }`}
+        >
           {title}
         </span>
       </div>
