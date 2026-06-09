@@ -14,9 +14,15 @@ import {
   XTwitterIcon,
   YoutubeIcon,
 } from '@/components/SocialPlatformIcons';
-import { SITE_LOGO_SRC } from '@/lib/site-brand-assets';
+import { SITE_LOGO_SRC, SITE_LOGO_DARK_SRC } from '@/lib/site-brand-assets';
+import { useTheme } from '@/context/ThemeContext';
+import { ZThinkingLoopAnimation } from '@/components/ZThinkingLoopAnimation';
 import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
+import {
+  ChatHeroDemoLoopProvider,
+  ChatHeroSideDemoColumn,
+} from '@/components/landing/funnel-demos/ChatHeroSideDemos';
 import {
   CHAT_HERO_PAIN_POINTS,
   CHAT_HERO_PLATFORMS,
@@ -120,13 +126,23 @@ function TypewriterText({
     <span>
       {displayed}
       {displayed.length < text.length ? (
-        <span className="inline-block w-[2px] h-[1em] ml-0.5 bg-[#1a1a1a]/50 animate-pulse align-middle" />
+        <span className="inline-block w-[2px] h-[1em] ml-0.5 bg-[var(--chat-hero-cursor)] animate-pulse align-middle" />
       ) : null}
     </span>
   );
 }
 
 function TypingIndicator() {
+  const { theme } = useTheme();
+
+  if (theme === 'dark') {
+    return (
+      <div className="flex items-start chat-hero-message-enter">
+        <ZThinkingLoopAnimation size={56} className="h-14 w-14 shrink-0" aria-label="Thinking" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-3 chat-hero-message-enter">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -135,7 +151,7 @@ function TypingIndicator() {
         {[0, 1, 2].map((i) => (
           <span
             key={i}
-            className="chat-hero-typing-dot h-2 w-2 rounded-full bg-[#888780]"
+            className="chat-hero-typing-dot h-2 w-2 rounded-full bg-[var(--chat-hero-muted)]"
             style={{ animationDelay: `${i * 200}ms` }}
           />
         ))}
@@ -155,11 +171,14 @@ function AiMessage({
   typewriterActive?: boolean;
   onTypewriterComplete?: () => void;
 }) {
+  const { theme } = useTheme();
+  const logoSrc = theme === 'dark' ? SITE_LOGO_DARK_SRC : SITE_LOGO_SRC;
+
   return (
     <div className="flex items-start gap-3 chat-hero-message-enter">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={SITE_LOGO_SRC} alt="" className="h-7 w-7 shrink-0 object-contain mt-0.5" />
-      <p className="text-[16px] leading-[1.6] text-[#1a1a1a] whitespace-pre-line flex-1 min-w-0">
+      <img src={logoSrc} alt="" className="h-7 w-7 shrink-0 object-contain mt-0.5" />
+      <p className="text-[16px] leading-[1.6] text-[var(--chat-hero-text)] whitespace-pre-line flex-1 min-w-0">
         {typewriter ? (
           <TypewriterText text={text} active={!!typewriterActive} onComplete={onTypewriterComplete} />
         ) : (
@@ -199,8 +218,8 @@ function OptionSquareButton({
         isTall ? 'min-h-[96px] sm:min-h-[108px] gap-1.5' : 'h-[80px] sm:h-[92px] gap-1.5',
         'active:scale-[0.97]',
         selected
-          ? 'border-[#7C3AED] bg-[rgba(124,58,237,0.08)] shadow-[0_0_0_1px_rgba(124,58,237,0.2)]'
-          : 'border-[#E8E6DF] bg-[#F8F7FC] hover:border-[#7C3AED]/50 hover:bg-white',
+          ? 'border-[#7C3AED] bg-[var(--chat-hero-accent-soft)] shadow-[0_0_0_1px_rgba(124,58,237,0.2)]'
+          : 'border-[var(--chat-hero-border)] bg-[var(--chat-hero-surface)] hover:border-[#7C3AED]/50 hover:bg-[var(--chat-hero-bg)]',
         disabled ? 'opacity-50 pointer-events-none' : '',
       ].join(' ')}
     >
@@ -210,7 +229,7 @@ function OptionSquareButton({
       <span
         className={`text-center font-medium leading-snug px-1 ${
           isTall ? 'text-xs sm:text-sm' : 'text-[11px] sm:text-xs'
-        } ${selected ? 'text-[#5B21B6]' : 'text-[#1a1a1a]'}`}
+        } ${selected ? 'text-[var(--chat-hero-accent-text)]' : 'text-[var(--chat-hero-text)]'}`}
       >
         {label}
       </span>
@@ -492,7 +511,7 @@ export default function ChatHero() {
     if (showSignup) return 'Ask anything, or use the signup buttons below…';
     if (showDemoCta) return 'Type a question, or tap Start for free…';
     if (showPainOptions) return 'Describe your biggest challenge…';
-    if (showPlatformOptions) return 'Ask anything — e.g. "Can I post to TikTok from here?"';
+    if (showPlatformOptions) return 'Ask anything — pricing, features, platforms, how it works…';
     return 'Message iZop…';
   }, [showDemoCta, showPainOptions, showPlatformOptions, showSignup]);
 
@@ -500,12 +519,14 @@ export default function ChatHero() {
   const canPainContinue = selectedPain !== null && !busy;
 
   return (
-    <section className="chat-hero relative flex h-[100dvh] max-h-[100dvh] flex-col bg-white text-[#1a1a1a] overflow-hidden pt-14 sm:pt-16">
+    <section className="chat-hero relative flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden pt-14 sm:pt-16">
+      <ChatHeroDemoLoopProvider>
       <div
-        className={`flex flex-1 min-h-0 flex-col w-full transition-opacity duration-500 ${
+        className={`flex flex-1 min-h-0 w-full max-w-[1520px] mx-auto transition-opacity duration-500 ${
           heroReady ? 'opacity-100' : 'opacity-0'
         }`}
       >
+        <ChatHeroSideDemoColumn side="left" />
         <div
           className={`flex flex-1 min-h-0 flex-col w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 sm:pt-3 pb-3 sm:pb-4 transition-all duration-400 ${
             chatReady ? 'opacity-100' : 'opacity-0 translate-y-1'
@@ -516,11 +537,11 @@ export default function ChatHero() {
               headlineReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
             }`}
           >
-            <h1 className="text-[24px] sm:text-[32px] lg:text-[36px] font-semibold tracking-[-0.5px] text-[#1a1a1a]">
+            <h1 className="text-[24px] sm:text-[32px] lg:text-[36px] font-semibold tracking-[-0.5px] text-[var(--chat-hero-text)]">
               Meet your AI social media manager.
             </h1>
             <p
-              className={`mt-1.5 text-sm sm:text-base text-[#888780] max-w-2xl mx-auto sm:mx-0 transition-all duration-500 ${
+              className={`mt-1.5 text-sm sm:text-base text-[var(--chat-hero-muted)] max-w-2xl mx-auto sm:mx-0 transition-all duration-500 ${
                 subheadReady ? 'opacity-100' : 'opacity-0'
               }`}
             >
@@ -549,7 +570,7 @@ export default function ChatHero() {
                       {block.labels.map((label) => (
                         <span
                           key={label}
-                          className="rounded-full border border-[#7C3AED] bg-[rgba(124,58,237,0.1)] px-[18px] py-[10px] text-sm text-[#5B21B6] font-medium"
+                          className="rounded-full border border-[#7C3AED] bg-[var(--chat-hero-accent-soft)] px-[18px] py-[10px] text-sm text-[var(--chat-hero-accent-text)] font-medium"
                         >
                           {label}
                         </span>
@@ -563,10 +584,10 @@ export default function ChatHero() {
                       {block.items.map((item) => (
                         <div
                           key={item.label}
-                          className="rounded-xl border border-[#E8E6DF] bg-[#F8F7FC] px-5 py-4 min-w-[140px]"
+                          className="rounded-xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-surface)] px-5 py-4 min-w-[140px]"
                         >
-                          <p className="text-xl font-semibold text-[#1a1a1a]">{item.value}</p>
-                          <p className="text-xs text-[#888780] mt-0.5">{item.label}</p>
+                          <p className="text-xl font-semibold text-[var(--chat-hero-text)]">{item.value}</p>
+                          <p className="text-xs text-[var(--chat-hero-muted)] mt-0.5">{item.label}</p>
                         </div>
                       ))}
                     </div>
@@ -575,10 +596,10 @@ export default function ChatHero() {
                 if (block.kind === 'mock_chat') {
                   return (
                     <div key={block.id} className="space-y-3 pl-9 chat-hero-message-enter">
-                      <div className="rounded-xl border border-[#E8E6DF] bg-[#F8F7FC] px-4 py-3 text-sm text-[#888780]">
+                      <div className="rounded-xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-surface)] px-4 py-3 text-sm text-[var(--chat-hero-muted)]">
                         {block.user}
                       </div>
-                      <div className="rounded-xl border border-[#7C3AED]/25 bg-[rgba(124,58,237,0.06)] px-4 py-3 text-sm text-[#1a1a1a] leading-relaxed">
+                      <div className="rounded-xl border border-[#7C3AED]/25 bg-[var(--chat-hero-accent-soft)] px-4 py-3 text-sm text-[var(--chat-hero-text)] leading-relaxed">
                         {block.ai}
                       </div>
                     </div>
@@ -590,7 +611,7 @@ export default function ChatHero() {
                       {block.items.map((idea, i) => (
                         <div
                           key={idea}
-                          className="rounded-xl border border-[#E8E6DF] bg-[#F8F7FC] px-4 py-3 text-sm text-[#1a1a1a]"
+                          className="rounded-xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-surface)] px-4 py-3 text-sm text-[var(--chat-hero-text)]"
                         >
                           <span className="text-[#7C3AED] font-medium mr-2">{i + 1}.</span>
                           {idea}
@@ -604,7 +625,7 @@ export default function ChatHero() {
                     {block.items.map((badge) => (
                       <span
                         key={badge}
-                        className="rounded-full border border-[#E8E6DF] bg-[#F8F7FC] px-3 py-1.5 text-xs text-[#888780]"
+                        className="rounded-full border border-[var(--chat-hero-border)] bg-[var(--chat-hero-surface)] px-3 py-1.5 text-xs text-[var(--chat-hero-muted)]"
                       >
                         {badge}
                       </span>
@@ -653,7 +674,7 @@ export default function ChatHero() {
             ) : null}
           </div>
 
-          <div className="shrink-0 border-t border-[#E8E6DF] pt-3 pb-3">
+          <div className="shrink-0 border-t border-[var(--chat-hero-border)] pt-3 pb-3">
             <div className="space-y-3">
               {showPlatformOptions && canPlatformContinue ? (
                 <button
@@ -708,11 +729,11 @@ export default function ChatHero() {
                   <button
                     type="button"
                     onClick={handleEmailSignup}
-                    className="w-full rounded-full border border-[#E8E6DF] bg-white px-7 py-3 text-[15px] font-medium text-[#888780] hover:border-[#7C3AED] hover:text-[#1a1a1a] transition-all"
+                    className="w-full rounded-full border border-[var(--chat-hero-border)] bg-[var(--chat-hero-bg)] px-7 py-3 text-[15px] font-medium text-[var(--chat-hero-muted)] hover:border-[#7C3AED] hover:text-[var(--chat-hero-text)] transition-all"
                   >
                     Continue with email
                   </button>
-                  <p className="text-center text-xs text-[#888780]">
+                  <p className="text-center text-xs text-[var(--chat-hero-muted)]">
                     Free forever plan available · No credit card required
                   </p>
                 </div>
@@ -721,7 +742,7 @@ export default function ChatHero() {
 
             <div className="mt-3 flex flex-col gap-2">
             <form
-              className="flex items-center gap-2 rounded-2xl border border-[#E8E6DF] bg-[#F8F7FC] px-3 py-2 sm:px-4 sm:py-2.5 shadow-sm focus-within:border-[#7C3AED]/40 focus-within:ring-2 focus-within:ring-[#7C3AED]/15"
+              className="flex items-center gap-2 rounded-2xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-input-bg)] px-3 py-2 sm:px-4 sm:py-2.5 shadow-sm focus-within:border-[#7C3AED]/40 focus-within:ring-2 focus-within:ring-[#7C3AED]/15"
               onSubmit={(e) => {
                 e.preventDefault();
                 void handleFreeTextSubmit();
@@ -734,7 +755,7 @@ export default function ChatHero() {
                 onChange={(e) => setDraftText(e.target.value)}
                 placeholder={inputPlaceholder}
                 disabled={busy || isTyping}
-                className="flex-1 min-w-0 bg-transparent text-[15px] text-[#1a1a1a] placeholder:text-[#888780] outline-none disabled:opacity-50"
+                className="flex-1 min-w-0 bg-transparent text-[15px] text-[var(--chat-hero-text)] placeholder:text-[var(--chat-hero-muted)] outline-none disabled:opacity-50"
                 aria-label="Message iZop"
               />
               <button
@@ -747,7 +768,7 @@ export default function ChatHero() {
               </button>
             </form>
 
-            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11px] sm:text-xs text-[#888780] pt-0.5">
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11px] sm:text-xs text-[var(--chat-hero-muted)] pt-0.5">
               <span className="flex items-center gap-1.5">
                 <Check className="h-3.5 w-3.5 text-[#10B981]" />
                 No credit card required
@@ -764,7 +785,9 @@ export default function ChatHero() {
             </div>
           </div>
         </div>
+        <ChatHeroSideDemoColumn side="right" />
       </div>
+      </ChatHeroDemoLoopProvider>
     </section>
   );
 }

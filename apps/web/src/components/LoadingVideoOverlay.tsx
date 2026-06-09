@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { LogoLoadingAnimation } from '@/components/LogoLoadingAnimation';
+import { ZThinkingLoopAnimation } from '@/components/ZThinkingLoopAnimation';
+import { useTheme } from '@/context/ThemeContext';
 
 /** Only show the branded loader if loading lasts longer than this (avoids flash on fast/cached loads). */
 const DELAY_MS = 2000;
@@ -21,6 +23,7 @@ type Props = {
  * If loading finishes sooner (e.g. cached data), the overlay never appears.
  */
 export default function LoadingVideoOverlay({ loading, contained = false }: Props) {
+  const { theme } = useTheme();
   const [showLoader, setShowLoader] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -52,14 +55,23 @@ export default function LoadingVideoOverlay({ loading, contained = false }: Prop
     ? 'absolute inset-0 z-20'
     : 'fixed inset-0 md:top-14 md:left-64 md:right-0 md:bottom-0 z-[300]';
 
+  const isDark = theme === 'dark';
+
   return (
     <div
-      className={`${positionClass} bg-white flex items-center justify-center`}
+      className={`${positionClass} ${isDark ? 'bg-black' : 'bg-white'} flex items-center justify-center`}
       role="status"
       aria-live="polite"
       aria-label="Loading"
     >
-      <LogoLoadingAnimation className="w-[min(40vw,200px)] max-w-[200px] sm:w-[min(32vw,220px)] sm:max-w-[220px]" />
+      {isDark ? (
+        <ZThinkingLoopAnimation
+          size={200}
+          className="w-[min(40vw,200px)] max-w-[200px] sm:w-[min(32vw,220px)] sm:max-w-[220px]"
+        />
+      ) : (
+        <LogoLoadingAnimation className="w-[min(40vw,200px)] max-w-[200px] sm:w-[min(32vw,220px)] sm:max-w-[220px]" />
+      )}
     </div>
   );
 }

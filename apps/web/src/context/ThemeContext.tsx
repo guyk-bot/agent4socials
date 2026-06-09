@@ -1,24 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
 
 const STORAGE_KEY = 'agent4socials-theme';
-
-/** Marketing pages always render light (dashboard theme preference does not apply). */
-const FUNNEL_PATHS = new Set([
-  '/',
-  '/pricing',
-  '/privacy',
-  '/terms',
-  '/data-deletion',
-  '/login',
-  '/signup',
-]);
-
-function isFunnelPath(pathname: string): boolean {
-  return FUNNEL_PATHS.has(pathname) || pathname.startsWith('/help');
-}
 
 export type Theme = 'light' | 'dark';
 
@@ -47,20 +31,18 @@ function applyTheme(theme: Theme) {
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>('dark');
   const [mounted, setMounted] = useState(false);
-  const pathname = usePathname();
 
   useEffect(() => {
     const value = readTheme();
     setThemeState(value);
-    const path = typeof window !== 'undefined' ? window.location.pathname : '/';
-    applyTheme(isFunnelPath(path) ? 'light' : value);
+    applyTheme(value);
     setMounted(true);
   }, []);
 
   useEffect(() => {
     if (!mounted) return;
-    applyTheme(isFunnelPath(pathname) ? 'light' : theme);
-  }, [mounted, pathname, theme]);
+    applyTheme(theme);
+  }, [mounted, theme]);
 
   const setTheme = (value: Theme) => {
     setThemeState(value);

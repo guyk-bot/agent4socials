@@ -3,6 +3,8 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BRAND_NAME } from '@/lib/site-brand-assets';
 import { Loader2, Paperclip, Send, Sparkles, Square } from 'lucide-react';
+import { ZThinkingLoopAnimation } from '@/components/ZThinkingLoopAnimation';
+import { useTheme } from '@/context/ThemeContext';
 import api, {
   API_AYSOP_CHAT_ATTACHMENTS_TIMEOUT_MS,
   API_AYSOP_CHAT_TIMEOUT_MS,
@@ -27,6 +29,7 @@ import {
 } from '@/components/aysop/AysopMessageAttachments';
 import { AysopChatMessageContent } from '@/components/aysop/AysopChatMessageContent';
 import { leadsScanReplyText, leadsToChatArtifacts } from '@/lib/leads/leads-chat-artifact';
+import { cacheLeadsScanPayload } from '@/lib/leads/leads-sync-client';
 import type { ScannedLead } from '@/lib/leads/scan-leads';
 
 export type ChatMessage = {
@@ -103,6 +106,7 @@ export default function AysopChatPanel({
   panelResetKey = 0,
 }: Props) {
   const accountsCache = useAccountsCache();
+  const { theme } = useTheme();
   const brands = accountsCache?.brands ?? [];
   const allCachedAccounts = accountsCache?.allCachedAccounts ?? [];
   const getAccountBrandId = accountsCache?.getAccountBrandId;
@@ -231,15 +235,15 @@ export default function AysopChatPanel({
       );
       const leads = res.data.leads ?? [];
       const scanned = res.data.scanned ?? 0;
+      const scannedAt = res.data.scannedAt ?? new Date().toISOString();
+      cacheLeadsScanPayload({ scanned, leads, scannedAt });
       onMessagesChange([
         ...base,
         {
           id: `a-${Date.now()}`,
           role: 'assistant',
           content: leadsScanReplyText(leads, scanned),
-          artifacts: leadsToChatArtifacts(leads, scanned, {
-            lastScannedAt: res.data.scannedAt ?? new Date().toISOString(),
-          }),
+          artifacts: leadsToChatArtifacts(leads, scanned, { lastScannedAt: scannedAt }),
         },
       ]);
     } catch (e) {
@@ -426,7 +430,11 @@ export default function AysopChatPanel({
         )}
         {loading ? (
           <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400 text-sm">
-            <Loader2 size={16} className="animate-spin shrink-0" />
+            {theme === 'dark' ? (
+              <ZThinkingLoopAnimation size={40} className="h-10 w-10 shrink-0" aria-label="Thinking" />
+            ) : (
+              <Loader2 size={16} className="animate-spin shrink-0" />
+            )}
             <span>{BRAND_NAME} is thinking…</span>
           </div>
         ) : null}

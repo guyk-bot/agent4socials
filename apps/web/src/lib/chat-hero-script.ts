@@ -181,72 +181,135 @@ function selectedLabels(ids: ChatHeroPlatformId[]): string[] {
   return ids.map(platformLabel);
 }
 
+export function landingChatCapabilityOverview(): string {
+  return `Here is what iZop can do for you:
+
+→ Schedule and publish to Instagram, TikTok, YouTube, Facebook, X, LinkedIn, Threads, and Pinterest
+→ Manage comments and DMs from one inbox
+→ Bulk-reply with AI in your brand voice
+→ Get plain-English analytics (ask "what worked this week?")
+→ Generate content ideas and captions
+→ Extract leads from comments to a spreadsheet
+→ Manage multiple brands from one dashboard
+
+Free plan available, no credit card. Ask me about pricing, a specific platform, or how connecting works.`;
+}
+
+const LANDING_CHAT_SOFT_PLATFORM_HINT =
+  ' When you want a personalized demo, pick your platforms below or name them here.';
+
+const LANDING_CHAT_SOFT_PAIN_HINT =
+  ' When you are ready for a tailored walkthrough, pick the challenge that fits you below.';
+
+/** Fix common typos so free-text matching still works ("waht" → "what"). */
+function normalizeLandingChatText(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/\bwaht\b/g, 'what')
+    .replace(/\bwht\b/g, 'what')
+    .replace(/\bwha\b/g, 'what')
+    .replace(/\bteh\b/g, 'the');
+}
+
+function isLikelyQuestion(text: string): boolean {
+  const lower = normalizeLandingChatText(text);
+  if (/\?$/.test(lower)) return true;
+  if (/^(what|how|why|when|where|who|can|does|do|is|are|will|should|could|would|tell me|explain|help|show me|describe)\b/.test(lower)) {
+    return true;
+  }
+  return /\b(what|how|why|can you|can u|do you|tell me about|help me|what can|what do)\b/.test(lower);
+}
+
+function asksAboutCapabilities(text: string): boolean {
+  const lower = normalizeLandingChatText(text);
+  return (
+    /what can (you|izop|it|u)\b/.test(lower) ||
+    /\b(can|do) (you|u) do\b/.test(lower) ||
+    /what do you (do|offer|provide|support)/.test(lower) ||
+    /what are you|what is (this|izop)|what'?s izop|who are you|how does izop|how can you help|what exactly|tell me (more|about)|features?|capabilities|help me|what do i get|why (use|should)|benefits?|what makes|compare|different from|worth it|good for|use cases?|examples?/.test(
+      lower
+    )
+  );
+}
+
+function softStepHint(ctx: LandingChatContext, matchedPlatforms: ChatHeroPlatformId[]): string {
+  if (ctx.step === 0) {
+    if (matchedPlatforms.length > 0) {
+      return ' Tap Continue when you are ready, or keep asking me anything.';
+    }
+    return LANDING_CHAT_SOFT_PLATFORM_HINT;
+  }
+  if (ctx.step === 1) {
+    return LANDING_CHAT_SOFT_PAIN_HINT;
+  }
+  if (ctx.step === 2) {
+    return ' Tap Start for free when you want to try it on your accounts.';
+  }
+  return ' Use Continue with Google or email below to get started.';
+}
+
 /** Scripted answers for free-text questions (no API). */
 export function answerLandingChatQuestion(ctx: LandingChatContext): string {
-  const lower = ctx.text.toLowerCase().trim();
+  const lower = normalizeLandingChatText(ctx.text);
   const namesFromMessage = ctx.matchedPlatforms.map(platformLabel);
   const namesSelected = selectedLabels(ctx.selectedPlatformIds);
   const allNames = [...new Set([...namesFromMessage, ...namesSelected])];
 
-  const stepNudge =
-    ctx.step === 0
-      ? ' Pick any other platforms you use, then hit Continue.'
-      : ctx.step === 1
-        ? ' Choose the challenge that fits you below, or hit Show me when ready.'
-        : ctx.step === 2
-          ? ' Tap Start for free when you want to try it on your accounts.'
-          : ' Use Continue with Google or email below to get started.';
-
   if (/^(hi|hello|hey|yo)\b/.test(lower)) {
-    return `Hey! I am iZop, your AI social media manager. Ask me anything about scheduling, analytics, inbox, or connecting accounts.${ctx.step === 0 ? ' Which platforms are you on?' : stepNudge}`;
+    return `Hey! I am iZop, your AI social media manager. Ask me anything about scheduling, analytics, inbox, pricing, or connecting accounts.${ctx.step === 0 ? ' Which platforms are you on?' : softStepHint(ctx, ctx.matchedPlatforms)}`;
+  }
+
+  if (asksAboutCapabilities(lower)) {
+    return landingChatCapabilityOverview() + (ctx.step === 0 ? LANDING_CHAT_SOFT_PLATFORM_HINT : softStepHint(ctx, ctx.matchedPlatforms));
   }
 
   if (/price|pricing|how much|cost|\$\d|plan|subscription|pay/.test(lower)) {
-    return `iZop has a free plan forever — no credit card. Standard is $29/month for unlimited scheduling, inbox, and AI. Pro is $47/month for advanced analytics, bulk replies, and team features.${stepNudge}`;
+    return `iZop has a free plan forever — no credit card. Standard is $29/month for unlimited scheduling, inbox, and AI. Pro is $47/month for advanced analytics, bulk replies, and team features.${softStepHint(ctx, ctx.matchedPlatforms)}`;
   }
 
   if (/credit card|no card|free forever|free plan|trial/.test(lower)) {
-    return 'Yes — you can start free with no credit card. The free plan includes 25 scheduled posts per month and core features. Upgrade anytime if you need unlimited scheduling or Pro tools.' + stepNudge;
+    return 'Yes — you can start free with no credit card. The free plan includes 25 scheduled posts per month and core features. Upgrade anytime if you need unlimited scheduling or Pro tools.' + softStepHint(ctx, ctx.matchedPlatforms);
   }
 
   if (/connect|link account|oauth|sign in|login|integrate/.test(lower)) {
-    return 'You connect accounts with official OAuth (Instagram, TikTok, YouTube, Facebook, X, LinkedIn, Threads, Pinterest). After signup we open Connect so you can link each platform securely in under a minute.' + stepNudge;
+    return 'You connect accounts with official OAuth (Instagram, TikTok, YouTube, Facebook, X, LinkedIn, Threads, Pinterest). After signup we open Connect so you can link each platform securely in under a minute.' + softStepHint(ctx, ctx.matchedPlatforms);
   }
 
   if (/analytics|metrics|insights|performance|dashboard|report/.test(lower)) {
-    return 'iZop pulls views, likes, comments, and followers into one dashboard. You can also ask iZop AI in plain English — for example: "Which post performed best this week and why?"' + stepNudge;
+    return 'iZop pulls views, likes, comments, and followers into one dashboard. You can also ask iZop AI in plain English — for example: "Which post performed best this week and why?"' + softStepHint(ctx, ctx.matchedPlatforms);
   }
 
-  if (/inbox|comment|dm|message|repl/.test(lower) && !ctx.matchedPain) {
-    return 'Yes — iZop unifies comments and DMs from Instagram, Facebook, and X. iZop AI can draft replies in your brand voice and bulk-reply to high-volume comment threads.' + stepNudge;
+  if (/\b(inbox|comment|dm|message|reply|replies)\b/.test(lower) && !ctx.matchedPain) {
+    return 'Yes — iZop unifies comments and DMs from Instagram, Facebook, and X. iZop AI can draft replies in your brand voice and bulk-reply to high-volume comment threads.' + softStepHint(ctx, ctx.matchedPlatforms);
   }
 
   if (/schedule|calendar|post later|publish later|automate post/.test(lower)) {
-    return 'Yes — use Composer to write once, pick platforms and times, and iZop publishes on schedule. iZop AI can also suggest topics and draft captions in your brand voice.' + stepNudge;
+    return 'Yes — use Composer to write once, pick platforms and times, and iZop publishes on schedule. iZop AI can also suggest topics and draft captions in your brand voice.' + softStepHint(ctx, ctx.matchedPlatforms);
   }
 
   if (/ai|assistant|chatgpt|gpt|copilot|brand voice/.test(lower)) {
-    return 'iZop AI is built into the dashboard: schedule posts, reply to inbox threads, scan comments for leads, and get analytics answers — all in one chat, trained on your brand context.' + stepNudge;
+    return 'iZop AI is built into the dashboard: schedule posts, reply to inbox threads, scan comments for leads, and get analytics answers — all in one chat, trained on your brand context.' + softStepHint(ctx, ctx.matchedPlatforms);
   }
 
   if (/lead|spreadsheet|export/.test(lower)) {
-    return 'iZop AI can scan comments for buyer intent, flag potential leads, and export them to a spreadsheet — useful after viral posts or launch campaigns.' + stepNudge;
+    return 'iZop AI can scan comments for buyer intent, flag potential leads, and export them to a spreadsheet — useful after viral posts or launch campaigns.' + softStepHint(ctx, ctx.matchedPlatforms);
   }
 
   if (/instagram|ig\b|insta/.test(lower) && /post|publish|reel|story|can you|can i|from here/.test(lower)) {
-    return 'Yes — connect Instagram, then schedule and publish posts, Reels, and Stories from iZop Composer. Analytics and inbox for Instagram are included too.' + (ctx.step === 0 ? ' I added Instagram to your selection.' + stepNudge : stepNudge);
+    return 'Yes — connect Instagram, then schedule and publish posts, Reels, and Stories from iZop Composer. Analytics and inbox for Instagram are included too.' + (ctx.step === 0 && ctx.matchedPlatforms.length > 0 ? ' I noted Instagram for your selection.' + softStepHint(ctx, ctx.matchedPlatforms) : softStepHint(ctx, ctx.matchedPlatforms));
   }
 
   if (/tiktok|tik tok/.test(lower) && /post|publish|video|can you|can i|from here|do that/.test(lower)) {
-    return 'Yes — connect TikTok, upload or link your video, write your caption, and schedule or publish directly from iZop. No need to jump between apps.' + (ctx.step === 0 ? ' I added TikTok to your selection.' + stepNudge : stepNudge);
+    return 'Yes — connect TikTok, upload or link your video, write your caption, and schedule or publish directly from iZop. No need to jump between apps.' + (ctx.step === 0 && ctx.matchedPlatforms.length > 0 ? ' I noted TikTok for your selection.' + softStepHint(ctx, ctx.matchedPlatforms) : softStepHint(ctx, ctx.matchedPlatforms));
   }
 
   if (/youtube|yt\b/.test(lower) && /post|publish|video|short|can you|can i/.test(lower)) {
-    return 'Yes — connect YouTube to schedule uploads and track views and subscribers alongside your other platforms.' + (ctx.step === 0 ? ' I added YouTube to your selection.' + stepNudge : stepNudge);
+    return 'Yes — connect YouTube to schedule uploads and track views and subscribers alongside your other platforms.' + (ctx.step === 0 && ctx.matchedPlatforms.length > 0 ? ' I noted YouTube for your selection.' + softStepHint(ctx, ctx.matchedPlatforms) : softStepHint(ctx, ctx.matchedPlatforms));
   }
 
   if (/linkedin/.test(lower) && /post|publish|can you|can i/.test(lower)) {
-    return 'Yes — LinkedIn is supported on Standard and Pro. Connect your profile or Page and schedule posts from Composer.' + (ctx.step === 0 ? ' I added LinkedIn to your selection.' + stepNudge : stepNudge);
+    return 'Yes — LinkedIn is supported on Standard and Pro. Connect your profile or Page and schedule posts from Composer.' + (ctx.step === 0 && ctx.matchedPlatforms.length > 0 ? ' I noted LinkedIn for your selection.' + softStepHint(ctx, ctx.matchedPlatforms) : softStepHint(ctx, ctx.matchedPlatforms));
   }
 
   if (
@@ -254,24 +317,33 @@ export function answerLandingChatQuestion(ctx: LandingChatContext): string {
     (ctx.matchedPlatforms.length > 0 || allNames.length > 0)
   ) {
     const names = allNames.length > 0 ? allNames : namesFromMessage;
-    return `Yes — iZop supports posting and scheduling to ${formatPlatformList(names)}. Connect once, use Composer, and publish or schedule from one place.${ctx.step === 0 ? stepNudge : stepNudge}`;
+    return `Yes — iZop supports posting and scheduling to ${formatPlatformList(names)}. Connect once, use Composer, and publish or schedule from one place.${softStepHint(ctx, ctx.matchedPlatforms)}`;
   }
 
   if (/what is izop|what's izop|who are you|what do you do|how does izop work/.test(lower)) {
-    return 'iZop is an all-in-one social media manager: connect 8 platforms, schedule posts, manage inbox, track analytics, and use iZop AI for content, replies, and reports — all from one dashboard and one chat.' + stepNudge;
+    return landingChatCapabilityOverview() + softStepHint(ctx, ctx.matchedPlatforms);
   }
 
   if (/how many platform|which platform|what platform|support/.test(lower)) {
-    return 'iZop supports Instagram, TikTok, YouTube, Facebook, X, LinkedIn, Threads, and Pinterest — connect any combination that fits your workflow.' + stepNudge;
+    return 'iZop supports Instagram, TikTok, YouTube, Facebook, X, LinkedIn, Threads, and Pinterest — connect any combination that fits your workflow.' + softStepHint(ctx, ctx.matchedPlatforms);
   }
 
   if (ctx.matchedPain) {
     const painLabel = CHAT_HERO_PAIN_POINTS.find((p) => p.id === ctx.matchedPain)?.label ?? 'that';
-    return `That sounds like "${painLabel}" — iZop is built to help with exactly that. Tap the matching option below, or hit Show me for a quick demo.${ctx.step === 1 ? '' : stepNudge}`;
+    return `That sounds like "${painLabel}" — iZop is built to help with exactly that. Tap the matching option below for a quick demo, or ask me anything else.${ctx.step === 1 ? '' : softStepHint(ctx, ctx.matchedPlatforms)}`;
   }
 
   if (ctx.matchedPlatforms.length > 0) {
-    return `Got it — ${formatPlatformList(namesFromMessage)}. iZop supports scheduling, analytics, and AI for each of those.${ctx.step === 0 ? stepNudge : stepNudge}`;
+    return `Got it — ${formatPlatformList(namesFromMessage)}. iZop supports scheduling, analytics, and AI for each of those.${softStepHint(ctx, ctx.matchedPlatforms)}`;
+  }
+
+  if (!ctx.matchedPain && ctx.matchedPlatforms.length === 0) {
+    if (isLikelyQuestion(ctx.text) || asksAboutCapabilities(lower)) {
+      return landingChatCapabilityOverview() + (ctx.step === 0 ? LANDING_CHAT_SOFT_PLATFORM_HINT : softStepHint(ctx, ctx.matchedPlatforms));
+    }
+    if (/\b(price|free|connect|schedule|post|inbox|comment|dm|lead|analytic|tiktok|instagram|youtube|facebook|twitter|linkedin|team|brand)\b/.test(lower)) {
+      return `Good question. iZop covers scheduling, inbox, analytics, AI content, and leads across 8 platforms.${softStepHint(ctx, ctx.matchedPlatforms)} Ask about pricing, a specific platform, or how connecting works.`;
+    }
   }
 
   return freeTextReplyForStep(ctx.step, ctx.text, ctx.matchedPlatforms, ctx.matchedPain);
@@ -324,21 +396,34 @@ export function freeTextReplyForStep(
 ): string {
   if (step === 0) {
     if (matchedPlatforms.length > 0) {
-      return 'Got those platforms. Tap any others you use, then hit Continue when you are ready.';
+      return `Got it — ${formatPlatformList(matchedPlatforms.map(platformLabel))}. iZop supports scheduling, analytics, and AI for each of those. Tap Continue when you are ready, or ask me anything else.`;
     }
-    return 'Thanks for sharing. Pick your platforms with the buttons below, or name them here and I will match them.';
+    if (isLikelyQuestion(text)) {
+      return landingChatCapabilityOverview() + LANDING_CHAT_SOFT_PLATFORM_HINT;
+    }
+    return `${landingChatCapabilityOverview()}${LANDING_CHAT_SOFT_PLATFORM_HINT}`;
   }
   if (step === 1) {
     if (matchedPain) {
-      return 'That helps. You can tap the option that fits best, then Show me when you are ready.';
+      const painLabel = CHAT_HERO_PAIN_POINTS.find((p) => p.id === matchedPain)?.label ?? 'that';
+      return `That sounds like "${painLabel}" — iZop can help with that. Tap the matching option below for a demo, or ask me anything else.`;
     }
-    return 'Tell me more if you like, or choose the challenge that sounds most like you below.';
+    if (isLikelyQuestion(text) || asksAboutCapabilities(text)) {
+      return landingChatCapabilityOverview() + LANDING_CHAT_SOFT_PAIN_HINT;
+    }
+    return `Happy to help. Ask about scheduling, inbox, analytics, pricing, or a specific platform — or pick the challenge that fits you below.${LANDING_CHAT_SOFT_PAIN_HINT}`;
   }
   if (step === 2) {
-    return 'When you are ready, tap Start for free to connect your accounts and try iZop.';
+    if (isLikelyQuestion(text) || asksAboutCapabilities(text)) {
+      return landingChatCapabilityOverview() + ' Tap Start for free when you want to try it on your accounts.';
+    }
+    return 'When you are ready, tap Start for free to connect your accounts and try iZop. You can also keep asking questions here.';
   }
   if (/sign up|signup|start|free|google|account/i.test(text)) {
     return 'Use the buttons below to continue with Google or email. No credit card required.';
+  }
+  if (isLikelyQuestion(text)) {
+    return landingChatCapabilityOverview() + ' Use Continue with Google or email below to get started.';
   }
   return 'Create your free account below and we will connect your platforms right away.';
 }

@@ -159,7 +159,7 @@
 .metric-negative { color: #EF4444; }
 .metric-neutral { color: #888780; }
 
-/* Funnel / marketing: always light body; black header bar only (see `.funnel-nav`). */
+/* Funnel / marketing: theme follows user preference (light default vars on .funnel-page). */
 .funnel-page {
   --bg-primary: #F8F7FC;
   --bg-surface: #FFFFFF;
@@ -231,6 +231,37 @@
   animation: chat-hero-typing-pulse 1.2s ease-in-out infinite;
 }
 
+/* Funnel hero side demo cards (mini iZop AI chat) */
+@keyframes funnel-demo-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes funnel-demo-message-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.funnel-demo-card-enter {
+  animation: funnel-demo-card-in 400ms ease-out both;
+}
+.funnel-demo-message-in {
+  animation: funnel-demo-message-in 300ms ease-out both;
+}
+.funnel-demo-card {
+  backdrop-filter: blur(8px);
+}
+
 .funnel-footer {
   background: #000000;
   color: #a3a3a3;
@@ -241,21 +272,154 @@
 }
 
 [data-theme='dark'] .funnel-page {
-  --bg-primary: #F8F7FC;
-  --bg-surface: #FFFFFF;
-  --bg-border: #E8E6DF;
-  --bg-hover: #F1EFF8;
-  --text-primary: #1a1a1a;
-  --text-muted: #888780;
-  --background: #F8F7FC;
-  --foreground: #1a1a1a;
-  --muted: #888780;
-  --border: #E8E6DF;
-  --card-bg: #ffffff;
-  --surface-soft: #F1EFF8;
-  background: #F8F7FC;
-  color: #1a1a1a;
+  --bg-primary: #000000;
+  --bg-surface: #0a0a0a;
+  --bg-border: #1a1a1a;
+  --bg-hover: #141414;
+  --text-primary: #f2f2f2;
+  --text-muted: #a3a3a3;
+  --background: #000000;
+  --foreground: #f2f2f2;
+  --muted: #a3a3a3;
+  --border: #1a1a1a;
+  --card-bg: #0a0a0a;
+  --surface-soft: #111111;
+  background: #000000;
+  color: #f2f2f2;
 }
+
+/* Landing chat hero theme tokens */
+.chat-hero {
+  --chat-hero-bg: #ffffff;
+  --chat-hero-text: #1a1a1a;
+  --chat-hero-muted: #888780;
+  --chat-hero-border: #E8E6DF;
+  --chat-hero-surface: #F8F7FC;
+  --chat-hero-input-bg: #F8F7FC;
+  --chat-hero-accent-soft: rgba(124, 58, 237, 0.08);
+  --chat-hero-accent-text: #5B21B6;
+  --chat-hero-cursor: rgba(26, 26, 26, 0.5);
+  background: var(--chat-hero-bg);
+  color: var(--chat-hero-text);
+}
+[data-theme='dark'] .chat-hero {
+  --chat-hero-bg: #000000;
+  --chat-hero-text: #f2f2f2;
+  --chat-hero-muted: #a3a3a3;
+  --chat-hero-border: #1a1a1a;
+  --chat-hero-surface: #0a0a0a;
+  --chat-hero-input-bg: #0a0a0a;
+  --chat-hero-accent-soft: rgba(124, 58, 237, 0.18);
+  --chat-hero-accent-text: #c4b5fd;
+  --chat-hero-cursor: rgba(242, 242, 242, 0.5);
+}
+
+/* Dark-mode Z thinking loop (from standalone animation spec) */
+.izop-z-thinking {
+  width: var(--izop-z-size, 400px);
+  aspect-ratio: 1 / 1;
+  display: grid;
+  place-items: center;
+}
+.izop-z-thinking__svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.izop-z-thinking__dot-wrap {
+  transform-box: fill-box;
+  transform-origin: 122px 144px;
+  animation: izop-z-beat 1000ms ease-in-out infinite;
+  animation-delay: -200ms;
+}
+.izop-z-thinking__glow {
+  opacity: 0;
+  animation: izop-z-glow 1000ms ease-in-out infinite;
+  animation-delay: -200ms;
+  filter: blur(22px);
+}
+.izop-z-thinking__z {
+  transform-box: fill-box;
+  transform-origin: 200px 208px;
+  animation: izop-z-breathe 1500ms ease-in-out infinite;
+}
+.izop-z-thinking__z-base {
+  filter: brightness(0.94);
+}
+.izop-z-thinking__z-sheen {
+  mix-blend-mode: screen;
+}
+.izop-z-thinking__sheen-rect {
+  animation: izop-z-sheen 3000ms ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes izop-z-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+@keyframes izop-z-sheen {
+  0% {
+    transform: translate(-55%, -55%);
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.15;
+  }
+  50% {
+    transform: translate(0%, 0%);
+    opacity: 0.15;
+  }
+  65% {
+    opacity: 0;
+  }
+  100% {
+    transform: translate(55%, 55%);
+    opacity: 0;
+  }
+}
+@keyframes izop-z-beat {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+}
+@keyframes izop-z-glow {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .izop-z-thinking__z,
+  .izop-z-thinking__sheen-rect,
+  .izop-z-thinking__dot-wrap,
+  .izop-z-thinking__glow {
+    animation: none;
+  }
+  .izop-z-thinking__glow {
+    opacity: 0.25;
+  }
+}
+
+[data-theme='dark'] .funnel-page .bg-white {
+  background: var(--card-bg) !important;
+}
+
 .funnel-card {
   background: var(--bg-surface);
   border: 1px solid var(--bg-border);
