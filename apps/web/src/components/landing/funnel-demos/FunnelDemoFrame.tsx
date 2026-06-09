@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Sparkles } from 'lucide-react';
-import { BRAND_NAME } from '@/lib/site-brand-assets';
+import { BRAND_NAME, SITE_LOGO_DARK_SRC, SITE_LOGO_SRC } from '@/lib/site-brand-assets';
+import { useTheme } from '@/context/ThemeContext';
 
 export function FunnelDemoFrame({
   children,
@@ -13,21 +13,25 @@ export function FunnelDemoFrame({
   visible: boolean;
   entering?: boolean;
 }) {
+  const { theme } = useTheme();
+  const logoSrc = theme === 'dark' ? SITE_LOGO_DARK_SRC : SITE_LOGO_SRC;
+
   if (!visible) return null;
 
   return (
     <div
-      className={`funnel-demo-card w-[248px] rounded-xl border border-neutral-200 dark:border-neutral-800 bg-[var(--bg-primary)] shadow-lg overflow-hidden ${
+      className={`funnel-demo-card w-[300px] 2xl:w-[320px] rounded-xl border border-neutral-200 dark:border-neutral-800 bg-[var(--bg-primary)] shadow-lg ${
         entering ? 'funnel-demo-card-enter' : ''
       }`}
     >
-      <div className="flex items-center gap-1.5 border-b border-neutral-200 dark:border-neutral-800 bg-[var(--bg-surface)] px-2.5 py-1.5">
-        <Sparkles size={12} className="text-[var(--primary)] shrink-0" />
-        <span className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-100 truncate">
+      <div className="flex items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 bg-[var(--bg-surface)] px-3 py-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={logoSrc} alt="" className="h-5 w-5 shrink-0 object-contain" />
+        <span className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-100 truncate">
           {BRAND_NAME} AI
         </span>
       </div>
-      <div className="px-2 py-2 space-y-2 max-h-[220px] overflow-hidden bg-[var(--bg-primary)]">{children}</div>
+      <div className="px-2.5 py-2.5 space-y-2 bg-[var(--bg-primary)]">{children}</div>
     </div>
   );
 }
@@ -42,7 +46,7 @@ export function FunnelDemoUserBubble({
   if (!show) return null;
   return (
     <div className="flex justify-end funnel-demo-message-in">
-      <div className="max-w-[92%] rounded-2xl rounded-br-md px-2.5 py-1.5 text-[10px] leading-snug aysop-bubble-user whitespace-pre-wrap">
+      <div className="max-w-[92%] rounded-2xl rounded-br-md px-3 py-2 text-[11px] leading-snug aysop-bubble-user whitespace-pre-wrap">
         {children}
       </div>
     </div>
@@ -59,7 +63,7 @@ export function FunnelDemoAssistantBubble({
   if (!show) return null;
   return (
     <div className="flex justify-start funnel-demo-message-in">
-      <div className="max-w-[96%] rounded-2xl rounded-bl-md px-2.5 py-1.5 text-[10px] leading-snug aysop-bubble-assistant shadow-sm">
+      <div className="max-w-[96%] rounded-2xl rounded-bl-md px-3 py-2 text-[11px] leading-snug aysop-bubble-assistant shadow-sm">
         {children}
       </div>
     </div>

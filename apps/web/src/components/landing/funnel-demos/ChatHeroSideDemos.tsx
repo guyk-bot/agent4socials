@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { FunnelDemoFrame } from './FunnelDemoFrame';
 import { FUNNEL_DEMO_SCENE_COMPONENTS } from './FunnelDemoScenes';
 
-export const FUNNEL_DEMO_MS = 2500;
+export const FUNNEL_DEMO_MS = 3000;
 const DEMO_COUNT = FUNNEL_DEMO_SCENE_COMPONENTS.length;
 
 const SLOT_SIDE: ('left' | 'right')[] = ['left', 'right', 'left', 'right', 'left', 'right'];
@@ -106,12 +106,8 @@ export function ChatHeroDemoLoopProvider({ children }: { children: React.ReactNo
 
         if (index < DEMO_COUNT - 1) {
           startDemo(index + 1);
-        } else {
-          timerRef.current = setTimeout(() => {
-            setPhases(Array.from({ length: DEMO_COUNT }, () => 'hidden'));
-            startDemo(0);
-          }, 350);
         }
+        // After the last demo freezes, keep all six visible (no loop reset).
       }, FUNNEL_DEMO_MS);
     };
 
@@ -134,8 +130,8 @@ export function ChatHeroSideDemoColumn({ side }: { side: 'left' | 'right' }) {
 
   return (
     <div
-      className={`hidden xl:flex w-[252px] shrink-0 flex-col justify-between py-6 pointer-events-none select-none ${
-        side === 'left' ? 'pl-1' : 'pr-1'
+      className={`hidden xl:flex w-[308px] 2xl:w-[328px] shrink-0 flex-col justify-between gap-4 py-4 pointer-events-none select-none ${
+        side === 'left' ? 'pl-0.5' : 'pr-0.5'
       }`}
       aria-hidden
     >

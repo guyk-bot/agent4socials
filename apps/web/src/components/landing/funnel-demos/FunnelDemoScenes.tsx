@@ -6,6 +6,8 @@ import {
   FacebookIcon,
   InstagramIcon,
   LinkedinIcon,
+  PinterestIcon,
+  ThreadsIcon,
   TikTokIcon,
   XTwitterIcon,
   YoutubeIcon,
@@ -64,26 +66,33 @@ export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
         ) : null}
       </FunnelDemoUserBubble>
       <FunnelDemoAssistantBubble show={showAssistant}>
-        <p className="text-neutral-700 dark:text-neutral-200 mb-1.5">
+        <p className="text-neutral-700 dark:text-neutral-200 mb-1.5 text-[10px]">
           Scheduled for 9:30 AM across 8 platforms.
         </p>
-        <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 p-1.5">
-          <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-100 mb-1">
+        <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 p-2">
+          <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-100 mb-1.5">
             Multi-platform publish
           </p>
-          <div className="flex flex-wrap gap-1">
-            {[InstagramIcon, TikTokIcon, YoutubeIcon, FacebookIcon, XTwitterIcon, LinkedinIcon].map(
-              (Icon, i) => (
-                <span
-                  key={i}
-                  className="inline-flex h-5 w-5 items-center justify-center rounded bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
-                >
-                  <Icon size={11} />
-                </span>
-              )
-            )}
+          <div className="grid grid-cols-4 gap-1.5">
+            {[
+              InstagramIcon,
+              TikTokIcon,
+              YoutubeIcon,
+              FacebookIcon,
+              XTwitterIcon,
+              LinkedinIcon,
+              ThreadsIcon,
+              PinterestIcon,
+            ].map((Icon, i) => (
+              <span
+                key={i}
+                className="inline-flex h-6 w-6 items-center justify-center rounded bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700"
+              >
+                <Icon size={13} />
+              </span>
+            ))}
           </div>
-          <p className="mt-1 text-[8px] text-emerald-600 dark:text-emerald-400 font-medium">
+          <p className="mt-1.5 text-[9px] text-emerald-600 dark:text-emerald-400 font-medium">
             Today · 9:30 AM · Auto publish
           </p>
         </div>

@@ -138,7 +138,7 @@ function TypingIndicator() {
   if (theme === 'dark') {
     return (
       <div className="flex items-start chat-hero-message-enter">
-        <ZThinkingLoopAnimation size={56} className="h-14 w-14 shrink-0" aria-label="Thinking" />
+        <ZThinkingLoopAnimation size={48} className="h-12 w-12 shrink-0" aria-label="Thinking" />
       </div>
     );
   }
@@ -519,25 +519,25 @@ export default function ChatHero() {
   const canPainContinue = selectedPain !== null && !busy;
 
   return (
-    <section className="chat-hero relative flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden pt-14 sm:pt-16">
+    <section className="chat-hero relative flex h-[calc(100dvh-0.5rem)] max-h-[calc(100dvh-0.5rem)] flex-col overflow-hidden pt-14 sm:pt-16">
       <ChatHeroDemoLoopProvider>
       <div
-        className={`flex flex-1 min-h-0 w-full max-w-[1520px] mx-auto transition-opacity duration-500 ${
+        className={`flex flex-1 min-h-0 w-full max-w-[1680px] mx-auto transition-opacity duration-500 ${
           heroReady ? 'opacity-100' : 'opacity-0'
         }`}
       >
         <ChatHeroSideDemoColumn side="left" />
         <div
-          className={`flex flex-1 min-h-0 flex-col w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 sm:pt-3 pb-3 sm:pb-4 transition-all duration-400 ${
+          className={`flex flex-1 min-h-0 flex-col w-full max-w-3xl xl:max-w-2xl 2xl:max-w-3xl mx-auto px-4 sm:px-6 lg:px-4 pt-2 sm:pt-2 pb-3 sm:pb-4 transition-all duration-400 ${
             chatReady ? 'opacity-100' : 'opacity-0 translate-y-1'
           }`}
         >
           <div
-            className={`shrink-0 mb-3 sm:mb-4 text-center sm:text-left transition-all duration-500 ${
+            className={`shrink-0 mb-2 sm:mb-3 text-center sm:text-left transition-all duration-500 ${
               headlineReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
             }`}
           >
-            <h1 className="text-[24px] sm:text-[32px] lg:text-[36px] font-semibold tracking-[-0.5px] text-[var(--chat-hero-text)]">
+            <h1 className="text-[22px] sm:text-[28px] lg:text-[32px] font-semibold tracking-[-0.5px] text-[var(--chat-hero-text)]">
               Meet your AI social media manager.
             </h1>
             <p
