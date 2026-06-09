@@ -62,8 +62,43 @@ const PLATFORM_ICONS: Record<
   pinterest: PinterestIcon,
 };
 
-const INITIAL_AI_TEXT =
-  "Hi 👋 I'm iZop, your personal AI social media manager. Tell me what platforms you're on, and I'll show you what I can do.";
+const OPENING_GREETING = "Hi 👋 I'm iZop,";
+const OPENING_HEADLINE = 'your personal AI social media manager.';
+const OPENING_BODY =
+  "Tell me what platforms you're on, and I'll show you what I can do.";
+
+const INITIAL_AI_TEXT = `${OPENING_GREETING}\n${OPENING_HEADLINE}\n${OPENING_BODY}`;
+
+const OPENING_LINES = [OPENING_GREETING, OPENING_HEADLINE, OPENING_BODY] as const;
+
+function splitOpeningDisplayed(displayed: string): string[] {
+  const result: string[] = [];
+  let pos = 0;
+  for (let i = 0; i < OPENING_LINES.length; i++) {
+    const line = OPENING_LINES[i];
+    if (pos >= displayed.length) {
+      result.push('');
+      continue;
+    }
+    const take = Math.min(line.length, displayed.length - pos);
+    result.push(line.slice(0, take));
+    pos += take;
+    if (take === line.length && pos < displayed.length && displayed[pos] === '\n') {
+      pos += 1;
+    }
+  }
+  return result;
+}
+
+function getActiveOpeningLineIndex(displayed: string): number {
+  let pos = 0;
+  for (let i = 0; i < OPENING_LINES.length; i++) {
+    const lineEnd = pos + OPENING_LINES[i].length;
+    if (displayed.length <= lineEnd) return i;
+    pos = lineEnd + 1;
+  }
+  return OPENING_LINES.length - 1;
+}
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -161,18 +196,87 @@ function TypingIndicator() {
   );
 }
 
+function OpeningAiMessage({
+  typewriterActive,
+  onTypewriterComplete,
+}: {
+  typewriterActive?: boolean;
+  onTypewriterComplete?: () => void;
+}) {
+  const { theme } = useTheme();
+  const logoSrc = siteLogoSrcForTheme(theme);
+  const [displayed, setDisplayed] = useState('');
+  const doneRef = useRef(false);
+
+  useEffect(() => {
+    if (!typewriterActive) return;
+    setDisplayed('');
+    doneRef.current = false;
+    let i = 0;
+    const tick = () => {
+      i += 1;
+      setDisplayed(INITIAL_AI_TEXT.slice(0, i));
+      if (i >= INITIAL_AI_TEXT.length) {
+        if (!doneRef.current) {
+          doneRef.current = true;
+          onTypewriterComplete?.();
+        }
+        return;
+      }
+      window.setTimeout(tick, 22);
+    };
+    const start = window.setTimeout(tick, 120);
+    return () => window.clearTimeout(start);
+  }, [typewriterActive, onTypewriterComplete]);
+
+  const parts = typewriterActive ? splitOpeningDisplayed(displayed) : [...OPENING_LINES];
+  const showCursor = !!typewriterActive && displayed.length < INITIAL_AI_TEXT.length;
+  const activeLine = getActiveOpeningLineIndex(displayed);
+
+  return (
+    <div className="flex items-start gap-3 chat-hero-message-enter mt-5 sm:mt-7">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={logoSrc}
+        alt=""
+        className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 object-contain bg-transparent mt-0.5"
+      />
+      <div className="flex-1 min-w-0 text-[var(--chat-hero-text)]">
+        {OPENING_LINES.map((lineKey, index) => {
+          const part = parts[index];
+          if (!part && !(showCursor && index === activeLine)) return null;
+          const isHeadline = index === 1;
+          return (
+            <p
+              key={lineKey}
+              className={
+                isHeadline
+                  ? 'text-[20px] sm:text-[22px] lg:text-[24px] font-semibold leading-[1.35] mt-1'
+                  : `text-[16px] leading-[1.6] ${index === 2 ? 'mt-1.5' : ''}`
+              }
+            >
+              {part}
+              {showCursor && index === activeLine ? (
+                <span className="inline-block w-[2px] h-[1em] ml-0.5 bg-[var(--chat-hero-cursor)] animate-pulse align-middle" />
+              ) : null}
+            </p>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function AiMessage({
   text,
   typewriter,
   typewriterActive,
   onTypewriterComplete,
-  prominent,
 }: {
   text: string;
   typewriter?: boolean;
   typewriterActive?: boolean;
   onTypewriterComplete?: () => void;
-  prominent?: boolean;
 }) {
   const { theme } = useTheme();
   const logoSrc = siteLogoSrcForTheme(theme);
@@ -183,15 +287,9 @@ function AiMessage({
       <img
         src={logoSrc}
         alt=""
-        className={`shrink-0 object-contain bg-transparent mt-0.5 ${prominent ? 'h-8 w-8 sm:h-9 sm:w-9' : 'h-7 w-7'}`}
+        className="h-7 w-7 shrink-0 object-contain bg-transparent mt-0.5"
       />
-      <p
-        className={`text-[var(--chat-hero-text)] whitespace-pre-line flex-1 min-w-0 ${
-          prominent
-            ? 'text-[18px] sm:text-[20px] lg:text-[21px] font-medium leading-[1.5]'
-            : 'text-[16px] leading-[1.6]'
-        }`}
-      >
+      <p className="text-[16px] leading-[1.6] text-[var(--chat-hero-text)] whitespace-pre-line flex-1 min-w-0">
         {typewriter ? (
           <TypewriterText text={text} active={!!typewriterActive} onComplete={onTypewriterComplete} />
         ) : (
@@ -552,19 +650,25 @@ export default function ChatHero() {
         >
           <h1 className="sr-only">iZop, your personal AI social media manager</h1>
 
-          <div ref={scrollRef} className="flex flex-1 min-h-0 flex-col overflow-y-auto pr-1 -mr-1 pb-4 pt-1">
+          <div ref={scrollRef} className="flex flex-1 min-h-0 flex-col overflow-y-auto pr-1 -mr-1 pb-4 pt-2 sm:pt-3">
             <div className="space-y-3 shrink-0">
               {blocks.map((block, index) => {
                 if (block.kind === 'ai') {
                   const isOpeningPrompt = block.text === INITIAL_AI_TEXT;
+                  if (isOpeningPrompt) {
+                    return (
+                      <OpeningAiMessage
+                        key={block.id}
+                        typewriterActive={!typewriterDone}
+                        onTypewriterComplete={handleTypewriterComplete}
+                      />
+                    );
+                  }
                   return (
                     <AiMessage
                       key={block.id}
                       text={block.text}
-                      prominent={block.prominent}
-                      typewriter={isOpeningPrompt}
-                      typewriterActive={isOpeningPrompt && !typewriterDone}
-                      onTypewriterComplete={isOpeningPrompt ? handleTypewriterComplete : undefined}
+                      typewriter={false}
                     />
                   );
                 }
