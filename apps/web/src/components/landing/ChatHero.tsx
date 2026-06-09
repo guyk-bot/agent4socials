@@ -14,8 +14,7 @@ import {
   XTwitterIcon,
   YoutubeIcon,
 } from '@/components/SocialPlatformIcons';
-import { siteLogoSrcForTheme } from '@/lib/site-brand-assets';
-import { useTheme } from '@/context/ThemeContext';
+import { SITE_LOGO_DARK_SRC } from '@/lib/site-brand-assets';
 import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
 import {
@@ -148,33 +147,29 @@ function TypewriterText({
   );
 }
 
+const OPENING_PRIMARY =
+  'block text-[22px] sm:text-[26px] lg:text-[28px] tracking-[-0.03em] leading-[1.15]';
+
+/** White mark on black — same in light and dark; circular crop softens the square asset. */
+const FUNNEL_AI_AVATAR_BOX = 'h-9 w-9 shrink-0';
+
 function FunnelAiMessageAvatar({ className }: { className?: string }) {
-  const { theme } = useTheme();
-  const logoSrc = siteLogoSrcForTheme(theme);
-  const boxClass = className ?? 'h-8 w-8 sm:h-9 sm:w-9';
-
-  if (theme === 'light') {
-    return (
-      <span
-        className={`inline-flex shrink-0 items-center justify-center rounded-full border border-neutral-200/90 bg-white shadow-sm ${boxClass}`}
-        aria-hidden
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={logoSrc} alt="" className="h-[68%] w-[68%] object-contain" />
-      </span>
-    );
-  }
-
+  const boxClass = className ?? FUNNEL_AI_AVATAR_BOX;
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={logoSrc} alt="" className={`${boxClass} shrink-0 object-contain bg-transparent`} aria-hidden />
+    <span
+      className={`inline-flex items-center justify-center rounded-full bg-black overflow-hidden ${boxClass}`}
+      aria-hidden
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={SITE_LOGO_DARK_SRC} alt="" className="h-[86%] w-[86%] object-contain" />
+    </span>
   );
 }
 
 function TypingIndicator() {
   return (
     <div className="flex items-start gap-3 chat-hero-message-enter" aria-label="Thinking">
-      <FunnelAiMessageAvatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 object-contain mt-0.5" />
+      <FunnelAiMessageAvatar className={`${FUNNEL_AI_AVATAR_BOX} mt-0.5`} />
     </div>
   );
 }
@@ -220,13 +215,12 @@ function OpeningAiMessage({
     {
       key: 'greeting',
       text: greeting,
-      className: 'block text-[15px] sm:text-[16px] font-normal leading-[1.6]',
+      className: `${OPENING_PRIMARY} font-semibold`,
     },
     {
       key: 'headline',
       text: headline,
-      className:
-        'block text-[22px] sm:text-[26px] lg:text-[28px] font-black tracking-[-0.02em] leading-[1.2] mt-1.5 sm:mt-2',
+      className: `${OPENING_PRIMARY} font-black mt-1 sm:mt-1.5 [font-weight:950]`,
     },
     {
       key: 'body',
@@ -238,7 +232,7 @@ function OpeningAiMessage({
 
   return (
     <div className="flex items-start gap-3 chat-hero-message-enter mt-5 sm:mt-7">
-      <FunnelAiMessageAvatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 object-contain mt-1" />
+      <FunnelAiMessageAvatar className={`${FUNNEL_AI_AVATAR_BOX} mt-1`} />
       <div className="flex-1 min-w-0 text-[var(--chat-hero-text)]">
         {rows.map((row, index) => {
           if (!row.text && !(showCursor && index === activeLine)) return null;
@@ -269,7 +263,7 @@ function AiMessage({
 }) {
   return (
     <div className="flex items-start gap-3 chat-hero-message-enter">
-      <FunnelAiMessageAvatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 object-contain mt-0.5" />
+      <FunnelAiMessageAvatar className={`${FUNNEL_AI_AVATAR_BOX} mt-0.5`} />
       <p className="text-[16px] leading-[1.6] text-[var(--chat-hero-text)] whitespace-pre-line flex-1 min-w-0">
         {typewriter ? (
           <TypewriterText text={text} active={!!typewriterActive} onComplete={onTypewriterComplete} />

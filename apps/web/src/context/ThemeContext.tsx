@@ -15,12 +15,12 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 function readTheme(): Theme {
-  if (typeof window === 'undefined') return 'dark';
+  if (typeof window === 'undefined') return 'light';
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === 'dark' || stored === 'light') return stored;
   } catch (_) {}
-  return 'dark';
+  return 'light';
 }
 
 function applyTheme(theme: Theme) {

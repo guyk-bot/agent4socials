@@ -113,14 +113,14 @@ export function ChatAttachmentImage({
   return (
     <div className={`overflow-hidden rounded-lg border-2 border-white/35 ${USER_ATTACH_FRAME} ${className}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={alt} className="block h-full w-full object-cover object-center" draggable={false} />
+      <img src={src} alt={alt} className="block h-full w-full object-cover object-center pointer-events-none select-none" draggable={false} />
     </div>
   );
 }
 
 const ATTACH_DROP_THRESHOLDS = [0.1, 0.24, 0.38, 0.52];
 
-/** Single image drag-and-drop into chat (matches real attachment UI). */
+/** Single image drag-and-drop into chat (in document flow so side column scroll works). */
 export function ChatDragDropImage({
   progress,
   src,
@@ -130,35 +130,32 @@ export function ChatDragDropImage({
   src: string;
   alt: string;
 }) {
-  const showZone = progress >= 0.08 && progress < 0.18;
+  const showZone = progress >= 0.08 && progress < 0.16;
   const showImage = progress >= 0.14;
   const dragging = showImage && progress < 0.42;
 
   if (progress < 0.08) return null;
 
-  return (
-    <div className={`relative w-full ${showImage ? USER_ATTACH_FRAME : ''}`}>
-      {showZone ? (
-        <div
-          className={`flex ${USER_ATTACH_FRAME} items-center justify-center rounded-lg border-2 border-dashed border-white/45 bg-white/10 text-[11px] font-medium text-white/80 transition-opacity ${
-            showImage ? 'opacity-40' : 'opacity-100'
-          }`}
-          aria-hidden
-        >
-          Drop media here
-        </div>
-      ) : null}
-      {showImage ? (
-        <div
-          className={`${showZone || dragging ? 'absolute inset-x-0 top-0 z-10' : ''} ${
-            dragging ? 'funnel-demo-drag-into-chat' : ''
-          }`}
-        >
-          <ChatAttachmentImage src={src} alt={alt} />
-        </div>
-      ) : null}
-    </div>
-  );
+  if (showImage) {
+    return (
+      <div className={dragging ? 'funnel-demo-drag-into-chat' : undefined}>
+        <ChatAttachmentImage src={src} alt={alt} />
+      </div>
+    );
+  }
+
+  if (showZone) {
+    return (
+      <div
+        className={`flex ${USER_ATTACH_FRAME} items-center justify-center rounded-lg border-2 border-dashed border-white/45 bg-white/10 text-[11px] font-medium text-white/80`}
+        aria-hidden
+      >
+        Drop media here
+      </div>
+    );
+  }
+
+  return null;
 }
 
 /** @deprecated use ChatDragDropImage for schedule demo */

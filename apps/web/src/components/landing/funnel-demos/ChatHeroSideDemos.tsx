@@ -164,7 +164,7 @@ function SideDemoScrollColumn({ side }: { side: 'left' | 'right' }) {
     <div className="hidden xl:flex h-full min-h-0 w-[400px] shrink-0 flex-col py-3 2xl:w-[440px]">
       <div
         ref={scrollRef}
-        className={`funnel-demo-column-scroll relative min-h-0 flex-1 overflow-y-auto overscroll-contain ${
+        className={`funnel-demo-column-scroll relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y ${
           side === 'left' ? 'pr-1' : 'pl-1'
         }`}
       >

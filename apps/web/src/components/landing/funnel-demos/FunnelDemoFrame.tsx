@@ -46,7 +46,7 @@ export function FunnelDemoFrame({
       </div>
       <div className="min-h-0 flex-1 overflow-hidden px-2.5 py-2.5 bg-[var(--bg-primary)]">
         <div
-          className={`flex h-full min-h-0 flex-col gap-2 overflow-y-auto overflow-x-hidden overscroll-contain transition-opacity duration-300 ${
+          className={`flex min-h-0 flex-col gap-2 overflow-hidden transition-opacity duration-300 ${
             contentVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
         >

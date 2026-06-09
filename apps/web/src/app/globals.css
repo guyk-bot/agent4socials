@@ -328,6 +328,11 @@
   scroll-behavior: smooth;
   scrollbar-width: thin;
   scrollbar-color: rgba(124, 58, 237, 0.3) transparent;
+  overscroll-behavior-y: contain;
+}
+.funnel-demo-card img {
+  pointer-events: none;
+  user-select: none;
 }
 .funnel-demo-column-scroll::-webkit-scrollbar {
   width: 6px;
