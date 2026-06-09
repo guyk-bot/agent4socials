@@ -127,11 +127,12 @@ export function PlatformPostPreviewSquare({
       )}
       {!preview.hideCaption ? (
         <p
-          className={`px-2 py-1.5 text-neutral-700 dark:text-neutral-300 ${
+          className={`px-2 py-1.5 text-neutral-700 dark:text-neutral-300 break-words ${
             compact
-              ? 'line-clamp-3 text-[9px] leading-snug sm:text-[10px]'
-              : 'whitespace-pre-wrap py-2 text-[11px] leading-snug sm:text-[12px]'
+              ? 'line-clamp-3 text-[9px] leading-[1.35] sm:text-[10px] [overflow-wrap:anywhere]'
+              : 'line-clamp-3 py-2 text-[11px] leading-snug sm:text-[12px]'
           }`}
+          title={preview.caption}
         >
           {preview.caption}
         </p>

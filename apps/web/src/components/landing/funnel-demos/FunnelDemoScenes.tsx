@@ -109,7 +109,7 @@ export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
         <p className="mb-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
           I drafted Shorts previews for 9:30 AM:
         </p>
-        <PlatformPostPreviewGrid previews={SCHEDULE_PREVIEWS} compact hideCaptions />
+        <PlatformPostPreviewGrid previews={SCHEDULE_PREVIEWS} compact />
         <FunnelDemoScheduledChip
           timeLabel="9:30 AM"
           platforms="Instagram, TikTok, and YouTube Shorts"
