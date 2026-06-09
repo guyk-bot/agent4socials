@@ -21,6 +21,7 @@ import {
   ChatHeroDemoLoopProvider,
   ChatHeroSideDemoColumn,
 } from '@/components/landing/funnel-demos/ChatHeroSideDemos';
+import { FUNNEL_LANDING_EXPERIMENTAL } from '@/components/landing/funnel-demos/funnel-landing-variant';
 import {
   CHAT_HERO_PAIN_POINTS,
   CHAT_HERO_PLATFORMS,
@@ -65,8 +66,10 @@ const OPENING_HEADLINE = 'your personal AI social media manager.';
 const OPENING_BODY =
   "Tell me what platforms you're on, and I'll show you what I can do.";
 
-/** Typewriter stops after headline; body + platforms appear together when it finishes. */
-const OPENING_TYPEWRITER_TEXT = `${OPENING_GREETING}\n${OPENING_HEADLINE}`;
+function getOpeningTypewriterText(): string {
+  if (FUNNEL_LANDING_EXPERIMENTAL) return OPENING_HEADLINE;
+  return `${OPENING_GREETING}\n${OPENING_HEADLINE}`;
+}
 
 function getOpeningLineParts(displayed: string): [string, string, string] {
   const lines = displayed.split('\n');
@@ -191,6 +194,8 @@ function OpeningAiMessage({
   const [displayed, setDisplayed] = useState('');
   const doneRef = useRef(false);
 
+  const typewriterText = getOpeningTypewriterText();
+
   useEffect(() => {
     if (!typewriterActive) return;
     setDisplayed('');
@@ -198,8 +203,8 @@ function OpeningAiMessage({
     let i = 0;
     const tick = () => {
       i += 1;
-      setDisplayed(OPENING_TYPEWRITER_TEXT.slice(0, i));
-      if (i >= OPENING_TYPEWRITER_TEXT.length) {
+      setDisplayed(typewriterText.slice(0, i));
+      if (i >= typewriterText.length) {
         if (!doneRef.current) {
           doneRef.current = true;
           onHeadlineComplete?.();
@@ -210,33 +215,66 @@ function OpeningAiMessage({
     };
     const start = window.setTimeout(tick, 40);
     return () => window.clearTimeout(start);
-  }, [typewriterActive, onHeadlineComplete]);
+  }, [typewriterActive, onHeadlineComplete, typewriterText]);
 
-  const [greeting, headline] = typewriterActive
-    ? getOpeningLineParts(displayed)
-    : [OPENING_GREETING, OPENING_HEADLINE];
+  const greeting = FUNNEL_LANDING_EXPERIMENTAL
+    ? showFollowUp
+      ? OPENING_GREETING
+      : ''
+    : typewriterActive
+      ? getOpeningLineParts(displayed)[0]
+      : OPENING_GREETING;
+  const headline = FUNNEL_LANDING_EXPERIMENTAL
+    ? typewriterActive
+      ? displayed
+      : OPENING_HEADLINE
+    : typewriterActive
+      ? getOpeningLineParts(displayed)[1]
+      : OPENING_HEADLINE;
   const body = showFollowUp ? OPENING_BODY : '';
-  const showCursor = !!typewriterActive && displayed.length < OPENING_TYPEWRITER_TEXT.length;
-  const activeLine = getActiveOpeningLineIndex(displayed);
+  const showCursor = !!typewriterActive && displayed.length < typewriterText.length;
+  const activeLine = FUNNEL_LANDING_EXPERIMENTAL
+    ? 0
+    : getActiveOpeningLineIndex(displayed);
 
-  const rows: { key: string; text: string; className: string }[] = [
-    {
-      key: 'greeting',
-      text: greeting,
-      className: `${OPENING_PRIMARY} font-medium text-[var(--chat-hero-text)]`,
-    },
-    {
-      key: 'headline',
-      text: headline,
-      className: `${OPENING_HEADLINE_SIZE} chat-hero-opening-headline-bold mt-1 sm:mt-1.5`,
-    },
-    {
-      key: 'body',
-      text: body,
-      className:
-        'block text-[13px] sm:text-[15px] font-normal leading-[1.6] mt-2 whitespace-nowrap',
-    },
-  ];
+  const rows: { key: string; text: string; className: string }[] = FUNNEL_LANDING_EXPERIMENTAL
+    ? [
+        {
+          key: 'headline',
+          text: headline,
+          className:
+            'block text-[28px] sm:text-[34px] lg:text-[40px] tracking-[-0.045em] leading-[1.08] chat-hero-opening-headline-hero',
+        },
+        {
+          key: 'greeting',
+          text: showFollowUp ? OPENING_GREETING : '',
+          className: `${OPENING_PRIMARY} font-normal text-[#888780] mt-2 sm:mt-2.5`,
+        },
+        {
+          key: 'body',
+          text: body,
+          className:
+            'block text-[13px] sm:text-[15px] font-normal leading-[1.6] text-[#888780] mt-2 whitespace-nowrap',
+        },
+      ]
+    : [
+        {
+          key: 'greeting',
+          text: greeting,
+          className: `${OPENING_PRIMARY} font-medium text-[var(--chat-hero-text)]`,
+        },
+        {
+          key: 'headline',
+          text: headline,
+          className: `${OPENING_HEADLINE_SIZE} chat-hero-opening-headline-bold mt-1 sm:mt-1.5`,
+        },
+        {
+          key: 'body',
+          text: body,
+          className:
+            'block text-[13px] sm:text-[15px] font-normal leading-[1.6] mt-2 whitespace-nowrap',
+        },
+      ];
 
   return (
     <div className="flex items-start gap-3 chat-hero-message-enter mt-5 sm:mt-7">
@@ -405,7 +443,7 @@ export default function ChatHero() {
       {
         id: blockId('ai'),
         kind: 'ai',
-            text: OPENING_TYPEWRITER_TEXT,
+        text: getOpeningTypewriterText(),
         animate: true,
         prominent: true,
         isOpening: true,
@@ -607,6 +645,9 @@ export default function ChatHero() {
     if (showDemoCta) return 'Type a question, or tap Start for free…';
     if (showPainOptions) return 'Describe your biggest challenge…';
     if (step === 0 && !showPainOptions && !showDemoCta && !showSignup) {
+      if (FUNNEL_LANDING_EXPERIMENTAL) {
+        return "Try: 'Reply to all my Instagram comments from today'";
+      }
       return 'Ask anything - pricing, features, platforms, how it works…';
     }
     return 'Message iZop…';
@@ -616,7 +657,11 @@ export default function ChatHero() {
   const canPainContinue = selectedPain !== null && !busy;
 
   return (
-    <section className="chat-hero relative flex h-[calc(100dvh-0.5rem)] max-h-[calc(100dvh-0.5rem)] flex-col overflow-hidden pt-14 sm:pt-16">
+    <section
+      className={`chat-hero relative flex h-[calc(100dvh-0.5rem)] max-h-[calc(100dvh-0.5rem)] flex-col overflow-hidden pt-14 sm:pt-16 ${
+        FUNNEL_LANDING_EXPERIMENTAL ? 'chat-hero--experimental' : ''
+      }`}
+    >
       <ChatHeroDemoLoopProvider active={sideDemosReady}>
       <div className="flex flex-1 min-h-0 w-full max-w-[1920px] mx-auto">
         <ChatHeroSideDemoColumn side="left" visible={sideDemosReady} />

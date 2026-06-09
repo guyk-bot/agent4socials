@@ -1,11 +1,15 @@
 'use client';
 
 import Link from 'next/link';
+import { Sun, Moon } from 'lucide-react';
 import { BRAND_CHROME_TEXT, BRAND_NAME, SITE_LOGO_DARK_SRC } from '@/lib/site-brand-assets';
 import { useAuthModal } from '@/context/AuthModalContext';
+import { useTheme } from '@/context/ThemeContext';
+import { FUNNEL_LANDING_EXPERIMENTAL } from '@/components/landing/funnel-demos/funnel-landing-variant';
 
 export default function SiteFooter() {
   const { openLogin, openSignup } = useAuthModal();
+  const { theme, toggleTheme } = useTheme();
   return (
     <footer className="funnel-footer border-t border-neutral-800 bg-black text-neutral-400">
       <div className="mx-auto max-w-6xl px-4 py-10 sm:py-14 sm:px-6">
@@ -45,8 +49,19 @@ export default function SiteFooter() {
             </div>
           </div>
         </div>
-        <div className="mt-12 border-t border-neutral-800 pt-8 text-center text-sm text-neutral-500">
-          © {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.
+        <div className="mt-12 border-t border-neutral-800 pt-8 flex flex-col items-center gap-4 text-center text-sm text-neutral-500">
+          {FUNNEL_LANDING_EXPERIMENTAL ? (
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="inline-flex items-center gap-2 rounded-lg border border-neutral-800 px-3 py-2 text-neutral-400 transition-colors hover:border-neutral-700 hover:text-neutral-200"
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {theme === 'dark' ? <Sun className="h-4 w-4 shrink-0" /> : <Moon className="h-4 w-4 shrink-0" />}
+              {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            </button>
+          ) : null}
+          <p>© {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.</p>
         </div>
       </div>
     </footer>

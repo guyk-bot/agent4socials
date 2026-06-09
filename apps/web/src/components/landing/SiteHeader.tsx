@@ -8,6 +8,7 @@ import { useAuthModal } from '@/context/AuthModalContext';
 import { useTheme } from '@/context/ThemeContext';
 import { BrandWordmark } from '@/components/BrandWordmark';
 import { BRAND_NAME, SITE_LOGO_DARK_SRC } from '@/lib/site-brand-assets';
+import { FUNNEL_LANDING_EXPERIMENTAL } from '@/components/landing/funnel-demos/funnel-landing-variant';
 
 const navLinks = [
   { href: '/#features', label: 'Features' },
@@ -22,6 +23,12 @@ export default function SiteHeader() {
   const { openLogin, openSignup } = useAuthModal();
   const { theme, toggleTheme } = useTheme();
   const pathname = usePathname();
+  const ctaClass = FUNNEL_LANDING_EXPERIMENTAL
+    ? 'rounded-full btn-funnel-lime-cta px-5 py-2.5 text-sm font-semibold transition-all'
+    : 'rounded-full gradient-cta-pro px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(124,58,237,0.28)] transition-all hover:scale-[1.02]';
+  const ctaClassMobile = FUNNEL_LANDING_EXPERIMENTAL
+    ? 'rounded-full btn-funnel-lime-cta px-4 py-2 text-sm font-semibold transition-all'
+    : 'rounded-full gradient-cta-pro px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(124,58,237,0.26)]';
 
   const navLinkClass = (href: string) => {
     const isPricing = href === '/pricing' && pathname === '/pricing';
@@ -51,40 +58,36 @@ export default function SiteHeader() {
                 {link.label}
               </Link>
             ))}
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="funnel-nav-link inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors"
-              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              {theme === 'dark' ? <Sun className="h-4 w-4 shrink-0" /> : <Moon className="h-4 w-4 shrink-0" />}
-              <span className="hidden lg:inline">{theme === 'dark' ? 'Light' : 'Dark'}</span>
-            </button>
+            {!FUNNEL_LANDING_EXPERIMENTAL ? (
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="funnel-nav-link inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors"
+                aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {theme === 'dark' ? <Sun className="h-4 w-4 shrink-0" /> : <Moon className="h-4 w-4 shrink-0" />}
+                <span className="hidden lg:inline">{theme === 'dark' ? 'Light' : 'Dark'}</span>
+              </button>
+            ) : null}
             <button type="button" onClick={openLogin} className="funnel-nav-link rounded-lg px-2 py-1.5 text-sm font-medium transition-colors">
               Log in
             </button>
-            <button
-              type="button"
-              onClick={openSignup}
-              className="rounded-full gradient-cta-pro px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(124,58,237,0.28)] transition-all hover:scale-[1.02]"
-            >
+            <button type="button" onClick={openSignup} className={ctaClass}>
               Try for free
             </button>
           </nav>
           <div className="flex items-center gap-2 md:hidden">
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="funnel-nav-link rounded-lg p-2 transition-colors"
-              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </button>
-            <button
-              type="button"
-              onClick={openSignup}
-              className="rounded-full gradient-cta-pro px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(124,58,237,0.26)]"
-            >
+            {!FUNNEL_LANDING_EXPERIMENTAL ? (
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="funnel-nav-link rounded-lg p-2 transition-colors"
+                aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              </button>
+            ) : null}
+            <button type="button" onClick={openSignup} className={ctaClassMobile}>
               Try for free
             </button>
             <button
@@ -109,14 +112,16 @@ export default function SiteHeader() {
                 {link.label}
               </Link>
             ))}
-            <button
-              type="button"
-              onClick={() => { setMobileOpen(false); toggleTheme(); }}
-              className="funnel-nav-link inline-flex items-center gap-2 py-3 px-3 rounded-xl font-medium transition-colors w-full text-left"
-            >
-              {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            </button>
+            {!FUNNEL_LANDING_EXPERIMENTAL ? (
+              <button
+                type="button"
+                onClick={() => { setMobileOpen(false); toggleTheme(); }}
+                className="funnel-nav-link inline-flex items-center gap-2 py-3 px-3 rounded-xl font-medium transition-colors w-full text-left"
+              >
+                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                {theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => { setMobileOpen(false); openLogin(); }}
@@ -127,7 +132,7 @@ export default function SiteHeader() {
             <button
               type="button"
               onClick={() => { setMobileOpen(false); openSignup(); }}
-              className="mt-2 mx-3 py-3 rounded-full gradient-cta-pro text-center font-semibold text-white w-full shadow-[0_10px_22px_rgba(124,58,237,0.26)]"
+              className={`mt-2 mx-3 py-3 text-center font-semibold w-full ${FUNNEL_LANDING_EXPERIMENTAL ? 'btn-funnel-lime-cta rounded-full' : 'rounded-full gradient-cta-pro text-white shadow-[0_10px_22px_rgba(124,58,237,0.26)]'}`}
             >
               Try for free
             </button>

@@ -373,6 +373,54 @@
     0 0.4px 0 #a78bfa;
 }
 
+/* Experimental funnel: void black hero, white dominant headline, lime accents */
+.chat-hero--experimental {
+  --chat-hero-bg: #0a0a0f;
+  --chat-hero-text: #ffffff;
+  --chat-hero-muted: #888780;
+  --chat-hero-border: #1e1e2a;
+  --chat-hero-surface: #111118;
+  --chat-hero-input-bg: #111118;
+  --chat-hero-cursor: rgba(255, 255, 255, 0.55);
+  background: #0a0a0f;
+  color: #ffffff;
+}
+[data-theme='dark'] .chat-hero--experimental,
+[data-theme='light'] .chat-hero--experimental {
+  --chat-hero-bg: #0a0a0f;
+  --chat-hero-text: #ffffff;
+  --chat-hero-muted: #888780;
+  --chat-hero-border: #1e1e2a;
+  --chat-hero-surface: #111118;
+  --chat-hero-input-bg: #111118;
+  background: #0a0a0f;
+  color: #ffffff;
+}
+.chat-hero-opening-headline-hero {
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.045em;
+}
+.btn-funnel-lime-cta {
+  background: #aaff45;
+  color: #0a0a0a;
+  box-shadow: 0 10px 24px rgba(170, 255, 69, 0.22);
+  transition: transform 150ms ease, filter 150ms ease;
+}
+.btn-funnel-lime-cta:hover {
+  filter: brightness(1.06);
+  transform: scale(1.02);
+}
+.btn-funnel-lime-cta:active {
+  transform: scale(0.98);
+}
+.funnel-demo-card--experimental.funnel-demo-card--featured {
+  border-color: rgba(170, 255, 69, 0.28);
+  box-shadow:
+    0 0 0 1px rgba(170, 255, 69, 0.1),
+    0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
 @keyframes chat-hero-verified-pop {
   0% {
     opacity: 0;

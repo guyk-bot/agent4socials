@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { BRAND_LIME_DOT } from './funnel-demo-assets';
+import { FUNNEL_LANDING_EXPERIMENTAL } from './funnel-landing-variant';
 
 /** Scene progress after headline intro (first ~22% of card timeline). */
 export function funnelDemoContentProgress(progress: number): number {
@@ -15,36 +16,62 @@ export function FunnelDemoFrame({
   entering,
   title,
   progress = 1,
+  featured = false,
 }: {
   children: React.ReactNode;
   visible: boolean;
   entering?: boolean;
   title: string;
   progress?: number;
+  /** Killer features: slightly stronger accent in experimental layout. */
+  featured?: boolean;
 }) {
   const titleReady = visible && (entering || progress > 0.02);
   const contentVisible = progress > 0.22;
 
+  const experimental = FUNNEL_LANDING_EXPERIMENTAL;
+
   return (
     <div
-      className={`funnel-demo-card pointer-events-auto flex h-full min-h-0 w-full max-w-[400px] 2xl:max-w-[440px] flex-col overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800 bg-[var(--bg-primary)] shadow-lg transition-opacity duration-300 ${
-        visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
-      } ${entering && visible ? 'funnel-demo-card-enter' : ''}`}
+      className={`funnel-demo-card pointer-events-auto flex h-full min-h-0 w-full max-w-[400px] 2xl:max-w-[440px] flex-col overflow-hidden rounded-xl shadow-lg transition-opacity duration-300 ${
+        experimental
+          ? `funnel-demo-card--experimental border border-[#1E1E2A] bg-[#111118]${featured ? ' funnel-demo-card--featured' : ''}`
+          : 'border border-neutral-200 dark:border-neutral-800 bg-[var(--bg-primary)]'
+      } ${visible ? 'opacity-100' : 'opacity-0 pointer-events-none'} ${
+        entering && visible ? 'funnel-demo-card-enter' : ''
+      }`}
       aria-hidden={!visible}
     >
-      <div
-        className="flex shrink-0 items-center overflow-hidden border-b border-black/10 px-3 py-3"
-        style={{ backgroundColor: BRAND_LIME_DOT }}
-      >
-        <span
-          className={`text-base sm:text-lg font-black tracking-tight leading-snug text-[#0a0a0a] dark:text-[#0a0a0a] ${
-            titleReady ? 'funnel-demo-title-pop' : 'opacity-0'
-          }`}
+      {experimental ? (
+        <div className="flex shrink-0 flex-col gap-0.5 overflow-hidden border-b border-[#1E1E2A] bg-[#111118] px-3 py-2.5">
+          <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#AAFF45]">Feature</span>
+          <span
+            className={`text-sm sm:text-base font-semibold tracking-tight leading-snug text-white ${
+              titleReady ? 'funnel-demo-title-pop' : 'opacity-0'
+            }`}
+          >
+            {title}
+          </span>
+        </div>
+      ) : (
+        <div
+          className="flex shrink-0 items-center overflow-hidden border-b border-black/10 px-3 py-3"
+          style={{ backgroundColor: BRAND_LIME_DOT }}
         >
-          {title}
-        </span>
-      </div>
-      <div className="min-h-0 flex-1 overflow-hidden px-2.5 py-2.5 bg-[var(--bg-primary)]">
+          <span
+            className={`text-base sm:text-lg font-black tracking-tight leading-snug text-[#0a0a0a] ${
+              titleReady ? 'funnel-demo-title-pop' : 'opacity-0'
+            }`}
+          >
+            {title}
+          </span>
+        </div>
+      )}
+      <div
+        className={`min-h-0 flex-1 overflow-hidden px-2.5 py-2.5 ${
+          experimental ? 'bg-[#111118]' : 'bg-[var(--bg-primary)]'
+        }`}
+      >
         <div
           className={`flex min-h-0 flex-col gap-2 overflow-hidden transition-opacity duration-300 ${
             contentVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'

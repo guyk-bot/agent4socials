@@ -1,12 +1,14 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { FUNNEL_DEMO_TITLES } from './funnel-demo-meta';
 import { funnelDemoContentProgress, FunnelDemoFrame } from './FunnelDemoFrame';
-import { FUNNEL_DEMO_SCENE_COMPONENTS } from './FunnelDemoScenes';
+import { getFunnelDemoRegistry } from './funnel-demo-registry';
+import { FUNNEL_LANDING_EXPERIMENTAL } from './funnel-landing-variant';
 
 export const FUNNEL_DEMO_MS = 3000;
-const DEMO_COUNT = FUNNEL_DEMO_SCENE_COMPONENTS.length;
+
+const FUNNEL_REGISTRY = getFunnelDemoRegistry();
+const DEMO_COUNT = FUNNEL_REGISTRY.count;
 
 const SLOT_SIDE: ('left' | 'right')[] = [
   'left',
@@ -59,13 +61,15 @@ function DemoSlot({
   index,
   phase,
   justEntered,
+  featured = false,
 }: {
   index: number;
   phase: SlotPhase;
   justEntered: boolean;
+  featured?: boolean;
 }) {
   const progress = useSlotProgress(phase);
-  const Scene = FUNNEL_DEMO_SCENE_COMPONENTS[index];
+  const Scene = FUNNEL_REGISTRY.components[index];
   const visible = phase !== 'hidden';
 
   const contentProgress = funnelDemoContentProgress(progress);
@@ -74,8 +78,9 @@ function DemoSlot({
     <FunnelDemoFrame
       visible={visible}
       entering={justEntered && phase === 'playing'}
-      title={FUNNEL_DEMO_TITLES[index]}
+      title={FUNNEL_REGISTRY.titles[index]}
       progress={progress}
+      featured={featured}
     >
       <Scene progress={contentProgress} />
     </FunnelDemoFrame>
@@ -192,7 +197,9 @@ function SideDemoScrollColumn({ side }: { side: 'left' | 'right' }) {
       >
         {visibleCount > 2 ? (
           <div
-            className="pointer-events-none sticky top-0 z-10 mb-1 h-4 bg-gradient-to-b from-[var(--bg-primary)] to-transparent"
+            className={`pointer-events-none sticky top-0 z-10 mb-1 h-4 bg-gradient-to-b to-transparent ${
+              FUNNEL_LANDING_EXPERIMENTAL ? 'from-[#0A0A0F]' : 'from-[var(--bg-primary)]'
+            }`}
             aria-hidden
           />
         ) : null}
@@ -204,6 +211,7 @@ function SideDemoScrollColumn({ side }: { side: 'left' | 'right' }) {
                 index={index}
                 phase={ctx.phases[index]}
                 justEntered={ctx.enteredIndex === index}
+                featured={FUNNEL_LANDING_EXPERIMENTAL && index < 2}
               />
             </div>
           ))}
