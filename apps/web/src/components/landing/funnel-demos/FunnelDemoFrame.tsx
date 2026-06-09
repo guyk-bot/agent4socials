@@ -1,8 +1,6 @@
 'use client';
 
 import React from 'react';
-import { siteLogoSrcForTheme } from '@/lib/site-brand-assets';
-import { useTheme } from '@/context/ThemeContext';
 
 export function FunnelDemoFrame({
   children,
@@ -15,9 +13,6 @@ export function FunnelDemoFrame({
   entering?: boolean;
   title: string;
 }) {
-  const { theme } = useTheme();
-  const logoSrc = siteLogoSrcForTheme(theme);
-
   return (
     <div
       className={`funnel-demo-card pointer-events-auto flex h-full min-h-[300px] w-full max-w-[400px] 2xl:max-w-[440px] flex-col rounded-xl border border-neutral-200 dark:border-neutral-800 bg-[var(--bg-primary)] shadow-lg transition-opacity duration-300 ${
@@ -25,13 +20,7 @@ export function FunnelDemoFrame({
       } ${entering && visible ? 'funnel-demo-card-enter' : ''}`}
       aria-hidden={!visible}
     >
-      <div className="flex shrink-0 items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 bg-[var(--bg-surface)] px-3 py-2.5">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={logoSrc}
-          alt=""
-          className="h-5 w-5 shrink-0 object-contain bg-transparent"
-        />
+      <div className="flex shrink-0 items-center border-b border-neutral-200 dark:border-neutral-800 bg-[var(--bg-surface)] px-3 py-2.5">
         <span className="text-[11px] sm:text-xs font-semibold text-neutral-800 dark:text-neutral-100 leading-snug">
           {title}
         </span>
