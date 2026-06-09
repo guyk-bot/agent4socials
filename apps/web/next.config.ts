@@ -26,7 +26,7 @@ const nextConfig: NextConfig = {
     return [
       ...legacyHostRedirects,
       { source: '/dashboard/trending', destination: '/dashboard', permanent: false },
-      { source: '/font-preview', destination: '/preview/fonts', permanent: false },
+      { source: '/preview/fonts', destination: '/font-preview', permanent: false },
     ];
   },
   /** Favicons are aggressively cached; encourage revalidation after asset swaps. */
