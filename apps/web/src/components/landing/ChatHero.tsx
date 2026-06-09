@@ -41,7 +41,7 @@ import {
 type FlowStep = 0 | 1 | 2 | 3;
 
 type RenderBlock =
-  | { id: string; kind: 'ai'; text: string; animate?: boolean; prominent?: boolean }
+  | { id: string; kind: 'ai'; text: string; animate?: boolean; prominent?: boolean; isOpening?: boolean }
   | { id: string; kind: 'user_pills'; labels: string[] }
   | { id: string; kind: 'stats'; items: { value: string; label: string }[] }
   | { id: string; kind: 'mock_chat'; user: string; ai: string }
@@ -69,35 +69,16 @@ const OPENING_BODY =
 
 const INITIAL_AI_TEXT = `${OPENING_GREETING}\n${OPENING_HEADLINE}\n${OPENING_BODY}`;
 
-const OPENING_LINES = [OPENING_GREETING, OPENING_HEADLINE, OPENING_BODY] as const;
-
-function splitOpeningDisplayed(displayed: string): string[] {
-  const result: string[] = [];
-  let pos = 0;
-  for (let i = 0; i < OPENING_LINES.length; i++) {
-    const line = OPENING_LINES[i];
-    if (pos >= displayed.length) {
-      result.push('');
-      continue;
-    }
-    const take = Math.min(line.length, displayed.length - pos);
-    result.push(line.slice(0, take));
-    pos += take;
-    if (take === line.length && pos < displayed.length && displayed[pos] === '\n') {
-      pos += 1;
-    }
-  }
-  return result;
+function getOpeningLineParts(displayed: string): [string, string, string] {
+  const lines = displayed.split('\n');
+  return [lines[0] ?? '', lines[1] ?? '', lines[2] ?? ''];
 }
 
 function getActiveOpeningLineIndex(displayed: string): number {
-  let pos = 0;
-  for (let i = 0; i < OPENING_LINES.length; i++) {
-    const lineEnd = pos + OPENING_LINES[i].length;
-    if (displayed.length <= lineEnd) return i;
-    pos = lineEnd + 1;
-  }
-  return OPENING_LINES.length - 1;
+  const lines = displayed.split('\n');
+  if (lines.length <= 1) return 0;
+  if (lines.length === 2) return 1;
+  return 2;
 }
 
 function delay(ms: number): Promise<void> {
@@ -229,9 +210,30 @@ function OpeningAiMessage({
     return () => window.clearTimeout(start);
   }, [typewriterActive, onTypewriterComplete]);
 
-  const parts = typewriterActive ? splitOpeningDisplayed(displayed) : [...OPENING_LINES];
+  const [greeting, headline, body] = typewriterActive
+    ? getOpeningLineParts(displayed)
+    : [OPENING_GREETING, OPENING_HEADLINE, OPENING_BODY];
   const showCursor = !!typewriterActive && displayed.length < INITIAL_AI_TEXT.length;
   const activeLine = getActiveOpeningLineIndex(displayed);
+
+  const rows: { key: string; text: string; className: string }[] = [
+    {
+      key: 'greeting',
+      text: greeting,
+      className: 'block text-[15px] sm:text-[16px] font-normal leading-[1.6]',
+    },
+    {
+      key: 'headline',
+      text: headline,
+      className:
+        'block text-[22px] sm:text-[26px] lg:text-[28px] font-bold leading-[1.25] mt-1.5 sm:mt-2',
+    },
+    {
+      key: 'body',
+      text: body,
+      className: 'block text-[15px] sm:text-[16px] font-normal leading-[1.6] mt-2',
+    },
+  ];
 
   return (
     <div className="flex items-start gap-3 chat-hero-message-enter mt-5 sm:mt-7">
@@ -239,23 +241,14 @@ function OpeningAiMessage({
       <img
         src={logoSrc}
         alt=""
-        className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 object-contain bg-transparent mt-0.5"
+        className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 object-contain bg-transparent mt-1"
       />
       <div className="flex-1 min-w-0 text-[var(--chat-hero-text)]">
-        {OPENING_LINES.map((lineKey, index) => {
-          const part = parts[index];
-          if (!part && !(showCursor && index === activeLine)) return null;
-          const isHeadline = index === 1;
+        {rows.map((row, index) => {
+          if (!row.text && !(showCursor && index === activeLine)) return null;
           return (
-            <p
-              key={lineKey}
-              className={
-                isHeadline
-                  ? 'text-[20px] sm:text-[22px] lg:text-[24px] font-semibold leading-[1.35] mt-1'
-                  : `text-[16px] leading-[1.6] ${index === 2 ? 'mt-1.5' : ''}`
-              }
-            >
-              {part}
+            <p key={row.key} className={row.className}>
+              {row.text}
               {showCursor && index === activeLine ? (
                 <span className="inline-block w-[2px] h-[1em] ml-0.5 bg-[var(--chat-hero-cursor)] animate-pulse align-middle" />
               ) : null}
@@ -429,6 +422,7 @@ export default function ChatHero() {
             text: INITIAL_AI_TEXT,
             animate: true,
             prominent: true,
+            isOpening: true,
           },
         ]);
       }, 900)
@@ -654,8 +648,7 @@ export default function ChatHero() {
             <div className="space-y-3 shrink-0">
               {blocks.map((block, index) => {
                 if (block.kind === 'ai') {
-                  const isOpeningPrompt = block.text === INITIAL_AI_TEXT;
-                  if (isOpeningPrompt) {
+                  if (block.isOpening) {
                     return (
                       <OpeningAiMessage
                         key={block.id}
