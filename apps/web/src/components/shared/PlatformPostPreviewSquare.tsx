@@ -32,7 +32,7 @@ export function PlatformPostPreviewSquare({ preview }: { preview: PlatformPostPr
       ) : (
         <div className={`${PORTRAIT_POST_ASPECT} w-full bg-neutral-50 dark:bg-neutral-900`} />
       )}
-      <p className="px-2 py-1.5 text-[9px] leading-snug text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap">
+      <p className="px-2 py-2 text-[11px] leading-snug text-neutral-700 dark:text-neutral-300 whitespace-pre-wrap sm:text-[12px]">
         {preview.caption}
       </p>
     </div>

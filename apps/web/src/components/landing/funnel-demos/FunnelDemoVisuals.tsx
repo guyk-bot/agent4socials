@@ -2,10 +2,10 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, FileText, Play, Users } from 'lucide-react';
-import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, XAxis, YAxis, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { CartesianGrid, ComposedChart, Line, ResponsiveContainer, XAxis, YAxis, PieChart, Pie, Cell } from 'recharts';
 import { YoutubeIcon } from '@/components/SocialPlatformIcons';
 
-import { BRAND_LIME_DOT, FUNNEL_ANALYTICS_KPIS, FUNNEL_DEMO_POST_VIDEO_SRC } from './funnel-demo-assets';
+import { BRAND_LIME_DOT, FUNNEL_ANALYTICS_KPIS, FUNNEL_DEMO_IG_WEEK_POSTS, FUNNEL_DEMO_POST_VIDEO_SRC } from './funnel-demo-assets';
 
 const BRAND = {
   primary: '#7C3AED',
@@ -91,8 +91,8 @@ export function DemoImage({
   );
 }
 
-/** Portrait frame: 3:4 for schedule demo attachments. */
-const USER_ATTACH_FRAME = 'ml-auto aspect-[3/4] w-full max-w-[72%]';
+/** Portrait frame: 3:4 for schedule demo attachments (slightly smaller in chat bubble). */
+const USER_ATTACH_FRAME = 'ml-auto aspect-[3/4] w-full max-w-[52%]';
 
 /** Thin border on the image only (not the purple chat bubble). */
 export function ChatAttachmentImage({
@@ -383,39 +383,123 @@ const IG_WEEKLY_LINE = [
   { day: 'Sun', followers: 14_847, views: 1872, engagement: 98 },
 ];
 
-const IG_POSTS_LAST_WEEK = [
-  { day: 'Mon', posts: 1 },
-  { day: 'Tue', posts: 0 },
-  { day: 'Wed', posts: 2 },
-  { day: 'Thu', posts: 1 },
-  { day: 'Fri', posts: 1 },
-  { day: 'Sat', posts: 2 },
-  { day: 'Sun', posts: 1 },
-];
-
 const IG_FORMAT_MIX = [
   { name: 'Reels', value: 42, color: '#7C3AED' },
   { name: 'Images', value: 35, color: '#2563eb' },
   { name: 'Carousels', value: 23, color: '#059669' },
 ];
 
-const IG_ANALYTICS_KPIS = {
-  followers: 14_847,
-  followersGain: 135,
-  views: 18_432,
-  engagement: 937,
-};
+const IG_WEEK_BY_DAY = [
+  { day: 'Mon', posts: 1, postIndices: [0] as number[] },
+  { day: 'Tue', posts: 0, postIndices: [] as number[] },
+  { day: 'Wed', posts: 2, postIndices: [1, 2] as number[] },
+  { day: 'Thu', posts: 1, postIndices: [3] as number[] },
+  { day: 'Fri', posts: 1, postIndices: [4] as number[] },
+  { day: 'Sat', posts: 2, postIndices: [5, 6] as number[] },
+  { day: 'Sun', posts: 0, postIndices: [] as number[] },
+];
 
-/** Instagram weekly analytics with hover line chart, posts bar chart, format pie, best post. */
+function IgPostsHoverPopup({
+  day,
+  postIndices,
+  style,
+}: {
+  day: string;
+  postIndices: number[];
+  style?: React.CSSProperties;
+}) {
+  if (!postIndices.length) return null;
+  return (
+    <div
+      className="funnel-demo-ig-post-popup absolute z-30 rounded-xl border border-neutral-200 bg-white p-2.5 shadow-xl dark:border-neutral-700 dark:bg-neutral-950"
+      style={style}
+    >
+      <p className="mb-2 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">{day} · {postIndices.length} post{postIndices.length > 1 ? 's' : ''}</p>
+      <div className="flex gap-2">
+        {postIndices.map((idx) => {
+          const post = FUNNEL_DEMO_IG_WEEK_POSTS[idx];
+          return (
+            <div key={idx} className="w-[84px] shrink-0">
+              <div className="aspect-[3/4] overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={post.src} alt={post.label} className="h-full w-full object-cover" draggable={false} />
+              </div>
+              <p className="mt-1 text-[9px] font-medium text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">
+                {post.label}
+              </p>
+              <p className="text-[8px] text-neutral-500">{post.views} views · {post.likes} likes</p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function IgPostsWeekBarChart({
+  activeDay,
+  onActiveDayChange,
+}: {
+  activeDay: string | null;
+  onActiveDayChange: (day: string | null) => void;
+}) {
+  const maxPosts = Math.max(...IG_WEEK_BY_DAY.map((d) => d.posts), 1);
+
+  return (
+    <div className="relative h-[52px] w-full">
+      <div className="flex h-full items-end justify-between gap-1 px-0.5">
+        {IG_WEEK_BY_DAY.map((row) => {
+          const heightPct = row.posts === 0 ? 8 : Math.max(18, (row.posts / maxPosts) * 100);
+          const isActive = activeDay === row.day;
+          return (
+            <div
+              key={row.day}
+              className="relative flex flex-1 flex-col items-center justify-end h-full"
+              onMouseEnter={() => onActiveDayChange(row.posts > 0 ? row.day : null)}
+              onMouseLeave={() => onActiveDayChange(null)}
+            >
+              {isActive && row.postIndices.length > 0 ? (
+                <IgPostsHoverPopup
+                  day={row.day}
+                  postIndices={row.postIndices}
+                  style={{
+                    bottom: `calc(${heightPct}% + 6px)`,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                  }}
+                />
+              ) : null}
+              <div
+                className={`w-full max-w-[22px] rounded-t-sm transition-colors ${
+                  isActive ? 'bg-[#6D28D9]' : row.posts > 0 ? 'bg-[#7C3AED]' : 'bg-neutral-200 dark:bg-neutral-700'
+                }`}
+                style={{ height: `${heightPct}%` }}
+              />
+              <span className="mt-0.5 text-[7px] text-neutral-500">{row.day}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** Instagram weekly analytics with hover post popups, week strip, and KPIs. */
 export function InstagramWeeklyAnalyticsPanel() {
-  const [hovered, setHovered] = useState(false);
-  const { followers, followersGain, views, engagement } = IG_ANALYTICS_KPIS;
+  const [chartHovered, setChartHovered] = useState(false);
+  const [activeDay, setActiveDay] = useState<string | null>(null);
+  const [activeLineDay, setActiveLineDay] = useState<string | null>(null);
+  const { followers, followersGain, views, engagement } = FUNNEL_ANALYTICS_KPIS;
+
+  const lineDayPosts = IG_WEEK_BY_DAY.find((d) => d.day === activeLineDay);
 
   return (
     <div
-      className="rounded-2xl border border-neutral-100 bg-white dark:bg-neutral-900 dark:border-neutral-800 shadow-md overflow-hidden"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      className="funnel-demo-analytics-panel rounded-2xl border border-neutral-100 bg-white dark:bg-neutral-900 dark:border-neutral-800 shadow-md overflow-visible"
+      onMouseLeave={() => {
+        setActiveDay(null);
+        setActiveLineDay(null);
+      }}
     >
       <div className="grid grid-cols-3 gap-1.5 p-2 border-b border-neutral-100 dark:border-neutral-800">
         <MiniKpiCard label="Followers" value={formatKpiNumber(followers)} trend={`+${followersGain}`} tint="violet" />
@@ -423,17 +507,29 @@ export function InstagramWeeklyAnalyticsPanel() {
         <MiniKpiCard label="Engagement" value={formatKpiNumber(engagement)} tint="emerald" />
       </div>
 
-      <div className="px-2 py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+      <div
+        className="relative px-2 py-1.5 border-b border-neutral-100 dark:border-neutral-800"
+        onMouseEnter={() => setChartHovered(true)}
+        onMouseLeave={() => setActiveLineDay(null)}
+      >
         <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
-          Weekly trend {hovered ? '' : '(hover to see lines)'}
+          Weekly trend {chartHovered ? '' : '(hover for lines + posts)'}
         </p>
-        <div className="h-[72px] w-full">
+        <div className="relative h-[72px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={IG_WEEKLY_LINE} margin={{ top: 4, right: 2, left: -16, bottom: 0 }}>
+            <ComposedChart
+              data={IG_WEEKLY_LINE}
+              margin={{ top: 4, right: 2, left: -16, bottom: 0 }}
+              onMouseMove={(state) => {
+                const label = state?.activeLabel;
+                setActiveLineDay(typeof label === 'string' ? label : null);
+              }}
+              onMouseLeave={() => setActiveLineDay(null)}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke={BRAND.grid} vertical={false} />
               <XAxis dataKey="day" tick={{ fontSize: 8, fill: '#737373' }} axisLine={false} tickLine={false} />
               <YAxis hide domain={['dataMin - 20', 'dataMax + 20']} />
-              {hovered ? (
+              {chartHovered ? (
                 <>
                   <Line
                     type="monotone"
@@ -466,34 +562,20 @@ export function InstagramWeeklyAnalyticsPanel() {
               )}
             </ComposedChart>
           </ResponsiveContainer>
+          {activeLineDay && lineDayPosts && lineDayPosts.postIndices.length > 0 ? (
+            <div className="pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2">
+              <IgPostsHoverPopup day={activeLineDay} postIndices={lineDayPosts.postIndices.slice(0, 2)} />
+            </div>
+          ) : null}
         </div>
-        {hovered ? (
-          <div className="mt-0.5 flex flex-wrap gap-2 text-[8px] text-neutral-500">
-            <span className="inline-flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#7C3AED]" /> Followers
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-600" /> Views
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" /> Engagement
-            </span>
-          </div>
-        ) : null}
       </div>
 
       <div className="grid grid-cols-2 gap-2 p-2 border-b border-neutral-100 dark:border-neutral-800">
-        <div>
-          <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">Posts last 7 days</p>
-          <div className="h-[52px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={IG_POSTS_LAST_WEEK} margin={{ top: 2, right: 0, left: -22, bottom: 0 }}>
-                <XAxis dataKey="day" tick={{ fontSize: 7, fill: '#737373' }} axisLine={false} tickLine={false} />
-                <YAxis hide allowDecimals={false} />
-                <Bar dataKey="posts" fill={BRAND.primary} radius={[2, 2, 0, 0]} isAnimationActive={false} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+        <div className="relative overflow-visible">
+          <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">
+            Posts last 7 days (hover bars)
+          </p>
+          <IgPostsWeekBarChart activeDay={activeDay} onActiveDayChange={setActiveDay} />
         </div>
         <div>
           <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">Post formats</p>
@@ -529,6 +611,28 @@ export function InstagramWeeklyAnalyticsPanel() {
         </div>
       </div>
 
+      <div className="p-2 border-b border-neutral-100 dark:border-neutral-800">
+        <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">Published this week</p>
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5 funnel-demo-scene-scroll">
+          {FUNNEL_DEMO_IG_WEEK_POSTS.map((post, i) => (
+            <div key={post.src} className="group relative w-[56px] shrink-0">
+              <div className="aspect-[3/4] overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={post.src} alt={post.label} className="h-full w-full object-cover" draggable={false} />
+              </div>
+              <div className="funnel-demo-ig-post-popup funnel-demo-ig-post-popup--animate pointer-events-none absolute bottom-full left-1/2 z-30 mb-1 hidden w-[96px] -translate-x-1/2 rounded-lg border border-neutral-200 bg-white p-2 shadow-lg group-hover:block dark:border-neutral-700 dark:bg-neutral-950">
+                <div className="aspect-[3/4] overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700 mb-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={post.src} alt={post.label} className="h-full w-full object-cover" draggable={false} />
+                </div>
+                <p className="text-[9px] font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">{post.label}</p>
+                <p className="mt-0.5 text-[8px] text-neutral-500">{post.views} views · {post.likes} likes</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="p-2">
         <p className="text-[9px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1">Best post this week</p>
         <div className="flex gap-2">
@@ -544,9 +648,9 @@ export function InstagramWeeklyAnalyticsPanel() {
           <div className="min-w-0 flex-1">
             <p className="text-[9px] font-semibold text-neutral-900 dark:text-neutral-100">Precision line at sunrise</p>
             <p className="mt-0.5 text-[8px] leading-snug text-neutral-600 dark:text-neutral-400">
-              4.2K likes · 318 comments · 89K views. Your parkour Reel outperformed carousels by 2.1x.
+              4.2K likes · 318 comments · 89K views. Your parkour post outperformed carousels by 2.1x.
             </p>
-            <p className="mt-1 text-[8px] text-neutral-500">Photo post · no audio</p>
+            <p className="mt-1 text-[8px] text-neutral-500">Photo · no audio</p>
           </div>
         </div>
       </div>

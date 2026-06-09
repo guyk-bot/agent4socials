@@ -300,6 +300,22 @@
 .funnel-demo-card--static .funnel-demo-scene-scroll {
   scrollbar-width: thin;
 }
+.funnel-demo-card--static .funnel-demo-analytics-panel {
+  overflow: visible;
+}
+.funnel-demo-ig-post-popup.funnel-demo-ig-post-popup--animate {
+  animation: funnel-demo-popup-in 160ms ease-out both;
+}
+@keyframes funnel-demo-popup-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
 .funnel-demo-attach-drop {
   animation: funnel-demo-attach-drop 320ms ease-out both;
 }

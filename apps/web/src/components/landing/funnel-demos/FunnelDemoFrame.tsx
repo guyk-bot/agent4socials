@@ -99,9 +99,9 @@ export function FunnelDemoAssistantBubble({
       <div
         className={`${wide ? 'max-w-[98%]' : 'max-w-[96%]'} min-w-0 rounded-2xl rounded-bl-md leading-snug aysop-bubble-assistant shadow-sm ${
           visual ? 'p-2 text-[12px] sm:text-[13px]' : 'px-3 py-2.5 text-[13px] sm:text-[14px]'
-        } ${contained ? 'max-h-[min(100%,240px)] overflow-hidden flex flex-col' : ''}`}
+        } ${contained ? 'max-h-[min(100%,240px)] overflow-hidden flex flex-col min-h-0' : ''}`}
       >
-        <div className={contained ? 'min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain' : undefined}>
+        <div className={contained ? 'min-h-0 flex-1 flex flex-col overflow-hidden' : undefined}>
           {children}
         </div>
       </div>

@@ -9,8 +9,8 @@ import { FUNNEL_DEMO_SCENE_COMPONENTS } from './FunnelDemoScenes';
 /** Time each side demo stays visible before advancing the carousel. */
 export const FUNNEL_DEMO_MS = 5000;
 
-const LEFT_DEMO_INDICES = [0, 2, 4, 6] as const;
-const RIGHT_DEMO_INDICES = [1, 3, 5, 7] as const;
+const LEFT_DEMO_INDICES = [0, 3, 4, 6] as const;
+const RIGHT_DEMO_INDICES = [2, 1, 5, 7] as const;
 
 const SLIDE_MS = 700;
 
