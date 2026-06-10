@@ -36,6 +36,7 @@ import {
   funnelBrandContextAddMoreMessage,
   funnelBrandContextIntro,
   funnelBrandContextManualPrompt,
+  funnelBrandContextThinkingMessage,
   funnelConnectedSuccessMessage,
   funnelExperienceChoiceMessage,
   funnelMultiPlatformSignupMessage,
@@ -47,6 +48,8 @@ import {
   type FunnelFlowStep,
 } from '@/lib/funnel-chat-flow';
 import type { BrandContextRecord } from '@/lib/brand-context-utils';
+import { writeHashtagPool } from '@/lib/hashtag-pool';
+import { preloadImageUrl } from '@/lib/funnel/preload-image';
 import {
   clearFunnelOAuthPending,
   ensureFunnelSession,
@@ -204,8 +207,16 @@ function FunnelAiMessageAvatar({ className }: { className?: string }) {
 
 function TypingIndicator() {
   return (
-    <div className="flex items-start gap-3 chat-hero-message-enter" aria-label="Thinking">
-      <FunnelAiMessageAvatar className={`${FUNNEL_AI_AVATAR_BOX} mt-0.5`} />
+    <div className={`flex items-start gap-3 chat-hero-message-enter ${FUNNEL_AI_CONTENT_INDENT}`} aria-label="Thinking">
+      <div className="flex items-center gap-1.5 rounded-2xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-surface)] px-4 py-3">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="h-2 w-2 rounded-full bg-[var(--chat-hero-muted)] animate-bounce"
+            style={{ animationDelay: `${i * 160}ms` }}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -407,6 +418,7 @@ export default function ChatHero() {
   const [connectedUsername, setConnectedUsername] = useState<string | null>(null);
   const [connectedProfilePicture, setConnectedProfilePicture] = useState<string | null>(null);
   const [brandContextManual, setBrandContextManual] = useState(false);
+  const [hashtagPoolDraft, setHashtagPoolDraft] = useState('');
   const [brandDraft, setBrandDraft] = useState<BrandContextRecord>(() => readFunnelBrandDraft() ?? {});
   const [typewriterDone, setTypewriterDone] = useState(true);
 
@@ -556,18 +568,14 @@ export default function ChatHero() {
           text: funnelConnectedSuccessMessage(label, displayUser),
         },
         {
-          id: blockId('connected'),
-          kind: 'connected_account',
-          platformId,
-          username: displayUser,
-          profilePicture: profilePicture ?? null,
+          id: blockId('ai'),
+          kind: 'ai',
+          text: funnelBrandContextThinkingMessage(),
         },
       ]);
-      setIsTyping(false);
-      scrollToLatest();
-
       setIsTyping(true);
       scrollToLatest();
+
       const snapshot = await fetchFunnelBrandDraft(accountId);
       const draft = snapshot?.draft ?? defaultBrandContextDraft(label, displayUser);
       const resolvedUsername = snapshot?.username ?? displayUser;
@@ -577,27 +585,34 @@ export default function ChatHero() {
           ? funnelBrandContextManualPrompt()
           : funnelBrandContextIntro();
 
+      let readyPicture: string | null = null;
+      if (resolvedPicture?.trim()) {
+        const loaded = await preloadImageUrl(resolvedPicture);
+        if (loaded) readyPicture = resolvedPicture;
+      }
+
       if (snapshot) {
         setConnectedUsername(resolvedUsername);
-        setConnectedProfilePicture(resolvedPicture);
-        setBlocks((prev) =>
-          prev.map((b) =>
-            b.kind === 'connected_account'
-              ? {
-                  ...b,
-                  username: resolvedUsername,
-                  profilePicture: resolvedPicture,
-                }
-              : b
-          )
-        );
+        setConnectedProfilePicture(readyPicture);
       }
       setBrandDraft(draft);
       setBrandContextManual(snapshot?.brandContextSource === 'manual');
+      setHashtagPoolDraft((snapshot?.hashtagPool ?? []).join(' '));
       persistFunnelBrandDraft(draft);
 
-      await delay(500);
       setIsTyping(false);
+      appendBlocks([
+        {
+          id: blockId('connected'),
+          kind: 'connected_account',
+          platformId,
+          username: resolvedUsername,
+          profilePicture: readyPicture,
+        },
+      ]);
+      scrollToLatest();
+
+      await delay(400);
       setShowBrandContext(true);
       appendBlocks([
         { id: blockId('ai'), kind: 'ai', text: brandIntro },
@@ -1163,8 +1178,16 @@ export default function ChatHero() {
                         draft={brandDraft}
                         onChange={setBrandDraft}
                         manualMode={brandContextManual}
+                        hashtagPool={hashtagPoolDraft}
+                        onHashtagPoolChange={setHashtagPoolDraft}
                         onSave={() => {
                           persistFunnelBrandDraft(brandDraft);
+                          const tags = hashtagPoolDraft
+                            .split(/[\s,]+/)
+                            .map((t) => t.trim())
+                            .filter(Boolean)
+                            .map((t) => (t.startsWith('#') ? t : `#${t}`));
+                          if (tags.length > 0) writeHashtagPool(tags);
                           setFunnelStep('free_chat');
                           appendBlocks([
                             {

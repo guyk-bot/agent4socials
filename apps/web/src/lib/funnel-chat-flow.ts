@@ -39,12 +39,16 @@ export function funnelExperienceChoiceMessage(): string {
   return 'For the best experience you can continue in the web app, or keep chatting here on the landing page.';
 }
 
+export function funnelBrandContextThinkingMessage(): string {
+  return 'Reviewing your profile and recent posts…';
+}
+
 export function funnelBrandContextIntro(): string {
-  return 'I pulled details from your profile, recent posts, and replies to draft your brand context below. Edit anything, add anything I missed, then tap Save.';
+  return 'Here is a first draft of your brand context from your profile and posts. Edit anything, add what is missing, then tap Save.';
 }
 
 export function funnelBrandContextManualPrompt(): string {
-  return 'I could not pull enough from your profile yet. Can you share details about your offer, target audience, and tone of voice? I will do my best to learn your brand and help you create content. Fill in the fields below or tell me in the chat.';
+  return 'I could not infer enough from your profile yet. Can you share details about your offer, target audience, and tone of voice? I will do my best to learn your brand and help you create content. Fill in the fields below or tell me in the chat.';
 }
 
 export function emptyBrandContextDraft(): BrandContextRecord {
@@ -54,6 +58,8 @@ export function emptyBrandContextDraft(): BrandContextRecord {
     toneOfVoice: '',
     toneExamples: '',
     additionalContext: '',
+    inboxReplyExamples: '',
+    commentReplyExamples: '',
   };
 }
 
