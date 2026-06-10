@@ -9,8 +9,8 @@ import { FUNNEL_DEMO_SCENE_COMPONENTS } from './FunnelDemoScenes';
 /** Time each side demo stays visible before advancing the carousel. */
 export const FUNNEL_DEMO_MS = 5000;
 
-/** All funnel feature demos in one left-side carousel (formerly split left + right). */
-const ALL_DEMO_INDICES = [0, 1, 2, 3, 4, 5, 6, 7] as const;
+const LEFT_DEMO_INDICES = [0, 3, 4, 6] as const;
+const RIGHT_DEMO_INDICES = [2, 1, 5, 7] as const;
 
 const SLIDE_MS = 700;
 
@@ -28,6 +28,7 @@ function StaticDemoCard({ sceneIndex }: { sceneIndex: number }) {
 }
 
 function slideClasses(
+  side: 'left' | 'right',
   role: 'active' | 'exit' | 'hidden',
   direction: SlideDirection
 ): string {
@@ -35,18 +36,28 @@ function slideClasses(
   if (role === 'active') return `${base} translate-x-0 opacity-100 z-20`;
 
   if (role === 'exit') {
+    if (side === 'left') {
+      return direction === 'forward'
+        ? `${base} translate-x-full opacity-0 z-10 pointer-events-none`
+        : `${base} -translate-x-full opacity-0 z-10 pointer-events-none`;
+    }
     return direction === 'forward'
-      ? `${base} translate-x-full opacity-0 z-10 pointer-events-none`
-      : `${base} -translate-x-full opacity-0 z-10 pointer-events-none`;
+      ? `${base} -translate-x-full opacity-0 z-10 pointer-events-none`
+      : `${base} translate-x-full opacity-0 z-10 pointer-events-none`;
   }
 
+  if (side === 'left') {
+    return direction === 'forward'
+      ? `${base} -translate-x-full opacity-0 z-0 pointer-events-none`
+      : `${base} translate-x-full opacity-0 z-0 pointer-events-none`;
+  }
   return direction === 'forward'
-    ? `${base} -translate-x-full opacity-0 z-0 pointer-events-none`
-    : `${base} translate-x-full opacity-0 z-0 pointer-events-none`;
+    ? `${base} translate-x-full opacity-0 z-0 pointer-events-none`
+    : `${base} -translate-x-full opacity-0 z-0 pointer-events-none`;
 }
 
-function SideDemoCarouselColumn() {
-  const indices = ALL_DEMO_INDICES;
+function SideDemoCarouselColumn({ side }: { side: 'left' | 'right' }) {
+  const indices = side === 'left' ? LEFT_DEMO_INDICES : RIGHT_DEMO_INDICES;
   const [activeSlot, setActiveSlot] = useState(0);
   const [prevSlot, setPrevSlot] = useState<number | null>(null);
   const [direction, setDirection] = useState<SlideDirection>('forward');
@@ -94,7 +105,11 @@ function SideDemoCarouselColumn() {
           const isExit = prevSlot !== null && i === prevSlot && !isActive;
           const role = isActive ? 'active' : isExit ? 'exit' : 'hidden';
           return (
-            <div key={sceneIndex} className={slideClasses(role, direction)} aria-hidden={!isActive && !isExit}>
+            <div
+              key={sceneIndex}
+              className={slideClasses(side, role, direction)}
+              aria-hidden={!isActive && !isExit}
+            >
               <StaticDemoCard sceneIndex={sceneIndex} />
             </div>
           );
@@ -118,7 +133,7 @@ function SideDemoCarouselColumn() {
         </button>
       </div>
 
-      <div className="mt-1 flex shrink-0 flex-wrap items-center justify-center gap-1.5 px-2">
+      <div className="mt-1 flex shrink-0 items-center justify-center gap-1.5 px-2">
         {indices.map((sceneIndex, i) => (
           <button
             key={sceneIndex}
@@ -149,16 +164,25 @@ export function ChatHeroDemoLoopProvider({
   return <>{children}</>;
 }
 
-export function ChatHeroSideDemoColumn({ visible = true }: { visible?: boolean }) {
+export function ChatHeroSideDemoColumn({
+  side,
+  visible = true,
+}: {
+  side: 'left' | 'right';
+  visible?: boolean;
+}) {
   if (!visible) {
     return (
-      <div className="hidden xl:block h-full min-h-0 w-[var(--funnel-side-w,538px)] shrink-0 2xl:w-[var(--funnel-side-w-2xl,600px)]" aria-hidden />
+      <div
+        className="hidden xl:block h-full min-h-0 w-[var(--funnel-side-w,538px)] shrink-0 2xl:w-[var(--funnel-side-w-2xl,600px)]"
+        aria-hidden
+      />
     );
   }
 
   return (
     <div className="hidden xl:flex h-full min-h-0 w-[var(--funnel-side-w,538px)] shrink-0 flex-col 2xl:w-[var(--funnel-side-w-2xl,600px)]">
-      <SideDemoCarouselColumn />
+      <SideDemoCarouselColumn side={side} />
     </div>
   );
 }
