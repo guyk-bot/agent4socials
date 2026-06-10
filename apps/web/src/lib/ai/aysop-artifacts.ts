@@ -96,6 +96,8 @@ export type AysopArtifact =
       type: 'leads';
       scanned: number;
       href: string;
+      scannedAt?: string | null;
+      accountId?: string | null;
       leads: Array<{
         authorName: string;
         profileUrl: string | null;
@@ -103,6 +105,22 @@ export type AysopArtifact =
         comment: string;
         outreach: string;
         intent: 'high' | 'medium';
+      }>;
+      /** Full rows for Leads page sync (not shown in chat UI). */
+      fullLeads?: Array<{
+        commentId: string;
+        accountId: string;
+        platform: string;
+        authorName: string;
+        profileUrl: string | null;
+        authorPictureUrl: string | null;
+        comment: string;
+        postPreview: string;
+        postUrl: string | null;
+        createdAt: string;
+        intent: 'high' | 'medium';
+        reason: string;
+        outreach: string;
       }>;
     }
   | { type: 'support_options'; href: string }

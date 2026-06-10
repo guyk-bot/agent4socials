@@ -1,6 +1,7 @@
 import { MetadataRoute } from "next";
+import { resolveAppBaseUrl } from "@/lib/app-base-url";
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://agent4socials.com";
+const baseUrl = resolveAppBaseUrl();
 
 export default function robots(): MetadataRoute.Robots {
   return {

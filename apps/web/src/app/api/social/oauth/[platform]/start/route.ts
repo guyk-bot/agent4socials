@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveAppBaseUrl } from '@/lib/app-base-url';
 import {
   getPrismaUserIdFromRequest,
   getSupabaseUserIdFromAuthHeader,
   OAUTH_STATE_SUPABASE_PREFIX,
 } from '@/lib/get-prisma-user';
+import { FUNNEL_SESSION_COOKIE, resolveFunnelGuestUserId } from '@/lib/funnel-guest';
 import { databaseUrlLooksDirect, isPrismaPoolError, prisma } from '@/lib/db';
 import { getTwitterOAuth1 } from '@/lib/twitter-oauth1';
 import axios from 'axios';
@@ -38,7 +40,7 @@ function getOAuthUrl(
   step?: string,
   options?: { threadsSwitchAccount?: boolean }
 ): string {
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+  const baseUrl = resolveAppBaseUrl();
   const callbackUrl = `${baseUrl}/api/social/oauth/${platform.toLowerCase()}/callback`;
   const state =
     platform === 'INSTAGRAM' && method === 'instagram'
@@ -184,8 +186,20 @@ export async function GET(
     const step = request.nextUrl.searchParams.get('step') ?? undefined;
 
     const authHeader = request.headers.get('authorization');
+    const funnelMode = request.nextUrl.searchParams.get('funnel') === '1';
+    const funnelToken =
+      request.headers.get('x-funnel-session')?.trim() ||
+      request.cookies.get(FUNNEL_SESSION_COOKIE)?.value?.trim() ||
+      null;
+
     let oauthStateKey: string;
-    if (plat === 'THREADS') {
+    if (funnelMode) {
+      const guestUserId = await resolveFunnelGuestUserId(funnelToken);
+      if (!guestUserId) {
+        return NextResponse.json({ message: 'Invalid or expired funnel session. Refresh and try again.' }, { status: 401 });
+      }
+      oauthStateKey = guestUserId;
+    } else if (plat === 'THREADS') {
       const supabaseUserId = await getSupabaseUserIdFromAuthHeader(authHeader);
       if (!supabaseUserId) {
         return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
@@ -240,10 +254,7 @@ export async function GET(
             expiresAt: new Date(Date.now() + 15 * 60 * 1000),
           },
         });
-        const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(
-          /\/+$/,
-          ''
-        );
+        const baseUrl = resolveAppBaseUrl();
         const url = buildTwitterOAuth2AuthorizeUrl({
           userId: oauthStateKey,
           codeChallenge: challenge,
@@ -257,7 +268,7 @@ export async function GET(
         });
       } else if (apiKey && apiSecret) {
         // Fallback: OAuth 1.0a when only API Key/Secret are set.
-        const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+        const baseUrl = resolveAppBaseUrl();
         const callbackUrl = `${baseUrl}/api/social/oauth/twitter-1oa/callback`;
         const oauth = getTwitterOAuth1();
         if (!oauth) return NextResponse.json({ message: 'Twitter OAuth 1.0a not configured' }, { status: 503 });

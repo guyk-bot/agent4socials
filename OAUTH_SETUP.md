@@ -2,7 +2,7 @@
 
 To allow users to connect their social accounts, you need to create "Apps" on each platform's developer portal.
 
-**Base URL:** `https://agent4socials.com` (OAuth runs on the web app.)
+**Base URL:** `https://www.izop.io` (OAuth runs on the web app. `izop.io` redirects to `www` in Vercel.)
 
 **Can I connect my personal TikTok and YouTube without the app being approved?**  
 Yes. **YouTube:** Keep the OAuth consent screen in **Testing** and add your Google account as a **Test user** (OAuth consent screen → Test users). Only test users can connect; no verification or publishing needed. **TikTok:** Use **Sandbox** mode for your app and add your TikTok account as a sandbox tester; you can connect and test without full app review.
@@ -11,14 +11,14 @@ Yes. **YouTube:** Keep the OAuth consent screen in **Testing** and add your Goog
 
 | Platform  | Redirect URI |
 |-----------|----------------|
-| Instagram | `https://agent4socials.com/api/social/oauth/instagram/callback` |
-| Facebook  | `https://agent4socials.com/api/social/oauth/facebook/callback` |
-| YouTube   | `https://agent4socials.com/api/social/oauth/youtube/callback` |
-| TikTok    | `https://agent4socials.com/api/social/oauth/tiktok/callback` |
-| Twitter   | `https://agent4socials.com/api/social/oauth/twitter/callback` |
-| LinkedIn  | `https://agent4socials.com/api/social/oauth/linkedin/callback` |
-| Threads   | `https://agent4socials.com/api/social/oauth/threads/callback` |
-| Bluesky   | `https://agent4socials.com/api/social/oauth/bluesky/callback` |
+| Instagram | `https://www.izop.io/api/social/oauth/instagram/callback` |
+| Facebook  | `https://www.izop.io/api/social/oauth/facebook/callback` |
+| YouTube   | `https://www.izop.io/api/social/oauth/youtube/callback` |
+| TikTok    | `https://www.izop.io/api/social/oauth/tiktok/callback` |
+| Twitter   | `https://www.izop.io/api/social/oauth/twitter/callback` |
+| LinkedIn  | `https://www.izop.io/api/social/oauth/linkedin/callback` |
+| Threads   | `https://www.izop.io/api/social/oauth/threads/callback` |
+| Bluesky   | `https://www.izop.io/api/social/oauth/bluesky/callback` |
 
 **If you see "URL Blocked" or "redirect_uri_mismatch":** Add the exact URI from the table above to your app’s **Valid OAuth Redirect URIs** / **Authorized redirect URIs** in that platform’s developer console. No trailing slash; protocol and path must match exactly.
 
@@ -53,21 +53,21 @@ Full steps to create the bucket and token: **SETUP.md**, Step 3 (Object Storage 
 5. Go to **Credentials** -> **Create Credentials** -> **OAuth client ID**.
    - Application type: **Web application**.
    - Name: "Agent4Socials Web".
-   - **Authorized redirect URIs**: Add `https://agent4socials.com/api/social/oauth/youtube/callback` (no trailing slash). If you test locally, also add `http://localhost:3000/api/social/oauth/youtube/callback` (use your dev port).
+   - **Authorized redirect URIs**: Add `https://www.izop.io/api/social/oauth/youtube/callback` (no trailing slash). If you test locally, also add `http://localhost:3000/api/social/oauth/youtube/callback` (use your dev port).
    - Click **Create**.
 6. **Copy these values:** (use as `YOUTUBE_CLIENT_ID` / `YOUTUBE_CLIENT_SECRET` in the web app env)
    - Client ID
    - Client secret
 
-**If you get "Error 400: redirect_uri_mismatch":** The redirect URI the app sends must match Google exactly. In **Vercel** (or your host) set **YOUTUBE_REDIRECT_URI** = `https://agent4socials.com/api/social/oauth/youtube/callback` (no trailing slash). Ensure this exact URL is in Google Cloud **Authorized redirect URIs**. Then redeploy. If your site is on a different domain (e.g. a Vercel preview URL), add that full callback URL in Google and set `YOUTUBE_REDIRECT_URI` to that same URL.
+**If you get "Error 400: redirect_uri_mismatch":** The redirect URI the app sends must match Google exactly. In **Vercel** (or your host) set **YOUTUBE_REDIRECT_URI** = `https://www.izop.io/api/social/oauth/youtube/callback` (no trailing slash). Ensure this exact URL is in Google Cloud **Authorized redirect URIs**. Then redeploy. If your site is on a different domain (e.g. a Vercel preview URL), add that full callback URL in Google and set `YOUTUBE_REDIRECT_URI` to that same URL.
 
 **Google verification re-submission (redirect_uri_mismatch in demo video):** If Google rejected your verification because the demo showed "Error 400: redirect_uri_mismatch", do the following before recording a new demo:
 
 1. **Fix the redirect URI (single source of truth):**
    - In **Google Cloud Console** → **APIs & Services** → **Credentials** → your OAuth 2.0 Client ID → **Authorized redirect URIs**, add exactly (no trailing slash):  
-     `https://agent4socials.com/api/social/oauth/youtube/callback`  
+     `https://www.izop.io/api/social/oauth/youtube/callback`  
      If your app is served from a different domain (e.g. `https://www.agent4socials.com`), use that origin instead and add that full callback URL in Google.
-   - In **Vercel** (or your host), set **YOUTUBE_REDIRECT_URI** to that **exact same** URL (e.g. `https://agent4socials.com/api/social/oauth/youtube/callback`). Set **NEXT_PUBLIC_APP_URL** to the same origin (e.g. `https://agent4socials.com`) so the OAuth start flow uses the same base URL.
+   - In **Vercel** (or your host), set **YOUTUBE_REDIRECT_URI** to that **exact same** URL (e.g. `https://www.izop.io/api/social/oauth/youtube/callback`). Set **NEXT_PUBLIC_APP_URL** to the same origin (e.g. `https://www.izop.io`) so the OAuth start flow uses the same base URL.
    - Redeploy the web app, then test the YouTube connect flow once in production to confirm no redirect_uri_mismatch.
 
 2. **Record the new demo video** on the **same environment** (same domain) you fixed. The video must show:
@@ -98,12 +98,12 @@ Full steps to create the bucket and token: **SETUP.md**, Step 3 (Object Storage 
    - Turn on **Client OAuth Login** and **Web OAuth Login**.
    - Toggle **"Enforce HTTPS"** to Yes.
    - **Valid OAuth Redirect URIs**: Add **both** (one per line; use **agent4socials.com**, not api.agent4socials.com):
-     - `https://agent4socials.com/api/social/oauth/instagram/callback`
-     - `https://agent4socials.com/api/social/oauth/facebook/callback`
+     - `https://www.izop.io/api/social/oauth/instagram/callback`
+     - `https://www.izop.io/api/social/oauth/facebook/callback`
    - Add **agent4socials.com** to **App Domains** if required.
    - Click **Save Changes**.
 
-**If you see "URL Blocked" for Facebook:** The redirect URI must be exactly `https://agent4socials.com/api/social/oauth/facebook/callback` (no trailing slash). If your app is sending a different URL (e.g. `https://api.agent4socials.com/...`), in Vercel set **FACEBOOK_REDIRECT_URI** = `https://agent4socials.com/api/social/oauth/facebook/callback` for Production, then redeploy. Also ensure **NEXT_PUBLIC_APP_URL** (and **NEXT_PUBLIC_SITE_URL** if used) is `https://agent4socials.com`, not `https://api.agent4socials.com`.
+**If you see "URL Blocked" for Facebook:** The redirect URI must be exactly `https://www.izop.io/api/social/oauth/facebook/callback` (no trailing slash). If your app is sending a different URL (e.g. `https://api.agent4socials.com/...`), in Vercel set **FACEBOOK_REDIRECT_URI** = `https://www.izop.io/api/social/oauth/facebook/callback` for Production, then redeploy. Also ensure **NEXT_PUBLIC_APP_URL** (and **NEXT_PUBLIC_SITE_URL** if used) is `https://www.izop.io`, not `https://api.agent4socials.com`.
 
 **Can I upload/post with the current Meta scopes?**  
 - **Instagram:** Yes. The app requests **instagram_content_publish** when you connect (via “Connect with Facebook” and choose a Page with a linked Instagram). In **Development** mode, you and any test users can connect and post without app review. For **Live** mode, submit the **instagram_content_publish** permission (and any others you use) for App Review so all users can post.  
@@ -143,7 +143,7 @@ Full steps to create the bucket and token: **SETUP.md**, Step 3 (Object Storage 
 
 **Insights (views, reach, profile views):** The app requests `instagram_manage_insights` when connecting Instagram via Facebook . For Facebook the app requests **read_insights** (add it in Meta app → App Review if you see Invalid Scopes). The dashboard shows full metrics (impressions, reach, profile views for Instagram; page impressions, page views, reach for Facebook). Ensure these permissions are added to your Meta app under Use cases → Permissions and features (see “Invalid Scopes: instagram_manage_insights” if you see that error). For Instagram-only login, `instagram_business_manage_insights` is also requested. After connecting, users may need to disconnect and reconnect once to grant the new scopes.
 
-**Vercel / env vars for Inbox (when you implement webhooks):** To receive real-time message events from Meta (Instagram/Facebook), you will need to add a webhook endpoint and configure Meta to call it. In Vercel (or your host), add: **`WEBHOOK_VERIFY_TOKEN`** — a random string you choose; Meta sends it when verifying your webhook URL. Your API route should respond to GET with this token in the query. Optionally **`WEBHOOK_CALLBACK_URL`** — the full URL of your webhook (e.g. `https://agent4socials.com/api/webhooks/instagram`). If not set, you can derive it from **`NEXT_PUBLIC_APP_URL`** + path. No extra variables are required for the Inbox feature to *display* messages once scopes are granted; webhook vars are only for *real-time* updates.
+**Vercel / env vars for Inbox (when you implement webhooks):** To receive real-time message events from Meta (Instagram/Facebook), you will need to add a webhook endpoint and configure Meta to call it. In Vercel (or your host), add: **`WEBHOOK_VERIFY_TOKEN`** — a random string you choose; Meta sends it when verifying your webhook URL. Your API route should respond to GET with this token in the query. Optionally **`WEBHOOK_CALLBACK_URL`** — the full URL of your webhook (e.g. `https://www.izop.io/api/webhooks/instagram`). If not set, you can derive it from **`NEXT_PUBLIC_APP_URL`** + path. No extra variables are required for the Inbox feature to *display* messages once scopes are granted; webhook vars are only for *real-time* updates.
 
 **Instagram permissions (which to add):** The app uses **publish** (create posts), **insights** (views, reach, profile views), and **messaging** (inbox). You do **not** need to add: **instagram_manage_contents** (we only create content, not edit/delete), **instagram_business_manage_comments** (we don't read or reply to comments yet), **Instagram Public Content Access** (we only read the connected account's data), **Business Asset User Profile Access** (unless Meta or your use case requires it), or **Human Agent** (only for advanced messaging handover). You **do** need: **instagram_content_publish** (Instagram via Facebook) and **instagram_manage_insights** for the main flow; if you use "Connect with Instagram only", add **instagram_business_content_publish** and **instagram_business_manage_insights** (and **instagram_business_basic**, **instagram_business_manage_messages**) so that flow works.
 
@@ -154,12 +154,12 @@ Users can connect **Instagram Professional accounts** (Business or Creator) **wi
 1. In the same Meta app (or a dedicated one), go to **Instagram** in the left sidebar.
 2. Click **API setup with Instagram login** (or "API setup with Instagram business login") in the left sidebar under "Permissions and features".
 3. On the main page you’ll see numbered steps. Find step **4. Set up Instagram business login** and click the blue **Set up** button.
-4. On the setup screen, add **OAuth redirect URI** (or "Valid redirect URIs") exactly: `https://agent4socials.com/api/social/oauth/instagram/callback` (no trailing slash).
+4. On the setup screen, add **OAuth redirect URI** (or "Valid redirect URIs") exactly: `https://www.izop.io/api/social/oauth/instagram/callback` (no trailing slash).
 5. Your **Instagram App ID** and **Instagram App Secret** are shown at the top of the same Instagram setup page (step 1 area). Copy them from there.
 6. In Vercel (web app), add:
    - `INSTAGRAM_APP_ID` = Instagram App ID  
    - `INSTAGRAM_APP_SECRET` = Instagram App Secret  
-   - (Optional) `INSTAGRAM_REDIRECT_URI` = `https://agent4socials.com/api/social/oauth/instagram/callback` — set this if you get **"Invalid redirect_uri"** from Instagram so the app sends this exact URL.
+   - (Optional) `INSTAGRAM_REDIRECT_URI` = `https://www.izop.io/api/social/oauth/instagram/callback` — set this if you get **"Invalid redirect_uri"** from Instagram so the app sends this exact URL.
 
 If you use the same app for both flows, you can leave these unset and use `META_APP_ID` / `META_APP_SECRET` for "Connect with Instagram only" as well (the code falls back to META_* if INSTAGRAM_* are not set).
 
@@ -172,7 +172,7 @@ If you use the same app for both flows, you can leave these unset and use `META_
 3. Select **"TikTok API"**.
 4. Fill in details (Name: "Agent4Socials", Category: "Utility/Productivity").
 5. Under **Configuration** (or "Manage" -> "Redirect URI"):
-   - Add `https://agent4socials.com/api/social/oauth/tiktok/callback`.
+   - Add `https://www.izop.io/api/social/oauth/tiktok/callback`.
 6. Under **Products** / **Permissions**:
    - You need `user.info.basic`, `video.upload`, `video.publish`.
    - Submit for review (or use "Sandbox" mode for testing).
@@ -190,8 +190,8 @@ If you use the same app for both flows, you can leave these unset and use `META_
 4. Once created, click **"Set up"** under **User authentication settings**.
     - App permissions: **Read and write** (minimum). For Inbox DMs, use **Read, write, and Direct message** and set `TWITTER_OAUTH_INCLUDE_DM=true` in Vercel.
    - Type of App: **Web App, Automated App or Bot**.
-   - **Callback URI / Redirect URL**: `https://agent4socials.com/api/social/oauth/twitter/callback`.
-   - **Website URL**: `https://agent4socials.com`
+   - **Callback URI / Redirect URL**: `https://www.izop.io/api/social/oauth/twitter/callback`.
+   - **Website URL**: `https://www.izop.io`
    - Click **Save**.
 5. Go to the **Keys and tokens** tab.
 6. Look for **OAuth 2.0 Client ID and Client Secret**.
@@ -212,7 +212,7 @@ If you use the same app for both flows, you can leave these unset and use `META_
 4. Go to the **Auth** tab.
 5. Under **OAuth 2.0 settings**:
    - Click the pencil icon next to "Authorized redirect URLs for your app".
-   - Add `https://agent4socials.com/api/social/oauth/linkedin/callback`.
+   - Add `https://www.izop.io/api/social/oauth/linkedin/callback`.
 6. Go to the **Products** tab.
    - Add **Sign in with LinkedIn using OpenID Connect** (required for connect: scopes `openid`, `profile`, `email`).
    - Add **Share on LinkedIn** for Composer publishing (`w_member_social`). Per [LinkedIn’s Share on LinkedIn docs](https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/share-on-linkedin), that product only documents create/publish, not listing posts or comments. Dashboard sync and Inbox need read scope **`r_member_social`** ([Posts API](https://learn.microsoft.com/en-us/linkedin/marketing/community-management/shares/posts-api)); LinkedIn often treats it as a separate, restricted permission. When `r_member_social` is on your app, set **`LINKEDIN_INCLUDE_R_MEMBER_SOCIAL`** = `true` in Vercel, redeploy, and reconnect.
@@ -251,10 +251,10 @@ Threads uses its own **Threads API** product in Meta for Developers. You get a *
 4. In the left menu, go to **Settings** (under the Threads product).
    - Note your **Threads app ID** and **Threads app secret** (use these for Threads only, not the main Meta App ID/Secret).
    - **Client OAuth Settings** → **Valid OAuth redirect URIs:** add  
-     `https://agent4socials.com/api/social/oauth/threads/callback`  
+     `https://www.izop.io/api/social/oauth/threads/callback`  
      (and for local dev, e.g. `http://localhost:3000/api/social/oauth/threads/callback` if you use that.)
-   - **Deauthorize callback URL:** e.g. `https://agent4socials.com/api/social/oauth/threads/deauthorize` (your endpoint that accepts a POST from Meta when a user disconnects).
-   - **Data Deletion Requests URL:** e.g. `https://agent4socials.com/api/social/oauth/threads/data-deletion` (your endpoint for data deletion requests from Meta).
+   - **Deauthorize callback URL:** e.g. `https://www.izop.io/api/social/oauth/threads/deauthorize` (your endpoint that accepts a POST from Meta when a user disconnects).
+   - **Data Deletion Requests URL:** e.g. `https://www.izop.io/api/social/oauth/threads/data-deletion` (your endpoint for data deletion requests from Meta).
    - Click **Save**.
 5. **Test users (optional):** Under **Add or Remove Threads Test Users** you can add testers. Until the app is approved, only admins/developers/testers can connect.
 6. **Publishing / App Review:** When you’re ready for any user to connect, use **Publish** and complete **App Review** for the Threads use case (same idea as for Instagram/Facebook).
@@ -262,7 +262,7 @@ Threads uses its own **Threads API** product in Meta for Developers. You get a *
 **Env vars (web app):**  
 `THREADS_APP_ID` = Threads app ID  
 `THREADS_APP_SECRET` = Threads app secret  
-Optional: `THREADS_REDIRECT_URI` = `https://agent4socials.com/api/social/oauth/threads/callback` if you need to force this exact URL.
+Optional: `THREADS_REDIRECT_URI` = `https://www.izop.io/api/social/oauth/threads/callback` if you need to force this exact URL.
 
 **In the app code** you will need to: add `THREADS` to the Platform enum (Prisma), add Threads to the OAuth start URL (Meta’s Threads OAuth endpoint and scopes), handle the callback (exchange code for token, fetch profile, save `SocialAccount`), add Threads to the composer platform list and to publish logic (Threads API for creating posts). Meta’s Threads OAuth is similar to Facebook (authorize with `threads_basic` and `threads_content_publish`).
 
@@ -276,7 +276,7 @@ Bluesky uses **atproto OAuth** (not the same as “paste client ID/secret and re
 
 1. **Client registration**  
    Your app is identified by a **client_id** that is a **URL** where you host a **client metadata JSON** document (not a numeric ID). Example:  
-   `https://agent4socials.com/api/social/oauth/bluesky/client-metadata.json`  
+   `https://www.izop.io/api/social/oauth/bluesky/client-metadata.json`  
    That URL is the `client_id`. The JSON must describe your app (redirect URIs, scopes, grant types, etc.). See [Bluesky OAuth client implementation](https://docs.bsky.app/docs/advanced-guides/oauth-client).
 
 2. **OAuth flow**  
@@ -300,7 +300,7 @@ Bluesky uses **atproto OAuth** (not the same as “paste client ID/secret and re
 **Practical steps:**
 
 1. Read the [atproto OAuth spec](https://atproto.com/specs/auth) and Bluesky’s [OAuth client guide](https://docs.bsky.app/docs/advanced-guides/oauth-client).
-2. Decide your **client_id** URL (e.g. `https://agent4socials.com/api/social/oauth/bluesky/client-metadata.json`) and create a route that serves the client metadata JSON (redirect_uris, scopes, `dpop_bound_access_tokens: true`, etc.).
+2. Decide your **client_id** URL (e.g. `https://www.izop.io/api/social/oauth/bluesky/client-metadata.json`) and create a route that serves the client metadata JSON (redirect_uris, scopes, `dpop_bound_access_tokens: true`, etc.).
 3. Implement **PAR** (POST auth params, get `request_uri`, redirect), **PKCE**, and **DPoP** (generate keypair per session, sign DPoP proof for each request, handle `DPoP-Nonce` from responses).
 4. For a confidential client, add a keypair (or use client secret if supported), put the public key in client metadata (`jwks` or `jwks_uri`), and send a JWT client assertion on PAR and token requests.
 5. In your app: add **BLUESKY** to the Platform enum, add Bluesky to the composer and to publish logic, and use the atproto/Bluesky APIs (e.g. create post) with the DPoP-bound access token.
@@ -316,7 +316,7 @@ Check whether Bluesky or the atproto team provide a TypeScript/Node SDK that imp
 
 ## What to do next?
 
-Add the env vars to your **web app** (e.g. Vercel → **agent4socials** project → Settings → Environment Variables). Use the key names your app expects, e.g. `META_APP_ID`, `META_APP_SECRET`, `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TWITTER_CLIENT_ID`, `TWITTER_CLIENT_SECRET`, `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, and for Threads: `THREADS_APP_ID`, `THREADS_APP_SECRET`. Set `NEXT_PUBLIC_APP_URL=https://agent4socials.com` (or your production URL). Then **Redeploy** the web app.
+Add the env vars to your **web app** (e.g. Vercel → **agent4socials** project → Settings → Environment Variables). Use the key names your app expects, e.g. `META_APP_ID`, `META_APP_SECRET`, `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TWITTER_CLIENT_ID`, `TWITTER_CLIENT_SECRET`, `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, and for Threads: `THREADS_APP_ID`, `THREADS_APP_SECRET`. Set `NEXT_PUBLIC_APP_URL=https://www.izop.io` (or your production URL). Then **Redeploy** the web app.
 
 **Implementing Threads and Bluesky in the app:**  
 After the platforms are approved and env vars are set, the codebase must be updated to support each new platform: add the platform to the Prisma `Platform` enum and run a migration, add OAuth start and callback handling (and for Bluesky, atproto OAuth with PAR/DPoP and client metadata), add the platform to the composer UI and to the publish API (calling Threads API or Bluesky/atproto API when posting).

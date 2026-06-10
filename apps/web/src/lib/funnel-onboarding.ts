@@ -20,6 +20,31 @@ export function dashboardPathAfterAuth(): string {
   return consumeFunnelPostAuthRedirect() ?? '/dashboard';
 }
 
+const FUNNEL_HANDOFF_KEY = 'izop_funnel_handoff_v1';
+
+export type FunnelHandoffPayload = {
+  token?: string | null;
+  chat?: unknown;
+  brand?: unknown;
+  savedAt?: number;
+};
+
+export function readFunnelHandoff(): FunnelHandoffPayload | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(FUNNEL_HANDOFF_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as FunnelHandoffPayload;
+  } catch {
+    return null;
+  }
+}
+
+export function clearFunnelHandoff(): void {
+  if (typeof window === 'undefined') return;
+  sessionStorage.removeItem(FUNNEL_HANDOFF_KEY);
+}
+
 export type FunnelOnboardingActionId =
   | 'connect'
   | 'brand'

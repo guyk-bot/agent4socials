@@ -13,7 +13,7 @@ import {
 
 const GREETING = "Hi 👋 I'm iZop,";
 const HEADLINE = 'your personal AI social media manager.';
-const BODY = "Tell me what platforms you're on, and I'll show you what I can do.";
+const BODY = 'Please select the first platform you want to connect and I will show you everything I can do ; )';
 
 const GEORGIA_FAMILY = 'Georgia, "Times New Roman", Times, serif';
 

@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Check, Copy, Download, ExternalLink, Loader2, Search, Users } from 'lucide-react';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
+import { cacheLeadsScanPayload, fetchAndCacheLastLeadsScan } from '@/lib/leads/leads-sync-client';
 
 type Artifact = Extract<AysopArtifact, { type: 'leads' }>;
 
@@ -28,8 +30,42 @@ export function AysopLeadsCard({
   onScanLeads?: () => void;
   scanning?: boolean;
 }) {
+  const router = useRouter();
   const [copied, setCopied] = useState<number | null>(null);
   const highCount = artifact.leads.filter((l) => l.intent === 'high').length;
+
+  useEffect(() => {
+    if (artifact.fullLeads?.length) {
+      cacheLeadsScanPayload({
+        accountId: artifact.accountId,
+        scanned: artifact.scanned,
+        leads: artifact.fullLeads,
+        scannedAt: artifact.scannedAt ?? undefined,
+      });
+      return;
+    }
+    if (artifact.leads.length > 0 || artifact.scanned > 0) {
+      void fetchAndCacheLastLeadsScan();
+    }
+  }, [artifact.accountId, artifact.fullLeads, artifact.leads.length, artifact.scanned, artifact.scannedAt]);
+
+  const openLeadsPage = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      if (artifact.fullLeads?.length) {
+        cacheLeadsScanPayload({
+          accountId: artifact.accountId,
+          scanned: artifact.scanned,
+          leads: artifact.fullLeads,
+          scannedAt: artifact.scannedAt ?? undefined,
+        });
+      } else {
+        await fetchAndCacheLastLeadsScan();
+      }
+      router.push(artifact.href);
+    },
+    [artifact.accountId, artifact.fullLeads, artifact.href, artifact.scanned, artifact.scannedAt, router]
+  );
 
   const download = useCallback(() => {
     const blob = new Blob([buildCsv(artifact.leads)], { type: 'text/csv;charset=utf-8;' });
@@ -135,6 +171,7 @@ export function AysopLeadsCard({
 
       <Link
         href={artifact.href}
+        onClick={(e) => void openLeadsPage(e)}
         className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--primary)] hover:underline"
       >
         Open Leads page <ExternalLink size={14} />

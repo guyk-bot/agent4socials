@@ -66,12 +66,12 @@ export function DemoAvatar({
 }) {
   const dim =
     size === 'xl'
-      ? 'h-8 w-8 text-[11px]'
+      ? 'h-8 w-8 text-[13px]'
       : size === 'lg'
-        ? 'h-9 w-9 text-[11px]'
+        ? 'h-9 w-9 text-[13px]'
         : size === 'md'
-          ? 'h-7 w-7 text-[10px]'
-          : 'h-6 w-6 text-[9px]';
+          ? 'h-7 w-7 text-[12px]'
+          : 'h-6 w-6 text-[11px]';
   return (
     <span
       className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white ${colorClass} ${dim}`}
@@ -224,7 +224,7 @@ export function ChatDragDropImage({
   if (showZone) {
     return (
       <div
-        className={`flex ${USER_ATTACH_FRAME} items-center justify-center rounded-md border border-dashed border-white/25 bg-white/5 text-[11px] font-medium text-white/70`}
+        className={`flex ${USER_ATTACH_FRAME} items-center justify-center rounded-md border border-dashed border-white/25 bg-white/5 text-[13px] font-medium text-white/70`}
         aria-hidden
       >
         Drop media here
@@ -311,10 +311,10 @@ export function YouTubeVideoPreview({ src, alt, title }: { src: string; alt: str
           <YoutubeIcon size={14} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold leading-snug text-neutral-900 dark:text-neutral-100 line-clamp-2">
+          <p className="text-[13px] font-semibold leading-snug text-neutral-900 dark:text-neutral-100 line-clamp-2">
             {title ?? 'Top performing video'}
           </p>
-          <p className="text-[10px] text-neutral-500">2.1M views · 184K likes</p>
+          <p className="text-[12px] text-neutral-500">2.1M views · 184K likes</p>
         </div>
       </div>
     </div>
@@ -327,7 +327,6 @@ const BRAINSTORM_DEMO_SECTIONS = [
     items: [
       'POV: You find $200/month without cutting coffee',
       'Stop doing this with your savings account',
-      'The 30-second rule that fixed my budget',
     ],
   },
   {
@@ -335,7 +334,6 @@ const BRAINSTORM_DEMO_SECTIONS = [
     items: [
       'Film your morning routine as a 3-tip Reel',
       'Carousel: 5 apps that replaced my spreadsheet',
-      'Behind the scenes: how I batch a week of posts',
     ],
   },
   {
@@ -343,7 +341,6 @@ const BRAINSTORM_DEMO_SECTIONS = [
     items: [
       'Money habits for creators',
       'Quick wins under 60 seconds',
-      'Tool reviews and workflows',
     ],
   },
 ] as const;
@@ -357,8 +354,8 @@ export function BrainstormIdeasPanel() {
           <Lightbulb size={12} />
         </span>
         <div className="min-w-0">
-          <p className="text-[12px] font-bold text-neutral-900 dark:text-neutral-100">Brainstorm</p>
-          <p className="text-[10px] text-neutral-500">9 ideas saved from your top YouTube video</p>
+          <p className="text-[14px] font-bold text-neutral-900 dark:text-neutral-100">Brainstorm</p>
+          <p className="text-[12px] text-neutral-500">6 ideas saved from your top YouTube video</p>
         </div>
       </div>
       <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700">
@@ -382,8 +379,8 @@ export function BrainstormIdeasPanel() {
             className="rounded-xl border border-neutral-200 bg-white p-2 dark:border-neutral-700 dark:bg-neutral-900"
           >
             <div className="mb-1 flex items-center justify-between gap-1">
-              <p className="text-[11px] font-bold text-neutral-900 dark:text-neutral-100">{section.title}</p>
-              <span className="inline-flex items-center gap-0.5 rounded-md bg-[#7C3AED] px-1.5 py-0.5 text-[9px] font-semibold text-white">
+              <p className="text-[13px] font-bold text-neutral-900 dark:text-neutral-100">{section.title}</p>
+              <span className="inline-flex items-center gap-0.5 rounded-md bg-[#7C3AED] px-1.5 py-0.5 text-[11px] font-semibold text-white">
                 <Sparkles size={8} /> AI
               </span>
             </div>
@@ -391,7 +388,7 @@ export function BrainstormIdeasPanel() {
               {section.items.map((item) => (
                 <li
                   key={item}
-                  className="rounded-md bg-neutral-50 px-2 py-1 text-[11px] leading-snug text-neutral-800 dark:bg-neutral-950 dark:text-neutral-200"
+                  className="rounded-md bg-neutral-50 px-2 py-1 text-[13px] leading-snug text-neutral-800 dark:bg-neutral-950 dark:text-neutral-200"
                 >
                   {item}
                 </li>
@@ -426,10 +423,10 @@ function MiniKpiCard({
       className={`relative rounded-xl border-2 ${styles.border} ${styles.bg} px-2 py-2 shadow-sm min-h-[58px] flex flex-col justify-center`}
     >
       {trend ? (
-        <span className="absolute top-1 right-1.5 text-[10px] font-medium text-emerald-600">{trend}</span>
+        <span className="absolute top-1 right-1.5 text-[12px] font-medium text-emerald-600">{trend}</span>
       ) : null}
-      <p className={`text-lg font-semibold tabular-nums leading-none ${styles.text}`}>{value}</p>
-      <p className="text-[11px] text-neutral-500 mt-0.5">{label}</p>
+      <p className={`text-xl font-semibold tabular-nums leading-none ${styles.text}`}>{value}</p>
+      <p className="text-[13px] text-neutral-500 mt-0.5">{label}</p>
     </div>
   );
 }
@@ -462,7 +459,7 @@ export function AnalyticsChart({ show }: { show: boolean }) {
         <MiniKpiCard label="Engagement" value={formatKpiNumber(engagement)} tint="emerald" />
       </div>
       <div className="px-1 pb-1">
-        <p className="px-2 pt-1.5 text-[10px] font-semibold text-neutral-800 dark:text-neutral-200">
+        <p className="px-2 pt-1.5 text-[12px] font-semibold text-neutral-800 dark:text-neutral-200">
           Audience growth over time
         </p>
         <div className="h-[96px] w-full">
@@ -471,14 +468,14 @@ export function AnalyticsChart({ show }: { show: boolean }) {
               <CartesianGrid strokeDasharray="3 3" stroke={BRAND.grid} vertical={false} />
               <XAxis
                 dataKey="date"
-                tick={{ fontSize: 8, fill: '#737373' }}
+                tick={{ fontSize: 10, fill: '#737373' }}
                 axisLine={false}
                 tickLine={false}
                 interval={1}
               />
               <YAxis
                 yAxisId="followers"
-                tick={{ fontSize: 7, fill: '#737373' }}
+                tick={{ fontSize: 9, fill: '#737373' }}
                 axisLine={false}
                 tickLine={false}
                 width={32}
@@ -488,7 +485,7 @@ export function AnalyticsChart({ show }: { show: boolean }) {
               <YAxis
                 yAxisId="views"
                 orientation="right"
-                tick={{ fontSize: 7, fill: '#737373' }}
+                tick={{ fontSize: 9, fill: '#737373' }}
                 axisLine={false}
                 tickLine={false}
                 width={28}
@@ -608,7 +605,7 @@ function IgPostsHoverPopup({
       className="funnel-demo-ig-post-popup absolute z-30 rounded-xl border border-neutral-200 bg-white p-2.5 shadow-xl dark:border-neutral-700 dark:bg-neutral-950"
       style={style}
     >
-      <p className="mb-2 text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">{day} · {postIndices.length} post{postIndices.length > 1 ? 's' : ''}</p>
+      <p className="mb-2 text-[13px] font-semibold text-neutral-800 dark:text-neutral-200">{day} · {postIndices.length} post{postIndices.length > 1 ? 's' : ''}</p>
       <div className="flex gap-2">
         {postIndices.map((idx) => {
           const post = FUNNEL_DEMO_IG_WEEK_POSTS[idx];
@@ -617,10 +614,10 @@ function IgPostsHoverPopup({
               <div className="aspect-[3/4] overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700">
                 <IgPostThumb postIndex={idx} showPlay={showPlay} className="h-full w-full" />
               </div>
-              <p className="mt-1 text-[10px] font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">
+              <p className="mt-1 text-[12px] font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">
                 {post.label}
               </p>
-              <p className="text-[10px] font-medium text-neutral-600 dark:text-neutral-400">{post.views} views · {post.likes} likes</p>
+              <p className="text-[12px] font-medium text-neutral-600 dark:text-neutral-400">{post.views} views · {post.likes} likes</p>
             </div>
           );
         })}
@@ -676,10 +673,10 @@ function IgPostPerformanceChart({
               <div className="aspect-[3/4] w-[72px]">
                 <IgPostThumb postIndex={activePoint.postIndex} showPlay className="h-full w-full" />
               </div>
-              <p className="px-1.5 py-1 text-[10px] font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">
+              <p className="px-1.5 py-1 text-[12px] font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">
                 {FUNNEL_DEMO_IG_WEEK_POSTS[activePoint.postIndex]?.label}
               </p>
-              <p className="px-1.5 pb-1 text-[10px] font-medium text-neutral-600 dark:text-neutral-400">
+              <p className="px-1.5 pb-1 text-[12px] font-medium text-neutral-600 dark:text-neutral-400">
                 {FUNNEL_DEMO_IG_WEEK_POSTS[activePoint.postIndex]?.views} views ·{' '}
                 {FUNNEL_DEMO_IG_WEEK_POSTS[activePoint.postIndex]?.likes} likes
               </p>
@@ -723,7 +720,7 @@ function IgPostPerformanceChart({
       </div>
       <div className="flex justify-between px-0.5">
         {points.map((p) => (
-          <span key={p.day} className="text-[10px] text-neutral-500">
+          <span key={p.day} className="text-[12px] text-neutral-500">
             {p.day}
           </span>
         ))}
@@ -769,14 +766,14 @@ function IgInteractiveFormatPie() {
       {activeFormat ? (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="rounded-lg bg-white/95 px-2 py-1 text-center shadow-md dark:bg-neutral-950/95">
-            <p className="text-[10px] font-bold text-neutral-900 dark:text-neutral-100">{activeFormat}</p>
-            <p className="text-[13px] font-black tabular-nums text-[#7C3AED]">
+            <p className="text-[12px] font-bold text-neutral-900 dark:text-neutral-100">{activeFormat}</p>
+            <p className="text-[15px] font-black tabular-nums text-[#7C3AED]">
               {IG_FORMAT_MIX.find((f) => f.name === activeFormat)?.value}%
             </p>
           </div>
         </div>
       ) : null}
-      <div className="flex flex-wrap gap-x-1.5 gap-y-0.5 text-[8px] text-neutral-500">
+      <div className="flex flex-wrap gap-x-1.5 gap-y-0.5 text-[11px] text-neutral-500">
         {IG_FORMAT_MIX.map((f) => (
           <span
             key={f.name}
@@ -836,7 +833,7 @@ function IgPostsWeekBarChart({
                 }`}
                 style={{ height: `${heightPct}%` }}
               />
-              <span className="mt-0.5 text-[9px] text-neutral-500">{row.day}</span>
+              <span className="mt-0.5 text-[11px] text-neutral-500">{row.day}</span>
             </div>
           );
         })}
@@ -869,7 +866,7 @@ export function InstagramWeeklyAnalyticsPanel() {
         className="relative overflow-visible px-2 py-1.5 border-b border-neutral-100 dark:border-neutral-800"
         onMouseLeave={() => setActiveLineDay(null)}
       >
-        <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">
+        <p className="text-[13px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">
           Post performance (hover for previews)
         </p>
         <IgPostPerformanceChart activeDay={activeLineDay} onActiveDayChange={setActiveLineDay} />
@@ -877,21 +874,21 @@ export function InstagramWeeklyAnalyticsPanel() {
 
       <div className="grid grid-cols-2 gap-2 p-2 border-b border-neutral-100 dark:border-neutral-800">
         <div className="relative overflow-visible">
-          <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">
+          <p className="text-[13px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">
             Posts last 7 days
           </p>
           <IgPostsWeekBarChart activeDay={activeDay} onActiveDayChange={setActiveDay} />
         </div>
         <div>
-          <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">Post formats</p>
+          <p className="text-[13px] font-semibold text-neutral-800 dark:text-neutral-200 mb-0.5">Post formats</p>
           <IgInteractiveFormatPie />
         </div>
       </div>
 
       <div className="p-2 border-b border-neutral-100 dark:border-neutral-800">
-        <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">Published this week</p>
+        <p className="text-[13px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">Published this week</p>
         <div className="flex gap-1.5 overflow-x-auto pb-0.5 funnel-demo-scene-scroll">
-          {FUNNEL_DEMO_IG_WEEK_POSTS.map((post, i) => (
+          {FUNNEL_DEMO_IG_WEEK_POSTS.slice(0, 4).map((post, i) => (
             <div key={post.src} className="group relative w-[62px] shrink-0">
               <div className="relative aspect-[3/4] overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -904,8 +901,8 @@ export function InstagramWeeklyAnalyticsPanel() {
                   <img src={post.src} alt={post.label} className="h-full w-full object-cover" draggable={false} />
                   <DemoReelPlayOverlay show={post.format === 'reel'} onHover />
                 </div>
-                <p className="text-[10px] font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">{post.label}</p>
-                <p className="mt-0.5 text-[10px] font-medium text-neutral-600 dark:text-neutral-400">{post.views} views · {post.likes} likes</p>
+                <p className="text-[12px] font-semibold text-neutral-900 dark:text-neutral-100 line-clamp-2 leading-snug">{post.label}</p>
+                <p className="mt-0.5 text-[12px] font-medium text-neutral-600 dark:text-neutral-400">{post.views} views · {post.likes} likes</p>
               </div>
             </div>
           ))}
@@ -913,7 +910,7 @@ export function InstagramWeeklyAnalyticsPanel() {
       </div>
 
       <div className="p-2">
-        <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1">Best post this week</p>
+        <p className="text-[13px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1">Best post this week</p>
         <div className="flex gap-2">
           <div className="relative aspect-[3/4] w-[62px] shrink-0 overflow-hidden rounded-md border border-neutral-200 dark:border-neutral-700">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -926,11 +923,11 @@ export function InstagramWeeklyAnalyticsPanel() {
             <DemoReelPlayOverlay show />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-semibold text-neutral-900 dark:text-neutral-100">The best app for content creators</p>
-            <p className="mt-0.5 text-[10px] leading-snug text-neutral-600 dark:text-neutral-400">
+            <p className="text-[13px] font-semibold text-neutral-900 dark:text-neutral-100">The best app for content creators</p>
+            <p className="mt-0.5 text-[12px] leading-snug text-neutral-600 dark:text-neutral-400">
               420 likes · 86 comments · 6.8K views. Your Reel outperformed carousels by 2.1x.
             </p>
-            <p className="mt-1 text-[9px] text-neutral-500">Reel · with audio</p>
+            <p className="mt-1 text-[11px] text-neutral-500">Reel · with audio</p>
           </div>
         </div>
       </div>
@@ -980,20 +977,20 @@ export function AdsPerformanceChart({ show }: { show: boolean }) {
     <div className="space-y-2">
       <div className="grid grid-cols-2 gap-1.5">
         <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 px-2.5 py-2">
-          <p className="text-[10px] uppercase tracking-wide text-neutral-500">Total spend</p>
+          <p className="text-[12px] uppercase tracking-wide text-neutral-500">Total spend</p>
           <p className="text-base font-bold tabular-nums text-neutral-900 dark:text-neutral-100">
             ${totalSpend.toLocaleString('en-US')}
           </p>
         </div>
         <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900 px-2.5 py-2">
-          <p className="text-[10px] uppercase tracking-wide text-neutral-500">Blended ROAS</p>
+          <p className="text-[12px] uppercase tracking-wide text-neutral-500">Blended ROAS</p>
           <p className="text-base font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{blendedRoas}</p>
         </div>
       </div>
       <div className="flex items-end gap-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 px-2 py-2.5">
         {ADS_PLATFORM_STATS.map((b) => (
           <div key={b.label} className="flex min-w-0 flex-1 flex-col items-stretch gap-0.5">
-            <span className="text-center text-[11px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
+            <span className="text-center text-[13px] font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
               {b.roas}
             </span>
             <div className="flex h-[92px] items-end">
@@ -1005,10 +1002,10 @@ export function AdsPerformanceChart({ show }: { show: boolean }) {
                 }}
               />
             </div>
-            <span className="text-center text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">
+            <span className="text-center text-[13px] font-semibold text-neutral-800 dark:text-neutral-200">
               {b.label}
             </span>
-            <span className="text-center text-[10px] text-neutral-500 tabular-nums">{b.spend}</span>
+            <span className="text-center text-[12px] text-neutral-500 tabular-nums">{b.spend}</span>
           </div>
         ))}
       </div>
@@ -1018,9 +1015,9 @@ export function AdsPerformanceChart({ show }: { show: boolean }) {
             key={`${b.label}-cpa`}
             className="rounded-md border border-neutral-100 dark:border-neutral-800 bg-neutral-50/80 dark:bg-neutral-900/80 px-2 py-1.5 text-center"
           >
-            <p className="text-[9px] uppercase text-neutral-500">{b.label} CPA</p>
-            <p className="text-[11px] font-semibold tabular-nums text-neutral-800 dark:text-neutral-200">{b.cpa}</p>
-            <p className="text-[9px] text-neutral-500 tabular-nums">{b.conv} conv.</p>
+            <p className="text-[11px] uppercase text-neutral-500">{b.label} CPA</p>
+            <p className="text-[13px] font-semibold tabular-nums text-neutral-800 dark:text-neutral-200">{b.cpa}</p>
+            <p className="text-[11px] text-neutral-500 tabular-nums">{b.conv} conv.</p>
           </div>
         ))}
       </div>
@@ -1033,13 +1030,13 @@ export function AdsTopCreativesCandleChart() {
 
   return (
     <div className="space-y-1.5">
-      <p className="text-[12px] font-semibold text-neutral-800 dark:text-neutral-200">Best performing ads</p>
+      <p className="text-[14px] font-semibold text-neutral-800 dark:text-neutral-200">Best performing ads</p>
       <div className="flex gap-2 overflow-x-auto pb-0.5 funnel-demo-scene-scroll">
-        {FUNNEL_DEMO_TOP_ADS.map((ad) => {
+        {FUNNEL_DEMO_TOP_ADS.slice(0, 3).map((ad) => {
           const bodyH = Math.max(20, Math.round((ad.roas / maxRoas) * 42));
           return (
             <div key={ad.label} className="group w-[72px] shrink-0">
-              <span className="block text-center text-[10px] font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+              <span className="block text-center text-[12px] font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
                 {ad.roas.toFixed(2)}x
               </span>
               <div className="relative mx-auto mt-0.5 flex h-[44px] w-[24px] items-end justify-center">
@@ -1053,8 +1050,8 @@ export function AdsTopCreativesCandleChart() {
                 <img src={ad.src} alt={ad.label} className="h-full w-full object-cover object-center" draggable={false} />
                 {ad.isVideo ? <DemoReelPlayOverlay show /> : null}
               </div>
-              <p className="mt-0.5 truncate text-center text-[10px] font-medium text-neutral-700 dark:text-neutral-300">{ad.label}</p>
-              <p className="text-center text-[10px] tabular-nums text-neutral-500">{ad.cpa}</p>
+              <p className="mt-0.5 truncate text-center text-[12px] font-medium text-neutral-700 dark:text-neutral-300">{ad.label}</p>
+              <p className="text-center text-[12px] tabular-nums text-neutral-500">{ad.cpa}</p>
             </div>
           );
         })}
@@ -1102,10 +1099,10 @@ export function CommentRow({
     >
       <DemoProfilePhoto src={avatarSrc} label={avatar} colorClass={colorClass} size="lg" />
       <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-semibold text-neutral-800 dark:text-neutral-200 truncate">{name}</p>
-        <p className="text-[12px] text-neutral-600 dark:text-neutral-400 leading-snug line-clamp-2">{text}</p>
+        <p className="text-[15px] font-semibold text-neutral-800 dark:text-neutral-200 truncate">{name}</p>
+        <p className="text-[14px] text-neutral-600 dark:text-neutral-400 leading-snug line-clamp-2">{text}</p>
         {replied && replyText ? (
-          <p className="mt-1 rounded-md border border-violet-200/80 bg-violet-50/80 dark:bg-violet-950/30 dark:border-violet-800/50 px-1.5 py-1 text-[11px] text-violet-900 dark:text-violet-200 leading-snug line-clamp-2">
+          <p className="mt-1 rounded-md border border-violet-200/80 bg-violet-50/80 dark:bg-violet-950/30 dark:border-violet-800/50 px-1.5 py-1 text-[13px] text-violet-900 dark:text-violet-200 leading-snug line-clamp-2">
             <span className="inline-flex items-center gap-1 font-semibold">
               {PlatformIcon ? <PlatformIcon size={12} className="shrink-0" /> : null}
               {draft ? 'Draft reply: ' : 'AI reply: '}
@@ -1114,7 +1111,7 @@ export function CommentRow({
           </p>
         ) : null}
         {replied && !draft ? (
-          <p className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
+          <p className="mt-0.5 inline-flex items-center gap-0.5 text-[12px] font-medium text-emerald-700 dark:text-emerald-300">
             <CheckCircle2 size={11} /> Reply sent
           </p>
         ) : null}
@@ -1131,10 +1128,6 @@ const LEADS_DEMO_ROWS = [
   { name: 'James Okonkwo', avatar: 'JO', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.james, color: 'bg-emerald-500', comment: 'DM me the onboarding link?', intent: 'High', intentStyle: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300', dm: 'Onboarding link queued' },
   { name: 'Alex Kim', avatar: 'AK', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.alex, color: 'bg-sky-500', comment: 'Need pricing for 3 seats', intent: 'Contact', intentStyle: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300', dm: 'Team plan breakdown sent' },
   { name: 'Maya Rodriguez', avatar: 'MR', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.maya, color: 'bg-violet-500', comment: 'Is there a free trial?', intent: 'Medium', intentStyle: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300', dm: 'Free plan details in DM' },
-  { name: 'Lina Park', avatar: 'LP', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.lina, color: 'bg-rose-500', comment: 'Can you handle DMs too?', intent: 'High', intentStyle: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300', dm: 'Yes, inbox automation included' },
-  { name: 'Chris Webb', avatar: 'CW', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.chris, color: 'bg-neutral-500', comment: 'Interested in agency plan', intent: 'Contact', intentStyle: 'bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300', dm: 'Agency tier overview ready' },
-  { name: 'Emma Walsh', avatar: 'EW', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.emma, color: 'bg-indigo-500', comment: 'Saw your Reel, need help scaling', intent: 'High', intentStyle: 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300', dm: 'Scaling playbook in DM' },
-  { name: 'Noah Patel', avatar: 'NP', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.noah, color: 'bg-cyan-500', comment: 'Do you support TikTok Shop?', intent: 'Medium', intentStyle: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300', dm: 'TikTok workflow guide sent' },
 ] as const;
 
 export function LeadsSpreadsheet({ show, progress = 1 }: { show: boolean; progress?: number }) {
@@ -1144,7 +1137,7 @@ export function LeadsSpreadsheet({ show, progress = 1 }: { show: boolean; progre
     <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
       <table className="w-full text-left">
         <thead>
-          <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 text-[12px] uppercase tracking-wide text-neutral-500">
+          <tr className="border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 text-[14px] uppercase tracking-wide text-neutral-500">
             <th className="px-2 py-1.5 font-semibold">Lead</th>
             <th className="px-2 py-1.5 font-semibold">Comment</th>
             <th className="px-2 py-1.5 font-semibold">Class</th>
@@ -1157,20 +1150,20 @@ export function LeadsSpreadsheet({ show, progress = 1 }: { show: boolean; progre
               <td className="px-2 py-1.5 align-top">
                 <div className="flex items-center gap-1.5">
                   <DemoProfilePhoto src={row.avatarSrc} label={row.avatar} colorClass={row.color} size="xl" />
-                  <span className="text-[12px] font-semibold text-neutral-800 dark:text-neutral-200 whitespace-nowrap">
+                  <span className="text-[14px] font-semibold text-neutral-800 dark:text-neutral-200 whitespace-nowrap">
                     {row.name.split(' ')[0]}
                   </span>
                 </div>
               </td>
-              <td className="px-2 py-1.5 text-[12px] text-neutral-600 dark:text-neutral-400 align-top max-w-[80px] leading-snug line-clamp-2">
+              <td className="px-2 py-1.5 text-[14px] text-neutral-600 dark:text-neutral-400 align-top max-w-[80px] leading-snug line-clamp-2">
                 {row.comment}
               </td>
               <td className="px-2 py-1.5 align-top">
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${row.intentStyle}`}>
+                <span className={`rounded-full px-2 py-0.5 text-[13px] font-semibold ${row.intentStyle}`}>
                   {row.intent}
                 </span>
               </td>
-              <td className="px-2 py-1.5 text-[12px] text-[var(--primary)] align-top max-w-[88px] leading-snug font-medium line-clamp-2">
+              <td className="px-2 py-1.5 text-[14px] text-[var(--primary)] align-top max-w-[88px] leading-snug font-medium line-clamp-2">
                 {row.dm}
               </td>
             </tr>
@@ -1188,9 +1181,6 @@ const TEAM_DEMO_ROWS = [
   { name: 'Marcus Reed', avatar: 'MR', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.guy, color: 'bg-violet-500', role: 'Admin', roleStyle: 'border-violet-300 bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300', activity: 'Active now', activityStyle: 'text-emerald-600 dark:text-emerald-400' },
   { name: 'Maya Rodriguez', avatar: 'MY', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.maya, color: 'bg-sky-500', role: 'Editor', roleStyle: TEAM_EDITOR_ROLE_STYLE, activity: '2h ago', activityStyle: 'text-neutral-500' },
   { name: 'Alex Kim', avatar: 'AK', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.alex, color: 'bg-emerald-500', role: 'Viewer', roleStyle: 'border-neutral-300 bg-neutral-50 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300', activity: 'Yesterday', activityStyle: 'text-neutral-500' },
-  { name: 'Nina Cho', avatar: 'NC', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.nina, color: 'bg-rose-500', role: 'Editor', roleStyle: TEAM_EDITOR_ROLE_STYLE, activity: '4h ago', activityStyle: 'text-neutral-500' },
-  { name: 'Omar Hassan', avatar: 'OH', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.omar, color: 'bg-amber-500', role: 'Editor', roleStyle: TEAM_EDITOR_ROLE_STYLE, activity: '6h ago', activityStyle: 'text-neutral-500' },
-  { name: 'Julia Ross', avatar: 'JR', avatarSrc: FUNNEL_DEMO_PEOPLE_AVATARS.julia, color: 'bg-indigo-500', role: 'Viewer', roleStyle: 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300', activity: '1d ago', activityStyle: 'text-neutral-500' },
 ] as const;
 
 export function TeamMembersPanel({ show, progress = 1 }: { show: boolean; progress?: number }) {
@@ -1200,11 +1190,11 @@ export function TeamMembersPanel({ show, progress = 1 }: { show: boolean; progre
     <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
       <div className="flex items-center gap-1.5 border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 px-2 py-2">
         <Users size={15} className="text-[#7C3AED]" />
-        <span className="text-[13px] font-semibold text-neutral-800 dark:text-neutral-200">Team activity</span>
+        <span className="text-[15px] font-semibold text-neutral-800 dark:text-neutral-200">Team activity</span>
       </div>
       <table className="w-full text-left">
         <thead>
-          <tr className="border-b border-neutral-100 dark:border-neutral-800 text-[11px] uppercase tracking-wide text-neutral-500">
+          <tr className="border-b border-neutral-100 dark:border-neutral-800 text-[13px] uppercase tracking-wide text-neutral-500">
             <th className="px-2 py-1.5 font-semibold">Member</th>
             <th className="px-2 py-1.5 font-semibold">Role</th>
             <th className="px-2 py-1.5 font-semibold text-right">Last active</th>
@@ -1216,24 +1206,24 @@ export function TeamMembersPanel({ show, progress = 1 }: { show: boolean; progre
               <td className="px-2 py-1.5 align-middle">
                 <div className="flex items-center gap-1.5">
                   <DemoProfilePhoto src={row.avatarSrc} label={row.avatar} colorClass={row.color} size="lg" />
-                  <span className="text-[12px] font-semibold text-neutral-800 dark:text-neutral-200 whitespace-nowrap">
+                  <span className="text-[14px] font-semibold text-neutral-800 dark:text-neutral-200 whitespace-nowrap">
                     {row.name}
                   </span>
                 </div>
               </td>
               <td className="px-2 py-1.5 align-middle">
-                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${row.roleStyle}`}>
+                <span className={`rounded-full border px-2 py-0.5 text-[13px] font-semibold ${row.roleStyle}`}>
                   {row.role}
                 </span>
               </td>
-              <td className={`px-2 py-1.5 text-right text-[11px] font-medium tabular-nums ${row.activityStyle}`}>
+              <td className={`px-2 py-1.5 text-right text-[13px] font-medium tabular-nums ${row.activityStyle}`}>
                 {row.activity}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      <p className="flex items-center gap-1 border-t border-neutral-100 dark:border-neutral-800 px-2 py-2 text-[12px] font-semibold text-emerald-600 dark:text-emerald-400">
+      <p className="flex items-center gap-1 border-t border-neutral-100 dark:border-neutral-800 px-2 py-2 text-[14px] font-semibold text-emerald-600 dark:text-emerald-400">
         <CheckCircle2 size={12} /> Invite sent to maya@studio.com
       </p>
     </div>
@@ -1257,7 +1247,7 @@ export function AnalyticsReportPreview({ show, progress = 1 }: { show: boolean; 
   return (
     <div className="space-y-2">
       <div className="rounded-lg border border-orange-200 bg-orange-50 dark:bg-orange-950/25 dark:border-orange-900/60 p-2.5">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
+        <p className="text-[13px] font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
           Mar 1 to Mar 31 · 8 platforms
         </p>
         <div className="mt-1.5 grid grid-cols-4 gap-1.5">
@@ -1271,21 +1261,21 @@ export function AnalyticsReportPreview({ show, progress = 1 }: { show: boolean; 
               key={m.label}
               className="rounded-md border border-orange-100 bg-white/80 dark:bg-neutral-900/60 dark:border-orange-900/40 px-1.5 py-1"
             >
-              <p className="text-[13px] font-bold tabular-nums text-neutral-900 dark:text-neutral-100">{m.value}</p>
-              <p className="text-[9px] text-neutral-500">{m.label}</p>
-              <p className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">{m.delta}</p>
+              <p className="text-[15px] font-bold tabular-nums text-neutral-900 dark:text-neutral-100">{m.value}</p>
+              <p className="text-[11px] text-neutral-500">{m.label}</p>
+              <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">{m.delta}</p>
             </div>
           ))}
         </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900">
-        <p className="border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+        <p className="border-b border-neutral-100 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-950 px-2 py-1.5 text-[12px] font-semibold uppercase tracking-wide text-neutral-500">
           Platform breakdown
         </p>
         <table className="w-full text-left">
           <thead>
-            <tr className="border-b border-neutral-100 dark:border-neutral-800 text-[10px] uppercase text-neutral-500">
+            <tr className="border-b border-neutral-100 dark:border-neutral-800 text-[12px] uppercase text-neutral-500">
               <th className="px-2 py-1 font-semibold">Platform</th>
               <th className="px-1.5 py-1 font-semibold">Followers</th>
               <th className="px-1.5 py-1 font-semibold">Views</th>
@@ -1296,11 +1286,11 @@ export function AnalyticsReportPreview({ show, progress = 1 }: { show: boolean; 
           <tbody>
             {platformRows.map((row) => (
               <tr key={row.platform} className="border-b border-neutral-50 dark:border-neutral-800/80 last:border-0">
-                <td className="px-2 py-1 text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">{row.platform}</td>
-                <td className="px-1.5 py-1 text-[11px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.followers}</td>
-                <td className="px-1.5 py-1 text-[11px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.views}</td>
-                <td className="px-1.5 py-1 text-[11px] tabular-nums text-emerald-600 dark:text-emerald-400">{row.eng}</td>
-                <td className="px-1.5 py-1 text-[11px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.posts}</td>
+                <td className="px-2 py-1 text-[13px] font-semibold text-neutral-800 dark:text-neutral-200">{row.platform}</td>
+                <td className="px-1.5 py-1 text-[13px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.followers}</td>
+                <td className="px-1.5 py-1 text-[13px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.views}</td>
+                <td className="px-1.5 py-1 text-[13px] tabular-nums text-emerald-600 dark:text-emerald-400">{row.eng}</td>
+                <td className="px-1.5 py-1 text-[13px] tabular-nums text-neutral-600 dark:text-neutral-400">{row.posts}</td>
               </tr>
             ))}
           </tbody>
@@ -1318,15 +1308,15 @@ export function AnalyticsReportPreview({ show, progress = 1 }: { show: boolean; 
             key={item.label}
             className="rounded-md border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 px-1.5 py-1.5"
           >
-            <p className="text-[9px] uppercase text-neutral-500">{item.label}</p>
-            <p className="text-[12px] font-bold text-neutral-900 dark:text-neutral-100">{item.value}</p>
-            <p className="text-[9px] text-neutral-500">{item.sub}</p>
+            <p className="text-[11px] uppercase text-neutral-500">{item.label}</p>
+            <p className="text-[14px] font-bold text-neutral-900 dark:text-neutral-100">{item.value}</p>
+            <p className="text-[11px] text-neutral-500">{item.sub}</p>
           </div>
         ))}
       </div>
 
       <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 p-2">
-        <p className="text-[10px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">Top content this month</p>
+        <p className="text-[12px] font-semibold text-neutral-800 dark:text-neutral-200 mb-1.5">Top content this month</p>
         <div className="flex gap-1.5">
           {FUNNEL_DEMO_IG_WEEK_POSTS.slice(0, 4).map((post) => (
             <div key={post.src} className="relative w-[52px] shrink-0">
@@ -1335,7 +1325,7 @@ export function AnalyticsReportPreview({ show, progress = 1 }: { show: boolean; 
                 <img src={post.src} alt={post.label} className="h-full w-full object-cover" draggable={false} />
                 {post.format === 'reel' ? <DemoReelPlayOverlay show /> : null}
               </div>
-              <p className="mt-0.5 text-[8px] tabular-nums text-neutral-500">{post.views}</p>
+              <p className="mt-0.5 text-[11px] tabular-nums text-neutral-500">{post.views}</p>
             </div>
           ))}
         </div>

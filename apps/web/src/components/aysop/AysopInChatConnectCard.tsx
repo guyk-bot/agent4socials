@@ -57,7 +57,7 @@ export function AysopInChatConnectCard({ artifact }: { artifact: ConnectArtifact
       }
       const opened = navigateOAuthConnect(url, oauthPopup);
       if (!opened.opened) {
-        setError('Allow pop-ups for agent4socials.com, then tap Connect again.');
+        setError('Allow pop-ups for www.izop.io, then tap Connect again.');
       }
     } catch {
       closeOAuthConnectPopup(oauthPopup);

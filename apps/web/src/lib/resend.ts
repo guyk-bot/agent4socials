@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { resolveAppBaseUrl } from '@/lib/app-base-url';
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -59,7 +60,7 @@ export async function sendTestEmail(to: string): Promise<{ ok: boolean; error?: 
     return { ok: false, error: 'RESEND_API_KEY not set' };
   }
   const from = getScheduledFrom();
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+  const baseUrl = resolveAppBaseUrl();
   try {
     const { error } = await resend.emails.send({
       from,
@@ -137,7 +138,7 @@ export async function sendScheduleConfirmationEmail(
     return { ok: false, error: 'RESEND_API_KEY not set' };
   }
   const from = getScheduledFrom();
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+  const baseUrl = resolveAppBaseUrl();
   const whenLabel = new Date(whenIso).toLocaleString(undefined, {
     month: 'numeric',
     day: 'numeric',
@@ -182,7 +183,7 @@ export async function sendScheduledPublishFailureEmail(
     return { ok: false, error: 'RESEND_API_KEY not set' };
   }
   const from = getScheduledFrom();
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+  const baseUrl = resolveAppBaseUrl();
   const whenLabel = new Date(whenIso).toLocaleString(undefined, {
     month: 'numeric',
     day: 'numeric',
@@ -230,7 +231,7 @@ export async function sendBrandFriendInviteEmail(params: {
     return { ok: false, error: 'Email service is not configured' };
   }
   const from = getGeneralFrom();
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+  const baseUrl = resolveAppBaseUrl();
   const inviteUrl = (params.inviteLink || `${baseUrl}/signup`).trim();
   const safeFriendName = (params.friendName || '').trim();
   const greeting = safeFriendName ? `Hi ${safeFriendName},` : 'Hi there,';

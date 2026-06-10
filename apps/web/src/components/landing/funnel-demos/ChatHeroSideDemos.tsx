@@ -172,12 +172,12 @@ export function ChatHeroSideDemoColumn({
 }) {
   if (!visible) {
     return (
-      <div className="hidden xl:block h-full min-h-0 w-[400px] shrink-0 2xl:w-[440px]" aria-hidden />
+      <div className="hidden xl:block h-full min-h-0 w-[430px] shrink-0 2xl:w-[480px]" aria-hidden />
     );
   }
 
   return (
-    <div className="hidden xl:flex h-full min-h-0 w-[400px] shrink-0 flex-col 2xl:w-[440px]">
+    <div className="hidden xl:flex h-full min-h-0 w-[430px] shrink-0 flex-col 2xl:w-[480px]">
       <SideDemoCarouselColumn side={side} />
     </div>
   );

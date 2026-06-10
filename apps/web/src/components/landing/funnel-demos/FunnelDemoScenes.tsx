@@ -107,7 +107,7 @@ export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
         </FunnelDemoUserBubble>
       </div>
       <FunnelDemoAssistantBubble show visual wide>
-        <p className="mb-1.5 text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">
+        <p className="mb-1.5 text-[13px] font-semibold text-neutral-800 dark:text-neutral-200">
           I drafted Shorts previews for 9:30 AM:
         </p>
         <PlatformPostPreviewGrid previews={SCHEDULE_PREVIEWS} compact scheduleDemo />
@@ -133,7 +133,7 @@ export function FunnelDemoSceneComments({ progress }: { progress: number }) {
     <DemoSceneScroll>
       <FunnelDemoUserBubble show>{USER_REPLY}</FunnelDemoUserBubble>
       <FunnelDemoAssistantBubble show visual wide contained>
-        <p className="mb-1.5 text-[13px] font-semibold text-neutral-800 dark:text-neutral-200">
+        <p className="mb-1.5 text-[15px] font-semibold text-neutral-800 dark:text-neutral-200">
           14 comments on Instagram and YouTube. Here are draft replies:
         </p>
         <ul className="space-y-1.5">
@@ -172,11 +172,11 @@ export function FunnelDemoSceneAnalytics({ progress }: { progress: number }) {
       <FunnelDemoAssistantBubble show visual wide contained allowOverflow>
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-visible">
           <div className="funnel-demo-scene-scroll min-h-0 flex-1 overflow-y-auto overflow-x-visible overscroll-contain pr-0.5">
-            <p className="mb-1.5 text-[12px] font-semibold text-neutral-800 dark:text-neutral-200">
+            <p className="mb-1.5 text-[14px] font-semibold text-neutral-800 dark:text-neutral-200">
               Instagram weekly snapshot:
             </p>
             <InstagramWeeklyAnalyticsPanel />
-            <p className="mt-2 text-[11px] text-neutral-700 dark:text-neutral-300 leading-snug">
+            <p className="mt-2 text-[13px] text-neutral-700 dark:text-neutral-300 leading-snug">
               Views up 18%, engagement up 12%, followers net +135. Reels drove most of the lift this week.
             </p>
           </div>
@@ -198,7 +198,7 @@ export function FunnelDemoSceneLeads({ progress }: { progress: number }) {
     <DemoSceneScroll>
       <FunnelDemoUserBubble show>{USER_LEADS}</FunnelDemoUserBubble>
       <FunnelDemoAssistantBubble show visual wide contained>
-        <p className="mb-1.5 text-[13px] font-semibold text-neutral-800 dark:text-neutral-200">
+        <p className="mb-1.5 text-[15px] font-semibold text-neutral-800 dark:text-neutral-200">
           11 high-intent leads from the last 24 hours:
         </p>
         <LeadsSpreadsheet show progress={1} />
@@ -240,14 +240,14 @@ export function FunnelDemoSceneAdsRoas({ progress }: { progress: number }) {
       <FunnelDemoAssistantBubble show visual wide contained>
         <div className="flex flex-col gap-2 min-h-0">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[14px] font-bold text-neutral-900 dark:text-neutral-100">Paid ads ROAS</p>
-            <span className="shrink-0 rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+            <p className="text-[16px] font-bold text-neutral-900 dark:text-neutral-100">Paid ads ROAS</p>
+            <span className="shrink-0 rounded-full bg-orange-500 px-2 py-0.5 text-[12px] font-bold uppercase tracking-wide text-white">
               Coming soon
             </span>
           </div>
           <AdsPerformanceChart show />
           <AdsTopCreativesCandleChart />
-          <p className="text-[12px] leading-snug text-neutral-700 dark:text-neutral-300">
+          <p className="text-[14px] leading-snug text-neutral-700 dark:text-neutral-300">
             TikTok leads on ROAS (4.17x) with the lowest CPA. Task Complete is your top creative at 4.82x.
           </p>
           <FunnelDemoAllowBar

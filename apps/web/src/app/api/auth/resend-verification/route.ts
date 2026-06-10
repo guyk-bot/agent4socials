@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveAppBaseUrl } from '@/lib/app-base-url';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { Resend } from 'resend';
 
@@ -126,7 +127,7 @@ export async function POST(request: NextRequest) {
   const newLockout =
     nextResendCount >= MAX_RESENDS_BEFORE_LOCKOUT ? new Date(now + LOCKOUT_MS).toISOString() : null;
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com';
+  const appUrl = resolveAppBaseUrl();
   const fullName =
     (authUser.user?.user_metadata as { full_name?: string } | undefined)?.full_name?.trim() || '';
 

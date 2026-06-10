@@ -101,6 +101,9 @@ export type LandingChatContext = {
   matchedPlatforms: ChatHeroPlatformId[];
   matchedPain: ChatHeroPainPointId | null;
   selectedPlatformIds: ChatHeroPlatformId[];
+  connectedAccountId?: string | null;
+  funnelFlowStep?: string | null;
+  brandContextDraft?: Record<string, unknown> | null;
 };
 
 function platformLabel(id: ChatHeroPlatformId): string {

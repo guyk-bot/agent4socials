@@ -31,7 +31,7 @@ export function landingChatKnowledgeBlock(): string {
     'White label (Pro): custom branding for client-facing views.',
     'Smart link pages: on the roadmap (coming soon).',
     'Ads: in active development. When ads launch, iZop will email registered users with full setup details. The marketing funnel chat cannot run ads or campaigns.',
-    'Funnel chat limits: this pre-signup demo chat cannot connect accounts, publish posts, schedule content, or open Composer. For those actions, users must sign in at izop.ai, connect platforms via Connect, then publish from Composer or from iZop AI in the dashboard chat.',
+    'Funnel connect flow: users can connect ONE platform from the landing chat without signing in (OAuth). After connect they can brainstorm in chat, set brand context inline, and draft posts. Publishing uses the connected account OAuth scopes. A second platform requires sign-in. Message limit: 100 user messages per funnel session, then sign in to continue in the app.',
     `Free plan: ${FREE_PLAN_HIGHLIGHTS.join('; ')}.`,
     `Standard ($${STANDARD_PLAN_PRICING.monthly}/mo or $${STANDARD_PLAN_PRICING.yearly}/yr, 20% off yearly): ${STANDARD_PLAN_HIGHLIGHTS.join('; ')}.`,
     `Pro ($${PRO_PLAN_PRICING.monthly}/mo or $${PRO_PLAN_PRICING.yearly}/yr, 20% off yearly): ${PRO_PLAN_HIGHLIGHTS.join('; ')}.`,

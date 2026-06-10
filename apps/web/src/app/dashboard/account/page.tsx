@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import api from '@/lib/api';
+import { CANONICAL_APP_ORIGIN } from '@/lib/app-base-url';
 import { countAccountsForBrand } from '@/lib/brand-account-move';
 import { ConnectedAccountsPanel } from '@/components/account/ConnectedAccountsPanel';
 import {
@@ -45,7 +46,7 @@ const CANCEL_REASONS: { id: CancelReasonId; label: string }[] = [
   { id: 'other', label: 'Other' },
 ];
 
-const SHARE_URL = 'https://agent4socials.com';
+const SHARE_URL = CANONICAL_APP_ORIGIN;
 const SHARE_TEXT = 'Check out iZop: schedule posts and analytics for Instagram, YouTube, TikTok, Facebook and more.';
 const USER_AVATAR_STORAGE_KEY = 'agent4socials-user-avatar-v1';
 const ROLE_GUIDE_URL = '/help/roles-permissions';

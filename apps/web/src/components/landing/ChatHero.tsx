@@ -15,26 +15,46 @@ import {
   YoutubeIcon,
 } from '@/components/SocialPlatformIcons';
 import { CHAT_HERO_LOGO_SRC, SITE_HEADER_LOGO_CLASS } from '@/lib/site-brand-assets';
-import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
 import {
   ChatHeroDemoLoopProvider,
   ChatHeroSideDemoColumn,
 } from '@/components/landing/funnel-demos/ChatHeroSideDemos';
 import {
-  CHAT_HERO_PAIN_POINTS,
   CHAT_HERO_PLATFORMS,
   connectRedirectForPlatforms,
-  demoBlocksForPainPoint,
   formatPlatformList,
   answerLandingChatQuestion,
   matchPainPointFromText,
   matchPlatformsFromText,
-  painDiscoveryMessage,
-  type ChatHeroPainPointId,
   type ChatHeroPlatformId,
-  type DemoBlock,
 } from '@/lib/chat-hero-script';
+import {
+  defaultBrandContextDraft,
+  funnelBrandContextIntro,
+  funnelConnectedMessage,
+  funnelExperienceChoiceMessage,
+  funnelMultiPlatformSignupMessage,
+  funnelPublishReadyMessage,
+  FUNNEL_ACTIONS,
+  FUNNEL_OPENING_BODY,
+  platformLabelFromId,
+  type FunnelActionId,
+  type FunnelFlowStep,
+} from '@/lib/funnel-chat-flow';
+import type { BrandContextRecord } from '@/lib/brand-context-utils';
+import FunnelBrandContextCard from '@/components/landing/FunnelBrandContextCard';
+import {
+  ensureFunnelSession,
+  funnelAuthHeaders,
+  FUNNEL_PLATFORM_TO_API,
+  persistFunnelBrandDraft,
+  persistFunnelChatState,
+  readFunnelBrandDraft,
+  readFunnelChatState,
+  saveFunnelForAppHandoff,
+} from '@/lib/funnel-session-client';
+import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 
 type FlowStep = 0 | 1 | 2 | 3;
 
@@ -44,7 +64,10 @@ type RenderBlock =
   | { id: string; kind: 'stats'; items: { value: string; label: string }[] }
   | { id: string; kind: 'mock_chat'; user: string; ai: string }
   | { id: string; kind: 'ideas'; items: string[] }
-  | { id: string; kind: 'badges'; items: string[] };
+  | { id: string; kind: 'badges'; items: string[] }
+  | { id: string; kind: 'action_chips'; actions: FunnelActionId[] }
+  | { id: string; kind: 'experience_choice' }
+  | { id: string; kind: 'brand_context' };
 
 const PLATFORM_ICONS: Record<
   ChatHeroPlatformId,
@@ -62,8 +85,7 @@ const PLATFORM_ICONS: Record<
 
 const OPENING_GREETING = "Hi 👋 I'm iZop,";
 const OPENING_HEADLINE = 'your personal AI social media manager.';
-const OPENING_BODY =
-  "Tell me what platforms you're on, and I'll show you what I can do.";
+const OPENING_BODY = FUNNEL_OPENING_BODY;
 
 /** Typewriter stops after headline; body + platforms appear together when it finishes. */
 const OPENING_TYPEWRITER_TEXT = `${OPENING_GREETING}\n${OPENING_HEADLINE}`;
@@ -86,22 +108,6 @@ function delay(ms: number): Promise<void> {
 
 function blockId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-}
-
-function demoBlockToRender(block: DemoBlock): RenderBlock[] {
-  if (block.kind === 'text') {
-    return [{ id: blockId('ai'), kind: 'ai', text: block.text }];
-  }
-  if (block.kind === 'stats') {
-    return [{ id: blockId('stats'), kind: 'stats', items: block.items }];
-  }
-  if (block.kind === 'mock_chat') {
-    return [{ id: blockId('mock'), kind: 'mock_chat', user: block.user, ai: block.ai }];
-  }
-  if (block.kind === 'ideas') {
-    return [{ id: blockId('ideas'), kind: 'ideas', items: block.items }];
-  }
-  return [{ id: blockId('badges'), kind: 'badges', items: block.items }];
 }
 
 function TypewriterText({
@@ -347,13 +353,21 @@ export default function ChatHero() {
   const [busy, setBusy] = useState(false);
 
   const [selectedPlatforms, setSelectedPlatforms] = useState<ChatHeroPlatformId[]>([]);
-  const [selectedPain, setSelectedPain] = useState<ChatHeroPainPointId | null>(null);
+  const [pendingAction, setPendingAction] = useState<FunnelActionId | null>(null);
+  const oauthReturnHandled = useRef(false);
 
+  const [funnelStep, setFunnelStep] = useState<FunnelFlowStep>('pick_platform');
   const [showPlatformOptions, setShowPlatformOptions] = useState(true);
   const [showOpeningFollowUp, setShowOpeningFollowUp] = useState(true);
-  const [showPainOptions, setShowPainOptions] = useState(false);
-  const [showDemoCta, setShowDemoCta] = useState(false);
+  const [showActionOptions, setShowActionOptions] = useState(false);
+  const [showExperienceChoice, setShowExperienceChoice] = useState(false);
+  const [showBrandContext, setShowBrandContext] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
+  const [messageLimited, setMessageLimited] = useState(false);
+  const [connectedAccountId, setConnectedAccountId] = useState<string | null>(null);
+  const [connectedPlatform, setConnectedPlatform] = useState<ChatHeroPlatformId | null>(null);
+  const [connectedUsername, setConnectedUsername] = useState<string | null>(null);
+  const [brandDraft, setBrandDraft] = useState<BrandContextRecord>(() => readFunnelBrandDraft() ?? {});
   const [typewriterDone, setTypewriterDone] = useState(true);
 
   const [authLoading, setAuthLoading] = useState(false);
@@ -402,17 +416,81 @@ export default function ChatHero() {
 
   useEffect(() => {
     trackChatHeroEvent('chat_started');
-    setBlocks([
+    void ensureFunnelSession().catch(() => {});
+    const isOAuthReturn =
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('funnel_connected') === '1';
+    const restored = readFunnelChatState();
+    if (restored?.blocks?.length) {
+      setBlocks(restored.blocks as RenderBlock[]);
+      setFunnelStep((restored.step as FunnelFlowStep) || 'pick_platform');
+      setConnectedAccountId(restored.connectedAccountId ?? null);
+      setConnectedPlatform(restored.connectedPlatform ?? null);
+      setConnectedUsername(restored.connectedUsername ?? null);
+      setShowPlatformOptions(!restored.connectedAccountId);
+      setShowActionOptions(!!restored.connectedAccountId && restored.step === 'connected');
+      setShowOpeningFollowUp(true);
+    } else if (!isOAuthReturn) {
+      setBlocks([
+        {
+          id: blockId('ai'),
+          kind: 'ai',
+          text: OPENING_TYPEWRITER_TEXT,
+          animate: true,
+          prominent: true,
+          isOpening: true,
+        },
+      ]);
+    }
+    setSideDemosReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || oauthReturnHandled.current) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('funnel_connected') !== '1') return;
+    oauthReturnHandled.current = true;
+    const accountId = params.get('accountId');
+    const username = params.get('username');
+    const platformRaw = params.get('platform')?.toLowerCase();
+    const platformMap: Record<string, ChatHeroPlatformId> = {
+      instagram: 'instagram',
+      tiktok: 'tiktok',
+      youtube: 'youtube',
+      facebook: 'facebook',
+      twitter: 'x',
+      linkedin: 'linkedin',
+      threads: 'threads',
+      pinterest: 'pinterest',
+    };
+    const platformId = platformRaw ? platformMap[platformRaw] : null;
+    if (!accountId || !platformId) return;
+
+    setConnectedAccountId(accountId);
+    setConnectedPlatform(platformId);
+    setConnectedUsername(username);
+    setSelectedPlatforms([platformId]);
+    setShowPlatformOptions(false);
+    setShowActionOptions(true);
+    setFunnelStep('connected');
+    setStep(2);
+
+    const label = platformLabelFromId(platformId);
+    const draft = defaultBrandContextDraft(label, username || 'you');
+    setBrandDraft(draft);
+    persistFunnelBrandDraft(draft);
+
+    appendBlocks([
       {
         id: blockId('ai'),
         kind: 'ai',
-        text: OPENING_TYPEWRITER_TEXT,
-        animate: true,
-        prominent: true,
-        isOpening: true,
+        text: funnelConnectedMessage(label, username || 'you'),
       },
+      { id: blockId('actions'), kind: 'action_chips', actions: FUNNEL_ACTIONS.map((a) => a.id) },
     ]);
-    setSideDemosReady(true);
+
+    window.history.replaceState({}, '', window.location.pathname);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on OAuth return
   }, []);
 
   const handleHeadlineComplete = useCallback(() => {
@@ -421,109 +499,117 @@ export default function ChatHero() {
     setShowPlatformOptions(true);
   }, []);
 
-  const togglePlatform = useCallback((id: ChatHeroPlatformId) => {
-    setSelectedPlatforms((prev) =>
-      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
-    );
-  }, []);
-
-  const handlePlatformsContinue = useCallback(async () => {
-    if (busy || flowLock.current || selectedPlatforms.length === 0) return;
-    flowLock.current = true;
-    setBusy(true);
-    setShowPlatformOptions(false);
-
-    trackChatHeroEvent('platforms_selected', { platforms: selectedPlatforms });
-
-    appendBlocks([
-      {
-        id: blockId('user'),
-        kind: 'user_pills',
-        labels: platformLabels,
-      },
-    ]);
-
-    setStep(1);
-
-    await playTypingThen(800, async () => {
-      appendBlocks([
-        {
-          id: blockId('ai'),
-          kind: 'ai',
-          text: painDiscoveryMessage(platformLabels),
-        },
-      ]);
-      await delay(600);
-      setShowPainOptions(true);
-      setBusy(false);
-      flowLock.current = false;
-    });
-  }, [appendBlocks, busy, platformLabels, playTypingThen, selectedPlatforms]);
-
-  const handlePainContinue = useCallback(async () => {
-    if (busy || flowLock.current || !selectedPain) return;
-    flowLock.current = true;
-    setBusy(true);
-    setShowPainOptions(false);
-
-    const painLabel = CHAT_HERO_PAIN_POINTS.find((p) => p.id === selectedPain)?.label ?? '';
-    trackChatHeroEvent('pain_point_selected', { pain_point: selectedPain });
-
-    appendBlocks([{ id: blockId('user'), kind: 'user_pills', labels: [painLabel] }]);
-
-    setStep(2);
-
-    await playTypingThen(1200, async () => {
-      const demo = demoBlocksForPainPoint(selectedPain);
-      for (let i = 0; i < demo.length; i += 1) {
-        const rendered = demoBlockToRender(demo[i]);
-        appendBlocks(rendered);
-        if (i < demo.length - 1) await delay(600);
-      }
-
-      trackChatHeroEvent('demo_completed', { pain_point: selectedPain });
-      await delay(400);
-
-      await playTypingThen(800, async () => {
+  const handlePlatformConnect = useCallback(
+    async (id: ChatHeroPlatformId) => {
+      if (busy || flowLock.current) return;
+      if (connectedPlatform && connectedPlatform !== id) {
         appendBlocks([
-          {
-            id: blockId('ai'),
-            kind: 'ai',
-            text: 'Want to see this working on your actual accounts?',
-          },
+          { id: blockId('user'), kind: 'user_pills', labels: [platformLabelFromId(id)] },
+          { id: blockId('ai'), kind: 'ai', text: funnelMultiPlatformSignupMessage() },
         ]);
-        setShowDemoCta(true);
+        setShowSignup(true);
+        setFunnelStep('signup_required');
+        saveFunnelForAppHandoff();
+        return;
+      }
+      if (connectedPlatform === id) return;
+
+      flowLock.current = true;
+      setBusy(true);
+      setShowPlatformOptions(false);
+      setSelectedPlatforms([id]);
+      trackChatHeroEvent('platforms_selected', { platforms: [id] });
+      appendBlocks([{ id: blockId('user'), kind: 'user_pills', labels: [platformLabelFromId(id)] }]);
+
+      try {
+        const token = await ensureFunnelSession();
+        const apiPlatform = FUNNEL_PLATFORM_TO_API[id];
+        const res = await fetch(`/api/social/oauth/${apiPlatform}/start?funnel=1`, {
+          headers: { ...funnelAuthHeaders(), 'X-Funnel-Session': token },
+        });
+        const data = (await res.json()) as { url?: string; message?: string };
+        if (!res.ok || !data.url) {
+          throw new Error(data.message || 'Could not start OAuth');
+        }
+        window.location.href = data.url;
+      } catch (err: unknown) {
+        const msg =
+          err && typeof err === 'object' && 'message' in err
+            ? String((err as { message: string }).message)
+            : 'Connect failed. Please try again.';
+        appendBlocks([{ id: blockId('ai'), kind: 'ai', text: msg }]);
+        setShowPlatformOptions(true);
         setBusy(false);
         flowLock.current = false;
+      }
+    },
+    [appendBlocks, busy, connectedPlatform]
+  );
+
+  const handleFunnelAction = useCallback(
+    async (actionId: FunnelActionId) => {
+      if (busy) return;
+      const label = FUNNEL_ACTIONS.find((a) => a.id === actionId)?.label ?? actionId;
+      setShowActionOptions(false);
+      appendBlocks([{ id: blockId('user'), kind: 'user_pills', labels: [label] }]);
+      setFunnelStep('experience_choice');
+      await playTypingThen(600, async () => {
+        appendBlocks([
+          { id: blockId('ai'), kind: 'ai', text: funnelExperienceChoiceMessage() },
+          { id: blockId('exp'), kind: 'experience_choice' },
+        ]);
+        setShowExperienceChoice(true);
+        setPendingAction(actionId);
       });
-    });
-  }, [appendBlocks, busy, playTypingThen, selectedPain]);
+    },
+    [appendBlocks, busy, playTypingThen]
+  );
 
-  const handleStartForFree = useCallback(async () => {
-    if (busy) return;
-    setBusy(true);
-    setShowDemoCta(false);
-    trackChatHeroEvent('signup_clicked', { platforms: selectedPlatforms });
-    setStep(3);
-
-    await playTypingThen(800, async () => {
+  const handleContinueInChat = useCallback(async () => {
+    setShowExperienceChoice(false);
+    setFunnelStep('free_chat');
+    if (pendingAction === 'publish') {
+      setShowBrandContext(true);
+      setFunnelStep('brand_context');
+      appendBlocks([
+        { id: blockId('ai'), kind: 'ai', text: funnelBrandContextIntro() },
+        { id: blockId('brand'), kind: 'brand_context' },
+      ]);
+      await playTypingThen(400, async () => {
+        appendBlocks([{ id: blockId('ai'), kind: 'ai', text: funnelPublishReadyMessage() }]);
+      });
+    } else if (pendingAction === 'brainstorm') {
       appendBlocks([
         {
           id: blockId('ai'),
           kind: 'ai',
-          text: `Create your free account and I'll connect to your ${formatPlatformList(platformLabels)} right away.`,
+          text: 'Great — tell me your niche or a topic and I will brainstorm post ideas in your brand voice.',
         },
       ]);
-      setShowSignup(true);
-      setBusy(false);
-    });
-  }, [appendBlocks, busy, platformLabels, playTypingThen, selectedPlatforms]);
+    } else {
+      appendBlocks([
+        {
+          id: blockId('ai'),
+          kind: 'ai',
+          text: 'Ask me anything about your connected account here, or sign in for the full dashboard experience.',
+        },
+      ]);
+    }
+  }, [appendBlocks, pendingAction, playTypingThen]);
+
+  const handleContinueInApp = useCallback(() => {
+    saveFunnelForAppHandoff();
+    setFunnelPostAuthRedirect('/dashboard/aysop-ai');
+    setShowSignup(true);
+    setFunnelStep('signup_required');
+  }, []);
 
   const handleGoogleSignup = useCallback(async () => {
     setAuthError('');
     setAuthLoading(true);
+    saveFunnelForAppHandoff();
     try {
-      setFunnelPostAuthRedirect(connectRedirectForPlatforms(selectedPlatforms));
+      setFunnelPostAuthRedirect(connectedAccountId ? '/dashboard/aysop-ai' : connectRedirectForPlatforms(selectedPlatforms));
       await signInWithGoogle();
     } catch (err: unknown) {
       setAuthError(
@@ -536,13 +622,14 @@ export default function ChatHero() {
   }, [selectedPlatforms, signInWithGoogle]);
 
   const handleEmailSignup = useCallback(() => {
-    setFunnelPostAuthRedirect(connectRedirectForPlatforms(selectedPlatforms));
+    saveFunnelForAppHandoff();
+    setFunnelPostAuthRedirect(connectedAccountId ? '/dashboard/aysop-ai' : connectRedirectForPlatforms(selectedPlatforms));
     openSignup();
-  }, [openSignup, selectedPlatforms]);
+  }, [connectedAccountId, openSignup, selectedPlatforms]);
 
   const handleFreeTextSubmit = useCallback(async () => {
     const trimmed = draftText.trim();
-    if (!trimmed || busy || isTyping) return;
+    if (!trimmed || busy || isTyping || messageLimited) return;
 
     setDraftText('');
     appendBlocks([{ id: blockId('user'), kind: 'user_pills', labels: [trimmed] }]);
@@ -550,29 +637,15 @@ export default function ChatHero() {
     const matchedPlatforms = matchPlatformsFromText(trimmed);
     const matchedPain = matchPainPointFromText(trimmed);
 
-    if (showPlatformOptions && matchedPlatforms.length > 0) {
-      setSelectedPlatforms((prev) => [...new Set([...prev, ...matchedPlatforms])]);
-    }
-    // Also select platform when user asks about posting on a specific one
-    if (showPlatformOptions) {
-      const lower = trimmed.toLowerCase();
-      if (/instagram|ig\b|insta/.test(lower) && /post|publish|reel/.test(lower)) {
-        setSelectedPlatforms((prev) => [...new Set([...prev, 'instagram' as ChatHeroPlatformId])]);
-      }
-      if (/tiktok|tik tok/.test(lower) && /post|publish|video|from here|can you|can i/.test(lower)) {
-        setSelectedPlatforms((prev) => [...new Set([...prev, 'tiktok' as ChatHeroPlatformId])]);
-      }
-    }
-    if (showPainOptions && matchedPain) {
-      setSelectedPain(matchedPain);
-    }
-
     const chatContext = {
       step,
       text: trimmed,
       matchedPlatforms,
       matchedPain,
       selectedPlatformIds: [...new Set([...selectedPlatforms, ...matchedPlatforms])],
+      connectedAccountId,
+      funnelFlowStep: funnelStep,
+      brandContextDraft: brandDraft as Record<string, unknown>,
     };
 
     setBusy(true);
@@ -580,18 +653,25 @@ export default function ChatHero() {
     scrollToLatest();
 
     const minThinkMs = 700;
+    let hitLimit = false;
     const [replyText] = await Promise.all([
       (async () => {
         try {
           const res = await fetch('/api/landing/chat', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...funnelAuthHeaders() },
             body: JSON.stringify(chatContext),
           });
+          const data = (await res.json()) as { text?: string; limited?: boolean };
+          if (data.limited) {
+            hitLimit = true;
+            setMessageLimited(true);
+            setShowSignup(true);
+            return data.text?.trim() || answerLandingChatQuestion(chatContext);
+          }
           if (!res.ok) {
             return answerLandingChatQuestion(chatContext);
           }
-          const data = (await res.json()) as { text?: string };
           return typeof data.text === 'string' && data.text.trim()
             ? data.text.trim()
             : answerLandingChatQuestion(chatContext);
@@ -610,32 +690,41 @@ export default function ChatHero() {
         text: replyText,
       },
     ]);
+    if (hitLimit) saveFunnelForAppHandoff();
     setBusy(false);
     scrollToLatest();
   }, [
     appendBlocks,
+    brandDraft,
     busy,
+    connectedAccountId,
     draftText,
+    funnelStep,
     isTyping,
+    messageLimited,
     scrollToLatest,
     selectedPlatforms,
-    showPainOptions,
-    showPlatformOptions,
     step,
   ]);
 
-  const inputPlaceholder = useMemo(() => {
-    if (showSignup) return 'Ask anything, or use the signup buttons below…';
-    if (showDemoCta) return 'Type a question, or tap Start for free…';
-    if (showPainOptions) return 'Describe your biggest challenge…';
-    if (step === 0 && !showPainOptions && !showDemoCta && !showSignup) {
-      return 'Ask anything - pricing, features, platforms, how it works…';
-    }
-    return 'Message iZop…';
-  }, [showDemoCta, showPainOptions, showSignup, step]);
+  useEffect(() => {
+    persistFunnelChatState({
+      blocks,
+      step: funnelStep,
+      connectedAccountId,
+      connectedPlatform,
+      connectedUsername,
+    });
+  }, [blocks, connectedAccountId, connectedPlatform, connectedUsername, funnelStep]);
 
-  const canPlatformContinue = selectedPlatforms.length > 0 && !busy;
-  const canPainContinue = selectedPain !== null && !busy;
+  const inputPlaceholder = useMemo(() => {
+    if (messageLimited) return 'Sign in to continue chatting in the app…';
+    if (showSignup) return 'Ask anything, or use the signup buttons below…';
+    if (showBrandContext) return 'Edit brand context above, or describe your post…';
+    if (connectedAccountId) return 'Brainstorm, ask for analytics, or describe a post…';
+    if (showPlatformOptions) return 'Pick a platform above to connect, or ask a question…';
+    return 'Message iZop…';
+  }, [connectedAccountId, messageLimited, showBrandContext, showPlatformOptions, showSignup]);
 
   return (
     <section className="chat-hero relative flex h-[calc(100dvh-0.5rem)] max-h-[calc(100dvh-0.5rem)] flex-col overflow-hidden pt-14 sm:pt-16">
@@ -723,6 +812,60 @@ export default function ChatHero() {
                     </div>
                   );
                 }
+                if (block.kind === 'action_chips') {
+                  return showActionOptions ? (
+                    <div key={block.id} className={`grid grid-cols-2 gap-2 ${FUNNEL_AI_CONTENT_INDENT} chat-hero-message-enter`}>
+                      {FUNNEL_ACTIONS.map((action) => (
+                        <button
+                          key={action.id}
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void handleFunnelAction(action.id)}
+                          className="rounded-xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-surface)] px-4 py-3 text-sm font-medium text-[var(--chat-hero-text)] hover:border-[#7C3AED]/50"
+                        >
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null;
+                }
+                if (block.kind === 'experience_choice') {
+                  return showExperienceChoice ? (
+                    <div key={block.id} className={`flex flex-col sm:flex-row gap-2 ${FUNNEL_AI_CONTENT_INDENT} chat-hero-message-enter`}>
+                      <button
+                        type="button"
+                        onClick={handleContinueInApp}
+                        className="rounded-full bg-gradient-to-br from-[#7C3AED] to-[#4F46E5] px-5 py-2.5 text-sm font-medium text-white"
+                      >
+                        Sign in for web app
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleContinueInChat()}
+                        className="rounded-full border border-[var(--chat-hero-border)] px-5 py-2.5 text-sm font-medium text-[var(--chat-hero-text)]"
+                      >
+                        Continue in chat
+                      </button>
+                    </div>
+                  ) : null;
+                }
+                if (block.kind === 'brand_context') {
+                  return showBrandContext ? (
+                    <div key={block.id} className={FUNNEL_AI_CONTENT_INDENT}>
+                      <FunnelBrandContextCard
+                        draft={brandDraft}
+                        onChange={setBrandDraft}
+                        onSave={() => {
+                          persistFunnelBrandDraft(brandDraft);
+                          appendBlocks([
+                            { id: blockId('ai'), kind: 'ai', text: 'Brand context saved. What would you like to post?' },
+                          ]);
+                        }}
+                        disabled={busy}
+                      />
+                    </div>
+                  ) : null;
+                }
                 return (
                   <div key={block.id} className={`flex flex-wrap gap-2 ${FUNNEL_AI_CONTENT_INDENT} chat-hero-message-enter`}>
                     {block.items.map((badge) => (
@@ -742,9 +885,9 @@ export default function ChatHero() {
 
             {showPlatformOptions ? (
               <div className="mt-3 grid grid-cols-4 gap-2.5 sm:gap-3 w-full shrink-0">
-                {CHAT_HERO_PLATFORMS.map((platform, i) => {
+                {CHAT_HERO_PLATFORMS.map((platform) => {
                   const Icon = PLATFORM_ICONS[platform.id];
-                  const selected = selectedPlatforms.includes(platform.id);
+                  const selected = connectedPlatform === platform.id;
                   return (
                     <OptionSquareButton
                       key={platform.id}
@@ -753,63 +896,16 @@ export default function ChatHero() {
                       disabled={busy}
                       animateEnter={false}
                       icon={<Icon size={30} />}
-                      onClick={() => togglePlatform(platform.id)}
+                      onClick={() => void handlePlatformConnect(platform.id)}
                     />
                   );
                 })}
-              </div>
-            ) : null}
-
-            {showPainOptions ? (
-              <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-2.5 w-full shrink-0">
-                {CHAT_HERO_PAIN_POINTS.map((pain, i) => (
-                  <OptionSquareButton
-                    key={pain.id}
-                    label={pain.label}
-                    selected={selectedPain === pain.id}
-                    disabled={busy}
-                    staggerIndex={i}
-                    variant="tall"
-                    onClick={() => setSelectedPain(pain.id)}
-                  />
-                ))}
               </div>
             ) : null}
           </div>
 
           <div className="shrink-0 border-t border-[var(--chat-hero-border)] pt-3 pb-3">
             <div className="space-y-3">
-              {showPlatformOptions && canPlatformContinue ? (
-                <button
-                  type="button"
-                  onClick={() => void handlePlatformsContinue()}
-                  className="chat-hero-continue-enter w-full sm:w-auto rounded-full bg-gradient-to-br from-[#7C3AED] to-[#4F46E5] px-7 py-3 text-[15px] font-medium text-white hover:brightness-110 transition-all"
-                >
-                  Continue →
-                </button>
-              ) : null}
-
-              {showPainOptions && canPainContinue ? (
-                <button
-                  type="button"
-                  onClick={() => void handlePainContinue()}
-                  className="chat-hero-continue-enter w-full sm:w-auto rounded-full bg-gradient-to-br from-[#7C3AED] to-[#4F46E5] px-7 py-3 text-[15px] font-medium text-white hover:brightness-110 transition-all"
-                >
-                  Show me →
-                </button>
-              ) : null}
-
-              {showDemoCta ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void handleStartForFree()}
-                  className="chat-hero-continue-enter w-full sm:w-auto rounded-full bg-gradient-to-br from-[#7C3AED] to-[#4F46E5] px-7 py-3 text-[15px] font-medium text-white hover:brightness-110 transition-all"
-                >
-                  Start for free — no credit card →
-                </button>
-              ) : null}
-
               {showSignup ? (
                 <div className="space-y-3 chat-hero-continue-enter">
                   {authError ? (
@@ -857,7 +953,7 @@ export default function ChatHero() {
                 value={draftText}
                 onChange={(e) => setDraftText(e.target.value)}
                 placeholder={inputPlaceholder}
-                disabled={busy || isTyping}
+                disabled={busy || isTyping || messageLimited}
                 className="flex-1 min-w-0 bg-transparent text-[15px] text-[var(--chat-hero-text)] placeholder:text-[var(--chat-hero-muted)] outline-none disabled:opacity-50"
                 aria-label="Message iZop"
               />

@@ -7,9 +7,9 @@ import {
   buildPostScalarsSelect,
   prismaPostReadWithMediaTypeFallback,
 } from '@/lib/prisma-post-media-type-fallback';
+import { resolveAppBaseUrl } from '@/lib/app-base-url';
 
-const baseUrl = () =>
-  (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+const baseUrl = () => resolveAppBaseUrl();
 
 export type ProcessScheduledSummary = {
   processed: number;

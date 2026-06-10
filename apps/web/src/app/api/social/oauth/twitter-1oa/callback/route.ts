@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveAppBaseUrl } from '@/lib/app-base-url';
 import { prisma } from '@/lib/db';
 import { getTwitterOAuth1, signTwitterRequest } from '@/lib/twitter-oauth1';
 import axios from 'axios';
@@ -10,12 +11,12 @@ function buildTwitterConnectParams(username: string | null | undefined): string 
 }
 
 function twitter1oaDashboardRedirect(accountId: string, username: string | null | undefined): string {
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+  const baseUrl = resolveAppBaseUrl();
   return `${baseUrl}/dashboard?accountId=${encodeURIComponent(accountId)}&connecting=1${buildTwitterConnectParams(username)}`;
 }
 
 export async function GET(request: NextRequest) {
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+  const baseUrl = resolveAppBaseUrl();
   const dashboardUrl = `${baseUrl}/dashboard`;
   const oauthToken = request.nextUrl.searchParams.get('oauth_token');
   const oauthVerifier = request.nextUrl.searchParams.get('oauth_verifier');

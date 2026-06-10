@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveAppBaseUrl } from '@/lib/app-base-url';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { getTwitterOAuth1 } from '@/lib/twitter-oauth1';
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
       { status: 503 }
     );
   }
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+  const baseUrl = resolveAppBaseUrl();
   const callbackUrl = `${baseUrl}/api/social/oauth/twitter-1oa/callback`;
 
   const oauth = getTwitterOAuth1();

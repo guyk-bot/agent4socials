@@ -468,7 +468,7 @@ export function LinkPageRenderer({
           style={{ animationDelay: design.animation === 'stagger' ? `${(visibleLinks.length + 3) * 80}ms` : undefined }}
         >
           <a
-            href="https://agent4socials.com"
+            href="https://www.izop.io"
             target="_blank"
             rel="noopener noreferrer"
             className="hover:opacity-80 transition-opacity"

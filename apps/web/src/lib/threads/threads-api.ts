@@ -3,16 +3,9 @@ import { randomBytes } from 'crypto';
 
 export const THREADS_GRAPH_BASE = 'https://graph.threads.net/v1.0';
 
-const DEFAULT_APP_ORIGIN = 'https://agent4socials.com';
+import { resolveAppBaseUrl } from '@/lib/app-base-url';
 
-/** Canonical site origin for OAuth callbacks (NEXT_PUBLIC_APP_URL). */
-export function resolveAppBaseUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
-    DEFAULT_APP_ORIGIN
-  ).replace(/\/+$/, '');
-}
+export { resolveAppBaseUrl };
 
 /**
  * Threads OAuth redirect URI. Uses THREADS_REDIRECT_URI only when its host matches

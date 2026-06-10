@@ -5,22 +5,33 @@ import { Users, Loader2, Download, Search, Copy, Check, ExternalLink } from 'luc
 import api from '@/lib/api';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { useAuth } from '@/context/AuthContext';
+import { readLeadsLocalCache, type LocalLeadsScan } from '@/lib/leads/leads-local-cache';
+import { cacheLeadsScanPayload } from '@/lib/leads/leads-sync-client';
 
-type Lead = {
-  commentId: string;
-  accountId: string;
-  platform: string;
-  authorName: string;
-  profileUrl: string | null;
-  authorPictureUrl: string | null;
-  comment: string;
-  postPreview: string;
-  postUrl: string | null;
-  createdAt: string;
-  intent: 'high' | 'medium';
-  reason: string;
-  outreach: string;
-};
+type Lead = LocalLeadsScan['leads'][number];
+
+function applySavedScan(
+  data: {
+    leads: Lead[];
+    scanned: number;
+    message?: string;
+    accountId?: string | null;
+    scannedAt?: string | null;
+  },
+  setters: {
+    setLeads: (v: Lead[]) => void;
+    setScanned: (v: number) => void;
+    setScannedAt: (v: string | null) => void;
+    setAccountId: (v: string) => void;
+    setHint: (v: string | null) => void;
+  }
+) {
+  setters.setLeads(data.leads ?? []);
+  setters.setScanned(data.scanned ?? 0);
+  setters.setScannedAt(data.scannedAt ?? null);
+  if (data.accountId) setters.setAccountId(data.accountId);
+  if (data.message) setters.setHint(data.message);
+}
 
 function csvCell(value: string | null | undefined): string {
   const v = (value ?? '').replace(/"/g, '""');
@@ -38,67 +49,121 @@ function buildCsv(leads: Lead[]): string {
 }
 
 export default function LeadsPage() {
-  const { user } = useAuth();
+  const { loading: authLoading } = useAuth();
   const { cachedAccounts } = useAccountsCache() ?? { cachedAccounts: [] };
   const [accountId, setAccountId] = useState<string>('all');
   const [loading, setLoading] = useState(false);
   const [loadingSaved, setLoadingSaved] = useState(true);
+  const [loadedOnce, setLoadedOnce] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [leads, setLeads] = useState<Lead[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [scanned, setScanned] = useState(0);
   const [scannedAt, setScannedAt] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!user?.id) {
-      setLoadingSaved(false);
-      return;
+  const setters = useMemo(
+    () => ({
+      setLeads,
+      setScanned,
+      setScannedAt,
+      setAccountId,
+      setHint,
+    }),
+    []
+  );
+
+  const loadSaved = useCallback(async () => {
+    setLoadingSaved(true);
+    setLoadError(null);
+
+    const local = readLeadsLocalCache();
+    if (local && (local.leads.length > 0 || local.scanned > 0)) {
+      applySavedScan(local, setters);
+      setLoadedOnce(true);
     }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await api.get<{
-          leads: Lead[];
-          scanned: number;
-          message?: string;
-          accountId?: string | null;
-          scannedAt?: string | null;
-        }>('/leads/last');
-        if (cancelled) return;
-        const saved = res.data.leads ?? [];
-        if (saved.length > 0 || (res.data.scanned ?? 0) > 0) {
-          setLeads(saved);
-          setScanned(res.data.scanned ?? 0);
-          setScannedAt(res.data.scannedAt ?? null);
-          if (res.data.accountId) setAccountId(res.data.accountId);
-          if (res.data.message) setHint(res.data.message);
-        }
-      } catch {
-        /* ignore: user can scan again */
-      } finally {
-        if (!cancelled) setLoadingSaved(false);
+
+    try {
+      const res = await api.get<{
+        leads: Lead[];
+        scanned: number;
+        message?: string;
+        accountId?: string | null;
+        scannedAt?: string | null;
+      }>('/leads/last', { timeout: 30_000 });
+
+      const saved = res.data.leads ?? [];
+      const payload = {
+        leads: saved,
+        scanned: res.data.scanned ?? 0,
+        message: res.data.message,
+        accountId: res.data.accountId ?? null,
+        scannedAt: res.data.scannedAt ?? null,
+      };
+
+      if (saved.length > 0 || payload.scanned > 0) {
+        applySavedScan(payload, setters);
+        cacheLeadsScanPayload({
+          accountId: payload.accountId,
+          scanned: payload.scanned,
+          leads: saved,
+          message: payload.message,
+          scannedAt: payload.scannedAt ?? undefined,
+        });
+      } else if (!local) {
+        setLeads([]);
+        setScanned(0);
       }
-    })();
-    return () => {
-      cancelled = true;
+      setLoadedOnce(true);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Could not load your last scan. Try Scan for leads below.';
+      if (!local) setLoadError(msg);
+    } finally {
+      setLoadingSaved(false);
+    }
+  }, [setters]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    void loadSaved();
+  }, [authLoading, loadSaved]);
+
+  useEffect(() => {
+    const onFocus = () => {
+      if (!authLoading) void loadSaved();
     };
-  }, [user?.id]);
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [authLoading, loadSaved]);
 
   const scan = useCallback(async () => {
     setLoading(true);
     setError(null);
     setHint(null);
     try {
-      const res = await api.post<{ leads: Lead[]; scanned: number; message?: string }>(
+      const res = await api.post<{ leads: Lead[]; scanned: number; message?: string; scannedAt?: string }>(
         '/leads/scan',
         accountId === 'all' ? {} : { accountId },
         { timeout: 90_000 }
       );
-      setLeads(res.data.leads ?? []);
-      setScanned(res.data.scanned ?? 0);
-      setScannedAt((res.data as { scannedAt?: string }).scannedAt ?? new Date().toISOString());
+      const nextLeads = res.data.leads ?? [];
+      const nextScanned = res.data.scanned ?? 0;
+      const nextScannedAt = res.data.scannedAt ?? new Date().toISOString();
+      setLeads(nextLeads);
+      setScanned(nextScanned);
+      setScannedAt(nextScannedAt);
+      setLoadedOnce(true);
       if (res.data.message) setHint(res.data.message);
+      cacheLeadsScanPayload({
+        accountId: accountId === 'all' ? null : accountId,
+        scanned: nextScanned,
+        leads: nextLeads,
+        message: res.data.message,
+        scannedAt: nextScannedAt,
+      });
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
@@ -110,7 +175,7 @@ export default function LeadsPage() {
   }, [accountId]);
 
   const downloadCsv = useCallback(() => {
-    if (!leads || leads.length === 0) return;
+    if (!leads.length) return;
     const blob = new Blob([buildCsv(leads)], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -132,7 +197,8 @@ export default function LeadsPage() {
     }
   }, []);
 
-  const highCount = useMemo(() => (leads ?? []).filter((l) => l.intent === 'high').length, [leads]);
+  const highCount = useMemo(() => leads.filter((l) => l.intent === 'high').length, [leads]);
+  const showEmptyCta = loadedOnce && !loadingSaved && !loading && leads.length === 0 && scanned === 0;
 
   return (
     <div className="mx-auto w-full max-w-6xl">
@@ -165,13 +231,13 @@ export default function LeadsPage() {
         <button
           type="button"
           onClick={() => void scan()}
-          disabled={loading}
+          disabled={loading || loadingSaved}
           className="flex items-center gap-2 rounded-lg gradient-cta-pro px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
         >
           {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
           {loading ? 'Scanning…' : 'Scan for leads'}
         </button>
-        {leads && leads.length > 0 ? (
+        {leads.length > 0 ? (
           <button
             type="button"
             onClick={downloadCsv}
@@ -188,11 +254,17 @@ export default function LeadsPage() {
         </div>
       ) : null}
 
-      {loadingSaved ? (
+      {loadError ? (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+          {loadError}
+        </div>
+      ) : null}
+
+      {loadingSaved && !loadedOnce ? (
         <p className="mb-3 text-sm text-[var(--muted)]">Loading your last scan…</p>
       ) : null}
 
-      {leads !== null ? (
+      {loadedOnce && (leads.length > 0 || scanned > 0) ? (
         <p className="mb-3 text-sm text-[var(--muted)]">
           {leads.length > 0
             ? `Found ${leads.length} potential lead${leads.length === 1 ? '' : 's'} (${highCount} high intent) from ${scanned} comments.${
@@ -202,7 +274,7 @@ export default function LeadsPage() {
         </p>
       ) : null}
 
-      {leads && leads.length > 0 ? (
+      {leads.length > 0 ? (
         <div className="overflow-x-auto rounded-2xl border border-[var(--border)]">
           <table className="w-full border-collapse text-sm">
             <thead>
@@ -282,7 +354,7 @@ export default function LeadsPage() {
         </div>
       ) : null}
 
-      {leads === null && !loading && !loadingSaved ? (
+      {showEmptyCta ? (
         <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg-surface)] p-8 text-center text-sm text-[var(--muted)]">
           Pick an account (or all) and scan. We read comments already loaded from your Inbox and flag
           the ones that look like buying intent. Tip: open Inbox first so the latest comments are cached.

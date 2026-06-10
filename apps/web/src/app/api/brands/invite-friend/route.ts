@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveAppBaseUrl } from '@/lib/app-base-url';
 import { createClient } from '@supabase/supabase-js';
 import { sendBrandFriendInviteEmail } from '@/lib/resend';
 
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
   }
 
   const inviterName = (user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'A teammate').toString();
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+  const baseUrl = resolveAppBaseUrl();
   const inviteParams = new URLSearchParams({
     email: to,
     brand: brandName,

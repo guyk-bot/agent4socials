@@ -31,7 +31,7 @@ export function FunnelDemoFrame({
 
   return (
     <div
-      className={`funnel-demo-card pointer-events-auto flex h-full min-h-0 w-full max-w-[400px] 2xl:max-w-[440px] flex-col overflow-hidden rounded-xl border-2 border-neutral-200 bg-[var(--bg-primary)] shadow-md dark:border-neutral-700 ${
+      className={`funnel-demo-card pointer-events-auto flex h-full min-h-0 w-full max-w-[430px] 2xl:max-w-[480px] flex-col overflow-hidden rounded-xl border-2 border-neutral-200 bg-[var(--bg-primary)] shadow-md dark:border-neutral-700 ${
         staticMode ? 'funnel-demo-card--static' : ''
       } ${visible || staticMode ? 'opacity-100' : 'opacity-0 pointer-events-none'} ${
         !staticMode && entering && visible ? 'funnel-demo-card-enter' : ''
@@ -82,7 +82,7 @@ export function FunnelDemoUserBubble({
     <div className="flex justify-end funnel-demo-message-in">
       <div
         className={`${visual ? 'max-w-[98%]' : 'max-w-[94%]'} rounded-2xl rounded-br-md leading-snug aysop-bubble-user whitespace-pre-wrap ${
-          visual ? 'p-1.5 text-[12px] sm:text-[13px]' : 'px-3 py-2.5 text-[13px] sm:text-[14px]'
+          visual ? 'p-1.5 text-[14px] sm:text-[15px]' : 'px-3 py-2.5 text-[14px] sm:text-[15px]'
         }`}
       >
         {children}
@@ -113,7 +113,7 @@ export function FunnelDemoAssistantBubble({
     <div className="flex min-h-0 shrink justify-start funnel-demo-message-in">
       <div
         className={`${wide ? 'max-w-[98%]' : 'max-w-[96%]'} min-w-0 rounded-2xl rounded-bl-md leading-snug aysop-bubble-assistant shadow-sm ${
-          visual ? 'p-2 text-[12px] sm:text-[13px]' : 'px-3 py-2.5 text-[13px] sm:text-[14px]'
+          visual ? 'p-2 text-[14px] sm:text-[15px]' : 'px-3 py-2.5 text-[14px] sm:text-[15px]'
         } ${contained ? `max-h-[min(100%,380px)] ${overflowClass} flex flex-col min-h-0` : ''}`}
       >
         <div className={contained ? `min-h-0 flex-1 flex flex-col ${overflowClass}` : undefined}>

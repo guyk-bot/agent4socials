@@ -803,7 +803,7 @@ function drawFooter(ctx: Ctx, pageNum: number) {
   setTxtColor(pdf, C.gray500);
   pdf.setFontSize(6.5);
   pdf.setFont('helvetica', 'normal');
-  pdf.text('iZop Analytics Report  |  agent4socials.com', 40, pageH - 8);
+  pdf.text('iZop Analytics Report  |  www.izop.io', 40, pageH - 8);
   pdf.text(`Page ${pageNum}`, pageW - 40, pageH - 8, { align: 'right' });
 }
 

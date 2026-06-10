@@ -889,7 +889,13 @@ export const AYSOP_TOOL_DEFINITIONS = [
   },
 ];
 
-function buildLeadsToolResponse(leads: ScannedLead[], scanned: number, message?: string, scannedAt?: string | null) {
+function buildLeadsToolResponse(
+  leads: ScannedLead[],
+  scanned: number,
+  message?: string,
+  scannedAt?: string | null,
+  accountId?: string | null
+) {
   const highCount = leads.filter((l) => l.intent === 'high').length;
   return {
     result: {
@@ -910,7 +916,7 @@ function buildLeadsToolResponse(leads: ScannedLead[], scanned: number, message?:
           ? 'Leads card shown in chat with Scan/Rescan, outreach, and CSV. Summarize the count; user can rescan from the card.'
           : 'Scan prompt card shown with a Scan for leads button. Tell the user to tap it or open Inbox first if no comments are cached.',
     },
-    artifacts: leadsToChatArtifacts(leads, scanned, { lastScannedAt: scannedAt }),
+    artifacts: leadsToChatArtifacts(leads, scanned, { lastScannedAt: scannedAt, accountId }),
   };
 }
 
@@ -1381,7 +1387,13 @@ export async function runAysopTool(
           artifacts: leadsToChatArtifacts([], 0),
         };
       }
-      return buildLeadsToolResponse(saved.leads, saved.scanned, saved.message, saved.scannedAt);
+      return buildLeadsToolResponse(
+        saved.leads,
+        saved.scanned,
+        saved.message,
+        saved.scannedAt,
+        saved.accountId
+      );
     }
 
     case 'scan_leads': {
@@ -1392,8 +1404,9 @@ export async function runAysopTool(
         accountId = null;
       }
       const { leads, scanned, message } = await scanLeads(ctx.userId, accountId);
+      const scannedAt = new Date().toISOString();
       await saveLeadsScan(ctx.userId, { accountId, scanned, leads, message });
-      return buildLeadsToolResponse(leads, scanned, message, new Date().toISOString());
+      return buildLeadsToolResponse(leads, scanned, message, scannedAt, accountId);
     }
 
     case 'show_support_options': {

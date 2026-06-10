@@ -519,3 +519,22 @@ model AysopChatSession {
   @@index([userId, updatedAt(sort: Desc)])
   @@map("aysop_chat_sessions")
 }
+
+/// Anonymous landing-funnel session (guest user + chat state before signup).
+model FunnelSession {
+  id                  String    @id @default(cuid())
+  token               String    @unique
+  guestUserId         String    @unique
+  messageCount        Int       @default(0)
+  connectedPlatform   Platform?
+  connectedAccountId  String?
+  chatPayload         Json?
+  brandContextDraft   Json?
+  expiresAt           DateTime
+  mergedToUserId      String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([expiresAt])
+  @@map("funnel_sessions")
+}

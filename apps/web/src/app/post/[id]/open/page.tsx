@@ -1,10 +1,10 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { getPostForOpen } from '@/lib/post-open';
+import { resolveAppBaseUrl } from '@/lib/app-base-url';
 import PostOpenClient from './PostOpenClient';
 
-const baseUrl = () =>
-  (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+const baseUrl = () => resolveAppBaseUrl();
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ t?: string }> };
 

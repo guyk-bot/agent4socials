@@ -48,6 +48,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const data = await res.json();
       setUser(data);
       if (typeof window !== 'undefined') {
+        try {
+          const handoffRaw = sessionStorage.getItem('izop_funnel_handoff_v1');
+          if (handoffRaw) {
+            const handoff = JSON.parse(handoffRaw) as { token?: string };
+            if (handoff.token) {
+              void fetch('/api/funnel/merge', {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json',
+                  'X-Funnel-Session': handoff.token,
+                },
+                body: JSON.stringify({ funnelToken: handoff.token }),
+              }).finally(() => sessionStorage.removeItem('izop_funnel_handoff_v1'));
+            }
+          }
+        } catch {
+          /* ignore funnel merge errors */
+        }
         sessionStorage.removeItem('profile_error');
         const syncStatus = res.headers.get('X-Profile-Sync');
         const syncError = res.headers.get('X-Profile-Sync-Error');

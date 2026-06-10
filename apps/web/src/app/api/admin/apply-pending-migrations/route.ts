@@ -5,7 +5,7 @@
  * (typically due to a misconfigured DATABASE_DIRECT_URL).
  *
  * Secured by CRON_SECRET. Call with:
- *   curl -X POST https://agent4socials.com/api/admin/apply-pending-migrations \
+ *   curl -X POST https://www.izop.io/api/admin/apply-pending-migrations \
  *     -H "X-Cron-Secret: <your CRON_SECRET>"
  */
 import { NextRequest, NextResponse } from 'next/server';

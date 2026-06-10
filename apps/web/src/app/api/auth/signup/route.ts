@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveAppBaseUrl } from '@/lib/app-base-url';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { Resend } from 'resend';
 
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com';
+  const appUrl = resolveAppBaseUrl();
 
   const { error: emailError } = await resend.emails.send({
     from: FROM,

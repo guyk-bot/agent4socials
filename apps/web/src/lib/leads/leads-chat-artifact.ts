@@ -4,15 +4,19 @@ import type { ScannedLead } from '@/lib/leads/scan-leads';
 export function leadsToChatArtifacts(
   leads: ScannedLead[],
   scanned: number,
-  opts?: { lastScannedAt?: string | null }
+  opts?: { lastScannedAt?: string | null; accountId?: string | null }
 ): AysopArtifact[] {
   if (leads.length > 0) {
+    const slice = leads.slice(0, 25);
     return [
       {
         type: 'leads',
         scanned,
         href: '/dashboard/leads',
-        leads: leads.slice(0, 25).map((l) => ({
+        scannedAt: opts?.lastScannedAt ?? new Date().toISOString(),
+        accountId: opts?.accountId ?? null,
+        fullLeads: slice,
+        leads: slice.map((l) => ({
           authorName: l.authorName,
           profileUrl: l.profileUrl,
           platform: l.platform,

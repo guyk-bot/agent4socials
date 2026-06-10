@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveAppBaseUrl } from '@/lib/app-base-url';
 import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 import axios from 'axios';
@@ -21,6 +22,7 @@ import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 import { parseLinkedInOAuthState } from '@/lib/linkedin/build-oauth-authorization-url';
 import { scheduleInboxWarmForUser } from '@/lib/inbox/schedule-inbox-warm';
 import { resolvePrismaUserIdFromOAuthState } from '@/lib/get-prisma-user';
+import { isFunnelGuestUserId, markFunnelSessionConnected } from '@/lib/funnel-guest';
 import { OAUTH_COMPLETE_MESSAGE } from '@/lib/oauth-connect';
 import { isPrismaPoolError } from '@/lib/db';
 
@@ -69,6 +71,26 @@ function parseConnectParamsForPostMessage(connectParams: string): {
     username: q.get('newUsername'),
     profilePicture: q.get('newPic'),
   };
+}
+
+function funnelOAuthSuccessHtml(
+  baseUrl: string,
+  accountId: string,
+  connectParams: string
+): NextResponse {
+  const conn = parseConnectParamsForPostMessage(connectParams);
+  const homeUrl = new URL('/', baseUrl.replace(/\/+$/, '') + '/');
+  homeUrl.searchParams.set('funnel_connected', '1');
+  homeUrl.searchParams.set('accountId', accountId);
+  if (conn.platform) homeUrl.searchParams.set('platform', conn.platform);
+  if (conn.username) homeUrl.searchParams.set('username', conn.username);
+  const safeUrl = JSON.stringify(homeUrl.toString());
+  const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>iZop – Connected</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;">
+<h2 style="color:#15803d;">Account connected</h2>
+<p>Returning you to iZop…</p>
+<script>window.location.replace(${safeUrl});</script>
+</body></html>`;
+  return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
 }
 
 function oauthSuccessHtml(
@@ -733,7 +755,7 @@ export async function GET(
   const code = searchParams.get('code');
   const stateRaw = searchParams.get('state'); // Prisma userId or "userId:instagram"
 
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+  const baseUrl = resolveAppBaseUrl();
   const dashboardUrl = `${baseUrl}/dashboard`;
 
   // User clicked "Not now" or denied permission: redirect to dashboard instead of showing an error
@@ -1646,6 +1668,10 @@ export async function GET(
   if (mainAccount?.id) {
     if (plat === 'LINKEDIN' && linkedInConsentPreviewId) {
       await prisma.pendingConnection.delete({ where: { id: linkedInConsentPreviewId } }).catch(() => {});
+    }
+    if (await isFunnelGuestUserId(userId)) {
+      await markFunnelSessionConnected(userId, plat, mainAccount.id);
+      return funnelOAuthSuccessHtml(baseUrl, mainAccount.id, genericConnectParams);
     }
     return oauthSuccessHtml(baseUrl, mainAccount.id, extraQuery, genericConnectParams);
   }

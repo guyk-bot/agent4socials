@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
   // This is critical for TikTok PULL_FROM_URL: TikTok fetches our URL to download the video,
   // and streaming through Vercel's serverless function times out on large files (Hobby: 5s limit).
   // A 302 redirect lets TikTok download directly from R2, bypassing Vercel's time limit entirely.
-  // TikTok verifies domain ownership on the initial URL (agent4socials.com) and follows redirects.
+  // TikTok verifies domain ownership on the initial URL (www.izop.io) and follows redirects.
   const isVideoPath = /\.(mp4|webm|mov|avi|mkv)(\?|$)/i.test(targetUrl.pathname);
   if (isVideoPath && !formatJpeg) {
     return NextResponse.redirect(targetUrl.href, { status: 302 });

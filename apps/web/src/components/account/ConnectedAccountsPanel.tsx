@@ -280,7 +280,7 @@ export function ConnectedAccountsPanel() {
                             }
                             const opened = navigateOAuthConnect(url, oauthPopup);
                             if (!opened.opened) {
-                              alert('Could not open sign-in. Allow pop-ups for agent4socials.com or try Reconnect again.');
+                              alert('Could not open sign-in. Allow pop-ups for www.izop.io or try Reconnect again.');
                             }
                           } else {
                             closeOAuthConnectPopup(oauthPopup);

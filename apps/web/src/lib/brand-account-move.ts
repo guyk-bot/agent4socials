@@ -1,3 +1,4 @@
+import { CANONICAL_APP_ORIGIN } from '@/lib/app-base-url';
 import { META_BRAND_SCOPED_PLATFORMS } from '@/lib/brand-platform-connect';
 
 /** Session key: full-page redirect after user resolves the brand-move modal (e.g. Facebook page picker). */
@@ -72,7 +73,7 @@ export function buildDashboardSuccessRedirect(
 ): string {
   if (typeof window === 'undefined' && !accountId) return DEFAULT_CONNECT_RETURN_URL;
   const origin =
-    typeof window !== 'undefined' ? window.location.origin : 'https://agent4socials.com';
+    typeof window !== 'undefined' ? window.location.origin : CANONICAL_APP_ORIGIN;
   const url = new URL('/dashboard', origin);
   if (accountId) url.searchParams.set('accountId', accountId);
   if (platform) url.searchParams.set('newPlatform', platform.toUpperCase());

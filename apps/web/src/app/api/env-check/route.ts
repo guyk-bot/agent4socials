@@ -4,7 +4,7 @@ import { databaseUrlLooksDirect } from '@/lib/db';
 /**
  * Returns which env vars the running deployment can see (booleans only, no values).
  * When using Supabase, use the Transaction pooler (port 6543) to avoid "max connections" on serverless.
- * Use: curl https://agent4socials.com/api/env-check
+ * Use: curl https://www.izop.io/api/env-check
  */
 export async function GET() {
   const vars = {

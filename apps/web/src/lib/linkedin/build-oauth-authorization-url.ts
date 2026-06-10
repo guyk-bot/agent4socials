@@ -3,6 +3,7 @@ import {
   LINKEDIN_IDENTITY_OAUTH_SCOPES,
   type LinkedInConnectMethod,
 } from '@/lib/linkedin/oauth-scopes';
+import { resolveAppBaseUrl } from '@/lib/app-base-url';
 
 export function buildLinkedInOAuthStateKey(
   userId: string,
@@ -55,10 +56,7 @@ export function buildLinkedInOAuthAuthorizationUrl(
     previewId?: string;
   }
 ): string {
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(
-    /\/+$/,
-    ''
-  );
+  const baseUrl = resolveAppBaseUrl();
   const callbackUrl = `${baseUrl}/api/social/oauth/linkedin/callback`;
   const redirect = encodeURIComponent((process.env.LINKEDIN_REDIRECT_URI || callbackUrl).replace(/\/+$/, ''));
   const clientId = encodeURIComponent(process.env.LINKEDIN_CLIENT_ID || '');

@@ -24,7 +24,7 @@ export function FunnelDemoAllowBar({
 }) {
   if (approved) {
     return (
-      <p className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+      <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-emerald-600 dark:text-emerald-400">
         <CheckCircle2 size={12} />
         {approvedLabel}
       </p>
@@ -39,17 +39,17 @@ export function FunnelDemoAllowBar({
     >
       <p
         className={`leading-snug text-neutral-800 dark:text-neutral-200 ${
-          prominent ? 'text-[11px]' : 'text-[10px]'
+          prominent ? 'text-[13px]' : 'text-[12px]'
         }`}
       >
         {message}
       </p>
-      {!compact ? <p className="text-[9px] text-neutral-500 dark:text-neutral-400">{hint}</p> : null}
+      {!compact ? <p className="text-[11px] text-neutral-500 dark:text-neutral-400">{hint}</p> : null}
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
           className={`inline-flex items-center rounded-lg bg-[#7C3AED] font-bold text-white shadow-md hover:bg-[#6D28D9] ${
-            prominent ? 'px-4 py-2 text-[12px]' : 'px-3 py-1.5 text-[10px] font-semibold shadow-sm'
+            prominent ? 'px-4 py-2 text-[14px]' : 'px-3 py-1.5 text-[12px] font-semibold shadow-sm'
           }`}
         >
           {primaryLabel}
@@ -58,7 +58,7 @@ export function FunnelDemoAllowBar({
           <button
             type="button"
             className={`btn-funnel-lime-cta inline-flex items-center gap-1 rounded-lg font-bold ${
-              prominent ? 'px-4 py-2 text-[12px]' : 'px-3 py-1.5 text-[10px] font-semibold'
+              prominent ? 'px-4 py-2 text-[14px]' : 'px-3 py-1.5 text-[12px] font-semibold'
             }`}
           >
             <RefreshCw size={prominent ? 13 : 11} />
@@ -81,12 +81,12 @@ export function FunnelDemoScheduledChip({
 }) {
   return (
     <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/80 px-2 py-1.5 dark:border-emerald-800/50 dark:bg-emerald-950/30">
-      <p className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-800 dark:text-emerald-200">
+      <p className="inline-flex items-center gap-1 text-[12px] font-semibold text-emerald-800 dark:text-emerald-200">
         <CalendarClock size={11} />
         Scheduled for {timeLabel} on {platforms}
       </p>
       {calendarHint ? (
-        <p className="mt-0.5 text-[9px] text-emerald-700/90 dark:text-emerald-300/90">{calendarHint}</p>
+        <p className="mt-0.5 text-[11px] text-emerald-700/90 dark:text-emerald-300/90">{calendarHint}</p>
       ) : null}
     </div>
   );

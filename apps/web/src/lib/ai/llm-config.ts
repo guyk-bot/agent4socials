@@ -50,7 +50,7 @@ export function resolveAysopLlmConfig(modelOverride?: string): ResolvedLlmConfig
         'gpt-4.1-mini'
     );
     const baseUrl = readEnv('OPENROUTER_BASE_URL') || OPENROUTER_CHAT_URL;
-    const referer = readEnv('OPENROUTER_HTTP_REFERER') || 'https://agent4socials.com';
+    const referer = readEnv('OPENROUTER_HTTP_REFERER') || 'https://www.izop.io';
     const title = readEnv('OPENROUTER_APP_TITLE') || 'iZop AI';
     return {
       provider: 'openrouter',

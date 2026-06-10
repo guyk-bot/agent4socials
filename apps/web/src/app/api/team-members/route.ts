@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolveAppBaseUrl } from '@/lib/app-base-url';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { prisma } from '@/lib/db';
 import { sendBrandFriendInviteEmail } from '@/lib/resend';
@@ -88,7 +89,7 @@ export async function POST(request: NextRequest) {
     try {
       const inviter = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true } });
       const inviterName = inviter?.name || inviter?.email || 'A teammate';
-      const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://agent4socials.com').replace(/\/+$/, '');
+      const baseUrl = resolveAppBaseUrl();
       const params = new URLSearchParams({
         email: result.member.email,
         brand: brandName || '',

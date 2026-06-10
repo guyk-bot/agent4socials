@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { ChatHeroPainPointId, ChatHeroPlatformId } from '@/lib/chat-hero-script';
 import { respondLandingChat } from '@/lib/landing-chat-respond';
+import {
+  funnelSessionLimitMessage,
+  getFunnelSessionByToken,
+  incrementFunnelMessageCount,
+} from '@/lib/funnel-guest';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -34,6 +39,9 @@ type Body = {
   matchedPlatforms?: ChatHeroPlatformId[];
   matchedPain?: ChatHeroPainPointId | null;
   selectedPlatformIds?: ChatHeroPlatformId[];
+  connectedAccountId?: string | null;
+  funnelFlowStep?: string | null;
+  brandContextDraft?: Record<string, unknown> | null;
 };
 
 export async function POST(req: Request) {
@@ -59,12 +67,30 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid funnel step' }, { status: 400 });
   }
 
+  const funnelToken = req.headers.get('x-funnel-session')?.trim() || null;
+  if (funnelToken) {
+    const session = await getFunnelSessionByToken(funnelToken);
+    if (!session) {
+      return NextResponse.json({ text: funnelSessionLimitMessage(), source: 'script', limited: true });
+    }
+    const { limited } = await incrementFunnelMessageCount(funnelToken);
+    if (limited) {
+      return NextResponse.json({ text: funnelSessionLimitMessage(), source: 'script', limited: true });
+    }
+  }
+
   const result = await respondLandingChat({
     step,
     text,
     matchedPlatforms: Array.isArray(body.matchedPlatforms) ? body.matchedPlatforms : [],
     matchedPain: body.matchedPain ?? null,
     selectedPlatformIds: Array.isArray(body.selectedPlatformIds) ? body.selectedPlatformIds : [],
+    connectedAccountId: typeof body.connectedAccountId === 'string' ? body.connectedAccountId : null,
+    funnelFlowStep: typeof body.funnelFlowStep === 'string' ? body.funnelFlowStep : null,
+    brandContextDraft:
+      body.brandContextDraft && typeof body.brandContextDraft === 'object'
+        ? (body.brandContextDraft as Record<string, unknown>)
+        : null,
   });
 
   return NextResponse.json(result);
