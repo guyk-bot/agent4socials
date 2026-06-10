@@ -36,7 +36,7 @@ function joinSamples(lines: string[], maxItems: number, maxLen: number): string 
 }
 
 async function buildThreadsBrandDraft(
-  account: { accessToken: string; expiresAt: Date | null; username: string },
+  account: { id: string; accessToken: string; expiresAt: Date | null; username: string },
   platformLabel: string
 ): Promise<BrandContextRecord> {
   const token = await getValidThreadsToken(account);
