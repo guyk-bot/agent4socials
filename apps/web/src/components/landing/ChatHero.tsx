@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowUp, Check } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAuthModal } from '@/context/AuthModalContext';
-import { getSupabaseBrowser } from '@/lib/supabase/client';
 import {
   FacebookIcon,
   InstagramIcon,
@@ -770,16 +769,8 @@ export default function ChatHero() {
         const token = await ensureFunnelSession();
         writeFunnelOAuthPending(id, token);
         const apiPlatform = FUNNEL_PLATFORM_TO_API[id];
-        const authHeaders: Record<string, string> = { ...funnelAuthHeaders(), 'X-Funnel-Session': token };
-        try {
-          const { data: sessionData } = await getSupabaseBrowser().auth.getSession();
-          const bearer = sessionData.session?.access_token;
-          if (bearer) authHeaders.Authorization = `Bearer ${bearer}`;
-        } catch {
-          /* funnel works without login */
-        }
         const res = await fetch(`/api/social/oauth/${apiPlatform}/start?funnel=1`, {
-          headers: authHeaders,
+          headers: { ...funnelAuthHeaders(), 'X-Funnel-Session': token },
         });
         const data = (await res.json()) as { url?: string; message?: string; redirectUri?: string };
         if (!res.ok || !data.url) {

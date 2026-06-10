@@ -65,6 +65,15 @@ export async function upsertSocialAccountAfterOAuth(params: UpsertParams): Promi
   });
 
   if (existingGlobal && existingGlobal.userId !== userId) {
+    // Funnel: OAuth proves control of the social profile — attach to this guest for pre-signup testing.
+    if (funnelFlow) {
+      await prisma.socialAccount.update({
+        where: { id: existingGlobal.id },
+        data: { userId, ...updateData },
+      });
+      return;
+    }
+
     const [existingIsGuest, currentIsGuest] = await Promise.all([
       isFunnelGuestUserId(existingGlobal.userId),
       isFunnelGuestUserId(userId),
@@ -77,16 +86,6 @@ export async function upsertSocialAccountAfterOAuth(params: UpsertParams): Promi
         data: { userId, ...updateData },
       });
       return;
-    }
-
-    if (currentIsGuest && !existingIsGuest) {
-      throw new SocialAccountOAuthConflictError(
-        funnelFlow
-          ? existingDisconnected
-            ? 'This Threads profile was connected on iZop before. Log in, open the dashboard, and click Connect Threads to reconnect.'
-            : 'This account is already connected on iZop. Log in to continue with it.'
-          : 'This account is already connected to another iZop user.'
-      );
     }
 
     if (existingIsGuest) {

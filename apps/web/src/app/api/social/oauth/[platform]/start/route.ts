@@ -198,10 +198,8 @@ export async function GET(
       if (!guestUserId) {
         return NextResponse.json({ message: 'Invalid or expired funnel session. Refresh and try again.' }, { status: 401 });
       }
-      // When the visitor is already signed in, attach OAuth to their real profile (reconnect works).
-      const loggedInUserId = await getPrismaUserIdFromRequest(authHeader);
-      const oauthUserId = loggedInUserId ?? guestUserId;
-      oauthStateKey = funnelToken ? `${oauthUserId}:funnel:${funnelToken}` : oauthUserId;
+      // Funnel always binds OAuth to the guest profile so the pre-signup flow can be tested end-to-end.
+      oauthStateKey = funnelToken ? `${guestUserId}:funnel:${funnelToken}` : guestUserId;
     } else if (plat === 'THREADS') {
       const supabaseUserId = await getSupabaseUserIdFromAuthHeader(authHeader);
       if (!supabaseUserId) {
