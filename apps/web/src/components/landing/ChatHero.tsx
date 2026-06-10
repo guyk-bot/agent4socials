@@ -38,6 +38,7 @@ import {
   funnelPublishReadyMessage,
   FUNNEL_ACTIONS,
   FUNNEL_OPENING_BODY,
+  FUNNEL_OPENING_BODY_ARROW,
   platformLabelFromId,
   type FunnelActionId,
   type FunnelFlowStep,
@@ -92,6 +93,7 @@ const PLATFORM_ICONS: Record<
 const OPENING_GREETING = "Hi 👋 I'm iZop,";
 const OPENING_HEADLINE = 'your personal AI social media manager.';
 const OPENING_BODY = FUNNEL_OPENING_BODY;
+const OPENING_BODY_ARROW = FUNNEL_OPENING_BODY_ARROW;
 
 /** Typewriter stops after headline; body + platforms appear together when it finishes. */
 const OPENING_TYPEWRITER_TEXT = `${OPENING_GREETING}\n${OPENING_HEADLINE}`;
@@ -182,10 +184,10 @@ function TypewriterText({
 }
 
 const OPENING_PRIMARY =
-  'block text-[28px] sm:text-[33px] lg:text-[35px] tracking-[-0.03em] leading-[1.15]';
+  'block text-[26px] sm:text-[30px] lg:text-[32px] tracking-[-0.03em] leading-[1.15]';
 
 const OPENING_HEADLINE_SIZE =
-  'block text-[30px] sm:text-[35px] lg:text-[40px] tracking-[-0.04em] leading-[1.1]';
+  'block text-[21px] sm:text-[26px] lg:text-[32px] tracking-[-0.04em] leading-[1.1] whitespace-nowrap';
 
 /** Chat hero squircle — scaled ~25% above header logo for funnel readability. */
 const FUNNEL_AI_AVATAR_BOX = 'h-8 w-8 sm:h-9 sm:w-9 shrink-0 object-contain';
@@ -250,6 +252,7 @@ function OpeningAiMessage({
     ? getOpeningLineParts(displayed)
     : [OPENING_GREETING, OPENING_HEADLINE];
   const body = showFollowUp ? OPENING_BODY : '';
+  const bodyArrow = showFollowUp ? OPENING_BODY_ARROW : '';
   const showCursor = !!typewriterActive && displayed.length < OPENING_TYPEWRITER_TEXT.length;
   const activeLine = getActiveOpeningLineIndex(displayed);
 
@@ -268,7 +271,12 @@ function OpeningAiMessage({
       key: 'body',
       text: body,
       className:
-        'block text-[16px] sm:text-[19px] font-normal leading-[1.6] mt-2.5 whitespace-normal break-words',
+        'block text-[13px] sm:text-[15px] lg:text-[16px] font-normal leading-[1.5] mt-2.5 sm:whitespace-nowrap',
+    },
+    {
+      key: 'body-arrow',
+      text: bodyArrow,
+      className: 'block text-[18px] sm:text-[20px] leading-none mt-1.5',
     },
   ];
 

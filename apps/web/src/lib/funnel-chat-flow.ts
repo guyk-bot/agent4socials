@@ -13,7 +13,9 @@ export type FunnelFlowStep =
 export type FunnelActionId = 'publish' | 'brainstorm' | 'analytics' | 'inbox';
 
 export const FUNNEL_OPENING_BODY =
-  'Please select the first platform you want to connect and I will show you everything I can do ; )';
+  'Select the first platform you want to connect and I will show you everything I can do';
+
+export const FUNNEL_OPENING_BODY_ARROW = '⬇️';
 
 export const FUNNEL_ACTIONS: { id: FunnelActionId; label: string }[] = [
   { id: 'publish', label: 'Publish a post' },
