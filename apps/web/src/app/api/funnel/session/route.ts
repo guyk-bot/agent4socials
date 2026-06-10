@@ -44,10 +44,20 @@ export async function GET(req: NextRequest) {
   if (!row) {
     return NextResponse.json({ error: 'Invalid funnel session' }, { status: 401 });
   }
+  let connectedUsername: string | null = null;
+  if (row.connectedAccountId) {
+    const { prisma } = await import('@/lib/db');
+    const account = await prisma.socialAccount.findUnique({
+      where: { id: row.connectedAccountId },
+      select: { username: true },
+    });
+    connectedUsername = account?.username ?? null;
+  }
   return NextResponse.json({
     messageCount: row.messageCount,
     connectedPlatform: row.connectedPlatform,
     connectedAccountId: row.connectedAccountId,
+    connectedUsername,
     chatPayload: row.chatPayload,
     brandContextDraft: row.brandContextDraft,
   });

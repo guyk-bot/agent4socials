@@ -47,7 +47,9 @@ import type { BrandContextRecord } from '@/lib/brand-context-utils';
 import FunnelBrandContextCard from '@/components/landing/FunnelBrandContextCard';
 import {
   ensureFunnelSession,
+  fetchFunnelConnectionStatus,
   funnelAuthHeaders,
+  funnelPlatformFromOAuthSlug,
   FUNNEL_PLATFORM_TO_API,
   persistFunnelBrandDraft,
   persistFunnelChatState,
@@ -116,23 +118,6 @@ function delay(ms: number): Promise<void> {
 
 function blockId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-}
-
-const OAUTH_PLATFORM_TO_FUNNEL_ID: Record<string, ChatHeroPlatformId> = {
-  instagram: 'instagram',
-  tiktok: 'tiktok',
-  youtube: 'youtube',
-  facebook: 'facebook',
-  twitter: 'x',
-  x: 'x',
-  linkedin: 'linkedin',
-  threads: 'threads',
-  pinterest: 'pinterest',
-};
-
-function funnelIdFromOAuthPlatform(platform: string | null | undefined): ChatHeroPlatformId | null {
-  if (!platform) return null;
-  return OAUTH_PLATFORM_TO_FUNNEL_ID[platform.trim().toLowerCase()] ?? null;
 }
 
 function stripUserPillBlocks(blocks: RenderBlock[]): RenderBlock[] {
@@ -427,6 +412,7 @@ export default function ChatHero() {
   const flowLock = useRef(false);
   const oauthPopupRef = useRef<Window | null>(null);
   const oauthPopupPollRef = useRef<number | null>(null);
+  const oauthSessionPollRef = useRef<number | null>(null);
 
   const [oauthPopupPending, setOauthPopupPending] = useState(false);
 
@@ -545,29 +531,75 @@ export default function ChatHero() {
     [appendBlocks, scrollToLatest]
   );
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || oauthReturnHandled.current) return;
+  const tryResolveFunnelOAuth = useCallback(async (): Promise<boolean> => {
+    if (oauthReturnHandled.current) return true;
+    if (typeof window === 'undefined') return false;
+
     const params = new URLSearchParams(window.location.search);
-    if (params.get('funnel_connected') !== '1') return;
-    const accountId = params.get('accountId');
-    const username = params.get('username');
-    const platformId = funnelIdFromOAuthPlatform(params.get('platform'));
-    if (!accountId || !platformId) return;
+    const hasUrlHint = params.get('funnel_connected') === '1';
+    let accountId = hasUrlHint ? params.get('accountId') : null;
+    let platformId = funnelPlatformFromOAuthSlug(hasUrlHint ? params.get('platform') : null);
+    let username = hasUrlHint ? params.get('username') : null;
+
+    if (!accountId || !platformId) {
+      const status = await fetchFunnelConnectionStatus();
+      if (!status) return false;
+      accountId = status.connectedAccountId;
+      platformId = status.connectedPlatform;
+      username = status.connectedUsername;
+    }
+
     finishFunnelOAuthConnect(accountId, platformId, username);
+    return true;
   }, [finishFunnelOAuthConnect]);
+
+  const resetFunnelOAuthPending = useCallback(() => {
+    setOauthPopupPending(false);
+    setBusy(false);
+    flowLock.current = false;
+    setShowPlatformOptions(true);
+    setSelectedPlatforms([]);
+    oauthPopupRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    void tryResolveFunnelOAuth();
+  }, [tryResolveFunnelOAuth]);
 
   useEffect(() => {
     return listenForOAuthComplete((payload) => {
-      const platformId = funnelIdFromOAuthPlatform(payload.platform);
+      const platformId = funnelPlatformFromOAuthSlug(payload.platform);
       if (!payload.accountId || !platformId) return;
       finishFunnelOAuthConnect(payload.accountId, platformId, payload.username ?? null);
     });
   }, [finishFunnelOAuthConnect]);
 
   useEffect(() => {
+    if (!oauthPopupPending) {
+      if (oauthSessionPollRef.current !== null) {
+        window.clearInterval(oauthSessionPollRef.current);
+        oauthSessionPollRef.current = null;
+      }
+      return;
+    }
+    oauthSessionPollRef.current = window.setInterval(() => {
+      void tryResolveFunnelOAuth();
+    }, 1500);
+    return () => {
+      if (oauthSessionPollRef.current !== null) {
+        window.clearInterval(oauthSessionPollRef.current);
+        oauthSessionPollRef.current = null;
+      }
+    };
+  }, [oauthPopupPending, tryResolveFunnelOAuth]);
+
+  useEffect(() => {
     return () => {
       if (oauthPopupPollRef.current !== null) {
         window.clearInterval(oauthPopupPollRef.current);
+      }
+      if (oauthSessionPollRef.current !== null) {
+        window.clearInterval(oauthSessionPollRef.current);
       }
     };
   }, []);
@@ -621,18 +653,16 @@ export default function ChatHero() {
           }
           oauthPopupPollRef.current = window.setInterval(() => {
             const popup = oauthPopupRef.current;
-            if (!popup || popup.closed) {
-              if (oauthPopupPollRef.current !== null) {
-                window.clearInterval(oauthPopupPollRef.current);
-                oauthPopupPollRef.current = null;
-              }
-              if (!oauthReturnHandled.current) {
-                setOauthPopupPending(false);
-                setBusy(false);
-                flowLock.current = false;
-                oauthPopupRef.current = null;
-              }
+            if (popup && !popup.closed) return;
+            if (oauthPopupPollRef.current !== null) {
+              window.clearInterval(oauthPopupPollRef.current);
+              oauthPopupPollRef.current = null;
             }
+            if (oauthReturnHandled.current) return;
+            void (async () => {
+              const completed = await tryResolveFunnelOAuth();
+              if (!completed) resetFunnelOAuthPending();
+            })();
           }, 600);
           return;
         }
@@ -655,7 +685,7 @@ export default function ChatHero() {
         flowLock.current = false;
       }
     },
-    [appendBlocks, busy, connectedPlatform]
+    [appendBlocks, busy, connectedPlatform, resetFunnelOAuthPending, tryResolveFunnelOAuth]
   );
 
   const handleFunnelAction = useCallback(

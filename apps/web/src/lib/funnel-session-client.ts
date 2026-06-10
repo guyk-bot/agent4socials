@@ -116,3 +116,51 @@ export const FUNNEL_PLATFORM_TO_API: Record<ChatHeroPlatformId, string> = {
   threads: 'threads',
   pinterest: 'pinterest',
 };
+
+/** Map Prisma Platform enum or OAuth slug to funnel platform id. */
+export function funnelPlatformFromOAuthSlug(slug: string | null | undefined): ChatHeroPlatformId | null {
+  if (!slug) return null;
+  const key = slug.trim().toLowerCase();
+  const map: Record<string, ChatHeroPlatformId> = {
+    instagram: 'instagram',
+    tiktok: 'tiktok',
+    youtube: 'youtube',
+    facebook: 'facebook',
+    twitter: 'x',
+    x: 'x',
+    linkedin: 'linkedin',
+    threads: 'threads',
+    pinterest: 'pinterest',
+  };
+  return map[key] ?? null;
+}
+
+export type FunnelConnectionStatus = {
+  connectedAccountId: string;
+  connectedPlatform: ChatHeroPlatformId;
+  connectedUsername: string | null;
+};
+
+/** Read server-side funnel connect state (survives OAuth popup / cross-origin postMessage gaps). */
+export async function fetchFunnelConnectionStatus(): Promise<FunnelConnectionStatus | null> {
+  const token = readFunnelSessionToken();
+  if (!token) return null;
+  try {
+    const res = await fetch('/api/funnel/session', { headers: funnelAuthHeaders() });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      connectedAccountId?: string | null;
+      connectedPlatform?: string | null;
+      connectedUsername?: string | null;
+    };
+    const platform = funnelPlatformFromOAuthSlug(data.connectedPlatform);
+    if (!data.connectedAccountId || !platform) return null;
+    return {
+      connectedAccountId: data.connectedAccountId,
+      connectedPlatform: platform,
+      connectedUsername: data.connectedUsername ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
