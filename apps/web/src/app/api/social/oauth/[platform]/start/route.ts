@@ -198,7 +198,7 @@ export async function GET(
       if (!guestUserId) {
         return NextResponse.json({ message: 'Invalid or expired funnel session. Refresh and try again.' }, { status: 401 });
       }
-      oauthStateKey = guestUserId;
+      oauthStateKey = funnelToken ? `${guestUserId}:funnel:${funnelToken}` : guestUserId;
     } else if (plat === 'THREADS') {
       const supabaseUserId = await getSupabaseUserIdFromAuthHeader(authHeader);
       if (!supabaseUserId) {

@@ -117,6 +117,24 @@ export async function markFunnelSessionConnected(
   );
 }
 
+export async function markFunnelSessionConnectedByToken(
+  token: string,
+  platform: Platform,
+  accountId: string
+): Promise<void> {
+  const row = await getFunnelSessionByToken(token);
+  if (!row) return;
+  await withPrismaPoolRetry('markFunnelConnectedByToken', () =>
+    prisma.funnelSession.update({
+      where: { id: row.id },
+      data: {
+        connectedPlatform: platform,
+        connectedAccountId: accountId,
+      },
+    })
+  );
+}
+
 export async function saveFunnelChatPayload(
   token: string,
   payload: FunnelChatPayload

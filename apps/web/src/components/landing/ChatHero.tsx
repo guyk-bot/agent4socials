@@ -47,6 +47,7 @@ import {
 } from '@/lib/funnel-chat-flow';
 import type { BrandContextRecord } from '@/lib/brand-context-utils';
 import {
+  clearFunnelOAuthPending,
   ensureFunnelSession,
   fetchFunnelBrandDraft,
   fetchFunnelConnectionStatus,
@@ -57,8 +58,10 @@ import {
   persistFunnelChatState,
   readFunnelBrandDraft,
   readFunnelChatState,
+  readFunnelOAuthPending,
   retryFunnelOAuthResolve,
   saveFunnelForAppHandoff,
+  writeFunnelOAuthPending,
 } from '@/lib/funnel-session-client';
 import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import {
@@ -417,6 +420,10 @@ export default function ChatHero() {
   const oauthPopupRef = useRef<Window | null>(null);
   const oauthPopupPollRef = useRef<number | null>(null);
   const oauthSessionPollRef = useRef<number | null>(null);
+  const oauthConnectTimeoutRef = useRef<number | null>(null);
+
+  const awaitingFunnelOAuth =
+    !connectedPlatform && selectedPlatforms.length > 0 && (busy || oauthPopupPending);
 
   const [oauthPopupPending, setOauthPopupPending] = useState(false);
 
@@ -509,6 +516,11 @@ export default function ChatHero() {
         window.clearInterval(oauthPopupPollRef.current);
         oauthPopupPollRef.current = null;
       }
+      if (oauthConnectTimeoutRef.current !== null) {
+        window.clearTimeout(oauthConnectTimeoutRef.current);
+        oauthConnectTimeoutRef.current = null;
+      }
+      clearFunnelOAuthPending();
 
       setConnectedAccountId(accountId);
       setConnectedPlatform(platformId);
@@ -606,26 +618,77 @@ export default function ChatHero() {
   }, [beginFunnelPostConnectFlow]);
 
   const resetFunnelOAuthPending = useCallback(() => {
+    clearFunnelOAuthPending();
     setOauthPopupPending(false);
     setBusy(false);
     flowLock.current = false;
     setShowPlatformOptions(true);
     setSelectedPlatforms([]);
     oauthPopupRef.current = null;
+    if (oauthConnectTimeoutRef.current !== null) {
+      window.clearTimeout(oauthConnectTimeoutRef.current);
+      oauthConnectTimeoutRef.current = null;
+    }
   }, []);
+
+  const failFunnelOAuthConnect = useCallback(
+    (message: string) => {
+      resetFunnelOAuthPending();
+      appendBlocks([{ id: blockId('ai'), kind: 'ai', text: message }]);
+      scrollToLatest();
+    },
+    [appendBlocks, resetFunnelOAuthPending, scrollToLatest]
+  );
+
+  const tryResolveFunnelOAuthFromParams = useCallback(
+    async (params: URLSearchParams): Promise<boolean> => {
+      if (oauthReturnHandled.current) return true;
+      if (params.get('funnel_connected') !== '1') return false;
+
+      let accountId = params.get('accountId');
+      let platformId = funnelPlatformFromOAuthSlug(params.get('platform'));
+      let username = params.get('username');
+      let profilePicture = params.get('newPic');
+
+      if (!accountId || !platformId) {
+        const status = await fetchFunnelConnectionStatus();
+        if (!status) return false;
+        accountId = status.connectedAccountId;
+        platformId = status.connectedPlatform;
+        username = status.connectedUsername;
+        profilePicture = status.connectedProfilePicture ?? null;
+      }
+
+      await beginFunnelPostConnectFlow(accountId, platformId, username, profilePicture);
+      return true;
+    },
+    [beginFunnelPostConnectFlow]
+  );
 
   useEffect(() => {
     if (oauthReturnHandled.current) return;
     const restored = readFunnelChatState();
-    if (restored?.connectedAccountId) {
-      oauthReturnHandled.current = true;
-      return;
-    }
+    if (restored?.connectedAccountId) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('funnel_connected') === '1') {
       void tryResolveFunnelOAuth();
+      return;
     }
-  }, [tryResolveFunnelOAuth]);
+    const pendingOAuth = readFunnelOAuthPending();
+    if (!pendingOAuth) return;
+    setSelectedPlatforms([pendingOAuth.platform]);
+    setShowPlatformOptions(false);
+    setBusy(true);
+    setOauthPopupPending(true);
+    flowLock.current = true;
+    void retryFunnelOAuthResolve(() => tryResolveFunnelOAuth(), 20, 2000).then((completed) => {
+      if (!completed && !oauthReturnHandled.current) {
+        failFunnelOAuthConnect(
+          'Connection timed out. If you finished login in another window, refresh this page. Otherwise click the platform again to retry.'
+        );
+      }
+    });
+  }, [failFunnelOAuthConnect, tryResolveFunnelOAuth]);
 
   useEffect(() => {
     return listenForOAuthComplete((payload) => {
@@ -641,7 +704,7 @@ export default function ChatHero() {
   }, [beginFunnelPostConnectFlow]);
 
   useEffect(() => {
-    if (!oauthPopupPending) {
+    if (!awaitingFunnelOAuth) {
       if (oauthSessionPollRef.current !== null) {
         window.clearInterval(oauthSessionPollRef.current);
         oauthSessionPollRef.current = null;
@@ -657,7 +720,29 @@ export default function ChatHero() {
         oauthSessionPollRef.current = null;
       }
     };
-  }, [oauthPopupPending, tryResolveFunnelOAuth]);
+  }, [awaitingFunnelOAuth, tryResolveFunnelOAuth]);
+
+  useEffect(() => {
+    if (!awaitingFunnelOAuth) {
+      if (oauthConnectTimeoutRef.current !== null) {
+        window.clearTimeout(oauthConnectTimeoutRef.current);
+        oauthConnectTimeoutRef.current = null;
+      }
+      return;
+    }
+    oauthConnectTimeoutRef.current = window.setTimeout(() => {
+      if (oauthReturnHandled.current) return;
+      failFunnelOAuthConnect(
+        'Connection timed out. If you finished login in another window, refresh this page. Otherwise click the platform again to retry.'
+      );
+    }, 90_000);
+    return () => {
+      if (oauthConnectTimeoutRef.current !== null) {
+        window.clearTimeout(oauthConnectTimeoutRef.current);
+        oauthConnectTimeoutRef.current = null;
+      }
+    };
+  }, [awaitingFunnelOAuth, failFunnelOAuthConnect]);
 
   useEffect(() => {
     return () => {
@@ -666,6 +751,9 @@ export default function ChatHero() {
       }
       if (oauthSessionPollRef.current !== null) {
         window.clearInterval(oauthSessionPollRef.current);
+      }
+      if (oauthConnectTimeoutRef.current !== null) {
+        window.clearTimeout(oauthConnectTimeoutRef.current);
       }
     };
   }, []);
@@ -703,6 +791,7 @@ export default function ChatHero() {
 
       try {
         const token = await ensureFunnelSession();
+        writeFunnelOAuthPending(id, token);
         const apiPlatform = FUNNEL_PLATFORM_TO_API[id];
         const res = await fetch(`/api/social/oauth/${apiPlatform}/start?funnel=1`, {
           headers: { ...funnelAuthHeaders(), 'X-Funnel-Session': token },
@@ -712,28 +801,50 @@ export default function ChatHero() {
           throw new Error(data.message || 'Could not start OAuth');
         }
         const opened = navigateOAuthConnect(data.url, oauthPopup);
-        if (opened.opened && oauthPopup && !oauthPopup.closed) {
+        if (opened.opened) {
           setOauthPopupPending(true);
           if (oauthPopupPollRef.current !== null) {
             window.clearInterval(oauthPopupPollRef.current);
           }
           oauthPopupPollRef.current = window.setInterval(() => {
             const popup = oauthPopupRef.current;
-            if (popup && !popup.closed) return;
+            if (popup && !popup.closed) {
+              try {
+                const host = popup.location.hostname;
+                if (host === 'www.izop.ai' || host === 'izop.ai' || host === 'localhost' || host === '127.0.0.1') {
+                  const params = new URLSearchParams(popup.location.search);
+                  if (params.get('funnel_connected') === '1') {
+                    void (async () => {
+                      const completed = await tryResolveFunnelOAuthFromParams(params);
+                      if (completed) closeOAuthConnectPopup(popup);
+                    })();
+                  }
+                }
+              } catch {
+                /* cross-origin until callback returns */
+              }
+              return;
+            }
             if (oauthPopupPollRef.current !== null) {
               window.clearInterval(oauthPopupPollRef.current);
               oauthPopupPollRef.current = null;
             }
             if (oauthReturnHandled.current) return;
             void (async () => {
-              const completed = await retryFunnelOAuthResolve(() => tryResolveFunnelOAuth(), 15, 2000);
-              if (!completed) resetFunnelOAuthPending();
+              const completed = await retryFunnelOAuthResolve(() => tryResolveFunnelOAuth(), 20, 2000);
+              if (!completed) {
+                failFunnelOAuthConnect(
+                  'Could not confirm the connection. If you finished login in another window, refresh this page. Otherwise click the platform again to retry.'
+                );
+              }
             })();
           }, 600);
           return;
         }
-        setOauthPopupPending(false);
+        clearFunnelOAuthPending();
+        throw new Error('Could not open login. Allow popups for this site and try again.');
       } catch (err: unknown) {
+        clearFunnelOAuthPending();
         closeOAuthConnectPopup(oauthPopupRef.current);
         oauthPopupRef.current = null;
         setOauthPopupPending(false);
@@ -751,7 +862,7 @@ export default function ChatHero() {
         flowLock.current = false;
       }
     },
-    [appendBlocks, busy, connectedPlatform, resetFunnelOAuthPending, tryResolveFunnelOAuth]
+    [appendBlocks, busy, connectedPlatform, failFunnelOAuthConnect, tryResolveFunnelOAuth, tryResolveFunnelOAuthFromParams]
   );
 
   const handleFunnelAction = useCallback(

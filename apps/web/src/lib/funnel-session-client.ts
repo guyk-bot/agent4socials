@@ -203,3 +203,33 @@ export async function retryFunnelOAuthResolve(
   }
   return false;
 }
+
+export const FUNNEL_OAUTH_PENDING_KEY = 'izop_funnel_oauth_pending_v1';
+
+export type FunnelOAuthPending = {
+  platform: ChatHeroPlatformId;
+  token: string;
+  startedAt: number;
+};
+
+export function writeFunnelOAuthPending(platform: ChatHeroPlatformId, token: string): void {
+  if (typeof window === 'undefined') return;
+  const payload: FunnelOAuthPending = { platform, token, startedAt: Date.now() };
+  sessionStorage.setItem(FUNNEL_OAUTH_PENDING_KEY, JSON.stringify(payload));
+}
+
+export function readFunnelOAuthPending(): FunnelOAuthPending | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(FUNNEL_OAUTH_PENDING_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as FunnelOAuthPending;
+  } catch {
+    return null;
+  }
+}
+
+export function clearFunnelOAuthPending(): void {
+  if (typeof window === 'undefined') return;
+  sessionStorage.removeItem(FUNNEL_OAUTH_PENDING_KEY);
+}

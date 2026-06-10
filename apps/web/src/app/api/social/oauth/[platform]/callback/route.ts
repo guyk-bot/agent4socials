@@ -22,7 +22,7 @@ import { linkedInRestCommunityHeaders } from '@/lib/linkedin/rest-config';
 import { parseLinkedInOAuthState } from '@/lib/linkedin/build-oauth-authorization-url';
 import { scheduleInboxWarmForUser } from '@/lib/inbox/schedule-inbox-warm';
 import { resolvePrismaUserIdFromOAuthState } from '@/lib/get-prisma-user';
-import { isFunnelGuestUserId, markFunnelSessionConnected } from '@/lib/funnel-guest';
+import { isFunnelGuestUserId, markFunnelSessionConnected, markFunnelSessionConnectedByToken } from '@/lib/funnel-guest';
 import { OAUTH_COMPLETE_MESSAGE } from '@/lib/oauth-connect';
 import { isPrismaPoolError } from '@/lib/db';
 
@@ -825,7 +825,15 @@ export async function GET(
   const isLinkedInPersonal = stateRaw.includes(':linkedin_personal');
   const isTikTokPersonal = stateRaw.includes(':tiktok_personal');
   const isTikTokBusiness = stateRaw.includes(':tiktok_business');
-  const { userIdBase: oauthStateBase, previewId: linkedInConsentPreviewId } = parseLinkedInOAuthState(stateRaw);
+  let funnelTokenFromState: string | null = null;
+  let stateForOAuthParse = stateRaw;
+  const funnelStateMatch = stateRaw.match(/:funnel:([a-f0-9]+)$/i);
+  if (funnelStateMatch) {
+    funnelTokenFromState = funnelStateMatch[1];
+    stateForOAuthParse = stateRaw.slice(0, -funnelStateMatch[0].length);
+  }
+  const { userIdBase: oauthStateBase, previewId: linkedInConsentPreviewId } =
+    parseLinkedInOAuthState(stateForOAuthParse);
   let userId: string;
   try {
     if (oauthStateBase.startsWith('sb:')) {
@@ -1700,6 +1708,9 @@ export async function GET(
       await prisma.pendingConnection.delete({ where: { id: linkedInConsentPreviewId } }).catch(() => {});
     }
     if (await isFunnelGuestUserId(userId)) {
+      if (funnelTokenFromState) {
+        await markFunnelSessionConnectedByToken(funnelTokenFromState, plat, mainAccount.id);
+      }
       await markFunnelSessionConnected(userId, plat, mainAccount.id);
       return funnelOAuthSuccessHtml(baseUrl, mainAccount.id, genericConnectParams);
     }
