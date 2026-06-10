@@ -14,6 +14,7 @@ import {
   XTwitterIcon,
   YoutubeIcon,
 } from '@/components/SocialPlatformIcons';
+import { ZThinkingLoopAnimation } from '@/components/ZThinkingLoopAnimation';
 import { CHAT_HERO_LOGO_SRC, SITE_HEADER_LOGO_CLASS } from '@/lib/site-brand-assets';
 import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
@@ -171,10 +172,17 @@ function FunnelAiMessageAvatar({ className }: { className?: string }) {
   );
 }
 
+const FUNNEL_AI_THINKING_BOX = 'h-10 w-10 sm:h-11 sm:w-11 shrink-0';
+
 function TypingIndicator() {
   return (
     <div className="flex items-start gap-3 chat-hero-message-enter" aria-label="Thinking">
-      <FunnelAiMessageAvatar className={`${FUNNEL_AI_AVATAR_BOX} mt-0.5`} />
+      <div
+        className={`${FUNNEL_AI_THINKING_BOX} mt-0.5 overflow-hidden rounded-[26%] bg-black flex items-center justify-center`}
+        aria-hidden
+      >
+        <ZThinkingLoopAnimation size={38} aria-label="Thinking" />
+      </div>
     </div>
   );
 }
@@ -567,34 +575,57 @@ export default function ChatHero() {
       setSelectedPain(matchedPain);
     }
 
+    const chatContext = {
+      step,
+      text: trimmed,
+      matchedPlatforms,
+      matchedPain,
+      selectedPlatformIds: [...new Set([...selectedPlatforms, ...matchedPlatforms])],
+    };
+
     setBusy(true);
-    await playTypingThen(800, async () => {
-      appendBlocks([
-        {
-          id: blockId('ai'),
-          kind: 'ai',
-          text: answerLandingChatQuestion({
-            step,
-            text: trimmed,
-            matchedPlatforms,
-            matchedPain,
-            selectedPlatformIds: [
-              ...new Set([
-                ...selectedPlatforms,
-                ...matchedPlatforms,
-              ]),
-            ],
-          }),
-        },
-      ]);
-      setBusy(false);
-    });
+    setIsTyping(true);
+    scrollToLatest();
+
+    const minThinkMs = 700;
+    const [replyText] = await Promise.all([
+      (async () => {
+        try {
+          const res = await fetch('/api/landing/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(chatContext),
+          });
+          if (!res.ok) {
+            return answerLandingChatQuestion(chatContext);
+          }
+          const data = (await res.json()) as { text?: string };
+          return typeof data.text === 'string' && data.text.trim()
+            ? data.text.trim()
+            : answerLandingChatQuestion(chatContext);
+        } catch {
+          return answerLandingChatQuestion(chatContext);
+        }
+      })(),
+      delay(minThinkMs),
+    ]);
+
+    setIsTyping(false);
+    appendBlocks([
+      {
+        id: blockId('ai'),
+        kind: 'ai',
+        text: replyText,
+      },
+    ]);
+    setBusy(false);
+    scrollToLatest();
   }, [
     appendBlocks,
     busy,
     draftText,
     isTyping,
-    playTypingThen,
+    scrollToLatest,
     selectedPlatforms,
     showPainOptions,
     showPlatformOptions,
