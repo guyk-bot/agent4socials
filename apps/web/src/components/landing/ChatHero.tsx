@@ -133,6 +133,10 @@ function funnelIdFromOAuthPlatform(platform: string | null | undefined): ChatHer
   return OAUTH_PLATFORM_TO_FUNNEL_ID[platform.trim().toLowerCase()] ?? null;
 }
 
+function stripUserPillBlocks(blocks: RenderBlock[]): RenderBlock[] {
+  return blocks.filter((b) => b.kind !== 'user_pills');
+}
+
 function TypewriterText({
   text,
   active,
@@ -313,26 +317,15 @@ function AiMessage({
   );
 }
 
-function FunnelSelectedPlatformRow({
-  platformId,
-  connecting,
-}: {
-  platformId: ChatHeroPlatformId;
-  connecting?: boolean;
-}) {
+function FunnelConnectingPlatformRow({ platformId }: { platformId: ChatHeroPlatformId }) {
   const Icon = PLATFORM_ICONS[platformId];
   const label = platformLabelFromId(platformId);
   return (
-    <div className={`mt-3 flex items-center gap-3.5 ${FUNNEL_AI_CONTENT_INDENT} chat-hero-message-enter`}>
-      <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-[#7C3AED] bg-[var(--chat-hero-accent-soft)] shadow-[0_0_0_1px_rgba(124,58,237,0.15)]">
-        <Icon size={34} />
-      </span>
-      <div className="min-w-0">
-        <p className="text-[20px] font-semibold text-[var(--chat-hero-text)] leading-tight">{label}</p>
-        <p className="text-[15px] text-[var(--chat-hero-muted)] mt-0.5">
-          {connecting ? 'Finish sign-in in the popup window…' : 'Selected platform'}
-        </p>
-      </div>
+    <div
+      className={`mt-3 flex items-center gap-2.5 ${FUNNEL_AI_CONTENT_INDENT} text-[18px] text-[var(--chat-hero-muted)] chat-hero-message-enter`}
+    >
+      <Icon size={22} />
+      <span>Connecting {label}…</span>
     </div>
   );
 }
@@ -473,7 +466,12 @@ export default function ChatHero() {
       new URLSearchParams(window.location.search).get('funnel_connected') === '1';
     const restored = readFunnelChatState();
     if (restored?.blocks?.length) {
-      setBlocks(restored.blocks as RenderBlock[]);
+      const restoredBlocks = restored.blocks as RenderBlock[];
+      setBlocks(
+        !restored.connectedAccountId && restored.step === 'pick_platform'
+          ? stripUserPillBlocks(restoredBlocks)
+          : restoredBlocks
+      );
       setFunnelStep((restored.step as FunnelFlowStep) || 'pick_platform');
       setConnectedAccountId(restored.connectedAccountId ?? null);
       setConnectedPlatform(restored.connectedPlatform ?? null);
@@ -591,6 +589,7 @@ export default function ChatHero() {
       setBusy(true);
       setShowPlatformOptions(false);
       setSelectedPlatforms([id]);
+      setBlocks((prev) => stripUserPillBlocks(prev));
       trackChatHeroEvent('platforms_selected', { platforms: [id] });
 
       const oauthPopup = prepareOAuthConnectPopup();
@@ -877,6 +876,14 @@ export default function ChatHero() {
                   );
                 }
                 if (block.kind === 'user_pills') {
+                  if (
+                    !showPlatformOptions &&
+                    selectedPlatforms.length > 0 &&
+                    !connectedPlatform &&
+                    (busy || oauthPopupPending)
+                  ) {
+                    return null;
+                  }
                   return (
                     <div key={block.id} className="flex flex-wrap justify-end gap-2 chat-hero-message-enter">
                       {block.labels.map((label) => (
@@ -1022,22 +1029,11 @@ export default function ChatHero() {
                 })}
               </div>
             ) : null}
-            {!showPlatformOptions && selectedPlatforms[0] && !connectedPlatform ? (
-              <FunnelSelectedPlatformRow
-                platformId={selectedPlatforms[0]}
-                connecting={busy || oauthPopupPending}
-              />
-            ) : null}
-            {oauthPopupPending ? (
-              <p
-                className={`text-[15px] text-[var(--chat-hero-muted)] leading-relaxed ${FUNNEL_AI_CONTENT_INDENT} mt-2`}
-              >
-                A secure sign-in window opened. Complete the steps there; this chat stays open.
-                If you do not see it, allow pop-ups for izop.ai and try again.
-              </p>
-            ) : null}
-            {connectedPlatform ? (
-              <FunnelSelectedPlatformRow platformId={connectedPlatform} connecting={false} />
+            {!showPlatformOptions &&
+            selectedPlatforms[0] &&
+            !connectedPlatform &&
+            (busy || oauthPopupPending) ? (
+              <FunnelConnectingPlatformRow platformId={selectedPlatforms[0]} />
             ) : null}
           </div>
 
