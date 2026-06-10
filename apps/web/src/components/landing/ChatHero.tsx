@@ -14,7 +14,6 @@ import {
   XTwitterIcon,
   YoutubeIcon,
 } from '@/components/SocialPlatformIcons';
-import { ZThinkingLoopAnimation } from '@/components/ZThinkingLoopAnimation';
 import { CHAT_HERO_LOGO_SRC, SITE_HEADER_LOGO_CLASS } from '@/lib/site-brand-assets';
 import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
@@ -172,17 +171,10 @@ function FunnelAiMessageAvatar({ className }: { className?: string }) {
   );
 }
 
-const FUNNEL_AI_THINKING_BOX = 'h-10 w-10 sm:h-11 sm:w-11 shrink-0';
-
 function TypingIndicator() {
   return (
     <div className="flex items-start gap-3 chat-hero-message-enter" aria-label="Thinking">
-      <div
-        className={`${FUNNEL_AI_THINKING_BOX} mt-0.5 overflow-hidden rounded-[26%] bg-black flex items-center justify-center`}
-        aria-hidden
-      >
-        <ZThinkingLoopAnimation size={38} aria-label="Thinking" />
-      </div>
+      <FunnelAiMessageAvatar className={`${FUNNEL_AI_AVATAR_BOX} mt-0.5`} />
     </div>
   );
 }
