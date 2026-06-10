@@ -94,25 +94,31 @@ async function rasterizePngBuffer(pngBuffer, size, outPath) {
   return sharp(pngBuffer).resize(size, size).png().toFile(outPath);
 }
 
-/** Black square export for Google / JSON-LD; inset so circular SERP crops do not clip the mark. */
-const GOOGLE_SQUARE_INSET = 0.82;
+/** Google SERP crops favicons to a circle — export a full black circle with a slightly large mark. */
+const GOOGLE_CIRCLE_MARK_FRAC = 0.9;
 
 async function buildGoogleSearchExportPng(sourcePath, size) {
-  const inner = Math.max(1, Math.round(size * GOOGLE_SQUARE_INSET));
-  const pad = Math.floor((size - inner) / 2);
-  return sharp(sourcePath)
-    .resize(inner, inner, {
+  const markSize = Math.max(1, Math.round(size * GOOGLE_CIRCLE_MARK_FRAC));
+  const pad = Math.floor((size - markSize) / 2);
+  const mark = await sharp(sourcePath)
+    .resize(markSize, markSize, {
       fit: "contain",
-      background: { r: 0, g: 0, b: 0, alpha: 1 },
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
     })
-    .flatten({ background: { r: 0, g: 0, b: 0 } })
-    .extend({
-      top: pad,
-      bottom: size - inner - pad,
-      left: pad,
-      right: size - inner - pad,
-      background: { r: 0, g: 0, b: 0, alpha: 1 },
-    })
+    .ensureAlpha()
+    .png()
+    .toBuffer();
+
+  const r = size / 2;
+  const circleSvg = Buffer.from(
+    `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="${r}" cy="${r}" r="${r}" fill="#000000"/>
+    </svg>`,
+  );
+
+  return sharp(circleSvg)
+    .resize(size, size)
+    .composite([{ input: mark, top: pad, left: pad }])
     .png()
     .toBuffer();
 }
@@ -534,18 +540,46 @@ function buildFlatLogoSvg(pngBuffer, width, height) {
         await rasterizePngBuffer(uiLogoMarkPng, 192, path.join(publicDir, "logo-192.png"));
       };
 
-  await Promise.all([
-    writeGoogleExports(),
-    rasterize(svgTab, 48, path.join(publicDir, "favicon-48.png"), tabFlattenBg),
-    rasterize(svgTab, 96, path.join(publicDir, "favicon-96.png"), tabFlattenBg),
-    rasterize(svgTab, 128, path.join(publicDir, "favicon-128.png"), tabFlattenBg),
-    rasterize(svgTab, 192, path.join(publicDir, "favicon-192.png"), tabFlattenBg),
-  ]);
+  const circleFaviconSource = fs.existsSync(izopFaviconSourcePath)
+    ? izopFaviconSourcePath
+    : googleSourcePath || squareIconSourcePath;
 
-  const png16 = await sharp(svgTab).resize(16, 16).png().toBuffer();
-  const png32 = await sharp(svgTab).resize(32, 32).png().toBuffer();
-  const png48 = await sharp(svgTab).resize(48, 48).png().toBuffer();
-  const png64 = await sharp(svgTab).resize(64, 64).png().toBuffer();
+  const writeCircleFavicons = circleFaviconSource
+    ? async () => {
+        const [p48, p96, p128, p192] = await Promise.all([
+          buildGoogleSearchExportPng(circleFaviconSource, 48),
+          buildGoogleSearchExportPng(circleFaviconSource, 96),
+          buildGoogleSearchExportPng(circleFaviconSource, 128),
+          buildGoogleSearchExportPng(circleFaviconSource, 192),
+        ]);
+        fs.writeFileSync(path.join(publicDir, "favicon-48.png"), p48);
+        fs.writeFileSync(path.join(publicDir, "favicon-96.png"), p96);
+        fs.writeFileSync(path.join(publicDir, "favicon-128.png"), p128);
+        fs.writeFileSync(path.join(publicDir, "favicon-192.png"), p192);
+      }
+    : async () => {
+        await Promise.all([
+          rasterize(svgTab, 48, path.join(publicDir, "favicon-48.png"), tabFlattenBg),
+          rasterize(svgTab, 96, path.join(publicDir, "favicon-96.png"), tabFlattenBg),
+          rasterize(svgTab, 128, path.join(publicDir, "favicon-128.png"), tabFlattenBg),
+          rasterize(svgTab, 192, path.join(publicDir, "favicon-192.png"), tabFlattenBg),
+        ]);
+      };
+
+  await Promise.all([writeGoogleExports(), writeCircleFavicons()]);
+
+  const png48 = circleFaviconSource
+    ? await buildGoogleSearchExportPng(circleFaviconSource, 48)
+    : await sharp(svgTab).resize(48, 48).png().toBuffer();
+  const png16 = circleFaviconSource
+    ? await buildGoogleSearchExportPng(circleFaviconSource, 16)
+    : await sharp(svgTab).resize(16, 16).png().toBuffer();
+  const png32 = circleFaviconSource
+    ? await buildGoogleSearchExportPng(circleFaviconSource, 32)
+    : await sharp(svgTab).resize(32, 32).png().toBuffer();
+  const png64 = circleFaviconSource
+    ? await buildGoogleSearchExportPng(circleFaviconSource, 64)
+    : await sharp(svgTab).resize(64, 64).png().toBuffer();
   const icoBuffer = await pngToIco([png16, png32, png48, png64]);
   fs.writeFileSync(path.join(publicDir, "favicon.ico"), icoBuffer);
 
@@ -564,7 +598,7 @@ function buildFlatLogoSvg(pngBuffer, width, height) {
         ? "favicon-source-mark.png"
         : "logo.svg";
   console.log(
-    `Wrote rounded tab favicons from square icon; logo-48/192 (black square, inset ${GOOGLE_SQUARE_INSET}) from ${g}; logo-mark.png + logo.svg from ${uiLogoSourcePath}`,
+    `Wrote circle black favicons (mark ${GOOGLE_CIRCLE_MARK_FRAC}) + squircle SVG tab; logo-48/192 circle from ${g}; logo-mark.png from ${uiLogoSourcePath}`,
   );
 })().catch((e) => {
   console.error(e);
