@@ -97,7 +97,7 @@
       <div class="icon t26"><img id="img26" alt="" width="26" height="26" /></div>
       <div class="lines">
         <p class="title">iZop | Schedule Posts &amp; Analytics…</p>
-        <p class="url-line">https://agent4socials.com</p>
+        <p class="url-line serp-url">https://www.izop.ai</p>
         <p class="snippet">Typical mobile / compact result icon (~26px).</p>
       </div>
     </div>
@@ -106,7 +106,7 @@
       <div class="icon t32"><img id="img32" alt="" width="32" height="32" /></div>
       <div class="lines">
         <p class="title">iZop | Schedule Posts &amp; Analytics…</p>
-        <p class="url-line">https://agent4socials.com</p>
+        <p class="url-line serp-url">https://www.izop.ai</p>
         <p class="snippet">~32px (common on desktop rows).</p>
       </div>
     </div>
@@ -115,7 +115,7 @@
       <div class="icon t48"><img id="img48" alt="" width="48" height="48" /></div>
       <div class="lines">
         <p class="title">iZop | Schedule Posts &amp; Analytics…</p>
-        <p class="url-line">https://agent4socials.com</p>
+        <p class="url-line serp-url">https://www.izop.ai</p>
         <p class="snippet">~48px (easier to judge detail).</p>
       </div>
     </div>
@@ -124,16 +124,20 @@
       <div class="icon t96"><img id="img96" alt="" width="96" height="96" /></div>
       <div class="lines">
         <p class="title">iZop | Schedule Posts &amp; Analytics…</p>
-        <p class="url-line">https://agent4socials.com</p>
+        <p class="url-line serp-url">https://www.izop.ai</p>
         <p class="snippet">96px exaggerated view.</p>
       </div>
     </div>
   </div>
   <script>
     (function () {
-      var v = new URLSearchParams(location.search).get("v") || "26";
+      var v = new URLSearchParams(location.search).get("v") || "62";
       var base = "/logo-192.png?v=" + encodeURIComponent(v);
       document.getElementById("src-label").textContent = "/logo-192.png?v=" + v;
+      var displayUrl = location.origin || "https://www.izop.ai";
+      document.querySelectorAll(".serp-url").forEach(function (el) {
+        el.textContent = displayUrl;
+      });
       ["img26", "img32", "img48", "img96"].forEach(function (id) {
         document.getElementById(id).src = base;
       });
