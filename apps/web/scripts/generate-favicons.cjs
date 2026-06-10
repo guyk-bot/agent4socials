@@ -540,46 +540,22 @@ function buildFlatLogoSvg(pngBuffer, width, height) {
         await rasterizePngBuffer(uiLogoMarkPng, 192, path.join(publicDir, "logo-192.png"));
       };
 
-  const circleFaviconSource = fs.existsSync(izopFaviconSourcePath)
-    ? izopFaviconSourcePath
-    : googleSourcePath || squareIconSourcePath;
+  /** Browser tab favicons: always squircle (rounded square). Circle exports are logo-48/192 only (Google SERP). */
+  const writeTabFavicons = async () => {
+    await Promise.all([
+      rasterize(svgTab, 48, path.join(publicDir, "favicon-48.png"), tabFlattenBg),
+      rasterize(svgTab, 96, path.join(publicDir, "favicon-96.png"), tabFlattenBg),
+      rasterize(svgTab, 128, path.join(publicDir, "favicon-128.png"), tabFlattenBg),
+      rasterize(svgTab, 192, path.join(publicDir, "favicon-192.png"), tabFlattenBg),
+    ]);
+  };
 
-  const writeCircleFavicons = circleFaviconSource
-    ? async () => {
-        const [p48, p96, p128, p192] = await Promise.all([
-          buildGoogleSearchExportPng(circleFaviconSource, 48),
-          buildGoogleSearchExportPng(circleFaviconSource, 96),
-          buildGoogleSearchExportPng(circleFaviconSource, 128),
-          buildGoogleSearchExportPng(circleFaviconSource, 192),
-        ]);
-        fs.writeFileSync(path.join(publicDir, "favicon-48.png"), p48);
-        fs.writeFileSync(path.join(publicDir, "favicon-96.png"), p96);
-        fs.writeFileSync(path.join(publicDir, "favicon-128.png"), p128);
-        fs.writeFileSync(path.join(publicDir, "favicon-192.png"), p192);
-      }
-    : async () => {
-        await Promise.all([
-          rasterize(svgTab, 48, path.join(publicDir, "favicon-48.png"), tabFlattenBg),
-          rasterize(svgTab, 96, path.join(publicDir, "favicon-96.png"), tabFlattenBg),
-          rasterize(svgTab, 128, path.join(publicDir, "favicon-128.png"), tabFlattenBg),
-          rasterize(svgTab, 192, path.join(publicDir, "favicon-192.png"), tabFlattenBg),
-        ]);
-      };
+  await Promise.all([writeGoogleExports(), writeTabFavicons()]);
 
-  await Promise.all([writeGoogleExports(), writeCircleFavicons()]);
-
-  const png48 = circleFaviconSource
-    ? await buildGoogleSearchExportPng(circleFaviconSource, 48)
-    : await sharp(svgTab).resize(48, 48).png().toBuffer();
-  const png16 = circleFaviconSource
-    ? await buildGoogleSearchExportPng(circleFaviconSource, 16)
-    : await sharp(svgTab).resize(16, 16).png().toBuffer();
-  const png32 = circleFaviconSource
-    ? await buildGoogleSearchExportPng(circleFaviconSource, 32)
-    : await sharp(svgTab).resize(32, 32).png().toBuffer();
-  const png64 = circleFaviconSource
-    ? await buildGoogleSearchExportPng(circleFaviconSource, 64)
-    : await sharp(svgTab).resize(64, 64).png().toBuffer();
+  const png48 = await sharp(svgTab).resize(48, 48).png().toBuffer();
+  const png16 = await sharp(svgTab).resize(16, 16).png().toBuffer();
+  const png32 = await sharp(svgTab).resize(32, 32).png().toBuffer();
+  const png64 = await sharp(svgTab).resize(64, 64).png().toBuffer();
   const icoBuffer = await pngToIco([png16, png32, png48, png64]);
   fs.writeFileSync(path.join(publicDir, "favicon.ico"), icoBuffer);
 
@@ -598,7 +574,7 @@ function buildFlatLogoSvg(pngBuffer, width, height) {
         ? "favicon-source-mark.png"
         : "logo.svg";
   console.log(
-    `Wrote circle black favicons (mark ${GOOGLE_CIRCLE_MARK_FRAC}) + squircle SVG tab; logo-48/192 circle from ${g}; logo-mark.png from ${uiLogoSourcePath}`,
+    `Wrote squircle tab favicons + circle logo-48/192 (mark ${GOOGLE_CIRCLE_MARK_FRAC}) from ${g}; logo-mark.png from ${uiLogoSourcePath}`,
   );
 })().catch((e) => {
   console.error(e);

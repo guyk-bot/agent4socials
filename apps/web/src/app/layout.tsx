@@ -72,7 +72,7 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true },
   },
-  // Tab + Google favicon: black circle PNGs (see SITE_TAB_FAVICON_V). JSON-LD logo: logo-192 (same circle export).
+  // Tab favicon: squircle PNGs (SITE_TAB_FAVICON_V). JSON-LD / Google logo: logo-192 (circle export).
   icons: siteTabIcons,
   manifest: "/manifest.json",
   appleWebApp: {
