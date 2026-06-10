@@ -33,6 +33,10 @@ const MIGRATIONS: Array<{ name: string; sql: string }> = [
     sql: `ALTER TABLE "Post" ADD COLUMN IF NOT EXISTS "alsoPostToStory" BOOLEAN NOT NULL DEFAULT false`,
   },
   {
+    name: '20260610180000_add_threads_platform',
+    sql: `ALTER TYPE "Platform" ADD VALUE IF NOT EXISTS 'THREADS'`,
+  },
+  {
     name: '20260610120000_funnel_sessions',
     sql: `
 CREATE TABLE IF NOT EXISTS "funnel_sessions" (

@@ -23,6 +23,11 @@ import { parseLinkedInOAuthState } from '@/lib/linkedin/build-oauth-authorizatio
 import { scheduleInboxWarmForUser } from '@/lib/inbox/schedule-inbox-warm';
 import { resolvePrismaUserIdFromOAuthState } from '@/lib/get-prisma-user';
 import { isFunnelGuestUserId, markFunnelSessionConnected, markFunnelSessionConnectedByToken } from '@/lib/funnel-guest';
+import {
+  formatSocialAccountOAuthError,
+  SocialAccountOAuthConflictError,
+  upsertSocialAccountAfterOAuth,
+} from '@/lib/social-account-oauth-upsert';
 import { OAUTH_COMPLETE_MESSAGE } from '@/lib/oauth-connect';
 import { isPrismaPoolError } from '@/lib/db';
 
@@ -1528,40 +1533,25 @@ export async function GET(
     if (plat === 'THREADS') {
       await ensureThreadsPlatformEnum();
     }
+    const accountWrite = {
+      accessToken: tokenData.accessToken,
+      refreshToken: tokenData.refreshToken,
+      expiresAt: tokenData.expiresAt,
+      username: tokenData.username,
+      ...(profilePicture ? { profilePicture } : {}),
+      status: 'connected' as const,
+      connectedAt: new Date(),
+      disconnectedAt: null as null,
+      ...(credentialsJsonToSet && { credentialsJson: credentialsJsonToSet }),
+      firstConnectedAt: new Date(),
+    };
     // Upsert so reconnecting the same account updates in place; preserve history (firstConnectedAt never cleared).
-    await prisma.socialAccount.upsert({
-      where: {
-        userId_platform_platformUserId: {
-          userId,
-          platform: plat,
-          platformUserId: tokenData.platformUserId,
-        },
-      },
-      update: {
-        accessToken: tokenData.accessToken,
-        refreshToken: tokenData.refreshToken,
-        expiresAt: tokenData.expiresAt,
-        username: tokenData.username,
-        ...(profilePicture ? { profilePicture } : {}),
-        status: 'connected',
-        connectedAt: new Date(),
-        disconnectedAt: null,
-        ...(credentialsJsonToSet && { credentialsJson: credentialsJsonToSet }),
-      },
-      create: {
-        userId,
-        platform: plat,
-        platformUserId: tokenData.platformUserId,
-        username: tokenData.username,
-        ...(profilePicture ? { profilePicture } : {}),
-        accessToken: tokenData.accessToken,
-        refreshToken: tokenData.refreshToken,
-        expiresAt: tokenData.expiresAt,
-        status: 'connected',
-        firstConnectedAt: new Date(),
-        connectedAt: new Date(),
-        ...(credentialsJsonToSet && { credentialsJson: credentialsJsonToSet }),
-      },
+    await upsertSocialAccountAfterOAuth({
+      userId,
+      platform: plat,
+      platformUserId: tokenData.platformUserId,
+      funnelFlow,
+      write: accountWrite,
     });
     // Do not delete other rows for the same platform (e.g. a second TikTok or YouTube on another brand).
     // Meta (Facebook/Instagram) may have multiple rows; other platforms use unique platformUserId per row.
@@ -1638,8 +1628,10 @@ export async function GET(
       });
     }
   } catch (e) {
-    console.error('[Social OAuth] upsert error:', e);
-    return oauthErrorHtml(baseUrl, 'Could not save account. Check database connection and schema.', 500);
+    const message = formatSocialAccountOAuthError(e);
+    console.error('[Social OAuth] upsert error:', e instanceof Error ? e.message : e, e);
+    const status = e instanceof SocialAccountOAuthConflictError ? 409 : 500;
+    return oauthErrorForFlow(baseUrl, message, status, funnelFlow);
   }
 
   const mainAccount = await prisma.socialAccount.findFirst({
