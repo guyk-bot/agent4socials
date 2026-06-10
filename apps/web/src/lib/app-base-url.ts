@@ -1,18 +1,33 @@
+/** Production canonical origin (www is primary; naked izop.ai redirects in Vercel). */
+export const CANONICAL_APP_ORIGIN = 'https://www.izop.ai';
+
+export const CANONICAL_APP_HOST = 'www.izop.ai';
+
 /** Canonical app origin for links, OAuth, and emails. */
 export function resolveAppBaseUrl(): string {
   const raw =
     process.env.NEXT_PUBLIC_APP_URL?.trim() ||
     process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') ||
-    'https://agent4socials.com';
+    CANONICAL_APP_ORIGIN;
   return raw.replace(/\/+$/, '');
 }
 
-/** Hostnames the model sometimes hallucinates; rewrite to in-app relative paths. */
-const LEGACY_OR_INVALID_APP_HOSTS = new Set([
-  'app.agent4socials.com',
-  'www.agent4socials.com',
+/** Hostnames that should 308 redirect to {@link CANONICAL_APP_ORIGIN}. */
+export const LEGACY_APP_HOSTS = [
   'agent4socials.com',
+  'www.agent4socials.com',
+  'izop.io',
+  'www.izop.io',
+  'izop.app',
+  'www.izop.app',
+] as const;
+
+/** Hostnames the model sometimes hallucinates; rewrite to in-app relative paths. */
+const LEGACY_OR_INVALID_APP_HOSTS = new Set<string>([
+  ...LEGACY_APP_HOSTS,
+  CANONICAL_APP_HOST,
+  'app.agent4socials.com',
 ]);
 
 const IN_APP_PATH_PREFIXES = [
@@ -61,9 +76,9 @@ export function appLinkRulesForPrompt(): string {
   const base = resolveAppBaseUrl();
   return [
     'In-app links (critical):',
-    `- The live app is ${base}. There is NO app.agent4socials.com subdomain.`,
+    `- The live app is ${base}. There is NO separate app subdomain.`,
     '- Never invent or paste full URLs for pages inside the dashboard (Composer, Dashboard, Inbox, etc.).',
     '- When the user asks to open Composer or see drafts, call show_app_in_chat with view composer and/or open_composer_draft so the chat shows a working Open Composer button.',
-    '- If you must mention a path in text, use a relative path only (example: /composer), never https://app.agent4socials.com/...',
+    `- If you must mention a path in text, use a relative path only (example: /composer), never a hallucinated subdomain.`,
   ].join('\n');
 }

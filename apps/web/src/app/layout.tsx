@@ -21,7 +21,7 @@ function getMetadataBase(): URL {
   try {
     return new URL(resolveAppBaseUrl());
   } catch {
-    return new URL("https://www.izop.io");
+    return new URL("https://www.izop.ai");
   }
 }
 

@@ -1,11 +1,12 @@
 import type { NextConfig } from "next";
 
 /** Keep in sync with src/lib/app-base-url.ts (inlined so Vercel can load next.config). */
-const CANONICAL_APP_ORIGIN = "https://www.izop.io";
+const CANONICAL_APP_ORIGIN = "https://www.izop.ai";
 const LEGACY_APP_HOSTS = [
   "agent4socials.com",
   "www.agent4socials.com",
   "izop.io",
+  "www.izop.io",
   "izop.app",
   "www.izop.app",
 ] as const;
