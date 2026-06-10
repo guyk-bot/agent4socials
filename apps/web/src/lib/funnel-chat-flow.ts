@@ -43,6 +43,20 @@ export function funnelBrandContextIntro(): string {
   return 'I pulled details from your profile, recent posts, and replies to draft your brand context below. Edit anything, add anything I missed, then tap Save.';
 }
 
+export function funnelBrandContextManualPrompt(): string {
+  return 'I could not pull enough from your profile yet. Can you share details about your offer, target audience, and tone of voice? I will do my best to learn your brand and help you create content. Fill in the fields below or tell me in the chat.';
+}
+
+export function emptyBrandContextDraft(): BrandContextRecord {
+  return {
+    productDescription: '',
+    targetAudience: '',
+    toneOfVoice: '',
+    toneExamples: '',
+    additionalContext: '',
+  };
+}
+
 export function funnelBrandContextAddMoreMessage(): string {
   return 'Is there anything else you would like me to know about your brand? Edit the fields above or tell me in the chat.';
 }

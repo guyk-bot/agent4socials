@@ -149,6 +149,7 @@ export type FunnelBrandDraftResponse = {
   username: string;
   profilePicture: string | null;
   draft: BrandContextRecord;
+  brandContextSource?: 'profile' | 'manual';
 };
 
 /** Read server-side funnel connect state (survives OAuth popup / cross-origin postMessage gaps). */

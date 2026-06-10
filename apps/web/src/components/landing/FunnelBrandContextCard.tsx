@@ -8,17 +8,43 @@ type Props = {
   onChange: (next: BrandContextRecord) => void;
   onSave: () => void;
   disabled?: boolean;
+  manualMode?: boolean;
 };
 
-const FIELDS: { key: keyof BrandContextRecord; label: string; rows: number }[] = [
-  { key: 'productDescription', label: 'What you offer', rows: 2 },
-  { key: 'targetAudience', label: 'Target audience', rows: 2 },
-  { key: 'toneOfVoice', label: 'Tone of voice', rows: 2 },
-  { key: 'toneExamples', label: 'Tone examples', rows: 2 },
-  { key: 'additionalContext', label: 'Additional context', rows: 2 },
+const FIELDS: { key: keyof BrandContextRecord; label: string; rows: number; placeholder: string }[] = [
+  {
+    key: 'productDescription',
+    label: 'What you offer',
+    rows: 2,
+    placeholder: 'Describe your product, service, or what you post about…',
+  },
+  {
+    key: 'targetAudience',
+    label: 'Target audience',
+    rows: 2,
+    placeholder: 'Who are you trying to reach? (age, interests, role, etc.)',
+  },
+  {
+    key: 'toneOfVoice',
+    label: 'Tone of voice',
+    rows: 2,
+    placeholder: 'Friendly, expert, playful, bold, etc.',
+  },
+  {
+    key: 'toneExamples',
+    label: 'Tone examples',
+    rows: 2,
+    placeholder: 'Paste example captions or phrases you would use…',
+  },
+  {
+    key: 'additionalContext',
+    label: 'Additional context',
+    rows: 2,
+    placeholder: 'Anything else iZop should know about your brand…',
+  },
 ];
 
-export default function FunnelBrandContextCard({ draft, onChange, onSave, disabled }: Props) {
+export default function FunnelBrandContextCard({ draft, onChange, onSave, disabled, manualMode }: Props) {
   return (
     <div className="rounded-xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-surface)] p-4 space-y-3 chat-hero-message-enter">
       <p className="text-sm font-medium text-[var(--chat-hero-text)]">Brand context (editable)</p>
@@ -30,7 +56,8 @@ export default function FunnelBrandContextCard({ draft, onChange, onSave, disabl
             onChange={(e) => onChange({ ...draft, [field.key]: e.target.value })}
             rows={field.rows}
             disabled={disabled}
-            className="w-full rounded-lg border border-[var(--chat-hero-border)] bg-[var(--chat-hero-input-bg)] px-3 py-2 text-sm text-[var(--chat-hero-text)] outline-none focus:border-[#7C3AED]/50"
+            placeholder={manualMode || !String(draft[field.key] ?? '').trim() ? field.placeholder : undefined}
+            className="w-full rounded-lg border border-[var(--chat-hero-border)] bg-[var(--chat-hero-input-bg)] px-3 py-2 text-sm text-[var(--chat-hero-text)] outline-none focus:border-[#7C3AED]/50 placeholder:text-[var(--chat-hero-muted)]/70"
           />
         </label>
       ))}

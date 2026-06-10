@@ -35,6 +35,7 @@ import {
   defaultBrandContextDraft,
   funnelBrandContextAddMoreMessage,
   funnelBrandContextIntro,
+  funnelBrandContextManualPrompt,
   funnelConnectedSuccessMessage,
   funnelExperienceChoiceMessage,
   funnelMultiPlatformSignupMessage,
@@ -405,6 +406,7 @@ export default function ChatHero() {
   const [connectedPlatform, setConnectedPlatform] = useState<ChatHeroPlatformId | null>(null);
   const [connectedUsername, setConnectedUsername] = useState<string | null>(null);
   const [connectedProfilePicture, setConnectedProfilePicture] = useState<string | null>(null);
+  const [brandContextManual, setBrandContextManual] = useState(false);
   const [brandDraft, setBrandDraft] = useState<BrandContextRecord>(() => readFunnelBrandDraft() ?? {});
   const [typewriterDone, setTypewriterDone] = useState(true);
 
@@ -570,19 +572,35 @@ export default function ChatHero() {
       const draft = snapshot?.draft ?? defaultBrandContextDraft(label, displayUser);
       const resolvedUsername = snapshot?.username ?? displayUser;
       const resolvedPicture = snapshot?.profilePicture ?? profilePicture ?? null;
+      const brandIntro =
+        snapshot?.brandContextSource === 'manual'
+          ? funnelBrandContextManualPrompt()
+          : funnelBrandContextIntro();
 
       if (snapshot) {
         setConnectedUsername(resolvedUsername);
         setConnectedProfilePicture(resolvedPicture);
+        setBlocks((prev) =>
+          prev.map((b) =>
+            b.kind === 'connected_account'
+              ? {
+                  ...b,
+                  username: resolvedUsername,
+                  profilePicture: resolvedPicture,
+                }
+              : b
+          )
+        );
       }
       setBrandDraft(draft);
+      setBrandContextManual(snapshot?.brandContextSource === 'manual');
       persistFunnelBrandDraft(draft);
 
       await delay(500);
       setIsTyping(false);
       setShowBrandContext(true);
       appendBlocks([
-        { id: blockId('ai'), kind: 'ai', text: funnelBrandContextIntro() },
+        { id: blockId('ai'), kind: 'ai', text: brandIntro },
         { id: blockId('brand'), kind: 'brand_context' },
         { id: blockId('ai'), kind: 'ai', text: funnelBrandContextAddMoreMessage() },
       ]);
@@ -1125,12 +1143,14 @@ export default function ChatHero() {
                 }
                 if (block.kind === 'connected_account') {
                   const Icon = PLATFORM_ICONS[block.platformId];
+                  const cardUsername = connectedUsername ?? block.username;
+                  const cardPicture = connectedProfilePicture ?? block.profilePicture;
                   return (
                     <div key={block.id} className={FUNNEL_AI_CONTENT_INDENT}>
                       <FunnelConnectedAccountCard
                         platformId={block.platformId}
-                        username={block.username}
-                        profilePicture={block.profilePicture}
+                        username={cardUsername}
+                        profilePicture={cardPicture}
                         icon={<Icon size={28} />}
                       />
                     </div>
@@ -1142,6 +1162,7 @@ export default function ChatHero() {
                       <FunnelBrandContextCard
                         draft={brandDraft}
                         onChange={setBrandDraft}
+                        manualMode={brandContextManual}
                         onSave={() => {
                           persistFunnelBrandDraft(brandDraft);
                           setFunnelStep('free_chat');
