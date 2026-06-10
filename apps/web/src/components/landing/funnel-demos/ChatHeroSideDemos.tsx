@@ -9,8 +9,8 @@ import { FUNNEL_DEMO_SCENE_COMPONENTS } from './FunnelDemoScenes';
 /** Time each side demo stays visible before advancing the carousel. */
 export const FUNNEL_DEMO_MS = 5000;
 
-const LEFT_DEMO_INDICES = [0, 3, 4, 6] as const;
-const RIGHT_DEMO_INDICES = [2, 1, 5, 7] as const;
+/** All funnel feature demos in one left-side carousel (formerly split left + right). */
+const ALL_DEMO_INDICES = [0, 1, 2, 3, 4, 5, 6, 7] as const;
 
 const SLIDE_MS = 700;
 
@@ -28,7 +28,6 @@ function StaticDemoCard({ sceneIndex }: { sceneIndex: number }) {
 }
 
 function slideClasses(
-  side: 'left' | 'right',
   role: 'active' | 'exit' | 'hidden',
   direction: SlideDirection
 ): string {
@@ -36,28 +35,18 @@ function slideClasses(
   if (role === 'active') return `${base} translate-x-0 opacity-100 z-20`;
 
   if (role === 'exit') {
-    if (side === 'left') {
-      return direction === 'forward'
-        ? `${base} translate-x-full opacity-0 z-10 pointer-events-none`
-        : `${base} -translate-x-full opacity-0 z-10 pointer-events-none`;
-    }
     return direction === 'forward'
-      ? `${base} -translate-x-full opacity-0 z-10 pointer-events-none`
-      : `${base} translate-x-full opacity-0 z-10 pointer-events-none`;
+      ? `${base} translate-x-full opacity-0 z-10 pointer-events-none`
+      : `${base} -translate-x-full opacity-0 z-10 pointer-events-none`;
   }
 
-  if (side === 'left') {
-    return direction === 'forward'
-      ? `${base} -translate-x-full opacity-0 z-0 pointer-events-none`
-      : `${base} translate-x-full opacity-0 z-0 pointer-events-none`;
-  }
   return direction === 'forward'
-    ? `${base} translate-x-full opacity-0 z-0 pointer-events-none`
-    : `${base} -translate-x-full opacity-0 z-0 pointer-events-none`;
+    ? `${base} -translate-x-full opacity-0 z-0 pointer-events-none`
+    : `${base} translate-x-full opacity-0 z-0 pointer-events-none`;
 }
 
-function SideDemoCarouselColumn({ side }: { side: 'left' | 'right' }) {
-  const indices = side === 'left' ? LEFT_DEMO_INDICES : RIGHT_DEMO_INDICES;
+function SideDemoCarouselColumn() {
+  const indices = ALL_DEMO_INDICES;
   const [activeSlot, setActiveSlot] = useState(0);
   const [prevSlot, setPrevSlot] = useState<number | null>(null);
   const [direction, setDirection] = useState<SlideDirection>('forward');
@@ -93,9 +82,6 @@ function SideDemoCarouselColumn({ side }: { side: 'left' | 'right' }) {
     return () => window.clearTimeout(id);
   }, [prevSlot, activeSlot]);
 
-  const prevLabel = side === 'left' ? 'Previous feature' : 'Previous feature';
-  const nextLabel = side === 'left' ? 'Next feature' : 'Next feature';
-
   return (
     <div
       className="relative flex h-full min-h-0 w-full flex-col py-3"
@@ -108,7 +94,7 @@ function SideDemoCarouselColumn({ side }: { side: 'left' | 'right' }) {
           const isExit = prevSlot !== null && i === prevSlot && !isActive;
           const role = isActive ? 'active' : isExit ? 'exit' : 'hidden';
           return (
-            <div key={sceneIndex} className={slideClasses(side, role, direction)} aria-hidden={!isActive && !isExit}>
+            <div key={sceneIndex} className={slideClasses(role, direction)} aria-hidden={!isActive && !isExit}>
               <StaticDemoCard sceneIndex={sceneIndex} />
             </div>
           );
@@ -118,7 +104,7 @@ function SideDemoCarouselColumn({ side }: { side: 'left' | 'right' }) {
           type="button"
           onClick={goPrev}
           className="absolute left-0 top-1/2 z-30 -translate-y-1/2 rounded-full border border-neutral-200 bg-white/95 p-1 text-neutral-700 shadow-md hover:bg-white dark:border-neutral-600 dark:bg-neutral-900/95 dark:text-neutral-200"
-          aria-label={prevLabel}
+          aria-label="Previous feature"
         >
           <ChevronLeft size={20} />
         </button>
@@ -126,13 +112,13 @@ function SideDemoCarouselColumn({ side }: { side: 'left' | 'right' }) {
           type="button"
           onClick={goNext}
           className="absolute right-0 top-1/2 z-30 -translate-y-1/2 rounded-full border border-neutral-200 bg-white/95 p-1 text-neutral-700 shadow-md hover:bg-white dark:border-neutral-600 dark:bg-neutral-900/95 dark:text-neutral-200"
-          aria-label={nextLabel}
+          aria-label="Next feature"
         >
           <ChevronRight size={20} />
         </button>
       </div>
 
-      <div className="mt-1 flex shrink-0 items-center justify-center gap-1.5">
+      <div className="mt-1 flex shrink-0 flex-wrap items-center justify-center gap-1.5 px-2">
         {indices.map((sceneIndex, i) => (
           <button
             key={sceneIndex}
@@ -163,13 +149,7 @@ export function ChatHeroDemoLoopProvider({
   return <>{children}</>;
 }
 
-export function ChatHeroSideDemoColumn({
-  side,
-  visible = true,
-}: {
-  side: 'left' | 'right';
-  visible?: boolean;
-}) {
+export function ChatHeroSideDemoColumn({ visible = true }: { visible?: boolean }) {
   if (!visible) {
     return (
       <div className="hidden xl:block h-full min-h-0 w-[var(--funnel-side-w,538px)] shrink-0 2xl:w-[var(--funnel-side-w-2xl,600px)]" aria-hidden />
@@ -178,7 +158,7 @@ export function ChatHeroSideDemoColumn({
 
   return (
     <div className="hidden xl:flex h-full min-h-0 w-[var(--funnel-side-w,538px)] shrink-0 flex-col 2xl:w-[var(--funnel-side-w-2xl,600px)]">
-      <SideDemoCarouselColumn side={side} />
+      <SideDemoCarouselColumn />
     </div>
   );
 }
