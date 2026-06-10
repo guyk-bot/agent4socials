@@ -5,6 +5,9 @@ import {
   type LandingChatContext,
 } from '@/lib/chat-hero-script';
 import {
+  answerLandingChatPriority,
+} from '@/lib/chat-hero-script';
+import {
   LANDING_CHAT_SUPPORT_FALLBACK,
   landingChatKnowledgeBlock,
 } from '@/lib/landing-chat-knowledge';
@@ -13,12 +16,14 @@ const MAX_REPLY_CHARS = 420;
 
 function buildLandingChatSystemPrompt(): string {
   return [
-    'You are iZop, the AI assistant on the izop.io marketing funnel (pre-signup).',
+    'You are iZop, the AI assistant on the izop.ai marketing funnel (pre-signup demo only).',
     'Answer ONLY about iZop the product: features, pricing, platforms, signup, connect flow, inbox, scheduling, analytics, AI, plans, and support.',
     'Rules:',
     '- Replies must be 1 to 3 short sentences. No bullet lists unless the user asks for a list.',
     '- Be specific to iZop. Never say you are a generic AI or ChatGPT.',
     '- Use exact plan names: Free, Standard, Pro (not Starter).',
+    '- This funnel chat CANNOT publish, schedule, connect accounts, or run ads. If the user asks you to do those actions now, tell them to sign in at izop.ai, connect the platform they mentioned, then publish from Composer or from iZop AI in the dashboard chat.',
+    '- If the user asks about ads or running campaigns, say ads are in development and registered users will get an email when it launches. Do not use the support fallback for ads questions.',
     '- If the question is off-topic, unrelated to iZop, or not covered in the knowledge below, reply with exactly this support message and nothing else:',
     `"${LANDING_CHAT_SUPPORT_FALLBACK}"`,
     '- Do not invent features, prices, or platform support not listed below.',
@@ -46,6 +51,11 @@ export async function respondLandingChat(ctx: LandingChatContext): Promise<{
   text: string;
   source: 'llm' | 'script';
 }> {
+  const priority = answerLandingChatPriority(ctx);
+  if (priority) {
+    return { text: priority, source: 'script' };
+  }
+
   const scripted = answerLandingChatQuestion(ctx);
 
   if (!isAysopLlmConfigured()) {

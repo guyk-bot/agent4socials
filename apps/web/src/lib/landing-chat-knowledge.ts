@@ -6,10 +6,13 @@ import {
 import { PRO_PLAN_PRICING, STANDARD_PLAN_PRICING } from '@/lib/pricing/constants';
 
 /** Where users open a support ticket (same as Help → Support). */
-export const LANDING_CHAT_SUPPORT_URL = 'https://www.izop.io/help#support-ticket';
+export const LANDING_CHAT_SUPPORT_URL = 'https://www.izop.ai/help#support-ticket';
 
 export const LANDING_CHAT_SUPPORT_FALLBACK =
   `I do not have a specific answer for that. Open a support ticket at ${LANDING_CHAT_SUPPORT_URL} — our team typically replies within 24 hours.`;
+
+export const LANDING_CHAT_ADS_REPLY =
+  'We are currently developing ads inside iZop. When it is ready, we will email our users with everything you need to get started. Sign up free so you are on that list.';
 
 /** Facts the funnel chat may use (scripted + LLM system prompt). */
 export function landingChatKnowledgeBlock(): string {
@@ -27,7 +30,8 @@ export function landingChatKnowledgeBlock(): string {
     'Team (Pro): invite editors and viewers, activity summary per member.',
     'White label (Pro): custom branding for client-facing views.',
     'Smart link pages: on the roadmap (coming soon).',
-    'Ads comparison (Google, Meta, TikTok ROAS): coming soon in product.',
+    'Ads: in active development. When ads launch, iZop will email registered users with full setup details. The marketing funnel chat cannot run ads or campaigns.',
+    'Funnel chat limits: this pre-signup demo chat cannot connect accounts, publish posts, schedule content, or open Composer. For those actions, users must sign in at izop.ai, connect platforms via Connect, then publish from Composer or from iZop AI in the dashboard chat.',
     `Free plan: ${FREE_PLAN_HIGHLIGHTS.join('; ')}.`,
     `Standard ($${STANDARD_PLAN_PRICING.monthly}/mo or $${STANDARD_PLAN_PRICING.yearly}/yr, 20% off yearly): ${STANDARD_PLAN_HIGHLIGHTS.join('; ')}.`,
     `Pro ($${PRO_PLAN_PRICING.monthly}/mo or $${PRO_PLAN_PRICING.yearly}/yr, 20% off yearly): ${PRO_PLAN_HIGHLIGHTS.join('; ')}.`,

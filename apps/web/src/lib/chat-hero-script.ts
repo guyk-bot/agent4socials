@@ -1,4 +1,4 @@
-import { LANDING_CHAT_SUPPORT_FALLBACK } from '@/lib/landing-chat-knowledge';
+import { LANDING_CHAT_ADS_REPLY, LANDING_CHAT_SUPPORT_FALLBACK } from '@/lib/landing-chat-knowledge';
 import { PRO_PLAN_PRICING, STANDARD_PLAN_PRICING } from '@/lib/pricing/constants';
 
 export type ChatHeroPlatformId =
@@ -130,7 +130,52 @@ function normalizeLandingChatText(text: string): string {
     .replace(/\bwaht\b/g, 'what')
     .replace(/\bwht\b/g, 'what')
     .replace(/\bwha\b/g, 'what')
-    .replace(/\bteh\b/g, 'the');
+    .replace(/\bteh\b/g, 'the')
+    .replace(/\btoiktok\b/g, 'tiktok');
+}
+
+export function asksAboutAds(text: string): boolean {
+  const lower = normalizeLandingChatText(text);
+  return /\b(ads?|advertis|ad campaign|run ads|roas|meta ads|google ads|tiktok ads|paid campaign|sponsored)\b/.test(
+    lower
+  );
+}
+
+/** User wants the funnel chat to perform an in-app action (publish, connect, etc.). */
+export function wantsFunnelInAppAction(text: string): boolean {
+  const lower = normalizeLandingChatText(text);
+  return (
+    /\b(want to|need to|can you|please|help me) (post|publish|schedule|upload|connect|create)\b/.test(
+      lower
+    ) ||
+    /\b(create|make|write) a (new )?(post|video|reel)\b/.test(lower) ||
+    /\b(post|publish|schedule|upload|connect).*(right now|immediately|from here|directly)\b/.test(
+      lower
+    ) ||
+    /\b(from here|right now|just said).*(post|publish|schedule|create|upload)\b/.test(lower) ||
+    /\bcan i (post|publish|create|schedule|upload).*(from here|directly|right now|now)\b/.test(lower)
+  );
+}
+
+export function landingChatFunnelActionReply(platformLabels: string[]): string {
+  const connectPart = platformLabels.length
+    ? `connect ${formatPlatformList(platformLabels)}, then `
+    : 'connect your accounts, then ';
+  return `This funnel demo cannot publish or connect accounts for you. Sign in at izop.ai, ${connectPart}publish from Composer or ask iZop AI in the dashboard chat.`;
+}
+
+/** High-priority scripted replies (checked before LLM). */
+export function answerLandingChatPriority(ctx: LandingChatContext): string | null {
+  if (asksAboutAds(ctx.text)) {
+    return LANDING_CHAT_ADS_REPLY;
+  }
+  if (wantsFunnelInAppAction(ctx.text)) {
+    const namesFromMessage = ctx.matchedPlatforms.map(platformLabel);
+    const namesSelected = selectedLabels(ctx.selectedPlatformIds);
+    const allNames = [...new Set([...namesFromMessage, ...namesSelected])];
+    return landingChatFunnelActionReply(allNames);
+  }
+  return null;
 }
 
 function isLikelyQuestion(text: string): boolean {
