@@ -1725,10 +1725,11 @@ export async function GET(
     if (plat === 'LINKEDIN' && linkedInConsentPreviewId) {
       await prisma.pendingConnection.delete({ where: { id: linkedInConsentPreviewId } }).catch(() => {});
     }
+    if (funnelTokenFromState) {
+      await markFunnelSessionConnectedByToken(funnelTokenFromState, plat, mainAccount.id);
+      return funnelOAuthSuccessHtml(baseUrl, mainAccount.id, genericConnectParams);
+    }
     if (await isFunnelGuestUserId(userId)) {
-      if (funnelTokenFromState) {
-        await markFunnelSessionConnectedByToken(funnelTokenFromState, plat, mainAccount.id);
-      }
       await markFunnelSessionConnected(userId, plat, mainAccount.id);
       return funnelOAuthSuccessHtml(baseUrl, mainAccount.id, genericConnectParams);
     }

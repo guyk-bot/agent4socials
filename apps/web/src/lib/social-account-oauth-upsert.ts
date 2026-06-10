@@ -61,7 +61,7 @@ export async function upsertSocialAccountAfterOAuth(params: UpsertParams): Promi
 
   const existingGlobal = await prisma.socialAccount.findUnique({
     where: { platformUserId },
-    select: { id: true, userId: true },
+    select: { id: true, userId: true, status: true },
   });
 
   if (existingGlobal && existingGlobal.userId !== userId) {
@@ -69,11 +69,22 @@ export async function upsertSocialAccountAfterOAuth(params: UpsertParams): Promi
       isFunnelGuestUserId(existingGlobal.userId),
       isFunnelGuestUserId(userId),
     ]);
+    const existingDisconnected = existingGlobal.status === 'disconnected';
+
+    if (!currentIsGuest && existingDisconnected) {
+      await prisma.socialAccount.update({
+        where: { id: existingGlobal.id },
+        data: { userId, ...updateData },
+      });
+      return;
+    }
 
     if (currentIsGuest && !existingIsGuest) {
       throw new SocialAccountOAuthConflictError(
         funnelFlow
-          ? 'This account is already connected on iZop. Log in to continue with it.'
+          ? existingDisconnected
+            ? 'This Threads profile was connected on iZop before. Log in, open the dashboard, and click Connect Threads to reconnect.'
+            : 'This account is already connected on iZop. Log in to continue with it.'
           : 'This account is already connected to another iZop user.'
       );
     }
