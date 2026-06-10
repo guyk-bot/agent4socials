@@ -316,11 +316,21 @@
 .funnel-demo-card--static .funnel-demo-card-body-scroll {
   scrollbar-width: thin;
 }
-.funnel-demo-card-body-scroll {
+.funnel-demo-card-body-scroll,
+.funnel-demo-scene-scroll {
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+}
+.funnel-demo-card--static .funnel-demo-card-body-scroll::-webkit-scrollbar,
+.funnel-demo-card--static .funnel-demo-scene-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.funnel-demo-card--static .funnel-demo-card-body-scroll::-webkit-scrollbar-thumb,
+.funnel-demo-card--static .funnel-demo-scene-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(124, 58, 237, 0.35);
 }
 .funnel-demo-card--static .funnel-demo-analytics-panel {
   overflow: visible;

@@ -85,7 +85,7 @@ const COMMENT_DRAFTS = [
 
 function DemoSceneScroll({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`funnel-demo-scene-scroll flex min-h-0 flex-col gap-2 overflow-y-auto overscroll-contain pr-0.5 ${className ?? ''}`}>
+    <div className={`flex flex-col gap-2 pr-0.5 ${className ?? ''}`}>
       {children}
     </div>
   );
@@ -95,7 +95,7 @@ export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
   if (progress < 1) return null;
 
   return (
-    <>
+    <DemoSceneScroll>
       <div className="flex w-full flex-col items-end gap-1.5">
         <ChatAttachmentReel
           src={FUNNEL_DEMO_POST_VIDEO_SRC}
@@ -122,7 +122,7 @@ export function FunnelDemoSceneSchedule({ progress }: { progress: number }) {
         compact
         message="Reel scheduled for 9:30 AM on all three platforms. Allow me to confirm?"
       />
-    </>
+    </DemoSceneScroll>
   );
 }
 
@@ -167,27 +167,23 @@ export function FunnelDemoSceneAnalytics({ progress }: { progress: number }) {
   if (progress < 1) return null;
 
   return (
-    <>
+    <DemoSceneScroll>
       <FunnelDemoUserBubble show>{USER_ANALYTICS}</FunnelDemoUserBubble>
       <FunnelDemoAssistantBubble show visual wide contained allowOverflow>
-        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-visible">
-          <div className="funnel-demo-scene-scroll min-h-0 flex-1 overflow-y-auto overflow-x-visible overscroll-contain pr-0.5">
-            <p className="mb-1.5 text-[14px] font-semibold text-neutral-800 dark:text-neutral-200">
-              Instagram weekly snapshot:
-            </p>
-            <InstagramWeeklyAnalyticsPanel />
-            <p className="mt-2 text-[13px] text-neutral-700 dark:text-neutral-300 leading-snug">
-              Views up 18%, engagement up 12%, followers net +135. Reels drove most of the lift this week.
-            </p>
-          </div>
-          <FunnelDemoAllowBar
-            compact
-            showRegenerate={false}
-            message="Want me to pin this report to your Console and email a PDF every Monday?"
-          />
-        </div>
+        <p className="mb-1.5 text-[14px] font-semibold text-neutral-800 dark:text-neutral-200">
+          Instagram weekly snapshot:
+        </p>
+        <InstagramWeeklyAnalyticsPanel />
+        <p className="mt-2 text-[13px] text-neutral-700 dark:text-neutral-300 leading-snug">
+          Views up 18%, engagement up 12%, followers net +135. Reels drove most of the lift this week.
+        </p>
+        <FunnelDemoAllowBar
+          compact
+          showRegenerate={false}
+          message="Want me to pin this report to your Console and email a PDF every Monday?"
+        />
       </FunnelDemoAssistantBubble>
-    </>
+    </DemoSceneScroll>
   );
 }
 

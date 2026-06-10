@@ -31,7 +31,7 @@ function slideClasses(
   role: 'active' | 'exit' | 'hidden',
   direction: SlideDirection
 ): string {
-  const base = 'funnel-demo-carousel-slide absolute inset-x-0 top-0 bottom-0';
+  const base = 'funnel-demo-carousel-slide absolute inset-x-0 top-0 bottom-0 h-full min-h-0';
   if (role === 'active') return `${base} translate-x-0 opacity-100 z-20`;
 
   if (role === 'exit') {
@@ -88,7 +88,7 @@ function SideDemoCarouselColumn() {
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <div className="relative min-h-0 flex-1 overflow-hidden px-1">
+      <div className="relative min-h-0 flex-1 basis-0 overflow-hidden px-1">
         {indices.map((sceneIndex, i) => {
           const isActive = i === activeSlot;
           const isExit = prevSlot !== null && i === prevSlot && !isActive;

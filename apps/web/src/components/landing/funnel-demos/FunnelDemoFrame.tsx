@@ -55,7 +55,7 @@ export function FunnelDemoFrame({
           <span className="min-w-0 flex-1 break-words">{title}</span>
         </span>
       </div>
-      <div className="funnel-demo-card-body-scroll min-h-0 flex-1 px-3 pb-3 bg-[var(--bg-primary)]">
+      <div className="funnel-demo-card-body-scroll min-h-0 flex-1 basis-0 px-3 pb-3 bg-[var(--bg-primary)]">
         <div
           className={`flex min-h-0 flex-col gap-2.5 transition-opacity duration-300 ${
             contentVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -108,15 +108,17 @@ export function FunnelDemoAssistantBubble({
   allowOverflow?: boolean;
 }) {
   if (!show) return null;
-  const overflowClass = allowOverflow ? 'overflow-visible' : 'overflow-hidden';
+  const overflowClass = allowOverflow
+    ? 'overflow-visible'
+    : 'overflow-x-hidden overflow-y-visible';
   return (
     <div className="flex min-h-0 shrink justify-start funnel-demo-message-in">
       <div
         className={`${wide ? 'max-w-[98%]' : 'max-w-[96%]'} min-w-0 rounded-2xl rounded-bl-md leading-snug aysop-bubble-assistant shadow-sm ${
           visual ? 'p-2.5 text-[17px] sm:text-[18px]' : 'px-3.5 py-3 text-[17px] sm:text-[18px]'
-        } ${contained ? `max-h-[min(100%,475px)] ${overflowClass} flex flex-col min-h-0` : ''}`}
+        } ${contained ? `w-full ${overflowClass} flex flex-col min-h-0` : ''}`}
       >
-        <div className={contained ? `min-h-0 flex-1 flex flex-col ${overflowClass}` : undefined}>
+        <div className={contained ? `min-h-0 flex flex-col ${overflowClass}` : undefined}>
           {children}
         </div>
       </div>

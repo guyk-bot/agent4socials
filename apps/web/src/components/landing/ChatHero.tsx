@@ -730,7 +730,6 @@ export default function ChatHero() {
     <section className="chat-hero relative flex h-[calc(100dvh-0.5rem)] max-h-[calc(100dvh-0.5rem)] flex-col overflow-hidden pt-14 sm:pt-16">
       <ChatHeroDemoLoopProvider active={sideDemosReady}>
       <div className="flex flex-1 min-h-0 w-full max-w-[1920px] mx-auto">
-        <ChatHeroSideDemoColumn visible={sideDemosReady} />
         <div className="flex flex-1 min-h-0 min-w-0 flex-col w-full px-2 sm:px-4 xl:px-8 2xl:px-12 pt-2 sm:pt-2 pb-3 sm:pb-4">
           <h1 className="sr-only">iZop, your personal AI social media manager</h1>
 
@@ -984,6 +983,7 @@ export default function ChatHero() {
             </div>
           </div>
         </div>
+        <ChatHeroSideDemoColumn visible={sideDemosReady} />
       </div>
       </ChatHeroDemoLoopProvider>
     </section>
