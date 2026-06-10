@@ -174,14 +174,14 @@ export function ChatHeroSideDemoColumn({
   if (!visible) {
     return (
       <div
-        className="hidden xl:block h-full min-h-0 w-[var(--funnel-side-w,538px)] shrink-0 2xl:w-[var(--funnel-side-w-2xl,600px)]"
+        className="hidden xl:block h-full min-h-0 w-[var(--funnel-side-w,400px)] shrink-0 2xl:w-[var(--funnel-side-w-2xl,440px)]"
         aria-hidden
       />
     );
   }
 
   return (
-    <div className="hidden xl:flex h-full min-h-0 w-[var(--funnel-side-w,538px)] shrink-0 flex-col 2xl:w-[var(--funnel-side-w-2xl,600px)]">
+    <div className="hidden xl:flex h-full min-h-0 w-[var(--funnel-side-w,400px)] shrink-0 flex-col 2xl:w-[var(--funnel-side-w-2xl,440px)]">
       <SideDemoCarouselColumn side={side} />
     </div>
   );

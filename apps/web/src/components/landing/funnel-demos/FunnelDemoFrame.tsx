@@ -31,7 +31,7 @@ export function FunnelDemoFrame({
 
   return (
     <div
-      className={`funnel-demo-card pointer-events-auto flex h-full min-h-0 w-full max-w-[var(--funnel-side-w,538px)] 2xl:max-w-[var(--funnel-side-w-2xl,600px)] flex-col overflow-hidden rounded-xl border-2 border-neutral-200 bg-[var(--bg-primary)] shadow-md dark:border-neutral-700 ${
+      className={`funnel-demo-card pointer-events-auto flex h-full min-h-0 w-full max-w-[var(--funnel-side-w,400px)] 2xl:max-w-[var(--funnel-side-w-2xl,440px)] flex-col overflow-hidden rounded-xl border-2 border-neutral-200 bg-[var(--bg-primary)] shadow-md dark:border-neutral-700 ${
         staticMode ? 'funnel-demo-card--static' : ''
       } ${visible || staticMode ? 'opacity-100' : 'opacity-0 pointer-events-none'} ${
         !staticMode && entering && visible ? 'funnel-demo-card-enter' : ''

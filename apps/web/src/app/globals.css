@@ -516,9 +516,9 @@
   --chat-hero-accent-soft: rgba(124, 58, 237, 0.08);
   --chat-hero-accent-text: #5B21B6;
   --chat-hero-cursor: rgba(26, 26, 26, 0.5);
-  /* ~25% larger funnel layout (matches ~125% browser zoom at prior base sizes) */
-  --funnel-side-w: 538px;
-  --funnel-side-w-2xl: 600px;
+  /* Side demo columns: narrower on wide screens so center chat has more room */
+  --funnel-side-w: 400px;
+  --funnel-side-w-2xl: 440px;
   background: var(--chat-hero-bg);
   color: var(--chat-hero-text);
 }
