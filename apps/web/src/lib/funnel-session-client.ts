@@ -31,8 +31,10 @@ export async function ensureFunnelSession(): Promise<string> {
   if (existing) return existing;
 
   const res = await fetch('/api/funnel/session', { method: 'POST' });
-  if (!res.ok) throw new Error('Could not start funnel session');
-  const data = (await res.json()) as { token?: string };
+  const data = (await res.json()) as { token?: string; error?: string };
+  if (!res.ok) {
+    throw new Error(data.error || 'Could not start funnel session. Please refresh and try again.');
+  }
   if (!data.token) throw new Error('Invalid funnel session response');
   writeFunnelSessionToken(data.token);
   return data.token;

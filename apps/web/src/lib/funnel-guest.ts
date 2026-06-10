@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto';
 import { Prisma, type Platform } from '@prisma/client';
 import { prisma, withPrismaPoolRetry } from '@/lib/db';
+import { ensureFunnelSessionsTable } from '@/lib/ensure-funnel-sessions-table';
 import type { BrandContextRecord } from '@/lib/brand-context-utils';
 
 export const FUNNEL_SESSION_COOKIE = 'izop_funnel_sid';
@@ -32,6 +33,7 @@ export async function createFunnelSession(): Promise<{
   guestUserId: string;
   expiresAt: Date;
 }> {
+  await ensureFunnelSessionsTable();
   const token = newToken();
   const email = guestEmailForToken(token);
   const expiresAt = new Date(Date.now() + FUNNEL_SESSION_TTL_MS);

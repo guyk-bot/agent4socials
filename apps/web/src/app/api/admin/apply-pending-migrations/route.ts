@@ -33,6 +33,29 @@ const MIGRATIONS: Array<{ name: string; sql: string }> = [
     sql: `ALTER TABLE "Post" ADD COLUMN IF NOT EXISTS "alsoPostToStory" BOOLEAN NOT NULL DEFAULT false`,
   },
   {
+    name: '20260610120000_funnel_sessions',
+    sql: `
+CREATE TABLE IF NOT EXISTS "funnel_sessions" (
+  "id" TEXT NOT NULL,
+  "token" TEXT NOT NULL,
+  "guestUserId" TEXT NOT NULL,
+  "messageCount" INTEGER NOT NULL DEFAULT 0,
+  "connectedPlatform" "Platform",
+  "connectedAccountId" TEXT,
+  "chatPayload" JSONB,
+  "brandContextDraft" JSONB,
+  "expiresAt" TIMESTAMP(3) NOT NULL,
+  "mergedToUserId" TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "funnel_sessions_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "funnel_sessions_token_key" ON "funnel_sessions"("token");
+CREATE UNIQUE INDEX IF NOT EXISTS "funnel_sessions_guestUserId_key" ON "funnel_sessions"("guestUserId");
+CREATE INDEX IF NOT EXISTS "funnel_sessions_expiresAt_idx" ON "funnel_sessions"("expiresAt");
+`,
+  },
+  {
     name: '20260606120000_aysop_chat_sessions',
     sql: `
 CREATE TABLE IF NOT EXISTS "aysop_chat_sessions" (
