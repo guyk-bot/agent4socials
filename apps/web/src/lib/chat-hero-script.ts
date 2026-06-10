@@ -126,7 +126,7 @@ function stepNudge(ctx: LandingChatContext): string {
 }
 
 /** Fix common typos so free-text matching still works ("waht" → "what"). */
-function normalizeLandingChatText(text: string): string {
+export function normalizeLandingChatText(text: string): string {
   return text
     .toLowerCase()
     .trim()
@@ -167,12 +167,16 @@ export function landingChatFunnelActionReply(platformLabels: string[]): string {
   return `This funnel demo cannot publish or connect accounts for you. Sign in at izop.ai, ${connectPart}publish from Composer or ask iZop AI in the dashboard chat.`;
 }
 
+export function isBrandContextFunnelStep(ctx: LandingChatContext): boolean {
+  return ctx.funnelFlowStep === 'brand_context' || ctx.funnelFlowStep === 'free_chat';
+}
+
 /** High-priority scripted replies (checked before LLM). */
 export function answerLandingChatPriority(ctx: LandingChatContext): string | null {
   if (asksAboutAds(ctx.text)) {
     return LANDING_CHAT_ADS_REPLY;
   }
-  if (wantsFunnelInAppAction(ctx.text)) {
+  if (wantsFunnelInAppAction(ctx.text) && !isBrandContextFunnelStep(ctx)) {
     const namesFromMessage = ctx.matchedPlatforms.map(platformLabel);
     const namesSelected = selectedLabels(ctx.selectedPlatformIds);
     const allNames = [...new Set([...namesFromMessage, ...namesSelected])];

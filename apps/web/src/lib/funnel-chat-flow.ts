@@ -64,7 +64,7 @@ export function emptyBrandContextDraft(): BrandContextRecord {
 }
 
 export function funnelBrandContextAddMoreMessage(): string {
-  return 'Is there anything else you would like me to know about your brand? Edit the fields above or tell me in the chat.';
+  return 'Is there anything else you would like me to know about your brand? Edit the fields above, tell me in the chat, or ask me to fill the form from your profile and posts.';
 }
 
 export function funnelMultiPlatformSignupMessage(): string {

@@ -8,7 +8,7 @@ import {
 } from '@/lib/funnel-guest';
 
 export const runtime = 'nodejs';
-export const maxDuration = 30;
+export const maxDuration = 45;
 
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX = 20;
@@ -42,6 +42,7 @@ type Body = {
   connectedAccountId?: string | null;
   funnelFlowStep?: string | null;
   brandContextDraft?: Record<string, unknown> | null;
+  hashtagPool?: string | null;
 };
 
 export async function POST(req: Request) {
@@ -68,9 +69,10 @@ export async function POST(req: Request) {
   }
 
   const funnelToken = req.headers.get('x-funnel-session')?.trim() || null;
+  let funnelSession: Awaited<ReturnType<typeof getFunnelSessionByToken>> = null;
   if (funnelToken) {
-    const session = await getFunnelSessionByToken(funnelToken);
-    if (!session) {
+    funnelSession = await getFunnelSessionByToken(funnelToken);
+    if (!funnelSession) {
       return NextResponse.json({ text: funnelSessionLimitMessage(), source: 'script', limited: true });
     }
     const { limited } = await incrementFunnelMessageCount(funnelToken);
@@ -79,19 +81,25 @@ export async function POST(req: Request) {
     }
   }
 
-  const result = await respondLandingChat({
-    step,
-    text,
-    matchedPlatforms: Array.isArray(body.matchedPlatforms) ? body.matchedPlatforms : [],
-    matchedPain: body.matchedPain ?? null,
-    selectedPlatformIds: Array.isArray(body.selectedPlatformIds) ? body.selectedPlatformIds : [],
-    connectedAccountId: typeof body.connectedAccountId === 'string' ? body.connectedAccountId : null,
-    funnelFlowStep: typeof body.funnelFlowStep === 'string' ? body.funnelFlowStep : null,
-    brandContextDraft:
-      body.brandContextDraft && typeof body.brandContextDraft === 'object'
-        ? (body.brandContextDraft as Record<string, unknown>)
-        : null,
-  });
+  const result = await respondLandingChat(
+    {
+      step,
+      text,
+      matchedPlatforms: Array.isArray(body.matchedPlatforms) ? body.matchedPlatforms : [],
+      matchedPain: body.matchedPain ?? null,
+      selectedPlatformIds: Array.isArray(body.selectedPlatformIds) ? body.selectedPlatformIds : [],
+      connectedAccountId: typeof body.connectedAccountId === 'string' ? body.connectedAccountId : null,
+      funnelFlowStep: typeof body.funnelFlowStep === 'string' ? body.funnelFlowStep : null,
+      brandContextDraft:
+        body.brandContextDraft && typeof body.brandContextDraft === 'object'
+          ? (body.brandContextDraft as Record<string, unknown>)
+          : null,
+    },
+    {
+      guestUserId: funnelSession?.guestUserId ?? null,
+      hashtagPool: typeof body.hashtagPool === 'string' ? body.hashtagPool : '',
+    }
+  );
 
   return NextResponse.json(result);
 }

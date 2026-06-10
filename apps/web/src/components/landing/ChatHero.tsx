@@ -941,6 +941,7 @@ export default function ChatHero() {
       connectedAccountId,
       funnelFlowStep: funnelStep,
       brandContextDraft: brandDraft as Record<string, unknown>,
+      hashtagPool: hashtagPoolDraft,
     };
 
     setBusy(true);
@@ -957,32 +958,68 @@ export default function ChatHero() {
             headers: { 'Content-Type': 'application/json', ...funnelAuthHeaders() },
             body: JSON.stringify(chatContext),
           });
-          const data = (await res.json()) as { text?: string; limited?: boolean };
+          const data = (await res.json()) as {
+            text?: string;
+            limited?: boolean;
+            brandContextUpdate?: BrandContextRecord;
+            hashtagPoolUpdate?: string;
+          };
           if (data.limited) {
             hitLimit = true;
             setMessageLimited(true);
             setShowSignup(true);
-            return data.text?.trim() || answerLandingChatQuestion(chatContext);
+            return {
+              text: data.text?.trim() || answerLandingChatQuestion(chatContext),
+              brandContextUpdate: null,
+              hashtagPoolUpdate: null,
+            };
           }
           if (!res.ok) {
-            return answerLandingChatQuestion(chatContext);
+            return {
+              text: answerLandingChatQuestion(chatContext),
+              brandContextUpdate: null,
+              hashtagPoolUpdate: null,
+            };
           }
-          return typeof data.text === 'string' && data.text.trim()
-            ? data.text.trim()
-            : answerLandingChatQuestion(chatContext);
+          return {
+            text:
+              typeof data.text === 'string' && data.text.trim()
+                ? data.text.trim()
+                : answerLandingChatQuestion(chatContext),
+            brandContextUpdate: data.brandContextUpdate ?? null,
+            hashtagPoolUpdate: data.hashtagPoolUpdate ?? null,
+          };
         } catch {
-          return answerLandingChatQuestion(chatContext);
+          return {
+            text: answerLandingChatQuestion(chatContext),
+            brandContextUpdate: null,
+            hashtagPoolUpdate: null,
+          };
         }
       })(),
       delay(minThinkMs),
     ]);
+
+    const reply = typeof replyText === 'string' ? { text: replyText, brandContextUpdate: null, hashtagPoolUpdate: null } : replyText;
+
+    if (reply.brandContextUpdate && Object.keys(reply.brandContextUpdate).length > 0) {
+      setBrandDraft((prev) => {
+        const next = { ...prev, ...reply.brandContextUpdate };
+        persistFunnelBrandDraft(next);
+        return next;
+      });
+      setShowBrandContext(true);
+    }
+    if (reply.hashtagPoolUpdate?.trim()) {
+      setHashtagPoolDraft(reply.hashtagPoolUpdate.trim());
+    }
 
     setIsTyping(false);
     appendBlocks([
       {
         id: blockId('ai'),
         kind: 'ai',
-        text: replyText,
+        text: reply.text,
       },
     ]);
     if (hitLimit) saveFunnelForAppHandoff();
@@ -990,16 +1027,15 @@ export default function ChatHero() {
     scrollToLatest();
   }, [
     appendBlocks,
-    brandDraft,
     busy,
     connectedAccountId,
     draftText,
     funnelStep,
+    hashtagPoolDraft,
     isTyping,
     messageLimited,
     scrollToLatest,
-    connectedAccountId,
-    funnelStep,
+    brandDraft,
     handlePlatformConnect,
     selectedPlatforms,
     showPlatformOptions,

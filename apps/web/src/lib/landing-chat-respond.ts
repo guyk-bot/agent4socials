@@ -2,11 +2,14 @@ import { openAiChat } from '@/lib/openai-client';
 import { isAysopLlmConfigured } from '@/lib/ai/llm-config';
 import {
   answerLandingChatQuestion,
+  answerLandingChatPriority,
   type LandingChatContext,
 } from '@/lib/chat-hero-script';
 import {
-  answerLandingChatPriority,
-} from '@/lib/chat-hero-script';
+  fillBrandContextFromChat,
+  type BrandContextFillResult,
+  shouldAssistBrandContextForm,
+} from '@/lib/funnel/brand-context-chat-fill';
 import {
   LANDING_CHAT_SUPPORT_FALLBACK,
   landingChatKnowledgeBlock,
@@ -47,10 +50,33 @@ function looksLikeSupportFallback(text: string): boolean {
   return /support ticket|typically repl|within 24 hours/i.test(text);
 }
 
-export async function respondLandingChat(ctx: LandingChatContext): Promise<{
+export type LandingChatResponse = {
   text: string;
-  source: 'llm' | 'script';
-}> {
+  source: 'llm' | 'script' | 'brand_fill';
+  brandContextUpdate?: BrandContextRecord | null;
+  hashtagPoolUpdate?: string | null;
+};
+
+type BrandContextRecord = import('@/lib/brand-context-utils').BrandContextRecord;
+
+export async function respondLandingChat(
+  ctx: LandingChatContext,
+  options?: { guestUserId?: string | null; hashtagPool?: string }
+): Promise<LandingChatResponse> {
+  if (shouldAssistBrandContextForm(ctx)) {
+    const filled: BrandContextFillResult = await fillBrandContextFromChat({
+      ctx,
+      guestUserId: options?.guestUserId,
+      hashtagPool: options?.hashtagPool,
+    });
+    return {
+      text: filled.text,
+      source: filled.source,
+      brandContextUpdate: filled.brandContextUpdate,
+      hashtagPoolUpdate: filled.hashtagPoolUpdate,
+    };
+  }
+
   const priority = answerLandingChatPriority(ctx);
   if (priority) {
     return { text: priority, source: 'script' };
