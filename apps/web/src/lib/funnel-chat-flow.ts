@@ -13,9 +13,7 @@ export type FunnelFlowStep =
 export type FunnelActionId = 'publish' | 'brainstorm' | 'analytics' | 'inbox';
 
 export const FUNNEL_OPENING_BODY =
-  'Select the first platform you want to connect and I will show you everything I can do';
-
-export const FUNNEL_OPENING_BODY_ARROW = '⬇️';
+  'Select the first platform you want to connect and I will show you everything I can do.';
 
 export const FUNNEL_ACTIONS: { id: FunnelActionId; label: string }[] = [
   { id: 'publish', label: 'Publish a post' },
@@ -23,6 +21,10 @@ export const FUNNEL_ACTIONS: { id: FunnelActionId; label: string }[] = [
   { id: 'analytics', label: 'See analytics' },
   { id: 'inbox', label: 'Manage inbox' },
 ];
+
+export function funnelConnectedSuccessMessage(platformLabel: string, username: string): string {
+  return `Connected successfully. Your ${platformLabel} account @${username} is linked.`;
+}
 
 export function funnelConnectedMessage(
   platformLabel: string,
@@ -38,7 +40,11 @@ export function funnelExperienceChoiceMessage(): string {
 }
 
 export function funnelBrandContextIntro(): string {
-  return 'Before you publish, I recommend setting up your brand context so I get a full picture of your brand and can help you better. I drafted a starter profile below — edit anything, then tap Save.';
+  return 'I pulled details from your profile, recent posts, and replies to draft your brand context below. Edit anything, add anything I missed, then tap Save.';
+}
+
+export function funnelBrandContextAddMoreMessage(): string {
+  return 'Is there anything else you would like me to know about your brand? Edit the fields above or tell me in the chat.';
 }
 
 export function funnelMultiPlatformSignupMessage(): string {

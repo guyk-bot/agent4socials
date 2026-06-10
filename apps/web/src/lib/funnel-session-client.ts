@@ -139,6 +139,16 @@ export type FunnelConnectionStatus = {
   connectedAccountId: string;
   connectedPlatform: ChatHeroPlatformId;
   connectedUsername: string | null;
+  connectedProfilePicture?: string | null;
+};
+
+export type FunnelBrandDraftResponse = {
+  accountId: string;
+  platform: ChatHeroPlatformId;
+  platformLabel: string;
+  username: string;
+  profilePicture: string | null;
+  draft: BrandContextRecord;
 };
 
 /** Read server-side funnel connect state (survives OAuth popup / cross-origin postMessage gaps). */
@@ -152,6 +162,7 @@ export async function fetchFunnelConnectionStatus(): Promise<FunnelConnectionSta
       connectedAccountId?: string | null;
       connectedPlatform?: string | null;
       connectedUsername?: string | null;
+      connectedProfilePicture?: string | null;
     };
     const platform = funnelPlatformFromOAuthSlug(data.connectedPlatform);
     if (!data.connectedAccountId || !platform) return null;
@@ -159,8 +170,36 @@ export async function fetchFunnelConnectionStatus(): Promise<FunnelConnectionSta
       connectedAccountId: data.connectedAccountId,
       connectedPlatform: platform,
       connectedUsername: data.connectedUsername ?? null,
+      connectedProfilePicture: data.connectedProfilePicture ?? null,
     };
   } catch {
     return null;
   }
+}
+
+export async function fetchFunnelBrandDraft(accountId: string): Promise<FunnelBrandDraftResponse | null> {
+  try {
+    const res = await fetch(
+      `/api/funnel/brand-draft?accountId=${encodeURIComponent(accountId)}`,
+      { headers: funnelAuthHeaders() }
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as FunnelBrandDraftResponse;
+  } catch {
+    return null;
+  }
+}
+
+export async function retryFunnelOAuthResolve(
+  tryFn: () => Promise<boolean>,
+  attempts = 15,
+  intervalMs = 2000
+): Promise<boolean> {
+  for (let i = 0; i < attempts; i += 1) {
+    if (await tryFn()) return true;
+    if (i < attempts - 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, intervalMs));
+    }
+  }
+  return false;
 }

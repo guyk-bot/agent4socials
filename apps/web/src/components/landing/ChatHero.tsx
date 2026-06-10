@@ -29,24 +29,26 @@ import {
   matchPlatformsFromText,
   type ChatHeroPlatformId,
 } from '@/lib/chat-hero-script';
+import FunnelBrandContextCard from '@/components/landing/FunnelBrandContextCard';
+import FunnelConnectedAccountCard from '@/components/landing/FunnelConnectedAccountCard';
 import {
   defaultBrandContextDraft,
+  funnelBrandContextAddMoreMessage,
   funnelBrandContextIntro,
-  funnelConnectedMessage,
+  funnelConnectedSuccessMessage,
   funnelExperienceChoiceMessage,
   funnelMultiPlatformSignupMessage,
   funnelPublishReadyMessage,
   FUNNEL_ACTIONS,
   FUNNEL_OPENING_BODY,
-  FUNNEL_OPENING_BODY_ARROW,
   platformLabelFromId,
   type FunnelActionId,
   type FunnelFlowStep,
 } from '@/lib/funnel-chat-flow';
 import type { BrandContextRecord } from '@/lib/brand-context-utils';
-import FunnelBrandContextCard from '@/components/landing/FunnelBrandContextCard';
 import {
   ensureFunnelSession,
+  fetchFunnelBrandDraft,
   fetchFunnelConnectionStatus,
   funnelAuthHeaders,
   funnelPlatformFromOAuthSlug,
@@ -55,6 +57,7 @@ import {
   persistFunnelChatState,
   readFunnelBrandDraft,
   readFunnelChatState,
+  retryFunnelOAuthResolve,
   saveFunnelForAppHandoff,
 } from '@/lib/funnel-session-client';
 import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
@@ -76,7 +79,14 @@ type RenderBlock =
   | { id: string; kind: 'badges'; items: string[] }
   | { id: string; kind: 'action_chips'; actions: FunnelActionId[] }
   | { id: string; kind: 'experience_choice' }
-  | { id: string; kind: 'brand_context' };
+  | { id: string; kind: 'brand_context' }
+  | {
+      id: string;
+      kind: 'connected_account';
+      platformId: ChatHeroPlatformId;
+      username: string;
+      profilePicture?: string | null;
+    };
 
 const PLATFORM_ICONS: Record<
   ChatHeroPlatformId,
@@ -95,7 +105,6 @@ const PLATFORM_ICONS: Record<
 const OPENING_GREETING = "Hi 👋 I'm iZop,";
 const OPENING_HEADLINE = 'your personal AI social media manager.';
 const OPENING_BODY = FUNNEL_OPENING_BODY;
-const OPENING_BODY_ARROW = FUNNEL_OPENING_BODY_ARROW;
 
 /** Typewriter stops after headline; body + platforms appear together when it finishes. */
 const OPENING_TYPEWRITER_TEXT = `${OPENING_GREETING}\n${OPENING_HEADLINE}`;
@@ -237,7 +246,6 @@ function OpeningAiMessage({
     ? getOpeningLineParts(displayed)
     : [OPENING_GREETING, OPENING_HEADLINE];
   const body = showFollowUp ? OPENING_BODY : '';
-  const bodyArrow = showFollowUp ? OPENING_BODY_ARROW : '';
   const showCursor = !!typewriterActive && displayed.length < OPENING_TYPEWRITER_TEXT.length;
   const activeLine = getActiveOpeningLineIndex(displayed);
 
@@ -257,11 +265,6 @@ function OpeningAiMessage({
       text: body,
       className:
         'block text-[13px] sm:text-[15px] lg:text-[16px] font-normal leading-[1.5] mt-2.5 sm:whitespace-nowrap',
-    },
-    {
-      key: 'body-arrow',
-      text: bodyArrow,
-      className: 'block text-[18px] sm:text-[20px] leading-none mt-1.5',
     },
   ];
 
@@ -400,6 +403,7 @@ export default function ChatHero() {
   const [connectedAccountId, setConnectedAccountId] = useState<string | null>(null);
   const [connectedPlatform, setConnectedPlatform] = useState<ChatHeroPlatformId | null>(null);
   const [connectedUsername, setConnectedUsername] = useState<string | null>(null);
+  const [connectedProfilePicture, setConnectedProfilePicture] = useState<string | null>(null);
   const [brandDraft, setBrandDraft] = useState<BrandContextRecord>(() => readFunnelBrandDraft() ?? {});
   const [typewriterDone, setTypewriterDone] = useState(true);
 
@@ -472,6 +476,10 @@ export default function ChatHero() {
       setConnectedUsername(restored.connectedUsername ?? null);
       setShowPlatformOptions(!restored.connectedAccountId);
       setShowActionOptions(!!restored.connectedAccountId && restored.step === 'connected');
+      setShowBrandContext(restored.step === 'brand_context' || restored.step === 'free_chat');
+      if (restored.connectedAccountId) {
+        oauthReturnHandled.current = true;
+      }
       setShowOpeningFollowUp(true);
     } else if (!isOAuthReturn) {
       setBlocks([
@@ -489,8 +497,8 @@ export default function ChatHero() {
   }, []);
 
   const finishFunnelOAuthConnect = useCallback(
-    (accountId: string, platformId: ChatHeroPlatformId, username: string | null) => {
-      if (oauthReturnHandled.current) return;
+    (accountId: string, platformId: ChatHeroPlatformId, username: string | null, profilePicture?: string | null): boolean => {
+      if (oauthReturnHandled.current) return false;
       oauthReturnHandled.current = true;
       setOauthPopupPending(false);
       setBusy(false);
@@ -505,30 +513,72 @@ export default function ChatHero() {
       setConnectedAccountId(accountId);
       setConnectedPlatform(platformId);
       setConnectedUsername(username);
+      setConnectedProfilePicture(profilePicture ?? null);
       setSelectedPlatforms([platformId]);
       setShowPlatformOptions(false);
-      setShowActionOptions(true);
-      setFunnelStep('connected');
+      setShowActionOptions(false);
+      setFunnelStep('brand_context');
       setStep(2);
 
+      window.history.replaceState({}, '', window.location.pathname);
+      return true;
+    },
+    []
+  );
+
+  const beginFunnelPostConnectFlow = useCallback(
+    async (accountId: string, platformId: ChatHeroPlatformId, username: string | null, profilePicture?: string | null) => {
+      if (!finishFunnelOAuthConnect(accountId, platformId, username, profilePicture)) return;
+
       const label = platformLabelFromId(platformId);
-      const draft = defaultBrandContextDraft(label, username || 'you');
-      setBrandDraft(draft);
-      persistFunnelBrandDraft(draft);
+      const displayUser = username || 'you';
+
+      setIsTyping(true);
+      scrollToLatest();
+      await delay(700);
 
       appendBlocks([
         {
           id: blockId('ai'),
           kind: 'ai',
-          text: funnelConnectedMessage(label, username || 'you'),
+          text: funnelConnectedSuccessMessage(label, displayUser),
         },
-        { id: blockId('actions'), kind: 'action_chips', actions: FUNNEL_ACTIONS.map((a) => a.id) },
+        {
+          id: blockId('connected'),
+          kind: 'connected_account',
+          platformId,
+          username: displayUser,
+          profilePicture: profilePicture ?? null,
+        },
       ]);
+      setIsTyping(false);
+      scrollToLatest();
 
-      window.history.replaceState({}, '', window.location.pathname);
+      setIsTyping(true);
+      scrollToLatest();
+      const snapshot = await fetchFunnelBrandDraft(accountId);
+      const draft = snapshot?.draft ?? defaultBrandContextDraft(label, displayUser);
+      const resolvedUsername = snapshot?.username ?? displayUser;
+      const resolvedPicture = snapshot?.profilePicture ?? profilePicture ?? null;
+
+      if (snapshot) {
+        setConnectedUsername(resolvedUsername);
+        setConnectedProfilePicture(resolvedPicture);
+      }
+      setBrandDraft(draft);
+      persistFunnelBrandDraft(draft);
+
+      await delay(500);
+      setIsTyping(false);
+      setShowBrandContext(true);
+      appendBlocks([
+        { id: blockId('ai'), kind: 'ai', text: funnelBrandContextIntro() },
+        { id: blockId('brand'), kind: 'brand_context' },
+        { id: blockId('ai'), kind: 'ai', text: funnelBrandContextAddMoreMessage() },
+      ]);
       scrollToLatest();
     },
-    [appendBlocks, scrollToLatest]
+    [appendBlocks, finishFunnelOAuthConnect, scrollToLatest]
   );
 
   const tryResolveFunnelOAuth = useCallback(async (): Promise<boolean> => {
@@ -540,6 +590,7 @@ export default function ChatHero() {
     let accountId = hasUrlHint ? params.get('accountId') : null;
     let platformId = funnelPlatformFromOAuthSlug(hasUrlHint ? params.get('platform') : null);
     let username = hasUrlHint ? params.get('username') : null;
+    let profilePicture: string | null = hasUrlHint ? params.get('newPic') : null;
 
     if (!accountId || !platformId) {
       const status = await fetchFunnelConnectionStatus();
@@ -547,11 +598,12 @@ export default function ChatHero() {
       accountId = status.connectedAccountId;
       platformId = status.connectedPlatform;
       username = status.connectedUsername;
+      profilePicture = status.connectedProfilePicture ?? null;
     }
 
-    finishFunnelOAuthConnect(accountId, platformId, username);
+    await beginFunnelPostConnectFlow(accountId, platformId, username, profilePicture);
     return true;
-  }, [finishFunnelOAuthConnect]);
+  }, [beginFunnelPostConnectFlow]);
 
   const resetFunnelOAuthPending = useCallback(() => {
     setOauthPopupPending(false);
@@ -563,16 +615,30 @@ export default function ChatHero() {
   }, []);
 
   useEffect(() => {
-    void tryResolveFunnelOAuth();
+    if (oauthReturnHandled.current) return;
+    const restored = readFunnelChatState();
+    if (restored?.connectedAccountId) {
+      oauthReturnHandled.current = true;
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('funnel_connected') === '1') {
+      void tryResolveFunnelOAuth();
+    }
   }, [tryResolveFunnelOAuth]);
 
   useEffect(() => {
     return listenForOAuthComplete((payload) => {
       const platformId = funnelPlatformFromOAuthSlug(payload.platform);
       if (!payload.accountId || !platformId) return;
-      finishFunnelOAuthConnect(payload.accountId, platformId, payload.username ?? null);
+      void beginFunnelPostConnectFlow(
+        payload.accountId,
+        platformId,
+        payload.username ?? null,
+        payload.profilePicture ?? null
+      );
     });
-  }, [finishFunnelOAuthConnect]);
+  }, [beginFunnelPostConnectFlow]);
 
   useEffect(() => {
     if (!oauthPopupPending) {
@@ -660,7 +726,7 @@ export default function ChatHero() {
             }
             if (oauthReturnHandled.current) return;
             void (async () => {
-              const completed = await tryResolveFunnelOAuth();
+              const completed = await retryFunnelOAuthResolve(() => tryResolveFunnelOAuth(), 15, 2000);
               if (!completed) resetFunnelOAuthPending();
             })();
           }, 600);
@@ -1014,6 +1080,19 @@ export default function ChatHero() {
                     </div>
                   ) : null;
                 }
+                if (block.kind === 'connected_account') {
+                  const Icon = PLATFORM_ICONS[block.platformId];
+                  return (
+                    <div key={block.id} className={FUNNEL_AI_CONTENT_INDENT}>
+                      <FunnelConnectedAccountCard
+                        platformId={block.platformId}
+                        username={block.username}
+                        profilePicture={block.profilePicture}
+                        icon={<Icon size={28} />}
+                      />
+                    </div>
+                  );
+                }
                 if (block.kind === 'brand_context') {
                   return showBrandContext ? (
                     <div key={block.id} className={FUNNEL_AI_CONTENT_INDENT}>
@@ -1022,8 +1101,13 @@ export default function ChatHero() {
                         onChange={setBrandDraft}
                         onSave={() => {
                           persistFunnelBrandDraft(brandDraft);
+                          setFunnelStep('free_chat');
                           appendBlocks([
-                            { id: blockId('ai'), kind: 'ai', text: 'Brand context saved. What would you like to post?' },
+                            {
+                              id: blockId('ai'),
+                              kind: 'ai',
+                              text: 'Brand context saved. Tell me what you want to post, or ask me to brainstorm ideas in your voice.',
+                            },
                           ]);
                         }}
                         disabled={busy}
