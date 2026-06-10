@@ -42,10 +42,11 @@ const organizationJsonLd = {
 export const metadata: Metadata = {
   metadataBase: getMetadataBase(),
   title: {
-    default: "iZop | Schedule Posts & Analytics for Instagram, YouTube, TikTok, Facebook, Twitter & LinkedIn",
+    default: "iZop AI | Your Personal AI Social Media Manager.",
     template: "%s | iZop",
   },
-  description: "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. Try for free. From $29/mo.",
+  description:
+    "Stop managing social media. Start talking to it. iZop AI schedules posts, replies to comments, extracts leads and pulls analytics. Free plan.",
   keywords: ["social media scheduler", "schedule Instagram posts", "schedule TikTok", "social media analytics", "post scheduler", "Instagram analytics", "TikTok scheduler", "Facebook scheduler", "LinkedIn scheduler"],
   authors: [{ name: "iZop" }],
   creator: "iZop",
@@ -54,14 +55,16 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: siteUrl,
     siteName: "iZop",
-    title: "iZop | Schedule Posts & Analytics for All Major Social Platforms",
-    description: "Schedule posts and get analytics across Instagram, YouTube, TikTok, Facebook, Twitter and LinkedIn. Try for free.",
+    title: "iZop AI | Your Personal AI Social Media Manager.",
+    description:
+      "Stop managing social media. Start talking to it. iZop AI schedules posts, replies to comments, extracts leads and pulls analytics. Free plan.",
     images: [{ url: `/logo-192.png?v=${SITE_LOGO_V}`, width: 192, height: 192, alt: "iZop" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "iZop | Schedule Posts & Analytics",
-    description: "One dashboard for scheduling and analytics. Try for free.",
+    title: "iZop AI | Your Personal AI Social Media Manager.",
+    description:
+      "Stop managing social media. Start talking to it. iZop AI schedules posts, replies to comments, extracts leads and pulls analytics. Free plan.",
     images: [`/logo-192.png?v=${SITE_LOGO_V}`],
   },
   robots: {
