@@ -46,6 +46,10 @@ function buildConnectParams(platform: string, username: string | null | undefine
 
 const OAUTH_HEAD = '<meta charset="utf-8"><meta name="robots" content="noindex, nofollow">';
 
+function isFunnelOAuthState(stateRaw: string | null | undefined): boolean {
+  return !!stateRaw && /:funnel:[a-f0-9]+$/i.test(stateRaw);
+}
+
 function oauthErrorHtml(baseUrl: string, message: string, status: number): NextResponse {
   const dashboardUrl = `${baseUrl.replace(/\/+$/, '')}/dashboard`;
   const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>iZop – Connection failed</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;">
@@ -57,6 +61,20 @@ if (window.opener) { try { window.close(); } catch (e) {} }
 </script>
 </body></html>`;
   return new NextResponse(html, { status, headers: { 'Content-Type': 'text/html' } });
+}
+
+function oauthErrorForFlow(
+  baseUrl: string,
+  message: string,
+  status: number,
+  funnelFlow: boolean
+): NextResponse {
+  if (funnelFlow) {
+    const homeUrl = new URL('/', baseUrl.replace(/\/+$/, '') + '/');
+    homeUrl.searchParams.set('funnel_error', message.slice(0, 480));
+    return NextResponse.redirect(homeUrl.toString(), 302);
+  }
+  return oauthErrorHtml(baseUrl, message, status);
 }
 
 function parseConnectParamsForPostMessage(connectParams: string): {
@@ -784,6 +802,7 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
   const stateRaw = searchParams.get('state'); // Prisma userId or "userId:instagram"
+  const funnelFlow = isFunnelOAuthState(stateRaw);
 
   const baseUrl = resolveAppBaseUrl();
   const dashboardUrl = `${baseUrl}/dashboard`;
@@ -799,15 +818,21 @@ export async function GET(
         `${baseUrl}/connect/linkedin/consent?previewId=${encodeURIComponent(denyPreviewId)}&method=personal&returnTo=${returnTo}`
       );
     }
+    if (isFunnelOAuthState(stateForDeny)) {
+      return oauthErrorForFlow(baseUrl, 'Login was cancelled. Click the platform again when you are ready to connect.', 400, true);
+    }
     return NextResponse.redirect(dashboardUrl);
   }
 
   if (!code || !stateRaw) {
     if (plat === 'THREADS') {
-      const hint = encodeURIComponent(
-        'Threads connect was interrupted. Use Connect Threads in the app (do not open the callback URL directly).'
-      );
-      return NextResponse.redirect(`${dashboardUrl}?connect=THREADS&connect_error=${hint}`);
+      const hint = funnelFlow
+        ? 'Threads connect was interrupted. Click Threads again to restart login.'
+        : 'Threads connect was interrupted. Use Connect Threads in the app (do not open the callback URL directly).';
+      if (funnelFlow) {
+        return oauthErrorForFlow(baseUrl, hint, 400, true);
+      }
+      return NextResponse.redirect(`${dashboardUrl}?connect=THREADS&connect_error=${encodeURIComponent(hint)}`);
     }
     return NextResponse.json({ error: 'Missing code or state' }, { status: 400 });
   }
@@ -851,10 +876,11 @@ export async function GET(
     }
   } catch (e) {
     if (isPrismaPoolError(e)) {
-      return oauthErrorHtml(
+      return oauthErrorForFlow(
         baseUrl,
         'Database is busy. Wait 30 seconds and click Connect Threads again (do not refresh this page).',
-        503
+        503,
+        funnelFlow
       );
     }
     throw e;
@@ -905,7 +931,7 @@ export async function GET(
       err?.message?.includes('Instagram') || err?.message?.includes('Threads')
         ? err.message
         : 'Failed to connect account';
-    return oauthErrorHtml(baseUrl, message, 500);
+    return oauthErrorForFlow(baseUrl, message, 500, funnelFlow);
   }
 
   try {

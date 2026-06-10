@@ -67,8 +67,6 @@ import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 import {
   closeOAuthConnectPopup,
   listenForOAuthComplete,
-  navigateOAuthConnect,
-  prepareOAuthConnectPopup,
 } from '@/lib/oauth-connect';
 
 type FlowStep = 0 | 1 | 2 | 3;
@@ -640,36 +638,17 @@ export default function ChatHero() {
     [appendBlocks, resetFunnelOAuthPending, scrollToLatest]
   );
 
-  const tryResolveFunnelOAuthFromParams = useCallback(
-    async (params: URLSearchParams): Promise<boolean> => {
-      if (oauthReturnHandled.current) return true;
-      if (params.get('funnel_connected') !== '1') return false;
-
-      let accountId = params.get('accountId');
-      let platformId = funnelPlatformFromOAuthSlug(params.get('platform'));
-      let username = params.get('username');
-      let profilePicture = params.get('newPic');
-
-      if (!accountId || !platformId) {
-        const status = await fetchFunnelConnectionStatus();
-        if (!status) return false;
-        accountId = status.connectedAccountId;
-        platformId = status.connectedPlatform;
-        username = status.connectedUsername;
-        profilePicture = status.connectedProfilePicture ?? null;
-      }
-
-      await beginFunnelPostConnectFlow(accountId, platformId, username, profilePicture);
-      return true;
-    },
-    [beginFunnelPostConnectFlow]
-  );
-
   useEffect(() => {
     if (oauthReturnHandled.current) return;
     const restored = readFunnelChatState();
     if (restored?.connectedAccountId) return;
     const params = new URLSearchParams(window.location.search);
+    const funnelError = params.get('funnel_error');
+    if (funnelError) {
+      window.history.replaceState({}, '', window.location.pathname);
+      failFunnelOAuthConnect(funnelError);
+      return;
+    }
     if (params.get('funnel_connected') === '1') {
       void tryResolveFunnelOAuth();
       return;
@@ -786,9 +765,6 @@ export default function ChatHero() {
       setBlocks((prev) => stripUserPillBlocks(prev));
       trackChatHeroEvent('platforms_selected', { platforms: [id] });
 
-      const oauthPopup = prepareOAuthConnectPopup();
-      oauthPopupRef.current = oauthPopup;
-
       try {
         const token = await ensureFunnelSession();
         writeFunnelOAuthPending(id, token);
@@ -800,54 +776,10 @@ export default function ChatHero() {
         if (!res.ok || !data.url) {
           throw new Error(data.message || 'Could not start OAuth');
         }
-        const opened = navigateOAuthConnect(data.url, oauthPopup);
-        if (opened.opened) {
-          setOauthPopupPending(true);
-          if (oauthPopupPollRef.current !== null) {
-            window.clearInterval(oauthPopupPollRef.current);
-          }
-          oauthPopupPollRef.current = window.setInterval(() => {
-            const popup = oauthPopupRef.current;
-            if (popup && !popup.closed) {
-              try {
-                const host = popup.location.hostname;
-                if (host === 'www.izop.ai' || host === 'izop.ai' || host === 'localhost' || host === '127.0.0.1') {
-                  const params = new URLSearchParams(popup.location.search);
-                  if (params.get('funnel_connected') === '1') {
-                    void (async () => {
-                      const completed = await tryResolveFunnelOAuthFromParams(params);
-                      if (completed) closeOAuthConnectPopup(popup);
-                    })();
-                  }
-                }
-              } catch {
-                /* cross-origin until callback returns */
-              }
-              return;
-            }
-            if (oauthPopupPollRef.current !== null) {
-              window.clearInterval(oauthPopupPollRef.current);
-              oauthPopupPollRef.current = null;
-            }
-            if (oauthReturnHandled.current) return;
-            void (async () => {
-              const completed = await retryFunnelOAuthResolve(() => tryResolveFunnelOAuth(), 20, 2000);
-              if (!completed) {
-                failFunnelOAuthConnect(
-                  'Could not confirm the connection. If you finished login in another window, refresh this page. Otherwise click the platform again to retry.'
-                );
-              }
-            })();
-          }, 600);
-          return;
-        }
-        clearFunnelOAuthPending();
-        throw new Error('Could not open login. Allow popups for this site and try again.');
+        // Same-tab OAuth is more reliable than popups (www vs izop.ai breaks window.opener).
+        window.location.assign(data.url);
       } catch (err: unknown) {
         clearFunnelOAuthPending();
-        closeOAuthConnectPopup(oauthPopupRef.current);
-        oauthPopupRef.current = null;
-        setOauthPopupPending(false);
         let msg =
           err && typeof err === 'object' && 'message' in err
             ? String((err as { message: string }).message)
@@ -862,7 +794,7 @@ export default function ChatHero() {
         flowLock.current = false;
       }
     },
-    [appendBlocks, busy, connectedPlatform, failFunnelOAuthConnect, tryResolveFunnelOAuth, tryResolveFunnelOAuthFromParams]
+    [appendBlocks, busy, connectedPlatform]
   );
 
   const handleFunnelAction = useCallback(
