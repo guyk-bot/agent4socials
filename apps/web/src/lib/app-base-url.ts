@@ -13,7 +13,21 @@ export function resolveAppBaseUrl(): string {
   return raw.replace(/\/+$/, '');
 }
 
-/** Google / Supabase OAuth must use a whitelisted callback URL (always www in production). */
+/**
+ * Social platform OAuth redirect base (Meta strict mode requires an exact host match).
+ * Meta is whitelisted for naked izop.ai; www is for the marketing site and Supabase sign-in.
+ */
+export const OAUTH_REDIRECT_ORIGIN = 'https://izop.ai';
+
+export function resolveOAuthRedirectOrigin(): string {
+  const explicit =
+    process.env.OAUTH_REDIRECT_ORIGIN?.trim() ||
+    process.env.NEXT_PUBLIC_OAUTH_REDIRECT_ORIGIN?.trim();
+  if (explicit) return explicit.replace(/\/+$/, '');
+  return OAUTH_REDIRECT_ORIGIN;
+}
+
+/** Google / Supabase sign-in callback (whitelist in Supabase dashboard). */
 export function resolveOAuthCallbackUrl(): string {
   if (typeof window !== 'undefined') {
     const { hostname, origin } = window.location;

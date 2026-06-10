@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+const WWW_HOST = 'www.izop.ai';
+
 export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  // Decode in case browser sent %40 instead of @
   const decoded = decodeURIComponent(pathname);
 
   // Rewrite /@username (or /%40username) to /username for Smart Links
@@ -16,6 +17,15 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // Naked izop.ai → www for the marketing site, but keep OAuth callbacks on izop.ai
+  // so they match Meta/Google strict redirect URI whitelist.
+  const host = request.headers.get('host')?.split(':')[0] ?? '';
+  if (host === 'izop.ai' && !pathname.startsWith('/api/social/oauth/')) {
+    const url = request.nextUrl.clone();
+    url.host = WWW_HOST;
+    return NextResponse.redirect(url, 308);
+  }
+
   return NextResponse.next();
 }
 
@@ -23,5 +33,6 @@ export const config = {
   matcher: [
     '/@:path*',
     '/%40:path*',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };

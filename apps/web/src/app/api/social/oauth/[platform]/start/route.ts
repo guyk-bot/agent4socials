@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { resolveAppBaseUrl } from '@/lib/app-base-url';
+import { resolveAppBaseUrl, resolveOAuthRedirectOrigin } from '@/lib/app-base-url';
 import {
   getPrismaUserIdFromRequest,
   getSupabaseUserIdFromAuthHeader,
@@ -40,8 +40,8 @@ function getOAuthUrl(
   step?: string,
   options?: { threadsSwitchAccount?: boolean }
 ): string {
-  const baseUrl = resolveAppBaseUrl();
-  const callbackUrl = `${baseUrl}/api/social/oauth/${platform.toLowerCase()}/callback`;
+  const oauthOrigin = resolveOAuthRedirectOrigin();
+  const callbackUrl = `${oauthOrigin}/api/social/oauth/${platform.toLowerCase()}/callback`;
   const state =
     platform === 'INSTAGRAM' && method === 'instagram'
       ? `${userId}:instagram`

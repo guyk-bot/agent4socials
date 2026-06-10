@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { resolveAppBaseUrl } from '@/lib/app-base-url';
+import { resolveAppBaseUrl, resolveOAuthRedirectOrigin } from '@/lib/app-base-url';
 import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 import axios from 'axios';
@@ -821,7 +821,7 @@ export async function GET(
     }
     throw e;
   }
-  const defaultCallbackUrl = `${baseUrl}/api/social/oauth/${platform}/callback`;
+  const defaultCallbackUrl = `${resolveOAuthRedirectOrigin()}/api/social/oauth/${platform}/callback`;
   let callbackUrl = defaultCallbackUrl;
   if (plat === 'INSTAGRAM' && isInstagramLogin && process.env.INSTAGRAM_REDIRECT_URI) {
     callbackUrl = process.env.INSTAGRAM_REDIRECT_URI.replace(/\/+$/, '');

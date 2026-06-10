@@ -44,7 +44,8 @@ export async function GET() {
       'THREADS_APP_ID in Vercel should be the Threads App ID from that same Meta screen (not only Facebook App ID)',
       'App settings → Basic → App domains: izop.ai and www.izop.ai',
       'Also add https://izop.ai and https://www.izop.ai under Website → Site URL if required',
-      'If still blocked, also add redirectUri under Facebook Login → Settings → Valid OAuth Redirect URIs',
+      'Facebook Login for Business → Settings → Valid OAuth Redirect URIs: add redirectUri (Threads uses the same Meta app)',
+      'redirectUri must match exactly: https://izop.ai/... (no www) when OAUTH_REDIRECT_ORIGIN is izop.ai',
     ],
   });
 }

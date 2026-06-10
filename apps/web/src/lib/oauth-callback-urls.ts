@@ -1,4 +1,4 @@
-import { resolveAppBaseUrl } from '@/lib/app-base-url';
+import { resolveAppBaseUrl, resolveOAuthRedirectOrigin } from '@/lib/app-base-url';
 import { resolveThreadsRedirectUri } from '@/lib/threads/threads-api';
 
 const PLATFORMS = [
@@ -15,13 +15,13 @@ const PLATFORMS = [
 export type OAuthPlatformSlug = (typeof PLATFORMS)[number];
 
 export function defaultOAuthCallbackUrl(platform: OAuthPlatformSlug, baseUrl?: string): string {
-  const base = (baseUrl || resolveAppBaseUrl()).replace(/\/+$/, '');
+  const base = (baseUrl || resolveOAuthRedirectOrigin()).replace(/\/+$/, '');
   return `${base}/api/social/oauth/${platform}/callback`;
 }
 
-/** Effective redirect URI per platform (env override when host matches app URL). */
+/** Effective redirect URI per platform (env override when host matches OAuth redirect origin). */
 export function resolveOAuthCallbackUrlForPlatform(platform: OAuthPlatformSlug): string {
-  const base = resolveAppBaseUrl();
+  const base = resolveOAuthRedirectOrigin();
   const fallback = defaultOAuthCallbackUrl(platform, base);
   const envKey: Partial<Record<OAuthPlatformSlug, string | undefined>> = {
     instagram: process.env.INSTAGRAM_REDIRECT_URI,

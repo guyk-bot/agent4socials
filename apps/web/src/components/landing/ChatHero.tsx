@@ -290,6 +290,30 @@ function AiMessage({
   );
 }
 
+function FunnelSelectedPlatformRow({
+  platformId,
+  connecting,
+}: {
+  platformId: ChatHeroPlatformId;
+  connecting?: boolean;
+}) {
+  const Icon = PLATFORM_ICONS[platformId];
+  const label = platformLabelFromId(platformId);
+  return (
+    <div className={`mt-3 flex items-center gap-3.5 ${FUNNEL_AI_CONTENT_INDENT} chat-hero-message-enter`}>
+      <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-[#7C3AED] bg-[var(--chat-hero-accent-soft)] shadow-[0_0_0_1px_rgba(124,58,237,0.15)]">
+        <Icon size={34} />
+      </span>
+      <div className="min-w-0">
+        <p className="text-[20px] font-semibold text-[var(--chat-hero-text)] leading-tight">{label}</p>
+        <p className="text-[15px] text-[var(--chat-hero-muted)] mt-0.5">
+          {connecting ? 'Opening secure sign-in…' : 'Selected platform'}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function OptionSquareButton({
   label,
   selected,
@@ -519,7 +543,6 @@ export default function ChatHero() {
       setShowPlatformOptions(false);
       setSelectedPlatforms([id]);
       trackChatHeroEvent('platforms_selected', { platforms: [id] });
-      appendBlocks([{ id: blockId('user'), kind: 'user_pills', labels: [platformLabelFromId(id)] }]);
 
       try {
         const token = await ensureFunnelSession();
@@ -539,7 +562,7 @@ export default function ChatHero() {
             : 'Connect failed. Please try again.';
         if (/redirect|whitelist|blocked|1349168/i.test(msg)) {
           msg =
-            'This platform blocked the connection because izop.ai is not whitelisted in the developer console yet. Our team is updating Meta, Google, and other OAuth settings for www.izop.ai. Try again shortly, or sign in and connect from the dashboard.';
+            'This platform blocked the connection. In Meta for Developers, whitelist exactly: https://izop.ai/api/social/oauth/[platform]/callback (no www, no trailing slash). Also add the Threads URL under Facebook Login → Valid OAuth Redirect URIs, then Save and wait a few minutes.';
         }
         appendBlocks([{ id: blockId('ai'), kind: 'ai', text: msg }]);
         setShowPlatformOptions(true);
@@ -636,9 +659,20 @@ export default function ChatHero() {
     if (!trimmed || busy || isTyping || messageLimited) return;
 
     setDraftText('');
-    appendBlocks([{ id: blockId('user'), kind: 'user_pills', labels: [trimmed] }]);
 
     const matchedPlatforms = matchPlatformsFromText(trimmed);
+    if (
+      matchedPlatforms.length === 1 &&
+      funnelStep === 'pick_platform' &&
+      !connectedAccountId &&
+      showPlatformOptions
+    ) {
+      void handlePlatformConnect(matchedPlatforms[0]);
+      return;
+    }
+
+    appendBlocks([{ id: blockId('user'), kind: 'user_pills', labels: [trimmed] }]);
+
     const matchedPain = matchPainPointFromText(trimmed);
 
     const chatContext = {
@@ -707,7 +741,11 @@ export default function ChatHero() {
     isTyping,
     messageLimited,
     scrollToLatest,
+    connectedAccountId,
+    funnelStep,
+    handlePlatformConnect,
     selectedPlatforms,
+    showPlatformOptions,
     step,
   ]);
 
@@ -905,6 +943,12 @@ export default function ChatHero() {
                   );
                 })}
               </div>
+            ) : null}
+            {!showPlatformOptions && selectedPlatforms[0] && !connectedPlatform ? (
+              <FunnelSelectedPlatformRow platformId={selectedPlatforms[0]} connecting={busy} />
+            ) : null}
+            {connectedPlatform ? (
+              <FunnelSelectedPlatformRow platformId={connectedPlatform} connecting={false} />
             ) : null}
           </div>
 

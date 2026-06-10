@@ -3,7 +3,7 @@ import { randomBytes } from 'crypto';
 
 export const THREADS_GRAPH_BASE = 'https://graph.threads.net/v1.0';
 
-import { resolveAppBaseUrl } from '@/lib/app-base-url';
+import { resolveAppBaseUrl, resolveOAuthRedirectOrigin } from '@/lib/app-base-url';
 
 export { resolveAppBaseUrl };
 
@@ -18,17 +18,17 @@ export function threadsRedirectUriFromRequestUrl(requestUrl: string): string {
 }
 
 export function resolveThreadsRedirectUri(): string {
-  const baseUrl = resolveAppBaseUrl();
-  const defaultUri = `${baseUrl}/api/social/oauth/threads/callback`;
+  const oauthOrigin = resolveOAuthRedirectOrigin();
+  const defaultUri = `${oauthOrigin}/api/social/oauth/threads/callback`;
   const fromEnv = process.env.THREADS_REDIRECT_URI?.trim();
   if (!fromEnv) return defaultUri;
   try {
     const normalized = fromEnv.replace(/\/+$/, '');
     const envHost = new URL(normalized).host;
-    const baseHost = new URL(baseUrl).host;
-    if (envHost === baseHost) return normalized;
+    const oauthHost = new URL(oauthOrigin).host;
+    if (envHost === oauthHost) return normalized;
     console.warn(
-      `[Threads OAuth] THREADS_REDIRECT_URI host (${envHost}) differs from app URL (${baseHost}); using ${defaultUri}`
+      `[Threads OAuth] THREADS_REDIRECT_URI host (${envHost}) differs from OAuth origin (${oauthHost}); using ${defaultUri}`
     );
     return defaultUri;
   } catch {
