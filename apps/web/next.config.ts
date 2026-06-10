@@ -18,6 +18,14 @@ const legacyHostRedirects = LEGACY_APP_HOSTS.map((host) => ({
   permanent: true,
 }));
 
+/** Naked domain → www so OAuth redirect URLs and sessionStorage stay on one origin. */
+const nakedIzopAiRedirect = {
+  source: "/:path*",
+  has: [{ type: "host" as const, value: "izop.ai" }],
+  destination: `${CANONICAL_APP_ORIGIN}/:path*`,
+  permanent: true,
+};
+
 const nextConfig: NextConfig = {
   images: {
     localPatterns: [{ pathname: "/logo-mark.png" }, { pathname: "/logo-mark-dark.png" }],
@@ -25,6 +33,7 @@ const nextConfig: NextConfig = {
   // Omit turbopack config so Vercel uses default (avoids "turbopack.root should be absolute" warning)
   async redirects() {
     return [
+      nakedIzopAiRedirect,
       ...legacyHostRedirects,
       { source: '/dashboard/trending', destination: '/dashboard', permanent: false },
       { source: '/preview/fonts', destination: '/font-preview', permanent: false },

@@ -13,6 +13,17 @@ export function resolveAppBaseUrl(): string {
   return raw.replace(/\/+$/, '');
 }
 
+/** Google / Supabase OAuth must use a whitelisted callback URL (always www in production). */
+export function resolveOAuthCallbackUrl(): string {
+  if (typeof window !== 'undefined') {
+    const { hostname, origin } = window.location;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return `${origin}/auth/callback`;
+    }
+  }
+  return `${resolveAppBaseUrl()}/auth/callback`;
+}
+
 /** Hostnames that should 308 redirect to {@link CANONICAL_APP_ORIGIN}. */
 export const LEGACY_APP_HOSTS = [
   'agent4socials.com',

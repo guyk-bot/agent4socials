@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { resolveOAuthCallbackUrl } from '@/lib/app-base-url';
 import { getSupabaseBrowser } from '@/lib/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 
@@ -196,7 +197,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signInWithGoogle = async () => {
     const supabase = getSupabaseBrowser();
-    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined;
+    const redirectTo = resolveOAuthCallbackUrl();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo },
