@@ -120,7 +120,7 @@ function SideDemoCarouselColumn({ side }: { side: 'left' | 'right' }) {
           className="absolute left-0 top-1/2 z-30 -translate-y-1/2 rounded-full border border-neutral-200 bg-white/95 p-1 text-neutral-700 shadow-md hover:bg-white dark:border-neutral-600 dark:bg-neutral-900/95 dark:text-neutral-200"
           aria-label={prevLabel}
         >
-          <ChevronLeft size={16} />
+          <ChevronLeft size={20} />
         </button>
         <button
           type="button"
@@ -128,7 +128,7 @@ function SideDemoCarouselColumn({ side }: { side: 'left' | 'right' }) {
           className="absolute right-0 top-1/2 z-30 -translate-y-1/2 rounded-full border border-neutral-200 bg-white/95 p-1 text-neutral-700 shadow-md hover:bg-white dark:border-neutral-600 dark:bg-neutral-900/95 dark:text-neutral-200"
           aria-label={nextLabel}
         >
-          <ChevronRight size={16} />
+          <ChevronRight size={20} />
         </button>
       </div>
 
@@ -172,12 +172,12 @@ export function ChatHeroSideDemoColumn({
 }) {
   if (!visible) {
     return (
-      <div className="hidden xl:block h-full min-h-0 w-[430px] shrink-0 2xl:w-[480px]" aria-hidden />
+      <div className="hidden xl:block h-full min-h-0 w-[var(--funnel-side-w,538px)] shrink-0 2xl:w-[var(--funnel-side-w-2xl,600px)]" aria-hidden />
     );
   }
 
   return (
-    <div className="hidden xl:flex h-full min-h-0 w-[430px] shrink-0 flex-col 2xl:w-[480px]">
+    <div className="hidden xl:flex h-full min-h-0 w-[var(--funnel-side-w,538px)] shrink-0 flex-col 2xl:w-[var(--funnel-side-w-2xl,600px)]">
       <SideDemoCarouselColumn side={side} />
     </div>
   );

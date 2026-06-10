@@ -31,33 +31,33 @@ export function FunnelDemoFrame({
 
   return (
     <div
-      className={`funnel-demo-card pointer-events-auto flex h-full min-h-0 w-full max-w-[430px] 2xl:max-w-[480px] flex-col overflow-hidden rounded-xl border-2 border-neutral-200 bg-[var(--bg-primary)] shadow-md dark:border-neutral-700 ${
+      className={`funnel-demo-card pointer-events-auto flex h-full min-h-0 w-full max-w-[var(--funnel-side-w,538px)] 2xl:max-w-[var(--funnel-side-w-2xl,600px)] flex-col overflow-hidden rounded-xl border-2 border-neutral-200 bg-[var(--bg-primary)] shadow-md dark:border-neutral-700 ${
         staticMode ? 'funnel-demo-card--static' : ''
       } ${visible || staticMode ? 'opacity-100' : 'opacity-0 pointer-events-none'} ${
         !staticMode && entering && visible ? 'funnel-demo-card-enter' : ''
       }`}
       aria-hidden={!visible && !staticMode}
     >
-      <div className="shrink-0 px-3 pt-3 pb-2">
+      <div className="shrink-0 px-3.5 pt-3.5 pb-2.5">
         <span
-          className={`flex items-start gap-2 text-base font-black leading-snug tracking-tight text-neutral-900 dark:text-neutral-100 sm:text-lg ${
+          className={`flex items-start gap-2.5 text-lg font-black leading-snug tracking-tight text-neutral-900 dark:text-neutral-100 sm:text-xl ${
             titleReady ? 'funnel-demo-title-pop' : 'opacity-0'
           }`}
         >
           {TitleIcon ? (
             <span
-              className="mt-0.5 inline-flex shrink-0 items-center justify-center rounded-md bg-[#7C3AED]/10 p-1 text-[#7C3AED] dark:bg-[#7C3AED]/20 dark:text-[#A78BFA]"
+              className="mt-0.5 inline-flex shrink-0 items-center justify-center rounded-md bg-[#7C3AED]/10 p-1.5 text-[#7C3AED] dark:bg-[#7C3AED]/20 dark:text-[#A78BFA]"
               aria-hidden
             >
-              <TitleIcon size={18} strokeWidth={2.25} />
+              <TitleIcon size={22} strokeWidth={2.25} />
             </span>
           ) : null}
-          <span className="min-w-0 flex-1">{title}</span>
+          <span className="min-w-0 flex-1 break-words">{title}</span>
         </span>
       </div>
-      <div className="min-h-0 flex-1 overflow-hidden px-2.5 pb-2.5 bg-[var(--bg-primary)]">
+      <div className="funnel-demo-card-body-scroll min-h-0 flex-1 px-3 pb-3 bg-[var(--bg-primary)]">
         <div
-          className={`flex min-h-0 flex-col gap-2 overflow-hidden transition-opacity duration-300 ${
+          className={`flex min-h-0 flex-col gap-2.5 transition-opacity duration-300 ${
             contentVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
         >
@@ -82,7 +82,7 @@ export function FunnelDemoUserBubble({
     <div className="flex justify-end funnel-demo-message-in">
       <div
         className={`${visual ? 'max-w-[98%]' : 'max-w-[94%]'} rounded-2xl rounded-br-md leading-snug aysop-bubble-user whitespace-pre-wrap ${
-          visual ? 'p-1.5 text-[14px] sm:text-[15px]' : 'px-3 py-2.5 text-[14px] sm:text-[15px]'
+          visual ? 'p-2 text-[17px] sm:text-[18px]' : 'px-3.5 py-3 text-[17px] sm:text-[18px]'
         }`}
       >
         {children}
@@ -113,8 +113,8 @@ export function FunnelDemoAssistantBubble({
     <div className="flex min-h-0 shrink justify-start funnel-demo-message-in">
       <div
         className={`${wide ? 'max-w-[98%]' : 'max-w-[96%]'} min-w-0 rounded-2xl rounded-bl-md leading-snug aysop-bubble-assistant shadow-sm ${
-          visual ? 'p-2 text-[14px] sm:text-[15px]' : 'px-3 py-2.5 text-[14px] sm:text-[15px]'
-        } ${contained ? `max-h-[min(100%,380px)] ${overflowClass} flex flex-col min-h-0` : ''}`}
+          visual ? 'p-2.5 text-[17px] sm:text-[18px]' : 'px-3.5 py-3 text-[17px] sm:text-[18px]'
+        } ${contained ? `max-h-[min(100%,475px)] ${overflowClass} flex flex-col min-h-0` : ''}`}
       >
         <div className={contained ? `min-h-0 flex-1 flex flex-col ${overflowClass}` : undefined}>
           {children}

@@ -312,8 +312,15 @@
     transform 700ms cubic-bezier(0.22, 1, 0.36, 1),
     opacity 700ms cubic-bezier(0.22, 1, 0.36, 1);
 }
-.funnel-demo-card--static .funnel-demo-scene-scroll {
+.funnel-demo-card--static .funnel-demo-scene-scroll,
+.funnel-demo-card--static .funnel-demo-card-body-scroll {
   scrollbar-width: thin;
+}
+.funnel-demo-card-body-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 .funnel-demo-card--static .funnel-demo-analytics-panel {
   overflow: visible;
@@ -499,6 +506,9 @@
   --chat-hero-accent-soft: rgba(124, 58, 237, 0.08);
   --chat-hero-accent-text: #5B21B6;
   --chat-hero-cursor: rgba(26, 26, 26, 0.5);
+  /* ~25% larger funnel layout (matches ~125% browser zoom at prior base sizes) */
+  --funnel-side-w: 538px;
+  --funnel-side-w-2xl: 600px;
   background: var(--chat-hero-bg);
   color: var(--chat-hero-text);
 }

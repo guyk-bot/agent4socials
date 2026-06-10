@@ -14,7 +14,7 @@ import {
   XTwitterIcon,
   YoutubeIcon,
 } from '@/components/SocialPlatformIcons';
-import { CHAT_HERO_LOGO_SRC, SITE_HEADER_LOGO_CLASS } from '@/lib/site-brand-assets';
+import { CHAT_HERO_LOGO_SRC } from '@/lib/site-brand-assets';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
 import {
   ChatHeroDemoLoopProvider,
@@ -155,14 +155,14 @@ function TypewriterText({
 }
 
 const OPENING_PRIMARY =
-  'block text-[22px] sm:text-[26px] lg:text-[28px] tracking-[-0.03em] leading-[1.15]';
+  'block text-[28px] sm:text-[33px] lg:text-[35px] tracking-[-0.03em] leading-[1.15]';
 
 const OPENING_HEADLINE_SIZE =
-  'block text-[24px] sm:text-[28px] lg:text-[32px] tracking-[-0.04em] leading-[1.1]';
+  'block text-[30px] sm:text-[35px] lg:text-[40px] tracking-[-0.04em] leading-[1.1]';
 
-/** Chat hero squircle — same box as funnel header logo. */
-const FUNNEL_AI_AVATAR_BOX = SITE_HEADER_LOGO_CLASS;
-const FUNNEL_AI_CONTENT_INDENT = 'pl-9 sm:pl-10';
+/** Chat hero squircle — scaled ~25% above header logo for funnel readability. */
+const FUNNEL_AI_AVATAR_BOX = 'h-8 w-8 sm:h-9 sm:w-9 shrink-0 object-contain';
+const FUNNEL_AI_CONTENT_INDENT = 'pl-11 sm:pl-12';
 
 function FunnelAiMessageAvatar({ className }: { className?: string }) {
   const boxClass = className ?? FUNNEL_AI_AVATAR_BOX;
@@ -241,7 +241,7 @@ function OpeningAiMessage({
       key: 'body',
       text: body,
       className:
-        'block text-[13px] sm:text-[15px] font-normal leading-[1.6] mt-2 whitespace-nowrap',
+        'block text-[16px] sm:text-[19px] font-normal leading-[1.6] mt-2.5 whitespace-normal break-words',
     },
   ];
 
@@ -279,7 +279,7 @@ function AiMessage({
   return (
     <div className="flex items-start gap-3 chat-hero-message-enter">
       <FunnelAiMessageAvatar className={`${FUNNEL_AI_AVATAR_BOX} mt-0.5`} />
-      <p className="text-[16px] leading-[1.6] text-[var(--chat-hero-text)] whitespace-pre-line flex-1 min-w-0">
+      <p className="text-[20px] leading-[1.6] text-[var(--chat-hero-text)] whitespace-pre-line flex-1 min-w-0 break-words">
         {typewriter ? (
           <TypewriterText text={text} active={!!typewriterActive} onComplete={onTypewriterComplete} />
         ) : (
@@ -318,8 +318,8 @@ function OptionSquareButton({
       style={{ animationDelay: animateEnter && staggerIndex !== undefined ? `${staggerIndex * 60}ms` : undefined }}
       className={[
         animateEnter ? 'chat-hero-pill-enter' : '',
-        'flex w-full flex-col items-center justify-center rounded-lg border p-2 transition-all duration-150',
-        isTall ? 'min-h-[96px] sm:min-h-[108px] gap-1.5' : 'h-[80px] sm:h-[92px] gap-1.5',
+        'flex w-full flex-col items-center justify-center rounded-lg border p-2.5 transition-all duration-150',
+        isTall ? 'min-h-[120px] sm:min-h-[135px] gap-2' : 'h-[100px] sm:h-[115px] gap-2',
         'active:scale-[0.97]',
         selected
           ? 'border-[#7C3AED] bg-[var(--chat-hero-accent-soft)] shadow-[0_0_0_1px_rgba(124,58,237,0.2)]'
@@ -328,11 +328,11 @@ function OptionSquareButton({
       ].join(' ')}
     >
       {icon ? (
-        <span className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center">{icon}</span>
+        <span className="flex h-12 w-12 sm:h-[60px] sm:w-[60px] items-center justify-center">{icon}</span>
       ) : null}
       <span
         className={`text-center font-medium leading-snug px-1 ${
-          isTall ? 'text-xs sm:text-sm' : 'text-[11px] sm:text-xs'
+          isTall ? 'text-sm sm:text-base' : 'text-xs sm:text-sm'
         } ${selected ? 'text-[var(--chat-hero-accent-text)]' : 'text-[var(--chat-hero-text)]'}`}
       >
         {label}
@@ -884,7 +884,7 @@ export default function ChatHero() {
             </div>
 
             {showPlatformOptions ? (
-              <div className="mt-3 grid grid-cols-4 gap-2.5 sm:gap-3 w-full shrink-0">
+              <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 w-full shrink-0">
                 {CHAT_HERO_PLATFORMS.map((platform) => {
                   const Icon = PLATFORM_ICONS[platform.id];
                   const selected = connectedPlatform === platform.id;
@@ -895,7 +895,7 @@ export default function ChatHero() {
                       selected={selected}
                       disabled={busy}
                       animateEnter={false}
-                      icon={<Icon size={30} />}
+                      icon={<Icon size={38} />}
                       onClick={() => void handlePlatformConnect(platform.id)}
                     />
                   );
@@ -915,7 +915,7 @@ export default function ChatHero() {
                     type="button"
                     disabled={authLoading}
                     onClick={() => void handleGoogleSignup()}
-                    className="btn-google-lime w-full flex items-center justify-center gap-3 rounded-full px-7 py-3 text-[15px] font-semibold disabled:cursor-not-allowed"
+                    className="btn-google-lime w-full flex items-center justify-center gap-3 rounded-full px-7 py-3.5 text-[19px] font-semibold disabled:cursor-not-allowed"
                   >
                     <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -928,7 +928,7 @@ export default function ChatHero() {
                   <button
                     type="button"
                     onClick={handleEmailSignup}
-                    className="w-full rounded-full border border-[var(--chat-hero-border)] bg-[var(--chat-hero-bg)] px-7 py-3 text-[15px] font-medium text-[var(--chat-hero-muted)] hover:border-[#7C3AED] hover:text-[var(--chat-hero-text)] transition-all"
+                    className="w-full rounded-full border border-[var(--chat-hero-border)] bg-[var(--chat-hero-bg)] px-7 py-3.5 text-[19px] font-medium text-[var(--chat-hero-muted)] hover:border-[#7C3AED] hover:text-[var(--chat-hero-text)] transition-all"
                   >
                     Continue with email
                   </button>
@@ -941,7 +941,7 @@ export default function ChatHero() {
 
             <div className="mt-3 flex w-full flex-col gap-2">
             <form
-              className="flex w-full items-center gap-2 rounded-2xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-input-bg)] px-3 py-2 sm:px-4 sm:py-2.5 shadow-sm focus-within:border-[#7C3AED]/40 focus-within:ring-2 focus-within:ring-[#7C3AED]/15"
+              className="flex w-full items-center gap-2.5 rounded-2xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-input-bg)] px-3.5 py-2.5 sm:px-5 sm:py-3 shadow-sm focus-within:border-[#7C3AED]/40 focus-within:ring-2 focus-within:ring-[#7C3AED]/15"
               onSubmit={(e) => {
                 e.preventDefault();
                 void handleFreeTextSubmit();
@@ -954,20 +954,20 @@ export default function ChatHero() {
                 onChange={(e) => setDraftText(e.target.value)}
                 placeholder={inputPlaceholder}
                 disabled={busy || isTyping || messageLimited}
-                className="flex-1 min-w-0 bg-transparent text-[15px] text-[var(--chat-hero-text)] placeholder:text-[var(--chat-hero-muted)] outline-none disabled:opacity-50"
+                className="flex-1 min-w-0 bg-transparent text-[19px] text-[var(--chat-hero-text)] placeholder:text-[var(--chat-hero-muted)] outline-none disabled:opacity-50"
                 aria-label="Message iZop"
               />
               <button
                 type="submit"
                 disabled={!draftText.trim() || busy || isTyping}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#7C3AED] to-[#4F46E5] text-white transition-all hover:brightness-110 disabled:opacity-40 disabled:pointer-events-none"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#7C3AED] to-[#4F46E5] text-white transition-all hover:brightness-110 disabled:opacity-40 disabled:pointer-events-none"
                 aria-label="Send message"
               >
-                <ArrowUp className="h-4 w-4" />
+                <ArrowUp className="h-5 w-5" />
               </button>
             </form>
 
-            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11px] sm:text-xs text-[var(--chat-hero-muted)] pt-0.5">
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs sm:text-sm text-[var(--chat-hero-muted)] pt-0.5">
               <span className="flex items-center gap-1.5">
                 <Check className="h-3.5 w-3.5 text-[#10B981]" />
                 No credit card required
