@@ -85,10 +85,40 @@ function funnelOAuthSuccessHtml(
   if (conn.platform) homeUrl.searchParams.set('platform', conn.platform);
   if (conn.username) homeUrl.searchParams.set('username', conn.username);
   const safeUrl = JSON.stringify(homeUrl.toString());
+  const safeAccountId = JSON.stringify(accountId);
+  const msgType = JSON.stringify(OAUTH_COMPLETE_MESSAGE);
+  const safePlatform = JSON.stringify(conn.platform);
+  const safeUsername = JSON.stringify(conn.username);
+  const safeProfilePicture = JSON.stringify(conn.profilePicture);
   const html = `<!DOCTYPE html><html><head>${OAUTH_HEAD}<title>iZop – Connected</title></head><body style="font-family:system-ui;max-width:480px;margin:2rem auto;padding:1rem;">
 <h2 style="color:#15803d;">Account connected</h2>
-<p>Returning you to iZop…</p>
-<script>window.location.replace(${safeUrl});</script>
+<p>You can close this window and return to the chat.</p>
+<script>
+(function () {
+  var homeUrl = ${safeUrl};
+  var accountId = ${safeAccountId};
+  var platform = ${safePlatform};
+  var username = ${safeUsername};
+  var profilePicture = ${safeProfilePicture};
+  if (window.opener) {
+    var msg = {
+      type: ${msgType},
+      accountId: accountId,
+      platform: platform,
+      username: username,
+      profilePicture: profilePicture
+    };
+  var origins = ['https://www.izop.ai', 'https://izop.ai', window.location.origin];
+    origins.forEach(function (o) {
+      try { window.opener.postMessage(msg, o); } catch (e) {}
+    });
+    setTimeout(function () { try { window.close(); } catch (e2) {} }, 400);
+    return;
+  }
+  window.location.replace(homeUrl);
+})();
+</script>
+<p><a href="${homeUrl.toString().replace(/"/g, '&quot;')}">Continue on iZop</a></p>
 </body></html>`;
   return new NextResponse(html, { headers: { 'Content-Type': 'text/html' } });
 }

@@ -55,6 +55,12 @@ import {
   saveFunnelForAppHandoff,
 } from '@/lib/funnel-session-client';
 import { setFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
+import {
+  closeOAuthConnectPopup,
+  listenForOAuthComplete,
+  navigateOAuthConnect,
+  prepareOAuthConnectPopup,
+} from '@/lib/oauth-connect';
 
 type FlowStep = 0 | 1 | 2 | 3;
 
@@ -108,6 +114,23 @@ function delay(ms: number): Promise<void> {
 
 function blockId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+const OAUTH_PLATFORM_TO_FUNNEL_ID: Record<string, ChatHeroPlatformId> = {
+  instagram: 'instagram',
+  tiktok: 'tiktok',
+  youtube: 'youtube',
+  facebook: 'facebook',
+  twitter: 'x',
+  x: 'x',
+  linkedin: 'linkedin',
+  threads: 'threads',
+  pinterest: 'pinterest',
+};
+
+function funnelIdFromOAuthPlatform(platform: string | null | undefined): ChatHeroPlatformId | null {
+  if (!platform) return null;
+  return OAUTH_PLATFORM_TO_FUNNEL_ID[platform.trim().toLowerCase()] ?? null;
 }
 
 function TypewriterText({
@@ -307,7 +330,7 @@ function FunnelSelectedPlatformRow({
       <div className="min-w-0">
         <p className="text-[20px] font-semibold text-[var(--chat-hero-text)] leading-tight">{label}</p>
         <p className="text-[15px] text-[var(--chat-hero-muted)] mt-0.5">
-          {connecting ? 'Opening secure sign-in…' : 'Selected platform'}
+          {connecting ? 'Finish sign-in in the popup window…' : 'Selected platform'}
         </p>
       </div>
     </div>
@@ -401,6 +424,10 @@ export default function ChatHero() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const flowLock = useRef(false);
+  const oauthPopupRef = useRef<Window | null>(null);
+  const oauthPopupPollRef = useRef<number | null>(null);
+
+  const [oauthPopupPending, setOauthPopupPending] = useState(false);
 
   const platformLabels = useMemo(
     () =>
@@ -469,52 +496,74 @@ export default function ChatHero() {
     setSideDemosReady(true);
   }, []);
 
+  const finishFunnelOAuthConnect = useCallback(
+    (accountId: string, platformId: ChatHeroPlatformId, username: string | null) => {
+      if (oauthReturnHandled.current) return;
+      oauthReturnHandled.current = true;
+      setOauthPopupPending(false);
+      setBusy(false);
+      flowLock.current = false;
+      closeOAuthConnectPopup(oauthPopupRef.current);
+      oauthPopupRef.current = null;
+      if (oauthPopupPollRef.current !== null) {
+        window.clearInterval(oauthPopupPollRef.current);
+        oauthPopupPollRef.current = null;
+      }
+
+      setConnectedAccountId(accountId);
+      setConnectedPlatform(platformId);
+      setConnectedUsername(username);
+      setSelectedPlatforms([platformId]);
+      setShowPlatformOptions(false);
+      setShowActionOptions(true);
+      setFunnelStep('connected');
+      setStep(2);
+
+      const label = platformLabelFromId(platformId);
+      const draft = defaultBrandContextDraft(label, username || 'you');
+      setBrandDraft(draft);
+      persistFunnelBrandDraft(draft);
+
+      appendBlocks([
+        {
+          id: blockId('ai'),
+          kind: 'ai',
+          text: funnelConnectedMessage(label, username || 'you'),
+        },
+        { id: blockId('actions'), kind: 'action_chips', actions: FUNNEL_ACTIONS.map((a) => a.id) },
+      ]);
+
+      window.history.replaceState({}, '', window.location.pathname);
+      scrollToLatest();
+    },
+    [appendBlocks, scrollToLatest]
+  );
+
   useEffect(() => {
     if (typeof window === 'undefined' || oauthReturnHandled.current) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('funnel_connected') !== '1') return;
-    oauthReturnHandled.current = true;
     const accountId = params.get('accountId');
     const username = params.get('username');
-    const platformRaw = params.get('platform')?.toLowerCase();
-    const platformMap: Record<string, ChatHeroPlatformId> = {
-      instagram: 'instagram',
-      tiktok: 'tiktok',
-      youtube: 'youtube',
-      facebook: 'facebook',
-      twitter: 'x',
-      linkedin: 'linkedin',
-      threads: 'threads',
-      pinterest: 'pinterest',
-    };
-    const platformId = platformRaw ? platformMap[platformRaw] : null;
+    const platformId = funnelIdFromOAuthPlatform(params.get('platform'));
     if (!accountId || !platformId) return;
+    finishFunnelOAuthConnect(accountId, platformId, username);
+  }, [finishFunnelOAuthConnect]);
 
-    setConnectedAccountId(accountId);
-    setConnectedPlatform(platformId);
-    setConnectedUsername(username);
-    setSelectedPlatforms([platformId]);
-    setShowPlatformOptions(false);
-    setShowActionOptions(true);
-    setFunnelStep('connected');
-    setStep(2);
+  useEffect(() => {
+    return listenForOAuthComplete((payload) => {
+      const platformId = funnelIdFromOAuthPlatform(payload.platform);
+      if (!payload.accountId || !platformId) return;
+      finishFunnelOAuthConnect(payload.accountId, platformId, payload.username ?? null);
+    });
+  }, [finishFunnelOAuthConnect]);
 
-    const label = platformLabelFromId(platformId);
-    const draft = defaultBrandContextDraft(label, username || 'you');
-    setBrandDraft(draft);
-    persistFunnelBrandDraft(draft);
-
-    appendBlocks([
-      {
-        id: blockId('ai'),
-        kind: 'ai',
-        text: funnelConnectedMessage(label, username || 'you'),
-      },
-      { id: blockId('actions'), kind: 'action_chips', actions: FUNNEL_ACTIONS.map((a) => a.id) },
-    ]);
-
-    window.history.replaceState({}, '', window.location.pathname);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on OAuth return
+  useEffect(() => {
+    return () => {
+      if (oauthPopupPollRef.current !== null) {
+        window.clearInterval(oauthPopupPollRef.current);
+      }
+    };
   }, []);
 
   const handleHeadlineComplete = useCallback(() => {
@@ -544,6 +593,9 @@ export default function ChatHero() {
       setSelectedPlatforms([id]);
       trackChatHeroEvent('platforms_selected', { platforms: [id] });
 
+      const oauthPopup = prepareOAuthConnectPopup();
+      oauthPopupRef.current = oauthPopup;
+
       try {
         const token = await ensureFunnelSession();
         const apiPlatform = FUNNEL_PLATFORM_TO_API[id];
@@ -554,8 +606,34 @@ export default function ChatHero() {
         if (!res.ok || !data.url) {
           throw new Error(data.message || 'Could not start OAuth');
         }
-        window.location.href = data.url;
+        const opened = navigateOAuthConnect(data.url, oauthPopup);
+        if (opened.opened && oauthPopup && !oauthPopup.closed) {
+          setOauthPopupPending(true);
+          if (oauthPopupPollRef.current !== null) {
+            window.clearInterval(oauthPopupPollRef.current);
+          }
+          oauthPopupPollRef.current = window.setInterval(() => {
+            const popup = oauthPopupRef.current;
+            if (!popup || popup.closed) {
+              if (oauthPopupPollRef.current !== null) {
+                window.clearInterval(oauthPopupPollRef.current);
+                oauthPopupPollRef.current = null;
+              }
+              if (!oauthReturnHandled.current) {
+                setOauthPopupPending(false);
+                setBusy(false);
+                flowLock.current = false;
+                oauthPopupRef.current = null;
+              }
+            }
+          }, 600);
+          return;
+        }
+        setOauthPopupPending(false);
       } catch (err: unknown) {
+        closeOAuthConnectPopup(oauthPopupRef.current);
+        oauthPopupRef.current = null;
+        setOauthPopupPending(false);
         let msg =
           err && typeof err === 'object' && 'message' in err
             ? String((err as { message: string }).message)
@@ -945,7 +1023,18 @@ export default function ChatHero() {
               </div>
             ) : null}
             {!showPlatformOptions && selectedPlatforms[0] && !connectedPlatform ? (
-              <FunnelSelectedPlatformRow platformId={selectedPlatforms[0]} connecting={busy} />
+              <FunnelSelectedPlatformRow
+                platformId={selectedPlatforms[0]}
+                connecting={busy || oauthPopupPending}
+              />
+            ) : null}
+            {oauthPopupPending ? (
+              <p
+                className={`text-[15px] text-[var(--chat-hero-muted)] leading-relaxed ${FUNNEL_AI_CONTENT_INDENT} mt-2`}
+              >
+                A secure sign-in window opened. Complete the steps there; this chat stays open.
+                If you do not see it, allow pop-ups for izop.ai and try again.
+              </p>
             ) : null}
             {connectedPlatform ? (
               <FunnelSelectedPlatformRow platformId={connectedPlatform} connecting={false} />

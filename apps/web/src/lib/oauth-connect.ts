@@ -74,10 +74,23 @@ export function openOAuthConnectUrl(url: string): OpenOAuthConnectResult {
   return navigateOAuthConnect(url, null);
 }
 
+/** Origins allowed to post OAuth completion back to the funnel / dashboard opener. */
+export function isTrustedOAuthMessageOrigin(origin: string): boolean {
+  try {
+    const host = new URL(origin).hostname;
+    if (host === 'izop.ai' || host === 'www.izop.ai') return true;
+    if (host === 'localhost' || host === '127.0.0.1') return true;
+    if (typeof window !== 'undefined' && origin === window.location.origin) return true;
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 /** Listen for OAuth completion from a popup tab. Returns cleanup. */
 export function listenForOAuthComplete(onComplete: (payload: OAuthCompletePayload) => void): () => void {
   const handler = (event: MessageEvent) => {
-    if (event.origin !== window.location.origin) return;
+    if (!isTrustedOAuthMessageOrigin(event.origin)) return;
     if (event.data?.type !== OAUTH_COMPLETE_MESSAGE) return;
     const payload: OAuthCompletePayload = {};
     if (typeof event.data.accountId === 'string') payload.accountId = event.data.accountId;
