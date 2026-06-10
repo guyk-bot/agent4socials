@@ -422,10 +422,10 @@ export default function ChatHero() {
   const oauthSessionPollRef = useRef<number | null>(null);
   const oauthConnectTimeoutRef = useRef<number | null>(null);
 
+  const [oauthPopupPending, setOauthPopupPending] = useState(false);
+
   const awaitingFunnelOAuth =
     !connectedPlatform && selectedPlatforms.length > 0 && (busy || oauthPopupPending);
-
-  const [oauthPopupPending, setOauthPopupPending] = useState(false);
 
   const platformLabels = useMemo(
     () =>
