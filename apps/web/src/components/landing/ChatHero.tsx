@@ -527,16 +527,20 @@ export default function ChatHero() {
         const res = await fetch(`/api/social/oauth/${apiPlatform}/start?funnel=1`, {
           headers: { ...funnelAuthHeaders(), 'X-Funnel-Session': token },
         });
-        const data = (await res.json()) as { url?: string; message?: string };
+        const data = (await res.json()) as { url?: string; message?: string; redirectUri?: string };
         if (!res.ok || !data.url) {
           throw new Error(data.message || 'Could not start OAuth');
         }
         window.location.href = data.url;
       } catch (err: unknown) {
-        const msg =
+        let msg =
           err && typeof err === 'object' && 'message' in err
             ? String((err as { message: string }).message)
             : 'Connect failed. Please try again.';
+        if (/redirect|whitelist|blocked|1349168/i.test(msg)) {
+          msg =
+            'This platform blocked the connection because izop.ai is not whitelisted in the developer console yet. Our team is updating Meta, Google, and other OAuth settings for www.izop.ai. Try again shortly, or sign in and connect from the dashboard.';
+        }
         appendBlocks([{ id: blockId('ai'), kind: 'ai', text: msg }]);
         setShowPlatformOptions(true);
         setBusy(false);

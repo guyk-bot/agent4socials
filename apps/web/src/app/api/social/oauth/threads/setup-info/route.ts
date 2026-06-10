@@ -42,7 +42,8 @@ export async function GET() {
       'redirectUri below must match Redirect Callback URLs exactly (no trailing slash)',
       'If redirectEnvIgnored is true, remove or fix THREADS_REDIRECT_URI in Vercel (www vs non-www mismatch)',
       'THREADS_APP_ID in Vercel should be the Threads App ID from that same Meta screen (not only Facebook App ID)',
-      'App settings → Basic → App domains: izop.io and www.izop.io',
+      'App settings → Basic → App domains: izop.ai and www.izop.ai',
+      'Also add https://izop.ai and https://www.izop.ai under Website → Site URL if required',
       'If still blocked, also add redirectUri under Facebook Login → Settings → Valid OAuth Redirect URIs',
     ],
   });
