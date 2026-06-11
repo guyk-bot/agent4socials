@@ -725,6 +725,10 @@ export default function DashboardPage() {
       readOAuthConnectInFlight()
   );
   const connectPlatformCandidate = selectedPlatformForConnect || connectFromUrl;
+  const oauthConnectUiActive = Boolean(
+    postConnectLoadActive ||
+      (connectPlatformCandidate && isPlatformOAuthPending(connectPlatformCandidate))
+  );
   // Also check if the platform we'd show connect for is already connected
   const platformAlreadyConnected = Boolean(
     connectPlatformCandidate &&
@@ -732,7 +736,10 @@ export default function DashboardPage() {
        allCachedAccounts.some((a) => a.platform === connectPlatformCandidate))
   );
   const showConnectView =
-    Boolean(connectPlatformCandidate) && !connectFlowActive && !platformAlreadyConnected;
+    Boolean(connectPlatformCandidate) &&
+    !connectFlowActive &&
+    !platformAlreadyConnected &&
+    !oauthConnectUiActive;
 
   const accountIdsKey = accounts.map((a) => a.id).sort().join(',');
 
@@ -1033,7 +1040,7 @@ export default function DashboardPage() {
       setSelectedPlatformForConnect(null);
       setOauthLaunchingPlatform(null);
       setOauthLaunchingMethod(undefined);
-      if (payload.platform) storeOAuthConnectInFlight(payload.platform);
+      if (payload.platform) setOauthInFlightPlatform(payload.platform.trim().toUpperCase());
       const { accountId, platform, username, profilePicture } = payload;
       if (accountId && platform) {
         storePostConnectTargetAccount(accountId, platform);
@@ -2153,6 +2160,9 @@ export default function DashboardPage() {
       return res?.data?.message ?? null;
     };
     setAlertMessage(null);
+    const platformUpper = platform.trim().toUpperCase();
+    storeOAuthConnectInFlight(platformUpper);
+    setOauthInFlightPlatform(platformUpper);
     const oauthPopup = prepareOAuthConnectPopup();
     setOauthLaunchingPlatform(platform);
     setOauthLaunchingMethod(method);
@@ -2222,13 +2232,11 @@ export default function DashboardPage() {
           setOauthLaunchingMethod(undefined);
           if (oauthPopup && !oauthPopup.closed) {
             stopPopupWatch = watchOAuthConnectPopup(oauthPopup, platform, () => {
-              clearOAuthConnectInFlightForPlatform(platform);
               stopOAuthPoll?.();
               stopOAuthPoll = pollOAuthConnectAccount(
                 platform,
                 fetchAccounts,
                 (connected) => {
-                  storeOAuthConnectInFlight(platform);
                   notifyOAuthCompleteLocally(connected);
                 },
                 { requireInFlight: false, maxMs: 60_000 }
@@ -2374,6 +2382,8 @@ export default function DashboardPage() {
     if (insightsLoading || importedPostsLoading) return;
     if (!lastInsightsFetchedAtRef.current[accountId]) return;
     markConnectLoadDone(accountId);
+    clearOAuthConnectInFlight();
+    setOauthInFlightPlatform(null);
     setJustConnected(false);
   }, [
     postConnectLoadActive,
@@ -2390,6 +2400,8 @@ export default function DashboardPage() {
     const timeoutId = window.setTimeout(() => {
       if (isConnectLoadDone(accountId)) return;
       markConnectLoadDone(accountId);
+      clearOAuthConnectInFlight();
+      setOauthInFlightPlatform(null);
       setJustConnected(false);
       setInsightsLoading(false);
       setImportedPostsLoading(false);
@@ -2566,7 +2578,12 @@ export default function DashboardPage() {
           : [];
   const maxImpressions = displayTimeSeries.length ? Math.max(...displayTimeSeries.map((d) => d.value), 1) : 1;
   const showViewsHint = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0) && (analyticsAccount?.platform === 'INSTAGRAM' || !analyticsAccount);
-  const connectLoadInProgress = postConnectLoadActive;
+  const connectLoadInProgress = oauthConnectUiActive;
+  const syncBannerPlatform =
+    analyticsAccount?.platform ?? oauthInFlightPlatform ?? connectPlatformCandidate ?? null;
+  const syncBannerInsightsLoading = oauthConnectUiActive ? !displayInsights : insightsLoading;
+  const syncBannerPostsLoading =
+    oauthConnectUiActive ? importedPostsLoading || !displayInsights : importedPostsLoading;
   /** In-dashboard skeleton only (sidebar + nav stay interactive). */
   const analyticsLoadingOnly = Boolean(
     analyticsAccount &&
@@ -2575,10 +2592,12 @@ export default function DashboardPage() {
       !connectLoadInProgress
   );
   const showDashboardSkeleton = Boolean(
-    analyticsAccount &&
-      (analyticsLoadingOnly || (connectLoadInProgress && !displayInsights))
+    oauthConnectUiActive
+      ? !displayInsights
+      : analyticsAccount &&
+          (analyticsLoadingOnly || (postConnectLoadActive && !displayInsights))
   );
-  const showDataSyncBanner = connectLoadInProgress;
+  const showDataSyncBanner = oauthConnectUiActive;
   function openPricingPopup() {
     setPricingModalOpen(true);
   }
@@ -2635,9 +2654,9 @@ export default function DashboardPage() {
       {/* Show sync banner only on first load (no data yet) or right after connect; date changes refetch in place without banner */}
       {showDataSyncBanner && (
         <DataSyncBanner
-          platform={analyticsAccount?.platform}
-          insightsLoading={insightsLoading}
-          postsLoading={importedPostsLoading}
+          platform={syncBannerPlatform}
+          insightsLoading={syncBannerInsightsLoading}
+          postsLoading={syncBannerPostsLoading}
           dataReady={Boolean(displayInsights)}
         />
       )}
