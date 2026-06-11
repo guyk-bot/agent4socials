@@ -14,7 +14,7 @@ export type LocalLeadsScan = {
     postPreview: string;
     postUrl: string | null;
     createdAt: string;
-    intent: 'high' | 'medium';
+    intent: 'high' | 'medium' | 'low';
     reason: string;
     outreach: string;
   }>;
