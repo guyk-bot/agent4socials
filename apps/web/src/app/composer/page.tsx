@@ -1816,6 +1816,7 @@ export default function ComposerPage() {
             contentType,
         });
         const { uploadUrl, fileUrl } = res.data;
+        // R2 presigned PUT requires CORS on the bucket. If not configured, this will fail.
         const putRes = await fetch(uploadUrl, {
             method: 'PUT',
             body: file,
@@ -1836,20 +1837,37 @@ export default function ComposerPage() {
         const safeName = (file.name || (type === 'VIDEO' ? 'video.mp4' : 'image.jpg'))
             .replace(/[^a-zA-Z0-9._-]/g, '_')
             .slice(0, 200) || (type === 'VIDEO' ? 'video.mp4' : 'image.jpg');
-        const PRESIGNED_ONLY_BYTES = 95 * 1024 * 1024;
+        // Vercel serverless has ~4.5MB body limit; use API route for small files (bypasses R2 CORS).
+        // Larger files must use presigned PUT (requires R2 CORS configured in Cloudflare).
+        const API_ROUTE_MAX_BYTES = 4 * 1024 * 1024; // 4MB safe threshold
         try {
-            if (file.size <= PRESIGNED_ONLY_BYTES) {
-                try {
-                    const fileUrl = await uploadFileViaApi(file, safeName);
-                    return { fileUrl, type };
-                } catch {
-                    const fileUrl = await uploadFileViaPresignedPut(file, safeName, contentType);
-                    return { fileUrl, type };
-                }
+            if (file.size <= API_ROUTE_MAX_BYTES) {
+                // Small file: prefer same-origin API route (no R2 CORS needed)
+                const fileUrl = await uploadFileViaApi(file, safeName);
+                return { fileUrl, type };
             }
+            // Large file: must use presigned PUT (requires R2 CORS)
             const fileUrl = await uploadFileViaPresignedPut(file, safeName, contentType);
             return { fileUrl, type };
         } catch (err: unknown) {
+            // If API route fails for small file, try presigned as fallback
+            if (file.size <= API_ROUTE_MAX_BYTES) {
+                try {
+                    const fileUrl = await uploadFileViaPresignedPut(file, safeName, contentType);
+                    return { fileUrl, type };
+                } catch (e2: unknown) {
+                    // Show the more informative error
+                    const msg = uploadErrorMessage(e2, '');
+                    if (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('network')) {
+                        throw new Error('Upload failed. The storage service may have a CORS configuration issue. Contact support if this persists.');
+                    }
+                    throw new Error(uploadErrorMessage(e2, 'Upload failed. Try again.'));
+                }
+            }
+            const msg = uploadErrorMessage(err, '');
+            if (msg.toLowerCase().includes('failed to fetch') || msg.toLowerCase().includes('network')) {
+                throw new Error('Upload failed. The storage service may have a CORS configuration issue. Contact support if this persists.');
+            }
             throw new Error(uploadErrorMessage(err, 'Upload failed. Try again.'));
         }
     }

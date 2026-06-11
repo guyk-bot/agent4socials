@@ -421,7 +421,8 @@ export default function DashboardPage() {
   const connectingParam = searchParams.get('connecting');
   const brandMovedParam = searchParams.get('brandMoved') === '1';
   const brandKeptParam = searchParams.get('brandKept') === '1';
-  const postConnectReturn = connectingParam === '1' || brandMovedParam || brandKeptParam;
+  const justConnectedParam = searchParams.get('just_connected') === '1';
+  const postConnectReturn = connectingParam === '1' || brandMovedParam || brandKeptParam || justConnectedParam;
 
   /** Resolved account for analytics; stub from OAuth URL until accounts API returns. */
   const analyticsAccount = useMemo((): SocialAccount | null => {
@@ -793,18 +794,29 @@ export default function DashboardPage() {
     if (!accountIdFromUrl || twitter1oaNext === '1') return;
     if (postConnectReturn) {
       setSelectedPlatformForConnect(null);
-      clearOAuthConnectInFlight();
+      // Keep OAuth in-flight flag a bit longer so useRedirectIfNoConnectedAccounts doesn't kick in
+      // clearOAuthConnectInFlight(); -- moved to after accounts are loaded
       clearConnectLoadDone(accountIdFromUrl);
       pendingPostConnectAccountIdRef.current = accountIdFromUrl;
       setSelectedAccountId(accountIdFromUrl);
       setJustConnected(true);
       if (!shouldStayOnPageAfterOAuthConnect()) {
-        router.replace(DASHBOARD_AFTER_CONNECT_PATH, { scroll: false });
+        // Keep essential params so analyticsAccount stub works and DataSyncBanner shows
+        const params = new URLSearchParams();
+        params.set('just_connected', '1');
+        params.set('accountId', accountIdFromUrl);
+        const newPlatform = searchParams.get('newPlatform');
+        const newUsername = searchParams.get('newUsername');
+        const newPic = searchParams.get('newPic');
+        if (newPlatform) params.set('newPlatform', newPlatform);
+        if (newUsername) params.set('newUsername', newUsername);
+        if (newPic) params.set('newPic', newPic);
+        router.replace(`${DASHBOARD_AFTER_CONNECT_PATH}?${params.toString()}`, { scroll: false });
       }
       return;
     }
     setSelectedAccountId(accountIdFromUrl);
-  }, [accountIdFromUrl, postConnectReturn, twitter1oaNext, setSelectedAccountId, setSelectedPlatformForConnect, router]);
+  }, [accountIdFromUrl, postConnectReturn, twitter1oaNext, setSelectedAccountId, setSelectedPlatformForConnect, router, searchParams]);
 
   // When accountId is in URL: clean URL; after connect refresh cache and clear stale per-account data.
   useEffect(() => {
@@ -929,13 +941,19 @@ export default function DashboardPage() {
         setSelectedPlatformForConnect(null);
         setJustConnected(true);
         pendingPostConnectAccountIdRef.current = null;
+        // Keep just_connected=1 briefly so the redirect hook doesn't fire before React settles
         if (!shouldStayOnPageAfterOAuthConnect()) {
-          router.replace(DASHBOARD_AFTER_CONNECT_PATH, { scroll: false });
+          setTimeout(() => {
+            if (typeof window !== 'undefined' && window.location.search.includes('just_connected')) {
+              router.replace(DASHBOARD_AFTER_CONNECT_PATH, { scroll: false });
+            }
+          }, 100);
         }
         return;
       }
       pendingPostConnectAccountIdRef.current = null;
       clearSelection();
+      clearOAuthConnectInFlight();
       if (!shouldStayOnPageAfterOAuthConnect()) {
         router.replace(DASHBOARD_AFTER_CONNECT_PATH, { scroll: false });
       }
