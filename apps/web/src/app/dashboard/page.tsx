@@ -673,19 +673,32 @@ export default function DashboardPage() {
     : null;
   const connectErrorFromUrl = searchParams.get('connect_error');
   const oauthReturnInProgress = Boolean(postConnectReturn);
+  const connectFlowActive = Boolean(
+    oauthReturnInProgress ||
+      justConnected ||
+      pendingPostConnectAccountIdRef.current ||
+      oauthInFlightPlatform ||
+      readOAuthConnectInFlight()
+  );
   const connectPlatformCandidate = selectedPlatformForConnect || connectFromUrl;
   const platformAlreadyConnected = Boolean(
     connectPlatformCandidate &&
       accounts.some((a) => a.platform === connectPlatformCandidate)
   );
   const showConnectView =
-    Boolean(connectPlatformCandidate) && !oauthReturnInProgress && !platformAlreadyConnected;
+    Boolean(connectPlatformCandidate) && !connectFlowActive && !platformAlreadyConnected;
 
   const accountIdsKey = accounts.map((a) => a.id).sort().join(',');
 
   /** After connect, clear stale connect UI and select the account that was just linked. */
   useLayoutEffect(() => {
-    if (!selectedPlatformForConnect || oauthReturnInProgress || !accountIdsKey) return;
+    if (justConnected && selectedPlatformForConnect) {
+      setSelectedPlatformForConnect(null);
+    }
+  }, [justConnected, selectedPlatformForConnect, setSelectedPlatformForConnect]);
+
+  useLayoutEffect(() => {
+    if (!selectedPlatformForConnect || !accountIdsKey) return;
     const existing = accounts.find((a) => a.platform === selectedPlatformForConnect);
     if (!existing?.id) return;
     setSelectedPlatformForConnect(null);
@@ -693,7 +706,6 @@ export default function DashboardPage() {
     setSelectedAccountId(existing.id);
   }, [
     selectedPlatformForConnect,
-    oauthReturnInProgress,
     accountIdsKey,
     accounts,
     setSelectedPlatformForConnect,
@@ -736,6 +748,19 @@ export default function DashboardPage() {
     url.searchParams.delete('connect_error');
     router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
   }, [connectErrorFromUrl, connectParam, router]);
+
+  // Strip ?connect= during/after OAuth so the Connect form does not flash over the sync banner.
+  useEffect(() => {
+    if (!connectFlowActive || !connectFromUrl) return;
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('connect')) return;
+    url.searchParams.delete('connect');
+    url.searchParams.delete('connect_error');
+    const next = `${url.pathname}${url.search}${url.hash}`;
+    const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (next !== current) router.replace(next, { scroll: false });
+  }, [connectFlowActive, connectFromUrl, router]);
 
   // When connect= is in URL (e.g. clicked + from sidebar): open Connect or select existing account.
   useEffect(() => {

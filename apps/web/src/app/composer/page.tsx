@@ -1785,37 +1785,37 @@ export default function ComposerPage() {
         });
     };
 
-    async function uploadFile(file: File): Promise<{ fileUrl: string; type: 'IMAGE' | 'VIDEO' }> {
-        const type: 'IMAGE' | 'VIDEO' = file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE';
-        const contentType = file.type?.split(';')[0]?.trim() || (type === 'VIDEO' ? 'video/mp4' : 'image/jpeg');
-        const safeName = (file.name || (type === 'VIDEO' ? 'video.mp4' : 'image.jpg'))
-            .replace(/[^a-zA-Z0-9._-]/g, '_')
-            .slice(0, 200) || (type === 'VIDEO' ? 'video.mp4' : 'image.jpg');
-        let uploadUrl: string;
-        let fileUrl: string;
-        try {
-            const res = await api.post<{ uploadUrl: string; fileUrl: string }>('/media/upload-url', {
-                fileName: safeName,
-                contentType,
-            });
-            uploadUrl = res.data.uploadUrl;
-            fileUrl = res.data.fileUrl;
-        } catch (err: unknown) {
-            const rawMsg =
-                err &&
-                typeof err === 'object' &&
-                'response' in err &&
-                (err as { response?: { data?: { message?: string }; status?: number } }).response?.data?.message;
-            const apiMsg = typeof rawMsg === 'string' ? rawMsg : undefined;
-            const status = (err as { response?: { status?: number } })?.response?.status;
-            if (status === 503) {
-                throw new Error(apiMsg || 'Media storage is not configured on the server.');
-            }
-            if (status === 401) {
-                throw new Error('Session expired. Sign in again, then retry the upload.');
-            }
-            throw new Error(apiMsg || 'Could not start upload. Check your connection and try again.');
-        }
+    function uploadErrorMessage(err: unknown, fallback: string): string {
+        if (err instanceof Error && err.message.trim()) return err.message.trim();
+        const rawMsg =
+            err &&
+            typeof err === 'object' &&
+            'response' in err &&
+            (err as { response?: { data?: { message?: string }; status?: number } }).response?.data?.message;
+        if (typeof rawMsg === 'string' && rawMsg.trim()) return rawMsg.trim();
+        const status = (err as { response?: { status?: number } })?.response?.status;
+        if (status === 503) return 'Media storage is not configured on the server.';
+        if (status === 401) return 'Session expired. Sign in again, then retry the upload.';
+        if (status === 413) return 'File is too large. Try a shorter video or compress the file.';
+        return fallback;
+    }
+
+    async function uploadFileViaApi(file: File, safeName: string): Promise<string> {
+        const form = new FormData();
+        form.append('file', file, safeName);
+        const res = await api.post<{ fileUrl: string }>('/media/upload', form, {
+            timeout: 180_000,
+        });
+        if (!res.data?.fileUrl) throw new Error('Upload did not return a file URL.');
+        return res.data.fileUrl;
+    }
+
+    async function uploadFileViaPresignedPut(file: File, safeName: string, contentType: string): Promise<string> {
+        const res = await api.post<{ uploadUrl: string; fileUrl: string }>('/media/upload-url', {
+            fileName: safeName,
+            contentType,
+        });
+        const { uploadUrl, fileUrl } = res.data;
         const putRes = await fetch(uploadUrl, {
             method: 'PUT',
             body: file,
@@ -1827,7 +1827,31 @@ export default function ComposerPage() {
                 `Storage upload failed (${putRes.status})${detail ? `: ${detail.slice(0, 120)}` : ''}`
             );
         }
-        return { fileUrl, type };
+        return fileUrl;
+    }
+
+    async function uploadFile(file: File): Promise<{ fileUrl: string; type: 'IMAGE' | 'VIDEO' }> {
+        const type: 'IMAGE' | 'VIDEO' = file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE';
+        const contentType = file.type?.split(';')[0]?.trim() || (type === 'VIDEO' ? 'video/mp4' : 'image/jpeg');
+        const safeName = (file.name || (type === 'VIDEO' ? 'video.mp4' : 'image.jpg'))
+            .replace(/[^a-zA-Z0-9._-]/g, '_')
+            .slice(0, 200) || (type === 'VIDEO' ? 'video.mp4' : 'image.jpg');
+        const PRESIGNED_ONLY_BYTES = 95 * 1024 * 1024;
+        try {
+            if (file.size <= PRESIGNED_ONLY_BYTES) {
+                try {
+                    const fileUrl = await uploadFileViaApi(file, safeName);
+                    return { fileUrl, type };
+                } catch {
+                    const fileUrl = await uploadFileViaPresignedPut(file, safeName, contentType);
+                    return { fileUrl, type };
+                }
+            }
+            const fileUrl = await uploadFileViaPresignedPut(file, safeName, contentType);
+            return { fileUrl, type };
+        } catch (err: unknown) {
+            throw new Error(uploadErrorMessage(err, 'Upload failed. Try again.'));
+        }
     }
 
     /** Seek thumbnail video to target time and wait until frame is ready. */
@@ -2029,10 +2053,7 @@ export default function ComposerPage() {
                 setMediaList((prev) => [...prev, ...items]);
             }
         } catch (err: unknown) {
-            const msg = err && typeof err === 'object' && 'response' in err && (err.response as { status?: number })?.status === 503
-                ? 'Media storage is not configured. Add S3 (or R2) env vars to enable uploads.'
-                : 'Upload failed. Try again.';
-            setMediaUploadError(msg);
+            setMediaUploadError(uploadErrorMessage(err, 'Upload failed. Try again.'));
         } finally {
             setMediaUploading(false);
             e.target.value = '';
@@ -2059,10 +2080,7 @@ export default function ComposerPage() {
                 [platform]: [...(prev[platform] || []), ...items],
             }));
         } catch (err: unknown) {
-            const msg = err && typeof err === 'object' && 'response' in err && (err.response as { status?: number })?.status === 503
-                ? 'Media storage is not configured. Add S3 (or R2) env vars to enable uploads.'
-                : 'Upload failed. Try again.';
-            setMediaUploadError(msg);
+            setMediaUploadError(uploadErrorMessage(err, 'Upload failed. Try again.'));
         } finally {
             setMediaUploading(false);
             e.target.value = '';

@@ -55,6 +55,7 @@ function isPriorityApiPath(url?: string, baseURL?: string): boolean {
     path.includes('/leads/scan') ||
     path.includes('/leads/last') ||
     path.includes('/media/upload-url') ||
+    path.includes('/media/upload') ||
     path.includes('/ai/brand-context') ||
     path.includes('/ai/generate-description') ||
     path.includes('/tiktok-creator-info') ||
@@ -79,7 +80,7 @@ function applyApiTimeout(config: { url?: string; baseURL?: string; timeout?: num
     floor(API_INSTAGRAM_DM_TIMEOUT_MS);
   } else if (path.includes('/ai/aysop-chat')) {
     floor(API_AYSOP_CHAT_TIMEOUT_MS);
-  } else if (path.includes('/media/upload-url')) {
+  } else if (path.includes('/media/upload-url') || path.includes('/media/upload')) {
     floor(API_MEDIA_UPLOAD_TIMEOUT_MS);
   } else if (path.includes('/ai/aysop-chats')) {
     floor(API_AYSOP_SESSION_PERSIST_TIMEOUT_MS);
