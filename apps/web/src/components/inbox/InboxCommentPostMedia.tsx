@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { PostHistoryTextThumb } from '@/components/PostContentPreviewThumb';
 
 type PostMediaItem = {
   kind: 'image' | 'video';
@@ -123,9 +124,11 @@ export function InboxCommentPostMedia({
       );
     }
     return (
-      <div className={`flex flex-col items-center justify-center gap-2 p-8 text-neutral-400 min-h-[200px] bg-neutral-50 rounded-lg ${className ?? ''}`}>
-        <ImageIcon size={48} strokeWidth={1.5} />
-        <span className="text-sm text-center">No media for this post</span>
+      <div
+        className={`flex flex-col items-center justify-center gap-3 p-8 min-h-[200px] bg-neutral-50 dark:bg-neutral-900 rounded-lg ${className ?? ''}`}
+      >
+        <PostHistoryTextThumb platform={platform} className="w-16 h-16 rounded-xl" />
+        <span className="text-sm text-center text-neutral-500 dark:text-neutral-400">Text post</span>
       </div>
     );
   }

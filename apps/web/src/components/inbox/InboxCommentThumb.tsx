@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Image as ImageIcon } from 'lucide-react';
+import { PostHistoryTextThumb } from '@/components/PostContentPreviewThumb';
 import {
   inboxPostThumbSrc,
   prefetchInboxPostMedia,
@@ -74,12 +74,10 @@ export function InboxCommentThumb({
 
   if (!imgSrc || imgFailed) {
     return (
-      <div
-        className={`${dim} shrink-0 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center ${className}`}
-        aria-hidden
-      >
-        <ImageIcon size={size === 'md' ? 18 : 14} className="text-neutral-300" />
-      </div>
+      <PostHistoryTextThumb
+        platform={platform}
+        className={`${dim} shrink-0 rounded-lg border border-neutral-200 dark:border-neutral-700 ${className}`}
+      />
     );
   }
 

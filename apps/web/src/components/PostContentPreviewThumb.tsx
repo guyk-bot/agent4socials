@@ -2,14 +2,41 @@
 
 import { useState } from 'react';
 import { isAnalyticsTextOnlyPost, normalizeAnalyticsPlatform } from '@/lib/post-history-format';
+import { PlatformIcon, PLATFORM_ICON_MAP } from '@/components/SocialPlatformIcons';
 
-export function PostHistoryTextThumb({ className = 'w-9 h-9' }: { className?: string }) {
+function iconSizeForThumbClass(className: string): number {
+  if (className.includes('w-14') || className.includes('h-14')) return 24;
+  if (className.includes('w-12') || className.includes('h-12')) return 22;
+  if (className.includes('w-11') || className.includes('h-11')) return 20;
+  return 18;
+}
+
+/** Text-only post preview: platform mark in a neutral tile (Post History + Inbox). */
+export function PostHistoryTextThumb({
+  platform,
+  className = 'w-9 h-9',
+}: {
+  platform?: string | null;
+  className?: string;
+}) {
+  const plat = normalizeAnalyticsPlatform(platform);
+  const mapped = plat in PLATFORM_ICON_MAP ? (plat as keyof typeof PLATFORM_ICON_MAP) : null;
+  const iconSize = iconSizeForThumbClass(className);
+
   return (
     <div
       className={`rounded-lg bg-slate-100 dark:bg-neutral-800 flex items-center justify-center shrink-0 ${className}`}
       aria-hidden
     >
-      <span className="text-sm font-semibold text-slate-500 dark:text-neutral-400">Aa</span>
+      {mapped ? (
+        <PlatformIcon
+          platform={mapped}
+          size={iconSize}
+          className={mapped === 'TWITTER' ? 'text-neutral-800 dark:text-neutral-200' : ''}
+        />
+      ) : (
+        <span className="text-sm font-semibold text-slate-500 dark:text-neutral-400">Aa</span>
+      )}
     </div>
   );
 }
@@ -24,7 +51,7 @@ type PostContentPreviewThumbProps = {
   imgExtraProps?: React.ImgHTMLAttributes<HTMLImageElement>;
 };
 
-/** Post preview cell: Aa for text-only posts, image thumbnail when available. */
+/** Post preview cell: platform icon for text-only posts, image thumbnail when available. */
 export function PostContentPreviewThumb({
   platform,
   mediaType,
@@ -39,7 +66,7 @@ export function PostContentPreviewThumb({
   const textOnly = isAnalyticsTextOnlyPost(post) || imgFailed;
 
   if (textOnly) {
-    return <PostHistoryTextThumb className={className} />;
+    return <PostHistoryTextThumb platform={platform} className={className} />;
   }
 
   const thumb = (thumbnailUrl ?? '').trim();
