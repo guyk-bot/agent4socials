@@ -223,15 +223,6 @@ function DataSyncBanner({
 
   return (
     <div className={`mb-5 rounded-2xl overflow-hidden shadow-lg bg-gradient-to-r ${grad}`}>
-      {/* indeterminate progress bar */}
-      {!allDone && (
-        <div className="h-1 bg-black/10 overflow-hidden">
-          <div
-            className="h-full w-1/3 rounded-full bg-white/50"
-            style={{ animation: 'indeterminate-bar 1.4s ease-in-out infinite' }}
-          />
-        </div>
-      )}
       <div className="px-5 py-4 flex items-center gap-4">
         {/* icon with ping ring */}
         {icon && (
