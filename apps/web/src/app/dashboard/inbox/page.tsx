@@ -1227,7 +1227,9 @@ function InboxPage() {
         if (!c.parentCommentId) commentIdSet.add(c.commentId);
       }
     }
-    if (convIdSet.size === 0 && commentIdSet.size === 0) return;
+    const listsHydrated =
+      commentsEverLoadedRef.current || inboxCommentsHydratedRef.current || !commentsLoading;
+    if (!listsHydrated) return;
     if (!conversationsLoading && conversations.length > 0) {
       reconcileInboxReadStateWithConversations(
         conversations.map((c) => ({

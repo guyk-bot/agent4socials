@@ -442,7 +442,7 @@ export async function GET(
         accessToken: account.accessToken ?? '',
         expiresAt: account.expiresAt,
       });
-      const { threadsPostThumbnailUrl } = await import('@/lib/threads/post-media-type');
+      const { resolveThreadsPostThumbnail } = await import('@/lib/threads/fetch-post-thumbnail');
       const { status, data } = await threadsGet<{
         data?: Array<{
           id?: string;
@@ -459,20 +459,23 @@ export async function GET(
         limit: 50,
       });
       if (status === 200) {
-        liveSources = (data?.data ?? [])
-          .map((m, i) => {
+        const rows = data?.data ?? [];
+        const enriched = await Promise.all(
+          rows.slice(0, 25).map(async (m, i) => {
             const pid = typeof m.id === 'string' ? m.id.trim() : '';
             if (!pid) return null;
+            const postImageUrl = await resolveThreadsPostThumbnail({ ...m, id: pid }, token);
             return {
               platformPostId: pid,
               postPreview: (m.text ?? '').trim() || `Thread ${i + 1}`,
               postTargetId: `live-${pid}`,
               postPublishedAt: m.timestamp ?? undefined,
-              postImageUrl: threadsPostThumbnailUrl(m),
+              postImageUrl,
               postUrl: m.permalink ?? null,
             };
           })
-          .filter((x): x is NonNullable<typeof x> => x != null);
+        );
+        liveSources = enriched.filter((x): x is NonNullable<typeof x> => x != null);
       } else {
         threadsPostsListError = data?.error?.message ?? `Threads posts list failed (HTTP ${status})`;
       }

@@ -154,6 +154,9 @@ export function isPlatformOAuthPending(platform: string): boolean {
   return false;
 }
 
+/** Grace period after OAuth popup closes so postMessage can arrive before we treat it as abandoned. */
+export const OAUTH_POPUP_CLOSE_GRACE_MS = 6_000;
+
 /** Clear sidebar "Connecting…" when the user closes the OAuth popup without finishing. */
 export function watchOAuthConnectPopup(
   popup: Window | null | undefined,
@@ -162,15 +165,21 @@ export function watchOAuthConnectPopup(
 ): () => void {
   if (typeof window === 'undefined' || !popup || popup.closed) return () => {};
   const p = platform.trim().toUpperCase();
+  let graceTimer: ReturnType<typeof setTimeout> | null = null;
   const timer = window.setInterval(() => {
     if (!popup.closed) return;
     window.clearInterval(timer);
-    if (readOAuthConnectInFlight() === p) {
-      clearOAuthConnectInFlight();
-      onAbandon?.();
-    }
+    graceTimer = window.setTimeout(() => {
+      if (readOAuthConnectInFlight() === p) {
+        clearOAuthConnectInFlight();
+        onAbandon?.();
+      }
+    }, OAUTH_POPUP_CLOSE_GRACE_MS);
   }, 400);
-  return () => window.clearInterval(timer);
+  return () => {
+    window.clearInterval(timer);
+    if (graceTimer != null) window.clearTimeout(graceTimer);
+  };
 }
 
 /** Auto-clear stuck OAuth UI if callback never returns (e.g. 504 on callback route). */

@@ -181,7 +181,13 @@ function buildInitialNotificationsFromClientStorage(): NotificationsCache {
   if (!hasInboxLists) {
     computed = mergeInboxBadgeWithSnapshot(computed, userId);
   }
-  const unread = getStickyNavInboxBadge(userId, computed);
+  const stickyLoaded = hasInboxLists
+    ? {
+        conversationIds: new Set(allConversations.map((c) => c.id)),
+        topLevelCommentIds: new Set(unreadComments.map((c) => c.commentId)),
+      }
+    : undefined;
+  const unread = getStickyNavInboxBadge(userId, computed, stickyLoaded);
   return {
     inbox: unread.inbox,
     messages: unread.messages,
@@ -340,7 +346,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     if (!hasInboxLists) {
       computed = mergeInboxBadgeWithSnapshot(computed, user.id);
     }
-    const unread = getStickyNavInboxBadge(user.id, computed);
+    const stickyLoaded = hasInboxLists
+      ? {
+          conversationIds: new Set(allConversations.map((c) => c.id)),
+          topLevelCommentIds: new Set(unreadComments.map((c) => c.commentId)),
+        }
+      : undefined;
+    const unread = getStickyNavInboxBadge(user.id, computed, stickyLoaded);
     if (unread.inbox > 0) {
       writeInboxBadgeSnapshot(user.id, unread);
     } else {

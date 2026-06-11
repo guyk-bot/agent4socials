@@ -5,6 +5,7 @@ import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-q
 import { threadsGet } from '@/lib/threads/threads-api';
 import { getValidThreadsToken } from '@/lib/threads/threads-token';
 import { normalizeThreadsMediaType } from '@/lib/threads/post-media-type';
+import { threadsPostThumbnailFromMediaRow } from '@/lib/threads/fetch-post-thumbnail';
 
 export type PostMediaItem = {
   kind: 'image' | 'video';
@@ -38,16 +39,18 @@ type ThreadsMediaRow = {
 
 function threadsMediaItem(row: ThreadsMediaRow): PostMediaItem | null {
   const mt = normalizeThreadsMediaType(row.media_type);
+  const thumb = threadsPostThumbnailFromMediaRow(row);
   if (mt === 'VIDEO' || mt === 'AUDIO') {
-    const src = row.media_url ?? row.thumbnail_url;
+    const src = row.media_url ?? row.thumbnail_url ?? thumb;
     if (!src) return null;
+    const poster = row.thumbnail_url ?? thumb;
     return {
       kind: 'video',
       src: proxyMediaUrl(src),
-      poster: row.thumbnail_url ? proxyMediaUrl(row.thumbnail_url) : undefined,
+      poster: poster ? proxyMediaUrl(poster) : undefined,
     };
   }
-  const img = row.media_url ?? row.thumbnail_url;
+  const img = thumb ?? row.media_url ?? row.thumbnail_url;
   if (!img) return null;
   return { kind: 'image', src: proxyMediaUrl(img) };
 }

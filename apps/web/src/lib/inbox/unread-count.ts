@@ -481,23 +481,35 @@ export function formatInboxBadgeTitle(unread: InboxHeaderUnread): string | undef
   return parts.join(' — ');
 }
 
+export type StickyNavBadgeLoadedLists = {
+  conversationIds?: Set<string>;
+  topLevelCommentIds?: Set<string>;
+};
+
 /**
  * Nav badge floor: keep sticky pending IDs visible until the user opens the thread.
  * Snapshot is applied only before inbox lists hydrate (see AppDataContext), not here.
  */
 export function getStickyNavInboxBadge(
   userId: string,
-  computed: InboxHeaderUnread
+  computed: InboxHeaderUnread,
+  loaded?: StickyNavBadgeLoadedLists
 ): InboxHeaderUnread {
   const readConversations = getReadConversationIds(userId);
   const readComments = getReadCommentIds(userId);
+  const hasLoadedConvs = loaded?.conversationIds != null;
+  const hasLoadedComments = loaded?.topLevelCommentIds != null;
   let pendingMsg = 0;
   for (const id of getPendingUnreadConversationIds(userId)) {
-    if (!readConversations.has(id)) pendingMsg += 1;
+    if (readConversations.has(id)) continue;
+    if (hasLoadedConvs && !loaded!.conversationIds!.has(id)) continue;
+    pendingMsg += 1;
   }
   let pendingCmt = 0;
   for (const id of getPendingUnreadCommentIds(userId)) {
-    if (!readComments.has(id)) pendingCmt += 1;
+    if (readComments.has(id)) continue;
+    if (hasLoadedComments && !loaded!.topLevelCommentIds!.has(id)) continue;
+    pendingCmt += 1;
   }
   const pendingInbox = Math.min(pendingMsg + pendingCmt, 99);
   const inbox = Math.max(computed.inbox, pendingInbox);

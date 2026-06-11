@@ -78,7 +78,9 @@ import {
   ACCOUNT_DISCONNECTED_EVENT,
   watchOAuthConnectPopup,
   watchOAuthConnectTimeout,
+  isPlatformOAuthPending,
 } from '@/lib/oauth-connect';
+import { PlatformConnectLoading } from '@/components/PlatformConnectLoading';
 import {
   localCalendarDateFromIso,
   toLocalCalendarDate,
@@ -655,6 +657,7 @@ export default function DashboardPage() {
   const connectFromUrl = connectParam && ALLOWED_CONNECT.includes(connectParam.toUpperCase())
     ? connectParam.toUpperCase()
     : null;
+  const connectErrorFromUrl = searchParams.get('connect_error');
   const oauthReturnInProgress = Boolean(postConnectReturn);
   const connectPlatformCandidate = selectedPlatformForConnect || connectFromUrl;
   const platformAlreadyConnected = Boolean(
@@ -707,6 +710,18 @@ export default function DashboardPage() {
     accounts,
     setSelectedAccountId,
   ]);
+
+  useEffect(() => {
+    if (!connectErrorFromUrl) return;
+    clearOAuthConnectInFlight();
+    setConnectingPlatform(null);
+    setConnectingMethod(undefined);
+    setAlertMessage(connectErrorFromUrl);
+    if (!connectParam) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('connect_error');
+    router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
+  }, [connectErrorFromUrl, connectParam, router]);
 
   // When connect= is in URL (e.g. clicked + from sidebar): open Connect or select existing account.
   useEffect(() => {
@@ -2267,6 +2282,11 @@ export default function DashboardPage() {
 
   if (showConnectView) {
     const connectPlatform = (selectedPlatformForConnect || connectFromUrl) as string;
+    const connectUiPending = Boolean(
+      (oauthInFlightPlatform && oauthInFlightPlatform === connectPlatform) ||
+        (connectingPlatform && connectingPlatform.toUpperCase() === connectPlatform) ||
+        isPlatformOAuthPending(connectPlatform)
+    );
 
     return (
       <>
@@ -2274,10 +2294,10 @@ export default function DashboardPage() {
         <ConnectView
           platform={connectPlatform}
           onConnect={handleConnect}
-          connecting={oauthInFlightPlatform !== null || connectingPlatform !== null}
+          connecting={connectUiPending}
           connectingMethod={connectingMethod}
 
-          connectError={alertMessage}
+          connectError={alertMessage ?? connectErrorFromUrl}
         />
       </>
     );
@@ -2389,9 +2409,30 @@ export default function DashboardPage() {
     setPricingModalOpen(true);
   }
 
+  const connectFinishPlatform =
+    analyticsAccount?.platform ??
+    searchParams.get('newPlatform')?.toUpperCase() ??
+    null;
+  const showConnectFinishOverlay = Boolean(
+    connectLoadInProgress ||
+      (postConnectReturn && accountIdFromUrl && !isConnectLoadDone(accountIdFromUrl))
+  );
+
   return (
     <div className="space-y-0">
       <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
+      {showConnectFinishOverlay && connectFinishPlatform ? (
+        <div className="fixed inset-0 z-[8400] flex items-center justify-center bg-white/85 dark:bg-neutral-950/90 backdrop-blur-sm px-4">
+          <PlatformConnectLoading
+            platformLabel={
+              connectFinishPlatform === 'THREADS'
+                ? 'Threads'
+                : connectFinishPlatform.charAt(0) + connectFinishPlatform.slice(1).toLowerCase()
+            }
+            subtitle="Finishing connection and loading your dashboard…"
+          />
+        </div>
+      ) : null}
       {pricingModalOpen && typeof document !== 'undefined'
         ? createPortal(
             <div

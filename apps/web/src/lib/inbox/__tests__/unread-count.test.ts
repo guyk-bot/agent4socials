@@ -222,4 +222,18 @@ describe('getStickyNavInboxBadge', () => {
     expect(sticky.inbox).toBe(1);
     expect(sticky.messages).toBe(1);
   });
+
+  it('drops phantom pending comment IDs after inbox lists hydrate empty', () => {
+    localStorage.setItem(
+      'agent4socials_badge_pending_comment_user-1',
+      JSON.stringify(['ghost-1', 'ghost-2'])
+    );
+    const sticky = getStickyNavInboxBadge(
+      'user-1',
+      { inbox: 0, messages: 0, comments: 0, byPlatform: {} },
+      { topLevelCommentIds: new Set(), conversationIds: new Set() }
+    );
+    expect(sticky.inbox).toBe(0);
+    expect(sticky.comments).toBe(0);
+  });
 });

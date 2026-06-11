@@ -7,6 +7,7 @@ import type { InboxCommentRow } from '@/lib/inbox/inbox-db-cache';
 import { threadsGet } from '@/lib/threads/threads-api';
 import { getValidThreadsToken } from '@/lib/threads/threads-token';
 import { waitForThreadsContainerReady } from '@/lib/threads/publish';
+import { fetchThreadsPostThumbnail } from '@/lib/threads/fetch-post-thumbnail';
 
 export type ThreadsPostSource = {
   platformPostId: string;
@@ -224,6 +225,10 @@ export async function fetchThreadsInboxComments(
     if (!id) continue;
     const author = (m.username ?? 'Threads user').replace(/^@/, '');
     const mentionPermalink = `https://www.threads.net/post/${encodeURIComponent(id)}`;
+    let postImageUrl = m.thumbnail_url ?? m.media_url ?? null;
+    if (!postImageUrl) {
+      postImageUrl = await fetchThreadsPostThumbnail(id, token);
+    }
     comments.push({
       commentId: `mention-${id}`,
       accountId: account.id,
@@ -239,7 +244,7 @@ export async function fetchThreadsInboxComments(
       postTargetId: `mention-${id}`,
       platformPostId: id,
       postPreview: 'Mentioned you on Threads',
-      postImageUrl: m.thumbnail_url ?? m.media_url ?? null,
+      postImageUrl,
       postPublishedAt: null,
       postUrl: mentionPermalink,
     });
