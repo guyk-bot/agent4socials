@@ -69,7 +69,8 @@ const DEFAULT_CONNECT_RETURN_URL = '/dashboard';
 
 export function buildDashboardSuccessRedirect(
   accountId?: string,
-  platform?: string
+  platform?: string,
+  extras?: Record<string, string | undefined>
 ): string {
   if (typeof window === 'undefined' && !accountId) return DEFAULT_CONNECT_RETURN_URL;
   const origin =
@@ -77,6 +78,11 @@ export function buildDashboardSuccessRedirect(
   const url = new URL('/dashboard', origin);
   if (accountId) url.searchParams.set('accountId', accountId);
   if (platform) url.searchParams.set('newPlatform', platform.toUpperCase());
+  if (extras) {
+    for (const [key, value] of Object.entries(extras)) {
+      if (value) url.searchParams.set(key, value);
+    }
+  }
   return `${url.pathname}${url.search}`;
 }
 
@@ -198,11 +204,42 @@ export function finishPendingConnectNavigation(outcome: 'moved' | 'kept'): void 
   if (typeof window === 'undefined') return;
   const nav = readPendingConnectNav();
   clearPendingConnectNav();
+  const accountIdFromPage = (() => {
+    try {
+      return new URLSearchParams(window.location.search).get('accountId');
+    } catch {
+      return null;
+    }
+  })();
+  const platformFromPage = (() => {
+    try {
+      return new URLSearchParams(window.location.search).get('newPlatform');
+    } catch {
+      return null;
+    }
+  })();
+  const dashboardWithAccount =
+    accountIdFromPage != null
+      ? buildDashboardSuccessRedirect(accountIdFromPage, platformFromPage ?? undefined)
+      : null;
   if (outcome === 'kept') {
-    window.location.href = nav?.returnUrl ?? DEFAULT_CONNECT_RETURN_URL;
+    const returnUrl = nav?.returnUrl ?? DEFAULT_CONNECT_RETURN_URL;
+    // After connect from Account settings, land on the platform dashboard (with accountId), not Account page.
+    if (returnUrl.includes('/dashboard/account') && dashboardWithAccount) {
+      window.location.href = sanitizePostConnectRedirect(dashboardWithAccount, 'kept');
+      return;
+    }
+    if (returnUrl.includes('/dashboard/account') && nav?.successRedirect) {
+      window.location.href = sanitizePostConnectRedirect(nav.successRedirect, 'kept');
+      return;
+    }
+    window.location.href = returnUrl;
     return;
   }
-  const redirect = nav?.successRedirect;
+  const redirect =
+    (dashboardWithAccount && !parseAccountIdFromDashboardRedirect(nav?.successRedirect ?? ''))
+      ? dashboardWithAccount
+      : nav?.successRedirect;
   if (redirect) {
     window.location.href = sanitizePostConnectRedirect(redirect, 'moved');
   }
@@ -631,7 +668,15 @@ export function sanitizePostConnectRedirect(
   redirect: string,
   outcome: 'moved' | 'kept'
 ): string {
-  const url = new URL(redirect, typeof window !== 'undefined' ? window.location.origin : 'https://localhost');
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://localhost';
+  const url = new URL(redirect, origin);
+  if (!url.searchParams.get('accountId') && typeof window !== 'undefined') {
+    const pageParams = new URLSearchParams(window.location.search);
+    const pageAccountId = pageParams.get('accountId');
+    const pagePlatform = pageParams.get('newPlatform');
+    if (pageAccountId) url.searchParams.set('accountId', pageAccountId);
+    if (pagePlatform) url.searchParams.set('newPlatform', pagePlatform);
+  }
   url.searchParams.delete('connecting');
   url.searchParams.delete('brandMoved');
   url.searchParams.delete('brandKept');

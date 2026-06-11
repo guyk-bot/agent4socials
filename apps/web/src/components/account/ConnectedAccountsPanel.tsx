@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { useAppData } from '@/context/AppDataContext';
@@ -11,6 +12,7 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { avatarDisplayUrl } from '@/lib/avatar-display-url';
+import { buildDashboardSuccessRedirect } from '@/lib/brand-account-move';
 import {
   closeOAuthConnectPopup,
   listenForOAuthComplete,
@@ -63,6 +65,7 @@ const CONNECT_LABEL_ICON: Record<string, React.ReactNode> = {
  * Rendered on `/dashboard/account` and legacy `/dashboard/accounts` redirects here.
  */
 export function ConnectedAccountsPanel() {
+  const router = useRouter();
   const {
     cachedAccounts,
     setCachedAccounts,
@@ -102,6 +105,7 @@ export function ConnectedAccountsPanel() {
         const { accountId, platform } = payload;
         const connected = accountId ? data.find((a) => a.id === accountId) : undefined;
         if (accountId && finishPostConnectBrandAssignment) {
+          const plat = connected?.platform ?? platform ?? '';
           const postConnectResult = finishPostConnectBrandAssignment(
             accountId,
             data,
@@ -109,16 +113,25 @@ export function ConnectedAccountsPanel() {
               ? { platform: connected.platform, username: connected.username }
               : platform
                 ? { platform, username: undefined }
-                : undefined
+                : undefined,
+            {
+              successRedirect: buildDashboardSuccessRedirect(accountId, plat || platform),
+            }
           );
           if (postConnectResult === 'prompt') return;
           if (postConnectResult !== 'noop') return;
+        }
+        if (accountId && platform) {
+          setSelectedAccountId(accountId);
+          router.replace(
+            buildDashboardSuccessRedirect(accountId, platform, { just_connected: '1' })
+          );
         }
       } catch {
         /* ignore */
       }
     });
-  }, [setCachedAccounts, finishPostConnectBrandAssignment]);
+  }, [setCachedAccounts, finishPostConnectBrandAssignment, router, setSelectedAccountId]);
 
   const handleDisconnectClick = (acc: SocialAccount) => {
     pendingDisconnectRef.current = acc;

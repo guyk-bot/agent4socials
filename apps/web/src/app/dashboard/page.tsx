@@ -69,6 +69,14 @@ const CONNECT_FINISH_MAX_MS = 12_000;
 
 const DASHBOARD_AFTER_CONNECT_PATH = '/dashboard';
 
+function postConnectDashboardHref(
+  accountId: string,
+  platform?: string | null,
+  extras?: Record<string, string | undefined>
+): string {
+  return buildDashboardSuccessRedirect(accountId, platform ?? undefined, extras);
+}
+
 import {
   listenForOAuthComplete,
   notifyOAuthOpenerAndClose,
@@ -910,11 +918,11 @@ export default function DashboardPage() {
       const connected = list.find((a) => a.id === connectAccountId);
       const platform = connected?.platform ?? urlPlatform;
       if (!platform) {
-        router.replace(DASHBOARD_AFTER_CONNECT_PATH, { scroll: false });
+        router.replace(postConnectDashboardHref(connectAccountId, urlPlatform), { scroll: false });
         return;
       }
 
-      const successRedirect = DASHBOARD_AFTER_CONNECT_PATH;
+      const successRedirect = postConnectDashboardHref(connectAccountId, platform);
       let postConnectResult = finishPostConnectRef.current(
         connectAccountId,
         list,
@@ -935,7 +943,7 @@ export default function DashboardPage() {
         setCachedAccounts(list);
         clearSelection();
         pendingPostConnectAccountIdRef.current = null;
-        router.replace(DASHBOARD_AFTER_CONNECT_PATH, { scroll: false });
+        router.replace(postConnectDashboardHref(connectAccountId, platform), { scroll: false });
         return;
       }
 
@@ -961,7 +969,7 @@ export default function DashboardPage() {
         if (!shouldStayOnPageAfterOAuthConnect()) {
           setTimeout(() => {
             if (typeof window !== 'undefined' && window.location.search.includes('just_connected')) {
-              router.replace(DASHBOARD_AFTER_CONNECT_PATH, { scroll: false });
+              router.replace(postConnectDashboardHref(connectAccountId, platform), { scroll: false });
             }
           }, 100);
         }
@@ -971,7 +979,7 @@ export default function DashboardPage() {
       clearSelection();
       clearOAuthConnectInFlight();
       if (!shouldStayOnPageAfterOAuthConnect()) {
-        router.replace(DASHBOARD_AFTER_CONNECT_PATH, { scroll: false });
+        router.replace(postConnectDashboardHref(connectAccountId, platform ?? urlPlatform), { scroll: false });
       }
     })();
 
@@ -1040,7 +1048,7 @@ export default function DashboardPage() {
             ? { platform: connected.platform, username: connected.username }
             : { platform: plat, username },
           {
-            successRedirect: DASHBOARD_AFTER_CONNECT_PATH,
+            successRedirect: postConnectDashboardHref(accountId, plat),
             prevAccountIds,
             activeBrandIdOverride: pendingBrandId,
           }
@@ -1049,7 +1057,7 @@ export default function DashboardPage() {
           setCachedAccounts(list);
           clearSelection();
           pendingPostConnectAccountIdRef.current = null;
-          router.replace(DASHBOARD_AFTER_CONNECT_PATH, { scroll: false });
+          router.replace(postConnectDashboardHref(accountId, plat), { scroll: false });
           return;
         }
         setCachedAccounts(list);
@@ -1070,7 +1078,7 @@ export default function DashboardPage() {
         setOauthLaunchingMethod(undefined);
         pendingPostConnectAccountIdRef.current = null;
         if (!shouldStayOnPageAfterOAuthConnect()) {
-          router.replace(DASHBOARD_AFTER_CONNECT_PATH, { scroll: false });
+          router.replace(postConnectDashboardHref(accountId, plat), { scroll: false });
         }
       });
     });
