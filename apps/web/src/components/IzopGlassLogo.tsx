@@ -6,7 +6,7 @@ type Props = {
   alt?: string;
   /** sm: header mark. md: slightly larger hero contexts. */
   size?: 'sm' | 'md';
-  /** full: glass chrome (connect loading). nav: plain 18px mark inline with header links. */
+  /** full: glass chrome (connect loading). nav: plain mark inline with header links. */
   variant?: 'full' | 'nav';
   className?: string;
   /** Pulse animation during OAuth connect. */
