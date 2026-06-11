@@ -3,6 +3,7 @@ export const OAUTH_COMPLETE_MESSAGE = 'agent4socials-oauth-complete';
 
 const OAUTH_CONNECT_IN_FLIGHT_KEY = 'agent4socials_oauth_connect_in_flight';
 export const OAUTH_CONNECT_IN_FLIGHT_EVENT = 'izop-oauth-connect-in-flight';
+export const ACCOUNT_DISCONNECTED_EVENT = 'izop-account-disconnected';
 
 /** Max time to show sidebar "Connecting…" if OAuth never completes. */
 const OAUTH_IN_FLIGHT_TTL_MS = 5 * 60 * 1000;
@@ -92,6 +93,43 @@ export function clearOAuthConnectInFlightForPlatform(platform: string): void {
   if (!p) return;
   if (readOAuthConnectInFlight() === p) {
     clearOAuthConnectInFlight();
+  }
+}
+
+/** Instant client cleanup after disconnect so sidebar/dashboard never stay on "Connecting…". */
+export function resetConnectUiAfterAccountDisconnect(platform: string): void {
+  if (typeof window === 'undefined') return;
+  clearOAuthConnectInFlight();
+  try {
+    const url = new URL(window.location.href);
+    const p = platform.trim().toUpperCase();
+    const connectParam = url.searchParams.get('connect')?.trim().toUpperCase();
+    const newPlatform = url.searchParams.get('newPlatform')?.trim().toUpperCase();
+    if (
+      connectParam === p ||
+      newPlatform === p ||
+      url.searchParams.get('connecting') === '1'
+    ) {
+      url.searchParams.delete('connect');
+      url.searchParams.delete('connecting');
+      url.searchParams.delete('newPlatform');
+      url.searchParams.delete('newUsername');
+      url.searchParams.delete('newPic');
+      url.searchParams.delete('accountId');
+      const next = `${url.pathname}${url.search}${url.hash}`;
+      window.history.replaceState({}, '', next);
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    window.dispatchEvent(
+      new CustomEvent(ACCOUNT_DISCONNECTED_EVENT, {
+        detail: { platform: platform.trim().toUpperCase() },
+      })
+    );
+  } catch {
+    /* ignore */
   }
 }
 

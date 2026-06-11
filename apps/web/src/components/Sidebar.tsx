@@ -19,11 +19,8 @@ import {
     Loader2,
 } from 'lucide-react';
 import {
-  clearOAuthConnectInFlightForPlatform,
-  isPlatformOAuthPending,
   OAUTH_CONNECT_IN_FLIGHT_EVENT,
   readOAuthConnectInFlight,
-  storeOAuthConnectInFlight,
 } from '@/lib/oauth-connect';
 import api from '@/lib/api';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
@@ -243,9 +240,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
   const sidebarConnectingLabel =
     oauthInFlightPlatform && PLATFORM_LABELS[oauthInFlightPlatform]
       ? PLATFORM_LABELS[oauthInFlightPlatform]
-      : PLATFORM_ORDER.find((p) => isPlatformOAuthPending(p))
-        ? PLATFORM_LABELS[PLATFORM_ORDER.find((p) => isPlatformOAuthPending(p))!] ?? 'account'
-        : null;
+      : null;
 
   const sidebarContent = (
     <>
@@ -263,8 +258,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
           if (accounts.length === 0) {
             const connectParam = platform.toLowerCase();
             const needsUpgrade = UPGRADE_TO_CONNECT_PLATFORMS.includes(platform);
-            const connectPending =
-              oauthInFlightPlatform === platform || isPlatformOAuthPending(platform);
+            const connectPending = oauthInFlightPlatform === platform;
             /** Connect URL per platform; optional gem styling when platform is in UPGRADE_TO_CONNECT_PLATFORMS. */
             const href = `/dashboard?connect=${connectParam}`;
             const platformRowClass = `flex items-center gap-3 px-3 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors border border-transparent ${
@@ -303,10 +297,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
               <Link
                 key={platform}
                 href={href}
-                onClick={() => {
-                  setSelectedPlatformForConnect(platform);
-                  storeOAuthConnectInFlight(platform);
-                }}
+                onClick={() => setSelectedPlatformForConnect(platform)}
                 className={platformRowClass}
                 title={needsUpgrade ? 'Upgrade to connect this network.' : undefined}
               >

@@ -13,8 +13,8 @@ import { Loader2, RefreshCw } from 'lucide-react';
 import { avatarDisplayUrl } from '@/lib/avatar-display-url';
 import {
   closeOAuthConnectPopup,
-  clearOAuthConnectInFlightForPlatform,
   listenForOAuthComplete,
+  resetConnectUiAfterAccountDisconnect,
   navigateOAuthConnect,
   prepareOAuthConnectPopup,
   storeOAuthConnectInFlight,
@@ -74,7 +74,12 @@ export function ConnectedAccountsPanel() {
     finishPostConnectBrandAssignment: () => 'noop' as const,
   };
   const appData = useAppData();
-  const { selectedAccountId, setSelectedAccountId } = useSelectedAccount() ?? { selectedAccountId: null, setSelectedAccountId: () => {} };
+  const { selectedAccountId, setSelectedAccountId, setSelectedPlatformForConnect } =
+    useSelectedAccount() ?? {
+      selectedAccountId: null,
+      setSelectedAccountId: () => {},
+      setSelectedPlatformForConnect: () => {},
+    };
 
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
   const [disconnectConfirmOpen, setDisconnectConfirmOpen] = useState(false);
@@ -127,7 +132,8 @@ export function ConnectedAccountsPanel() {
 
     removeConnectedAccountFromCache(accountIdToRemove);
     appData?.clearAccountData(accountIdToRemove);
-    clearOAuthConnectInFlightForPlatform(acc.platform);
+    resetConnectUiAfterAccountDisconnect(acc.platform);
+    setSelectedPlatformForConnect(null);
     if (disconnectedAccountWasSelected) {
       setSelectedAccountId(null);
     }

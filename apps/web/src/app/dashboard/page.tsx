@@ -75,6 +75,7 @@ import {
   clearOAuthConnectInFlightForPlatform,
   readOAuthConnectInFlight,
   OAUTH_CONNECT_IN_FLIGHT_EVENT,
+  ACCOUNT_DISCONNECTED_EVENT,
   watchOAuthConnectPopup,
 } from '@/lib/oauth-connect';
 import {
@@ -695,7 +696,6 @@ export default function DashboardPage() {
       return;
     }
     setSelectedPlatformForConnect(upper);
-    storeOAuthConnectInFlight(upper);
     router.replace('/dashboard', { scroll: false });
   }, [
     connectParam,
@@ -2055,10 +2055,26 @@ export default function DashboardPage() {
         setConnectingMethod(undefined);
       }
     };
+    const onDisconnected = () => {
+      setSelectedPlatformForConnect(null);
+      setConnectingPlatform(null);
+      setConnectingMethod(undefined);
+      setOauthInFlightPlatform(null);
+      setJustConnected(false);
+    };
     syncConnectUi();
     window.addEventListener(OAUTH_CONNECT_IN_FLIGHT_EVENT, syncConnectUi);
-    return () => window.removeEventListener(OAUTH_CONNECT_IN_FLIGHT_EVENT, syncConnectUi);
-  }, [connectingParam, searchParams.get('newPlatform'), searchParams.get('accountId')]);
+    window.addEventListener(ACCOUNT_DISCONNECTED_EVENT, onDisconnected);
+    return () => {
+      window.removeEventListener(OAUTH_CONNECT_IN_FLIGHT_EVENT, syncConnectUi);
+      window.removeEventListener(ACCOUNT_DISCONNECTED_EVENT, onDisconnected);
+    };
+  }, [
+    connectingParam,
+    searchParams.get('newPlatform'),
+    searchParams.get('accountId'),
+    setSelectedPlatformForConnect,
+  ]);
 
   // Must run unconditionally before any early return (hooks rule)
   const postsByDateSeries = React.useMemo(() => {
@@ -2214,7 +2230,7 @@ export default function DashboardPage() {
         <ConnectView
           platform={connectPlatform}
           onConnect={handleConnect}
-          connecting={connectingPlatform !== null || oauthInFlightPlatform !== null}
+          connecting={oauthInFlightPlatform !== null || connectingPlatform !== null}
           connectingMethod={connectingMethod}
 
           connectError={alertMessage}
