@@ -27,7 +27,9 @@ export function threadsPostThumbnailUrl(row: {
   if (thumb) return thumb;
   const media = (row.media_url ?? '').trim();
   if (!media) return null;
-  if (mt === 'IMAGE' || mt === 'VIDEO' || mt === 'CAROUSEL' || mt === 'AUDIO') return media;
+  // Video/audio: never use media_url as a still thumbnail (often an MP4 → black img box).
+  if (mt === 'VIDEO' || mt === 'AUDIO') return null;
+  if (mt === 'IMAGE' || mt === 'CAROUSEL') return media;
   return media;
 }
 

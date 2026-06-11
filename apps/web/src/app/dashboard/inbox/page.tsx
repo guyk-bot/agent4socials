@@ -114,6 +114,7 @@ import {
   hydrateInboxCommentsFromClientCache,
 } from '@/lib/inbox/inbox-client-cache';
 import { InboxCommentThumb } from '@/components/inbox/InboxCommentThumb';
+import { resolveInboxCommentThumbFallback } from '@/lib/inbox/inbox-post-thumb-resolve';
 import { prefetchInboxPostMediaBatch } from '@/lib/inbox/inbox-post-media-prefetch';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useAppData } from '@/context/AppDataContext';
@@ -2135,7 +2136,20 @@ function InboxPage() {
       setComments(stable);
       if (stable.length > 0) {
         commentsEverLoadedRef.current = true;
-        prefetchInboxPostMediaBatch(stable);
+        prefetchInboxPostMediaBatch(
+          stable.map((c) => ({
+            accountId: c.accountId,
+            platformPostId: c.platformPostId,
+            platform: c.platform,
+            postImageUrl:
+              resolveInboxCommentThumbFallback(
+                c.accountId,
+                c.platformPostId,
+                c.postImageUrl,
+                appDataRef.current?.postsByAccountId
+              ) ?? c.postImageUrl,
+          }))
+        );
         for (const acc of effectiveAccountsRef.current) {
           if (stable.some((c) => c.accountId === acc.id)) {
             clearInboxAccountRecentlyConnected(acc.id);
@@ -2830,6 +2844,20 @@ function InboxPage() {
     [connectedPlatforms.map((p) => p.id).join(',')]
   );
 
+  const resolveCommentThumb = useCallback(
+    (c: { accountId: string; platformPostId: string; postImageUrl?: string | null }) =>
+      resolveInboxCommentThumbFallback(
+        c.accountId,
+        c.platformPostId,
+        c.postImageUrl,
+        appData?.postsByAccountId as Record<
+          string,
+          Array<{ platformPostId?: string | null; thumbnailUrl?: string | null }>
+        >
+      ),
+    [appData?.postsByAccountId]
+  );
+
   /** Comments tab: show all platforms; platform icons filter messages only. */
   const displayComments = useMemo(() => {
     const byId = new Map<string, PostComment>();
@@ -3449,7 +3477,7 @@ function InboxPage() {
                           accountId={c.accountId}
                           platformPostId={c.platformPostId}
                           platform={c.platform}
-                          fallbackImageUrl={c.postImageUrl}
+                          fallbackImageUrl={resolveCommentThumb(c) ?? c.postImageUrl}
                         />
                         <div className="relative shrink-0 w-9 h-9">
                           <InboxAvatar pictureUrl={c.authorPictureUrl} label={c.authorName} className="w-9 h-9" />
@@ -4529,7 +4557,7 @@ function InboxPage() {
                             accountId={selectedComment.accountId}
                             platformPostId={selectedComment.platformPostId}
                             platform={selectedComment.platform}
-                            fallbackImageUrl={selectedComment.postImageUrl}
+                            fallbackImageUrl={resolveCommentThumb(selectedComment) ?? selectedComment.postImageUrl}
                           />
                         </div>
                         <div className="min-w-0 flex-1">

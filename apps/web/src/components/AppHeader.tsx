@@ -50,10 +50,7 @@ function TopNavItemContent({
   if (item.stackedTop) {
     return (
       <>
-        <span className="relative inline-flex items-center gap-2">
-          <span className="absolute -top-[11px] left-0 text-[9px] font-semibold uppercase tracking-wide text-amber-400 whitespace-nowrap leading-none pointer-events-none">
-            {item.stackedTop}
-          </span>
+        <span className="inline-flex items-center gap-2">
           {item.icon ? <item.icon size={18} className="shrink-0" aria-hidden /> : null}
           <span>{item.label}</span>
         </span>
@@ -199,9 +196,14 @@ export default function AppHeader() {
                 key={item.href}
                 href={topNavHref(item)}
                 prefetch={item.href === '/composer'}
-                className={`${navLinkClass(isActive)}${item.stackedTop ? ' overflow-visible' : ''}`}
+                className={`${navLinkClass(isActive)}${item.stackedTop ? ' overflow-visible !pt-4' : ''}`}
                 title={item.badgeKey === 'inbox' ? inboxBadgeTitle : undefined}
               >
+                {item.stackedTop ? (
+                  <span className="absolute top-1 left-0 right-0 text-center text-[9px] font-semibold uppercase tracking-wide text-amber-400 leading-none pointer-events-none">
+                    {item.stackedTop}
+                  </span>
+                ) : null}
                 {content}
               </Link>
             );
@@ -298,8 +300,10 @@ export default function AppHeader() {
                   {item.stackedTop ? (
                     <>
                       {item.icon ? <item.icon size={18} className="shrink-0" aria-hidden /> : null}
-                      <span className="flex flex-1 flex-col leading-none gap-0.5">
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-400">{item.stackedTop}</span>
+                      <span className="flex flex-1 flex-col leading-none gap-0.5 pt-3">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-400 -mt-3 mb-0.5 text-center w-full">
+                          {item.stackedTop}
+                        </span>
                         <span>{item.label}</span>
                       </span>
                     </>

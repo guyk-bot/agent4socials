@@ -1,3 +1,4 @@
+import { isLikelyVideoMediaUrl } from '@/lib/inbox/media-url';
 import { threadsGet } from '@/lib/threads/threads-api';
 import { normalizeThreadsMediaType, threadsPostThumbnailUrl } from '@/lib/threads/post-media-type';
 
@@ -43,7 +44,7 @@ export async function resolveThreadsPostThumbnail(
   token: string
 ): Promise<string | null> {
   const fromList = threadsPostThumbnailFromMediaRow(row);
-  if (fromList) return fromList;
+  if (fromList && !isLikelyVideoMediaUrl(fromList)) return fromList;
   const id = typeof row.id === 'string' ? row.id.trim() : '';
   if (!id || !threadsRowNeedsThumbnailFetch(row.media_type)) return null;
   return fetchThreadsPostThumbnail(id, token);

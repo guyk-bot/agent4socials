@@ -6,8 +6,9 @@ import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 import { threadsGet } from '@/lib/threads/threads-api';
 import { getValidThreadsToken } from '@/lib/threads/threads-token';
+import { isLikelyVideoMediaUrl } from '@/lib/inbox/media-url';
 import { normalizeThreadsMediaType } from '@/lib/threads/post-media-type';
-import { resolveThreadsPostThumbnail } from '@/lib/threads/fetch-post-thumbnail';
+import { fetchThreadsPostThumbnail, resolveThreadsPostThumbnail } from '@/lib/threads/fetch-post-thumbnail';
 
 type InsightMetric = {
   name?: string;
@@ -118,7 +119,11 @@ export async function syncThreadsPosts(account: {
     const publishedAt = row.timestamp ? new Date(row.timestamp) : new Date();
     const content = typeof row.text === 'string' ? row.text : null;
     const mediaType = normalizeThreadsMediaType(row.media_type) || null;
-    const thumb = await resolveThreadsPostThumbnail(row, token);
+    let thumb = await resolveThreadsPostThumbnail(row, token);
+    if (thumb && isLikelyVideoMediaUrl(thumb)) {
+      const id = typeof row.id === 'string' ? row.id.trim() : '';
+      thumb = id ? await fetchThreadsPostThumbnail(id, token) : null;
+    }
     const metrics = metricsByPostId.get(id) ?? null;
     const interactions = metrics
       ? metrics.likes + metrics.replies + metrics.reposts + metrics.quotes

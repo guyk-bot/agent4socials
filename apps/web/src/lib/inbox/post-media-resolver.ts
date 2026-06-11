@@ -4,6 +4,7 @@ import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
 import { threadsGet } from '@/lib/threads/threads-api';
 import { getValidThreadsToken } from '@/lib/threads/threads-token';
+import { isLikelyVideoMediaUrl } from '@/lib/inbox/media-url';
 import { normalizeThreadsMediaType } from '@/lib/threads/post-media-type';
 import { threadsPostThumbnailFromMediaRow } from '@/lib/threads/fetch-post-thumbnail';
 
@@ -207,7 +208,7 @@ export async function resolvePostMediaForInbox(
     where: { platformPostId: postId, socialAccountId: account.id },
     select: { thumbnailUrl: true, mediaType: true },
   });
-  if (imp?.thumbnailUrl) {
+  if (imp?.thumbnailUrl && !isLikelyVideoMediaUrl(imp.thumbnailUrl)) {
     const mt = (imp.mediaType ?? '').toLowerCase();
     const kind = mt.includes('video') ? 'video' : 'image';
     return { kind, items: [{ kind, src: proxyMediaUrl(imp.thumbnailUrl) }] };

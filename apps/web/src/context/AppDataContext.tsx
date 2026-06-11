@@ -37,6 +37,7 @@ import {
 
 export type CachedPost = {
   id: string;
+  platformPostId?: string;
   content?: string | null;
   thumbnailUrl?: string | null;
   permalinkUrl?: string | null;

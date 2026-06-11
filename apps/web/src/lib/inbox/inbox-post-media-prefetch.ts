@@ -1,3 +1,5 @@
+import { inboxStillImageUrl, isLikelyVideoMediaUrl } from '@/lib/inbox/media-url';
+
 /** Client cache + background prefetch for inbox post thumbnails and reels. */
 
 const CACHE_KEY = 'agent4socials_inbox_post_media_v1';
@@ -67,8 +69,15 @@ export function inboxPostThumbSrc(
   const cached = readInboxPostMediaCache(accountId, postId);
   if (cached?.kind === 'image') return cached.src;
   if (cached?.poster) return cached.poster;
-  if (cached?.kind === 'video' && cached.src) return cached.src;
-  return proxyInboxImageUrl(fallbackImageUrl);
+  const still = inboxStillImageUrl(fallbackImageUrl);
+  return still ? proxyInboxImageUrl(still) : null;
+}
+
+export function readInboxPostMediaForThumb(
+  accountId: string,
+  postId: string
+): MediaCacheEntry | null {
+  return readInboxPostMediaCache(accountId, postId);
 }
 
 const inflight = new Set<string>();
@@ -83,8 +92,9 @@ export function prefetchInboxPostMedia(
   const key = cacheKey(accountId, postId);
   if (readInboxPostMediaCache(accountId, postId) || inflight.has(key)) return;
 
-  const fallback = proxyInboxImageUrl(fallbackImageUrl);
-  if (fallback) {
+  const still = inboxStillImageUrl(fallbackImageUrl);
+  const fallback = still ? proxyInboxImageUrl(still) : null;
+  if (fallback && !isLikelyVideoMediaUrl(fallbackImageUrl)) {
     const blob = readBlob();
     blob[key] = { kind: 'image', src: fallback, at: Date.now() };
     writeBlob(blob);
@@ -100,11 +110,12 @@ export function prefetchInboxPostMedia(
         items?: Array<{ kind?: string; src?: string; poster?: string }>;
       };
       const item = data?.items?.[0];
-      if (!item?.src) return;
+      if (!item?.src && !item?.poster) return;
       const blob = readBlob();
+      const kind = item.kind === 'video' ? 'video' : 'image';
       blob[key] = {
-        kind: item.kind === 'video' ? 'video' : 'image',
-        src: item.src,
+        kind,
+        src: item.src ?? item.poster ?? '',
         poster: item.poster,
         at: Date.now(),
       };
