@@ -442,18 +442,20 @@ export async function GET(
         accessToken: account.accessToken ?? '',
         expiresAt: account.expiresAt,
       });
+      const { threadsPostThumbnailUrl } = await import('@/lib/threads/post-media-type');
       const { status, data } = await threadsGet<{
         data?: Array<{
           id?: string;
           text?: string;
           timestamp?: string;
           permalink?: string;
+          media_type?: string;
           thumbnail_url?: string;
           media_url?: string;
         }>;
         error?: { message?: string };
       }>('me/threads', token, {
-        fields: 'id,text,timestamp,permalink,thumbnail_url,media_url',
+        fields: 'id,text,timestamp,permalink,media_type,thumbnail_url,media_url',
         limit: 50,
       });
       if (status === 200) {
@@ -466,7 +468,7 @@ export async function GET(
               postPreview: (m.text ?? '').trim() || `Thread ${i + 1}`,
               postTargetId: `live-${pid}`,
               postPublishedAt: m.timestamp ?? undefined,
-              postImageUrl: m.thumbnail_url ?? m.media_url ?? null,
+              postImageUrl: threadsPostThumbnailUrl(m),
               postUrl: m.permalink ?? null,
             };
           })

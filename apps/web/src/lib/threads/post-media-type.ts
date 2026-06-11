@@ -11,7 +11,24 @@ export function normalizeThreadsMediaType(raw: string | null | undefined): strin
   if (m === 'TEXT' || m === 'TEXT_POST') return 'TEXT';
   if (m === 'CAROUSEL' || m === 'CAROUSEL_ALBUM') return 'CAROUSEL';
   if (m === 'REPOST' || m === 'REPOST_FACADE') return 'REPOST';
+  if (m === 'REELS' || m === 'REEL' || m === 'VIDEO_POST') return 'VIDEO';
   return m;
+}
+
+/** Best preview URL for inbox / imported post thumbnails (images and reels). */
+export function threadsPostThumbnailUrl(row: {
+  media_type?: string | null;
+  thumbnail_url?: string | null;
+  media_url?: string | null;
+}): string | null {
+  const mt = normalizeThreadsMediaType(row.media_type);
+  if (mt === 'TEXT' || mt === 'REPOST') return null;
+  const thumb = (row.thumbnail_url ?? '').trim();
+  if (thumb) return thumb;
+  const media = (row.media_url ?? '').trim();
+  if (!media) return null;
+  if (mt === 'IMAGE' || mt === 'VIDEO' || mt === 'CAROUSEL' || mt === 'AUDIO') return media;
+  return media;
 }
 
 export function classifyThreadsFormatBucket(

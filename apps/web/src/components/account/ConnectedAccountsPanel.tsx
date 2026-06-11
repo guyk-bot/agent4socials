@@ -17,6 +17,8 @@ import {
   listenForOAuthComplete,
   navigateOAuthConnect,
   prepareOAuthConnectPopup,
+  storeOAuthConnectInFlight,
+  watchOAuthConnectPopup,
 } from '@/lib/oauth-connect';
 
 /** Same connect targets and styling as Summary dashboard empty state (compact grid on Account page). */
@@ -240,6 +242,7 @@ export function ConnectedAccountsPanel() {
                       onClick={async () => {
                         if (reconnectingId) return;
                         const oauthPopup = prepareOAuthConnectPopup();
+                        storeOAuthConnectInFlight(acc.platform);
                         setReconnectingId(acc.id);
                         try {
                           const liMethod =
@@ -283,6 +286,8 @@ export function ConnectedAccountsPanel() {
                             const opened = navigateOAuthConnect(url, oauthPopup);
                             if (!opened.opened) {
                               alert('Could not open sign-in. Allow pop-ups for www.izop.io or try Reconnect again.');
+                            } else if (oauthPopup && !oauthPopup.closed) {
+                              watchOAuthConnectPopup(oauthPopup, acc.platform);
                             }
                           } else {
                             closeOAuthConnectPopup(oauthPopup);

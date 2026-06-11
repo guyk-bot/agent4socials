@@ -4,6 +4,7 @@ import { facebookGraphBaseUrl } from '@/lib/meta-graph-insights';
 import { MetaGraphThrottledError, runMetaGraphRequest } from '@/lib/meta-graph-queue';
 import { threadsGet } from '@/lib/threads/threads-api';
 import { getValidThreadsToken } from '@/lib/threads/threads-token';
+import { normalizeThreadsMediaType } from '@/lib/threads/post-media-type';
 
 export type PostMediaItem = {
   kind: 'image' | 'video';
@@ -36,8 +37,8 @@ type ThreadsMediaRow = {
 };
 
 function threadsMediaItem(row: ThreadsMediaRow): PostMediaItem | null {
-  const mt = (row.media_type ?? '').toUpperCase();
-  if (mt === 'VIDEO') {
+  const mt = normalizeThreadsMediaType(row.media_type);
+  if (mt === 'VIDEO' || mt === 'AUDIO') {
     const src = row.media_url ?? row.thumbnail_url;
     if (!src) return null;
     return {
@@ -67,8 +68,8 @@ async function resolveThreadsMedia(account: AccountRow, postId: string): Promise
   });
   if (status !== 200) return { kind: 'none', items: [] };
 
-  const mt = (data?.media_type ?? '').toUpperCase();
-  if (mt === 'CAROUSEL_ALBUM') {
+  const mt = normalizeThreadsMediaType(data?.media_type);
+  if (mt === 'CAROUSEL') {
     const items = (data?.children?.data ?? [])
       .map((child) => threadsMediaItem(child))
       .filter((x): x is PostMediaItem => x != null);

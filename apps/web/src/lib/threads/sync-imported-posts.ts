@@ -6,7 +6,7 @@ import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
 import { threadsGet } from '@/lib/threads/threads-api';
 import { getValidThreadsToken } from '@/lib/threads/threads-token';
-import { normalizeThreadsMediaType } from '@/lib/threads/post-media-type';
+import { normalizeThreadsMediaType, threadsPostThumbnailUrl } from '@/lib/threads/post-media-type';
 
 type InsightMetric = {
   name?: string;
@@ -117,11 +117,7 @@ export async function syncThreadsPosts(account: {
     const publishedAt = row.timestamp ? new Date(row.timestamp) : new Date();
     const content = typeof row.text === 'string' ? row.text : null;
     const mediaType = normalizeThreadsMediaType(row.media_type) || null;
-    const thumb =
-      mediaType === 'TEXT'
-        ? null
-        : (typeof row.thumbnail_url === 'string' ? row.thumbnail_url : null) ||
-          (typeof row.media_url === 'string' && mediaType === 'IMAGE' ? row.media_url : null);
+    const thumb = threadsPostThumbnailUrl(row);
     const metrics = metricsByPostId.get(id) ?? null;
     const interactions = metrics
       ? metrics.likes + metrics.replies + metrics.reposts + metrics.quotes

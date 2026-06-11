@@ -3360,7 +3360,7 @@ function InboxPage() {
                         (e.currentTarget as HTMLDivElement).click();
                       }
                     }}
-                    className={`w-full px-3 py-3 text-left transition-colors flex items-center gap-2 cursor-pointer ${
+                    className={`w-full px-3 py-3 text-left transition-colors flex items-center gap-2 cursor-pointer select-none ${
                       isSelected
                         ? 'bg-neutral-100 border-l-2 border-l-neutral-400 dark:bg-neutral-800 dark:border-l-neutral-500'
                         : selectedComment?.commentId === c.commentId
@@ -3401,7 +3401,7 @@ function InboxPage() {
                               {(c.postPreview || 'Post').slice(0, 48)}{(c.postPreview?.length ?? 0) > 48 ? '...' : ''}
                             </p>
                           )}
-                          <p className="text-xs text-neutral-600 dark:text-neutral-400 line-clamp-2 mt-0.5">{c.text}</p>
+                          <p className="text-xs text-neutral-600 dark:text-neutral-400 line-clamp-2 mt-0.5 select-none">{c.text}</p>
                         </div>
                       </div>
                     </div>
@@ -4460,7 +4460,7 @@ function InboxPage() {
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1">Post description</p>
                           {selectedComment.postPreview ? (
-                            <p className="text-sm text-neutral-800 whitespace-pre-wrap break-words">{selectedComment.postPreview}</p>
+                            <p className="text-sm text-neutral-800 whitespace-pre-wrap break-words select-none cursor-default">{selectedComment.postPreview}</p>
                           ) : (
                             <p className="text-sm text-neutral-500 italic">No description</p>
                           )}
@@ -4478,7 +4478,7 @@ function InboxPage() {
                           <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-0.5">
                             {selectedComment.authorName}
                           </p>
-                          <p className="text-sm text-neutral-800 dark:text-neutral-100 whitespace-pre-wrap break-words">
+                          <p className="text-sm text-neutral-800 dark:text-neutral-100 whitespace-pre-wrap break-words select-none cursor-default">
                             {selectedComment.text}
                           </p>
                         </div>
@@ -4552,7 +4552,7 @@ function InboxPage() {
                                     {r.authorName}
                                     <span className="ml-1">{new Date(r.createdAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}</span>
                                   </p>
-                                  <p className="text-sm text-neutral-800 dark:text-neutral-100 mt-0.5 whitespace-pre-wrap break-words">{r.text}</p>
+                                  <p className="text-sm text-neutral-800 dark:text-neutral-100 mt-0.5 whitespace-pre-wrap break-words select-none cursor-default">{r.text}</p>
                                 </div>
                                 {canDeleteReply && (
                                   <button

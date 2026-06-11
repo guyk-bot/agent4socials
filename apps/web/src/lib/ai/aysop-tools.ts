@@ -339,7 +339,12 @@ async function buildRecentInboxArtifact(
         createdAt: row.createdAt,
         inboxKind: row.inboxKind ?? null,
         ...(() => {
-          const elig = inboxCommentReplyEligibility(row);
+          const elig = inboxCommentReplyEligibility({
+            platform: acc.platform,
+            createdAt: row.createdAt,
+            postPublishedAt: row.postPublishedAt ?? null,
+            openOnPlatformOnly: row.openOnPlatformOnly,
+          });
           return {
             canSuggestReply: elig.canSuggestReply,
             replyBlockedReason: elig.reason,

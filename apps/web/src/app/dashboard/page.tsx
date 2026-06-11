@@ -73,6 +73,8 @@ import {
   storeOAuthConnectInFlight,
   clearOAuthConnectInFlight,
   clearOAuthConnectInFlightForPlatform,
+  readOAuthConnectInFlight,
+  OAUTH_CONNECT_IN_FLIGHT_EVENT,
   watchOAuthConnectPopup,
 } from '@/lib/oauth-connect';
 import {
@@ -432,6 +434,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
   const [connectingMethod, setConnectingMethod] = useState<string | undefined>(undefined);
+  const [oauthInFlightPlatform, setOauthInFlightPlatform] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? readOAuthConnectInFlight() : null
+  );
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [analyticsTab, setAnalyticsTab] = useState('account');
   const [importedPosts, setImportedPosts] = useState<Array<{ id: string; content?: string | null; thumbnailUrl?: string | null; permalinkUrl?: string | null; impressions: number; interactions: number; publishedAt: string; mediaType?: string | null; platform: string }>>(() => {
@@ -649,8 +654,13 @@ export default function DashboardPage() {
     ? connectParam.toUpperCase()
     : null;
   const oauthReturnInProgress = Boolean(postConnectReturn);
+  const connectPlatformCandidate = selectedPlatformForConnect || connectFromUrl;
+  const platformAlreadyConnected = Boolean(
+    connectPlatformCandidate &&
+      accounts.some((a) => a.platform === connectPlatformCandidate)
+  );
   const showConnectView =
-    (selectedPlatformForConnect || connectFromUrl) && !oauthReturnInProgress;
+    Boolean(connectPlatformCandidate) && !oauthReturnInProgress && !platformAlreadyConnected;
 
   const accountIdsKey = accounts.map((a) => a.id).sort().join(',');
 
@@ -670,16 +680,32 @@ export default function DashboardPage() {
     accounts,
   ]);
 
-  // When connect= is in URL (e.g. clicked + from Inbox): sync state and clean URL. Skip during OAuth return.
+  // When connect= is in URL (e.g. clicked + from sidebar): open Connect or select existing account.
   useEffect(() => {
     if (!connectParam) return;
     if (connectingParam === '1' || accountIdFromUrl) return;
     const upper = connectParam.toUpperCase();
-    if (ALLOWED_CONNECT.includes(upper)) {
-      setSelectedPlatformForConnect(upper);
-      router.replace('/dashboard', { scroll: false });
+    if (!ALLOWED_CONNECT.includes(upper)) return;
+    const existing = accounts.find((a) => a.platform === upper);
+    if (existing?.id) {
+      setSelectedPlatformForConnect(null);
+      clearOAuthConnectInFlight();
+      setSelectedAccountId(existing.id);
+      router.replace(`/dashboard?accountId=${encodeURIComponent(existing.id)}`, { scroll: false });
+      return;
     }
-  }, [connectParam, connectingParam, accountIdFromUrl, router, setSelectedPlatformForConnect]);
+    setSelectedPlatformForConnect(upper);
+    storeOAuthConnectInFlight(upper);
+    router.replace('/dashboard', { scroll: false });
+  }, [
+    connectParam,
+    connectingParam,
+    accountIdFromUrl,
+    router,
+    setSelectedPlatformForConnect,
+    setSelectedAccountId,
+    accounts,
+  ]);
 
   // OAuth return: defer account selection until brand assignment runs (avoids wrong-brand analytics flash).
   useLayoutEffect(() => {
@@ -779,9 +805,14 @@ export default function DashboardPage() {
         setSelectedAccountId(accountIdFromUrl);
         markInboxAccountRecentlyConnected(connected.id, connected.platform);
         clearOAuthConnectInFlight();
-        if (connected.platform === 'INSTAGRAM' || connected.platform === 'FACEBOOK') {
+        if (
+          connected.platform === 'INSTAGRAM' ||
+          connected.platform === 'FACEBOOK' ||
+          connected.platform === 'THREADS'
+        ) {
           triggerInboxWarmClient(true);
         }
+        setSelectedPlatformForConnect(null);
         router.replace(
           buildDashboardSuccessRedirect(accountIdFromUrl, connected.platform),
           { scroll: false }
@@ -812,6 +843,8 @@ export default function DashboardPage() {
   useEffect(() => {
     return listenForOAuthComplete((payload) => {
       setSelectedPlatformForConnect(null);
+      setConnectingPlatform(null);
+      setConnectingMethod(undefined);
       clearOAuthConnectInFlight();
       const { accountId, platform, username, profilePicture } = payload;
       if (accountId && platform) {
@@ -856,10 +889,17 @@ export default function DashboardPage() {
         if (connected) {
           markInboxAccountRecentlyConnected(connected.id, connected.platform);
           clearOAuthConnectInFlight();
-          if (connected.platform === 'INSTAGRAM' || connected.platform === 'FACEBOOK') {
+          if (
+            connected.platform === 'INSTAGRAM' ||
+            connected.platform === 'FACEBOOK' ||
+            connected.platform === 'THREADS'
+          ) {
             triggerInboxWarmClient(true);
           }
         }
+        setSelectedPlatformForConnect(null);
+        setConnectingPlatform(null);
+        setConnectingMethod(undefined);
         router.replace(buildDashboardSuccessRedirect(accountId, plat), { scroll: false });
       });
     });
@@ -1897,6 +1937,7 @@ export default function DashboardPage() {
     storeOAuthConnectInFlight(platform);
     setConnectingPlatform(platform);
     setConnectingMethod(method);
+    let oauthPopupOpened = false;
     if (typeof window !== 'undefined') {
       storePendingConnectNav({
         successRedirect: buildDashboardSuccessRedirect(),
@@ -1951,8 +1992,11 @@ export default function DashboardPage() {
           setAlertMessage(
             'Could not open sign-in. Allow pop-ups for www.izop.io or click Connect again.'
           );
-        } else if (oauthPopup && !oauthPopup.closed) {
-          watchOAuthConnectPopup(oauthPopup, platform);
+        } else {
+          oauthPopupOpened = true;
+          if (oauthPopup && !oauthPopup.closed) {
+            watchOAuthConnectPopup(oauthPopup, platform);
+          }
         }
         return;
       }
@@ -1995,10 +2039,26 @@ export default function DashboardPage() {
         }
       }
     } finally {
-      setConnectingPlatform(null);
-      setConnectingMethod(undefined);
+      if (!oauthPopupOpened) {
+        setConnectingPlatform(null);
+        setConnectingMethod(undefined);
+      }
     }
   };
+
+  useEffect(() => {
+    const syncConnectUi = () => {
+      const inFlight = readOAuthConnectInFlight();
+      setOauthInFlightPlatform(inFlight);
+      if (!inFlight) {
+        setConnectingPlatform(null);
+        setConnectingMethod(undefined);
+      }
+    };
+    syncConnectUi();
+    window.addEventListener(OAUTH_CONNECT_IN_FLIGHT_EVENT, syncConnectUi);
+    return () => window.removeEventListener(OAUTH_CONNECT_IN_FLIGHT_EVENT, syncConnectUi);
+  }, [connectingParam, searchParams.get('newPlatform'), searchParams.get('accountId')]);
 
   // Must run unconditionally before any early return (hooks rule)
   const postsByDateSeries = React.useMemo(() => {
@@ -2154,7 +2214,7 @@ export default function DashboardPage() {
         <ConnectView
           platform={connectPlatform}
           onConnect={handleConnect}
-          connecting={connectingPlatform !== null}
+          connecting={connectingPlatform !== null || oauthInFlightPlatform !== null}
           connectingMethod={connectingMethod}
 
           connectError={alertMessage}

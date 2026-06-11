@@ -100,6 +100,17 @@ export function isPlatformOAuthPending(platform: string): boolean {
   const p = platform.trim().toUpperCase();
   if (!p) return false;
   if (urlIndicatesOAuthPending(p)) return true;
+  if (typeof window !== 'undefined') {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('connecting') === '1' && params.get('accountId') && !params.get('connect')) {
+        const urlPlatform = params.get('newPlatform')?.trim().toUpperCase();
+        if (urlPlatform === p) return true;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
   const inFlight = readInFlightRecord();
   if (inFlight?.platform === p) return true;
   return false;

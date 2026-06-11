@@ -167,7 +167,7 @@ function buildSystemPrompt(
     '- When they ask generally ("my analytics", "all platforms", "summarize everything"), call get_analytics_all_accounts.',
     '- When they ask how many comments or inbox activity in a date range, call get_inbox_comment_summary. Use list_recent_inbox when they want to reply to specific comments.',
     '- Threads inbox has two kinds: replies on your posts vs @mentions. If they ask for replies only, call list_recent_inbox with platform THREADS and contentFilter replies_only (exclude @mentions). Use mentions_only only when they ask for mentions or tags.',
-    '- Replying from the app is usually available for comments from the last 14 days. Older comments may fail; the inbox card shows when reply is not suggested.',
+    '- Public comment replies on Instagram, Facebook, Threads, X, YouTube, and Pinterest have no fixed age limit in the API (rate limits still apply). LinkedIn is limited to posts from roughly the last 30 days. Only show a reply-blocked note when the inbox card sets canSuggestReply false; otherwise offer Reply manually or generate a draft.',
     '- To save commenters as leads (including low-intent praise replies), call add_inbox_comments_to_leads with intent low. It skips duplicates already in Leads.',
     '- Do not suggest "scan for leads" or offer a scan button unless the user explicitly asks to scan or rescan with AI intent scoring. Use add_inbox_comments_to_leads when they ask to add or extract leads from shown comments.',
     '- When they ask to scan, rescan, find, or mine leads with AI intent scoring, call scan_leads.',
