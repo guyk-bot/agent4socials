@@ -623,25 +623,66 @@ export default function AysopAiWorkspace() {
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Delete this chat?')) return;
-    try {
-      if (!id.startsWith('offline-')) {
+
+    const wasActive = activeIdRef.current === id;
+    writeCachedMessages(user?.id, id, []);
+
+    if (!id.startsWith('offline-')) {
+      try {
         await api.delete(`/ai/aysop-chats/${id}`);
-      }
-      writeCachedMessages(user?.id, id, []);
-      const remaining = sessions.filter((s) => s.id !== id);
-      setSessions(remaining);
-      cacheSessionList(remaining);
-      if (activeId === id) {
-        const next = visibleChatSessions(remaining, null);
-        if (next.length) {
-          handleSelect(next[0].id);
-        } else {
-          handleNewChat();
+      } catch (e) {
+        const status = (e as { response?: { status?: number } })?.response?.status;
+        if (status !== 404) {
+          console.warn('[Aysop] server delete failed; removed chat locally', e);
         }
       }
-    } catch {
-      /* ignore */
     }
+
+    const remaining = sessions.filter((s) => s.id !== id);
+    setSessions(remaining);
+    cacheSessionList(remaining);
+
+    if (!wasActive) return;
+
+    setPanelResetKey((k) => k + 1);
+
+    const nextVisible = visibleChatSessions(remaining, null);
+    if (nextVisible.length > 0) {
+      const nextId = nextVisible[0]!.id;
+      setMessages([]);
+      messagesRef.current = [];
+      hydrateMessages(nextId);
+      setActiveChat(nextId);
+      void loadSession(nextId, { background: true });
+      return;
+    }
+
+    const quick = makeOfflineSession();
+    setSessions((prev) => {
+      const merged = [quick, ...prev.filter((s) => !s.id.startsWith('offline-'))];
+      cacheSessionList(merged);
+      return merged;
+    });
+    setMessages([]);
+    messagesRef.current = [];
+    setActiveChat(quick.id, { remember: false });
+
+    void (async () => {
+      try {
+        const created = await createSession();
+        if (created.id !== quick.id && activeIdRef.current === quick.id) {
+          setSessions((prev) => {
+            const summary: AysopChatSessionSummary = sessionSummaryFromDetail(created);
+            const merged = [summary, ...prev.filter((s) => s.id !== quick.id && s.id !== created.id)];
+            cacheSessionList(merged);
+            return merged;
+          });
+          setActiveChat(created.id, { remember: false });
+        }
+      } catch {
+        /* keep offline session */
+      }
+    })();
   };
 
   const handleMessagesChange = useCallback(

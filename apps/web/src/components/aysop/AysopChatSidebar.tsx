@@ -143,7 +143,9 @@ export default function AysopChatSidebar({
                           e.stopPropagation();
                           onDelete(s.id);
                         }}
-                        className="absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-md text-neutral-400 dark:text-neutral-500 opacity-0 group-hover:opacity-100 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-opacity"
+                        className={`absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-md text-neutral-400 dark:text-neutral-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-opacity ${
+                          active ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                        }`}
                         aria-label="Delete chat"
                       >
                         <Trash2 size={14} />
