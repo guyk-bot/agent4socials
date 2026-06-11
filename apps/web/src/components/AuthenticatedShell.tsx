@@ -98,7 +98,9 @@ function AuthenticatedContent({
                 style={{ ...chromeStyle, zIndex: CHROME_Z }}
                 data-chrome="sidebar"
             >
-                <Sidebar onSidebarToggle={onSidebarToggle} />
+                <Suspense fallback={<div className="h-full w-full bg-[var(--wl-sidebar-bg,var(--background))]" />}>
+                    <Sidebar onSidebarToggle={onSidebarToggle} />
+                </Suspense>
             </div>
         </div>
     );
