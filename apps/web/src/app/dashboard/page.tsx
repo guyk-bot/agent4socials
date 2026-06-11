@@ -70,6 +70,9 @@ function isOAuthConnectSyncActive(
   return Boolean(justConnected || justConnectedParam || postConnectReturn);
 }
 
+/** Brief pause on "Data loaded" before hiding the connect banner. */
+const CONNECT_BANNER_SETTLE_MS = 900;
+
 /** Fallback: dismiss connect banner if background sync stalls (sidebar stays usable). */
 const CONNECT_FINISH_MAX_MS = 120_000;
 
@@ -222,7 +225,7 @@ function DataSyncBanner({
   );
 
   return (
-    <div className={`mb-5 rounded-2xl overflow-hidden shadow-lg bg-gradient-to-r ${grad}`}>
+    <div className={`mt-4 mb-5 rounded-2xl overflow-hidden shadow-lg bg-gradient-to-r ${grad} transition-opacity duration-500`}>
       <div className="px-5 py-4 flex items-center gap-4">
         {/* icon with ping ring */}
         {icon && (
@@ -475,6 +478,8 @@ export default function DashboardPage() {
   }, [selectedAccount, selectedAccountId, accountIdFromUrl, accounts, allCachedAccounts, postConnectReturn, searchParams]);
   selectedAccountRef.current = analyticsAccount;
   const [justConnected, setJustConnected] = useState(false);
+  /** Stays true for the whole post-connect session until analytics are on screen. */
+  const [connectBannerVisible, setConnectBannerVisible] = useState(false);
   const postConnectLoadActive = isOAuthConnectSyncActive(
     analyticsAccount?.id,
     justConnected,
@@ -2418,38 +2423,52 @@ export default function DashboardPage() {
   ]);
 
   // End connect loading banner once this account's analytics and posts have finished loading.
-  useEffect(() => {
-    const accountId = analyticsAccount?.id;
-    if (!postConnectLoadActive || !accountId || isConnectLoadDone(accountId)) return;
-    if (insightsLoading || importedPostsLoading) return;
-    if (!lastInsightsFetchedAtRef.current[accountId]) return;
-    markConnectLoadDone(accountId);
-    clearOAuthConnectInFlight();
-    setOauthInFlightPlatform(null);
-    setJustConnected(false);
-  }, [
-    postConnectLoadActive,
-    analyticsAccount?.id,
-    insightsLoading,
-    importedPostsLoading,
-    displayInsights,
-  ]);
+  const connectDashboardReady = Boolean(
+    analyticsAccount?.id &&
+      displayInsights &&
+      !insightsLoading &&
+      !importedPostsLoading
+  );
 
-  /** After connect: dismiss banner if sync stalls; sidebar stays usable. */
   useEffect(() => {
     const accountId = analyticsAccount?.id;
-    if (!postConnectLoadActive || !accountId || isConnectLoadDone(accountId)) return;
+    const shouldOpen =
+      oauthConnectUiActive && (!accountId || !isConnectLoadDone(accountId));
+    if (shouldOpen) setConnectBannerVisible(true);
+  }, [oauthConnectUiActive, analyticsAccount?.id]);
+
+  useEffect(() => {
+    if (!connectBannerVisible || !connectDashboardReady) return;
+    const accountId = analyticsAccount?.id;
+    if (!accountId || isConnectLoadDone(accountId)) return;
     const timeoutId = window.setTimeout(() => {
       if (isConnectLoadDone(accountId)) return;
       markConnectLoadDone(accountId);
       clearOAuthConnectInFlight();
       setOauthInFlightPlatform(null);
       setJustConnected(false);
+      setConnectBannerVisible(false);
+    }, CONNECT_BANNER_SETTLE_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [connectBannerVisible, connectDashboardReady, analyticsAccount?.id]);
+
+  /** Last resort: never leave the banner up forever if sync stalls. */
+  useEffect(() => {
+    if (!connectBannerVisible || !analyticsAccount?.id) return;
+    const accountId = analyticsAccount.id;
+    if (isConnectLoadDone(accountId)) return;
+    const timeoutId = window.setTimeout(() => {
+      if (isConnectLoadDone(accountId)) return;
+      markConnectLoadDone(accountId);
+      clearOAuthConnectInFlight();
+      setOauthInFlightPlatform(null);
+      setJustConnected(false);
+      setConnectBannerVisible(false);
       setInsightsLoading(false);
       setImportedPostsLoading(false);
     }, CONNECT_FINISH_MAX_MS);
     return () => window.clearTimeout(timeoutId);
-  }, [postConnectLoadActive, analyticsAccount?.id]);
+  }, [connectBannerVisible, analyticsAccount?.id]);
 
   const hasFbOrIg = accounts.some((a) => a.platform === 'FACEBOOK' || a.platform === 'INSTAGRAM');
   const hintText = displayInsights?.insightsHint ?? '';
@@ -2620,32 +2639,31 @@ export default function DashboardPage() {
           : [];
   const maxImpressions = displayTimeSeries.length ? Math.max(...displayTimeSeries.map((d) => d.value), 1) : 1;
   const showViewsHint = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0) && (analyticsAccount?.platform === 'INSTAGRAM' || !analyticsAccount);
-  const connectLoadInProgress = oauthConnectUiActive;
   const syncBannerPlatform =
     analyticsAccount?.platform ?? oauthInFlightPlatform ?? connectPlatformCandidate ?? null;
   const syncBannerInsightsLoading = oauthConnectUiActive ? !displayInsights : insightsLoading;
   const syncBannerPostsLoading =
     oauthConnectUiActive ? importedPostsLoading || !displayInsights : importedPostsLoading;
-  /** In-dashboard skeleton only (sidebar + nav stay interactive). */
+  const hideAnalyticsWhileConnectLoading = connectBannerVisible && !connectDashboardReady;
+  /** In-dashboard skeleton only (sidebar + nav stay interactive). Never without the connect banner. */
   const analyticsLoadingOnly = Boolean(
     analyticsAccount &&
       !displayInsights &&
       insightsLoading &&
-      !connectLoadInProgress
+      !connectBannerVisible
   );
   const showDashboardSkeleton = Boolean(
-    oauthConnectUiActive
-      ? !displayInsights
-      : analyticsAccount &&
-          (analyticsLoadingOnly || (postConnectLoadActive && !displayInsights))
+    !connectBannerVisible &&
+      analyticsAccount &&
+      (analyticsLoadingOnly || (postConnectLoadActive && !displayInsights))
   );
-  const showDataSyncBanner = oauthConnectUiActive;
+  const showDataSyncBanner = connectBannerVisible;
   function openPricingPopup() {
     setPricingModalOpen(true);
   }
 
   return (
-    <div className="space-y-0">
+    <div className="space-y-4">
       <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
       {pricingModalOpen && typeof document !== 'undefined'
         ? createPortal(
@@ -2784,9 +2802,9 @@ export default function DashboardPage() {
       )}
 
       {/* Single-page analytics for any selected account (Overview, Demografic, Clicks/Traffic, Posts, Reels/Videos) */}
-      {!showDashboardSkeleton && analyticsAccount && (
+      {!showDashboardSkeleton && !hideAnalyticsWhileConnectLoading && analyticsAccount && (
         <div
-          className="mt-1 max-w-full"
+          className="mt-1 max-w-full transition-opacity duration-500"
           style={{ maxWidth: 1400 }}
         >
           {/* Sync status row — auto-triggers refresh when stale, shows last-updated time */}
