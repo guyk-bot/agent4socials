@@ -64,83 +64,11 @@ function isOAuthConnectSyncActive(accountId: string | undefined | null, justConn
   return Boolean(justConnected && accountId && !isConnectLoadDone(accountId));
 }
 
-const CONNECT_FINISH_MAX_MS = 20_000;
+/** Fallback: dismiss connect banner if background sync stalls (sidebar stays usable). */
+const CONNECT_FINISH_MAX_MS = 12_000;
 
-type ConnectPrefetchPost = {
-  id: string;
-  content?: string | null;
-  thumbnailUrl?: string | null;
-  permalinkUrl?: string | null;
-  impressions: number;
-  interactions: number;
-  publishedAt: string;
-  mediaType?: string | null;
-  platform: string;
-};
+const DASHBOARD_AFTER_CONNECT_PATH = '/dashboard';
 
-/** Import Threads posts + insights before showing the account dashboard after OAuth. */
-async function prefetchThreadsAfterConnect(accountId: string): Promise<{
-  posts: ConnectPrefetchPost[];
-  insights: Record<string, unknown> | null;
-  syncError?: string;
-}> {
-  const def = getDefaultDateRange();
-  try {
-    const [postsRes, insightsRes] = await Promise.all([
-      api.get(`/social/accounts/${accountId}/posts`, {
-        params: { sync: 1, force: 1 },
-        timeout: 60_000,
-      }),
-      api.get(`/social/accounts/${accountId}/insights`, {
-        params: { since: def.start, until: def.end },
-        timeout: 60_000,
-      }),
-    ]);
-    return {
-      posts: Array.isArray(postsRes.data?.posts) ? postsRes.data.posts : [],
-      insights:
-        insightsRes.data && typeof insightsRes.data === 'object'
-          ? (insightsRes.data as Record<string, unknown>)
-          : null,
-      syncError: typeof postsRes.data?.syncError === 'string' ? postsRes.data.syncError : undefined,
-    };
-  } catch {
-    return { posts: [], insights: null };
-  }
-}
-
-function seedThreadsConnectCaches(
-  accountId: string,
-  prefetched: { posts: ConnectPrefetchPost[]; insights: Record<string, unknown> | null },
-  caches: {
-    postsCacheRef: React.MutableRefObject<Record<string, ConnectPrefetchPost[]>>;
-    accountPostsHydratedRef: React.MutableRefObject<Record<string, boolean>>;
-    insightsCacheRef: React.MutableRefObject<Record<string, unknown>>;
-    lastInsightsByAccountIdRef: React.MutableRefObject<Record<string, Record<string, unknown>>>;
-    appData: ReturnType<typeof useAppData>;
-    userId?: string;
-  }
-): void {
-  const def = getDefaultDateRange();
-  caches.postsCacheRef.current[accountId] = prefetched.posts;
-  caches.accountPostsHydratedRef.current[accountId] = true;
-  caches.appData?.setPostsForAccount(accountId, prefetched.posts);
-  if (prefetched.insights) {
-    const cacheKey = `${accountId}-${def.start}-${def.end}`;
-    caches.insightsCacheRef.current[cacheKey] = prefetched.insights;
-    caches.lastInsightsByAccountIdRef.current[accountId] = {
-      ...prefetched.insights,
-      _dateRange: def,
-    };
-    caches.appData?.setInsightsForAccount(
-      accountId,
-      prefetched.insights as Parameters<NonNullable<typeof caches.appData>['setInsightsForAccount']>[1]
-    );
-    if (caches.userId) {
-      writeDashboardInsightsSession(caches.userId, accountId, prefetched.insights, def);
-    }
-  }
-}
 import {
   listenForOAuthComplete,
   notifyOAuthOpenerAndClose,
@@ -160,7 +88,6 @@ import {
   notifyOAuthCompleteLocally,
 } from '@/lib/oauth-connect';
 import { PlatformConnectLoading } from '@/components/PlatformConnectLoading';
-import { LogoLoadingAnimation } from '@/components/LogoLoadingAnimation';
 import {
   localCalendarDateFromIso,
   toLocalCalendarDate,
@@ -292,7 +219,7 @@ function DataSyncBanner({
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3">
             <Step state="done" label="Account connected" />
             <Step state={analyticsStep} label="Analytics" />
-            <Step state={postsStep} label="Syncing posts" />
+            <Step state={postsStep} label="Posts & history" />
           </div>
         </div>
       </div>
@@ -464,6 +391,8 @@ export default function DashboardPage() {
   maybePromptBrandMoveRef.current = maybePromptBrandMove;
   /** Prevents duplicate OAuth post-connect runs when unstable deps re-render mid-fetch. */
   const postConnectProcessedKeyRef = useRef<string | null>(null);
+  /** OAuth account id kept after we strip ?accountId= from the URL for a clean /dashboard. */
+  const pendingPostConnectAccountIdRef = useRef<string | null>(null);
   const userIdRef = useRef<string | undefined>(undefined);
   userIdRef.current = user?.id;
   /** Keeps posts-fetch callbacks aligned with the selected analytics account for TikTok insights invalidation. */
@@ -841,19 +770,29 @@ export default function DashboardPage() {
       setSelectedPlatformForConnect(null);
       clearOAuthConnectInFlight();
       clearConnectLoadDone(accountIdFromUrl);
+      pendingPostConnectAccountIdRef.current = accountIdFromUrl;
       setSelectedAccountId(accountIdFromUrl);
       setJustConnected(true);
+      if (!shouldStayOnPageAfterOAuthConnect()) {
+        router.replace(DASHBOARD_AFTER_CONNECT_PATH, { scroll: false });
+      }
       return;
     }
     setSelectedAccountId(accountIdFromUrl);
-  }, [accountIdFromUrl, postConnectReturn, twitter1oaNext, setSelectedAccountId, setSelectedPlatformForConnect]);
+  }, [accountIdFromUrl, postConnectReturn, twitter1oaNext, setSelectedAccountId, setSelectedPlatformForConnect, router]);
 
   // When accountId is in URL: clean URL; after connect refresh cache and clear stale per-account data.
   useEffect(() => {
-    if (!accountIdFromUrl || twitter1oaNext === '1') return;
-    const oauthJustConnected = connectingParam === '1' || brandMovedParam || brandKeptParam;
+    const connectAccountId = accountIdFromUrl ?? pendingPostConnectAccountIdRef.current;
+    if (!connectAccountId || twitter1oaNext === '1') return;
+    const oauthJustConnected =
+      connectingParam === '1' ||
+      brandMovedParam ||
+      brandKeptParam ||
+      Boolean(pendingPostConnectAccountIdRef.current);
 
     if (!oauthJustConnected) {
+      if (!accountIdFromUrl) return;
       const fromUrl = accounts.find((a) => a.id === accountIdFromUrl);
       if (fromUrl?.id) {
         setSelectedAccountId(accountIdFromUrl);
@@ -878,10 +817,10 @@ export default function DashboardPage() {
       return;
     }
 
-    if (typeof window !== 'undefined' && window.opener) {
+    if (typeof window !== 'undefined' && window.opener && accountIdFromUrl) {
       const params = new URLSearchParams(window.location.search);
       notifyOAuthOpenerAndClose({
-        accountId: accountIdFromUrl,
+        accountId: connectAccountId,
         platform: params.get('newPlatform') ?? undefined,
         username: params.get('newUsername') ?? undefined,
         profilePicture: params.get('newPic'),
@@ -889,7 +828,7 @@ export default function DashboardPage() {
       return;
     }
 
-    const processKey = `${accountIdFromUrl}:${connectingParam}:${brandMovedParam}:${brandKeptParam}`;
+    const processKey = `${connectAccountId}:${connectingParam}:${brandMovedParam}:${brandKeptParam}`;
     if (postConnectProcessedKeyRef.current === processKey) return;
 
     let cancelled = false;
@@ -915,16 +854,16 @@ export default function DashboardPage() {
         return;
       }
 
-      const connected = list.find((a) => a.id === accountIdFromUrl);
+      const connected = list.find((a) => a.id === connectAccountId);
       const platform = connected?.platform ?? urlPlatform;
-      if (!platform || !accountIdFromUrl) {
-        router.replace('/dashboard', { scroll: false });
+      if (!platform) {
+        router.replace(DASHBOARD_AFTER_CONNECT_PATH, { scroll: false });
         return;
       }
 
-      const successRedirect = buildDashboardSuccessRedirect(accountIdFromUrl, platform);
+      const successRedirect = DASHBOARD_AFTER_CONNECT_PATH;
       let postConnectResult = finishPostConnectRef.current(
-        accountIdFromUrl,
+        connectAccountId,
         list,
         { platform, username: connected?.username ?? urlUsername },
         { successRedirect, prevAccountIds, activeBrandIdOverride: pendingBrandId }
@@ -932,7 +871,7 @@ export default function DashboardPage() {
 
       if (postConnectResult !== 'prompt') {
         const prompted = maybePromptBrandMoveRef.current(
-          accountIdFromUrl,
+          connectAccountId,
           { platform, username: connected?.username ?? urlUsername },
           { successRedirect }
         );
@@ -942,14 +881,17 @@ export default function DashboardPage() {
       if (postConnectResult === 'prompt') {
         setCachedAccounts(list);
         clearSelection();
-        router.replace(buildDashboardSuccessRedirect(), { scroll: false });
+        pendingPostConnectAccountIdRef.current = null;
+        router.replace(DASHBOARD_AFTER_CONNECT_PATH, { scroll: false });
         return;
       }
 
       setCachedAccounts(list);
-      delete postsCacheRef.current[accountIdFromUrl];
+      delete postsCacheRef.current[connectAccountId];
+      singleAccountPostsRunKeyRef.current = '';
+      insightsRunKeyRef.current = '';
       if (connected) {
-        setSelectedAccountId(accountIdFromUrl);
+        setSelectedAccountId(connectAccountId);
         markInboxAccountRecentlyConnected(connected.id, connected.platform);
         clearOAuthConnectInFlight();
         if (
@@ -961,35 +903,16 @@ export default function DashboardPage() {
         }
         setSelectedPlatformForConnect(null);
         setJustConnected(true);
-        if (connected.platform === 'THREADS') {
-          const prefetched = await prefetchThreadsAfterConnect(accountIdFromUrl);
-          seedThreadsConnectCaches(accountIdFromUrl, prefetched, {
-            postsCacheRef,
-            accountPostsHydratedRef,
-            insightsCacheRef,
-            lastInsightsByAccountIdRef,
-            appData: appDataRef.current,
-            userId: userIdRef.current,
-          });
-          singleAccountPostsRunKeyRef.current = '';
-          insightsRunKeyRef.current = '';
-          if (prefetched.posts.length > 0) setImportedPosts(prefetched.posts);
-          if (prefetched.insights) {
-            setInsights(prefetched.insights as NonNullable<Parameters<typeof setInsights>[0]>);
-          }
-          if (prefetched.syncError) setPostsSyncError(prefetched.syncError);
-        }
+        pendingPostConnectAccountIdRef.current = null;
         if (!shouldStayOnPageAfterOAuthConnect()) {
-          router.replace(
-            buildDashboardSuccessRedirect(accountIdFromUrl, connected.platform),
-            { scroll: false }
-          );
+          router.replace(DASHBOARD_AFTER_CONNECT_PATH, { scroll: false });
         }
         return;
       }
+      pendingPostConnectAccountIdRef.current = null;
       clearSelection();
       if (!shouldStayOnPageAfterOAuthConnect()) {
-        router.replace('/dashboard', { scroll: false });
+        router.replace(DASHBOARD_AFTER_CONNECT_PATH, { scroll: false });
       }
     })();
 
@@ -1002,6 +925,7 @@ export default function DashboardPage() {
     brandMovedParam,
     brandKeptParam,
     twitter1oaNext,
+    justConnected,
     router,
     setCachedAccounts,
     setSelectedAccountId,
@@ -1019,6 +943,7 @@ export default function DashboardPage() {
       if (payload.platform) storeOAuthConnectInFlight(payload.platform);
       const { accountId, platform, username, profilePicture } = payload;
       if (accountId && platform) {
+        pendingPostConnectAccountIdRef.current = accountId;
         setSelectedAccountId(accountId);
         setCachedAccounts((prev) =>
           upsertOptimisticConnectedAccount(prev, {
@@ -1030,6 +955,11 @@ export default function DashboardPage() {
         );
         clearConnectLoadDone(accountId);
         setJustConnected(true);
+        singleAccountPostsRunKeyRef.current = '';
+        insightsRunKeyRef.current = '';
+        if (!shouldStayOnPageAfterOAuthConnect()) {
+          router.replace(DASHBOARD_AFTER_CONNECT_PATH, { scroll: false });
+        }
       }
       const prevAccountIds = readCachedAccountIdsFromStorage();
       const pendingBrandId = readPendingConnectActiveBrand() ?? activeBrandId;
@@ -1044,7 +974,7 @@ export default function DashboardPage() {
             ? { platform: connected.platform, username: connected.username }
             : { platform: plat, username },
           {
-            successRedirect: buildDashboardSuccessRedirect(accountId, plat),
+            successRedirect: DASHBOARD_AFTER_CONNECT_PATH,
             prevAccountIds,
             activeBrandIdOverride: pendingBrandId,
           }
@@ -1052,7 +982,8 @@ export default function DashboardPage() {
         if (postConnectResult === 'prompt') {
           setCachedAccounts(list);
           clearSelection();
-          router.replace(buildDashboardSuccessRedirect(), { scroll: false });
+          pendingPostConnectAccountIdRef.current = null;
+          router.replace(DASHBOARD_AFTER_CONNECT_PATH, { scroll: false });
           return;
         }
         setCachedAccounts(list);
@@ -1071,26 +1002,9 @@ export default function DashboardPage() {
         setSelectedPlatformForConnect(null);
         setOauthLaunchingPlatform(null);
         setOauthLaunchingMethod(undefined);
-        if (plat === 'THREADS' && accountId) {
-          const prefetched = await prefetchThreadsAfterConnect(accountId);
-          seedThreadsConnectCaches(accountId, prefetched, {
-            postsCacheRef,
-            accountPostsHydratedRef,
-            insightsCacheRef,
-            lastInsightsByAccountIdRef,
-            appData: appDataRef.current,
-            userId: userIdRef.current,
-          });
-          singleAccountPostsRunKeyRef.current = '';
-          insightsRunKeyRef.current = '';
-          if (prefetched.posts.length > 0) setImportedPosts(prefetched.posts);
-          if (prefetched.insights) {
-            setInsights(prefetched.insights as NonNullable<Parameters<typeof setInsights>[0]>);
-          }
-          if (prefetched.syncError) setPostsSyncError(prefetched.syncError);
-        }
+        pendingPostConnectAccountIdRef.current = null;
         if (!shouldStayOnPageAfterOAuthConnect()) {
-          router.replace(buildDashboardSuccessRedirect(accountId, plat), { scroll: false });
+          router.replace(DASHBOARD_AFTER_CONNECT_PATH, { scroll: false });
         }
       });
     });
@@ -2434,36 +2348,6 @@ export default function DashboardPage() {
       .catch(() => {});
   }, [reconnectCondition, accounts, appData, insights?.insightsHint]);
 
-  const connectFinishAccountId = analyticsAccount?.id ?? accountIdFromUrl ?? null;
-  const connectFinishPlatform =
-    analyticsAccount?.platform ??
-    searchParams.get('newPlatform')?.toUpperCase() ??
-    (oauthInFlightPlatform ? oauthInFlightPlatform.toUpperCase() : null);
-  const connectLoadInProgress = Boolean(
-    justConnected &&
-      connectFinishAccountId &&
-      !isConnectLoadDone(connectFinishAccountId)
-  );
-  const showConnectFinishOverlay = Boolean(
-    connectLoadInProgress ||
-      (postConnectReturn && accountIdFromUrl && !isConnectLoadDone(accountIdFromUrl)) ||
-      (oauthInFlightPlatform && accountIdFromUrl && connectFinishPlatform)
-  );
-
-  if (showConnectFinishOverlay && connectFinishPlatform && !showConnectView) {
-    return (
-      <>
-        <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
-        <div className="fixed inset-0 z-[8400] flex flex-col items-center justify-center gap-4 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-sm px-4">
-          <LogoLoadingAnimation className="platform-connect-loading__logo-full" aria-label="Loading dashboard" />
-          <p className="platform-connect-loading__text text-center">
-            Finishing connection and loading your dashboard…
-          </p>
-        </div>
-      </>
-    );
-  }
-
   if (showConnectView) {
     const connectPlatform = (selectedPlatformForConnect || connectFromUrl) as string;
     const connectCallbackPending = isPlatformOAuthPending(connectPlatform);
@@ -2570,19 +2454,23 @@ export default function DashboardPage() {
           : [];
   const maxImpressions = displayTimeSeries.length ? Math.max(...displayTimeSeries.map((d) => d.value), 1) : 1;
   const showViewsHint = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0) && (analyticsAccount?.platform === 'INSTAGRAM' || !analyticsAccount);
-  /** Full-page analytics skeleton: only when insights are loading AND no cached data.
-   * Do NOT tie this to importedPostsLoading — post sync would hide the whole dashboard
-   * even when insights + charts are already available (stale-while-revalidate). */
+  const connectLoadInProgress = Boolean(
+    justConnected &&
+      analyticsAccount?.id &&
+      !isConnectLoadDone(analyticsAccount.id)
+  );
+  /** In-dashboard skeleton only (sidebar + nav stay interactive). */
   const analyticsLoadingOnly = Boolean(
     analyticsAccount &&
-    !displayInsights &&
-    insightsLoading &&
-    !connectLoadInProgress
+      !displayInsights &&
+      insightsLoading &&
+      !connectLoadInProgress
   );
-  const showDataSyncBanner = Boolean(
-    connectLoadInProgress &&
-    (analyticsLoadingOnly || insightsLoading || importedPostsLoading)
+  const showDashboardSkeleton = Boolean(
+    analyticsAccount &&
+      (analyticsLoadingOnly || (connectLoadInProgress && !displayInsights))
   );
+  const showDataSyncBanner = connectLoadInProgress;
   function openPricingPopup() {
     setPricingModalOpen(true);
   }
@@ -2590,14 +2478,6 @@ export default function DashboardPage() {
   return (
     <div className="space-y-0">
       <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
-      {showConnectFinishOverlay && connectFinishPlatform ? (
-        <div className="fixed inset-0 z-[8400] flex flex-col items-center justify-center gap-4 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-sm px-4">
-          <LogoLoadingAnimation className="platform-connect-loading__logo-full" aria-label="Loading dashboard" />
-          <p className="platform-connect-loading__text text-center">
-            Finishing connection and loading your dashboard…
-          </p>
-        </div>
-      ) : null}
       {pricingModalOpen && typeof document !== 'undefined'
         ? createPortal(
             <div
@@ -2653,7 +2533,7 @@ export default function DashboardPage() {
           dataReady={Boolean(displayInsights)}
         />
       )}
-      {analyticsLoadingOnly && (
+      {showDashboardSkeleton && (
         <div className="mt-4 max-w-full space-y-4" style={{ maxWidth: 1400 }}>
           <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4 animate-pulse">
             <div className="h-5 w-44 rounded-md bg-neutral-200/80 dark:bg-neutral-700/80 mb-3" />
@@ -2682,7 +2562,7 @@ export default function DashboardPage() {
         </div>
       )}
       {/* Instagram-only: analytics and posts not available; CTA to connect with Facebook */}
-      {!analyticsLoadingOnly && analyticsAccount?.platform === 'INSTAGRAM' && (analyticsAccount as { instagramLoginOnly?: boolean }).instagramLoginOnly && (
+      {!showDashboardSkeleton && analyticsAccount?.platform === 'INSTAGRAM' && (analyticsAccount as { instagramLoginOnly?: boolean }).instagramLoginOnly && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-4 px-4 py-4 rounded-lg upgrade-banner-warm">
           <p className="text-sm text-orange-900">
             <strong>Analytics and posts are not available</strong> when connected with Instagram only. Connect with Facebook to unlock full analytics, post history, and insights on both the Account and Posts tabs.
@@ -2698,7 +2578,7 @@ export default function DashboardPage() {
       )}
 
       {/* When no account selected: show "All connected" or connect CTA. Disconnect is on Accounts page. */}
-      {!analyticsLoadingOnly && !analyticsAccount && (
+      {!showDashboardSkeleton && !analyticsAccount && (
       <div className="mt-6 flex flex-col gap-3">
         {hasAccounts ? (
           <div className="flex gap-3 p-3 bg-white rounded-xl border border-neutral-200 w-fit">
@@ -2735,7 +2615,7 @@ export default function DashboardPage() {
       )}
 
       {/* Single-page analytics for any selected account (Overview, Demografic, Clicks/Traffic, Posts, Reels/Videos) */}
-      {!analyticsLoadingOnly && analyticsAccount && (
+      {!showDashboardSkeleton && analyticsAccount && (
         <div
           className="mt-1 max-w-full"
           style={{ maxWidth: 1400 }}
