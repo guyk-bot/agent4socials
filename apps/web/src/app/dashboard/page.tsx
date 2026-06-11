@@ -2121,9 +2121,12 @@ export default function DashboardPage() {
     let stopOAuthPoll: (() => void) | undefined;
     let stopPopupWatch: (() => void) | undefined;
     if (typeof window !== 'undefined') {
+      const currentPath = window.location.pathname;
+      const dashboardRedirect = buildDashboardSuccessRedirect();
       storePendingConnectNav({
-        successRedirect: buildDashboardSuccessRedirect(),
-        returnUrl: `${window.location.pathname}${window.location.search}`,
+        successRedirect: dashboardRedirect,
+        // Always redirect to dashboard after connect, not back to Account settings
+        returnUrl: currentPath.startsWith('/dashboard/account') ? dashboardRedirect : `${currentPath}${window.location.search}`,
         activeBrandId,
       });
     }
