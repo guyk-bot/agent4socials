@@ -77,6 +77,7 @@ import {
   OAUTH_CONNECT_IN_FLIGHT_EVENT,
   ACCOUNT_DISCONNECTED_EVENT,
   watchOAuthConnectPopup,
+  watchOAuthConnectTimeout,
 } from '@/lib/oauth-connect';
 import {
   localCalendarDateFromIso,
@@ -1967,7 +1968,15 @@ export default function DashboardPage() {
     setConnectingPlatform(platform);
     setConnectingMethod(method);
     let oauthPopupOpened = false;
+    let stopOAuthTimeoutWatch: (() => void) | undefined;
     if (typeof window !== 'undefined') {
+      stopOAuthTimeoutWatch = watchOAuthConnectTimeout(platform, () => {
+        setConnectingPlatform(null);
+        setConnectingMethod(undefined);
+        setAlertMessage(
+          'Connection timed out. Close the sign-in tab if it shows an error, then click Connect again.'
+        );
+      });
       storePendingConnectNav({
         successRedirect: buildDashboardSuccessRedirect(),
         returnUrl: `${window.location.pathname}${window.location.search}`,
@@ -2024,15 +2033,20 @@ export default function DashboardPage() {
         } else {
           oauthPopupOpened = true;
           if (oauthPopup && !oauthPopup.closed) {
-            watchOAuthConnectPopup(oauthPopup, platform);
+            watchOAuthConnectPopup(oauthPopup, platform, () => {
+              setConnectingPlatform(null);
+              setConnectingMethod(undefined);
+            });
           }
         }
         return;
       }
       closeOAuthConnectPopup(oauthPopup);
+      stopOAuthTimeoutWatch?.();
       setAlertMessage('Invalid response from server. Check server logs.');
     } catch (err: unknown) {
       closeOAuthConnectPopup(oauthPopup);
+      stopOAuthTimeoutWatch?.();
       clearOAuthConnectInFlight();
       const aborted =
         (err instanceof DOMException && err.name === 'AbortError') ||
@@ -2069,6 +2083,7 @@ export default function DashboardPage() {
       }
     } finally {
       if (!oauthPopupOpened) {
+        stopOAuthTimeoutWatch?.();
         setConnectingPlatform(null);
         setConnectingMethod(undefined);
       }

@@ -6,7 +6,7 @@ export const OAUTH_CONNECT_IN_FLIGHT_EVENT = 'izop-oauth-connect-in-flight';
 export const ACCOUNT_DISCONNECTED_EVENT = 'izop-account-disconnected';
 
 /** Max time to show sidebar "Connecting…" if OAuth never completes. */
-const OAUTH_IN_FLIGHT_TTL_MS = 5 * 60 * 1000;
+export const OAUTH_IN_FLIGHT_TTL_MS = 90 * 1000;
 
 type OAuthInFlightRecord = {
   platform: string;
@@ -155,7 +155,11 @@ export function isPlatformOAuthPending(platform: string): boolean {
 }
 
 /** Clear sidebar "Connecting…" when the user closes the OAuth popup without finishing. */
-export function watchOAuthConnectPopup(popup: Window | null | undefined, platform: string): () => void {
+export function watchOAuthConnectPopup(
+  popup: Window | null | undefined,
+  platform: string,
+  onAbandon?: () => void
+): () => void {
   if (typeof window === 'undefined' || !popup || popup.closed) return () => {};
   const p = platform.trim().toUpperCase();
   const timer = window.setInterval(() => {
@@ -163,8 +167,28 @@ export function watchOAuthConnectPopup(popup: Window | null | undefined, platfor
     window.clearInterval(timer);
     if (readOAuthConnectInFlight() === p) {
       clearOAuthConnectInFlight();
+      onAbandon?.();
     }
   }, 400);
+  return () => window.clearInterval(timer);
+}
+
+/** Auto-clear stuck OAuth UI if callback never returns (e.g. 504 on callback route). */
+export function watchOAuthConnectTimeout(platform: string, onTimeout: () => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+  const p = platform.trim().toUpperCase();
+  const timer = window.setInterval(() => {
+    const record = readInFlightRecord();
+    if (!record || record.platform !== p) {
+      window.clearInterval(timer);
+      return;
+    }
+    if (Date.now() - record.startedAt > OAUTH_IN_FLIGHT_TTL_MS) {
+      clearOAuthConnectInFlight();
+      window.clearInterval(timer);
+      onTimeout();
+    }
+  }, 1000);
   return () => window.clearInterval(timer);
 }
 

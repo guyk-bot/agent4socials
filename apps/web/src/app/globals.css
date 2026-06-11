@@ -1355,6 +1355,142 @@
   }
 }
 
+.izop-glass-logo--animated .izop-glass-logo__shell {
+  animation: izop-connect-logo-pulse 2.2s ease-in-out infinite;
+}
+
+.izop-glass-logo--animated .izop-glass-logo__sparkle {
+  animation-duration: 1.6s;
+}
+
+@keyframes izop-connect-logo-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.06);
+    filter: brightness(1.12);
+  }
+}
+
+.platform-connect-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.platform-connect-loading--full {
+  gap: 1rem;
+  padding: 2rem 1.5rem;
+  max-width: 22rem;
+}
+
+.platform-connect-loading--compact {
+  flex-direction: row;
+  gap: 0.5rem;
+  align-items: center;
+  width: 100%;
+}
+
+.platform-connect-loading__logo-ring {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+}
+
+.platform-connect-loading__logo-ring::before {
+  content: '';
+  position: absolute;
+  inset: -0.35rem;
+  border-radius: 1rem;
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.22) 0%, transparent 70%);
+  animation: izop-connect-glow 2.2s ease-in-out infinite;
+}
+
+@keyframes izop-connect-glow {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+.platform-connect-loading__text {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #171717;
+  letter-spacing: -0.01em;
+}
+
+.dark .platform-connect-loading__text {
+  color: #f5f5f5;
+}
+
+.platform-connect-loading__text--compact {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #9a3412;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.dark .platform-connect-loading__text--compact {
+  color: #fdba74;
+}
+
+.platform-connect-loading__subtitle {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #737373;
+  max-width: 18rem;
+}
+
+.dark .platform-connect-loading__subtitle {
+  color: #a3a3a3;
+}
+
+.platform-connect-loading__dots {
+  display: inline-flex;
+  width: 1.1em;
+  margin-left: 0.05em;
+}
+
+.platform-connect-loading__dots span {
+  animation: izop-connect-dot 1.35s ease-in-out infinite;
+  opacity: 0.25;
+}
+
+.platform-connect-loading__dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.platform-connect-loading__dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes izop-connect-dot {
+  0%,
+  70%,
+  100% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+  35% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
 :root {
   font-size: 110%;
 

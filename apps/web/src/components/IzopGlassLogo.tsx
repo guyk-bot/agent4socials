@@ -7,6 +7,8 @@ type Props = {
   /** sm: header mark (24–28px). md: slightly larger hero contexts. */
   size?: 'sm' | 'md';
   className?: string;
+  /** Pulse animation during OAuth connect. */
+  animated?: boolean;
 };
 
 const sizeClass = {
@@ -15,9 +17,17 @@ const sizeClass = {
 } as const;
 
 /** iZop metaball mark with glass chrome and a subtle sparkle accent. */
-export function IzopGlassLogo({ alt = 'iZop', size = 'sm', className = '' }: Props) {
+export function IzopGlassLogo({
+  alt = 'iZop',
+  size = 'sm',
+  className = '',
+  animated = false,
+}: Props) {
   return (
-    <span className={`izop-glass-logo ${sizeClass[size]} ${className}`.trim()} aria-hidden={!alt}>
+    <span
+      className={`izop-glass-logo ${sizeClass[size]} ${animated ? 'izop-glass-logo--animated' : ''} ${className}`.trim()}
+      aria-hidden={!alt}
+    >
       <span className="izop-glass-logo__shell">
         <span className="izop-glass-logo__glass" />
         <img src={IZOP_GLASS_MARK_SRC} alt={alt} className="izop-glass-logo__mark" draggable={false} />

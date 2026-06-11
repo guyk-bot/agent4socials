@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { after, NextRequest, NextResponse } from 'next/server';
 import { resolveAppBaseUrl, resolveOAuthRedirectOrigin } from '@/lib/app-base-url';
 import { prisma } from '@/lib/db';
 import { Platform } from '@prisma/client';
@@ -1651,17 +1651,19 @@ export async function GET(
     }
   }
   if (mainAccount?.accessToken && plat === 'THREADS') {
-    try {
-      const { syncThreadsPosts } = await import('@/lib/threads/sync-imported-posts');
-      await syncThreadsPosts({
-        id: mainAccount.id,
-        platformUserId: mainAccount.platformUserId,
-        accessToken: mainAccount.accessToken,
-        expiresAt: null,
-      });
-    } catch (e) {
-      console.warn('[OAuth] Threads post sync:', (e as Error)?.message ?? e);
-    }
+    const threadsAccount = {
+      id: mainAccount.id,
+      platformUserId: mainAccount.platformUserId,
+      accessToken: mainAccount.accessToken,
+    };
+    after(async () => {
+      try {
+        const { syncThreadsPosts } = await import('@/lib/threads/sync-imported-posts');
+        await syncThreadsPosts({ ...threadsAccount, expiresAt: null });
+      } catch (e) {
+        console.warn('[OAuth] Threads post sync (background):', (e as Error)?.message ?? e);
+      }
+    });
   }
   if (mainAccount?.accessToken && plat === 'TIKTOK') {
     try {
@@ -1717,7 +1719,7 @@ export async function GET(
       extraQuery = '&twitter_1oa_next=1';
     }
   }
-  if (plat === 'INSTAGRAM' || plat === 'FACEBOOK') {
+  if (plat === 'INSTAGRAM' || plat === 'FACEBOOK' || plat === 'THREADS') {
     scheduleInboxWarmForUser(userId);
   }
   const genericConnectParams = buildConnectParams(plat, tokenData.username, tokenData.profilePicture ?? null);

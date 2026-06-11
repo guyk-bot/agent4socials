@@ -18,6 +18,8 @@ import {
     Lightbulb,
     Loader2,
 } from 'lucide-react';
+import { IzopGlassLogo } from '@/components/IzopGlassLogo';
+import { PlatformConnectLoading } from '@/components/PlatformConnectLoading';
 import {
   OAUTH_CONNECT_IN_FLIGHT_EVENT,
   readOAuthConnectInFlight,
@@ -245,9 +247,8 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
   const sidebarContent = (
     <>
       {sidebarConnectingLabel ? (
-        <div className="mx-2 mb-1.5 flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs font-medium text-orange-900 dark:border-orange-900/50 dark:bg-orange-950/40 dark:text-orange-100">
-          <Loader2 size={14} className="animate-spin shrink-0 text-orange-600" />
-          <span>Connecting {sidebarConnectingLabel}…</span>
+        <div className="mx-2 mb-1.5 rounded-lg border border-orange-200/80 bg-orange-50/90 px-2.5 py-2 dark:border-orange-900/50 dark:bg-orange-950/40">
+          <PlatformConnectLoading variant="compact" platformLabel={sidebarConnectingLabel} />
         </div>
       ) : null}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1 px-1.5 pt-0 pb-1">
@@ -286,7 +287,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
                   aria-hidden
                 >
                   {connectPending ? (
-                    <Loader2 size={14} className="animate-spin" />
+                    <IzopGlassLogo size="sm" animated alt="" className="scale-[0.72]" />
                   ) : (
                     <Plus size={14} />
                   )}

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Check, Star, Loader2, BookOpen, Send, Calendar, BarChart2, MessageCircle, TrendingUp } from 'lucide-react';
+import { PlatformConnectLoading } from '@/components/PlatformConnectLoading';
 import { InstagramIcon, FacebookIcon, YoutubeIcon, LinkedinIcon, TikTokIcon, XTwitterIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
 import LinkedInConnectOptions from '@/components/dashboard/LinkedInConnectOptions';
 
@@ -219,6 +220,17 @@ function ThreadsConnectPanel({
     };
   }, [reviewMode]);
 
+  if (connecting) {
+    return (
+      <div className="connect-view-scope min-h-[calc(100vh-6rem)] flex items-center justify-center px-4">
+        <PlatformConnectLoading
+          platformLabel="Threads"
+          subtitle="Complete sign-in in the Threads popup. Your dashboard will open as soon as connection finishes."
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="connect-view-scope min-h-[calc(100vh-6rem)] flex items-start justify-center pt-16 sm:pt-20">
       <div className="max-w-lg mx-auto px-4 w-full">
@@ -320,31 +332,27 @@ function ConnectPageSections({
   );
 }
 
-function ConnectProgressStrip({ platform, connecting }: { platform: string; connecting: boolean }) {
-  if (!connecting) return null;
-  const label = PLATFORM_INFO[platform]?.name ?? platform;
-  return (
-    <div className="fixed top-16 left-0 right-0 z-[120] flex justify-center px-4 pointer-events-none">
-      <div className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-4 py-2 text-sm font-medium text-orange-900 shadow-sm dark:border-orange-900/50 dark:bg-orange-950/90 dark:text-orange-100">
-        <Loader2 size={16} className="animate-spin shrink-0 text-orange-600" />
-        Connecting {label}… finish sign-in in the popup, then we will load your data.
-      </div>
-    </div>
-  );
-}
-
 export default function ConnectView({ platform, onConnect, connecting, connectingMethod, connectError }: ConnectViewProps) {
   const info = PLATFORM_INFO[platform];
   if (!info) return null;
 
   const platformLower = platform.toLowerCase();
-  const progressStrip = <ConnectProgressStrip platform={platform} connecting={connecting} />;
+  const platformLabel = info.name ?? platform;
+
+  if (connecting && platform !== 'THREADS') {
+    return (
+      <div className="connect-view-scope min-h-[calc(100vh-6rem)] flex items-center justify-center px-4">
+        <PlatformConnectLoading
+          platformLabel={platformLabel}
+          subtitle="Complete sign-in in the popup window. Your dashboard will open when connection finishes."
+        />
+      </div>
+    );
+  }
 
   // ── INSTAGRAM (two options: IG-only vs Facebook) ──────────────────────────
   if (platform === 'INSTAGRAM') {
     return (
-      <>
-      {progressStrip}
       <div className="connect-view-scope min-h-[calc(100vh-6rem)] flex items-start justify-center pt-16 sm:pt-20">
         <div className="max-w-2xl mx-auto px-4 w-full">
         <div className={`connect-surface rounded-2xl border-2 p-6 sm:p-8 ${info.accentBorder} bg-gradient-to-b from-white to-pink-50/30 shadow-sm mb-6`}>
@@ -412,15 +420,12 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
         </div>
       </div>
       </div>
-      </>
     );
   }
 
   // ── THREADS (Meta redirect URI must match exactly) ────────────────────────
   if (platform === 'THREADS') {
     return (
-      <>
-      {progressStrip}
       <ThreadsConnectPanel
         info={info}
         platformLower={platformLower}
@@ -429,25 +434,17 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
         connectError={connectError}
         onConnect={onConnect}
       />
-      </>
     );
   }
 
   // ── LINKEDIN (personal vs Company Page + in-app consent) ─────────────────
   if (platform === 'LINKEDIN') {
-    return (
-      <>
-      {progressStrip}
-      <LinkedInConnectOptions connecting={connecting} connectError={connectError} />
-      </>
-    );
+    return <LinkedInConnectOptions connecting={connecting} connectError={connectError} />;
   }
 
   // ── TIKTOK (personal vs business) ─────────────────────────────────────────
   if (platform === 'TIKTOK') {
     return (
-      <>
-      {progressStrip}
       <div className="connect-view-scope min-h-[calc(100vh-6rem)] flex items-start justify-center pt-16 sm:pt-20">
         <div className="max-w-lg mx-auto px-4 w-full">
           <div
@@ -488,14 +485,11 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
           </div>
         </div>
       </div>
-      </>
     );
   }
 
   // ── GENERIC (Facebook, YouTube, Twitter, LinkedIn) ────────────────────────
   return (
-    <>
-    {progressStrip}
     <div className="connect-view-scope min-h-[calc(100vh-6rem)] flex items-start justify-center pt-16 sm:pt-20">
       <div className="max-w-lg mx-auto px-4 w-full">
       <div className={`connect-surface rounded-2xl border-2 p-6 sm:p-8 ${info.accentBorder} bg-gradient-to-b from-white to-neutral-50/80 shadow-sm`}>
@@ -526,6 +520,5 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
       </div>
     </div>
   </div>
-  </>
   );
 }
