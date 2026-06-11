@@ -842,9 +842,10 @@ export default function DashboardPage() {
     router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
   }, [connectErrorFromUrl, connectParam, router]);
 
-  // Strip ?connect= during/after OAuth so the Connect form does not flash over the sync banner.
+  // Strip ?connect= after OAuth return so the Connect form does not flash over the sync banner.
   useEffect(() => {
-    if (!connectFlowActive || !connectFromUrl) return;
+    if (!connectFromUrl) return;
+    if (!postConnectReturn && !justConnected && !justConnectedParam) return;
     if (typeof window === 'undefined') return;
     const url = new URL(window.location.href);
     if (!url.searchParams.has('connect')) return;
@@ -853,7 +854,7 @@ export default function DashboardPage() {
     const next = `${url.pathname}${url.search}${url.hash}`;
     const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     if (next !== current) router.replace(next, { scroll: false });
-  }, [connectFlowActive, connectFromUrl, router]);
+  }, [connectFromUrl, postConnectReturn, justConnected, justConnectedParam, router]);
 
   // When connect= is in URL (e.g. clicked + from sidebar): open Connect or select existing account.
   useEffect(() => {
@@ -872,7 +873,6 @@ export default function DashboardPage() {
       return;
     }
     setSelectedPlatformForConnect(upper);
-    router.replace('/dashboard', { scroll: false });
   }, [
     connectParam,
     connectingParam,

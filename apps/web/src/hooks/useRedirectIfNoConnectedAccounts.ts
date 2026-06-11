@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
+import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { readOAuthConnectInFlight, isOAuthRedirectGuarded, readPostConnectTargetAccount } from '@/lib/oauth-connect';
 import {
   CONNECTED_ACCOUNTS_PATH,
@@ -21,6 +22,8 @@ export function useRedirectIfNoConnectedAccounts(): void {
   const search = searchParams.toString();
   const redirectedRef = useRef(false);
   const { allCachedAccounts } = useAccountsCache() ?? { allCachedAccounts: [] };
+  const selectedPlatformForConnect =
+    useSelectedAccount()?.selectedPlatformForConnect ?? null;
 
   useEffect(() => {
     redirectedRef.current = false;
@@ -29,6 +32,7 @@ export function useRedirectIfNoConnectedAccounts(): void {
   useEffect(() => {
     if (redirectedRef.current) return;
     if (!shouldRedirectEmptyAccountsToConnect(pathname, search)) return;
+    if (selectedPlatformForConnect) return;
     if (readOAuthConnectInFlight()) return;
     if (isOAuthRedirectGuarded()) return; // Don't redirect shortly after OAuth starts
     if (readPostConnectTargetAccount()) return;
@@ -56,5 +60,5 @@ export function useRedirectIfNoConnectedAccounts(): void {
     return () => {
       cancelled = true;
     };
-  }, [pathname, search, allCachedAccounts.length, router]);
+  }, [pathname, search, allCachedAccounts.length, selectedPlatformForConnect, router]);
 }

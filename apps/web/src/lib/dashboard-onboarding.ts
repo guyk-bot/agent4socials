@@ -1,7 +1,7 @@
 /** Default landing when the user has not connected any social platform yet. */
 export const CONNECTED_ACCOUNTS_PATH = '/dashboard/account#connected-accounts';
 
-const ANALYTICS_LANDING_PATHS = new Set(['/dashboard', '/dashboard/console', '/dashboard/summary']);
+const ANALYTICS_LANDING_PATHS = new Set(['/dashboard/console', '/dashboard/summary']);
 
 /** True when URL params indicate an in-progress or post-OAuth connect flow (do not redirect away). */
 export function isActiveConnectFlow(search: string): boolean {
