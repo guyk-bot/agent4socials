@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { MessageCircle, PlusSquare, Calendar, Menu, Sun, Moon, Brain, Megaphone, type LucideIcon } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
-import { BRAND_NAME, BRAND_HEADER_BG, normalizeLegacyBrandName, siteLogoSrcForAppHeader } from '@/lib/site-brand-assets';
+import { IzopGlassLogo } from '@/components/IzopGlassLogo';
+import { BRAND_NAME, BRAND_HEADER_BG, normalizeLegacyBrandName } from '@/lib/site-brand-assets';
 import { useTheme } from '@/context/ThemeContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAuth } from '@/context/AuthContext';
@@ -146,7 +147,7 @@ export default function AppHeader() {
           {logoUrl ? (
             <img src={logoUrl} alt="" className="h-8 w-8 sm:h-9 sm:w-9 object-contain" />
           ) : (
-            <img src={siteLogoSrcForAppHeader(theme, isOfficialBrandHeader)} alt={BRAND_NAME} className="h-6 w-6 sm:h-7 sm:w-7 object-contain block" />
+            <IzopGlassLogo alt={BRAND_NAME} size="sm" />
           )}
           <span
             className={`font-semibold hidden sm:inline truncate text-sm sm:text-base ${

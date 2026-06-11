@@ -22,7 +22,11 @@ export const BRAND_HEADER_BG = BRAND_PAGE_BG;
 export const BRAND_CHROME_TEXT = '#FFFFFF';
 
 /** Bumped when shared logo mark assets change (cache bust for browsers and CDNs). */
-export const SITE_LOGO_V = '62';
+export const SITE_LOGO_V = '63';
+
+/** Glass header mark (metaball logo with sparkle). */
+export const IZOP_GLASS_MARK_PATH = '/izop-glass-mark.png';
+export const IZOP_GLASS_MARK_SRC = `${IZOP_GLASS_MARK_PATH}?v=${SITE_LOGO_V}`;
 
 /** Funnel header + chat hero logo box (keep in sync). */
 export const SITE_HEADER_LOGO_CLASS = 'h-6 w-6 sm:h-7 sm:w-7 shrink-0 object-contain';
