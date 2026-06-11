@@ -79,8 +79,11 @@ import {
   watchOAuthConnectPopup,
   watchOAuthConnectTimeout,
   isPlatformOAuthPending,
+  pollOAuthConnectAccount,
+  notifyOAuthCompleteLocally,
 } from '@/lib/oauth-connect';
 import { PlatformConnectLoading } from '@/components/PlatformConnectLoading';
+import { LogoLoadingAnimation } from '@/components/LogoLoadingAnimation';
 import {
   localCalendarDateFromIso,
   toLocalCalendarDate,
@@ -1984,6 +1987,8 @@ export default function DashboardPage() {
     setConnectingMethod(method);
     let oauthPopupOpened = false;
     let stopOAuthTimeoutWatch: (() => void) | undefined;
+    let stopOAuthPoll: (() => void) | undefined;
+    let stopPopupWatch: (() => void) | undefined;
     if (typeof window !== 'undefined') {
       stopOAuthTimeoutWatch = watchOAuthConnectTimeout(platform, () => {
         setConnectingPlatform(null);
@@ -2048,9 +2053,11 @@ export default function DashboardPage() {
         } else {
           oauthPopupOpened = true;
           if (oauthPopup && !oauthPopup.closed) {
-            watchOAuthConnectPopup(oauthPopup, platform, () => {
-              setConnectingPlatform(null);
-              setConnectingMethod(undefined);
+            stopPopupWatch = watchOAuthConnectPopup(oauthPopup, platform, () => {
+              stopOAuthPoll?.();
+              stopOAuthPoll = pollOAuthConnectAccount(platform, fetchAccounts, (connected) => {
+                notifyOAuthCompleteLocally(connected);
+              });
             });
           }
         }
@@ -2099,6 +2106,8 @@ export default function DashboardPage() {
     } finally {
       if (!oauthPopupOpened) {
         stopOAuthTimeoutWatch?.();
+        stopPopupWatch?.();
+        stopOAuthPoll?.();
         setConnectingPlatform(null);
         setConnectingMethod(undefined);
       }
@@ -2422,15 +2431,11 @@ export default function DashboardPage() {
     <div className="space-y-0">
       <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
       {showConnectFinishOverlay && connectFinishPlatform ? (
-        <div className="fixed inset-0 z-[8400] flex items-center justify-center bg-white/85 dark:bg-neutral-950/90 backdrop-blur-sm px-4">
-          <PlatformConnectLoading
-            platformLabel={
-              connectFinishPlatform === 'THREADS'
-                ? 'Threads'
-                : connectFinishPlatform.charAt(0) + connectFinishPlatform.slice(1).toLowerCase()
-            }
-            subtitle="Finishing connection and loading your dashboard…"
-          />
+        <div className="fixed inset-0 z-[8400] flex flex-col items-center justify-center gap-4 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-sm px-4">
+          <LogoLoadingAnimation className="platform-connect-loading__logo-full" aria-label="Loading dashboard" />
+          <p className="platform-connect-loading__text text-center">
+            Finishing connection and loading your dashboard…
+          </p>
         </div>
       ) : null}
       {pricingModalOpen && typeof document !== 'undefined'

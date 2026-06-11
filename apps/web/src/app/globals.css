@@ -1436,21 +1436,20 @@
   width: 100%;
 }
 
-.platform-connect-loading__logo-ring {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.35rem;
+.platform-connect-loading__logo-full {
+  width: min(40vw, 200px);
+  max-width: 200px;
 }
 
-.platform-connect-loading__logo-ring::before {
-  content: '';
-  position: absolute;
-  inset: -0.35rem;
-  border-radius: 1rem;
-  background: radial-gradient(circle, rgba(167, 139, 250, 0.22) 0%, transparent 70%);
-  animation: izop-connect-glow 2.2s ease-in-out infinite;
+.platform-connect-loading__logo-compact {
+  width: 1.75rem;
+  height: 1.75rem;
+  min-width: 1.75rem;
+}
+
+.platform-connect-loading__logo-compact .a4s-logo-loading__stage {
+  width: 100%;
+  height: 100%;
 }
 
 @keyframes izop-connect-glow {

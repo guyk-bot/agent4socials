@@ -18,7 +18,6 @@ import {
     Lightbulb,
     Loader2,
 } from 'lucide-react';
-import { IzopGlassLogo } from '@/components/IzopGlassLogo';
 import { PlatformConnectLoading } from '@/components/PlatformConnectLoading';
 import {
   OAUTH_CONNECT_IN_FLIGHT_EVENT,
@@ -287,7 +286,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
                   aria-hidden
                 >
                   {connectPending ? (
-                    <IzopGlassLogo size="sm" animated alt="" className="scale-[0.72]" />
+                    <Loader2 size={14} className="animate-spin" aria-hidden />
                   ) : (
                     <Plus size={14} />
                   )}

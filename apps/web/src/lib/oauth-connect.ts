@@ -154,32 +154,94 @@ export function isPlatformOAuthPending(platform: string): boolean {
   return false;
 }
 
-/** Grace period after OAuth popup closes so postMessage can arrive before we treat it as abandoned. */
-export const OAUTH_POPUP_CLOSE_GRACE_MS = 6_000;
-
-/** Clear sidebar "Connecting…" when the user closes the OAuth popup without finishing. */
+/**
+ * When the OAuth popup closes, the callback tab may still be saving the account.
+ * Do not clear in-flight here; use {@link pollOAuthConnectAccount} and {@link watchOAuthConnectTimeout}.
+ */
 export function watchOAuthConnectPopup(
   popup: Window | null | undefined,
   platform: string,
-  onAbandon?: () => void
+  onPopupClosed?: () => void
 ): () => void {
   if (typeof window === 'undefined' || !popup || popup.closed) return () => {};
-  const p = platform.trim().toUpperCase();
-  let graceTimer: number | undefined;
+  let fired = false;
   const timer = window.setInterval(() => {
     if (!popup.closed) return;
     window.clearInterval(timer);
-    graceTimer = window.setTimeout(() => {
-      if (readOAuthConnectInFlight() === p) {
-        clearOAuthConnectInFlight();
-        onAbandon?.();
-      }
-    }, OAUTH_POPUP_CLOSE_GRACE_MS);
+    if (fired) return;
+    fired = true;
+    onPopupClosed?.();
   }, 400);
-  return () => {
-    window.clearInterval(timer);
-    if (graceTimer !== undefined) window.clearTimeout(graceTimer);
+  return () => window.clearInterval(timer);
+}
+
+type OAuthAccountRow = {
+  id: string;
+  platform: string;
+  username?: string | null;
+  profilePicture?: string | null;
+};
+
+/** Fallback when postMessage from the OAuth popup is missed: poll until the account appears. */
+export function pollOAuthConnectAccount(
+  platform: string,
+  fetchAccounts: () => Promise<OAuthAccountRow[]>,
+  onFound: (account: OAuthAccountRow) => void,
+  opts?: { intervalMs?: number; maxMs?: number }
+): () => void {
+  if (typeof window === 'undefined') return () => {};
+  const p = platform.trim().toUpperCase();
+  const intervalMs = opts?.intervalMs ?? 2_000;
+  const maxMs = opts?.maxMs ?? OAUTH_IN_FLIGHT_TTL_MS;
+  const started = Date.now();
+  let stopped = false;
+
+  const tick = async (): Promise<boolean> => {
+    if (stopped || readOAuthConnectInFlight() !== p) return true;
+    if (Date.now() - started > maxMs) return true;
+    try {
+      const list = await fetchAccounts();
+      const connected = list.find((a) => a.platform === p);
+      if (connected?.id) {
+        onFound(connected);
+        return true;
+      }
+    } catch {
+      /* retry */
+    }
+    return false;
   };
+
+  const timer = window.setInterval(() => {
+    void tick().then((done) => {
+      if (done) window.clearInterval(timer);
+    });
+  }, intervalMs);
+  void tick();
+
+  return () => {
+    stopped = true;
+    window.clearInterval(timer);
+  };
+}
+
+/** Deliver OAuth success to the opener when polling finds the linked account. */
+export function notifyOAuthCompleteLocally(account: OAuthAccountRow): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.postMessage(
+      {
+        type: OAUTH_COMPLETE_MESSAGE,
+        accountId: account.id,
+        platform: account.platform,
+        username: account.username ?? null,
+        profilePicture: account.profilePicture ?? null,
+      },
+      window.location.origin
+    );
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Auto-clear stuck OAuth UI if callback never returns (e.g. 504 on callback route). */

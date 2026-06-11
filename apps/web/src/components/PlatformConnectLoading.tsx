@@ -1,6 +1,6 @@
 'use client';
 
-import { IzopGlassLogo } from '@/components/IzopGlassLogo';
+import { LogoLoadingAnimation } from '@/components/LogoLoadingAnimation';
 
 type Props = {
   platformLabel: string;
@@ -19,7 +19,7 @@ function AnimatedDots() {
   );
 }
 
-/** Logo animation + "Connecting {platform}..." while OAuth is in progress. */
+/** Branded logo animation + "Connecting {platform}..." while OAuth is in progress. */
 export function PlatformConnectLoading({
   platformLabel,
   subtitle,
@@ -28,7 +28,10 @@ export function PlatformConnectLoading({
   if (variant === 'compact') {
     return (
       <div className="platform-connect-loading platform-connect-loading--compact">
-        <IzopGlassLogo alt="" size="sm" animated className="shrink-0" />
+        <LogoLoadingAnimation
+          className="platform-connect-loading__logo-compact"
+          aria-label={`Connecting ${platformLabel}`}
+        />
         <span className="platform-connect-loading__text platform-connect-loading__text--compact">
           Connecting {platformLabel}
           <AnimatedDots />
@@ -44,9 +47,10 @@ export function PlatformConnectLoading({
       aria-live="polite"
       aria-label={`Connecting ${platformLabel}`}
     >
-      <div className="platform-connect-loading__logo-ring">
-        <IzopGlassLogo alt="" size="md" animated />
-      </div>
+      <LogoLoadingAnimation
+        className="platform-connect-loading__logo-full"
+        aria-label={`Connecting ${platformLabel}`}
+      />
       <p className="platform-connect-loading__text">
         Connecting {platformLabel}
         <AnimatedDots />
