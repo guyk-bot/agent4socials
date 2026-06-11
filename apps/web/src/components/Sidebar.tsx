@@ -18,7 +18,6 @@ import {
     Lightbulb,
     Loader2,
 } from 'lucide-react';
-import { PlatformConnectLoading } from '@/components/PlatformConnectLoading';
 import {
   OAUTH_CONNECT_IN_FLIGHT_EVENT,
   readOAuthConnectInFlight,
@@ -238,18 +237,8 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
     { key: 'brainstorm', href: '/dashboard/brainstorm', label: 'Brainstorm', icon: <Lightbulb size={18} className="shrink-0" />, active: isBrainstormPage },
   ];
 
-  const sidebarConnectingLabel =
-    oauthInFlightPlatform && PLATFORM_LABELS[oauthInFlightPlatform]
-      ? PLATFORM_LABELS[oauthInFlightPlatform]
-      : null;
-
   const sidebarContent = (
     <>
-      {sidebarConnectingLabel ? (
-        <div className="mx-2 mb-1.5 rounded-lg border border-orange-200/80 bg-orange-50/90 px-2.5 py-2 dark:border-orange-900/50 dark:bg-orange-950/40">
-          <PlatformConnectLoading variant="compact" platformLabel={sidebarConnectingLabel} />
-        </div>
-      ) : null}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-1 px-1.5 pt-0 pb-1">
         {PLATFORM_ORDER.map((platform) => {
           const accounts = accountsByPlatform[platform] ?? [];

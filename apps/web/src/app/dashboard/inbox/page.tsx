@@ -2852,7 +2852,12 @@ function InboxPage() {
         c.postImageUrl,
         appData?.postsByAccountId as Record<
           string,
-          Array<{ platformPostId?: string | null; thumbnailUrl?: string | null }>
+          Array<{
+            platformPostId?: string | null;
+            thumbnailUrl?: string | null;
+            mediaType?: string | null;
+            platform?: string | null;
+          }>
         >
       ),
     [appData?.postsByAccountId]

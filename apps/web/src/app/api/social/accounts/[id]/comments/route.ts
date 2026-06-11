@@ -26,6 +26,8 @@ import {
   mergeInboxCommentsInDb,
   type InboxCommentRow,
 } from '@/lib/inbox/inbox-db-cache';
+import { historySyncedPostThumbUrl } from '@/lib/inbox/dashboard-post-thumb';
+import { inboxStillImageUrl } from '@/lib/inbox/media-url';
 import { fetchAllPublishedPostsForPage, sortFbPublishedPostsNewestFirst } from '@/lib/facebook/fetchers';
 import {
   buildExternalPlatformCommentRows,
@@ -291,6 +293,7 @@ export async function GET(
       content: true,
       publishedAt: true,
       thumbnailUrl: true,
+      mediaType: true,
       permalinkUrl: true,
     },
   });
@@ -311,7 +314,14 @@ export async function GET(
       postPreview: (p.content ?? '').trim() || 'Post',
       postTargetId: `imported-${p.id}`,
       postPublishedAt: p.publishedAt?.toISOString(),
-      postImageUrl: p.thumbnailUrl ?? null,
+      postImageUrl:
+        platform === 'THREADS'
+          ? historySyncedPostThumbUrl({
+              platform: 'THREADS',
+              mediaType: p.mediaType,
+              thumbnailUrl: p.thumbnailUrl,
+            })
+          : (p.thumbnailUrl ?? null),
       postUrl: p.permalinkUrl ?? null,
     })),
   ];
@@ -536,6 +546,23 @@ export async function GET(
     let responseComments = (threadComments as InboxCommentRow[]).map((c) =>
       normalizeThreadsInboxCommentRow(c)
     );
+    const importedThumbByPostId = new Map(
+      imported.map((p) => [
+        p.platformPostId,
+        historySyncedPostThumbUrl({
+          platform: 'THREADS',
+          mediaType: p.mediaType,
+          thumbnailUrl: p.thumbnailUrl,
+        }),
+      ])
+    );
+    responseComments = responseComments.map((c) => {
+      const pid = (c.platformPostId ?? '').trim();
+      const fromHistory = pid ? importedThumbByPostId.get(pid) : undefined;
+      if (fromHistory) return { ...c, postImageUrl: fromHistory };
+      const still = inboxStillImageUrl(c.postImageUrl);
+      return still ? { ...c, postImageUrl: still } : c;
+    });
     const resolvedError =
       threadsErr ??
       (threadsPostsListError && responseComments.length === 0 ? threadsPostsListError : undefined);

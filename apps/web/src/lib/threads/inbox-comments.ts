@@ -8,6 +8,8 @@ import { threadsGet } from '@/lib/threads/threads-api';
 import { getValidThreadsToken } from '@/lib/threads/threads-token';
 import { waitForThreadsContainerReady } from '@/lib/threads/publish';
 import { fetchThreadsPostThumbnail } from '@/lib/threads/fetch-post-thumbnail';
+import { inboxStillImageUrl } from '@/lib/inbox/media-url';
+import { threadsPostThumbnailUrl } from '@/lib/threads/post-media-type';
 
 export type ThreadsPostSource = {
   platformPostId: string;
@@ -225,7 +227,12 @@ export async function fetchThreadsInboxComments(
     if (!id) continue;
     const author = (m.username ?? 'Threads user').replace(/^@/, '');
     const mentionPermalink = `https://www.threads.net/post/${encodeURIComponent(id)}`;
-    let postImageUrl = m.thumbnail_url ?? m.media_url ?? null;
+    let postImageUrl =
+      threadsPostThumbnailUrl({
+        media_type: m.media_type,
+        thumbnail_url: m.thumbnail_url,
+        media_url: m.media_url,
+      }) ?? inboxStillImageUrl(m.thumbnail_url);
     if (!postImageUrl) {
       postImageUrl = await fetchThreadsPostThumbnail(id, token);
     }

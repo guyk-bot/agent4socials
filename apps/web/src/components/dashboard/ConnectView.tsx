@@ -223,10 +223,7 @@ function ThreadsConnectPanel({
   if (connecting) {
     return (
       <div className="connect-view-scope min-h-[calc(100vh-6rem)] flex items-center justify-center px-4">
-        <PlatformConnectLoading
-          platformLabel="Threads"
-          subtitle="Complete sign-in in the Threads popup. Your dashboard will open as soon as connection finishes."
-        />
+        <PlatformConnectLoading platformLabel="Threads" />
       </div>
     );
   }
@@ -342,10 +339,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
   if (connecting && platform !== 'THREADS') {
     return (
       <div className="connect-view-scope min-h-[calc(100vh-6rem)] flex items-center justify-center px-4">
-        <PlatformConnectLoading
-          platformLabel={platformLabel}
-          subtitle="Complete sign-in in the popup window. Your dashboard will open when connection finishes."
-        />
+        <PlatformConnectLoading platformLabel={platformLabel} />
       </div>
     );
   }

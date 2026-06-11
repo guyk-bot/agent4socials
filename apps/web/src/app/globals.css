@@ -1438,8 +1438,8 @@
 }
 
 .platform-connect-loading__logo-full {
-  width: min(40vw, 200px);
-  max-width: 200px;
+  width: min(28vw, 112px);
+  max-width: 112px;
 }
 
 .platform-connect-loading__logo-compact {
