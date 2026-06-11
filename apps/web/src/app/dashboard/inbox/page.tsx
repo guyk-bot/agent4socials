@@ -1571,6 +1571,11 @@ function InboxPage() {
     [effectiveAccounts]
   );
 
+  const recentlyConnectedInboxAccounts = useMemo(
+    () => effectiveAccounts.filter((a) => isInboxAccountRecentlyConnected(a.id)),
+    [effectiveAccounts]
+  );
+
   const showInboxWarmupNotice = useMemo(() => {
     if (inboxMode !== 'messages') return false;
     if (recentlyConnectedMetaAccounts.length === 0) return false;
@@ -1591,9 +1596,7 @@ function InboxPage() {
   useEffect(() => {
     if (searchParams.get('connecting') !== '1') return;
     for (const a of effectiveAccounts) {
-      if (a.platform === 'INSTAGRAM' || a.platform === 'FACEBOOK') {
-        markInboxAccountRecentlyConnected(a.id, a.platform);
-      }
+      markInboxAccountRecentlyConnected(a.id, a.platform);
     }
   }, [searchParams, effectiveAccounts]);
 
@@ -2443,6 +2446,8 @@ function InboxPage() {
       if (inboxRefreshInFlightRef.current && !opts?.forceUnlock) return;
       inboxRefreshInFlightRef.current = false;
       inboxRefreshInFlightRef.current = true;
+      setCommentsLoading(true);
+      setConversationsLoading(true);
       try {
         const commentRows: PostComment[] = [];
         let convRows: Array<Conversation & { platform: string; messageAccountId: string }> = [];
@@ -2536,6 +2541,8 @@ function InboxPage() {
         }
       } finally {
         inboxRefreshInFlightRef.current = false;
+        setCommentsLoading(false);
+        setConversationsLoading(false);
         const uid = user?.id;
         if (uid) {
           const convPayload = conversationsStableRef.current.map((c) => ({
@@ -2789,6 +2796,20 @@ function InboxPage() {
     () => comments.map((c) => normalizeThreadsInboxCommentRow(c)),
     [comments]
   );
+
+  const commentsRefreshing =
+    commentsLoading || commentsLiveSync.loading || threadsCommentsSync.loading;
+
+  const showCommentsWarmupNotice = useMemo(() => {
+    if (inboxMode !== 'comments') return false;
+    if (displayComments.length > 0 && !commentsRefreshing) return false;
+    return commentsRefreshing || recentlyConnectedInboxAccounts.length > 0;
+  }, [
+    inboxMode,
+    displayComments.length,
+    commentsRefreshing,
+    recentlyConnectedInboxAccounts.length,
+  ]);
 
   const hasThreadsCommentsInList = useMemo(
     () => displayComments.some((c) => c.platform === 'THREADS' && !c.parentCommentId),
@@ -3202,11 +3223,16 @@ function InboxPage() {
       );
     }
     if (inboxMode === 'comments') {
-      if (commentsLoading && displayComments.length === 0) {
+      if (commentsRefreshing && displayComments.length === 0) {
         return (
           <div className="p-6 flex flex-col items-center justify-center gap-3">
             <Loader2 size={32} className="text-orange-500 animate-spin" />
-            <p className="text-sm text-neutral-500">Loading comments...</p>
+            <p className="text-sm text-neutral-500">Loading comments and replies...</p>
+            {showCommentsWarmupNotice ? (
+              <p className="text-xs text-neutral-500 max-w-sm text-center mt-1">
+                Please wait a few seconds while we load comments and replies from your connected accounts.
+              </p>
+            ) : null}
           </div>
         );
       }
@@ -3253,17 +3279,12 @@ function InboxPage() {
         );
       }
       if (displayComments.length === 0) {
-        const threadsSelected = selectedPlatforms.includes('THREADS');
         return (
           <div className="p-6 text-center">
             <MessageCircle size={40} className="mx-auto text-neutral-300 mb-3" />
-            <p className="text-sm text-neutral-500">
-              {threadsSelected ? 'No Threads replies or @mentions yet.' : 'No comments yet.'}
-            </p>
+            <p className="text-sm text-neutral-500">No comments or replies yet.</p>
             <p className="text-xs text-neutral-400 mt-1">
-              {threadsSelected
-                ? 'Thread comments appear here when your account has activity.'
-                : 'Comments from your connected platforms appear here. Sync posts on Dashboard first if a platform looks empty.'}
+              Comments and replies from your connected accounts appear here. Sync posts on Dashboard first if a platform looks empty.
             </p>
           </div>
         );

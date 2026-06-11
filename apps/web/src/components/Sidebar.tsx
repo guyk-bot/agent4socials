@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import {
     BarChart3,
     FileText,
@@ -16,7 +16,13 @@ import {
     Users,
     Users2,
     Lightbulb,
+    Loader2,
 } from 'lucide-react';
+import {
+  isPlatformOAuthPending,
+  OAUTH_CONNECT_IN_FLIGHT_EVENT,
+  readOAuthConnectInFlight,
+} from '@/lib/oauth-connect';
 import api from '@/lib/api';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
@@ -63,6 +69,7 @@ type SidebarProps = {
 
 export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { textColor } = useWhiteLabel();
   const { theme } = useTheme();
   const { cachedAccounts, setCachedAccounts, setAccountsLoadError } = useAccountsCache() ?? {
@@ -79,6 +86,20 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
   const missingAvatarRefreshDone = useRef(false);
   const refreshingAvatarIds = useRef<Set<string>>(new Set());
   const [brokenAvatarIds, setBrokenAvatarIds] = useState<Record<string, true>>({});
+  const [oauthInFlightPlatform, setOauthInFlightPlatform] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? readOAuthConnectInFlight() : null
+  );
+
+  useEffect(() => {
+    const sync = () => setOauthInFlightPlatform(readOAuthConnectInFlight());
+    sync();
+    window.addEventListener('storage', sync);
+    window.addEventListener(OAUTH_CONNECT_IN_FLIGHT_EVENT, sync);
+    return () => {
+      window.removeEventListener('storage', sync);
+      window.removeEventListener(OAUTH_CONNECT_IN_FLIGHT_EVENT, sync);
+    };
+  }, [searchParams.get('connecting'), searchParams.get('newPlatform'), searchParams.get('accountId')]);
 
   const refreshAvatar = useCallback(async (accountId: string, platform: string) => {
     if (refreshingAvatarIds.current.has(accountId)) return;
@@ -227,24 +248,39 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
           if (accounts.length === 0) {
             const connectParam = platform.toLowerCase();
             const needsUpgrade = UPGRADE_TO_CONNECT_PLATFORMS.includes(platform);
+            const connectPending =
+              oauthInFlightPlatform === platform || isPlatformOAuthPending(platform);
             /** Connect URL per platform; optional gem styling when platform is in UPGRADE_TO_CONNECT_PLATFORMS. */
             const href = `/dashboard?connect=${connectParam}`;
             const platformRowClass = `flex items-center gap-3 px-3 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors border border-transparent ${
-              isPlatformSelected ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80 dark:hover:border-neutral-700'
+              isPlatformSelected || connectPending ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80 dark:hover:border-neutral-700'
             } ${needsUpgrade ? 'ring-1 ring-orange-400/50 bg-gradient-to-r from-orange-500/10 to-orange-500/10' : ''}`;
             const platformRowInner = (
               <>
                 <div className="w-10 h-10 flex items-center justify-center shrink-0">
                   {PLATFORM_ICON[platform]}
                 </div>
-                <span className="truncate flex-1 font-medium">{PLATFORM_LABELS[platform]}</span>
+                <span className="truncate flex-1 font-medium">
+                  {connectPending ? `Connecting ${PLATFORM_LABELS[platform]}…` : PLATFORM_LABELS[platform]}
+                </span>
                 {needsUpgrade ? (
                   <span className="shrink-0 flex items-center text-orange-600" aria-hidden title="Upgrade to connect">
                     <Gem size={14} className="text-orange-600" aria-hidden />
                   </span>
                 ) : null}
-                <div className="w-8 h-8 rounded-full bg-neutral-200 flex items-center justify-center shrink-0 hover:bg-neutral-300">
-                  <Plus size={14} className="text-neutral-600" />
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                    connectPending
+                      ? 'bg-orange-100 text-orange-600'
+                      : 'bg-neutral-200 hover:bg-neutral-300 text-neutral-600'
+                  }`}
+                  aria-hidden
+                >
+                  {connectPending ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Plus size={14} />
+                  )}
                 </div>
               </>
             );

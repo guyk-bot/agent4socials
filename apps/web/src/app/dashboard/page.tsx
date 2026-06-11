@@ -70,6 +70,8 @@ import {
   navigateOAuthConnect,
   openOAuthConnectUrl,
   prepareOAuthConnectPopup,
+  storeOAuthConnectInFlight,
+  clearOAuthConnectInFlight,
 } from '@/lib/oauth-connect';
 import {
   localCalendarDateFromIso,
@@ -644,7 +646,9 @@ export default function DashboardPage() {
   const connectFromUrl = connectParam && ALLOWED_CONNECT.includes(connectParam.toUpperCase())
     ? connectParam.toUpperCase()
     : null;
-  const showConnectView = selectedPlatformForConnect || connectFromUrl;
+  const oauthReturnInProgress = Boolean(accountIdFromUrl && postConnectReturn);
+  const showConnectView =
+    (selectedPlatformForConnect || connectFromUrl) && !oauthReturnInProgress;
 
   const accountIdsKey = accounts.map((a) => a.id).sort().join(',');
 
@@ -678,12 +682,14 @@ export default function DashboardPage() {
   useLayoutEffect(() => {
     if (!accountIdFromUrl || twitter1oaNext === '1') return;
     if (postConnectReturn) {
+      setSelectedPlatformForConnect(null);
+      clearOAuthConnectInFlight();
       clearConnectLoadDone(accountIdFromUrl);
       setJustConnected(true);
       return;
     }
     setSelectedAccountId(accountIdFromUrl);
-  }, [accountIdFromUrl, postConnectReturn, twitter1oaNext, setSelectedAccountId]);
+  }, [accountIdFromUrl, postConnectReturn, twitter1oaNext, setSelectedAccountId, setSelectedPlatformForConnect]);
 
   // When accountId is in URL: clean URL; after connect refresh cache and clear stale per-account data.
   useEffect(() => {
@@ -768,6 +774,7 @@ export default function DashboardPage() {
       if (connected) {
         setSelectedAccountId(accountIdFromUrl);
         markInboxAccountRecentlyConnected(connected.id, connected.platform);
+        clearOAuthConnectInFlight();
         if (connected.platform === 'INSTAGRAM' || connected.platform === 'FACEBOOK') {
           triggerInboxWarmClient(true);
         }
@@ -801,6 +808,7 @@ export default function DashboardPage() {
   useEffect(() => {
     return listenForOAuthComplete((payload) => {
       setSelectedPlatformForConnect(null);
+      clearOAuthConnectInFlight();
       const { accountId, platform, username, profilePicture } = payload;
       if (accountId && platform) {
         setSelectedAccountId(accountId);
@@ -843,6 +851,7 @@ export default function DashboardPage() {
         setSelectedAccountId(accountId);
         if (connected) {
           markInboxAccountRecentlyConnected(connected.id, connected.platform);
+          clearOAuthConnectInFlight();
           if (connected.platform === 'INSTAGRAM' || connected.platform === 'FACEBOOK') {
             triggerInboxWarmClient(true);
           }
@@ -1881,6 +1890,7 @@ export default function DashboardPage() {
     };
     setAlertMessage(null);
     const oauthPopup = prepareOAuthConnectPopup();
+    storeOAuthConnectInFlight(platform);
     setConnectingPlatform(platform);
     setConnectingMethod(method);
     if (typeof window !== 'undefined') {
@@ -1944,6 +1954,7 @@ export default function DashboardPage() {
       setAlertMessage('Invalid response from server. Check server logs.');
     } catch (err: unknown) {
       closeOAuthConnectPopup(oauthPopup);
+      clearOAuthConnectInFlight();
       const aborted =
         (err instanceof DOMException && err.name === 'AbortError') ||
         (typeof err === 'object' && err !== null && 'name' in err && (err as { name?: string }).name === 'AbortError');

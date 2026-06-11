@@ -1,4 +1,4 @@
-/** Show Inbox "please wait" hints shortly after Instagram/Facebook connect. */
+/** Show Inbox "please wait" hints shortly after a platform connect. */
 const KEY_PREFIX = 'agent4socials_inbox_recent_connect.';
 export const INBOX_RECENT_CONNECT_WINDOW_MS = 10 * 60 * 1000;
 
@@ -6,10 +6,8 @@ function storageKey(accountId: string): string {
   return `${KEY_PREFIX}${accountId}`;
 }
 
-export function markInboxAccountRecentlyConnected(accountId: string, platform?: string): void {
+export function markInboxAccountRecentlyConnected(accountId: string, _platform?: string): void {
   if (typeof window === 'undefined' || !accountId) return;
-  const p = (platform ?? '').toUpperCase();
-  if (p && p !== 'INSTAGRAM' && p !== 'FACEBOOK') return;
   try {
     sessionStorage.setItem(storageKey(accountId), String(Date.now()));
   } catch {

@@ -1,6 +1,59 @@
 /** Message type posted from OAuth popup back to the opener tab after connect succeeds. */
 export const OAUTH_COMPLETE_MESSAGE = 'agent4socials-oauth-complete';
 
+const OAUTH_CONNECT_IN_FLIGHT_KEY = 'agent4socials_oauth_connect_in_flight';
+export const OAUTH_CONNECT_IN_FLIGHT_EVENT = 'izop-oauth-connect-in-flight';
+
+/** Persist which platform OAuth is in progress (sidebar loading until callback completes). */
+export function storeOAuthConnectInFlight(platform: string): void {
+  if (typeof window === 'undefined') return;
+  const p = platform.trim().toUpperCase();
+  if (!p) return;
+  try {
+    sessionStorage.setItem(OAUTH_CONNECT_IN_FLIGHT_KEY, p);
+    window.dispatchEvent(new Event(OAUTH_CONNECT_IN_FLIGHT_EVENT));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readOAuthConnectInFlight(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(OAUTH_CONNECT_IN_FLIGHT_KEY)?.trim().toUpperCase();
+    return raw || null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearOAuthConnectInFlight(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(OAUTH_CONNECT_IN_FLIGHT_KEY);
+    window.dispatchEvent(new Event(OAUTH_CONNECT_IN_FLIGHT_EVENT));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** True while OAuth is in flight or the dashboard is finishing a fresh connect redirect. */
+export function isPlatformOAuthPending(platform: string): boolean {
+  const p = platform.trim().toUpperCase();
+  if (!p) return false;
+  if (readOAuthConnectInFlight() === p) return true;
+  if (typeof window === 'undefined') return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('connecting') === '1' && params.get('newPlatform')?.trim().toUpperCase() === p) {
+      return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
 export type OAuthCompletePayload = {
   accountId?: string;
   platform?: string;
