@@ -79,11 +79,7 @@ export function InboxCommentThumb({
   if (!imgSrc || imgFailed) {
     if (textOnlyPost) {
       return (
-        <PostHistoryTextThumb
-          platform={platform}
-          variant="inbox"
-          className={`${dim} ${className}`}
-        />
+        <PostHistoryTextThumb variant="inbox" className={`${dim} ${className}`} />
       );
     }
     return (

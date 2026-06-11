@@ -128,7 +128,7 @@ export function InboxCommentPostMedia({
     if (textOnlyPost) {
       return (
         <div className={`flex items-center justify-center p-6 min-h-[12rem] ${className ?? ''}`}>
-          <PostHistoryTextThumb platform={platform} variant="inbox" className="w-24 h-28" />
+          <PostHistoryTextThumb variant="inbox" className="w-24 h-28" />
         </div>
       );
     }

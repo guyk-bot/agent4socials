@@ -2,50 +2,52 @@
 
 import { useState } from 'react';
 import { isAnalyticsTextOnlyPost, normalizeAnalyticsPlatform } from '@/lib/post-history-format';
-import { PlatformIcon, PLATFORM_ICON_MAP } from '@/components/SocialPlatformIcons';
 
-function iconSizeForThumb(className: string, variant: 'default' | 'inbox'): number {
+function textMarkSize(variant: 'default' | 'inbox', className: string): 'sm' | 'md' | 'lg' {
   if (variant === 'inbox') {
-    if (className.includes('w-24')) return 44;
-    if (className.includes('w-14') || className.includes('h-[4.25rem]')) return 34;
-    return 28;
+    if (className.includes('w-24')) return 'lg';
+    if (className.includes('w-14') || className.includes('h-[4.25rem]')) return 'md';
+    return 'md';
   }
-  if (className.includes('w-16')) return 38;
-  if (className.includes('w-12')) return 26;
-  return 22;
+  if (className.includes('w-12') || className.includes('w-16')) return 'md';
+  return 'sm';
+}
+
+/** Universal text-post glyph: large capital A + small lowercase a. */
+export function TextPostAaMark({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' }) {
+  const bigCls =
+    size === 'lg' ? 'text-[1.35rem]' : size === 'md' ? 'text-[1.05rem]' : 'text-sm';
+  const smallCls =
+    size === 'lg' ? 'text-[0.65rem]' : size === 'md' ? 'text-[0.55rem]' : 'text-[0.5rem]';
+
+  return (
+    <span
+      className="inline-flex items-baseline font-semibold text-slate-500 dark:text-neutral-400 leading-none select-none"
+      aria-hidden
+    >
+      <span className={bigCls}>A</span>
+      <span className={`${smallCls} -ml-px`}>a</span>
+    </span>
+  );
 }
 
 type PostHistoryTextThumbProps = {
-  platform?: string | null;
   className?: string;
   /** Inbox list uses a taller frame; history table uses a compact square. */
   variant?: 'default' | 'inbox';
 };
 
-/** Text-only post preview: full-color platform mark in a bordered frame (Post History + Inbox). */
+/** Text-only post preview: universal Aa tile (Post History + Inbox, all platforms). */
 export function PostHistoryTextThumb({
-  platform,
   className = 'w-9 h-9',
   variant = 'default',
 }: PostHistoryTextThumbProps) {
-  const plat = normalizeAnalyticsPlatform(platform);
-  const mapped = plat in PLATFORM_ICON_MAP ? (plat as keyof typeof PLATFORM_ICON_MAP) : null;
-  const iconSize = iconSizeForThumb(className, variant);
-
   return (
     <div
-      className={`flex items-center justify-center shrink-0 overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 ${className}`}
+      className={`rounded-lg bg-slate-100 dark:bg-neutral-800 flex items-center justify-center shrink-0 ${className}`}
       aria-hidden
     >
-      {mapped ? (
-        <PlatformIcon
-          platform={mapped}
-          size={iconSize}
-          className={mapped === 'TWITTER' ? 'text-neutral-900 dark:text-neutral-100' : ''}
-        />
-      ) : (
-        <span className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">Aa</span>
-      )}
+      <TextPostAaMark size={textMarkSize(variant, className)} />
     </div>
   );
 }
@@ -60,7 +62,7 @@ type PostContentPreviewThumbProps = {
   imgExtraProps?: React.ImgHTMLAttributes<HTMLImageElement>;
 };
 
-/** Post preview cell: platform icon for text-only posts, image thumbnail when available. */
+/** Post preview cell: Aa for text-only posts, image thumbnail when available. */
 export function PostContentPreviewThumb({
   platform,
   mediaType,
@@ -75,7 +77,7 @@ export function PostContentPreviewThumb({
   const textOnly = isAnalyticsTextOnlyPost(post) || imgFailed;
 
   if (textOnly) {
-    return <PostHistoryTextThumb platform={platform} className={className} />;
+    return <PostHistoryTextThumb className={className} />;
   }
 
   const thumb = (thumbnailUrl ?? '').trim();
