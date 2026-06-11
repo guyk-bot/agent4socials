@@ -2,11 +2,14 @@
 export const OAUTH_COMPLETE_MESSAGE = 'agent4socials-oauth-complete';
 
 const OAUTH_CONNECT_IN_FLIGHT_KEY = 'agent4socials_oauth_connect_in_flight';
+const OAUTH_REDIRECT_GUARD_KEY = 'agent4socials_oauth_redirect_guard';
 export const OAUTH_CONNECT_IN_FLIGHT_EVENT = 'izop-oauth-connect-in-flight';
 export const ACCOUNT_DISCONNECTED_EVENT = 'izop-account-disconnected';
 
 /** Max time to show sidebar "Connecting…" if OAuth never completes. */
 export const OAUTH_IN_FLIGHT_TTL_MS = 90 * 1000;
+/** Longer TTL to prevent redirect hook from firing too soon after OAuth starts. */
+const OAUTH_REDIRECT_GUARD_TTL_MS = 3 * 60 * 1000; // 3 minutes
 
 type OAuthInFlightRecord = {
   platform: string;
@@ -68,6 +71,8 @@ export function storeOAuthConnectInFlight(platform: string): void {
   try {
     const payload: OAuthInFlightRecord = { platform: p, startedAt: Date.now() };
     sessionStorage.setItem(OAUTH_CONNECT_IN_FLIGHT_KEY, JSON.stringify(payload));
+    // Also set a longer-lived guard in localStorage to prevent redirect hook
+    localStorage.setItem(OAUTH_REDIRECT_GUARD_KEY, JSON.stringify({ platform: p, startedAt: Date.now() }));
     window.dispatchEvent(new Event(OAUTH_CONNECT_IN_FLIGHT_EVENT));
   } catch {
     /* ignore */
@@ -78,10 +83,31 @@ export function readOAuthConnectInFlight(): string | null {
   return readInFlightRecord()?.platform ?? null;
 }
 
+/** Check if we should prevent redirect hooks due to recent OAuth activity. */
+export function isOAuthRedirectGuarded(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const raw = localStorage.getItem(OAUTH_REDIRECT_GUARD_KEY);
+    if (!raw) return false;
+    const guard = JSON.parse(raw) as { platform: string; startedAt: number };
+    if (!guard?.startedAt || !guard?.platform) return false;
+    const age = Date.now() - guard.startedAt;
+    if (age > OAUTH_REDIRECT_GUARD_TTL_MS) {
+      localStorage.removeItem(OAUTH_REDIRECT_GUARD_KEY);
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function clearOAuthConnectInFlight(): void {
   if (typeof window === 'undefined') return;
   try {
     sessionStorage.removeItem(OAUTH_CONNECT_IN_FLIGHT_KEY);
+    // Clear the redirect guard when OAuth completes successfully
+    localStorage.removeItem(OAUTH_REDIRECT_GUARD_KEY);
     window.dispatchEvent(new Event(OAUTH_CONNECT_IN_FLIGHT_EVENT));
   } catch {
     /* ignore */

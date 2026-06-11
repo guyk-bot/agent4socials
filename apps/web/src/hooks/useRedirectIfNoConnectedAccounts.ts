@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
-import { readOAuthConnectInFlight } from '@/lib/oauth-connect';
+import { readOAuthConnectInFlight, isOAuthRedirectGuarded } from '@/lib/oauth-connect';
 import {
   CONNECTED_ACCOUNTS_PATH,
   shouldRedirectEmptyAccountsToConnect,
@@ -30,6 +30,7 @@ export function useRedirectIfNoConnectedAccounts(): void {
     if (redirectedRef.current) return;
     if (!shouldRedirectEmptyAccountsToConnect(pathname, search)) return;
     if (readOAuthConnectInFlight()) return;
+    if (isOAuthRedirectGuarded()) return; // Don't redirect shortly after OAuth starts
     if (allCachedAccounts.length > 0) return;
 
     let cancelled = false;
