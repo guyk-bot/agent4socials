@@ -894,11 +894,20 @@ export default function DashboardPage() {
     if (!accountIdFromUrl || twitter1oaNext === '1') return;
     if (postConnectReturn) {
       setSelectedPlatformForConnect(null);
-      // Keep OAuth in-flight flag a bit longer so useRedirectIfNoConnectedAccounts doesn't kick in
-      // clearOAuthConnectInFlight(); -- moved to after accounts are loaded
+      setSelectedAccountId(accountIdFromUrl);
+      // Revisit (e.g. Inbox → Dashboard) must not replay the connect loading flow.
+      if (isConnectLoadDone(accountIdFromUrl)) {
+        setJustConnected(false);
+        setConnectBannerVisible(false);
+        pendingPostConnectAccountIdRef.current = null;
+        router.replace(
+          postConnectDashboardHref(accountIdFromUrl, searchParams.get('newPlatform')),
+          { scroll: false }
+        );
+        return;
+      }
       resetDashboardDataForPostConnect(accountIdFromUrl);
       pendingPostConnectAccountIdRef.current = accountIdFromUrl;
-      setSelectedAccountId(accountIdFromUrl);
       setInsights(null);
       setImportedPosts([]);
       setInsightsLoading(true);
@@ -941,11 +950,13 @@ export default function DashboardPage() {
           const url = new URL(window.location.href);
           const oauthNoise =
             url.searchParams.has('connecting') ||
+            url.searchParams.has('just_connected') ||
             url.searchParams.has('newPlatform') ||
             url.searchParams.has('newUsername') ||
             url.searchParams.has('newPic');
           if (oauthNoise) {
             url.searchParams.delete('connecting');
+            url.searchParams.delete('just_connected');
             url.searchParams.delete('newPlatform');
             url.searchParams.delete('newUsername');
             url.searchParams.delete('newPic');
@@ -2432,6 +2443,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const accountId = analyticsAccount?.id;
+    if (accountId && isConnectLoadDone(accountId)) {
+      setConnectBannerVisible(false);
+      return;
+    }
     const shouldOpen =
       oauthConnectUiActive && (!accountId || !isConnectLoadDone(accountId));
     if (shouldOpen) setConnectBannerVisible(true);
@@ -2441,6 +2456,7 @@ export default function DashboardPage() {
     if (!connectBannerVisible || !connectDashboardReady) return;
     const accountId = analyticsAccount?.id;
     if (!accountId || isConnectLoadDone(accountId)) return;
+    const platform = analyticsAccount?.platform ?? searchParams.get('newPlatform');
     const timeoutId = window.setTimeout(() => {
       if (isConnectLoadDone(accountId)) return;
       markConnectLoadDone(accountId);
@@ -2448,9 +2464,11 @@ export default function DashboardPage() {
       setOauthInFlightPlatform(null);
       setJustConnected(false);
       setConnectBannerVisible(false);
+      clearPostConnectOAuthUrlParams();
+      router.replace(postConnectDashboardHref(accountId, platform), { scroll: false });
     }, CONNECT_BANNER_SETTLE_MS);
     return () => window.clearTimeout(timeoutId);
-  }, [connectBannerVisible, connectDashboardReady, analyticsAccount?.id]);
+  }, [connectBannerVisible, connectDashboardReady, analyticsAccount?.id, analyticsAccount?.platform, router, searchParams]);
 
   /** Last resort: never leave the banner up forever if sync stalls. */
   useEffect(() => {
