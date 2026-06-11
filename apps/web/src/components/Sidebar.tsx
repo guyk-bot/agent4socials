@@ -219,9 +219,10 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
     return acc;
   }, {});
 
-  const text = theme === 'dark' && (!textColor || textColor.toLowerCase() === '#171717')
-    ? 'var(--foreground)'
-    : (textColor || '#171717');
+  const text =
+    theme === 'dark'
+      ? 'var(--foreground)'
+      : (textColor || '#171717');
   const hasConnectedAccounts = allCachedAccounts.length > 0;
   const consoleHref = consoleHrefForAccountState(hasConnectedAccounts);
   const isMainAnalyticsView = pathname === '/dashboard' || pathname === '/dashboard/console';
