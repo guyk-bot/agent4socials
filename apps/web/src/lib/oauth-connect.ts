@@ -165,7 +165,7 @@ export function watchOAuthConnectPopup(
 ): () => void {
   if (typeof window === 'undefined' || !popup || popup.closed) return () => {};
   const p = platform.trim().toUpperCase();
-  let graceTimer: ReturnType<typeof window.setTimeout> | undefined;
+  let graceTimer: number | undefined;
   const timer = window.setInterval(() => {
     if (!popup.closed) return;
     window.clearInterval(timer);
