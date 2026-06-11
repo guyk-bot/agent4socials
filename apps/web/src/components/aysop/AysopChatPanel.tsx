@@ -42,10 +42,9 @@ export type ChatMessage = {
 
 const STARTERS = [
   'Connect a platform for me',
-  'Scan for leads in my comments',
-  'Show my latest comments so I can reply',
-  'Draft a post for X and let me schedule it',
+  'Show my latest Threads replies',
   'Show my Console analytics',
+  'Draft a post for X and let me schedule it',
 ];
 
 type Props = {

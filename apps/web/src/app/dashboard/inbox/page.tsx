@@ -2446,8 +2446,11 @@ function InboxPage() {
       if (inboxRefreshInFlightRef.current && !opts?.forceUnlock) return;
       inboxRefreshInFlightRef.current = false;
       inboxRefreshInFlightRef.current = true;
-      setCommentsLoading(true);
-      setConversationsLoading(true);
+      const hasCachedComments =
+        commentsStableRef.current.length > 0 || inboxCommentsHydratedRef.current;
+      const hasCachedConversations = conversationsStableRef.current.length > 0;
+      if (!hasCachedComments) setCommentsLoading(true);
+      if (!hasCachedConversations) setConversationsLoading(true);
       try {
         const commentRows: PostComment[] = [];
         let convRows: Array<Conversation & { platform: string; messageAccountId: string }> = [];

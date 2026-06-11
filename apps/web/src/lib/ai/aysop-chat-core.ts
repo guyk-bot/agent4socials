@@ -36,6 +36,30 @@ function timeLeftMs(deadlineMs: number): number {
   return deadlineMs - Date.now();
 }
 
+function tryArtifactOnlyReply(artifacts: AysopArtifact[], toolNames: string[]): string | null {
+  if (toolNames.length !== 1) return null;
+  const only = toolNames[0];
+  if (only === 'list_recent_inbox') {
+    const feed = artifacts.find((a) => a.type === 'inbox_feed');
+    if (!feed || feed.type !== 'inbox_feed') return null;
+    const n = feed.items.length;
+    if (n === 0) {
+      return 'No matching comments in your inbox cache yet. Open Inbox once to sync, then ask again.';
+    }
+    const label = feed.title?.toLowerCase() ?? 'inbox items';
+    return `Here ${n === 1 ? 'is' : 'are'} ${n} ${label}${n === 1 ? '' : 's'} below.`;
+  }
+  if (only === 'add_inbox_comments_to_leads') {
+    const card = artifacts.find((a) => a.type === 'leads');
+    if (!card || card.type !== 'leads') {
+      return 'No new comments were added to Leads. They may already be saved, or Inbox needs a sync first.';
+    }
+    const low = card.leads.filter((l) => l.intent === 'low').length;
+    return `Updated your Leads list (${card.leads.length} total${low ? `, ${low} low intent` : ''}). See the card below to download CSV or open Leads.`;
+  }
+  return null;
+}
+
 async function finalizeReplyFromToolData(
   thread: OpenAIChatMessageWithTools[],
   chatOptions: { max_tokens?: number; model?: string; providerScope?: 'default' | 'aysop' }
@@ -117,7 +141,8 @@ function buildSystemPrompt(
     '- The user should complete tasks here, not by navigating away. Interactive cards in chat have Connect, Reply, Allow, and Schedule buttons.',
     '- Connect platforms: call list_connect_platforms (or list_connected_accounts). User taps Connect in chat.',
     '- Posts: call prepare_platform_post_drafts. User approves or schedules from preview cards. Never claim you published.',
-    '- Inbox: call list_recent_inbox or fetch_post_comments. User replies inline with Reply in chat.',
+    '- Inbox: call list_recent_inbox or fetch_post_comments. User replies inline with Reply manually on each card.',
+    '- When list_recent_inbox or add_inbox_comments_to_leads runs, the UI card shows the data. Reply with one short sentence only. Never list comments or leads again in numbered text.',
     '- Only suggest opening Composer when media is required (Instagram, TikTok, YouTube, Pinterest) and no file is attached.',
     '- Use show_app_in_chat only when the user explicitly wants the full page UI, not as the default for setup tasks.',
     '',
@@ -134,7 +159,10 @@ function buildSystemPrompt(
     '- When they ask generally ("my analytics", "all platforms", "summarize everything"), call get_analytics_all_accounts.',
     '- When they ask how many comments or inbox activity in a date range, call get_inbox_comment_summary. Use list_recent_inbox when they want to reply to specific comments.',
     '- Threads inbox has two kinds: replies on your posts vs @mentions. If they ask for replies only, call list_recent_inbox with platform THREADS and contentFilter replies_only (exclude @mentions). Use mentions_only only when they ask for mentions or tags.',
-    '- When they ask to scan, rescan, find, or mine leads, call scan_leads immediately (in-chat Scan button runs the same scan).',
+    '- Replying from the app is usually available for comments from the last 14 days. Older comments may fail; the inbox card shows when reply is not suggested.',
+    '- To save commenters as leads (including low-intent praise replies), call add_inbox_comments_to_leads with intent low. It skips duplicates already in Leads.',
+    '- Do not suggest "scan for leads" or offer a scan button unless the user explicitly asks to scan or rescan with AI intent scoring. Use add_inbox_comments_to_leads when they ask to add or extract leads from shown comments.',
+    '- When they ask to scan, rescan, find, or mine leads with AI intent scoring, call scan_leads.',
     '- When they ask how many leads or to show saved leads without rescanning, call get_saved_leads.',
     '- For "last week" or "past 7 days" pass days: 7. For "last 30 days" pass days: 30. Default to 30 days when no range is given.',
     '- When they ask for a graph, chart, report, or snapshot, call get_analytics_report_snapshot (includes chart data shown in chat).',
@@ -149,7 +177,8 @@ function buildSystemPrompt(
     '- open_composer_draft: pre-filled Composer when user asks (media platforms).',
     '- get_brand_context / propose_brand_context_update: review and edit brand context in chat.',
     '- get_saved_leads: show the last saved lead scan without rescanning.',
-    '- scan_leads: run a fresh lead scan in chat (Scan for leads button). Use for scan/rescan/find leads requests.',
+    '- scan_leads: AI lead scan from cached comments. Only when the user explicitly asks to scan/rescan/mine with AI.',
+    '- add_inbox_comments_to_leads: save inbox commenters to Leads (default low intent), skips duplicates.',
     '- show_support_options: feedback, ticket, and Zoom booking buttons in chat.',
     '- open_workspace_page: open Brand, Leads, Team members, Support, or Brainstorm as a card.',
     '- show_app_in_chat: preview only when user explicitly wants a full app page.',
@@ -161,9 +190,10 @@ function buildSystemPrompt(
     '- When they ask to open the Brand page, call open_workspace_page with page brand.',
     '',
     'Leads (critical):',
-    '- scan / rescan / find leads / new leads / mine comments for leads → call scan_leads (shows results + Scan button in chat).',
+    '- scan / rescan / find leads with AI → scan_leads only when they explicitly want AI scoring.',
+    '- add comments to leads / save commenters / extract leads from replies → add_inbox_comments_to_leads (default intent low).',
     '- how many leads / show my leads / who commented (saved results) → call get_saved_leads first; if empty the card includes Scan for leads.',
-    '- If they say yes after you offered to scan or show leads, call scan_leads unless they only wanted the saved list.',
+    '- If they say yes after you offered to add comments to leads, call add_inbox_comments_to_leads unless they wanted AI scan (scan_leads).',
     '- Never use fetch_post_comments or list_recent_inbox for lead questions. Summarize counts from tool output only.',
     '',
     'Support and troubleshooting (critical):',
@@ -303,6 +333,14 @@ export async function runAysopChat(args: {
         tool_call_id: call.id,
         content: JSON.stringify(toolResult),
       });
+    }
+
+    const artifactReply = tryArtifactOnlyReply(
+      artifacts,
+      assistantMsg.tool_calls.map((c) => c.function.name)
+    );
+    if (artifactReply) {
+      return { reply: artifactReply, artifacts };
     }
   }
 

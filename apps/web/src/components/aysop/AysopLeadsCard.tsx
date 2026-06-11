@@ -147,7 +147,9 @@ export function AysopLeadsCard({
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                   l.intent === 'high'
                     ? 'bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300'
-                    : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
+                    : l.intent === 'low'
+                      ? 'bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
+                      : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
                 }`}
               >
                 {l.intent}

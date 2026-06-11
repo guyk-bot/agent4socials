@@ -32,6 +32,8 @@ import {
   isThreadsMentionComment,
   isThreadsReplyComment,
 } from '@/lib/threads/threads-inbox-comment';
+import { inboxCommentReplyEligibility } from '@/lib/inbox/inbox-reply-eligibility';
+import { addInboxCommentsToLeads } from '@/lib/leads/add-inbox-comments-to-leads';
 import {
   AYSOP_COMPOSER_HREF,
   buildAysopComposerDraftPayload,
@@ -325,11 +327,24 @@ async function buildRecentInboxArtifact(
       items.push({
         accountId: acc.id,
         platform: platformLabel(acc.platform),
+        platformCode: acc.platform,
         commentId: row.commentId,
         authorName: row.authorName,
+        authorPictureUrl: row.authorPictureUrl ?? null,
         text: row.text,
         postPreview: row.postPreview ?? 'Post',
+        postText: row.postPreview ?? null,
+        postImageUrl: row.postImageUrl ?? null,
+        postUrl: row.postUrl ?? null,
         createdAt: row.createdAt,
+        inboxKind: row.inboxKind ?? null,
+        ...(() => {
+          const elig = inboxCommentReplyEligibility(row);
+          return {
+            canSuggestReply: elig.canSuggestReply,
+            replyBlockedReason: elig.reason,
+          };
+        })(),
       });
     }
   }
@@ -338,6 +353,7 @@ async function buildRecentInboxArtifact(
 
   return {
     type: 'inbox_feed',
+    title: contentFilter === 'replies_only' ? 'Replies on Threads' : 'Recent inbox',
     items: items.slice(0, Math.min(Math.max(limit, 1), 25)),
   };
 }
@@ -744,6 +760,32 @@ export const AYSOP_TOOL_DEFINITIONS = [
   {
     type: 'function' as const,
     function: {
+      name: 'add_inbox_comments_to_leads',
+      description:
+        'Save inbox comments to the Leads list (default intent: low). Use when the user asks to add comments/replies to leads, extract leads from shown replies, or save commenters as leads. Skips duplicates already in Leads. Do NOT use scan_leads for this unless they explicitly want AI intent scoring.',
+      parameters: {
+        type: 'object',
+        properties: {
+          platform: platformParam,
+          commentIds: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Optional comment ids from list_recent_inbox. Omit to add all cached comments for the platform.',
+          },
+          intent: {
+            type: 'string',
+            enum: ['low', 'medium', 'high'],
+            description: 'Default low for generic praise replies the user still wants tracked.',
+          },
+          limit: { type: 'number', description: 'Max comments to process (default 50)' },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
       name: 'show_app_in_chat',
       description:
         'Preview an app screen in chat. Prefer actionable tools (connect, drafts, inbox, schedule) so the user can complete tasks in chat. Only use when they explicitly want the full page UI.',
@@ -893,7 +935,7 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'scan_leads',
       description:
-        'Run a fresh AI lead scan from cached post comments (same as the Leads page Scan button). Call when the user asks to scan, rescan, find leads, mine comments for leads, or discover new potential customers. Shows results in chat with outreach messages, CSV download, and Rescan button.',
+        'Run a fresh AI lead scan from cached post comments (same as the Leads page Scan button). Use only when the user explicitly asks to scan, rescan, or mine comments with AI intent scoring. For adding commenters as low-intent leads, use add_inbox_comments_to_leads instead.',
       parameters: {
         type: 'object',
         properties: {
@@ -939,29 +981,28 @@ function buildLeadsToolResponse(
   scanned: number,
   message?: string,
   scannedAt?: string | null,
-  accountId?: string | null
+  accountId?: string | null,
+  extra?: { newCount?: number; skippedExisting?: number; totalMatched?: number }
 ) {
   const highCount = leads.filter((l) => l.intent === 'high').length;
+  const lowCount = leads.filter((l) => l.intent === 'low').length;
   return {
     result: {
       scanned,
       totalLeads: leads.length,
       highIntent: highCount,
+      lowIntent: lowCount,
+      newLeadsAdded: extra?.newCount ?? null,
+      skippedExisting: extra?.skippedExisting ?? null,
+      totalMatched: extra?.totalMatched ?? null,
       message,
       scannedAt: scannedAt ?? null,
-      leads: leads.slice(0, 25).map((l) => ({
-        authorName: l.authorName,
-        platform: l.platform,
-        intent: l.intent,
-        comment: l.comment,
-        reason: l.reason,
-      })),
-      note:
-        leads.length > 0
-          ? 'Leads card shown in chat with Scan/Rescan, outreach, and CSV. Summarize the count; user can rescan from the card.'
-          : 'Scan prompt card shown with a Scan for leads button. Tell the user to tap it or open Inbox first if no comments are cached.',
+      uiNote: 'Leads render in the card below. Do not list every lead again in text.',
     },
-    artifacts: leadsToChatArtifacts(leads, scanned, { lastScannedAt: scannedAt, accountId }),
+    artifacts:
+      leads.length > 0
+        ? leadsToChatArtifacts(leads, scanned, { lastScannedAt: scannedAt, accountId })
+        : [],
   };
 }
 
@@ -1084,10 +1125,33 @@ export async function runAysopTool(
         result: {
           count: artifact.items.length,
           contentFilter,
-          items: artifact.items,
+          uiNote: 'Comments are shown in the inbox card below. Do not list them again in your reply.',
         },
         artifacts: [artifact],
       };
+    }
+
+    case 'add_inbox_comments_to_leads': {
+      const platform = normalizePlatformArg(args.platform as string | undefined);
+      const commentIds = Array.isArray(args.commentIds)
+        ? args.commentIds.filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+        : undefined;
+      const intentRaw = typeof args.intent === 'string' ? args.intent.trim().toLowerCase() : 'low';
+      const intent: ScannedLead['intent'] =
+        intentRaw === 'high' || intentRaw === 'medium' || intentRaw === 'low' ? intentRaw : 'low';
+      const limit = Math.min(Math.max(Number(args.limit) || 50, 1), 100);
+      const out = await addInboxCommentsToLeads(ctx.userId, {
+        platform,
+        commentIds,
+        defaultIntent: intent,
+        limit,
+      });
+      const scannedAt = new Date().toISOString();
+      return buildLeadsToolResponse(out.leads, out.scanned, out.message, scannedAt, out.accountId, {
+        newCount: out.newCount,
+        skippedExisting: out.skippedExisting,
+        totalMatched: out.totalMatched,
+      });
     }
 
     case 'get_analytics_all_accounts': {
@@ -1433,9 +1497,9 @@ export async function runAysopTool(
         return {
           result: {
             totalLeads: 0,
-            note: 'No saved scan. A Scan for leads button is shown in chat, or call scan_leads if the user wants to scan now.',
+            note: 'No saved leads yet. Ask to add inbox comments to leads, or open the Leads page.',
           },
-          artifacts: leadsToChatArtifacts([], 0),
+          artifacts: [],
         };
       }
       return buildLeadsToolResponse(

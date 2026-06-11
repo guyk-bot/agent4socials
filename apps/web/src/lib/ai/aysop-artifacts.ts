@@ -44,14 +44,23 @@ export type AysopArtifact =
     }
   | {
       type: 'inbox_feed';
+      title?: string;
       items: Array<{
         accountId: string;
         platform: string;
+        platformCode: string;
         commentId: string;
         authorName: string | null;
+        authorPictureUrl?: string | null;
         text: string;
         postPreview: string;
+        postText?: string | null;
+        postImageUrl?: string | null;
+        postUrl?: string | null;
         createdAt: string;
+        inboxKind?: 'threads_reply' | 'threads_mention' | null;
+        canSuggestReply: boolean;
+        replyBlockedReason?: string | null;
       }>;
     }
   | {
@@ -104,7 +113,7 @@ export type AysopArtifact =
         platform: string;
         comment: string;
         outreach: string;
-        intent: 'high' | 'medium';
+        intent: 'high' | 'medium' | 'low';
       }>;
       /** Full rows for Leads page sync (not shown in chat UI). */
       fullLeads?: Array<{
@@ -118,7 +127,7 @@ export type AysopArtifact =
         postPreview: string;
         postUrl: string | null;
         createdAt: string;
-        intent: 'high' | 'medium';
+        intent: 'high' | 'medium' | 'low';
         reason: string;
         outreach: string;
       }>;

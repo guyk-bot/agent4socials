@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import api, { API_AYSOP_SESSION_PERSIST_TIMEOUT_MS } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -139,6 +139,16 @@ export default function AysopAiWorkspace() {
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
+
+  useLayoutEffect(() => {
+    if (!user?.id || !activeId) return;
+    if (messages.length > 0) return;
+    const cached = readCachedMessages(user.id, activeId);
+    if (cached?.length) {
+      setMessages(cached as ChatMessage[]);
+      messagesRef.current = cached as ChatMessage[];
+    }
+  }, [user?.id, activeId, messages.length]);
 
   useEffect(() => {
     activeIdRef.current = activeId;
@@ -314,7 +324,8 @@ export default function AysopAiWorkspace() {
           timeout: LOAD_SESSION_TIMEOUT_MS,
         });
         const serverMessages = (res.data.session.messages ?? []) as ChatMessage[];
-        const best = pickBestStoredMessages(cached, serverMessages) as ChatMessage[];
+        let best = pickBestStoredMessages(cached, serverMessages) as ChatMessage[];
+        if (best.length === 0 && cached.length > 0) best = cached;
         if (activeIdRef.current === id) {
           setMessages(best);
           messagesRef.current = best;
