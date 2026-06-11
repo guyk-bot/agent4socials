@@ -120,12 +120,13 @@ export async function revokeThreadsAppAuthorization(accessToken: string): Promis
 export async function threadsGet<T = unknown>(
   path: string,
   accessToken: string,
-  params?: Record<string, string | number | undefined>
+  params?: Record<string, string | number | undefined>,
+  timeoutMs = 20_000
 ): Promise<{ status: number; data: T }> {
   const r = await axios.get<T>(`${THREADS_GRAPH_BASE}/${path.replace(/^\//, '')}`, {
     headers: threadsApiHeaders(accessToken),
     params,
-    timeout: 20_000,
+    timeout: timeoutMs,
     validateStatus: () => true,
   });
   return { status: r.status, data: r.data };
@@ -156,11 +157,15 @@ export type ThreadsProfile = {
   threads_biography?: string;
 };
 
-export async function fetchThreadsProfile(accessToken: string): Promise<ThreadsProfile | null> {
+export async function fetchThreadsProfile(
+  accessToken: string,
+  timeoutMs = 20_000
+): Promise<ThreadsProfile | null> {
   const { status, data } = await threadsGet<ThreadsProfile>(
     'me',
     accessToken,
-    { fields: 'id,username,name,threads_profile_picture_url,threads_biography' }
+    { fields: 'id,username,name,threads_profile_picture_url,threads_biography' },
+    timeoutMs
   );
   if (status !== 200 || !data?.id) return null;
   return data;
@@ -168,7 +173,8 @@ export async function fetchThreadsProfile(accessToken: string): Promise<ThreadsP
 
 export async function exchangeThreadsCodeForShortLivedToken(
   code: string,
-  redirectUri: string
+  redirectUri: string,
+  timeoutMs = 20_000
 ): Promise<{ accessToken: string; userId?: string } | null> {
   const clientId = threadsAppId();
   const clientSecret = threadsAppSecret();
@@ -188,7 +194,7 @@ export async function exchangeThreadsCodeForShortLivedToken(
     }).toString(),
     {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      timeout: 20_000,
+      timeout: timeoutMs,
       validateStatus: () => true,
     }
   );
@@ -210,8 +216,46 @@ export async function exchangeThreadsCodeForShortLivedToken(
   return { accessToken: r.data.access_token, userId };
 }
 
+/** OAuth connect: short-lived token, then long-lived + profile in parallel (faster callback). */
+export async function exchangeThreadsOAuthConnect(
+  code: string,
+  redirectUri: string
+): Promise<{
+  accessToken: string;
+  expiresAt: Date;
+  platformUserId: string;
+  username: string;
+  profilePicture: string | null;
+}> {
+  const OAUTH_MS = 12_000;
+  const short = await exchangeThreadsCodeForShortLivedToken(code, redirectUri, OAUTH_MS);
+  if (!short?.accessToken) {
+    throw new Error(
+      `Threads token exchange failed. Redirect URI used: ${redirectUri}. Check THREADS_APP_ID and THREADS_APP_SECRET in Vercel.`
+    );
+  }
+  const [long, profile] = await Promise.all([
+    exchangeThreadsLongLivedToken(short.accessToken, OAUTH_MS),
+    fetchThreadsProfile(short.accessToken, OAUTH_MS).catch(() => null),
+  ]);
+  const accessToken = long?.accessToken ?? short.accessToken;
+  const expiresAt = new Date(
+    Date.now() + (long?.expiresInSec ?? 60 * 24 * 60 * 60) * 1000
+  );
+  const threadsUserId =
+    short.userId !== undefined && short.userId !== null ? String(short.userId).trim() : '';
+  let platformUserId = threadsUserId || profile?.id || 'threads-' + accessToken.slice(-8);
+  const username = profile?.username ?? profile?.name ?? 'Threads';
+  const profilePicture = profile?.threads_profile_picture_url ?? null;
+  if (profile?.id) platformUserId = profile.id;
+  return { accessToken, expiresAt, platformUserId, username, profilePicture };
+}
+
 /** Exchange short-lived token for long-lived (about 60 days). */
-export async function exchangeThreadsLongLivedToken(shortLivedToken: string): Promise<{
+export async function exchangeThreadsLongLivedToken(
+  shortLivedToken: string,
+  timeoutMs = 20_000
+): Promise<{
   accessToken: string;
   expiresInSec: number;
 } | null> {
@@ -227,7 +271,7 @@ export async function exchangeThreadsLongLivedToken(shortLivedToken: string): Pr
       client_secret: clientSecret,
       access_token: shortLivedToken,
     },
-    timeout: 20_000,
+    timeout: timeoutMs,
     validateStatus: () => true,
   });
   if (r.status !== 200 || !r.data?.access_token) {

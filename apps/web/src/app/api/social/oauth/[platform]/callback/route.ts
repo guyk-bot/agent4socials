@@ -8,9 +8,7 @@ import { ensureBootstrapSnapshotForToday } from '@/lib/analytics/metric-snapshot
 import { ensurePinterestPlatformEnum } from '@/lib/ensure-pinterest-platform-enum';
 import { ensureThreadsPlatformEnum } from '@/lib/ensure-threads-platform-enum';
 import {
-  exchangeThreadsCodeForShortLivedToken,
-  exchangeThreadsLongLivedToken,
-  fetchThreadsProfile,
+  exchangeThreadsOAuthConnect,
   resolveThreadsRedirectUri,
   threadsRedirectUriFromRequestUrl,
 } from '@/lib/threads/threads-api';
@@ -668,38 +666,14 @@ async function exchangeCode(
     }
     case 'THREADS': {
       const redirectUri = (callbackUrl || resolveThreadsRedirectUri()).replace(/\/+$/, '');
-      const short = await exchangeThreadsCodeForShortLivedToken(code, redirectUri);
-      if (!short?.accessToken) {
-        throw new Error(
-          `Threads token exchange failed. Redirect URI used: ${redirectUri}. Check THREADS_APP_ID and THREADS_APP_SECRET in Vercel.`
-        );
-      }
-      const long = await exchangeThreadsLongLivedToken(short.accessToken);
-      const accessToken = long?.accessToken ?? short.accessToken;
-      const expiresAt = new Date(
-        Date.now() + (long?.expiresInSec ?? 60 * 24 * 60 * 60) * 1000
-      );
-      const threadsUserId =
-        short.userId !== undefined && short.userId !== null ? String(short.userId).trim() : '';
-      let platformUserId = threadsUserId || 'threads-' + accessToken.slice(-8);
-      let username = 'Threads';
-      let profilePicture: string | null = null;
-      try {
-        const profile = await fetchThreadsProfile(accessToken);
-        if (profile?.id) platformUserId = profile.id;
-        if (profile?.username) username = profile.username;
-        if (profile?.name && !profile.username) username = profile.name;
-        if (profile?.threads_profile_picture_url) profilePicture = profile.threads_profile_picture_url;
-      } catch (e) {
-        console.warn('[Social OAuth] Threads profile:', (e as Error)?.message ?? e);
-      }
+      const connected = await exchangeThreadsOAuthConnect(code, redirectUri);
       return {
-        accessToken,
+        accessToken: connected.accessToken,
         refreshToken: null,
-        expiresAt,
-        platformUserId,
-        username,
-        profilePicture,
+        expiresAt: connected.expiresAt,
+        platformUserId: connected.platformUserId,
+        username: connected.username,
+        profilePicture: connected.profilePicture,
       };
     }
     case 'PINTEREST': {
@@ -1530,7 +1504,7 @@ export async function GET(
     if (plat === 'PINTEREST') {
       await ensurePinterestPlatformEnum();
     }
-    if (plat === 'THREADS') {
+    if (plat === 'THREADS' && process.env.NODE_ENV !== 'production') {
       await ensureThreadsPlatformEnum();
     }
     const accountWrite = {
