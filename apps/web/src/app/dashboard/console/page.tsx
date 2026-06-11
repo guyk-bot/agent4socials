@@ -70,6 +70,7 @@ import type {
 } from '@/lib/analytics/unified-metrics-types';
 import { PLATFORM_COLOR, CHART_PLATFORMS, PLATFORM_LABEL } from '@/lib/analytics/unified-metrics-types';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
+import { useRedirectIfNoConnectedAccounts } from '@/hooks/useRedirectIfNoConnectedAccounts';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import {
@@ -1260,6 +1261,7 @@ function rangeFromDaysParam(days: number): { start: string; end: string } {
 }
 
 export default function UnifiedSummaryPage() {
+  useRedirectIfNoConnectedAccounts();
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();

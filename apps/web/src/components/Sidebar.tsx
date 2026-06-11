@@ -31,6 +31,7 @@ import type { SocialAccount } from '@/context/SelectedAccountContext';
 import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
 import { avatarDisplayUrl } from '@/lib/avatar-display-url';
 import { BRAND_NAME } from '@/lib/site-brand-assets';
+import { consoleHrefForAccountState } from '@/lib/dashboard-onboarding';
 
 const PLATFORM_LABELS: Record<string, string> = {
   INSTAGRAM: 'Instagram',
@@ -71,8 +72,9 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
   const searchParams = useSearchParams();
   const { textColor } = useWhiteLabel();
   const { theme } = useTheme();
-  const { cachedAccounts, setCachedAccounts, setAccountsLoadError } = useAccountsCache() ?? {
+  const { cachedAccounts, allCachedAccounts, setCachedAccounts, setAccountsLoadError } = useAccountsCache() ?? {
     cachedAccounts: [],
+    allCachedAccounts: [],
     setCachedAccounts: () => {},
     setAccountsLoadError: () => {},
   };
@@ -220,6 +222,8 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
   const text = theme === 'dark' && (!textColor || textColor.toLowerCase() === '#171717')
     ? 'var(--foreground)'
     : (textColor || '#171717');
+  const hasConnectedAccounts = allCachedAccounts.length > 0;
+  const consoleHref = consoleHrefForAccountState(hasConnectedAccounts);
   const isMainAnalyticsView = pathname === '/dashboard' || pathname === '/dashboard/console';
   const isPostsPage = pathname === '/posts';
   const isReportsPage = pathname === '/dashboard/reports';
@@ -404,9 +408,17 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
     >
       <div className="flex items-stretch gap-0 border-b border-neutral-200 shrink-0 pl-1.5">
         <Link
-          href="/dashboard/console"
+          href={consoleHref}
           onClick={(e) => {
-            if (pathname === '/dashboard/console') e.preventDefault();
+            if (hasConnectedAccounts && pathname === '/dashboard/console') e.preventDefault();
+            if (
+              !hasConnectedAccounts &&
+              pathname === '/dashboard/account' &&
+              typeof window !== 'undefined' &&
+              window.location.hash === '#connected-accounts'
+            ) {
+              e.preventDefault();
+            }
           }}
           className={`flex min-w-0 flex-1 items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
             isMainAnalyticsView ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)] border border-transparent'

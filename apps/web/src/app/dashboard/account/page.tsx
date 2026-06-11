@@ -219,8 +219,11 @@ export default function AccountPage() {
 
   useEffect(() => {
     if (!mounted || typeof window === 'undefined') return;
-    if (window.location.hash !== '#team-members') return;
-    const el = document.getElementById('team-members');
+    const hash = window.location.hash;
+    const targetId =
+      hash === '#team-members' ? 'team-members' : hash === '#connected-accounts' ? 'connected-accounts' : null;
+    if (!targetId) return;
+    const el = document.getElementById(targetId);
     if (!el) return;
     requestAnimationFrame(() => {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });

@@ -93,6 +93,7 @@ import {
 import { getSupabaseBrowser } from '@/lib/supabase/client';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import ConnectView from '@/components/dashboard/ConnectView';
+import { useRedirectIfNoConnectedAccounts } from '@/hooks/useRedirectIfNoConnectedAccounts';
 import {
   Users,
   CheckCircle,
@@ -349,6 +350,7 @@ function mergeFacebookPageInsightsPreserve(
 }
 
 export default function DashboardPage() {
+  useRedirectIfNoConnectedAccounts();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { prisma } from '@/lib/db';
+import { CONNECTED_ACCOUNTS_PATH } from '@/lib/dashboard-onboarding';
 
 /**
  * OAuth callback Route Handler: exchange the authorization code for a session on the server.
@@ -26,7 +28,29 @@ export async function GET(request: Request) {
           `${requestUrl.origin}/login?error=${encodeURIComponent(error.message)}`
         );
       }
-      return NextResponse.redirect(`${requestUrl.origin}/dashboard`);
+
+      let redirectPath = '/dashboard';
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          const dbUser = await prisma.user.findUnique({
+            where: { supabaseId: user.id },
+            select: { id: true },
+          });
+          if (!dbUser) {
+            redirectPath = CONNECTED_ACCOUNTS_PATH;
+          } else {
+            const connectedCount = await prisma.socialAccount.count({
+              where: { userId: dbUser.id, status: 'connected' },
+            });
+            if (connectedCount === 0) redirectPath = CONNECTED_ACCOUNTS_PATH;
+          }
+        }
+      } catch (e) {
+        console.error('[auth/callback] post-sign-in redirect lookup failed:', (e as Error)?.message);
+      }
+
+      return NextResponse.redirect(`${requestUrl.origin}${redirectPath}`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Unexpected error during sign-in';
       return NextResponse.redirect(
