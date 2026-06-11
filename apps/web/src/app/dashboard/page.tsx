@@ -225,7 +225,7 @@ function DataSyncBanner({
   );
 
   return (
-    <div className={`mt-4 mb-5 rounded-2xl overflow-hidden shadow-lg bg-gradient-to-r ${grad} transition-opacity duration-500`}>
+    <div className={`mt-3 mb-4 rounded-2xl overflow-hidden shadow-lg bg-gradient-to-r ${grad} transition-opacity duration-500`}>
       <div className="px-5 py-4 flex items-center gap-4">
         {/* icon with ping ring */}
         {icon && (
@@ -2645,17 +2645,23 @@ export default function DashboardPage() {
   const syncBannerPostsLoading =
     oauthConnectUiActive ? importedPostsLoading || !displayInsights : importedPostsLoading;
   const hideAnalyticsWhileConnectLoading = connectBannerVisible && !connectDashboardReady;
-  /** In-dashboard skeleton only (sidebar + nav stay interactive). Never without the connect banner. */
   const analyticsLoadingOnly = Boolean(
     analyticsAccount &&
       !displayInsights &&
       insightsLoading &&
       !connectBannerVisible
   );
+  /** Skeleton placeholders under the connect banner until real analytics are ready. */
   const showDashboardSkeleton = Boolean(
-    !connectBannerVisible &&
-      analyticsAccount &&
-      (analyticsLoadingOnly || (postConnectLoadActive && !displayInsights))
+    connectBannerVisible
+      ? !connectDashboardReady
+      : analyticsAccount &&
+          (Boolean(
+            analyticsAccount &&
+              !displayInsights &&
+              insightsLoading
+          ) ||
+            (postConnectLoadActive && !displayInsights))
   );
   const showDataSyncBanner = connectBannerVisible;
   function openPricingPopup() {
@@ -2721,7 +2727,7 @@ export default function DashboardPage() {
         />
       )}
       {showDashboardSkeleton && (
-        <div className="mt-4 max-w-full space-y-4" style={{ maxWidth: 1400 }}>
+        <div className="max-w-full space-y-4" style={{ maxWidth: 1400 }}>
           <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4 animate-pulse">
             <div className="h-5 w-44 rounded-md bg-neutral-200/80 dark:bg-neutral-700/80 mb-3" />
             <div className="h-3 w-64 rounded-md bg-neutral-200/70 dark:bg-neutral-700/70 mb-4" />
