@@ -155,8 +155,9 @@ export function isPlatformOAuthPending(platform: string): boolean {
 }
 
 /**
- * When the OAuth popup closes, the callback tab may still be saving the account.
- * Do not clear in-flight here; use {@link pollOAuthConnectAccount} and {@link watchOAuthConnectTimeout}.
+ * When the OAuth popup closes before a callback, clear any connect UI (user cancelled).
+ * If the user finished OAuth, the callback tab may still be saving; optional onPopupClosed
+ * can start a silent poll via {@link pollOAuthConnectAccount}.
  */
 export function watchOAuthConnectPopup(
   popup: Window | null | undefined,
@@ -187,17 +188,19 @@ export function pollOAuthConnectAccount(
   platform: string,
   fetchAccounts: () => Promise<OAuthAccountRow[]>,
   onFound: (account: OAuthAccountRow) => void,
-  opts?: { intervalMs?: number; maxMs?: number }
+  opts?: { intervalMs?: number; maxMs?: number; requireInFlight?: boolean }
 ): () => void {
   if (typeof window === 'undefined') return () => {};
   const p = platform.trim().toUpperCase();
   const intervalMs = opts?.intervalMs ?? 2_000;
   const maxMs = opts?.maxMs ?? OAUTH_IN_FLIGHT_TTL_MS;
+  const requireInFlight = opts?.requireInFlight !== false;
   const started = Date.now();
   let stopped = false;
 
   const tick = async (): Promise<boolean> => {
-    if (stopped || readOAuthConnectInFlight() !== p) return true;
+    if (stopped) return true;
+    if (requireInFlight && readOAuthConnectInFlight() !== p) return true;
     if (Date.now() - started > maxMs) return true;
     try {
       const list = await fetchAccounts();

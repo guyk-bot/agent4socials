@@ -175,8 +175,11 @@ type ConnectViewProps = {
     method?: string,
     options?: { switchAccount?: boolean }
   ) => void;
+  /** Full-page loading after OAuth callback (connecting=1), not while the popup is open. */
   connecting: boolean;
-  connectingMethod?: string;
+  /** Brief spinner while the OAuth start URL is loading / popup is opening. */
+  launching?: boolean;
+  launchingMethod?: string;
   connectError?: string | null;
 };
 
@@ -186,14 +189,16 @@ function ThreadsConnectPanel({
   info,
   platformLower,
   connecting,
-  connectingMethod,
+  launching,
+  launchingMethod,
   connectError,
   onConnect,
 }: {
   info: PlatformInfo;
   platformLower: string;
   connecting: boolean;
-  connectingMethod?: string;
+  launching?: boolean;
+  launchingMethod?: string;
   connectError?: string | null;
   onConnect: ConnectViewProps['onConnect'];
 }) {
@@ -266,10 +271,10 @@ function ThreadsConnectPanel({
           <button
             type="button"
             onClick={() => onConnect(platformLower)}
-            disabled={connecting}
+            disabled={connecting || launching}
             className={`mt-6 w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-sm font-semibold text-chrome-text bg-gradient-to-r ${info.buttonGradient} ${info.buttonHover} transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed`}
           >
-            {connecting && connectingMethod !== 'switch' ? (
+            {launching && launchingMethod !== 'switch' ? (
               <Loader2 size={18} className="animate-spin" />
             ) : null}
             Connect {info.buttonLabel ?? info.name}
@@ -277,10 +282,10 @@ function ThreadsConnectPanel({
           <button
             type="button"
             onClick={() => onConnect(platformLower, 'switch', { switchAccount: true })}
-            disabled={connecting}
+            disabled={connecting || launching}
             className="mt-3 w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-sm font-semibold text-neutral-800 border border-neutral-300 bg-white hover:bg-neutral-50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {connecting && connectingMethod === 'switch' ? (
+            {launching && launchingMethod === 'switch' ? (
               <Loader2 size={18} className="animate-spin" />
             ) : null}
             Use a different Threads account
@@ -329,7 +334,14 @@ function ConnectPageSections({
   );
 }
 
-export default function ConnectView({ platform, onConnect, connecting, connectingMethod, connectError }: ConnectViewProps) {
+export default function ConnectView({
+  platform,
+  onConnect,
+  connecting,
+  launching = false,
+  launchingMethod,
+  connectError,
+}: ConnectViewProps) {
   const info = PLATFORM_INFO[platform];
   if (!info) return null;
 
@@ -370,7 +382,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
           <button
             type="button"
             onClick={() => onConnect('instagram', 'instagram')}
-            disabled={connecting}
+            disabled={connecting || launching}
             className={`connect-option text-left p-5 rounded-2xl border-2 ${info.accentBorder} ${info.accentHover} transition-all flex flex-col bg-white`}
           >
             <div className="flex items-center justify-between mb-3">
@@ -383,7 +395,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
               <li className="flex items-center gap-2"><Check size={13} className="text-green-500 shrink-0" /> Comments &amp; messages</li>
             </ul>
             <div className={`mt-5 flex justify-center items-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold text-chrome-text bg-gradient-to-r ${info.buttonGradient} ${info.buttonHover} transition-all`}>
-              {connecting && connectingMethod === 'instagram' ? <Loader2 size={15} className="animate-spin" /> : 'Connect'}
+              {launching && launchingMethod === 'instagram' ? <Loader2 size={15} className="animate-spin" /> : 'Connect'}
             </div>
           </button>
 
@@ -391,7 +403,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
           <button
             type="button"
             onClick={() => onConnect('instagram')}
-            disabled={connecting}
+            disabled={connecting || launching}
             className="connect-option text-left p-5 rounded-2xl border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50/30 transition-all flex flex-col bg-white relative"
           >
             <div className="flex items-center justify-between mb-3">
@@ -408,7 +420,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
               <li className="flex items-center gap-2"><Check size={13} className="text-green-500 shrink-0" /> All Instagram features</li>
             </ul>
             <div className="mt-5 flex justify-center items-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold text-chrome-text bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 transition-all">
-              {connecting && !connectingMethod ? <Loader2 size={15} className="animate-spin" /> : 'Connect with Facebook'}
+              {launching && !launchingMethod ? <Loader2 size={15} className="animate-spin" /> : 'Connect with Facebook'}
             </div>
           </button>
         </div>
@@ -424,7 +436,8 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
         info={info}
         platformLower={platformLower}
         connecting={connecting}
-        connectingMethod={connectingMethod}
+        launching={launching}
+        launchingMethod={launchingMethod}
         connectError={connectError}
         onConnect={onConnect}
       />
@@ -433,7 +446,7 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
 
   // ── LINKEDIN (personal vs Company Page + in-app consent) ─────────────────
   if (platform === 'LINKEDIN') {
-    return <LinkedInConnectOptions connecting={connecting} connectError={connectError} />;
+    return <LinkedInConnectOptions connecting={connecting || launching} connectError={connectError} />;
   }
 
   // ── TIKTOK (personal vs business) ─────────────────────────────────────────
@@ -466,10 +479,10 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
                   key={method}
                   type="button"
                   onClick={() => onConnect('tiktok', method)}
-                  disabled={connecting}
+                  disabled={connecting || launching}
                   className="connect-tiktok-btn w-full flex items-center justify-center gap-2.5 py-3 px-5 rounded-xl border-2 border-black bg-black text-chrome-text font-semibold text-sm transition-all hover:bg-neutral-900 hover:border-neutral-900 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {connecting && connectingMethod === method ? (
+                  {launching && launchingMethod === method ? (
                     <Loader2 size={18} className="animate-spin" />
                   ) : null}
                   Connect {label}
@@ -505,10 +518,10 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
         <button
           type="button"
           onClick={() => onConnect(platformLower)}
-          disabled={connecting}
+          disabled={connecting || launching}
           className={`mt-6 w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-sm font-semibold text-chrome-text bg-gradient-to-r ${info.buttonGradient} ${info.buttonHover} transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed`}
         >
-          {connecting ? <Loader2 size={18} className="animate-spin" /> : null}
+          {launching ? <Loader2 size={18} className="animate-spin" /> : null}
           Connect {info.buttonLabel ?? info.name}
         </button>
       </div>

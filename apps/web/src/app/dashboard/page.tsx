@@ -77,7 +77,6 @@ import {
   OAUTH_CONNECT_IN_FLIGHT_EVENT,
   ACCOUNT_DISCONNECTED_EVENT,
   watchOAuthConnectPopup,
-  watchOAuthConnectTimeout,
   isPlatformOAuthPending,
   pollOAuthConnectAccount,
   notifyOAuthCompleteLocally,
@@ -441,8 +440,9 @@ export default function DashboardPage() {
   const [stats, setStats] = useState({ accounts: 0, scheduled: 0, posted: 0, failed: 0 });
   const [recentPosts, setRecentPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
-  const [connectingMethod, setConnectingMethod] = useState<string | undefined>(undefined);
+  /** Brief: fetching OAuth start URL / opening popup. Does not show full-page connect loading. */
+  const [oauthLaunchingPlatform, setOauthLaunchingPlatform] = useState<string | null>(null);
+  const [oauthLaunchingMethod, setOauthLaunchingMethod] = useState<string | undefined>(undefined);
   const [oauthInFlightPlatform, setOauthInFlightPlatform] = useState<string | null>(() =>
     typeof window !== 'undefined' ? readOAuthConnectInFlight() : null
   );
@@ -719,8 +719,8 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!connectErrorFromUrl) return;
     clearOAuthConnectInFlight();
-    setConnectingPlatform(null);
-    setConnectingMethod(undefined);
+    setOauthLaunchingPlatform(null);
+    setOauthLaunchingMethod(undefined);
     setAlertMessage(connectErrorFromUrl);
     if (!connectParam) return;
     const url = new URL(window.location.href);
@@ -893,9 +893,9 @@ export default function DashboardPage() {
   useEffect(() => {
     return listenForOAuthComplete((payload) => {
       setSelectedPlatformForConnect(null);
-      setConnectingPlatform(null);
-      setConnectingMethod(undefined);
-      clearOAuthConnectInFlight();
+      setOauthLaunchingPlatform(null);
+      setOauthLaunchingMethod(undefined);
+      if (payload.platform) storeOAuthConnectInFlight(payload.platform);
       const { accountId, platform, username, profilePicture } = payload;
       if (accountId && platform) {
         setSelectedAccountId(accountId);
@@ -948,8 +948,8 @@ export default function DashboardPage() {
           }
         }
         setSelectedPlatformForConnect(null);
-        setConnectingPlatform(null);
-        setConnectingMethod(undefined);
+        setOauthLaunchingPlatform(null);
+        setOauthLaunchingMethod(undefined);
         router.replace(buildDashboardSuccessRedirect(accountId, plat), { scroll: false });
       });
     });
@@ -1984,21 +1984,12 @@ export default function DashboardPage() {
     };
     setAlertMessage(null);
     const oauthPopup = prepareOAuthConnectPopup();
-    storeOAuthConnectInFlight(platform);
-    setConnectingPlatform(platform);
-    setConnectingMethod(method);
+    setOauthLaunchingPlatform(platform);
+    setOauthLaunchingMethod(method);
     let oauthPopupOpened = false;
-    let stopOAuthTimeoutWatch: (() => void) | undefined;
     let stopOAuthPoll: (() => void) | undefined;
     let stopPopupWatch: (() => void) | undefined;
     if (typeof window !== 'undefined') {
-      stopOAuthTimeoutWatch = watchOAuthConnectTimeout(platform, () => {
-        setConnectingPlatform(null);
-        setConnectingMethod(undefined);
-        setAlertMessage(
-          'Connection timed out. Close the sign-in tab if it shows an error, then click Connect again.'
-        );
-      });
       storePendingConnectNav({
         successRedirect: buildDashboardSuccessRedirect(),
         returnUrl: `${window.location.pathname}${window.location.search}`,
@@ -2054,24 +2045,31 @@ export default function DashboardPage() {
           );
         } else {
           oauthPopupOpened = true;
+          setOauthLaunchingPlatform(null);
+          setOauthLaunchingMethod(undefined);
           if (oauthPopup && !oauthPopup.closed) {
             stopPopupWatch = watchOAuthConnectPopup(oauthPopup, platform, () => {
+              clearOAuthConnectInFlightForPlatform(platform);
               stopOAuthPoll?.();
-              stopOAuthPoll = pollOAuthConnectAccount(platform, fetchAccounts, (connected) => {
-                notifyOAuthCompleteLocally(connected);
-              });
+              stopOAuthPoll = pollOAuthConnectAccount(
+                platform,
+                fetchAccounts,
+                (connected) => {
+                  storeOAuthConnectInFlight(platform);
+                  notifyOAuthCompleteLocally(connected);
+                },
+                { requireInFlight: false, maxMs: 60_000 }
+              );
             });
           }
         }
         return;
       }
       closeOAuthConnectPopup(oauthPopup);
-      stopOAuthTimeoutWatch?.();
       setAlertMessage('Invalid response from server. Check server logs.');
     } catch (err: unknown) {
       closeOAuthConnectPopup(oauthPopup);
-      stopOAuthTimeoutWatch?.();
-      clearOAuthConnectInFlight();
+      clearOAuthConnectInFlightForPlatform(platform);
       const aborted =
         (err instanceof DOMException && err.name === 'AbortError') ||
         (typeof err === 'object' && err !== null && 'name' in err && (err as { name?: string }).name === 'AbortError');
@@ -2107,28 +2105,30 @@ export default function DashboardPage() {
       }
     } finally {
       if (!oauthPopupOpened) {
-        stopOAuthTimeoutWatch?.();
         stopPopupWatch?.();
         stopOAuthPoll?.();
-        setConnectingPlatform(null);
-        setConnectingMethod(undefined);
+        setOauthLaunchingPlatform(null);
+        setOauthLaunchingMethod(undefined);
       }
     }
   };
 
   useEffect(() => {
+    if (connectingParam === '1') {
+      const platform = searchParams.get('newPlatform')?.trim().toUpperCase();
+      if (platform) storeOAuthConnectInFlight(platform);
+    }
+  }, [connectingParam, searchParams]);
+
+  useEffect(() => {
     const syncConnectUi = () => {
       const inFlight = readOAuthConnectInFlight();
       setOauthInFlightPlatform(inFlight);
-      if (!inFlight) {
-        setConnectingPlatform(null);
-        setConnectingMethod(undefined);
-      }
     };
     const onDisconnected = () => {
       setSelectedPlatformForConnect(null);
-      setConnectingPlatform(null);
-      setConnectingMethod(undefined);
+      setOauthLaunchingPlatform(null);
+      setOauthLaunchingMethod(undefined);
       setOauthInFlightPlatform(null);
       setJustConnected(false);
     };
@@ -2293,11 +2293,9 @@ export default function DashboardPage() {
 
   if (showConnectView) {
     const connectPlatform = (selectedPlatformForConnect || connectFromUrl) as string;
-    const connectUiPending = Boolean(
-      (oauthInFlightPlatform && oauthInFlightPlatform === connectPlatform) ||
-        (connectingPlatform && connectingPlatform.toUpperCase() === connectPlatform) ||
-        isPlatformOAuthPending(connectPlatform)
-    );
+    const connectCallbackPending = isPlatformOAuthPending(connectPlatform);
+    const oauthLaunching =
+      oauthLaunchingPlatform?.toUpperCase() === connectPlatform.toUpperCase();
 
     return (
       <>
@@ -2305,8 +2303,9 @@ export default function DashboardPage() {
         <ConnectView
           platform={connectPlatform}
           onConnect={handleConnect}
-          connecting={connectUiPending}
-          connectingMethod={connectingMethod}
+          connecting={connectCallbackPending}
+          launching={oauthLaunching}
+          launchingMethod={oauthLaunchingMethod}
 
           connectError={alertMessage ?? connectErrorFromUrl}
         />

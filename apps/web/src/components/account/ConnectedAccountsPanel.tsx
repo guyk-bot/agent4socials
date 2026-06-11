@@ -17,7 +17,7 @@ import {
   resetConnectUiAfterAccountDisconnect,
   navigateOAuthConnect,
   prepareOAuthConnectPopup,
-  storeOAuthConnectInFlight,
+  clearOAuthConnectInFlightForPlatform,
   watchOAuthConnectPopup,
 } from '@/lib/oauth-connect';
 
@@ -251,7 +251,6 @@ export function ConnectedAccountsPanel() {
                       onClick={async () => {
                         if (reconnectingId) return;
                         const oauthPopup = prepareOAuthConnectPopup();
-                        storeOAuthConnectInFlight(acc.platform);
                         setReconnectingId(acc.id);
                         try {
                           const liMethod =
@@ -296,7 +295,10 @@ export function ConnectedAccountsPanel() {
                             if (!opened.opened) {
                               alert('Could not open sign-in. Allow pop-ups for www.izop.io or try Reconnect again.');
                             } else if (oauthPopup && !oauthPopup.closed) {
-                              watchOAuthConnectPopup(oauthPopup, acc.platform);
+                              watchOAuthConnectPopup(oauthPopup, acc.platform, () => {
+                                clearOAuthConnectInFlightForPlatform(acc.platform);
+                                setReconnectingId(null);
+                              });
                             }
                           } else {
                             closeOAuthConnectPopup(oauthPopup);

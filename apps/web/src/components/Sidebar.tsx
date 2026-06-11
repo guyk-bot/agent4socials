@@ -252,7 +252,10 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
           if (accounts.length === 0) {
             const connectParam = platform.toLowerCase();
             const needsUpgrade = UPGRADE_TO_CONNECT_PLATFORMS.includes(platform);
-            const connectPending = oauthInFlightPlatform === platform;
+            const connectPending =
+              (searchParams.get('connecting') === '1' &&
+                searchParams.get('newPlatform')?.toUpperCase() === platform) ||
+              oauthInFlightPlatform === platform;
             /** Connect URL per platform; optional gem styling when platform is in UPGRADE_TO_CONNECT_PLATFORMS. */
             const href = `/dashboard?connect=${connectParam}`;
             const platformRowClass = `flex items-center gap-3 px-3 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors border border-transparent ${
