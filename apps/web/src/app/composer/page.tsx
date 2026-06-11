@@ -1803,11 +1803,21 @@ export default function ComposerPage() {
     async function uploadFileViaApi(file: File, safeName: string): Promise<string> {
         const form = new FormData();
         form.append('file', file, safeName);
-        const res = await api.post<{ fileUrl: string }>('/media/upload', form, {
-            timeout: 180_000,
-        });
-        if (!res.data?.fileUrl) throw new Error('Upload did not return a file URL.');
-        return res.data.fileUrl;
+        try {
+            const res = await api.post<{ fileUrl: string; message?: string }>('/media/upload', form, {
+                timeout: 180_000,
+            });
+            if (!res.data?.fileUrl) {
+                throw new Error(res.data?.message || 'Upload did not return a file URL.');
+            }
+            return res.data.fileUrl;
+        } catch (err: unknown) {
+            // Extract server error message if available
+            const axiosErr = err as { response?: { data?: { message?: string }; status?: number } };
+            const serverMsg = axiosErr?.response?.data?.message;
+            if (serverMsg) throw new Error(serverMsg);
+            throw err;
+        }
     }
 
     async function uploadFileViaPresignedPut(file: File, safeName: string, contentType: string): Promise<string> {

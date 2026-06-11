@@ -11,7 +11,19 @@ export const maxDuration = 60;
 export const runtime = 'nodejs';
 
 /** Same-origin upload: avoids browser CORS issues with presigned R2 PUT. */
-const MAX_BYTES = 95 * 1024 * 1024;
+// Vercel Hobby has 4.5MB body limit; Pro has 5MB. Stay under that threshold.
+const MAX_BYTES = 4 * 1024 * 1024;
+
+/** GET: health check to verify R2 is configured */
+export async function GET() {
+  const configured = isMediaStorageConfigured();
+  return NextResponse.json({
+    configured,
+    message: configured
+      ? 'Media storage is configured'
+      : 'Media storage is NOT configured. Set S3_ENDPOINT, S3_BUCKET_NAME, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY in Vercel env vars.',
+  });
+}
 
 export async function POST(request: NextRequest) {
   const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
