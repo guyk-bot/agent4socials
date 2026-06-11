@@ -72,11 +72,14 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
   const searchParams = useSearchParams();
   const { textColor } = useWhiteLabel();
   const { theme } = useTheme();
-  const { cachedAccounts, allCachedAccounts, setCachedAccounts, setAccountsLoadError } = useAccountsCache() ?? {
+  const { cachedAccounts, allCachedAccounts, setCachedAccounts, setAccountsLoadError, activeBrandId, setActiveBrandId, getAccountBrandId } = useAccountsCache() ?? {
     cachedAccounts: [],
     allCachedAccounts: [],
     setCachedAccounts: () => {},
     setAccountsLoadError: () => {},
+    activeBrandId: 'brand-default',
+    setActiveBrandId: () => {},
+    getAccountBrandId: () => 'brand-default',
   };
   const ctx = useSelectedAccount();
   const selectedAccountId = ctx?.selectedAccountId ?? null;
@@ -215,7 +218,11 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
   }, [setCachedAccounts, setAccountsLoadError]);
 
   const accountsByPlatform = PLATFORM_ORDER.reduce<Record<string, SocialAccount[]>>((acc, p) => {
-    acc[p] = (cachedAccounts as SocialAccount[]).filter((a) => a.platform === p);
+    const onActiveBrand = (cachedAccounts as SocialAccount[]).filter((a) => a.platform === p);
+    acc[p] =
+      onActiveBrand.length > 0
+        ? onActiveBrand
+        : (allCachedAccounts as SocialAccount[]).filter((a) => a.platform === p);
     return acc;
   }, {});
 
@@ -258,6 +265,19 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
               oauthInFlightPlatform === platform;
             /** Connect URL per platform; optional gem styling when platform is in UPGRADE_TO_CONNECT_PLATFORMS. */
             const href = `/dashboard?connect=${connectParam}`;
+            const openConnectOrExistingAccount = (e: React.MouseEvent) => {
+              const existing = (allCachedAccounts as SocialAccount[]).find((a) => a.platform === platform);
+              if (existing?.id) {
+                e.preventDefault();
+                setSelectedPlatformForConnect(null);
+                setSelectedAccount(existing);
+                const brandId = getAccountBrandId(existing.id);
+                if (brandId && brandId !== activeBrandId) setActiveBrandId(brandId);
+                window.location.href = `/dashboard?accountId=${encodeURIComponent(existing.id)}`;
+                return;
+              }
+              setSelectedPlatformForConnect(platform);
+            };
             const platformRowClass = `flex items-center gap-3 px-3 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors border border-transparent ${
               isPlatformSelected || connectPending ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80 dark:hover:border-neutral-700'
             } ${needsUpgrade ? 'ring-1 ring-orange-400/50 bg-gradient-to-r from-orange-500/10 to-orange-500/10' : ''}`;
@@ -294,7 +314,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
               <Link
                 key={platform}
                 href={href}
-                onClick={() => setSelectedPlatformForConnect(platform)}
+                onClick={openConnectOrExistingAccount}
                 className={platformRowClass}
                 title={needsUpgrade ? 'Upgrade to connect this network.' : undefined}
               >

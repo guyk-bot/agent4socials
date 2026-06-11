@@ -394,6 +394,8 @@ export default function DashboardPage() {
     setAccountsLoadError,
     finishPostConnectBrandAssignment,
     maybePromptBrandMove,
+    setActiveBrandId,
+    getAccountBrandId,
   } = useAccountsCache() ?? {
     cachedAccounts: [],
     allCachedAccounts: [],
@@ -403,6 +405,8 @@ export default function DashboardPage() {
     setAccountsLoadError: () => {},
     finishPostConnectBrandAssignment: () => 'noop' as const,
     maybePromptBrandMove: () => false,
+    setActiveBrandId: () => {},
+    getAccountBrandId: () => 'brand-default',
   };
   const appData = useAppData();
   const shouldApplyVisibleChartUpdate = () =>
@@ -730,9 +734,53 @@ export default function DashboardPage() {
     Boolean(connectPlatformCandidate) &&
     !connectFlowActive &&
     !platformAlreadyConnected &&
-    !oauthConnectUiActive;
+    !oauthConnectUiActive &&
+    !(
+      selectedAccountId &&
+      allCachedAccounts.some(
+        (a) =>
+          a.id === selectedAccountId &&
+          (!connectPlatformCandidate || a.platform === connectPlatformCandidate)
+      )
+    );
 
   const accountIdsKey = accounts.map((a) => a.id).sort().join(',');
+
+  /** After refresh: restore persisted account even when it lives on another brand workspace. */
+  useLayoutEffect(() => {
+    if (!selectedAccountId) return;
+    if (accounts.some((a) => a.id === selectedAccountId)) return;
+    const global = allCachedAccounts.find((a) => a.id === selectedAccountId);
+    if (!global?.id) return;
+    const brandId = getAccountBrandId(global.id);
+    if (brandId && brandId !== activeBrandId) setActiveBrandId(brandId);
+  }, [selectedAccountId, accounts, allCachedAccounts, activeBrandId, getAccountBrandId, setActiveBrandId]);
+
+  /** If connect UI is open but the platform is already linked, open its dashboard instead. */
+  useLayoutEffect(() => {
+    if (!selectedPlatformForConnect) return;
+    const connected = allCachedAccounts.find((a) => a.platform === selectedPlatformForConnect);
+    if (!connected?.id) return;
+    setSelectedPlatformForConnect(null);
+    setSelectedAccountId(connected.id);
+    const brandId = getAccountBrandId(connected.id);
+    if (brandId && brandId !== activeBrandId) setActiveBrandId(brandId);
+  }, [
+    selectedPlatformForConnect,
+    allCachedAccounts,
+    activeBrandId,
+    getAccountBrandId,
+    setActiveBrandId,
+    setSelectedAccountId,
+    setSelectedPlatformForConnect,
+  ]);
+
+  /** Persisted account missing from cache after refresh: refetch once from API. */
+  useEffect(() => {
+    if (!selectedAccountId) return;
+    if (allCachedAccounts.some((a) => a.id === selectedAccountId)) return;
+    void fetchAccounts();
+  }, [selectedAccountId, allCachedAccounts.length]);
 
   /** After connect, clear stale connect UI and select the account that was just linked. */
   useLayoutEffect(() => {
@@ -813,7 +861,9 @@ export default function DashboardPage() {
     if (connectingParam === '1' || accountIdFromUrl) return;
     const upper = connectParam.toUpperCase();
     if (!ALLOWED_CONNECT.includes(upper)) return;
-    const existing = accounts.find((a) => a.platform === upper);
+    const existing =
+      accounts.find((a) => a.platform === upper) ??
+      allCachedAccounts.find((a) => a.platform === upper);
     if (existing?.id) {
       setSelectedPlatformForConnect(null);
       clearOAuthConnectInFlight();
@@ -831,6 +881,7 @@ export default function DashboardPage() {
     setSelectedPlatformForConnect,
     setSelectedAccountId,
     accounts,
+    allCachedAccounts,
   ]);
 
   // OAuth return: defer account selection until brand assignment runs (avoids wrong-brand analytics flash).

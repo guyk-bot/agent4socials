@@ -66,10 +66,10 @@ export function SelectedAccountProvider({ children }: { children: React.ReactNod
 
   const setSelectedPlatformForConnect = useCallback((platform: string | null) => {
     setSelectedPlatformForConnectState(platform);
-    setSelectedAccountIdState(null);
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch (_) {}
+    if (platform) {
+      setSelectedAccountIdState(null);
+      // Keep STORAGE_KEY so a refresh can restore the last analytics account if connect was opened by mistake.
+    }
   }, []);
 
   const clearSelection = useCallback(() => {
