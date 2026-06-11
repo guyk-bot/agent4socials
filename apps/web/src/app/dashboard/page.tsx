@@ -159,13 +159,23 @@ function DataSyncBanner({
     FACEBOOK: <FacebookIcon size={29} />,
     TIKTOK: <TikTokIcon size={29} />,
     YOUTUBE: <YoutubeIcon size={29} />,
-    TWITTER: <XTwitterIcon size={29} className="text-neutral-800" />,
+    TWITTER: <XTwitterIcon size={29} className="text-white" />,
     LINKEDIN: <LinkedinIcon size={29} />,
     PINTEREST: <PinterestIcon size={29} />,
-    THREADS: <ThreadsIcon size={29} />,
+    THREADS: <ThreadsIcon size={29} className="text-white" />,
   };
-  /** Same violet → fuchsia → rose gradient on every platform (matches Upgrade / Get Pro CTA). */
-  const grad = 'from-[#7C3AED] via-[#7C3AED] to-[#A78BFA]';
+  /** Platform-specific gradients matching brand colors */
+  const platformGradients: Record<string, string> = {
+    INSTAGRAM: 'from-[#833AB4] via-[#E1306C] to-[#F77737]',
+    FACEBOOK: 'from-[#1877F2] via-[#1877F2] to-[#4267B2]',
+    TIKTOK: 'from-[#000000] via-[#25F4EE] to-[#FE2C55]',
+    YOUTUBE: 'from-[#FF0000] via-[#FF0000] to-[#CC0000]',
+    TWITTER: 'from-[#14171A] via-[#14171A] to-[#657786]',
+    LINKEDIN: 'from-[#0A66C2] via-[#0A66C2] to-[#004182]',
+    PINTEREST: 'from-[#E60023] via-[#E60023] to-[#BD081C]',
+    THREADS: 'from-[#000000] via-[#000000] to-[#333333]',
+  };
+  const grad = platform && platformGradients[platform] ? platformGradients[platform] : 'from-[#7C3AED] via-[#7C3AED] to-[#A78BFA]';
   const icon = platform ? platformIcons[platform] : null;
   const analyticsStep = dataReady ? 'done' : insightsLoading ? 'loading' : 'pending';
   const postsStep = postsLoading ? 'loading' : 'done';
@@ -674,17 +684,22 @@ export default function DashboardPage() {
     : null;
   const connectErrorFromUrl = searchParams.get('connect_error');
   const oauthReturnInProgress = Boolean(postConnectReturn);
+  // When any of these are true, we're in a connect flow - don't show the Connect form
   const connectFlowActive = Boolean(
     oauthReturnInProgress ||
       justConnected ||
+      justConnectedParam ||
+      accountIdFromUrl ||
       pendingPostConnectAccountIdRef.current ||
       oauthInFlightPlatform ||
       readOAuthConnectInFlight()
   );
   const connectPlatformCandidate = selectedPlatformForConnect || connectFromUrl;
+  // Also check if the platform we'd show connect for is already connected
   const platformAlreadyConnected = Boolean(
     connectPlatformCandidate &&
-      accounts.some((a) => a.platform === connectPlatformCandidate)
+      (accounts.some((a) => a.platform === connectPlatformCandidate) ||
+       allCachedAccounts.some((a) => a.platform === connectPlatformCandidate))
   );
   const showConnectView =
     Boolean(connectPlatformCandidate) && !connectFlowActive && !platformAlreadyConnected;
@@ -693,10 +708,11 @@ export default function DashboardPage() {
 
   /** After connect, clear stale connect UI and select the account that was just linked. */
   useLayoutEffect(() => {
-    if (justConnected && selectedPlatformForConnect) {
+    // Clear connect UI as soon as we detect we're in a post-connect flow
+    if ((justConnected || justConnectedParam || accountIdFromUrl || postConnectReturn) && selectedPlatformForConnect) {
       setSelectedPlatformForConnect(null);
     }
-  }, [justConnected, selectedPlatformForConnect, setSelectedPlatformForConnect]);
+  }, [justConnected, justConnectedParam, accountIdFromUrl, postConnectReturn, selectedPlatformForConnect, setSelectedPlatformForConnect]);
 
   useLayoutEffect(() => {
     if (!selectedPlatformForConnect || !accountIdsKey) return;
