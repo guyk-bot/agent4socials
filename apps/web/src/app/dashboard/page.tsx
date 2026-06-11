@@ -667,7 +667,9 @@ export default function DashboardPage() {
 
   /** Open analytics for a concrete account by default so /dashboard is never an empty "select in sidebar" dead end. */
   useEffect(() => {
-    if (!accountIdsKey || selectedAccountId || selectedPlatformForConnect || connectFromUrl || accountIdFromUrl) return;
+    if (!accountIdsKey || selectedPlatformForConnect || connectFromUrl) return;
+    if (accountIdFromUrl && accounts.some((a) => a.id === accountIdFromUrl)) return;
+    if (selectedAccountId && accounts.some((a) => a.id === selectedAccountId)) return;
     const first = accounts[0];
     if (!first?.id) return;
     setSelectedAccountId(first.id);

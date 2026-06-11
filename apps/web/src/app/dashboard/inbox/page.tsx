@@ -105,7 +105,10 @@ import {
   writeInboxCommentsClientCache,
   readInboxConversationsClientCache,
   writeInboxConversationsClientCache,
+  hydrateInboxCommentsFromClientCache,
 } from '@/lib/inbox/inbox-client-cache';
+import { InboxCommentThumb } from '@/components/inbox/InboxCommentThumb';
+import { prefetchInboxPostMediaBatch } from '@/lib/inbox/inbox-post-media-prefetch';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
@@ -817,7 +820,12 @@ function InboxPage() {
   const [conversationsErrorsByPlatform, setConversationsErrorsByPlatform] = useState<Record<string, string>>({});
   const [conversationsHintsByPlatform, setConversationsHintsByPlatform] = useState<Record<string, string>>({});
   const [conversationsDebug, setConversationsDebug] = useState<{ rawMessage?: string; code?: number; responseData?: unknown; metaMessage?: string } | null>(null);
-  const [comments, setComments] = useState<PostComment[]>([]);
+  const [comments, setComments] = useState<PostComment[]>(() => {
+    if (typeof window === 'undefined') return [];
+    return hydrateInboxCommentsFromClientCache<PostComment>(undefined).map((c) =>
+      normalizeThreadsInboxCommentRow(c)
+    );
+  });
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentsError, setCommentsError] = useState<string | null>(null);
   const [commentsLiveSync, setCommentsLiveSync] = useState<{ loading: boolean; hint: string | null }>({
@@ -923,8 +931,17 @@ function InboxPage() {
   const previousEngagementIdsRef = useRef<Set<string>>(new Set());
   const conversationsLoadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const conversationsLoadedRef = useRef(false);
-  const commentsEverLoadedRef = useRef(false);
-  const commentsStableRef = useRef<PostComment[]>([]);
+  const commentsEverLoadedRef = useRef(
+    typeof window !== 'undefined' &&
+      hydrateInboxCommentsFromClientCache<PostComment>(undefined).length > 0
+  );
+  const commentsStableRef = useRef<PostComment[]>(
+    typeof window !== 'undefined'
+      ? hydrateInboxCommentsFromClientCache<PostComment>(undefined).map((c) =>
+          normalizeThreadsInboxCommentRow(c)
+        )
+      : []
+  );
   const conversationsStableRef = useRef<Array<Conversation & { platform?: string; messageAccountId?: string }>>([]);
   const inboxRefreshInFlightRef = useRef(false);
   /** Clears stuck "Checking Meta…" if a manual retry hangs on bootstrap or comment sync. */
@@ -2108,7 +2125,15 @@ function InboxPage() {
       commentsStableRef.current = stable;
       if (user?.id) writeInboxCommentsClientCache(user.id, stable);
       setComments(stable);
-      if (stable.length > 0) commentsEverLoadedRef.current = true;
+      if (stable.length > 0) {
+        commentsEverLoadedRef.current = true;
+        prefetchInboxPostMediaBatch(stable);
+        for (const acc of effectiveAccountsRef.current) {
+          if (stable.some((c) => c.accountId === acc.id)) {
+            clearInboxAccountRecentlyConnected(acc.id);
+          }
+        }
+      }
       setCommentsLoading(false);
     },
     [user?.id]
@@ -2446,10 +2471,14 @@ function InboxPage() {
       inboxRefreshInFlightRef.current = false;
       inboxRefreshInFlightRef.current = true;
       const hasCachedComments =
-        commentsStableRef.current.length > 0 || inboxCommentsHydratedRef.current;
+        commentsStableRef.current.length > 0 ||
+        inboxCommentsHydratedRef.current ||
+        commentsEverLoadedRef.current ||
+        (user?.id ? readInboxCommentsClientCache<PostComment>(user.id).length > 0 : false);
       const hasCachedConversations = conversationsStableRef.current.length > 0;
+      const hasDmAccounts = accs.some((a) => DM_THREAD_PLATFORM_IDS.has(a.platform));
       if (!hasCachedComments) setCommentsLoading(true);
-      if (!hasCachedConversations) setConversationsLoading(true);
+      if (!hasCachedConversations && hasDmAccounts) setConversationsLoading(true);
       try {
         const commentRows: PostComment[] = [];
         let convRows: Array<Conversation & { platform: string; messageAccountId: string }> = [];
@@ -2794,17 +2823,23 @@ function InboxPage() {
   );
 
   /** Comments tab: show all platforms; platform icons filter messages only. */
-  const displayComments = useMemo(
-    () => comments.map((c) => normalizeThreadsInboxCommentRow(c)),
-    [comments]
-  );
+  const displayComments = useMemo(() => {
+    const byId = new Map<string, PostComment>();
+    for (const c of comments) {
+      const norm = normalizeThreadsInboxCommentRow(c);
+      if (norm.commentId) byId.set(norm.commentId, norm);
+    }
+    return [...byId.values()].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [comments]);
 
   const commentsRefreshing =
     commentsLoading || commentsLiveSync.loading || threadsCommentsSync.loading;
 
   const showCommentsWarmupNotice = useMemo(() => {
     if (inboxMode !== 'comments') return false;
-    if (displayComments.length > 0 && !commentsRefreshing) return false;
+    if (displayComments.length > 0) return commentsRefreshing;
     return commentsRefreshing || recentlyConnectedInboxAccounts.length > 0;
   }, [
     inboxMode,
@@ -2832,6 +2867,16 @@ function InboxPage() {
     });
     void refreshAllPlatformCommentsRef.current({ live: false });
   }, [pathname, inboxMode, connectedPlatformIds.join(',')]);
+
+  /** Threads-only (no IG/FB/X): open Comments tab by default; Messages tab has no DMs here. */
+  useEffect(() => {
+    if (pathname !== '/dashboard/inbox') return;
+    const hasDm = connectedPlatformIds.some((p) => DM_THREAD_PLATFORM_IDS.has(p));
+    const hasComments = connectedPlatformIds.some((p) => COMMENT_STRIP_PLATFORM_IDS.has(p));
+    if (!hasDm && hasComments) {
+      setInboxMode((mode) => (mode === 'messages' ? 'comments' : mode));
+    }
+  }, [pathname, connectedPlatformIds.join(',')]);
 
   /** Steer users to Comments when badge counts Threads activity. */
   useEffect(() => {
@@ -3225,11 +3270,12 @@ function InboxPage() {
       );
     }
     if (inboxMode === 'comments') {
-      if (commentsRefreshing && displayComments.length === 0) {
+      if (commentsRefreshing && displayComments.length === 0 && !commentsEverLoadedRef.current) {
         return (
-          <div className="p-6 text-center">
+          <div className="p-6 text-center min-h-[12rem] flex flex-col items-center justify-center">
+            <Loader2 size={22} className="animate-spin text-orange-500 mb-2" />
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
-              Please wait while comments and replies load…
+              Loading comments and replies…
             </p>
           </div>
         );
@@ -3378,6 +3424,12 @@ function InboxPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-neutral-400 mb-1">{new Date(c.createdAt).toLocaleString()}</p>
                       <div className="flex items-start gap-3">
+                        <InboxCommentThumb
+                          accountId={c.accountId}
+                          platformPostId={c.platformPostId}
+                          platform={c.platform}
+                          fallbackImageUrl={c.postImageUrl}
+                        />
                         <div className="relative shrink-0 w-9 h-9">
                           <InboxAvatar pictureUrl={c.authorPictureUrl} label={c.authorName} className="w-9 h-9" />
                           {isUnread && <InboxNewDot />}
@@ -3463,11 +3515,13 @@ function InboxPage() {
         </>
       );
     }
-    if (conversationsLoading && conversations.length === 0) {
+    const expectsDmInbox = messageFetchPlatformIds.some((p) => DM_THREAD_PLATFORM_IDS.has(p));
+    if (conversationsLoading && conversations.length === 0 && expectsDmInbox) {
       return (
-        <div className="p-6 text-center">
+        <div className="p-6 text-center min-h-[12rem] flex flex-col items-center justify-center">
+          <Loader2 size={22} className="animate-spin text-orange-500 mb-2" />
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            Please wait while messages load…
+            Loading messages…
           </p>
         </div>
       );
@@ -4905,8 +4959,9 @@ function InboxPage() {
                     </div>
                     <div className="inbox-thread-messages p-6 flex-1 min-h-0 overflow-y-auto bg-white dark:bg-neutral-900">
                     {conversationMessagesLoading ? (
-                      <div className="flex flex-col items-center justify-center min-h-[12rem] py-12">
-                        <p className="text-sm text-neutral-500 dark:text-neutral-400">Please wait while messages load…</p>
+                      <div className="flex flex-col items-center justify-center min-h-[12rem] py-12 gap-2">
+                        <Loader2 size={22} className="animate-spin text-neutral-400" />
+                        <p className="text-sm text-neutral-500 dark:text-neutral-400">Loading messages…</p>
                       </div>
                     ) : conversationMessagesError ? (
                       <p className="text-sm text-amber-700">{conversationMessagesError}</p>

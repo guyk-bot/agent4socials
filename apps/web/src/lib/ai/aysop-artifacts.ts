@@ -50,6 +50,7 @@ export type AysopArtifact =
         platform: string;
         platformCode: string;
         commentId: string;
+        platformPostId?: string;
         authorName: string | null;
         authorPictureUrl?: string | null;
         text: string;

@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CheckCircle2, ExternalLink, Loader2, MessageSquare, Send } from 'lucide-react';
 import api from '@/lib/api';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
+import { prefetchInboxPostMediaBatch } from '@/lib/inbox/inbox-post-media-prefetch';
+import { InboxCommentThumb } from '@/components/inbox/InboxCommentThumb';
 import { ThreadsIcon } from '@/components/SocialPlatformIcons';
 import { avatarDisplayUrl } from '@/lib/avatar-display-url';
 
@@ -51,6 +53,19 @@ export function AysopInChatInboxFeedCard({ artifact }: { artifact: InboxFeedArti
 
   const title = artifact.title ?? 'Recent inbox';
 
+  useEffect(() => {
+    prefetchInboxPostMediaBatch(
+      artifact.items
+        .filter((i) => i.platformPostId)
+        .map((i) => ({
+          accountId: i.accountId,
+          platformPostId: i.platformPostId!,
+          platform: i.platformCode,
+          postImageUrl: i.postImageUrl,
+        }))
+    );
+  }, [artifact.items]);
+
   return (
     <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-3 text-sm shadow-sm">
       <p className="font-semibold text-neutral-900 dark:text-neutral-100 mb-3">{title}</p>
@@ -61,6 +76,7 @@ export function AysopInChatInboxFeedCard({ artifact }: { artifact: InboxFeedArti
           const avatarSrc = avatarDisplayUrl(item.platformCode, item.authorPictureUrl);
           const dateLabel = formatCommentDate(item.createdAt);
           const canReply = item.canSuggestReply !== false;
+          const postId = item.platformPostId ?? item.commentId.replace(/^mention-/, '');
 
           return (
             <li
@@ -68,14 +84,14 @@ export function AysopInChatInboxFeedCard({ artifact }: { artifact: InboxFeedArti
               className="rounded-xl border border-neutral-200 dark:border-neutral-700 bg-neutral-50/80 dark:bg-neutral-950 overflow-hidden"
             >
               <div className="flex gap-3 p-3">
-                {item.postImageUrl ? (
-                  <div className="shrink-0 w-16 h-20 rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 bg-neutral-200 dark:bg-neutral-800">
-                    <img
-                      src={item.postImageUrl}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+                {postId ? (
+                  <InboxCommentThumb
+                    accountId={item.accountId}
+                    platformPostId={postId}
+                    platform={item.platformCode}
+                    fallbackImageUrl={item.postImageUrl}
+                    size="md"
+                  />
                 ) : null}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2 mb-1.5">

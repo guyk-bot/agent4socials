@@ -33,6 +33,7 @@ import {
   isThreadsReplyComment,
 } from '@/lib/threads/threads-inbox-comment';
 import { inboxCommentReplyEligibility } from '@/lib/inbox/inbox-reply-eligibility';
+import { proxyInboxImageUrl } from '@/lib/inbox/inbox-post-media-prefetch';
 import { addInboxCommentsToLeads } from '@/lib/leads/add-inbox-comments-to-leads';
 import {
   AYSOP_COMPOSER_HREF,
@@ -329,12 +330,13 @@ async function buildRecentInboxArtifact(
         platform: platformLabel(acc.platform),
         platformCode: acc.platform,
         commentId: row.commentId,
+        platformPostId: row.platformPostId,
         authorName: row.authorName,
         authorPictureUrl: row.authorPictureUrl ?? null,
         text: row.text,
         postPreview: row.postPreview ?? 'Post',
         postText: row.postPreview ?? null,
-        postImageUrl: row.postImageUrl ?? null,
+        postImageUrl: proxyInboxImageUrl(row.postImageUrl) ?? row.postImageUrl ?? null,
         postUrl: row.postUrl ?? null,
         createdAt: row.createdAt,
         inboxKind: row.inboxKind ?? null,
