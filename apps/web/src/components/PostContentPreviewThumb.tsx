@@ -18,7 +18,7 @@ export function TextPostAaMark({ size = 'sm' }: { size?: 'sm' | 'md' | 'lg' }) {
   const bigCls =
     size === 'lg' ? 'text-[1.35rem]' : size === 'md' ? 'text-[1.05rem]' : 'text-sm';
   const smallCls =
-    size === 'lg' ? 'text-[0.65rem]' : size === 'md' ? 'text-[0.55rem]' : 'text-[0.5rem]';
+    size === 'lg' ? 'text-[0.75rem]' : size === 'md' ? 'text-[0.65rem]' : 'text-[0.6rem]';
 
   return (
     <span
