@@ -29,6 +29,10 @@ import {
   textOnlyPlatformsSummary,
 } from '@/lib/composer/platform-capabilities';
 import {
+  isThreadsMentionComment,
+  isThreadsReplyComment,
+} from '@/lib/threads/threads-inbox-comment';
+import {
   AYSOP_COMPOSER_HREF,
   buildAysopComposerDraftPayload,
   inferComposerMediaType,
@@ -269,10 +273,36 @@ async function buildConnectPlatformsArtifact(userId: string): Promise<
   return { type: 'connect_platforms', connected, missing };
 }
 
+type InboxContentFilter = 'all' | 'replies_only' | 'mentions_only';
+
+function normalizeInboxContentFilter(raw: unknown): InboxContentFilter {
+  const v = typeof raw === 'string' ? raw.trim().toLowerCase() : '';
+  if (v === 'replies_only' || v === 'replies' || v === 'reply') return 'replies_only';
+  if (v === 'mentions_only' || v === 'mentions' || v === 'mention') return 'mentions_only';
+  return 'all';
+}
+
+function inboxRowPassesContentFilter(
+  row: InboxCommentRow,
+  accountPlatform: Platform,
+  filter: InboxContentFilter
+): boolean {
+  if (filter === 'all') return true;
+  if (accountPlatform !== 'THREADS') return filter !== 'mentions_only';
+  const probe = {
+    platform: 'THREADS' as const,
+    commentId: row.commentId,
+    inboxKind: row.inboxKind ?? undefined,
+  };
+  if (filter === 'mentions_only') return isThreadsMentionComment(probe);
+  return isThreadsReplyComment(probe);
+}
+
 async function buildRecentInboxArtifact(
   userId: string,
   limit: number,
-  platformFilter?: Platform | null
+  platformFilter?: Platform | null,
+  contentFilter: InboxContentFilter = 'all'
 ): Promise<Extract<AysopArtifact, { type: 'inbox_feed' }>> {
   const accounts = await prisma.socialAccount.findMany({
     where: {
@@ -291,6 +321,7 @@ async function buildRecentInboxArtifact(
     const cached = caches[i] ?? [];
     for (const row of cached) {
       if (row.isFromMe) continue;
+      if (!inboxRowPassesContentFilter(row, acc.platform, contentFilter)) continue;
       items.push({
         accountId: acc.id,
         platform: platformLabel(acc.platform),
@@ -314,7 +345,8 @@ async function buildRecentInboxArtifact(
 async function buildInboxCommentSummary(
   userId: string,
   days: number,
-  platformFilter?: Platform | null
+  platformFilter?: Platform | null,
+  contentFilter: InboxContentFilter = 'all'
 ) {
   const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
   const accounts = await prisma.socialAccount.findMany({
@@ -345,6 +377,7 @@ async function buildInboxCommentSummary(
     let platformCount = 0;
     for (const row of cached) {
       if (row.isFromMe) continue;
+      if (!inboxRowPassesContentFilter(row, acc.platform, contentFilter)) continue;
       const createdMs = new Date(row.createdAt).getTime();
       if (Number.isNaN(createdMs) || createdMs < sinceMs) continue;
       platformCount += 1;
@@ -669,12 +702,18 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'get_inbox_comment_summary',
       description:
-        'Fast comment volume for a date range from cached Inbox data. Use when the user asks how many comments they got, comment trends, or which comments might be interested leads. Pass days: 7 or 30 for the range.',
+        'Fast comment volume for a date range from cached Inbox data. Use when the user asks how many comments they got, comment trends, or which comments might be interested leads. Pass days: 7 or 30 for the range. For Threads, pass contentFilter replies_only when they mean replies on their posts (not @mentions), or mentions_only for @mentions only.',
       parameters: {
         type: 'object',
         properties: {
           platform: platformParam,
           days: { type: 'number', description: 'Lookback days: 7, 14, 30, 60, or 90 (default 30)' },
+          contentFilter: {
+            type: 'string',
+            enum: ['all', 'replies_only', 'mentions_only'],
+            description:
+              'Threads only: replies_only excludes @mentions; mentions_only excludes post replies. Default all.',
+          },
         },
         additionalProperties: false,
       },
@@ -685,12 +724,18 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'list_recent_inbox',
       description:
-        'Show recent comments from Inbox with inline Reply in chat buttons. Use for messages, comments, inbox, or replying without opening Inbox.',
+        'Show recent comments from Inbox with inline Reply in chat buttons. Use for messages, comments, inbox, or replying without opening Inbox. When the user asks for Threads replies (not @mentions), pass platform THREADS and contentFilter replies_only. Use mentions_only only when they explicitly ask for @mentions or tags.',
       parameters: {
         type: 'object',
         properties: {
           platform: platformParam,
           limit: { type: 'number', description: 'Max items (default 12, max 25)' },
+          contentFilter: {
+            type: 'string',
+            enum: ['all', 'replies_only', 'mentions_only'],
+            description:
+              'Threads only: replies_only excludes @mentions; mentions_only excludes post replies. Default all.',
+          },
         },
         additionalProperties: false,
       },
@@ -1025,16 +1070,22 @@ export async function runAysopTool(
     case 'get_inbox_comment_summary': {
       const days = resolveDaysFromArgs(args, 30);
       const platform = normalizePlatformArg(args.platform as string | undefined);
-      const summary = await buildInboxCommentSummary(ctx.userId, days, platform);
+      const contentFilter = normalizeInboxContentFilter(args.contentFilter);
+      const summary = await buildInboxCommentSummary(ctx.userId, days, platform, contentFilter);
       return { result: summary };
     }
 
     case 'list_recent_inbox': {
       const limit = Math.min(Math.max(Number(args.limit) || 12, 1), 25);
       const platform = normalizePlatformArg(args.platform as string | undefined);
-      const artifact = await buildRecentInboxArtifact(ctx.userId, limit, platform);
+      const contentFilter = normalizeInboxContentFilter(args.contentFilter);
+      const artifact = await buildRecentInboxArtifact(ctx.userId, limit, platform, contentFilter);
       return {
-        result: { count: artifact.items.length, items: artifact.items },
+        result: {
+          count: artifact.items.length,
+          contentFilter,
+          items: artifact.items,
+        },
         artifacts: [artifact],
       };
     }

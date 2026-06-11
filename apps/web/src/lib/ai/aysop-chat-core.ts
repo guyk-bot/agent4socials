@@ -133,6 +133,7 @@ function buildSystemPrompt(
     '- If the user names Instagram, you MUST call get_analytics_summary or get_analytics_report_snapshot with platform "Instagram". Never substitute another platform.',
     '- When they ask generally ("my analytics", "all platforms", "summarize everything"), call get_analytics_all_accounts.',
     '- When they ask how many comments or inbox activity in a date range, call get_inbox_comment_summary. Use list_recent_inbox when they want to reply to specific comments.',
+    '- Threads inbox has two kinds: replies on your posts vs @mentions. If they ask for replies only, call list_recent_inbox with platform THREADS and contentFilter replies_only (exclude @mentions). Use mentions_only only when they ask for mentions or tags.',
     '- When they ask to scan, rescan, find, or mine leads, call scan_leads immediately (in-chat Scan button runs the same scan).',
     '- When they ask how many leads or to show saved leads without rescanning, call get_saved_leads.',
     '- For "last week" or "past 7 days" pass days: 7. For "last 30 days" pass days: 30. Default to 30 days when no range is given.',
