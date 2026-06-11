@@ -1001,7 +1001,14 @@ export default function DashboardPage() {
         singleAccountPostsRunKeyRef.current = '';
         insightsRunKeyRef.current = '';
         if (!shouldStayOnPageAfterOAuthConnect()) {
-          router.replace(DASHBOARD_AFTER_CONNECT_PATH, { scroll: false });
+          // Keep just_connected=1 so redirect hook doesn't fire before cache settles
+          const params = new URLSearchParams();
+          params.set('just_connected', '1');
+          params.set('accountId', accountId);
+          params.set('newPlatform', platform);
+          if (username) params.set('newUsername', username);
+          if (profilePicture) params.set('newPic', profilePicture);
+          router.replace(`${DASHBOARD_AFTER_CONNECT_PATH}?${params.toString()}`, { scroll: false });
         }
       }
       const prevAccountIds = readCachedAccountIdsFromStorage();
