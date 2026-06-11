@@ -90,6 +90,7 @@ export function AysopInChatInboxFeedCard({ artifact }: { artifact: InboxFeedArti
                     platformPostId={postId}
                     platform={item.platformCode}
                     fallbackImageUrl={item.postImageUrl}
+                    textOnlyPost={!item.postImageUrl?.trim()}
                     size="md"
                   />
                 ) : null}

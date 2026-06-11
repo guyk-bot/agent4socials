@@ -4,38 +4,47 @@ import { useState } from 'react';
 import { isAnalyticsTextOnlyPost, normalizeAnalyticsPlatform } from '@/lib/post-history-format';
 import { PlatformIcon, PLATFORM_ICON_MAP } from '@/components/SocialPlatformIcons';
 
-function iconSizeForThumbClass(className: string): number {
-  if (className.includes('w-14') || className.includes('h-14')) return 24;
-  if (className.includes('w-12') || className.includes('h-12')) return 22;
-  if (className.includes('w-11') || className.includes('h-11')) return 20;
-  return 18;
+function iconSizeForThumb(className: string, variant: 'default' | 'inbox'): number {
+  if (variant === 'inbox') {
+    if (className.includes('w-24')) return 44;
+    if (className.includes('w-14') || className.includes('h-[4.25rem]')) return 34;
+    return 28;
+  }
+  if (className.includes('w-16')) return 38;
+  if (className.includes('w-12')) return 26;
+  return 22;
 }
 
-/** Text-only post preview: platform mark in a neutral tile (Post History + Inbox). */
+type PostHistoryTextThumbProps = {
+  platform?: string | null;
+  className?: string;
+  /** Inbox list uses a taller frame; history table uses a compact square. */
+  variant?: 'default' | 'inbox';
+};
+
+/** Text-only post preview: full-color platform mark in a bordered frame (Post History + Inbox). */
 export function PostHistoryTextThumb({
   platform,
   className = 'w-9 h-9',
-}: {
-  platform?: string | null;
-  className?: string;
-}) {
+  variant = 'default',
+}: PostHistoryTextThumbProps) {
   const plat = normalizeAnalyticsPlatform(platform);
   const mapped = plat in PLATFORM_ICON_MAP ? (plat as keyof typeof PLATFORM_ICON_MAP) : null;
-  const iconSize = iconSizeForThumbClass(className);
+  const iconSize = iconSizeForThumb(className, variant);
 
   return (
     <div
-      className={`rounded-lg bg-slate-100 dark:bg-neutral-800 flex items-center justify-center shrink-0 ${className}`}
+      className={`flex items-center justify-center shrink-0 overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 ${className}`}
       aria-hidden
     >
       {mapped ? (
         <PlatformIcon
           platform={mapped}
           size={iconSize}
-          className={mapped === 'TWITTER' ? 'text-neutral-800 dark:text-neutral-200' : ''}
+          className={mapped === 'TWITTER' ? 'text-neutral-900 dark:text-neutral-100' : ''}
         />
       ) : (
-        <span className="text-sm font-semibold text-slate-500 dark:text-neutral-400">Aa</span>
+        <span className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">Aa</span>
       )}
     </div>
   );

@@ -20,6 +20,7 @@ type InboxCommentPostMediaProps = {
   platformPostId: string;
   platform: string;
   fallbackImageUrl?: string | null;
+  textOnlyPost?: boolean;
   className?: string;
 };
 
@@ -57,6 +58,7 @@ export function InboxCommentPostMedia({
   platformPostId,
   platform,
   fallbackImageUrl,
+  textOnlyPost = false,
   className,
 }: InboxCommentPostMediaProps) {
   const fallbackSrc = useMemo(() => proxyImageUrl(fallbackImageUrl), [fallbackImageUrl]);
@@ -123,12 +125,18 @@ export function InboxCommentPostMedia({
         </div>
       );
     }
+    if (textOnlyPost) {
+      return (
+        <div className={`flex items-center justify-center p-6 min-h-[12rem] ${className ?? ''}`}>
+          <PostHistoryTextThumb platform={platform} variant="inbox" className="w-24 h-28" />
+        </div>
+      );
+    }
     return (
       <div
-        className={`flex flex-col items-center justify-center gap-3 p-8 min-h-[200px] bg-neutral-50 dark:bg-neutral-900 rounded-lg ${className ?? ''}`}
+        className={`flex flex-col items-center justify-center gap-2 p-8 min-h-[12rem] rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-400 ${className ?? ''}`}
       >
-        <PostHistoryTextThumb platform={platform} className="w-16 h-16 rounded-xl" />
-        <span className="text-sm text-center text-neutral-500 dark:text-neutral-400">Text post</span>
+        <span className="text-sm text-center">No preview for this post</span>
       </div>
     );
   }

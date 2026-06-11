@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { Image as ImageIcon } from 'lucide-react';
 import { PostHistoryTextThumb } from '@/components/PostContentPreviewThumb';
 import {
   inboxPostThumbSrc,
@@ -13,6 +14,8 @@ type Props = {
   platformPostId: string;
   platform: string;
   fallbackImageUrl?: string | null;
+  /** When true, show the platform text-post tile instead of a generic placeholder. */
+  textOnlyPost?: boolean;
   className?: string;
   size?: 'sm' | 'md';
 };
@@ -22,6 +25,7 @@ export function InboxCommentThumb({
   platformPostId,
   platform,
   fallbackImageUrl,
+  textOnlyPost = false,
   className = '',
   size = 'sm',
 }: Props) {
@@ -73,11 +77,22 @@ export function InboxCommentThumb({
   }
 
   if (!imgSrc || imgFailed) {
+    if (textOnlyPost) {
+      return (
+        <PostHistoryTextThumb
+          platform={platform}
+          variant="inbox"
+          className={`${dim} ${className}`}
+        />
+      );
+    }
     return (
-      <PostHistoryTextThumb
-        platform={platform}
-        className={`${dim} shrink-0 rounded-lg border border-neutral-200 dark:border-neutral-700 ${className}`}
-      />
+      <div
+        className={`${dim} shrink-0 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-950 flex items-center justify-center ${className}`}
+        aria-hidden
+      >
+        <ImageIcon size={size === 'md' ? 18 : 14} className="text-neutral-300 dark:text-neutral-600" />
+      </div>
     );
   }
 

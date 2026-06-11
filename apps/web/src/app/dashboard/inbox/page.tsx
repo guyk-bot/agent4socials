@@ -114,7 +114,10 @@ import {
   hydrateInboxCommentsFromClientCache,
 } from '@/lib/inbox/inbox-client-cache';
 import { InboxCommentThumb } from '@/components/inbox/InboxCommentThumb';
-import { resolveInboxCommentThumbFallback } from '@/lib/inbox/inbox-post-thumb-resolve';
+import {
+  isInboxCommentTextOnlyPost,
+  resolveInboxCommentThumbFallback,
+} from '@/lib/inbox/inbox-post-thumb-resolve';
 import { prefetchInboxPostMediaBatch } from '@/lib/inbox/inbox-post-media-prefetch';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { useAppData, type CachedPost } from '@/context/AppDataContext';
@@ -2863,6 +2866,26 @@ function InboxPage() {
     [appData?.postsByAccountId]
   );
 
+  const isCommentTextOnly = useCallback(
+    (c: { accountId: string; platformPostId: string; platform: string; postImageUrl?: string | null }) =>
+      isInboxCommentTextOnlyPost(
+        c.accountId,
+        c.platformPostId,
+        c.platform,
+        c.postImageUrl,
+        appData?.postsByAccountId as Record<
+          string,
+          Array<{
+            platformPostId?: string | null;
+            thumbnailUrl?: string | null;
+            mediaType?: string | null;
+            platform?: string | null;
+          }>
+        >
+      ),
+    [appData?.postsByAccountId]
+  );
+
   /** Load Threads post history into app cache so comment thumbs match Dashboard History. */
   useEffect(() => {
     const data = appDataRef.current;
@@ -3529,6 +3552,7 @@ function InboxPage() {
                           platformPostId={c.platformPostId}
                           platform={c.platform}
                           fallbackImageUrl={resolveCommentThumb(c) ?? c.postImageUrl}
+                          textOnlyPost={isCommentTextOnly(c)}
                         />
                         <div className="relative shrink-0 w-9 h-9">
                           <InboxAvatar pictureUrl={c.authorPictureUrl} label={c.authorName} className="w-9 h-9" />
@@ -4609,6 +4633,7 @@ function InboxPage() {
                             platformPostId={selectedComment.platformPostId}
                             platform={selectedComment.platform}
                             fallbackImageUrl={resolveCommentThumb(selectedComment) ?? selectedComment.postImageUrl}
+                            textOnlyPost={isCommentTextOnly(selectedComment)}
                           />
                         </div>
                         <div className="min-w-0 flex-1">
