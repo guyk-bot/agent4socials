@@ -117,7 +117,7 @@ import { InboxCommentThumb } from '@/components/inbox/InboxCommentThumb';
 import { resolveInboxCommentThumbFallback } from '@/lib/inbox/inbox-post-thumb-resolve';
 import { prefetchInboxPostMediaBatch } from '@/lib/inbox/inbox-post-media-prefetch';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
-import { useAppData } from '@/context/AppDataContext';
+import { useAppData, type CachedPost } from '@/context/AppDataContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import {
   InstagramIcon,
@@ -2862,6 +2862,52 @@ function InboxPage() {
       ),
     [appData?.postsByAccountId]
   );
+
+  /** Load Threads post history into app cache so comment thumbs match Dashboard History. */
+  useEffect(() => {
+    const data = appDataRef.current;
+    if (!data?.setPostsForAccount) return;
+    let cancelled = false;
+    void (async () => {
+      for (const acc of effectiveAccountsRef.current) {
+        if (acc.platform !== 'THREADS') continue;
+        const existing = data.getPosts(acc.id);
+        if (existing && existing.length > 0) continue;
+        try {
+          const res = await api.get<{ posts?: CachedPost[] }>(`/social/accounts/${acc.id}/posts`, {
+            timeout: 60_000,
+          });
+          const list = res.data?.posts;
+          if (!cancelled && Array.isArray(list) && list.length > 0) {
+            data.setPostsForAccount(acc.id, list);
+          }
+        } catch {
+          /* skip */
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [commentCachePlatforms.join(','), appData?.prefetchPhase2Done]);
+
+  /** Re-resolve comment thumbs when synced post history arrives after comments loaded. */
+  useEffect(() => {
+    if (!comments.length || !appData?.postsByAccountId) return;
+    prefetchInboxPostMediaBatch(
+      comments.map((c) => ({
+        accountId: c.accountId,
+        platformPostId: c.platformPostId,
+        platform: c.platform,
+        postImageUrl: resolveInboxCommentThumbFallback(
+          c.accountId,
+          c.platformPostId,
+          c.postImageUrl,
+          appData.postsByAccountId
+        ) ?? c.postImageUrl,
+      }))
+    );
+  }, [appData?.postsByAccountId, comments, resolveCommentThumb]);
 
   /** Comments tab: show all platforms; platform icons filter messages only. */
   const displayComments = useMemo(() => {

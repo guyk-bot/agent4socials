@@ -1,20 +1,14 @@
-import { inboxStillImageUrl } from '@/lib/inbox/media-url';
-import { threadsPostThumbnailUrl } from '@/lib/threads/post-media-type';
+import { isLikelyVideoMediaUrl } from '@/lib/inbox/media-url';
+import { isAnalyticsTextOnlyPost } from '@/lib/post-history-format';
 
-/** Still-image thumb from synced dashboard / history posts (same rules as Post History table). */
+/** Still-image thumb from synced dashboard / history posts (same rules as PostContentPreviewThumb). */
 export function historySyncedPostThumbUrl(post: {
   platform?: string | null;
   mediaType?: string | null;
   thumbnailUrl?: string | null;
 }): string | null {
-  const plat = (post.platform ?? '').toUpperCase();
-  if (plat === 'THREADS') {
-    const thumb = threadsPostThumbnailUrl({
-      media_type: post.mediaType,
-      thumbnail_url: post.thumbnailUrl,
-      media_url: null,
-    });
-    if (thumb) return thumb;
-  }
-  return inboxStillImageUrl(post.thumbnailUrl);
+  if (isAnalyticsTextOnlyPost(post)) return null;
+  const thumb = (post.thumbnailUrl ?? '').trim();
+  if (!thumb || isLikelyVideoMediaUrl(thumb)) return null;
+  return thumb;
 }

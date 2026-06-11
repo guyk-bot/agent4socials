@@ -15,10 +15,12 @@ export function resolveInboxCommentThumbFallback(
   postImageUrl: string | null | undefined,
   postsByAccountId: Record<string, PostRow[] | undefined> | undefined
 ): string | null {
-  const targetId = platformPostId.trim();
+  const targetId = platformPostId.trim().replace(/^\//, '');
+  if (!targetId) return inboxStillImageUrl(postImageUrl);
+
   const posts = postsByAccountId?.[accountId] ?? [];
   for (const p of posts) {
-    const pid = (p.platformPostId ?? '').trim();
+    const pid = (p.platformPostId ?? '').trim().replace(/^\//, '');
     if (!pid || pid !== targetId) continue;
     const fromHistory = historySyncedPostThumbUrl({
       platform: p.platform,

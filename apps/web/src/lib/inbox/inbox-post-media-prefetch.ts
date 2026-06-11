@@ -70,7 +70,8 @@ export function inboxPostThumbSrc(
   if (cached?.kind === 'image') return cached.src;
   if (cached?.poster) return cached.poster;
   const still = inboxStillImageUrl(fallbackImageUrl);
-  return still ? proxyInboxImageUrl(still) : null;
+  // Match Post History: use the synced CDN URL directly (proxy often fails for Threads).
+  return still ?? null;
 }
 
 export function readInboxPostMediaForThumb(
@@ -93,11 +94,11 @@ export function prefetchInboxPostMedia(
   if (readInboxPostMediaCache(accountId, postId) || inflight.has(key)) return;
 
   const still = inboxStillImageUrl(fallbackImageUrl);
-  const fallback = still ? proxyInboxImageUrl(still) : null;
-  if (fallback && !isLikelyVideoMediaUrl(fallbackImageUrl)) {
+  if (still && !isLikelyVideoMediaUrl(fallbackImageUrl)) {
     const blob = readBlob();
-    blob[key] = { kind: 'image', src: fallback, at: Date.now() };
+    blob[key] = { kind: 'image', src: still, at: Date.now() };
     writeBlob(blob);
+    window.dispatchEvent(new CustomEvent('izop-inbox-post-media-cache'));
   }
 
   inflight.add(key);
