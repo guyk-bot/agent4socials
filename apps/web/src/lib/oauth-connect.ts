@@ -11,6 +11,10 @@ export const OAUTH_IN_FLIGHT_TTL_MS = 90 * 1000;
 /** Longer TTL to prevent redirect hook from firing too soon after OAuth starts. */
 const OAUTH_REDIRECT_GUARD_TTL_MS = 3 * 60 * 1000; // 3 minutes
 
+/** Remember which account to open after OAuth when connect started off-dashboard. */
+const POST_CONNECT_TARGET_ACCOUNT_KEY = 'agent4socials_post_connect_target_account';
+const POST_CONNECT_TARGET_TTL_MS = 10 * 60 * 1000;
+
 type OAuthInFlightRecord = {
   platform: string;
   startedAt: number;
@@ -119,6 +123,49 @@ export function clearOAuthConnectInFlightForPlatform(platform: string): void {
   if (!p) return;
   if (readOAuthConnectInFlight() === p) {
     clearOAuthConnectInFlight();
+  }
+}
+
+/** After OAuth from Account settings, always open this account on /dashboard. */
+export function storePostConnectTargetAccount(accountId: string, platform: string): void {
+  if (typeof window === 'undefined' || !accountId || !platform) return;
+  try {
+    localStorage.setItem(
+      POST_CONNECT_TARGET_ACCOUNT_KEY,
+      JSON.stringify({
+        accountId,
+        platform: platform.trim().toUpperCase(),
+        startedAt: Date.now(),
+      })
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readPostConnectTargetAccount(): { accountId: string; platform: string } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(POST_CONNECT_TARGET_ACCOUNT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { accountId?: string; platform?: string; startedAt?: number };
+    if (!parsed?.accountId || !parsed?.platform) return null;
+    if (parsed.startedAt && Date.now() - parsed.startedAt > POST_CONNECT_TARGET_TTL_MS) {
+      localStorage.removeItem(POST_CONNECT_TARGET_ACCOUNT_KEY);
+      return null;
+    }
+    return { accountId: parsed.accountId, platform: parsed.platform };
+  } catch {
+    return null;
+  }
+}
+
+export function clearPostConnectTargetAccount(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(POST_CONNECT_TARGET_ACCOUNT_KEY);
+  } catch {
+    /* ignore */
   }
 }
 

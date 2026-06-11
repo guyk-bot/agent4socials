@@ -88,6 +88,7 @@ import {
   clearOAuthConnectInFlight,
   clearOAuthConnectInFlightForPlatform,
   readOAuthConnectInFlight,
+  storePostConnectTargetAccount,
   OAUTH_CONNECT_IN_FLIGHT_EVENT,
   ACCOUNT_DISCONNECTED_EVENT,
   watchOAuthConnectPopup,
@@ -1010,6 +1011,7 @@ export default function DashboardPage() {
       if (payload.platform) storeOAuthConnectInFlight(payload.platform);
       const { accountId, platform, username, profilePicture } = payload;
       if (accountId && platform) {
+        storePostConnectTargetAccount(accountId, platform);
         pendingPostConnectAccountIdRef.current = accountId;
         setSelectedAccountId(accountId);
         setCachedAccounts((prev) =>

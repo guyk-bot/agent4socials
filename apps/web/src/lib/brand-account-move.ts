@@ -1,5 +1,9 @@
 import { CANONICAL_APP_ORIGIN } from '@/lib/app-base-url';
 import { META_BRAND_SCOPED_PLATFORMS } from '@/lib/brand-platform-connect';
+import {
+  clearPostConnectTargetAccount,
+  readPostConnectTargetAccount,
+} from '@/lib/oauth-connect';
 
 /** Session key: full-page redirect after user resolves the brand-move modal (e.g. Facebook page picker). */
 export const PENDING_CONNECT_REDIRECT_KEY = 'agent4socials_pending_connect_redirect_v1';
@@ -204,6 +208,7 @@ export function finishPendingConnectNavigation(outcome: 'moved' | 'kept'): void 
   if (typeof window === 'undefined') return;
   const nav = readPendingConnectNav();
   clearPendingConnectNav();
+  const storedTarget = readPostConnectTargetAccount();
   const accountIdFromPage = (() => {
     try {
       return new URLSearchParams(window.location.search).get('accountId');
@@ -218,28 +223,29 @@ export function finishPendingConnectNavigation(outcome: 'moved' | 'kept'): void 
       return null;
     }
   })();
+  const accountId = storedTarget?.accountId ?? accountIdFromPage;
+  const platform = storedTarget?.platform ?? platformFromPage ?? undefined;
   const dashboardWithAccount =
-    accountIdFromPage != null
-      ? buildDashboardSuccessRedirect(accountIdFromPage, platformFromPage ?? undefined)
-      : null;
+    accountId != null ? buildDashboardSuccessRedirect(accountId, platform) : null;
+
+  if (dashboardWithAccount) {
+    clearPostConnectTargetAccount();
+    window.location.href = sanitizePostConnectRedirect(dashboardWithAccount, outcome);
+    return;
+  }
+
   if (outcome === 'kept') {
     const returnUrl = nav?.returnUrl ?? DEFAULT_CONNECT_RETURN_URL;
-    // After connect from Account settings, land on the platform dashboard (with accountId), not Account page.
-    if (returnUrl.includes('/dashboard/account') && dashboardWithAccount) {
-      window.location.href = sanitizePostConnectRedirect(dashboardWithAccount, 'kept');
-      return;
-    }
     if (returnUrl.includes('/dashboard/account') && nav?.successRedirect) {
       window.location.href = sanitizePostConnectRedirect(nav.successRedirect, 'kept');
       return;
     }
-    window.location.href = returnUrl;
+    window.location.href = returnUrl.includes('/dashboard/account')
+      ? DEFAULT_CONNECT_RETURN_URL
+      : returnUrl;
     return;
   }
-  const redirect =
-    (dashboardWithAccount && !parseAccountIdFromDashboardRedirect(nav?.successRedirect ?? ''))
-      ? dashboardWithAccount
-      : nav?.successRedirect;
+  const redirect = nav?.successRedirect;
   if (redirect) {
     window.location.href = sanitizePostConnectRedirect(redirect, 'moved');
   }
@@ -776,10 +782,11 @@ export function clearPostConnectOAuthUrlParams(options?: { dropConnectingOnly?: 
     if (!hadOAuthParams) return;
     url.searchParams.delete('connecting');
     if (!options?.dropConnectingOnly) {
-      url.searchParams.delete('accountId');
       url.searchParams.delete('newPlatform');
       url.searchParams.delete('newUsername');
       url.searchParams.delete('newPic');
+      url.searchParams.delete('just_connected');
+      // Keep accountId so /dashboard stays on the connected account view.
     }
     window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
   } catch {

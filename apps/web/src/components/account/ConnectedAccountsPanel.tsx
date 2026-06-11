@@ -21,6 +21,11 @@ import {
   prepareOAuthConnectPopup,
   clearOAuthConnectInFlightForPlatform,
   watchOAuthConnectPopup,
+  storeOAuthConnectInFlight,
+  storePostConnectTargetAccount,
+  clearPostConnectTargetAccount,
+  readPostConnectTargetAccount,
+  pollOAuthConnectAccount,
 } from '@/lib/oauth-connect';
 
 /** Platform order matches sidebar; uniform cards in a 4×2 grid on Account → Connected accounts. */
@@ -96,6 +101,21 @@ export function ConnectedAccountsPanel() {
 
   const accounts = (cachedAccounts as SocialAccount[]) ?? [];
 
+  const goToPlatformDashboard = (accountId: string, platform: string) => {
+    clearPostConnectTargetAccount();
+    setSelectedAccountId(accountId);
+    router.replace(
+      buildDashboardSuccessRedirect(accountId, platform, { just_connected: '1' })
+    );
+  };
+
+  useEffect(() => {
+    const target = readPostConnectTargetAccount();
+    if (target) {
+      goToPlatformDashboard(target.accountId, target.platform);
+    }
+  }, []);
+
   useEffect(() => {
     return listenForOAuthComplete(async (payload) => {
       try {
@@ -104,9 +124,9 @@ export function ConnectedAccountsPanel() {
         setCachedAccounts(data);
         const { accountId, platform } = payload;
         const connected = accountId ? data.find((a) => a.id === accountId) : undefined;
-        if (accountId && finishPostConnectBrandAssignment) {
-          const plat = connected?.platform ?? platform ?? '';
-          const postConnectResult = finishPostConnectBrandAssignment(
+        const plat = connected?.platform ?? platform ?? '';
+        if (accountId && plat && finishPostConnectBrandAssignment) {
+          finishPostConnectBrandAssignment(
             accountId,
             data,
             connected
@@ -118,14 +138,9 @@ export function ConnectedAccountsPanel() {
               successRedirect: buildDashboardSuccessRedirect(accountId, plat || platform),
             }
           );
-          if (postConnectResult === 'prompt') return;
-          if (postConnectResult !== 'noop') return;
         }
-        if (accountId && platform) {
-          setSelectedAccountId(accountId);
-          router.replace(
-            buildDashboardSuccessRedirect(accountId, platform, { just_connected: '1' })
-          );
+        if (accountId && plat) {
+          goToPlatformDashboard(accountId, plat);
         }
       } catch {
         /* ignore */
@@ -265,6 +280,9 @@ export function ConnectedAccountsPanel() {
                         if (reconnectingId) return;
                         const oauthPopup = prepareOAuthConnectPopup();
                         setReconnectingId(acc.id);
+                        storeOAuthConnectInFlight(acc.platform);
+                        storePostConnectTargetAccount(acc.id, acc.platform);
+                        let stopPoll: (() => void) | undefined;
                         try {
                           const liMethod =
                             acc.platform === 'LINKEDIN' &&
@@ -309,8 +327,18 @@ export function ConnectedAccountsPanel() {
                               alert('Could not open sign-in. Allow pop-ups for www.izop.io or try Reconnect again.');
                             } else if (oauthPopup && !oauthPopup.closed) {
                               watchOAuthConnectPopup(oauthPopup, acc.platform, () => {
-                                clearOAuthConnectInFlightForPlatform(acc.platform);
-                                setReconnectingId(null);
+                                stopPoll = pollOAuthConnectAccount(
+                                  acc.platform,
+                                  async () => {
+                                    const r = await api.get(`/social/accounts?_=${Date.now()}`);
+                                    return Array.isArray(r.data) ? r.data : [];
+                                  },
+                                  (found) => {
+                                    goToPlatformDashboard(found.id, found.platform);
+                                    setReconnectingId(null);
+                                  },
+                                  { requireInFlight: false, maxMs: 90_000 }
+                                );
                               });
                             }
                           } else {
@@ -341,7 +369,18 @@ export function ConnectedAccountsPanel() {
               );
             }
             return (
-              <Link key={id} href={`/dashboard?connect=${slug}`} className={CONNECT_CARD_CLASS}>
+              <Link
+                key={id}
+                href={`/dashboard?connect=${slug}`}
+                className={CONNECT_CARD_CLASS}
+                onClick={() => {
+                  try {
+                    sessionStorage.setItem('a4s_connect_from_account', '1');
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+              >
                 <div className="w-9 h-9 flex items-center justify-center shrink-0">{CONNECT_GRID_ICON[id]}</div>
                 <span className="text-xs sm:text-sm font-semibold text-neutral-800">{name}</span>
                 <span className="text-[10px] sm:text-xs text-neutral-500 group-hover:text-neutral-700">Connect</span>
