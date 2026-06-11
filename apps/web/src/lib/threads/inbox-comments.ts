@@ -44,6 +44,8 @@ type ThreadsMentionRow = {
   username?: string;
   timestamp?: string;
   media_type?: string;
+  media_url?: string;
+  thumbnail_url?: string;
   profile_picture_url?: string;
 };
 
@@ -207,7 +209,10 @@ export async function fetchThreadsInboxComments(
   const mentionResult = await fetchThreadsPagedRows<ThreadsMentionRow>(
     'me/mentions',
     token,
-    { fields: 'id,text,username,timestamp,media_type,profile_picture_url', limit: 50 },
+    {
+      fields: 'id,text,username,timestamp,media_type,media_url,thumbnail_url,profile_picture_url',
+      limit: 50,
+    },
     3
   );
   if (mentionResult.error) {
@@ -234,7 +239,7 @@ export async function fetchThreadsInboxComments(
       postTargetId: `mention-${id}`,
       platformPostId: id,
       postPreview: 'Mentioned you on Threads',
-      postImageUrl: null,
+      postImageUrl: m.thumbnail_url ?? m.media_url ?? null,
       postPublishedAt: null,
       postUrl: mentionPermalink,
     });

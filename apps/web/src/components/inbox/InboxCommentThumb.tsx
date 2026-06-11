@@ -27,8 +27,10 @@ export function InboxCommentThumb({
   const [src, setSrc] = useState<string | null>(() =>
     inboxPostThumbSrc(accountId, platformPostId, fallbackImageUrl)
   );
+  const [imgFailed, setImgFailed] = useState(false);
 
   useEffect(() => {
+    setImgFailed(false);
     const sync = () => {
       setSrc(inboxPostThumbSrc(accountId, platformPostId, fallbackImageUrl));
     };
@@ -40,7 +42,7 @@ export function InboxCommentThumb({
 
   const dim = size === 'md' ? 'w-14 h-[4.25rem]' : 'w-11 h-14';
 
-  if (!src) {
+  if (!src || imgFailed) {
     return (
       <div
         className={`${dim} shrink-0 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center ${className}`}
@@ -55,7 +57,13 @@ export function InboxCommentThumb({
     <div
       className={`${dim} shrink-0 rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden bg-neutral-100 dark:bg-neutral-800 ${className}`}
     >
-      <img src={src} alt="" className="w-full h-full object-cover" loading="lazy" />
+      <img
+        src={src}
+        alt=""
+        className="w-full h-full object-cover"
+        loading="lazy"
+        onError={() => setImgFailed(true)}
+      />
     </div>
   );
 }

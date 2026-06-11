@@ -1,3 +1,5 @@
+import { setInboxNotifyBaseline } from '@/lib/inbox/inbox-notify-baseline';
+
 /** Show Inbox "please wait" hints shortly after a platform connect. */
 const KEY_PREFIX = 'agent4socials_inbox_recent_connect.';
 export const INBOX_RECENT_CONNECT_WINDOW_MS = 10 * 60 * 1000;
@@ -6,13 +8,19 @@ function storageKey(accountId: string): string {
   return `${KEY_PREFIX}${accountId}`;
 }
 
-export function markInboxAccountRecentlyConnected(accountId: string, _platform?: string): void {
+export function markInboxAccountRecentlyConnected(
+  accountId: string,
+  _platform?: string,
+  userId?: string | null
+): void {
   if (typeof window === 'undefined' || !accountId) return;
+  const at = Date.now();
   try {
-    sessionStorage.setItem(storageKey(accountId), String(Date.now()));
+    sessionStorage.setItem(storageKey(accountId), String(at));
   } catch {
     /* ignore */
   }
+  if (userId) setInboxNotifyBaseline(accountId, userId, at);
 }
 
 export function isInboxAccountRecentlyConnected(accountId: string): boolean {

@@ -403,8 +403,10 @@ export function computeInboxHeaderUnread(
 
   const convById = new Map(conversations.map((c) => [c.id, c]));
   // Sticky pending IDs: count toward badge only when not already marked read in localStorage.
+  const hasLoadedConvList = convIds.size > 0;
   for (const id of getPendingUnreadConversationIds(userId)) {
     if (readConversations.has(id)) continue;
+    if (hasLoadedConvList && !convIds.has(id)) continue;
     const row = convById.get(id);
     if (
       row &&
@@ -420,12 +422,16 @@ export function computeInboxHeaderUnread(
 
   const unreadCommentIds = new Set<string>();
   const commentPlatformById = new Map<string, string | undefined>();
+  const topLevelCommentIds = new Set<string>();
   for (const c of comments) {
     if (!c.commentId || c.isFromMe || c.parentCommentId) continue;
+    topLevelCommentIds.add(c.commentId);
     commentPlatformById.set(c.commentId, c.platform);
   }
+  const hasLoadedCommentList = topLevelCommentIds.size > 0;
   for (const id of getPendingUnreadCommentIds(userId)) {
     if (readComments.has(id)) continue;
+    if (hasLoadedCommentList && !topLevelCommentIds.has(id)) continue;
     unreadCommentIds.add(id);
     if (!commentPlatformById.has(id)) {
       commentPlatformById.set(id, pendingCommentPlatforms[id]);
@@ -483,11 +489,19 @@ export function getStickyNavInboxBadge(
   userId: string,
   computed: InboxHeaderUnread
 ): InboxHeaderUnread {
-  const pendingMsg = getPendingUnreadConversationIds(userId).size;
-  const pendingCmt = getPendingUnreadCommentIds(userId).size;
+  const readConversations = getReadConversationIds(userId);
+  const readComments = getReadCommentIds(userId);
+  let pendingMsg = 0;
+  for (const id of getPendingUnreadConversationIds(userId)) {
+    if (!readConversations.has(id)) pendingMsg += 1;
+  }
+  let pendingCmt = 0;
+  for (const id of getPendingUnreadCommentIds(userId)) {
+    if (!readComments.has(id)) pendingCmt += 1;
+  }
   const pendingInbox = Math.min(pendingMsg + pendingCmt, 99);
   const inbox = Math.max(computed.inbox, pendingInbox);
-  const messages = Math.max(computed.messages, pendingMsg);
-  const comments = Math.max(computed.comments, pendingCmt);
+  const messages = Math.max(computed.messages, Math.min(pendingMsg, 99));
+  const comments = Math.max(computed.comments, Math.min(pendingCmt, 99));
   return { ...computed, inbox, messages, comments };
 }

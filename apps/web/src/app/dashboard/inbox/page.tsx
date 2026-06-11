@@ -48,6 +48,11 @@ import {
   isInboxAccountRecentlyConnected,
   clearInboxAccountRecentlyConnected,
 } from '@/lib/inbox/inbox-recent-connect';
+import {
+  getInboxNotifyBaseline,
+  setInboxNotifyBaseline,
+  shouldNotifyInboxComment,
+} from '@/lib/inbox/inbox-notify-baseline';
 import { triggerInboxWarmClient } from '@/lib/inbox/trigger-inbox-warm-client';
 import { refreshInstagramDmInboxLive, type InboxDmConversation } from '@/lib/inbox/refresh-instagram-dm-inbox-client';
 import { isBogusInstagramInboxSenderName } from '@/lib/inbox/instagram-dm-sender-utils';
@@ -82,6 +87,7 @@ import {
 } from '@/lib/inbox/inbox-sender-pictures';
 import {
   addPendingUnreadCommentIds,
+  removePendingUnreadCommentIds,
   getPendingUnreadCommentIds,
   getPendingUnreadCommentPlatforms,
   getPendingUnreadConversationIds,
@@ -2927,6 +2933,7 @@ function InboxPage() {
     if (inboxCommentsHydratedRef.current && prev.size > 0) {
       for (const c of topLevel) {
         if (c.isFromMe || prev.has(c.commentId)) continue;
+        if (!shouldNotifyInboxComment(c, user.id)) continue;
         addPendingUnreadCommentIds([c.commentId], user.id, c.platform ?? 'UNKNOWN');
       }
     }
@@ -2934,15 +2941,27 @@ function InboxPage() {
     const initializedAccounts = getInboxInitializedAccountIds(user.id);
     for (const accountId of [...new Set(comments.map((c) => c.accountId).filter(Boolean))]) {
       if (!initializedAccounts.has(accountId)) {
-        const platform = comments.find((c) => c.accountId === accountId)?.platform;
-        if (platform && platform !== 'THREADS') {
-          const ids = topLevel
-            .filter((c) => c.accountId === accountId && !c.isFromMe)
-            .map((c) => c.commentId);
-          if (ids.length) markCommentsAsRead(ids, user.id, { silent: true });
+        const ids = topLevel
+          .filter((c) => c.accountId === accountId && !c.isFromMe)
+          .map((c) => c.commentId);
+        if (ids.length) {
+          markCommentsAsRead(ids, user.id, { silent: true });
+          removePendingUnreadCommentIds(ids, user.id);
         }
+        setInboxNotifyBaseline(accountId, user.id);
         addInboxInitializedAccount(accountId, user.id);
+      } else if (getInboxNotifyBaseline(accountId, user.id) == null) {
+        setInboxNotifyBaseline(accountId, user.id);
       }
+    }
+
+    const stalePending = [...getPendingUnreadCommentIds(user.id)].filter((id) => {
+      const row = topLevel.find((c) => c.commentId === id);
+      return row ? !shouldNotifyInboxComment(row, user.id) : false;
+    });
+    if (stalePending.length) {
+      removePendingUnreadCommentIds(stalePending, user.id);
+      markCommentsAsRead(stalePending, user.id, { silent: true });
     }
 
     setUnreadCommentIds(deriveUnreadTopLevelCommentIds(user.id, topLevel));
