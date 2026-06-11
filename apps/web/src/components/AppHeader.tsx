@@ -40,12 +40,10 @@ function TopNavItemContent({
   item,
   badge,
   inboxBadgeTitle,
-  active,
 }: {
   item: TopNavItem;
   badge: number;
   inboxBadgeTitle?: string;
-  active?: boolean;
 }) {
   if (item.stackedTop) {
     return (
@@ -69,7 +67,7 @@ function TopNavItemContent({
   return (
     <>
       {item.glassNavIcon ? (
-        <IzopGlassLogo alt="" variant="nav" showSparkle={active} className="shrink-0" />
+        <IzopGlassLogo alt="" variant="nav" showSparkle className="shrink-0" />
       ) : item.icon ? (
         <item.icon size={18} className="shrink-0" aria-hidden />
       ) : null}
@@ -189,7 +187,7 @@ export default function AppHeader() {
                   ? `${badge} unread`
                   : undefined;
             const content = (
-              <TopNavItemContent item={item} badge={badge} inboxBadgeTitle={inboxBadgeTitle} active={isActive} />
+              <TopNavItemContent item={item} badge={badge} inboxBadgeTitle={inboxBadgeTitle} />
             );
             return (
               <Link
@@ -310,7 +308,7 @@ export default function AppHeader() {
                   ) : (
                     <>
                       {item.glassNavIcon ? (
-                        <IzopGlassLogo alt="" variant="nav" showSparkle={isActive} className="shrink-0" />
+                        <IzopGlassLogo alt="" variant="nav" showSparkle className="shrink-0" />
                       ) : item.icon ? (
                         <item.icon size={18} className="shrink-0" aria-hidden />
                       ) : null}
