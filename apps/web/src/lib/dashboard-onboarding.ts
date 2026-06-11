@@ -20,7 +20,24 @@ export function shouldRedirectEmptyAccountsToConnect(
 ): boolean {
   if (pathname === '/dashboard/account') return false;
   if (isActiveConnectFlow(search)) return false;
+  const params = new URLSearchParams(search);
+  if (params.get('accountId')) return false;
+  if (params.get('newPlatform')) return false;
   return ANALYTICS_LANDING_PATHS.has(pathname);
+}
+
+/** After OAuth, keep the user on Inbox/Composer/etc. instead of forcing analytics dashboard. */
+export function shouldStayOnPageAfterOAuthConnect(): boolean {
+  if (typeof window === 'undefined') return false;
+  const path = window.location.pathname;
+  return (
+    path.startsWith('/dashboard/inbox') ||
+    path.startsWith('/composer') ||
+    path.startsWith('/calendar') ||
+    path.startsWith('/dashboard/aysop-ai') ||
+    path.startsWith('/dashboard/brand') ||
+    path.startsWith('/posts')
+  );
 }
 
 export function consoleHrefForAccountState(hasConnectedAccounts: boolean): string {

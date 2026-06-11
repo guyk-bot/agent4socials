@@ -63,6 +63,84 @@ function markConnectLoadDone(accountId: string): void {
 function isOAuthConnectSyncActive(accountId: string | undefined | null, justConnected: boolean): boolean {
   return Boolean(justConnected && accountId && !isConnectLoadDone(accountId));
 }
+
+const CONNECT_FINISH_MAX_MS = 20_000;
+
+type ConnectPrefetchPost = {
+  id: string;
+  content?: string | null;
+  thumbnailUrl?: string | null;
+  permalinkUrl?: string | null;
+  impressions: number;
+  interactions: number;
+  publishedAt: string;
+  mediaType?: string | null;
+  platform: string;
+};
+
+/** Import Threads posts + insights before showing the account dashboard after OAuth. */
+async function prefetchThreadsAfterConnect(accountId: string): Promise<{
+  posts: ConnectPrefetchPost[];
+  insights: Record<string, unknown> | null;
+  syncError?: string;
+}> {
+  const def = getDefaultDateRange();
+  try {
+    const [postsRes, insightsRes] = await Promise.all([
+      api.get(`/social/accounts/${accountId}/posts`, {
+        params: { sync: 1, force: 1 },
+        timeout: 60_000,
+      }),
+      api.get(`/social/accounts/${accountId}/insights`, {
+        params: { since: def.start, until: def.end },
+        timeout: 60_000,
+      }),
+    ]);
+    return {
+      posts: Array.isArray(postsRes.data?.posts) ? postsRes.data.posts : [],
+      insights:
+        insightsRes.data && typeof insightsRes.data === 'object'
+          ? (insightsRes.data as Record<string, unknown>)
+          : null,
+      syncError: typeof postsRes.data?.syncError === 'string' ? postsRes.data.syncError : undefined,
+    };
+  } catch {
+    return { posts: [], insights: null };
+  }
+}
+
+function seedThreadsConnectCaches(
+  accountId: string,
+  prefetched: { posts: ConnectPrefetchPost[]; insights: Record<string, unknown> | null },
+  caches: {
+    postsCacheRef: React.MutableRefObject<Record<string, ConnectPrefetchPost[]>>;
+    accountPostsHydratedRef: React.MutableRefObject<Record<string, boolean>>;
+    insightsCacheRef: React.MutableRefObject<Record<string, unknown>>;
+    lastInsightsByAccountIdRef: React.MutableRefObject<Record<string, Record<string, unknown>>>;
+    appData: ReturnType<typeof useAppData>;
+    userId?: string;
+  }
+): void {
+  const def = getDefaultDateRange();
+  caches.postsCacheRef.current[accountId] = prefetched.posts;
+  caches.accountPostsHydratedRef.current[accountId] = true;
+  caches.appData?.setPostsForAccount(accountId, prefetched.posts);
+  if (prefetched.insights) {
+    const cacheKey = `${accountId}-${def.start}-${def.end}`;
+    caches.insightsCacheRef.current[cacheKey] = prefetched.insights;
+    caches.lastInsightsByAccountIdRef.current[accountId] = {
+      ...prefetched.insights,
+      _dateRange: def,
+    };
+    caches.appData?.setInsightsForAccount(
+      accountId,
+      prefetched.insights as Parameters<NonNullable<typeof caches.appData>['setInsightsForAccount']>[1]
+    );
+    if (caches.userId) {
+      writeDashboardInsightsSession(caches.userId, accountId, prefetched.insights, def);
+    }
+  }
+}
 import {
   listenForOAuthComplete,
   notifyOAuthOpenerAndClose,
@@ -93,6 +171,7 @@ import { getSupabaseBrowser } from '@/lib/supabase/client';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import ConnectView from '@/components/dashboard/ConnectView';
 import { useRedirectIfNoConnectedAccounts } from '@/hooks/useRedirectIfNoConnectedAccounts';
+import { shouldStayOnPageAfterOAuthConnect } from '@/lib/dashboard-onboarding';
 import {
   Users,
   CheckCircle,
@@ -424,16 +503,17 @@ export default function DashboardPage() {
     const fromAll = allCachedAccounts.find((a) => a.id === selectedAccountId);
     if (fromAll) return fromAll as SocialAccount;
     const platformParam = searchParams.get('newPlatform');
-    if (postConnectReturn && platformParam) {
+    const stubId = selectedAccountId ?? accountIdFromUrl;
+    if (postConnectReturn && platformParam && stubId) {
       return {
-        id: selectedAccountId,
+        id: stubId,
         platform: platformParam.toUpperCase(),
         username: searchParams.get('newUsername') ?? platformParam,
         profilePicture: searchParams.get('newPic'),
       };
     }
     return null;
-  }, [selectedAccount, selectedAccountId, accounts, allCachedAccounts, postConnectReturn, searchParams]);
+  }, [selectedAccount, selectedAccountId, accountIdFromUrl, accounts, allCachedAccounts, postConnectReturn, searchParams]);
   selectedAccountRef.current = analyticsAccount;
   const [justConnected, setJustConnected] = useState(false);
 
@@ -775,8 +855,26 @@ export default function DashboardPage() {
 
     if (!oauthJustConnected) {
       const fromUrl = accounts.find((a) => a.id === accountIdFromUrl);
-      if (fromUrl?.id) setSelectedAccountId(accountIdFromUrl);
-      router.replace('/dashboard', { scroll: false });
+      if (fromUrl?.id) {
+        setSelectedAccountId(accountIdFromUrl);
+        if (typeof window !== 'undefined') {
+          const url = new URL(window.location.href);
+          const oauthNoise =
+            url.searchParams.has('connecting') ||
+            url.searchParams.has('newPlatform') ||
+            url.searchParams.has('newUsername') ||
+            url.searchParams.has('newPic');
+          if (oauthNoise) {
+            url.searchParams.delete('connecting');
+            url.searchParams.delete('newPlatform');
+            url.searchParams.delete('newUsername');
+            url.searchParams.delete('newPic');
+            const next = `${url.pathname}${url.search}${url.hash}`;
+            const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+            if (next !== current) router.replace(next, { scroll: false });
+          }
+        }
+      }
       return;
     }
 
@@ -862,14 +960,37 @@ export default function DashboardPage() {
           triggerInboxWarmClient(true);
         }
         setSelectedPlatformForConnect(null);
-        router.replace(
-          buildDashboardSuccessRedirect(accountIdFromUrl, connected.platform),
-          { scroll: false }
-        );
+        setJustConnected(true);
+        if (connected.platform === 'THREADS') {
+          const prefetched = await prefetchThreadsAfterConnect(accountIdFromUrl);
+          seedThreadsConnectCaches(accountIdFromUrl, prefetched, {
+            postsCacheRef,
+            accountPostsHydratedRef,
+            insightsCacheRef,
+            lastInsightsByAccountIdRef,
+            appData: appDataRef.current,
+            userId: userIdRef.current,
+          });
+          singleAccountPostsRunKeyRef.current = '';
+          insightsRunKeyRef.current = '';
+          if (prefetched.posts.length > 0) setImportedPosts(prefetched.posts);
+          if (prefetched.insights) {
+            setInsights(prefetched.insights as NonNullable<Parameters<typeof setInsights>[0]>);
+          }
+          if (prefetched.syncError) setPostsSyncError(prefetched.syncError);
+        }
+        if (!shouldStayOnPageAfterOAuthConnect()) {
+          router.replace(
+            buildDashboardSuccessRedirect(accountIdFromUrl, connected.platform),
+            { scroll: false }
+          );
+        }
         return;
       }
       clearSelection();
-      router.replace('/dashboard', { scroll: false });
+      if (!shouldStayOnPageAfterOAuthConnect()) {
+        router.replace('/dashboard', { scroll: false });
+      }
     })();
 
     return () => {
@@ -912,7 +1033,7 @@ export default function DashboardPage() {
       }
       const prevAccountIds = readCachedAccountIdsFromStorage();
       const pendingBrandId = readPendingConnectActiveBrand() ?? activeBrandId;
-      void fetchAccounts().then((list) => {
+      void fetchAccounts().then(async (list) => {
         if (!accountId) return;
         const connected = list.find((a) => a.id === accountId);
         const plat = connected?.platform ?? platform ?? 'INSTAGRAM';
@@ -950,7 +1071,27 @@ export default function DashboardPage() {
         setSelectedPlatformForConnect(null);
         setOauthLaunchingPlatform(null);
         setOauthLaunchingMethod(undefined);
-        router.replace(buildDashboardSuccessRedirect(accountId, plat), { scroll: false });
+        if (plat === 'THREADS' && accountId) {
+          const prefetched = await prefetchThreadsAfterConnect(accountId);
+          seedThreadsConnectCaches(accountId, prefetched, {
+            postsCacheRef,
+            accountPostsHydratedRef,
+            insightsCacheRef,
+            lastInsightsByAccountIdRef,
+            appData: appDataRef.current,
+            userId: userIdRef.current,
+          });
+          singleAccountPostsRunKeyRef.current = '';
+          insightsRunKeyRef.current = '';
+          if (prefetched.posts.length > 0) setImportedPosts(prefetched.posts);
+          if (prefetched.insights) {
+            setInsights(prefetched.insights as NonNullable<Parameters<typeof setInsights>[0]>);
+          }
+          if (prefetched.syncError) setPostsSyncError(prefetched.syncError);
+        }
+        if (!shouldStayOnPageAfterOAuthConnect()) {
+          router.replace(buildDashboardSuccessRedirect(accountId, plat), { scroll: false });
+        }
       });
     });
   }, [
@@ -1084,7 +1225,8 @@ export default function DashboardPage() {
       // re-render triggered by Phase 2 writing into AppDataContext) would
       // otherwise cause a second pass that swaps `importedPosts` with newer
       // data, making the charts visibly jump after initial load.
-      const runKey = `${accountId}:${syncAllTrigger}`;
+      const connectSync = isOAuthConnectSyncActive(accountId, justConnected) ? 'connect' : 'idle';
+      const runKey = `${accountId}:${syncAllTrigger}:${connectSync}`;
       if (singleAccountPostsRunKeyRef.current === runKey) return;
       singleAccountPostsRunKeyRef.current = runKey;
       const refList = postsCacheRef.current[accountId];
@@ -1269,7 +1411,7 @@ export default function DashboardPage() {
   // Intentionally exclude `appData?.prefetchPhase2Done` to keep charts stable after initial render.
   // Background Phase 2 refreshes should silently update the cache without swapping the
   // currently-rendered posts — explicit sync/date/account changes are the only triggers.
-  }, [analyticsAccount?.id, hasAccounts, syncAllTrigger, accounts.map((a) => a.id).join(','), analyticsTab]);
+  }, [analyticsAccount?.id, hasAccounts, syncAllTrigger, justConnected, accounts.map((a) => a.id).join(','), analyticsTab]);
 
   const insightsCacheRef = useRef<Record<string, { platform: string; followers: number; impressionsTotal: number; impressionsTimeSeries: Array<{ date: string; value: number }>; pageViewsTotal?: number; reachTotal?: number; profileViewsTotal?: number }>>({});
   /** Last successful insights payload per account (any date range). Used to avoid full-page skeleton when switching accounts before range cache hits. */
@@ -1294,6 +1436,13 @@ export default function DashboardPage() {
   const insightsRunKeyRef = useRef<string>('');
   const aggregatedCacheRef = useRef<{ key: string; data: { totalFollowers: number; totalImpressions: number; totalReach: number; totalProfileViews: number; totalPageViews: number; byPlatform: Record<string, { followers: number; impressions: number; timeSeries: Array<{ date: string; value: number }> }>; combinedTimeSeries: Array<{ date: string; value: number }> } } | null>(null);
 
+  /** After OAuth connect, release run-key locks so posts/insights effects re-fetch with sync=1. */
+  useEffect(() => {
+    if (!justConnected || !analyticsAccount?.id) return;
+    singleAccountPostsRunKeyRef.current = '';
+    insightsRunKeyRef.current = '';
+  }, [justConnected, analyticsAccount?.id]);
+
   invalidateInsightsCachesAfterTikTokSyncRef.current = (accountId: string) => {
     const uid = userIdRef.current;
     if (uid) clearStoredInsightsForAccount(uid, accountId);
@@ -1311,7 +1460,8 @@ export default function DashboardPage() {
     requestParams: { sync?: number },
     syncError: string | null | undefined
   ) => {
-    if (platform !== 'TIKTOK' || Number(requestParams.sync) !== 1 || syncError) return;
+    const plat = (platform ?? '').toUpperCase();
+    if ((plat !== 'TIKTOK' && plat !== 'THREADS') || Number(requestParams.sync) !== 1 || syncError) return;
     if (selectedAccountRef.current?.id !== accountId) return;
     invalidateInsightsCachesAfterTikTokSyncRef.current(accountId);
   };
@@ -1342,7 +1492,8 @@ export default function DashboardPage() {
     if (!appData?.cacheRehydrated) return;
     // Lock the main insights effect once we've acted on a given
     // (account, dateRange, sync) combination — see `insightsRunKeyRef` above.
-    const runKey = `${analyticsAccount.id}:${dateRange.start}:${dateRange.end}:${syncAllTrigger}:${tiktokInsightsResyncSeal}`;
+    const connectSync = isOAuthConnectSyncActive(analyticsAccount.id, justConnected) ? 'connect' : 'idle';
+    const runKey = `${analyticsAccount.id}:${dateRange.start}:${dateRange.end}:${syncAllTrigger}:${tiktokInsightsResyncSeal}:${connectSync}`;
     if (insightsRunKeyRef.current === runKey) return;
     insightsRunKeyRef.current = runKey;
     const prevAccountId = selectedAccountIdRef.current;
@@ -2212,19 +2363,11 @@ export default function DashboardPage() {
     if (!justConnected || !accountId || isConnectLoadDone(accountId)) return;
     const timeoutId = window.setTimeout(() => {
       if (isConnectLoadDone(accountId)) return;
-      const cached =
-        readInsightsFromLocalStorage(accountId, 7 * 24 * 60 * 60 * 1000) ??
-        lastInsightsByAccountIdRef.current[accountId];
-      if (cached && typeof cached === 'object') {
-        const row = cached as Record<string, unknown>;
-        lastInsightsByAccountIdRef.current[accountId] = row;
-        setInsights(row as NonNullable<Parameters<typeof setInsights>[0]>);
-      }
-      setInsightsLoading(false);
-      setImportedPostsLoading(false);
       markConnectLoadDone(accountId);
       setJustConnected(false);
-    }, 3000);
+      setInsightsLoading(false);
+      setImportedPostsLoading(false);
+    }, CONNECT_FINISH_MAX_MS);
     return () => window.clearTimeout(timeoutId);
   }, [justConnected, analyticsAccount?.id]);
 
@@ -2290,6 +2433,36 @@ export default function DashboardPage() {
       })
       .catch(() => {});
   }, [reconnectCondition, accounts, appData, insights?.insightsHint]);
+
+  const connectFinishAccountId = analyticsAccount?.id ?? accountIdFromUrl ?? null;
+  const connectFinishPlatform =
+    analyticsAccount?.platform ??
+    searchParams.get('newPlatform')?.toUpperCase() ??
+    (oauthInFlightPlatform ? oauthInFlightPlatform.toUpperCase() : null);
+  const connectLoadInProgress = Boolean(
+    justConnected &&
+      connectFinishAccountId &&
+      !isConnectLoadDone(connectFinishAccountId)
+  );
+  const showConnectFinishOverlay = Boolean(
+    connectLoadInProgress ||
+      (postConnectReturn && accountIdFromUrl && !isConnectLoadDone(accountIdFromUrl)) ||
+      (oauthInFlightPlatform && accountIdFromUrl && connectFinishPlatform)
+  );
+
+  if (showConnectFinishOverlay && connectFinishPlatform && !showConnectView) {
+    return (
+      <>
+        <ConfirmModal open={alertMessage !== null} onClose={() => setAlertMessage(null)} message={alertMessage ?? ''} variant="alert" confirmLabel="OK" />
+        <div className="fixed inset-0 z-[8400] flex flex-col items-center justify-center gap-4 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-sm px-4">
+          <LogoLoadingAnimation className="platform-connect-loading__logo-full" aria-label="Loading dashboard" />
+          <p className="platform-connect-loading__text text-center">
+            Finishing connection and loading your dashboard…
+          </p>
+        </div>
+      </>
+    );
+  }
 
   if (showConnectView) {
     const connectPlatform = (selectedPlatformForConnect || connectFromUrl) as string;
@@ -2400,11 +2573,6 @@ export default function DashboardPage() {
   /** Full-page analytics skeleton: only when insights are loading AND no cached data.
    * Do NOT tie this to importedPostsLoading — post sync would hide the whole dashboard
    * even when insights + charts are already available (stale-while-revalidate). */
-  const connectLoadInProgress = Boolean(
-    justConnected &&
-    analyticsAccount?.id &&
-    !isConnectLoadDone(analyticsAccount.id)
-  );
   const analyticsLoadingOnly = Boolean(
     analyticsAccount &&
     !displayInsights &&
@@ -2418,15 +2586,6 @@ export default function DashboardPage() {
   function openPricingPopup() {
     setPricingModalOpen(true);
   }
-
-  const connectFinishPlatform =
-    analyticsAccount?.platform ??
-    searchParams.get('newPlatform')?.toUpperCase() ??
-    null;
-  const showConnectFinishOverlay = Boolean(
-    connectLoadInProgress ||
-      (postConnectReturn && accountIdFromUrl && !isConnectLoadDone(accountIdFromUrl))
-  );
 
   return (
     <div className="space-y-0">
@@ -2644,7 +2803,11 @@ export default function DashboardPage() {
                     ? () => router.push('/dashboard?connect=linkedin')
                     : undefined
             }
-            postsSyncError={analyticsAccount.platform === 'LINKEDIN' ? postsSyncError : null}
+            postsSyncError={
+              analyticsAccount.platform === 'LINKEDIN' || analyticsAccount.platform === 'THREADS'
+                ? postsSyncError
+                : null
+            }
             linkedInReconnectHint={(() => {
               if (analyticsAccount.platform !== 'LINKEDIN') return null;
               const hint = (analyticsAccount as { linkedinReconnectHint?: string }).linkedinReconnectHint;

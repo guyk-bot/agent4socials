@@ -309,9 +309,11 @@ export async function pollInboxNotifications(args: {
             : `/social/accounts/${acc.id}/comments?cacheOnly=1`,
           { timeout: liveAllowed ? 90_000 : 30_000 }
         );
-        if (liveAllowed) markInboxLiveRefresh(scope, userId);
         if (res.data?.error) continue;
         const incoming = res.data?.comments ?? [];
+        if (liveAllowed && (incoming.length > 0 || existing.length > 0)) {
+          markInboxLiveRefresh(scope, userId);
+        }
         if (incoming.length === 0 && existing.length === 0) continue;
         onComments(acc.id, mergeComments(existing, incoming, userId, acc.id, acc.platform));
       } catch {

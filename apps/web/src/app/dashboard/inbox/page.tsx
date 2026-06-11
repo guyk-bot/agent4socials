@@ -837,6 +837,7 @@ function InboxPage() {
     );
   });
   const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsInitialFetchSettled, setCommentsInitialFetchSettled] = useState(false);
   const [commentsError, setCommentsError] = useState<string | null>(null);
   const [commentsLiveSync, setCommentsLiveSync] = useState<{ loading: boolean; hint: string | null }>({
     loading: false,
@@ -2336,7 +2337,15 @@ function InboxPage() {
           : acc.platform === 'INSTAGRAM' || acc.platform === 'FACEBOOK'
             ? INBOX_META_COMMENTS_REFRESH_MS
             : INBOX_LIGHT_COMMENTS_REFRESH_MS;
-      if (!opts?.manual && uid && !canRunInboxLiveRefresh(scope, uid, cooldownMs)) {
+      const hasCachedForAccount =
+        cachedRows.some((c) => c.accountId === acc.id) ||
+        commentsStableRef.current.some((c) => c.accountId === acc.id);
+      if (
+        !opts?.manual &&
+        uid &&
+        hasCachedForAccount &&
+        !canRunInboxLiveRefresh(scope, uid, cooldownMs)
+      ) {
         skippedCooldown += 1;
         return;
       }
@@ -2370,7 +2379,7 @@ function InboxPage() {
           const perAcc = commentsStableRef.current.filter((c) => c.accountId === acc.id);
           if (perAcc.length) appDataRef.current?.setCommentsForAccount(acc.id, perAcc);
         }
-        if (uid) markInboxLiveRefresh(scope, uid);
+        if (uid && (cs.length > 0 || hasCachedForAccount)) markInboxLiveRefresh(scope, uid);
       } catch (err: unknown) {
         const msg =
           (err as { response?: { data?: { error?: string; message?: string } } })?.response?.data
@@ -2599,6 +2608,7 @@ function InboxPage() {
         inboxRefreshInFlightRef.current = false;
         setCommentsLoading(false);
         setConversationsLoading(false);
+        setCommentsInitialFetchSettled(true);
         const uid = user?.id;
         if (uid) {
           const convPayload = conversationsStableRef.current.map((c) => ({
@@ -2975,7 +2985,9 @@ function InboxPage() {
       const merged = new Set([...prev, ...commentPlatformIds]);
       return [...merged];
     });
-    void refreshAllPlatformCommentsRef.current({ live: false });
+    void refreshAllPlatformCommentsRef.current({
+      live: commentsStableRef.current.length === 0,
+    });
   }, [pathname, inboxMode, connectedPlatformIds.join(',')]);
 
   /** Threads-only (no IG/FB/X): open Comments tab by default; Messages tab has no DMs here. */
@@ -3393,7 +3405,12 @@ function InboxPage() {
       );
     }
     if (inboxMode === 'comments') {
-      if (commentsRefreshing && displayComments.length === 0 && !commentsEverLoadedRef.current) {
+      const commentsStillLoading =
+        displayComments.length === 0 &&
+        (commentsRefreshing ||
+          !commentsInitialFetchSettled ||
+          recentlyConnectedInboxAccounts.length > 0);
+      if (commentsStillLoading) {
         return (
           <div className="p-6 text-center min-h-[12rem] flex flex-col items-center justify-center">
             <Loader2 size={22} className="animate-spin text-orange-500 mb-2" />
