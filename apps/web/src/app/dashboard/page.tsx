@@ -665,22 +665,46 @@ export default function DashboardPage() {
 
   const accountIdsKey = accounts.map((a) => a.id).sort().join(',');
 
-  /** Open analytics for a concrete account by default so /dashboard is never an empty "select in sidebar" dead end. */
-  useEffect(() => {
-    if (!accountIdsKey || selectedPlatformForConnect || connectFromUrl) return;
-    if (accountIdFromUrl && accounts.some((a) => a.id === accountIdFromUrl)) return;
-    if (selectedAccountId && accounts.some((a) => a.id === selectedAccountId)) return;
-    const first = accounts[0];
-    if (!first?.id) return;
-    setSelectedAccountId(first.id);
+  /** After connect, clear stale connect UI and select the account that was just linked. */
+  useLayoutEffect(() => {
+    if (!selectedPlatformForConnect || oauthReturnInProgress || !accountIdsKey) return;
+    const existing = accounts.find((a) => a.platform === selectedPlatformForConnect);
+    if (!existing?.id) return;
+    setSelectedPlatformForConnect(null);
+    clearOAuthConnectInFlight();
+    setSelectedAccountId(existing.id);
   }, [
-    accountIdsKey,
-    analyticsAccount?.id,
     selectedPlatformForConnect,
-    connectFromUrl,
-    accountIdFromUrl,
-    setSelectedAccountId,
+    oauthReturnInProgress,
+    accountIdsKey,
     accounts,
+    setSelectedPlatformForConnect,
+    setSelectedAccountId,
+  ]);
+
+  /** Open analytics for a concrete account by default so /dashboard is never an empty "select in sidebar" dead end. */
+  useLayoutEffect(() => {
+    if (showConnectView || !accountIdsKey) return;
+
+    if (accountIdFromUrl) {
+      const fromUrl = accounts.find((a) => a.id === accountIdFromUrl);
+      if (fromUrl?.id && selectedAccountId !== fromUrl.id) {
+        setSelectedAccountId(fromUrl.id);
+      }
+      return;
+    }
+
+    if (selectedAccountId && accounts.some((a) => a.id === selectedAccountId)) return;
+
+    const first = accounts[0];
+    if (first?.id) setSelectedAccountId(first.id);
+  }, [
+    showConnectView,
+    accountIdsKey,
+    accountIdFromUrl,
+    selectedAccountId,
+    accounts,
+    setSelectedAccountId,
   ]);
 
   // When connect= is in URL (e.g. clicked + from sidebar): open Connect or select existing account.
@@ -729,6 +753,8 @@ export default function DashboardPage() {
     const oauthJustConnected = connectingParam === '1' || brandMovedParam || brandKeptParam;
 
     if (!oauthJustConnected) {
+      const fromUrl = accounts.find((a) => a.id === accountIdFromUrl);
+      if (fromUrl?.id) setSelectedAccountId(accountIdFromUrl);
       router.replace('/dashboard', { scroll: false });
       return;
     }
@@ -840,6 +866,7 @@ export default function DashboardPage() {
     activeBrandId,
     clearSelection,
     searchParams,
+    accounts,
   ]);
 
   useEffect(() => {

@@ -30,18 +30,20 @@ export function SelectedAccountProvider({ children }: { children: React.ReactNod
     } catch (_) {}
   }, []);
 
-  /** Sidebar account highlight only on per-account dashboard and analytics subroutes. Console (/dashboard/console) is unified, so clear there. */
+  /** Sidebar highlight only on dashboard/analytics; restore persisted account when returning to those routes. */
   useLayoutEffect(() => {
     const keepSidebarSelection =
       pathname === '/dashboard' ||
       pathname.startsWith('/dashboard/analytics');
-    if (!keepSidebarSelection) {
-      setSelectedAccountIdState(null);
-      setSelectedPlatformForConnectState(null);
+    if (keepSidebarSelection) {
       try {
-        localStorage.removeItem(STORAGE_KEY);
+        const id = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
+        if (id) setSelectedAccountIdState(id);
       } catch (_) {}
+      return;
     }
+    setSelectedAccountIdState(null);
+    setSelectedPlatformForConnectState(null);
   }, [pathname]);
 
   const setSelectedAccountId = useCallback((id: string | null) => {
