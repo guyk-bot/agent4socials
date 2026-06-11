@@ -1,7 +1,7 @@
 /**
  * Chat Completions client (OpenAI or OpenRouter for iZop AI).
  * Default: OPENAI_API_KEY + api.openai.com
- * iZop AI: Izop_AI / OPENROUTER_API_KEY + openrouter.ai (model openai/gpt-4.1-mini)
+ * iZop AI: Izop_AI / OPENROUTER_API_KEY + openrouter.ai (default model openai/gpt-4.1-nano)
  */
 
 import { resolveLlmConfig, type ResolvedLlmConfig } from '@/lib/ai/llm-config';

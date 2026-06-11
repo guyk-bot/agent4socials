@@ -82,17 +82,16 @@ const GROUP_ORDER: ChatDateGroup[] = [
   'Older',
 ];
 
-/** Chats with messages or a custom title; always include the active chat. */
-export function visibleChatSessions(
-  sessions: AysopChatSessionSummary[],
-  activeId: string | null
-): AysopChatSessionSummary[] {
-  return sessions.filter(
-    (s) =>
-      s.id === activeId ||
-      Boolean(s.preview?.trim()) ||
-      (s.title.trim() !== '' && s.title !== 'New chat')
-  );
+/** True once the user has sent at least one message (preview/title updated). */
+export function sessionHasConversation(s: AysopChatSessionSummary): boolean {
+  if (s.preview?.trim()) return true;
+  if (s.title.trim() !== '' && s.title !== 'New chat') return true;
+  return false;
+}
+
+/** Sidebar list: only chats that have actually started (no empty "New chat" rows). */
+export function visibleChatSessions(sessions: AysopChatSessionSummary[]): AysopChatSessionSummary[] {
+  return sessions.filter(sessionHasConversation);
 }
 
 export function groupChatSessions(

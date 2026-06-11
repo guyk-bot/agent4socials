@@ -119,7 +119,6 @@ import {
   TikTokIcon,
   ThreadsIcon,
 } from '@/components/SocialPlatformIcons';
-import LoadingVideoOverlay from '@/components/LoadingVideoOverlay';
 import { InboxCommentPostMedia } from '@/components/inbox/InboxCommentPostMedia';
 
 /** All platforms that can appear in the inbox strip (per mode filter below). */
@@ -3228,14 +3227,10 @@ function InboxPage() {
     if (inboxMode === 'comments') {
       if (commentsRefreshing && displayComments.length === 0) {
         return (
-          <div className="p-6 flex flex-col items-center justify-center gap-3">
-            <Loader2 size={32} className="text-orange-500 animate-spin" />
-            <p className="text-sm text-neutral-500">Loading comments and replies...</p>
-            {showCommentsWarmupNotice ? (
-              <p className="text-xs text-neutral-500 max-w-sm text-center mt-1">
-                Please wait a few seconds while we load comments and replies from your connected accounts.
-              </p>
-            ) : null}
+          <div className="p-6 text-center">
+            <p className="text-sm text-neutral-600 dark:text-neutral-400">
+              Please wait while comments and replies load…
+            </p>
           </div>
         );
       }
@@ -3470,14 +3465,10 @@ function InboxPage() {
     }
     if (conversationsLoading && conversations.length === 0) {
       return (
-        <div className="p-6 flex flex-col items-center justify-center gap-3">
-          <Loader2 size={32} className="text-orange-500 animate-spin" />
-          <p className="text-sm text-neutral-500">Loading conversations...</p>
-          {showInboxWarmupNotice && (
-            <p className="text-xs text-neutral-500 max-w-xs text-center mt-1">
-              Instagram and Facebook conversations can take a few minutes to appear right after you connect. Please wait and they will show up here.
-            </p>
-          )}
+        <div className="p-6 text-center">
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            Please wait while messages load…
+          </p>
         </div>
       );
     }
@@ -3688,7 +3679,6 @@ function InboxPage() {
 
   return (
     <div className="inbox-thread-shell relative flex h-[calc(100vh-3.5rem-3rem)] md:h-[calc(100vh-3.5rem-4rem)] bg-white dark:bg-neutral-950 flex-col md:flex-row">
-      <LoadingVideoOverlay contained loading={conversationsLoading && conversations.length === 0} />
       {/* Left column: platform filters, search, list */}
       <div className="inbox-sidebar-panel w-full md:w-80 border-r border-neutral-200 dark:border-neutral-800 flex flex-col shrink-0 bg-white dark:bg-neutral-950">
         {/* Platform icons + Connect */}
@@ -4916,8 +4906,7 @@ function InboxPage() {
                     <div className="inbox-thread-messages p-6 flex-1 min-h-0 overflow-y-auto bg-white dark:bg-neutral-900">
                     {conversationMessagesLoading ? (
                       <div className="flex flex-col items-center justify-center min-h-[12rem] py-12">
-                        <Loader2 size={36} className="text-orange-500 animate-spin" aria-hidden />
-                        <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-400">Loading messages...</p>
+                        <p className="text-sm text-neutral-500 dark:text-neutral-400">Please wait while messages load…</p>
                       </div>
                     ) : conversationMessagesError ? (
                       <p className="text-sm text-amber-700">{conversationMessagesError}</p>

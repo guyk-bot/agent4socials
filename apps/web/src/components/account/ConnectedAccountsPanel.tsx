@@ -13,6 +13,7 @@ import { Loader2, RefreshCw } from 'lucide-react';
 import { avatarDisplayUrl } from '@/lib/avatar-display-url';
 import {
   closeOAuthConnectPopup,
+  clearOAuthConnectInFlightForPlatform,
   listenForOAuthComplete,
   navigateOAuthConnect,
   prepareOAuthConnectPopup,
@@ -124,6 +125,7 @@ export function ConnectedAccountsPanel() {
 
     removeConnectedAccountFromCache(accountIdToRemove);
     appData?.clearAccountData(accountIdToRemove);
+    clearOAuthConnectInFlightForPlatform(acc.platform);
     if (disconnectedAccountWasSelected) {
       setSelectedAccountId(null);
     }

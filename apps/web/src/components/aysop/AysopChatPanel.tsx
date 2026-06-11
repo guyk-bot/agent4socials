@@ -485,7 +485,7 @@ export default function AysopChatPanel({
             }
           }}
           rows={1}
-          placeholder={loading ? 'Type your next message…' : 'Ask anything or attach media…  (Shift + Enter for a new line)'}
+          placeholder={loading ? 'Type your next message…' : 'Ask anything or attach media…'}
           className="flex-1 resize-none rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--foreground)] placeholder:text-[var(--muted)] px-4 py-3 text-sm leading-5 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/40"
           disabled={disabled || uploading}
         />

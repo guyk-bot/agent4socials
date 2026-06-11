@@ -106,7 +106,7 @@ export function ConfirmModal({
         aria-describedby="confirm-modal-desc"
       >
       <div
-        className="pointer-events-auto relative w-full max-w-sm rounded-2xl bg-white shadow-2xl overflow-hidden"
+        className="pointer-events-auto relative w-full max-w-sm rounded-2xl bg-white dark:bg-neutral-900 shadow-2xl overflow-hidden border border-neutral-200/80 dark:border-neutral-700"
         onClick={(e) => e.stopPropagation()}
         style={{ animation: 'modal-pop 0.18s cubic-bezier(0.34,1.56,0.64,1) both' }}
       >
@@ -120,11 +120,11 @@ export function ConfirmModal({
           </div>
 
           {title && (
-            <h3 id="confirm-modal-title" className="text-base font-semibold text-neutral-900 mb-1">
+            <h3 id="confirm-modal-title" className="text-base font-semibold text-neutral-900 dark:text-neutral-100 mb-1">
               {title}
             </h3>
           )}
-          <p id="confirm-modal-desc" className="text-sm text-neutral-600 leading-relaxed whitespace-pre-line">
+          <p id="confirm-modal-desc" className="text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed whitespace-pre-line">
             {message}
           </p>
 
@@ -134,7 +134,7 @@ export function ConfirmModal({
                 type="button"
                 onClick={onClose}
                 disabled={confirmLoading}
-                className="px-4 py-2 rounded-xl border border-neutral-200 bg-white text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-sm font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {cancelLabel}
               </button>

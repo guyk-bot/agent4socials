@@ -132,6 +132,22 @@ export function readActiveBrandFromBrowserStorage(): AysopActiveBrandSnapshot {
   }
 }
 
+export function accountsFromWorkspaces(
+  workspaces: AysopWorkspaceSnapshot[] | undefined
+): Array<{ id: string; platform: string; username: string | null }> | null {
+  if (!workspaces?.length) return null;
+  const seen = new Set<string>();
+  const out: Array<{ id: string; platform: string; username: string | null }> = [];
+  for (const workspace of workspaces) {
+    for (const account of workspace.accounts) {
+      if (seen.has(account.id)) continue;
+      seen.add(account.id);
+      out.push(account);
+    }
+  }
+  return out.length ? out : null;
+}
+
 export function summarizeWorkspaceAccounts(workspace: AysopWorkspaceSnapshot): string {
   if (!workspace.accounts.length) return 'no connected accounts';
   const labels = workspace.accounts.slice(0, 8).map((a) => {

@@ -1,7 +1,7 @@
 import type { AysopChatInputMessage } from '@/lib/ai/aysop-openai-messages';
 
 /** Recent turns sent to the model. Full history stays in the chat UI and database. */
-export const AYSOP_CHAT_LLM_CONTEXT_MESSAGES = Number(process.env.AYSOP_CHAT_LLM_CONTEXT_MESSAGES) || 120;
+export const AYSOP_CHAT_LLM_CONTEXT_MESSAGES = Number(process.env.AYSOP_CHAT_LLM_CONTEXT_MESSAGES) || 32;
 
 export function trimMessagesForLlmContext(messages: AysopChatInputMessage[]): {
   messages: AysopChatInputMessage[];

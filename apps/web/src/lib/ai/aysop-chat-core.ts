@@ -25,7 +25,15 @@ import type {
   AysopActiveBrandSnapshot,
   AysopWorkspaceSnapshot,
 } from '@/lib/ai/aysop-workspace-snapshot';
-import { summarizeWorkspaceAccounts } from '@/lib/ai/aysop-workspace-snapshot';
+import {
+  accountsFromWorkspaces,
+  summarizeWorkspaceAccounts,
+} from '@/lib/ai/aysop-workspace-snapshot';
+import {
+  buildCasualAysopSystemPrompt,
+  instantCasualAysopReply,
+  isCasualAysopChatMessage,
+} from '@/lib/ai/aysop-chat-fast-path';
 
 export type { AysopChatInputMessage };
 
@@ -88,7 +96,7 @@ async function finalizeReplyFromToolData(
           : userQ,
       },
     ],
-    { ...chatOptions, max_tokens: 700 }
+    { ...chatOptions, max_tokens: 400 }
   );
   return content.trim() || 'Here is what I found from your workspace so far.';
 }
@@ -244,12 +252,20 @@ export async function runAysopChat(args: {
   deadlineMs?: number;
 }): Promise<{ reply: string; artifacts: AysopArtifact[] }> {
   const deadlineMs = args.deadlineMs ?? Date.now() + 110_000;
+
+  const instantReply = instantCasualAysopReply(args.messages);
+  if (instantReply) {
+    return { reply: instantReply, artifacts: [] };
+  }
+
+  const cachedAccounts = accountsFromWorkspaces(args.ctx.workspaces);
   const [accounts, userRow] = await Promise.all([
-    prisma.socialAccount.findMany({
-      where: { userId: args.ctx.userId },
-      select: { id: true, platform: true, username: true },
-      orderBy: { createdAt: 'asc' },
-    }),
+    cachedAccounts ??
+      prisma.socialAccount.findMany({
+        where: { userId: args.ctx.userId },
+        select: { id: true, platform: true, username: true },
+        orderBy: { createdAt: 'asc' },
+      }),
     prisma.user.findUnique({
       where: { id: args.ctx.userId },
       select: { brandContext: true },
@@ -287,8 +303,31 @@ export async function runAysopChat(args: {
     'gpt-4.1-mini';
   const visionModel = getAysopOpenRouterApiKey() ? toOpenRouterModel(visionModelRaw) : visionModelRaw;
   const chatOptions = threadHasImages(args.messages)
-    ? { max_tokens: 900, model: visionModel, providerScope: 'aysop' as const }
-    : { max_tokens: 900, providerScope: 'aysop' as const };
+    ? { max_tokens: 700, model: visionModel, providerScope: 'aysop' as const }
+    : { max_tokens: 512, providerScope: 'aysop' as const };
+
+  if (isCasualAysopChatMessage(args.messages)) {
+    const casualThread = [
+      { role: 'system' as const, content: buildCasualAysopSystemPrompt() },
+      ...args.messages.map((m) => {
+        if (m.role === 'assistant') return { role: 'assistant' as const, content: m.content };
+        const content = buildOpenAiUserContent(m);
+        const text =
+          typeof content === 'string'
+            ? content
+            : content
+                .filter((part) => part.type === 'text')
+                .map((part) => part.text)
+                .join('\n');
+        return { role: 'user' as const, content: text };
+      }),
+    ];
+    const { content } = await openAiChat(casualThread, { ...chatOptions, max_tokens: 220 });
+    return {
+      reply: content.trim() || instantCasualAysopReply(args.messages) || 'How can I help with your social accounts?',
+      artifacts: [],
+    };
+  }
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     if (timeLeftMs(deadlineMs) < MIN_MS_BEFORE_LLM) {
@@ -313,25 +352,29 @@ export async function runAysopChat(args: {
       tool_calls: assistantMsg.tool_calls,
     });
 
-    for (const call of assistantMsg.tool_calls) {
-      let parsed: Record<string, unknown> = {};
-      try {
-        parsed = JSON.parse(call.function.arguments || '{}') as Record<string, unknown>;
-      } catch {
-        parsed = {};
-      }
-      let toolResult: unknown;
-      try {
-        const out = await runAysopTool(call.function.name, parsed, args.ctx);
-        toolResult = out.result;
-        if (out.artifacts?.length) artifacts.push(...out.artifacts);
-      } catch (e) {
-        toolResult = { error: (e as Error).message };
-      }
+    const toolRuns = await Promise.all(
+      assistantMsg.tool_calls.map(async (call) => {
+        let parsed: Record<string, unknown> = {};
+        try {
+          parsed = JSON.parse(call.function.arguments || '{}') as Record<string, unknown>;
+        } catch {
+          parsed = {};
+        }
+        try {
+          const out = await runAysopTool(call.function.name, parsed, args.ctx);
+          return { call, toolResult: out.result, toolArtifacts: out.artifacts };
+        } catch (e) {
+          return { call, toolResult: { error: (e as Error).message }, toolArtifacts: undefined };
+        }
+      })
+    );
+
+    for (const run of toolRuns) {
+      if (run.toolArtifacts?.length) artifacts.push(...run.toolArtifacts);
       thread.push({
         role: 'tool',
-        tool_call_id: call.id,
-        content: JSON.stringify(toolResult),
+        tool_call_id: run.call.id,
+        content: JSON.stringify(run.toolResult),
       });
     }
 

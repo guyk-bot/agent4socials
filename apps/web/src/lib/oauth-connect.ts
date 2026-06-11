@@ -4,13 +4,69 @@ export const OAUTH_COMPLETE_MESSAGE = 'agent4socials-oauth-complete';
 const OAUTH_CONNECT_IN_FLIGHT_KEY = 'agent4socials_oauth_connect_in_flight';
 export const OAUTH_CONNECT_IN_FLIGHT_EVENT = 'izop-oauth-connect-in-flight';
 
+/** Max time to show sidebar "Connecting…" if OAuth never completes. */
+const OAUTH_IN_FLIGHT_TTL_MS = 5 * 60 * 1000;
+
+type OAuthInFlightRecord = {
+  platform: string;
+  startedAt: number;
+};
+
+function parseInFlightRaw(raw: string | null): OAuthInFlightRecord | null {
+  if (!raw?.trim()) return null;
+  try {
+    const parsed = JSON.parse(raw) as OAuthInFlightRecord;
+    if (parsed?.platform && typeof parsed.startedAt === 'number') {
+      return { platform: parsed.platform.trim().toUpperCase(), startedAt: parsed.startedAt };
+    }
+  } catch {
+    /* legacy plain platform string */
+  }
+  return { platform: raw.trim().toUpperCase(), startedAt: 0 };
+}
+
+function readInFlightRecord(): OAuthInFlightRecord | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const record = parseInFlightRaw(sessionStorage.getItem(OAUTH_CONNECT_IN_FLIGHT_KEY));
+    if (!record?.platform) return null;
+    if (record.startedAt <= 0) {
+      clearOAuthConnectInFlight();
+      return null;
+    }
+    const age = Date.now() - record.startedAt;
+    if (record.startedAt > 0 && age > OAUTH_IN_FLIGHT_TTL_MS) {
+      clearOAuthConnectInFlight();
+      return null;
+    }
+    return record;
+  } catch {
+    return null;
+  }
+}
+
+function urlIndicatesOAuthPending(platform: string): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const p = platform.trim().toUpperCase();
+    if (params.get('connecting') === '1' && params.get('newPlatform')?.trim().toUpperCase() === p) {
+      return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
 /** Persist which platform OAuth is in progress (sidebar loading until callback completes). */
 export function storeOAuthConnectInFlight(platform: string): void {
   if (typeof window === 'undefined') return;
   const p = platform.trim().toUpperCase();
   if (!p) return;
   try {
-    sessionStorage.setItem(OAUTH_CONNECT_IN_FLIGHT_KEY, p);
+    const payload: OAuthInFlightRecord = { platform: p, startedAt: Date.now() };
+    sessionStorage.setItem(OAUTH_CONNECT_IN_FLIGHT_KEY, JSON.stringify(payload));
     window.dispatchEvent(new Event(OAUTH_CONNECT_IN_FLIGHT_EVENT));
   } catch {
     /* ignore */
@@ -18,13 +74,7 @@ export function storeOAuthConnectInFlight(platform: string): void {
 }
 
 export function readOAuthConnectInFlight(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = sessionStorage.getItem(OAUTH_CONNECT_IN_FLIGHT_KEY)?.trim().toUpperCase();
-    return raw || null;
-  } catch {
-    return null;
-  }
+  return readInFlightRecord()?.platform ?? null;
 }
 
 export function clearOAuthConnectInFlight(): void {
@@ -37,21 +87,36 @@ export function clearOAuthConnectInFlight(): void {
   }
 }
 
+export function clearOAuthConnectInFlightForPlatform(platform: string): void {
+  const p = platform.trim().toUpperCase();
+  if (!p) return;
+  if (readOAuthConnectInFlight() === p) {
+    clearOAuthConnectInFlight();
+  }
+}
+
 /** True while OAuth is in flight or the dashboard is finishing a fresh connect redirect. */
 export function isPlatformOAuthPending(platform: string): boolean {
   const p = platform.trim().toUpperCase();
   if (!p) return false;
-  if (readOAuthConnectInFlight() === p) return true;
-  if (typeof window === 'undefined') return false;
-  try {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('connecting') === '1' && params.get('newPlatform')?.trim().toUpperCase() === p) {
-      return true;
-    }
-  } catch {
-    /* ignore */
-  }
+  if (urlIndicatesOAuthPending(p)) return true;
+  const inFlight = readInFlightRecord();
+  if (inFlight?.platform === p) return true;
   return false;
+}
+
+/** Clear sidebar "Connecting…" when the user closes the OAuth popup without finishing. */
+export function watchOAuthConnectPopup(popup: Window | null | undefined, platform: string): () => void {
+  if (typeof window === 'undefined' || !popup || popup.closed) return () => {};
+  const p = platform.trim().toUpperCase();
+  const timer = window.setInterval(() => {
+    if (!popup.closed) return;
+    window.clearInterval(timer);
+    if (readOAuthConnectInFlight() === p) {
+      clearOAuthConnectInFlight();
+    }
+  }, 400);
+  return () => window.clearInterval(timer);
 }
 
 export type OAuthCompletePayload = {

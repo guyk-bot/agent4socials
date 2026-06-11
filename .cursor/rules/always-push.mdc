@@ -5,12 +5,12 @@ alwaysApply: true
 
 # Git: Commit and push after changes
 
-Whenever the user asks for **any** code, UI, config, or copy change in this project:
+Whenever you implement **any** code, UI, config, or copy change in this project:
 
 1. Implement the change.
-2. In the **same assistant turn**, **stage**, **commit**, and **push** — do not wait for a separate “push it” message unless the user explicitly says **not** to push (e.g. “don’t push yet”, “local only”).
+2. In the **same assistant turn**, **stage**, **commit**, and **push**. Do **not** ask the user "Want me to commit/push?" or similar. Do **not** wait for a separate "push it" message unless the user explicitly says **not** to push (e.g. "don't push yet", "local only").
 3. **Stage**: `git add -A` (or stage only the files you touched if you must avoid unrelated dirty files).
-4. **Commit**: clear imperative subject, complete sentences in body if needed. Use the repo’s configured author so deploy hooks (e.g. Vercel) behave as expected.
+4. **Commit**: clear imperative subject, complete sentences in body if needed. Use the repo's configured author so deploy hooks (e.g. Vercel) behave as expected.
 5. **Push**: `git push` to the current branch (usually `main`).
 
 6. **Verify Vercel Production** (same turn, do not ask the user to paste logs first):

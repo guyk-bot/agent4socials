@@ -27,7 +27,7 @@ function readEnv(...names: string[]): string {
 /** OpenRouter model ids use vendor prefixes, e.g. openai/gpt-4.1-mini. */
 export function toOpenRouterModel(model: string): string {
   const trimmed = model.trim();
-  if (!trimmed) return 'openai/gpt-4.1-mini';
+  if (!trimmed) return 'openai/gpt-4.1-nano';
   if (trimmed.includes('/')) return trimmed;
   if (trimmed.startsWith('gpt-')) return `openai/${trimmed}`;
   return trimmed;
@@ -47,7 +47,7 @@ export function resolveAysopLlmConfig(modelOverride?: string): ResolvedLlmConfig
     const model = toOpenRouterModel(
       modelOverride ||
         readEnv('IZOP_AI_MODEL', 'OPENROUTER_MODEL', 'OPENAI_CHAT_MODEL') ||
-        'gpt-4.1-mini'
+        'gpt-4.1-nano'
     );
     const baseUrl = readEnv('OPENROUTER_BASE_URL') || OPENROUTER_CHAT_URL;
     const referer = readEnv('OPENROUTER_HTTP_REFERER') || 'https://www.izop.io';

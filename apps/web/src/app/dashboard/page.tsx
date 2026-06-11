@@ -72,6 +72,8 @@ import {
   prepareOAuthConnectPopup,
   storeOAuthConnectInFlight,
   clearOAuthConnectInFlight,
+  clearOAuthConnectInFlightForPlatform,
+  watchOAuthConnectPopup,
 } from '@/lib/oauth-connect';
 import {
   localCalendarDateFromIso,
@@ -646,7 +648,7 @@ export default function DashboardPage() {
   const connectFromUrl = connectParam && ALLOWED_CONNECT.includes(connectParam.toUpperCase())
     ? connectParam.toUpperCase()
     : null;
-  const oauthReturnInProgress = Boolean(accountIdFromUrl && postConnectReturn);
+  const oauthReturnInProgress = Boolean(postConnectReturn);
   const showConnectView =
     (selectedPlatformForConnect || connectFromUrl) && !oauthReturnInProgress;
 
@@ -668,15 +670,16 @@ export default function DashboardPage() {
     accounts,
   ]);
 
-  // When connect= is in URL (e.g. clicked + from Inbox): sync state and clean URL. Ensures we show Connect view on first paint via connectFromUrl.
+  // When connect= is in URL (e.g. clicked + from Inbox): sync state and clean URL. Skip during OAuth return.
   useEffect(() => {
     if (!connectParam) return;
+    if (connectingParam === '1' || accountIdFromUrl) return;
     const upper = connectParam.toUpperCase();
     if (ALLOWED_CONNECT.includes(upper)) {
       setSelectedPlatformForConnect(upper);
       router.replace('/dashboard', { scroll: false });
     }
-  }, [connectParam, router, setSelectedPlatformForConnect]);
+  }, [connectParam, connectingParam, accountIdFromUrl, router, setSelectedPlatformForConnect]);
 
   // OAuth return: defer account selection until brand assignment runs (avoids wrong-brand analytics flash).
   useLayoutEffect(() => {
@@ -685,6 +688,7 @@ export default function DashboardPage() {
       setSelectedPlatformForConnect(null);
       clearOAuthConnectInFlight();
       clearConnectLoadDone(accountIdFromUrl);
+      setSelectedAccountId(accountIdFromUrl);
       setJustConnected(true);
       return;
     }
@@ -1947,6 +1951,8 @@ export default function DashboardPage() {
           setAlertMessage(
             'Could not open sign-in. Allow pop-ups for www.izop.io or click Connect again.'
           );
+        } else if (oauthPopup && !oauthPopup.closed) {
+          watchOAuthConnectPopup(oauthPopup, platform);
         }
         return;
       }
@@ -2072,7 +2078,7 @@ export default function DashboardPage() {
       setImportedPostsLoading(false);
       markConnectLoadDone(accountId);
       setJustConnected(false);
-    }, 8000);
+    }, 3000);
     return () => window.clearTimeout(timeoutId);
   }, [justConnected, analyticsAccount?.id]);
 

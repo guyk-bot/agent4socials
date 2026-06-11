@@ -39,6 +39,15 @@ export function writeLastActiveChatId(userId: string | undefined, sessionId: str
   }
 }
 
+export function clearLastActiveChatId(userId: string | undefined): void {
+  if (!userId) return;
+  try {
+    localStorage.removeItem(lastActiveKey(userId));
+  } catch {
+    /* quota */
+  }
+}
+
 export function readCachedMessages(userId: string | undefined, sessionId: string): CachedChatMessage[] | null {
   if (!userId) return null;
   try {

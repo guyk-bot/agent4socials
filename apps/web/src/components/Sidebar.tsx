@@ -19,6 +19,7 @@ import {
     Loader2,
 } from 'lucide-react';
 import {
+  clearOAuthConnectInFlightForPlatform,
   isPlatformOAuthPending,
   OAUTH_CONNECT_IN_FLIGHT_EVENT,
   readOAuthConnectInFlight,
