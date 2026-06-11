@@ -1,4 +1,12 @@
 import type { AysopChatAttachment } from '@/lib/ai/aysop-attachments';
+import {
+  clearLastActiveChatId,
+  readCachedMessages,
+  readCachedSessionList,
+  readLastActiveChatId,
+  writeCachedMessages,
+  writeCachedSessionList,
+} from '@/lib/ai/aysop-chat-local-cache';
 
 export type StoredAysopMessage = {
   id: string;
@@ -82,16 +90,86 @@ const GROUP_ORDER: ChatDateGroup[] = [
   'Older',
 ];
 
-/** True once the user has sent at least one message (preview/title updated). */
-export function sessionHasConversation(s: AysopChatSessionSummary): boolean {
-  if (s.preview?.trim()) return true;
+/** True once the user has sent at least one message (not assistant-only). */
+export function sessionHasConversation(
+  s: AysopChatSessionSummary,
+  userId?: string
+): boolean {
   if (s.title.trim() !== '' && s.title !== 'New chat') return true;
-  return false;
+  if (!userId) return false;
+  const msgs = readCachedMessages(userId, s.id);
+  return Boolean(
+    msgs?.some(
+      (m) => m.role === 'user' && (m.content?.trim() || (m.attachments?.length ?? 0) > 0)
+    )
+  );
 }
 
 /** Sidebar list: only chats that have actually started (no empty "New chat" rows). */
-export function visibleChatSessions(sessions: AysopChatSessionSummary[]): AysopChatSessionSummary[] {
-  return sessions.filter(sessionHasConversation);
+export function visibleChatSessions(
+  sessions: AysopChatSessionSummary[],
+  userId?: string
+): AysopChatSessionSummary[] {
+  return sessions.filter((s) => sessionHasConversation(s, userId));
+}
+
+/** Drop deleted server chats from localStorage; server list is source of truth. */
+export function syncChatSessionsWithServer(
+  userId: string,
+  serverSessions: AysopChatSessionSummary[]
+): AysopChatSessionSummary[] {
+  const serverIds = new Set(serverSessions.map((s) => s.id));
+  const cached = readCachedSessionList(userId) ?? [];
+
+  for (const s of cached) {
+    if (!s.id.startsWith('offline-') && !serverIds.has(s.id)) {
+      writeCachedMessages(userId, s.id, []);
+    }
+  }
+
+  const merged = serverSessions.filter((s) => sessionHasConversation(s, userId));
+  writeCachedSessionList(userId, merged);
+
+  const lastId = readLastActiveChatId(userId);
+  if (lastId && !lastId.startsWith('offline-') && !serverIds.has(lastId)) {
+    clearLastActiveChatId(userId);
+  }
+
+  return merged;
+}
+
+export function mergeChatSessionsWithServer(
+  userId: string,
+  serverSessions: AysopChatSessionSummary[],
+  prevSessions: AysopChatSessionSummary[] = []
+): AysopChatSessionSummary[] {
+  const synced = syncChatSessionsWithServer(userId, serverSessions);
+  const map = new Map(synced.map((s) => [s.id, s]));
+  for (const s of prevSessions) {
+    if (s.id.startsWith('offline-') && sessionHasConversation(s, userId)) {
+      map.set(s.id, s);
+    }
+  }
+  return [...map.values()]
+    .filter((s) => sessionHasConversation(s, userId))
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+}
+
+export function pickRestoreChatId(
+  userId: string,
+  sessions: AysopChatSessionSummary[]
+): string | null {
+  const visible = sessions.filter((s) => sessionHasConversation(s, userId));
+  const byId = new Map(visible.map((s) => [s.id, s]));
+  const lastId = readLastActiveChatId(userId);
+
+  if (lastId && byId.has(lastId)) return lastId;
+
+  const real = visible.filter((s) => !s.id.startsWith('offline-'));
+  if (real.length) return real[0]!.id;
+
+  const offline = visible.find((s) => s.id.startsWith('offline-'));
+  return offline?.id ?? null;
 }
 
 export function groupChatSessions(
