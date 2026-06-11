@@ -297,7 +297,7 @@ export default function AppHeader() {
                 >
                   {item.stackedTop ? (
                     <>
-                      <item.icon size={18} className="shrink-0" aria-hidden />
+                      {item.icon ? <item.icon size={18} className="shrink-0" aria-hidden /> : null}
                       <span className="flex flex-1 flex-col leading-none gap-0.5">
                         <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-400">{item.stackedTop}</span>
                         <span>{item.label}</span>
