@@ -1355,6 +1355,20 @@
   }
 }
 
+.izop-glass-logo--nav-trailing {
+  margin-left: 0.05rem;
+}
+
+.izop-glass-logo--nav-trailing .izop-glass-logo__shell {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.izop-glass-logo--nav-trailing .izop-glass-logo__sparkle {
+  width: 0.35rem;
+  height: 0.35rem;
+}
+
 .izop-glass-logo--animated .izop-glass-logo__shell {
   animation: izop-connect-logo-pulse 2.2s ease-in-out infinite;
 }

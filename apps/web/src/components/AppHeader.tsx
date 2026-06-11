@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { MessageCircle, PlusSquare, Calendar, Menu, Sun, Moon, Brain, Megaphone, type LucideIcon } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { IzopGlassLogo } from '@/components/IzopGlassLogo';
-import { BRAND_NAME, BRAND_HEADER_BG, normalizeLegacyBrandName } from '@/lib/site-brand-assets';
+import { BRAND_NAME, BRAND_HEADER_BG, normalizeLegacyBrandName, siteLogoSrcForAppHeader } from '@/lib/site-brand-assets';
 import { useTheme } from '@/context/ThemeContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAuth } from '@/context/AuthContext';
@@ -24,6 +24,8 @@ type TopNavItem = {
   badgeKey?: 'inbox';
   /** Small line above the label (e.g. Ads → Coming soon / Ads). */
   stackedTop?: string;
+  /** Glass metaball mark to the right of the label (iZop AI chat). */
+  trailingGlassLogo?: boolean;
 };
 
 export const topNavItems: TopNavItem[] = [
@@ -31,7 +33,7 @@ export const topNavItems: TopNavItem[] = [
   { icon: PlusSquare, label: 'Composer', href: '/composer' },
   { icon: Calendar, label: 'Calendar', href: '/calendar' },
   { icon: Megaphone, label: 'Ads', href: '/dashboard/ads', stackedTop: 'Coming soon' },
-  { icon: Brain, label: `${BRAND_NAME} AI`, href: '/dashboard/aysop-ai' },
+  { icon: Brain, label: `${BRAND_NAME} AI`, href: '/dashboard/aysop-ai', trailingGlassLogo: true },
 ];
 
 function TopNavItemContent({ item, badge, inboxBadgeTitle }: { item: TopNavItem; badge: number; inboxBadgeTitle?: string }) {
@@ -59,8 +61,13 @@ function TopNavItemContent({ item, badge, inboxBadgeTitle }: { item: TopNavItem;
 
   return (
     <>
-      <item.icon size={18} />
-      {item.label}
+      <item.icon size={18} className="shrink-0" aria-hidden />
+      <span className="inline-flex items-center gap-1.5">
+        <span>{item.label}</span>
+        {item.trailingGlassLogo ? (
+          <IzopGlassLogo alt="" size="sm" className="izop-glass-logo--nav-trailing" />
+        ) : null}
+      </span>
       {badge > 0 && (
         <span
           title={inboxBadgeTitle}
@@ -147,7 +154,7 @@ export default function AppHeader() {
           {logoUrl ? (
             <img src={logoUrl} alt="" className="h-8 w-8 sm:h-9 sm:w-9 object-contain" />
           ) : (
-            <IzopGlassLogo alt={BRAND_NAME} size="sm" />
+            <img src={siteLogoSrcForAppHeader(theme, isOfficialBrandHeader)} alt={BRAND_NAME} className="h-6 w-6 sm:h-7 sm:w-7 object-contain block" />
           )}
           <span
             className={`font-semibold hidden sm:inline truncate text-sm sm:text-base ${
@@ -289,8 +296,13 @@ export default function AppHeader() {
                     </>
                   ) : (
                     <>
-                      <item.icon size={18} className="shrink-0" />
-                      <span className="flex-1">{item.label}</span>
+                      <item.icon size={18} className="shrink-0" aria-hidden />
+                      <span className="flex-1 inline-flex items-center gap-1.5 min-w-0">
+                        <span className="truncate">{item.label}</span>
+                        {item.trailingGlassLogo ? (
+                          <IzopGlassLogo alt="" size="sm" className="izop-glass-logo--nav-trailing shrink-0" />
+                        ) : null}
+                      </span>
                     </>
                   )}
                   {badge > 0 && (
