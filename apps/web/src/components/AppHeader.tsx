@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { MessageCircle, PlusSquare, Calendar, Menu, Sun, Moon, Brain, Megaphone, type LucideIcon } from 'lucide-react';
+import { MessageCircle, PlusSquare, Calendar, Menu, Sun, Moon, Megaphone, type LucideIcon } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { IzopGlassLogo } from '@/components/IzopGlassLogo';
 import { BRAND_NAME, BRAND_HEADER_BG, normalizeLegacyBrandName, siteLogoSrcForAppHeader } from '@/lib/site-brand-assets';
@@ -18,14 +18,14 @@ function topNavHref(item: (typeof topNavItems)[number]): string {
 }
 
 type TopNavItem = {
-  icon: LucideIcon;
+  icon?: LucideIcon;
   label: string;
   href: string;
   badgeKey?: 'inbox';
   /** Small line above the label (e.g. Ads → Coming soon / Ads). */
   stackedTop?: string;
-  /** Glass metaball mark to the right of the label (iZop AI chat). */
-  trailingGlassLogo?: boolean;
+  /** Glass metaball mark instead of Lucide icon (iZop AI chat). */
+  glassNavIcon?: boolean;
 };
 
 export const topNavItems: TopNavItem[] = [
@@ -33,10 +33,20 @@ export const topNavItems: TopNavItem[] = [
   { icon: PlusSquare, label: 'Composer', href: '/composer' },
   { icon: Calendar, label: 'Calendar', href: '/calendar' },
   { icon: Megaphone, label: 'Ads', href: '/dashboard/ads', stackedTop: 'Coming soon' },
-  { icon: Brain, label: `${BRAND_NAME} AI`, href: '/dashboard/aysop-ai', trailingGlassLogo: true },
+  { glassNavIcon: true, label: `${BRAND_NAME} AI`, href: '/dashboard/aysop-ai' },
 ];
 
-function TopNavItemContent({ item, badge, inboxBadgeTitle }: { item: TopNavItem; badge: number; inboxBadgeTitle?: string }) {
+function TopNavItemContent({
+  item,
+  badge,
+  inboxBadgeTitle,
+  active,
+}: {
+  item: TopNavItem;
+  badge: number;
+  inboxBadgeTitle?: string;
+  active?: boolean;
+}) {
   if (item.stackedTop) {
     return (
       <>
@@ -44,7 +54,7 @@ function TopNavItemContent({ item, badge, inboxBadgeTitle }: { item: TopNavItem;
           <span className="absolute -top-[11px] left-0 text-[9px] font-semibold uppercase tracking-wide text-amber-400 whitespace-nowrap leading-none pointer-events-none">
             {item.stackedTop}
           </span>
-          <item.icon size={18} className="shrink-0" aria-hidden />
+          {item.icon ? <item.icon size={18} className="shrink-0" aria-hidden /> : null}
           <span>{item.label}</span>
         </span>
         {badge > 0 ? (
@@ -61,13 +71,12 @@ function TopNavItemContent({ item, badge, inboxBadgeTitle }: { item: TopNavItem;
 
   return (
     <>
-      <item.icon size={18} className="shrink-0" aria-hidden />
-      <span className="inline-flex items-center gap-1.5">
-        <span>{item.label}</span>
-        {item.trailingGlassLogo ? (
-          <IzopGlassLogo alt="" size="sm" className="izop-glass-logo--nav-trailing" />
-        ) : null}
-      </span>
+      {item.glassNavIcon ? (
+        <IzopGlassLogo alt="" variant="nav" showSparkle={active} className="shrink-0" />
+      ) : item.icon ? (
+        <item.icon size={18} className="shrink-0" aria-hidden />
+      ) : null}
+      <span>{item.label}</span>
       {badge > 0 && (
         <span
           title={inboxBadgeTitle}
@@ -183,7 +192,7 @@ export default function AppHeader() {
                   ? `${badge} unread`
                   : undefined;
             const content = (
-              <TopNavItemContent item={item} badge={badge} inboxBadgeTitle={inboxBadgeTitle} />
+              <TopNavItemContent item={item} badge={badge} inboxBadgeTitle={inboxBadgeTitle} active={isActive} />
             );
             return (
               <Link
@@ -296,13 +305,12 @@ export default function AppHeader() {
                     </>
                   ) : (
                     <>
-                      <item.icon size={18} className="shrink-0" aria-hidden />
-                      <span className="flex-1 inline-flex items-center gap-1.5 min-w-0">
-                        <span className="truncate">{item.label}</span>
-                        {item.trailingGlassLogo ? (
-                          <IzopGlassLogo alt="" size="sm" className="izop-glass-logo--nav-trailing shrink-0" />
-                        ) : null}
-                      </span>
+                      {item.glassNavIcon ? (
+                        <IzopGlassLogo alt="" variant="nav" showSparkle={isActive} className="shrink-0" />
+                      ) : item.icon ? (
+                        <item.icon size={18} className="shrink-0" aria-hidden />
+                      ) : null}
+                      <span className="flex-1 truncate">{item.label}</span>
                     </>
                   )}
                   {badge > 0 && (

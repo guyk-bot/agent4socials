@@ -1355,18 +1355,45 @@
   }
 }
 
-.izop-glass-logo--nav-trailing {
-  margin-left: 0.05rem;
+/* Header nav: same 18px slot as Lucide icons, inherits link color, no glass chrome. */
+.izop-glass-logo--nav-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: currentColor;
 }
 
-.izop-glass-logo--nav-trailing .izop-glass-logo__shell {
-  width: 1.35rem;
-  height: 1.35rem;
+.izop-glass-logo__mark-nav {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  display: block;
+  opacity: 0.64;
+  transition: opacity 0.15s ease;
 }
 
-.izop-glass-logo--nav-trailing .izop-glass-logo__sparkle {
-  width: 0.35rem;
-  height: 0.35rem;
+.brand-app-header__nav-link:hover .izop-glass-logo--nav-icon .izop-glass-logo__mark-nav,
+.brand-app-header__nav-link.is-active .izop-glass-logo--nav-icon .izop-glass-logo__mark-nav,
+.brand-app-header__mobile-link:hover .izop-glass-logo--nav-icon .izop-glass-logo__mark-nav,
+.brand-app-header__mobile-link.is-active .izop-glass-logo--nav-icon .izop-glass-logo__mark-nav {
+  opacity: 1;
+}
+
+.izop-glass-logo__sparkle--on-mark {
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin: 0;
+  color: #ffffff;
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 6px rgba(196, 181, 253, 0.65));
+  animation: izop-glass-sparkle 2.4s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .izop-glass-logo--animated .izop-glass-logo__shell {
