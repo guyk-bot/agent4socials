@@ -21,17 +21,20 @@ import {
   watchOAuthConnectPopup,
 } from '@/lib/oauth-connect';
 
-/** Same connect targets and styling as Summary dashboard empty state (compact grid on Account page). */
-const CONNECT_PLATFORM_CARDS: { id: string; name: string; slug: string; border: string; bg: string }[] = [
-  { id: 'FACEBOOK', name: 'Facebook', slug: 'facebook', border: 'border-blue-200', bg: 'bg-neutral-100/80' },
-  { id: 'INSTAGRAM', name: 'Instagram', slug: 'instagram', border: 'border-pink-200', bg: 'bg-pink-50/50' },
-  { id: 'TIKTOK', name: 'TikTok', slug: 'tiktok', border: 'border-neutral-300', bg: 'bg-neutral-100/80' },
-  { id: 'YOUTUBE', name: 'YouTube', slug: 'youtube', border: 'border-red-200', bg: 'bg-red-50/50' },
-  { id: 'TWITTER', name: 'Twitter/X', slug: 'twitter', border: 'border-neutral-300', bg: 'bg-neutral-100/80' },
-  { id: 'LINKEDIN', name: 'LinkedIn', slug: 'linkedin', border: 'border-blue-200', bg: 'bg-neutral-100/80' },
-  { id: 'PINTEREST', name: 'Pinterest', slug: 'pinterest', border: 'border-rose-200', bg: 'bg-rose-50/50' },
-  { id: 'THREADS', name: 'Threads', slug: 'threads', border: 'border-neutral-300', bg: 'bg-neutral-100/80' },
+/** Platform order matches sidebar; uniform cards in a 4×2 grid on Account → Connected accounts. */
+const CONNECT_PLATFORM_CARDS: { id: string; name: string; slug: string }[] = [
+  { id: 'FACEBOOK', name: 'Facebook', slug: 'facebook' },
+  { id: 'INSTAGRAM', name: 'Instagram', slug: 'instagram' },
+  { id: 'TIKTOK', name: 'TikTok', slug: 'tiktok' },
+  { id: 'YOUTUBE', name: 'YouTube', slug: 'youtube' },
+  { id: 'TWITTER', name: 'Twitter/X', slug: 'twitter' },
+  { id: 'THREADS', name: 'Threads', slug: 'threads' },
+  { id: 'PINTEREST', name: 'Pinterest', slug: 'pinterest' },
+  { id: 'LINKEDIN', name: 'LinkedIn', slug: 'linkedin' },
 ];
+
+const CONNECT_CARD_CLASS =
+  'account-connect-card flex flex-col items-center justify-center gap-2 p-3 sm:p-4 rounded-xl border border-neutral-200 bg-white hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 group text-center';
 
 const CONNECT_GRID_ICON: Record<string, React.ReactNode> = {
   FACEBOOK: <FacebookIcon size={26} />,
@@ -184,8 +187,8 @@ export function ConnectedAccountsPanel() {
         {accounts.length === 0 && (
           <p className="text-sm text-neutral-600 text-center mb-4">No accounts connected yet.</p>
         )}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-          {CONNECT_PLATFORM_CARDS.map(({ id, name, slug, border, bg }) => {
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+          {CONNECT_PLATFORM_CARDS.map(({ id, name, slug }) => {
             const acc = accountByPlatform[id];
             if (acc) {
               const isDisconnecting = disconnectingId === acc.id;
@@ -323,11 +326,7 @@ export function ConnectedAccountsPanel() {
               );
             }
             return (
-              <Link
-                key={id}
-                href={`/dashboard?connect=${slug}`}
-                className={`account-connect-card flex flex-col items-center justify-center gap-2 p-3 sm:p-4 rounded-xl border-2 ${border} ${bg} hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 group text-center`}
-              >
+              <Link key={id} href={`/dashboard?connect=${slug}`} className={CONNECT_CARD_CLASS}>
                 <div className="w-9 h-9 flex items-center justify-center shrink-0">{CONNECT_GRID_ICON[id]}</div>
                 <span className="text-xs sm:text-sm font-semibold text-neutral-800">{name}</span>
                 <span className="text-[10px] sm:text-xs text-neutral-500 group-hover:text-neutral-700">Connect</span>
