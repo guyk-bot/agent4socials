@@ -1902,6 +1902,12 @@ export default function DashboardPage() {
       if (options?.switchAccount && platform.toLowerCase() === 'threads') {
         startParams.set('switch_account', '1');
       }
+      if (
+        platform.toLowerCase() === 'threads' &&
+        searchParams.get('threads_review') === '1'
+      ) {
+        startParams.set('force_full_consent', '1');
+      }
       const qs = startParams.toString() ? `?${startParams.toString()}` : '';
       const startRes = await fetch(`/api/social/oauth/${encodeURIComponent(platform)}/start${qs}`, {
         headers: { Authorization: `Bearer ${bearer}` },

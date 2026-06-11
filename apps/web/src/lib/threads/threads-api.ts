@@ -66,14 +66,21 @@ export function defaultThreadsOAuthScopes(): string {
   ].join(',');
 }
 
+/** When `1`, every Threads OAuth start uses rerequest+reauthenticate (for App Review screencasts). */
+export function threadsOAuthForceFullConsentEnabled(): boolean {
+  return process.env.THREADS_OAUTH_FORCE_FULL_CONSENT === '1';
+}
+
 /**
  * Threads OAuth authorize URL. Meta reuses the browser session, so users often see
  * "Continue As …" for whoever is already logged in on threads.net.
  * Pass switchAccount to request auth_type=reauthenticate and allow signing in as someone else.
+ * Pass forceFullConsent to re-show the permission dialog (rerequest + reauthenticate).
  */
 export function buildThreadsOAuthAuthorizeUrl(params: {
   state: string;
   switchAccount?: boolean;
+  forceFullConsent?: boolean;
 }): string {
   const url = new URL('https://www.threads.net/oauth/authorize');
   url.searchParams.set('client_id', threadsAppId());
@@ -81,8 +88,12 @@ export function buildThreadsOAuthAuthorizeUrl(params: {
   url.searchParams.set('scope', defaultThreadsOAuthScopes());
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('state', params.state);
-  if (params.switchAccount) {
-    url.searchParams.set('auth_type', 'reauthenticate');
+
+  const authTypes: string[] = [];
+  if (params.forceFullConsent) authTypes.push('rerequest');
+  if (params.switchAccount || params.forceFullConsent) authTypes.push('reauthenticate');
+  if (authTypes.length > 0) {
+    url.searchParams.set('auth_type', authTypes.join(','));
     url.searchParams.set('auth_nonce', randomBytes(16).toString('hex'));
   }
   return url.toString();
@@ -90,6 +101,20 @@ export function buildThreadsOAuthAuthorizeUrl(params: {
 
 export function threadsApiHeaders(accessToken: string): Record<string, string> {
   return { Authorization: `Bearer ${accessToken}` };
+}
+
+/** Revoke all Threads permissions for this user+app pair (forces first-time consent on next OAuth). */
+export async function revokeThreadsAppAuthorization(accessToken: string): Promise<boolean> {
+  const r = await axios.delete(`${THREADS_GRAPH_BASE}/me/permissions`, {
+    headers: threadsApiHeaders(accessToken),
+    timeout: 15_000,
+    validateStatus: () => true,
+  });
+  if (r.status !== 200) return false;
+  const data = r.data as boolean | { success?: boolean | string };
+  if (data === true) return true;
+  if (data && typeof data === 'object' && (data.success === true || data.success === 'true')) return true;
+  return false;
 }
 
 export async function threadsGet<T = unknown>(

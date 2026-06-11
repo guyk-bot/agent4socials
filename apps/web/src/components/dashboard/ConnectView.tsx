@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Check, Star, Loader2, BookOpen, Send, Calendar, BarChart2, MessageCircle, TrendingUp } from 'lucide-react';
 import { InstagramIcon, FacebookIcon, YoutubeIcon, LinkedinIcon, TikTokIcon, XTwitterIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
@@ -178,6 +179,109 @@ type ConnectViewProps = {
   connectError?: string | null;
 };
 
+type PlatformInfo = (typeof PLATFORM_INFO)[keyof typeof PLATFORM_INFO];
+
+function ThreadsConnectPanel({
+  info,
+  platformLower,
+  connecting,
+  connectingMethod,
+  connectError,
+  onConnect,
+}: {
+  info: PlatformInfo;
+  platformLower: string;
+  connecting: boolean;
+  connectingMethod?: string;
+  connectError?: string | null;
+  onConnect: ConnectViewProps['onConnect'];
+}) {
+  const searchParams = useSearchParams();
+  const reviewMode = searchParams.get('threads_review') === '1';
+  const [recordingHint, setRecordingHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/social/oauth/threads/setup-info')
+      .then((r) => r.json())
+      .then((data: { appReviewRecordingHint?: string | null; forceFullConsentEnabled?: boolean }) => {
+        if (cancelled) return;
+        if (data.appReviewRecordingHint) setRecordingHint(data.appReviewRecordingHint);
+        else if (reviewMode) {
+          setRecordingHint(
+            'App Review mode: add ?threads_review=1 or set THREADS_OAUTH_FORCE_FULL_CONSENT=1 in Vercel to force the full Threads permission screen on Connect.'
+          );
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [reviewMode]);
+
+  return (
+    <div className="connect-view-scope min-h-[calc(100vh-6rem)] flex items-start justify-center pt-16 sm:pt-20">
+      <div className="max-w-lg mx-auto px-4 w-full">
+        <div
+          className={`connect-surface rounded-2xl border-2 p-6 sm:p-8 ${info.accentBorder} bg-gradient-to-b from-white to-neutral-50/80 shadow-sm`}
+        >
+          <div className="text-center pt-2 pb-4">
+            <div className="inline-flex mb-3">{info.headerIcon}</div>
+            <h1 className="text-2xl font-bold text-neutral-900">Connect Threads</h1>
+            <p className="text-neutral-500 mt-1 text-sm max-w-xs mx-auto">{info.description}</p>
+          </div>
+
+          {(recordingHint || reviewMode) && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 mb-4">
+              <p className="font-semibold">App Review recording mode</p>
+              <p className="mt-1 text-amber-900/90 leading-relaxed">
+                {recordingHint ||
+                  'Connect below should open the full Threads permission authorization form, not only "You previously connected".'}
+              </p>
+            </div>
+          )}
+
+          <ConnectPageSections functionalities={info.functionalities} helpAnchor={info.helpAnchor} />
+
+          <p className="mt-4 text-xs text-neutral-500 leading-relaxed">
+            Threads uses whoever is already signed in on threads.net in this browser. To connect a
+            personal profile on another brand, use the button below or sign out of Threads first.
+          </p>
+
+          {connectError && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 mt-4">
+              {connectError}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => onConnect(platformLower)}
+            disabled={connecting}
+            className={`mt-6 w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-sm font-semibold text-chrome-text bg-gradient-to-r ${info.buttonGradient} ${info.buttonHover} transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed`}
+          >
+            {connecting && connectingMethod !== 'switch' ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : null}
+            Connect {info.buttonLabel ?? info.name}
+          </button>
+          <button
+            type="button"
+            onClick={() => onConnect(platformLower, 'switch', { switchAccount: true })}
+            disabled={connecting}
+            className="mt-3 w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-sm font-semibold text-neutral-800 border border-neutral-300 bg-white hover:bg-neutral-50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            {connecting && connectingMethod === 'switch' ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : null}
+            Use a different Threads account
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ConnectPageSections({
   functionalities,
   helpAnchor,
@@ -298,55 +402,14 @@ export default function ConnectView({ platform, onConnect, connecting, connectin
   // ── THREADS (Meta redirect URI must match exactly) ────────────────────────
   if (platform === 'THREADS') {
     return (
-      <div className="connect-view-scope min-h-[calc(100vh-6rem)] flex items-start justify-center pt-16 sm:pt-20">
-        <div className="max-w-lg mx-auto px-4 w-full">
-          <div
-            className={`connect-surface rounded-2xl border-2 p-6 sm:p-8 ${info.accentBorder} bg-gradient-to-b from-white to-neutral-50/80 shadow-sm`}
-          >
-            <div className="text-center pt-2 pb-4">
-              <div className="inline-flex mb-3">{info.headerIcon}</div>
-              <h1 className="text-2xl font-bold text-neutral-900">Connect Threads</h1>
-              <p className="text-neutral-500 mt-1 text-sm max-w-xs mx-auto">{info.description}</p>
-            </div>
-
-            <ConnectPageSections functionalities={info.functionalities} helpAnchor={info.helpAnchor} />
-
-            <p className="mt-4 text-xs text-neutral-500 leading-relaxed">
-              Threads uses whoever is already signed in on threads.net in this browser. To connect a
-              personal profile on another brand, use the button below or sign out of Threads first.
-            </p>
-
-            {connectError && (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 mt-4">
-                {connectError}
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={() => onConnect(platformLower)}
-              disabled={connecting}
-              className={`mt-6 w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-sm font-semibold text-chrome-text bg-gradient-to-r ${info.buttonGradient} ${info.buttonHover} transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed`}
-            >
-              {connecting && connectingMethod !== 'switch' ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : null}
-              Connect {info.buttonLabel ?? info.name}
-            </button>
-            <button
-              type="button"
-              onClick={() => onConnect(platformLower, 'switch', { switchAccount: true })}
-              disabled={connecting}
-              className="mt-3 w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl text-sm font-semibold text-neutral-800 border border-neutral-300 bg-white hover:bg-neutral-50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {connecting && connectingMethod === 'switch' ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : null}
-              Use a different Threads account
-            </button>
-          </div>
-        </div>
-      </div>
+      <ThreadsConnectPanel
+        info={info}
+        platformLower={platformLower}
+        connecting={connecting}
+        connectingMethod={connectingMethod}
+        connectError={connectError}
+        onConnect={onConnect}
+      />
     );
   }
 

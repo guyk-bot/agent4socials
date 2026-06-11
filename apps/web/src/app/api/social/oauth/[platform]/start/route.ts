@@ -4,6 +4,7 @@ import {
   getPrismaUserIdFromRequest,
   getSupabaseUserIdFromAuthHeader,
   OAUTH_STATE_SUPABASE_PREFIX,
+  resolvePrismaUserIdFromOAuthState,
 } from '@/lib/get-prisma-user';
 import { FUNNEL_SESSION_COOKIE, resolveFunnelGuestUserId } from '@/lib/funnel-guest';
 import { databaseUrlLooksDirect, isPrismaPoolError, prisma } from '@/lib/db';
@@ -13,8 +14,10 @@ import { Platform } from '@prisma/client';
 import { META_GRAPH_FACEBOOK_API_VERSION } from '@/lib/meta-graph-insights';
 import {
   buildThreadsOAuthAuthorizeUrl,
+  revokeThreadsAppAuthorization,
   threadsAppId,
   threadsAppSecret,
+  threadsOAuthForceFullConsentEnabled,
 } from '@/lib/threads/threads-api';
 import {
   buildLinkedInOAuthAuthorizationUrl,
@@ -31,6 +34,38 @@ import type { LinkedInConnectMethod } from '@/lib/linkedin/oauth-scopes';
 /** OAuth start must never be statically cached. */
 export const dynamic = 'force-dynamic';
 
+async function prismaUserIdFromOAuthStateKey(oauthStateKey: string): Promise<string | null> {
+  if (oauthStateKey.startsWith(OAUTH_STATE_SUPABASE_PREFIX)) {
+    return resolvePrismaUserIdFromOAuthState(oauthStateKey);
+  }
+  const funnelIdx = oauthStateKey.indexOf(':funnel:');
+  if (funnelIdx >= 0) return oauthStateKey.slice(0, funnelIdx);
+  return oauthStateKey;
+}
+
+/** When recording App Review, revoke Meta-side grant so Threads shows the full permission form. */
+async function revokeThreadsGrantForAppReview(oauthStateKey: string): Promise<void> {
+  const prismaUserId = await prismaUserIdFromOAuthStateKey(oauthStateKey);
+  if (!prismaUserId) return;
+  const account = await prisma.socialAccount.findFirst({
+    where: {
+      userId: prismaUserId,
+      platform: 'THREADS',
+      status: 'connected',
+      accessToken: { not: '' },
+    },
+    select: { accessToken: true },
+    orderBy: { updatedAt: 'desc' },
+  });
+  if (!account?.accessToken) return;
+  try {
+    const ok = await revokeThreadsAppAuthorization(account.accessToken);
+    console.info('[Threads OAuth] App Review revoke before connect', { prismaUserId, ok });
+  } catch (e) {
+    console.warn('[Threads OAuth] App Review revoke failed:', (e as Error)?.message?.slice(0, 120));
+  }
+}
+
 const PLATFORMS = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'TWITTER', 'LINKEDIN', 'PINTEREST', 'THREADS'] as const;
 
 function getOAuthUrl(
@@ -38,7 +73,7 @@ function getOAuthUrl(
   userId: string,
   method?: string,
   step?: string,
-  options?: { threadsSwitchAccount?: boolean }
+  options?: { threadsSwitchAccount?: boolean; threadsForceFullConsent?: boolean }
 ): string {
   const oauthOrigin = resolveOAuthRedirectOrigin();
   const callbackUrl = `${oauthOrigin}/api/social/oauth/${platform.toLowerCase()}/callback`;
@@ -140,6 +175,7 @@ function getOAuthUrl(
       return buildThreadsOAuthAuthorizeUrl({
         state,
         switchAccount: options?.threadsSwitchAccount,
+        forceFullConsent: options?.threadsForceFullConsent,
       });
     }
     case 'PINTEREST': {
@@ -346,7 +382,17 @@ export async function GET(
     }
     const threadsSwitchAccount =
       plat === 'THREADS' && request.nextUrl.searchParams.get('switch_account') === '1';
-    const url = getOAuthUrl(plat, oauthStateKey, method, step, { threadsSwitchAccount });
+    const threadsForceFullConsent =
+      plat === 'THREADS' &&
+      (threadsOAuthForceFullConsentEnabled() ||
+        request.nextUrl.searchParams.get('force_full_consent') === '1');
+    if (threadsForceFullConsent) {
+      await revokeThreadsGrantForAppReview(oauthStateKey);
+    }
+    const url = getOAuthUrl(plat, oauthStateKey, method, step, {
+      threadsSwitchAccount,
+      threadsForceFullConsent,
+    });
     if (plat === 'THREADS') {
       const parsed = new URL(url);
       const clientId = parsed.searchParams.get('client_id')?.trim();
@@ -361,7 +407,11 @@ export async function GET(
         );
       }
       const redirectUri = decodeURIComponent(parsed.searchParams.get('redirect_uri') || '');
-      return NextResponse.json({ url, redirectUri });
+      return NextResponse.json({
+        url,
+        redirectUri,
+        forceFullConsent: threadsForceFullConsent,
+      });
     }
     return NextResponse.json({ url });
   } catch (e) {

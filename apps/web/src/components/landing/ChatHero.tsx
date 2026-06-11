@@ -802,7 +802,14 @@ export default function ChatHero() {
         const token = await ensureFunnelSession();
         writeFunnelOAuthPending(id, token);
         const apiPlatform = FUNNEL_PLATFORM_TO_API[id];
-        const res = await fetch(`/api/social/oauth/${apiPlatform}/start?funnel=1`, {
+        const oauthStartParams = new URLSearchParams({ funnel: '1' });
+        if (
+          apiPlatform === 'threads' &&
+          new URLSearchParams(window.location.search).get('threads_review') === '1'
+        ) {
+          oauthStartParams.set('force_full_consent', '1');
+        }
+        const res = await fetch(`/api/social/oauth/${apiPlatform}/start?${oauthStartParams}`, {
           headers: { ...funnelAuthHeaders(), 'X-Funnel-Session': token },
         });
         const data = (await res.json()) as { url?: string; message?: string; redirectUri?: string };

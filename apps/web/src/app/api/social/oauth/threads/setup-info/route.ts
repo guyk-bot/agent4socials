@@ -3,6 +3,7 @@ import {
   resolveAppBaseUrl,
   resolveThreadsRedirectUri,
   threadsAppId,
+  threadsOAuthForceFullConsentEnabled,
 } from '@/lib/threads/threads-api';
 
 export const dynamic = 'force-dynamic';
@@ -37,6 +38,10 @@ export async function GET() {
     baseUrlFromEnv: baseUrl,
     threadsRedirectEnv,
     redirectEnvIgnored,
+    forceFullConsentEnabled: threadsOAuthForceFullConsentEnabled(),
+    appReviewRecordingHint: threadsOAuthForceFullConsentEnabled()
+      ? 'THREADS_OAUTH_FORCE_FULL_CONSENT=1 is on: each Connect revokes the prior Meta grant (when possible), then uses auth_type=rerequest,reauthenticate. You should see the full Threads permission form. Remove this env var after your App Review video.'
+      : null,
     metaChecklist: [
       'Meta → Use cases → Access the Threads API → Settings: all 3 callback URLs filled and saved',
       'redirectUri below must match Redirect Callback URLs exactly (no trailing slash)',
