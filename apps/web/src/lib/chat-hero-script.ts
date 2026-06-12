@@ -176,7 +176,7 @@ export function answerLandingChatPriority(ctx: LandingChatContext): string | nul
   if (asksAboutAds(ctx.text)) {
     return LANDING_CHAT_ADS_REPLY;
   }
-  if (wantsFunnelInAppAction(ctx.text) && !isBrandContextFunnelStep(ctx)) {
+  if (wantsFunnelInAppAction(ctx.text) && !isBrandContextFunnelStep(ctx) && !ctx.connectedAccountId) {
     const namesFromMessage = ctx.matchedPlatforms.map(platformLabel);
     const namesSelected = selectedLabels(ctx.selectedPlatformIds);
     const allNames = [...new Set([...namesFromMessage, ...namesSelected])];

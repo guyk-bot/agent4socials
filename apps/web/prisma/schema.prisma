@@ -531,6 +531,8 @@ model FunnelSession {
   connectedAccountId  String?
   chatPayload         Json?
   brandContextDraft   Json?
+  guestPublishUsedAt  DateTime?
+  guestAnalyticsUsedAt DateTime?
   expiresAt           DateTime
   mergedToUserId      String?
   createdAt           DateTime  @default(now())

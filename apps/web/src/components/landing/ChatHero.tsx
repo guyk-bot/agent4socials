@@ -899,6 +899,44 @@ export default function ChatHero() {
           text: 'Great — tell me your niche or a topic and I will brainstorm post ideas in your brand voice.',
         },
       ]);
+    } else if (pendingAction === 'analytics') {
+      setBusy(true);
+      setIsTyping(true);
+      try {
+        const res = await fetch('/api/funnel/analytics', { headers: funnelAuthHeaders() });
+        const data = (await res.json()) as {
+          text?: string;
+          requireSignup?: boolean;
+          funnelStats?: { value: string; label: string }[];
+        };
+        const nextBlocks: RenderBlock[] = [
+          {
+            id: blockId('ai'),
+            kind: 'ai',
+            text: data.text?.trim() || 'Could not load analytics right now. Try asking in the chat.',
+          },
+        ];
+        if (data.funnelStats?.length) {
+          nextBlocks.push({ id: blockId('stats'), kind: 'stats', items: data.funnelStats });
+        }
+        appendBlocks(nextBlocks);
+        if (data.requireSignup) {
+          setShowSignup(true);
+          setFunnelStep('signup_required');
+          saveFunnelForAppHandoff();
+        }
+      } catch {
+        appendBlocks([
+          {
+            id: blockId('ai'),
+            kind: 'ai',
+            text: 'Could not load analytics right now. Ask "show my analytics" in the chat to try again.',
+          },
+        ]);
+      } finally {
+        setIsTyping(false);
+        setBusy(false);
+      }
     } else {
       appendBlocks([
         {
@@ -1010,6 +1048,8 @@ export default function ChatHero() {
           const data = (await res.json()) as {
             text?: string;
             limited?: boolean;
+            requireSignup?: boolean;
+            funnelStats?: { value: string; label: string }[];
             brandContextUpdate?: BrandContextRecord;
             hashtagPoolUpdate?: string;
           };
@@ -1035,12 +1075,16 @@ export default function ChatHero() {
               typeof data.text === 'string' && data.text.trim()
                 ? data.text.trim()
                 : answerLandingChatQuestion(chatContext),
+            requireSignup: data.requireSignup === true,
+            funnelStats: Array.isArray(data.funnelStats) ? data.funnelStats : null,
             brandContextUpdate: data.brandContextUpdate ?? null,
             hashtagPoolUpdate: data.hashtagPoolUpdate ?? null,
           };
         } catch {
           return {
             text: answerLandingChatQuestion(chatContext),
+            requireSignup: false,
+            funnelStats: null,
             brandContextUpdate: null,
             hashtagPoolUpdate: null,
           };
@@ -1049,7 +1093,10 @@ export default function ChatHero() {
       delay(minThinkMs),
     ]);
 
-    const reply = typeof replyText === 'string' ? { text: replyText, brandContextUpdate: null, hashtagPoolUpdate: null } : replyText;
+    const reply =
+      typeof replyText === 'string'
+        ? { text: replyText, requireSignup: false, funnelStats: null, brandContextUpdate: null, hashtagPoolUpdate: null }
+        : replyText;
 
     if (reply.brandContextUpdate && Object.keys(reply.brandContextUpdate).length > 0) {
       setBrandDraft((prev) => {
@@ -1064,13 +1111,26 @@ export default function ChatHero() {
     }
 
     setIsTyping(false);
-    appendBlocks([
+    const nextBlocks: RenderBlock[] = [
       {
         id: blockId('ai'),
         kind: 'ai',
         text: reply.text,
       },
-    ]);
+    ];
+    if (reply.funnelStats && reply.funnelStats.length > 0) {
+      nextBlocks.push({
+        id: blockId('stats'),
+        kind: 'stats',
+        items: reply.funnelStats,
+      });
+    }
+    appendBlocks(nextBlocks);
+    if (reply.requireSignup) {
+      setShowSignup(true);
+      setFunnelStep('signup_required');
+      saveFunnelForAppHandoff();
+    }
     if (hitLimit) saveFunnelForAppHandoff();
     setBusy(false);
     scrollToLatest();

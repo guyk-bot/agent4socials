@@ -44,6 +44,12 @@ async function runMigration(): Promise<void> {
   await prisma.$executeRawUnsafe(`
     CREATE INDEX IF NOT EXISTS "funnel_sessions_expiresAt_idx" ON "funnel_sessions"("expiresAt")
   `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "funnel_sessions" ADD COLUMN IF NOT EXISTS "guestPublishUsedAt" TIMESTAMP(3)
+  `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "funnel_sessions" ADD COLUMN IF NOT EXISTS "guestAnalyticsUsedAt" TIMESTAMP(3)
+  `);
 }
 
 /** Best-effort: create funnel_sessions if migrations have not run yet. */

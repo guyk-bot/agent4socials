@@ -72,7 +72,7 @@ export function funnelMultiPlatformSignupMessage(): string {
 }
 
 export function funnelPublishReadyMessage(): string {
-  return 'Tell me what you want to post and I will draft it in your brand voice. When you are happy with it, you can publish to your connected account from here.';
+  return 'You get one free text post to your connected account from this chat. Send the exact caption you want published (for example: "Post this: Excited to share what we are building!"). After that, sign in to schedule and publish without limits.';
 }
 
 export function defaultBrandContextDraft(

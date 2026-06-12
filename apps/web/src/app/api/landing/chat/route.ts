@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { ChatHeroPainPointId, ChatHeroPlatformId } from '@/lib/chat-hero-script';
+import { tryHandleFunnelGuestAction } from '@/lib/funnel-guest-actions';
 import { respondLandingChat } from '@/lib/landing-chat-respond';
 import {
   funnelSessionLimitMessage,
@@ -81,25 +82,29 @@ export async function POST(req: Request) {
     }
   }
 
-  const result = await respondLandingChat(
-    {
-      step,
-      text,
-      matchedPlatforms: Array.isArray(body.matchedPlatforms) ? body.matchedPlatforms : [],
-      matchedPain: body.matchedPain ?? null,
-      selectedPlatformIds: Array.isArray(body.selectedPlatformIds) ? body.selectedPlatformIds : [],
-      connectedAccountId: typeof body.connectedAccountId === 'string' ? body.connectedAccountId : null,
-      funnelFlowStep: typeof body.funnelFlowStep === 'string' ? body.funnelFlowStep : null,
-      brandContextDraft:
-        body.brandContextDraft && typeof body.brandContextDraft === 'object'
-          ? (body.brandContextDraft as Record<string, unknown>)
-          : null,
-    },
-    {
-      guestUserId: funnelSession?.guestUserId ?? null,
-      hashtagPool: typeof body.hashtagPool === 'string' ? body.hashtagPool : '',
-    }
-  );
+  const chatCtx = {
+    step,
+    text,
+    matchedPlatforms: Array.isArray(body.matchedPlatforms) ? body.matchedPlatforms : [],
+    matchedPain: body.matchedPain ?? null,
+    selectedPlatformIds: Array.isArray(body.selectedPlatformIds) ? body.selectedPlatformIds : [],
+    connectedAccountId: typeof body.connectedAccountId === 'string' ? body.connectedAccountId : null,
+    funnelFlowStep: typeof body.funnelFlowStep === 'string' ? body.funnelFlowStep : null,
+    brandContextDraft:
+      body.brandContextDraft && typeof body.brandContextDraft === 'object'
+        ? (body.brandContextDraft as Record<string, unknown>)
+        : null,
+  };
+
+  const guestAction = await tryHandleFunnelGuestAction(chatCtx, funnelToken);
+  if (guestAction) {
+    return NextResponse.json(guestAction);
+  }
+
+  const result = await respondLandingChat(chatCtx, {
+    guestUserId: funnelSession?.guestUserId ?? null,
+    hashtagPool: typeof body.hashtagPool === 'string' ? body.hashtagPool : '',
+  });
 
   return NextResponse.json(result);
 }
