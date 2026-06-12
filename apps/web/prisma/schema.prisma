@@ -31,6 +31,7 @@ model User {
   dmFirstWelcomeSent       DmFirstWelcomeSent[]
   linkPage               LinkPage?
   aysopChatSessions      AysopChatSession[]
+  productEvents          UserProductEvent[]
 }
 
 enum Platform {
@@ -537,4 +538,18 @@ model FunnelSession {
 
   @@index([expiresAt])
   @@map("funnel_sessions")
+}
+
+/// Signed-in user activity for product insights (Supabase Postgres).
+model UserProductEvent {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event      String
+  properties Json?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, event])
+  @@map("user_product_events")
 }

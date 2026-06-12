@@ -2716,7 +2716,8 @@ export default function DashboardPage() {
                   <PricingPlansGrid
                     billingInterval={pricingInterval}
                     onBillingIntervalChange={setPricingInterval}
-                    onCta={openSignup}
+                    onPlanCta={(plan) => openSignup(`dashboard_pricing_${plan}`)}
+                    pricingSource="dashboard_pricing"
                     toggleClassName="pb-4 sm:pb-5"
                     gridClassName="grid gap-4 sm:gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6"
                   />

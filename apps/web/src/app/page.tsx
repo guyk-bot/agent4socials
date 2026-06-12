@@ -23,6 +23,7 @@ import {
   Hash,
 } from 'lucide-react';
 import { PricingPlansGrid } from '@/components/landing/pricing';
+import { PricingSectionTracker } from '@/components/landing/PricingSectionTracker';
 import { PRICING_YEARLY_DISCOUNT_PERCENT, PRO_PLAN_PRICING, STANDARD_PLAN_PRICING } from '@/lib/pricing/constants';
 
 function FaqItem({ question, answer }: { question: string; answer: string }) {
@@ -194,10 +195,12 @@ export default function Home() {
               <h2 className="text-[28px] sm:text-4xl font-bold tracking-[-0.02em] text-[var(--text-primary)]">Plans for every stage</h2>
               <p className="mt-3 text-[var(--text-muted)]">Free, Standard, and Pro. Yearly billing saves 20%. No hidden fees.</p>
             </div>
+            <PricingSectionTracker />
             <PricingPlansGrid
               billingInterval={billingInterval}
               onBillingIntervalChange={setBillingInterval}
-              onCta={openSignup}
+              onPlanCta={(plan) => openSignup(`landing_pricing_${plan}`)}
+              pricingSource="landing_pricing"
             />
             <p className="mt-10 text-center">
               <Link href="/pricing" className="text-[#7C3AED] font-medium hover:text-[#A78BFA] transition-colors">

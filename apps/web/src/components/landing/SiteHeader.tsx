@@ -8,6 +8,7 @@ import { useAuthModal } from '@/context/AuthModalContext';
 import { BrandWordmark } from '@/components/BrandWordmark';
 import { IzopGlassLogo } from '@/components/IzopGlassLogo';
 import { BRAND_NAME } from '@/lib/site-brand-assets';
+import { trackProductEvent } from '@/lib/product-analytics';
 
 const navLinks = [
   { href: '/#features', label: 'Features' },
@@ -41,16 +42,29 @@ export default function SiteHeader() {
           </Link>
           <nav className="hidden items-center gap-5 lg:gap-7 md:flex">
             {navLinks.map((link) => (
-              <Link key={link.href} href={link.href} className={navLinkClass(link.href)}>
+              <Link
+                key={link.href}
+                href={link.href}
+                className={navLinkClass(link.href)}
+                onClick={() => {
+                  if (link.href.includes('pricing')) {
+                    trackProductEvent('nav_pricing_clicked', { source: 'header_desktop' });
+                  }
+                }}
+              >
                 {link.label}
               </Link>
             ))}
-            <button type="button" onClick={openLogin} className="funnel-nav-link rounded-lg px-2 py-1.5 text-sm font-medium transition-colors">
+            <button
+              type="button"
+              onClick={() => openLogin('header_desktop')}
+              className="funnel-nav-link rounded-lg px-2 py-1.5 text-sm font-medium transition-colors"
+            >
               Log in
             </button>
             <button
               type="button"
-              onClick={openSignup}
+              onClick={() => openSignup('header_desktop_try_free')}
               className="rounded-full btn-funnel-lime-cta px-5 py-2.5 text-sm font-semibold"
             >
               Try for free
@@ -59,7 +73,7 @@ export default function SiteHeader() {
           <div className="flex items-center gap-2 md:hidden">
             <button
               type="button"
-              onClick={openSignup}
+              onClick={() => openSignup('header_mobile_try_free')}
               className="rounded-full btn-funnel-lime-cta px-4 py-2 text-sm font-semibold"
             >
               Try for free
@@ -80,7 +94,12 @@ export default function SiteHeader() {
               <Link
                 key={link.href}
                 href={link.href}
-                onClick={() => setMobileOpen(false)}
+                onClick={() => {
+                  setMobileOpen(false);
+                  if (link.href.includes('pricing')) {
+                    trackProductEvent('nav_pricing_clicked', { source: 'header_mobile' });
+                  }
+                }}
                 className={`${navLinkClass(link.href)} py-3 px-3`}
               >
                 {link.label}
@@ -88,14 +107,14 @@ export default function SiteHeader() {
             ))}
             <button
               type="button"
-              onClick={() => { setMobileOpen(false); openLogin(); }}
+              onClick={() => { setMobileOpen(false); openLogin('header_mobile'); }}
               className="funnel-nav-link py-3 px-3 rounded-xl font-medium transition-colors w-full text-left"
             >
               Log in
             </button>
             <button
               type="button"
-              onClick={() => { setMobileOpen(false); openSignup(); }}
+              onClick={() => { setMobileOpen(false); openSignup('header_mobile_try_free'); }}
               className="btn-funnel-lime-cta mx-3 mt-2 w-full rounded-full py-3 text-center font-semibold"
             >
               Try for free

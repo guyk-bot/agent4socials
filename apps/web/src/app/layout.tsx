@@ -11,6 +11,7 @@ import { AppDataProvider } from "@/context/AppDataContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import AuthModal from "@/components/auth/AuthModal";
 import AuthModalOpener from "@/components/auth/AuthModalOpener";
+import { ProductAnalyticsBootstrap } from "@/components/ProductAnalyticsBootstrap";
 import { siteTabIcons } from "@/lib/site-tab-icons";
 import { SITE_LOGO_V } from "@/lib/site-brand-assets";
 import { resolveAppBaseUrl } from "@/lib/app-base-url";
@@ -123,6 +124,7 @@ export default function RootLayout({
               <WhiteLabelProvider>
                 {children}
               <Analytics />
+              <ProductAnalyticsBootstrap />
               <AuthModalOpener />
               <AuthModal />
               </WhiteLabelProvider>

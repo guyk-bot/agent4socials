@@ -21,6 +21,7 @@ import { parseLinkedInOAuthState } from '@/lib/linkedin/build-oauth-authorizatio
 import { scheduleInboxWarmForUser } from '@/lib/inbox/schedule-inbox-warm';
 import { resolvePrismaUserIdFromOAuthState } from '@/lib/get-prisma-user';
 import { isFunnelGuestUserId, markFunnelSessionConnected, markFunnelSessionConnectedByToken } from '@/lib/funnel-guest';
+import { recordUserProductEvent } from '@/lib/user-product-events';
 import {
   formatSocialAccountOAuthError,
   SocialAccountOAuthConflictError,
@@ -1701,11 +1702,18 @@ export async function GET(
     if (plat === 'LINKEDIN' && linkedInConsentPreviewId) {
       await prisma.pendingConnection.delete({ where: { id: linkedInConsentPreviewId } }).catch(() => {});
     }
+    const funnelGuest = await isFunnelGuestUserId(userId);
+    if (!funnelGuest) {
+      void recordUserProductEvent(userId, 'platform_connected', {
+        platform: plat,
+        funnel_flow: funnelFlow,
+      });
+    }
     if (funnelTokenFromState) {
       await markFunnelSessionConnectedByToken(funnelTokenFromState, plat, mainAccount.id);
       return funnelOAuthSuccessHtml(baseUrl, mainAccount.id, genericConnectParams);
     }
-    if (await isFunnelGuestUserId(userId)) {
+    if (funnelGuest) {
       await markFunnelSessionConnected(userId, plat, mainAccount.id);
       return funnelOAuthSuccessHtml(baseUrl, mainAccount.id, genericConnectParams);
     }

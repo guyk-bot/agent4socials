@@ -11,12 +11,14 @@ import {
   PricingFAQ,
   PricingCTA,
 } from '@/components/landing/pricing';
+import { trackProductEvent } from '@/lib/product-analytics';
 
 export default function PricingPage() {
   const { openSignup } = useAuthModal();
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly');
 
   useEffect(() => {
+    trackProductEvent('pricing_page_viewed', { source: 'pricing_page' });
     if (new URLSearchParams(window.location.search).get('billing') === 'yearly') {
       setBillingInterval('yearly');
     }
@@ -34,7 +36,8 @@ export default function PricingPage() {
               <PricingPlansGrid
                 billingInterval={billingInterval}
                 onBillingIntervalChange={setBillingInterval}
-                onCta={openSignup}
+                onPlanCta={(plan) => openSignup(`pricing_page_${plan}`)}
+                pricingSource="pricing_page"
                 toggleClassName="pb-4 sm:pb-5"
                 gridClassName="grid gap-4 sm:gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6"
               />

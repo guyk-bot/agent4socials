@@ -16,6 +16,12 @@ import {
 } from '@/components/SocialPlatformIcons';
 import { CHAT_HERO_LOGO_SRC } from '@/lib/site-brand-assets';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
+import { trackProductEvent } from '@/lib/product-analytics';
+import {
+  matchesInsightsIntent,
+  matchesPricingIntent,
+  matchesPublishIntent,
+} from '@/lib/chat-intent-detection';
 import {
   ChatHeroDemoLoopProvider,
   ChatHeroSideDemoColumn,
@@ -554,6 +560,8 @@ export default function ChatHero() {
     async (accountId: string, platformId: ChatHeroPlatformId, username: string | null, profilePicture?: string | null) => {
       if (!finishFunnelOAuthConnect(accountId, platformId, username, profilePicture)) return;
 
+      trackProductEvent('connect_completed', { platform: platformId, guest: true });
+
       const label = platformLabelFromId(platformId);
       const displayUser = username || 'you';
 
@@ -664,6 +672,12 @@ export default function ChatHero() {
 
   const failFunnelOAuthConnect = useCallback(
     (message: string) => {
+      const pending = readFunnelOAuthPending();
+      trackProductEvent('connect_abandoned', {
+        platform: pending?.platform ?? 'unknown',
+        guest: true,
+        reason: message.slice(0, 120),
+      });
       resetFunnelOAuthPending();
       appendBlocks([{ id: blockId('ai'), kind: 'ai', text: message }]);
       scrollToLatest();
@@ -679,6 +693,7 @@ export default function ChatHero() {
     const funnelError = params.get('funnel_error');
     if (funnelError) {
       window.history.replaceState({}, '', window.location.pathname);
+      trackProductEvent('connect_failed', { guest: true, error_type: 'oauth_callback' });
       failFunnelOAuthConnect(funnelError);
       return;
     }
@@ -797,6 +812,7 @@ export default function ChatHero() {
       setSelectedPlatforms([id]);
       setBlocks((prev) => stripUserPillBlocks(prev));
       trackChatHeroEvent('platforms_selected', { platforms: [id] });
+      trackProductEvent('connect_started', { platform: id, guest: true });
 
       try {
         const token = await ensureFunnelSession();
@@ -828,6 +844,7 @@ export default function ChatHero() {
           msg =
             'This platform blocked the connection. In Meta for Developers, whitelist exactly: https://izop.ai/api/social/oauth/[platform]/callback (no www, no trailing slash). Also add the Threads URL under Facebook Login → Valid OAuth Redirect URIs, then Save and wait a few minutes.';
         }
+        trackProductEvent('connect_failed', { platform: id, guest: true, error_type: 'oauth_start' });
         appendBlocks([{ id: blockId('ai'), kind: 'ai', text: msg }]);
         setShowPlatformOptions(true);
         setBusy(false);
@@ -840,6 +857,11 @@ export default function ChatHero() {
   const handleFunnelAction = useCallback(
     async (actionId: FunnelActionId) => {
       if (busy) return;
+      if (actionId === 'publish') {
+        trackProductEvent('funnel_publish_attempted', { guest: true });
+      } else if (actionId === 'analytics') {
+        trackProductEvent('funnel_insights_attempted', { guest: true, source: 'action_chip' });
+      }
       const label = FUNNEL_ACTIONS.find((a) => a.id === actionId)?.label ?? actionId;
       setShowActionOptions(false);
       appendBlocks([{ id: blockId('user'), kind: 'user_pills', labels: [label] }]);
@@ -899,6 +921,11 @@ export default function ChatHero() {
     setAuthError('');
     setAuthLoading(true);
     saveFunnelForAppHandoff();
+    if (connectedAccountId) {
+      trackProductEvent('funnel_signin_after_connect', { method: 'google', guest: true });
+    } else {
+      trackChatHeroEvent('signup_clicked', { method: 'google', source: 'funnel_chat' });
+    }
     try {
       setFunnelPostAuthRedirect(connectedAccountId ? '/dashboard/aysop-ai' : connectRedirectForPlatforms(selectedPlatforms));
       await signInWithGoogle();
@@ -914,8 +941,13 @@ export default function ChatHero() {
 
   const handleEmailSignup = useCallback(() => {
     saveFunnelForAppHandoff();
+    if (connectedAccountId) {
+      trackProductEvent('funnel_signin_after_connect', { method: 'email', guest: true });
+    } else {
+      trackChatHeroEvent('signup_clicked', { method: 'email', source: 'funnel_chat' });
+    }
     setFunnelPostAuthRedirect(connectedAccountId ? '/dashboard/aysop-ai' : connectRedirectForPlatforms(selectedPlatforms));
-    openSignup();
+    openSignup('funnel_chat');
   }, [connectedAccountId, openSignup, selectedPlatforms]);
 
   const handleFreeTextSubmit = useCallback(async () => {
@@ -936,6 +968,16 @@ export default function ChatHero() {
     }
 
     appendBlocks([{ id: blockId('user'), kind: 'user_pills', labels: [trimmed] }]);
+
+    if (matchesPricingIntent(trimmed)) {
+      trackProductEvent('funnel_pricing_question', { guest: true });
+    }
+    if (matchesInsightsIntent(trimmed)) {
+      trackProductEvent('funnel_insights_attempted', { guest: true, source: 'free_text' });
+    }
+    if (matchesPublishIntent(trimmed)) {
+      trackProductEvent('funnel_publish_attempted', { guest: true, source: 'free_text' });
+    }
 
     const matchedPain = matchPainPointFromText(trimmed);
 

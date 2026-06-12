@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { resolveOAuthCallbackUrl } from '@/lib/app-base-url';
+import { recordAuthenticatedProductEvent } from '@/lib/product-analytics';
 import { getSupabaseBrowser } from '@/lib/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 
@@ -163,6 +164,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Redirect to dashboard only when user just signed in from /login or /signup (not from homepage /).
         // Visiting / with an existing session was incorrectly redirecting because some clients fire SIGNED_IN on session restore.
         if (event === 'SIGNED_IN') {
+          void recordAuthenticatedProductEvent('user_signed_in', {
+            provider: session.user.app_metadata?.provider ?? 'unknown',
+          });
           const path = typeof window !== 'undefined' ? window.location.pathname : '';
           const isLoginOrSignupPage = path === '/login' || path === '/signup' || (path.startsWith('/auth/') && path !== '/auth/callback');
           if (isLoginOrSignupPage) router.push('/dashboard');

@@ -1,13 +1,14 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { trackProductEvent } from '@/lib/product-analytics';
 
 type AuthModalType = 'login' | 'signup' | null;
 
 const AuthModalContext = createContext<{
   modal: AuthModalType;
-  openLogin: () => void;
-  openSignup: () => void;
+  openLogin: (source?: string | React.SyntheticEvent) => void;
+  openSignup: (source?: string | React.SyntheticEvent) => void;
   closeModal: () => void;
 }>({
   modal: null,
@@ -19,8 +20,16 @@ const AuthModalContext = createContext<{
 export function AuthModalProvider({ children }: { children: React.ReactNode }) {
   const [modal, setModal] = useState<AuthModalType>(null);
 
-  const openLogin = useCallback(() => setModal('login'), []);
-  const openSignup = useCallback(() => setModal('signup'), []);
+  const openLogin = useCallback((source?: string | React.SyntheticEvent) => {
+    const resolved = typeof source === 'string' ? source : 'unknown';
+    trackProductEvent('signin_modal_opened', { source: resolved });
+    setModal('login');
+  }, []);
+  const openSignup = useCallback((source?: string | React.SyntheticEvent) => {
+    const resolved = typeof source === 'string' ? source : 'unknown';
+    trackProductEvent('signup_modal_opened', { source: resolved });
+    setModal('signup');
+  }, []);
   const closeModal = useCallback(() => setModal(null), []);
 
   return (
