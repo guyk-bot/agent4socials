@@ -23,6 +23,7 @@ import {
   Hash,
 } from 'lucide-react';
 import { PricingPlansGrid } from '@/components/landing/pricing';
+import { LandingHashScroll } from '@/components/landing/LandingHashScroll';
 import { PricingSectionTracker } from '@/components/landing/PricingSectionTracker';
 import { PRICING_YEARLY_DISCOUNT_PERCENT, PRO_PLAN_PRICING, STANDARD_PLAN_PRICING } from '@/lib/pricing/constants';
 
@@ -63,12 +64,13 @@ export default function Home() {
 
   return (
     <div className="min-h-screen funnel-page overflow-x-hidden">
+      <LandingHashScroll />
       <SiteHeader />
       <main>
         <ChatHero />
 
         {/* FEATURES - glassmorphism cards, neon accents */}
-        <section id="features" className="relative border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28">
+        <section id="features" className="relative scroll-mt-24 border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28">
           <div className="pointer-events-none absolute inset-0">
             <div className="absolute right-0 top-1/2 -translate-y-1/2 h-[500px] w-[500px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(124, 58, 237,0.25)_0%,transparent_65%)]" />
           </div>
@@ -101,7 +103,7 @@ export default function Home() {
         </section>
 
         {/* HOW IT WORKS - step cards with glow */}
-        <section id="how-it-works" className="relative border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28 overflow-hidden">
+        <section id="how-it-works" className="relative scroll-mt-24 border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28 overflow-hidden">
           <div className="pointer-events-none absolute inset-0">
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[700px] rounded-full bg-[radial-gradient(circle,rgba(124, 58, 237,0.25),transparent_65%)]" />
           </div>
@@ -133,7 +135,7 @@ export default function Home() {
         </section>
 
         {/* PRODUCT DETAIL - glass cards */}
-        <section id="product" className="relative border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28 overflow-hidden">
+        <section id="product" className="relative scroll-mt-24 border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28 overflow-hidden">
           <div className="pointer-events-none absolute inset-0">
             <div className="absolute -left-20 top-1/2 -translate-y-1/2 h-[400px] w-[400px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.08)_0%,transparent_65%)]" />
           </div>
@@ -186,7 +188,7 @@ export default function Home() {
         </section>
 
         {/* PRICING */}
-        <section id="pricing" className="relative border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28 overflow-hidden">
+        <section id="pricing" className="relative scroll-mt-24 border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28 overflow-hidden">
           <div className="pointer-events-none absolute inset-0">
             <div className="absolute left-1/2 bottom-0 -translate-x-1/2 h-[400px] w-[800px] rounded-full bg-[radial-gradient(circle,rgba(124, 58, 237,0.3),transparent_65%)]" />
           </div>
@@ -211,7 +213,7 @@ export default function Home() {
         </section>
 
         {/* FAQ */}
-        <section id="faq" className="border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28">
+        <section id="faq" className="scroll-mt-24 border-t border-[rgba(124, 58, 237, 0.2)] py-20 sm:py-28">
           <div className="mx-auto max-w-3xl px-4 sm:px-6">
             <div className="text-center mb-14">
               <h2 className="text-[28px] sm:text-4xl font-bold tracking-[-0.02em] text-[var(--text-primary)]">Frequently asked questions</h2>

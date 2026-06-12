@@ -9,6 +9,7 @@ import { BrandWordmark } from '@/components/BrandWordmark';
 import { IzopGlassLogo } from '@/components/IzopGlassLogo';
 import { BRAND_NAME } from '@/lib/site-brand-assets';
 import { trackProductEvent } from '@/lib/product-analytics';
+import { scrollToLandingSection } from '@/lib/landing-section-scroll';
 
 const navLinks = [
   { href: '/#features', label: 'Features' },
@@ -29,6 +30,28 @@ export default function SiteHeader() {
     return `funnel-nav-link rounded-lg px-2 py-1.5 text-sm font-medium transition-colors ${isActive ? 'is-active' : ''}`;
   };
 
+  const handleSectionNavClick = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    href: string,
+    analyticsSource: string
+  ) => {
+    const hashIndex = href.indexOf('#');
+    if (hashIndex < 0) return;
+
+    const hash = href.slice(hashIndex);
+    if (pathname === '/') {
+      event.preventDefault();
+      if (window.location.hash !== hash) {
+        window.history.pushState(null, '', hash);
+      }
+      scrollToLandingSection(hash, 'smooth');
+    }
+
+    if (hash.includes('pricing')) {
+      trackProductEvent('nav_pricing_clicked', { source: analyticsSource });
+    }
+  };
+
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-50 funnel-nav">
@@ -46,11 +69,7 @@ export default function SiteHeader() {
                 key={link.href}
                 href={link.href}
                 className={navLinkClass(link.href)}
-                onClick={() => {
-                  if (link.href.includes('pricing')) {
-                    trackProductEvent('nav_pricing_clicked', { source: 'header_desktop' });
-                  }
-                }}
+                onClick={(event) => handleSectionNavClick(event, link.href, 'header_desktop')}
               >
                 {link.label}
               </Link>
@@ -94,11 +113,9 @@ export default function SiteHeader() {
               <Link
                 key={link.href}
                 href={link.href}
-                onClick={() => {
+                onClick={(event) => {
                   setMobileOpen(false);
-                  if (link.href.includes('pricing')) {
-                    trackProductEvent('nav_pricing_clicked', { source: 'header_mobile' });
-                  }
+                  handleSectionNavClick(event, link.href, 'header_mobile');
                 }}
                 className={`${navLinkClass(link.href)} py-3 px-3`}
               >
