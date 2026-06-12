@@ -5,8 +5,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { MessageCircle, PlusSquare, Calendar, Menu, Sun, Moon, Megaphone, type LucideIcon } from 'lucide-react';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
-import { IzopGlassLogo } from '@/components/IzopGlassLogo';
-import { BRAND_NAME, BRAND_HEADER_BG, normalizeLegacyBrandName, siteLogoSrcForAppHeader } from '@/lib/site-brand-assets';
+import { BRAND_NAME, BRAND_HEADER_BG, normalizeLegacyBrandName, SITE_LOGO_DARK_SRC, siteLogoSrcForAppHeader } from '@/lib/site-brand-assets';
 import { useTheme } from '@/context/ThemeContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAuth } from '@/context/AuthContext';
@@ -24,8 +23,8 @@ type TopNavItem = {
   badgeKey?: 'inbox';
   /** Small line above the label (e.g. Ads → Coming soon / Ads). */
   stackedTop?: string;
-  /** Glass metaball mark instead of Lucide icon (iZop AI chat). */
-  glassNavIcon?: boolean;
+  /** Brand mark instead of Lucide icon (iZop AI chat). */
+  brandNavIcon?: boolean;
 };
 
 export const topNavItems: TopNavItem[] = [
@@ -33,7 +32,7 @@ export const topNavItems: TopNavItem[] = [
   { icon: PlusSquare, label: 'Composer', href: '/composer' },
   { icon: Calendar, label: 'Calendar', href: '/calendar' },
   { icon: Megaphone, label: 'Ads', href: '/dashboard/ads', stackedTop: 'Coming soon' },
-  { glassNavIcon: true, label: `${BRAND_NAME} AI`, href: '/dashboard/aysop-ai' },
+  { brandNavIcon: true, label: `${BRAND_NAME} AI`, href: '/dashboard/aysop-ai' },
 ];
 
 function TopNavItemContent({
@@ -66,8 +65,9 @@ function TopNavItemContent({
 
   return (
     <>
-      {item.glassNavIcon ? (
-        <IzopGlassLogo alt="" variant="nav" showSparkle className="shrink-0" />
+      {item.brandNavIcon ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={SITE_LOGO_DARK_SRC} alt="" className="h-[18px] w-[18px] shrink-0 object-contain" aria-hidden />
       ) : item.icon ? (
         <item.icon size={18} className="shrink-0" aria-hidden />
       ) : null}
@@ -307,8 +307,9 @@ export default function AppHeader() {
                     </>
                   ) : (
                     <>
-                      {item.glassNavIcon ? (
-                        <IzopGlassLogo alt="" variant="nav" showSparkle className="shrink-0" />
+                      {item.brandNavIcon ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={SITE_LOGO_DARK_SRC} alt="" className="h-[18px] w-[18px] shrink-0 object-contain" aria-hidden />
                       ) : item.icon ? (
                         <item.icon size={18} className="shrink-0" aria-hidden />
                       ) : null}

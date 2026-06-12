@@ -7,7 +7,7 @@ export function isLegacyProductBrandName(name: string): boolean {
   return n === 'agent4socials' || n === 'izop';
 }
 
-/** Map stored legacy names (Agent4socials, Izop, izop, etc.) to {@link BRAND_NAME}. */
+/** Map stored legacy names (Agent4socials, Izop, etc.) to {@link BRAND_NAME}. */
 export function normalizeLegacyBrandName(name: string): string {
   return isLegacyProductBrandName(name) ? BRAND_NAME : name.trim();
 }
@@ -22,40 +22,38 @@ export const BRAND_HEADER_BG = BRAND_PAGE_BG;
 export const BRAND_CHROME_TEXT = '#FFFFFF';
 
 /** Bumped when shared logo mark assets change (cache bust for browsers and CDNs). */
-export const SITE_LOGO_V = '63';
+export const SITE_LOGO_V = '65';
 
-/** Glass header mark (metaball logo with sparkle). */
-export const IZOP_GLASS_MARK_PATH = '/izop-glass-mark.png';
-export const IZOP_GLASS_MARK_SRC = `${IZOP_GLASS_MARK_PATH}?v=${SITE_LOGO_V}`;
+/** Canonical brand mark: white Z + lime green dot on black (filled, not outline). */
+export const BRAND_MARK_PATH = '/logo-mark-dark.png';
 
 /** Funnel header + chat hero logo box (keep in sync). */
 export const SITE_HEADER_LOGO_CLASS = 'h-6 w-6 sm:h-7 sm:w-7 shrink-0 object-contain';
 
-/** Funnel chat hero mark (beside "Hi, I'm iZop" and AI messages). */
+/** Funnel chat hero mark (beside "Hi, I'm iZop" and AI messages). Squircle crop of the same mark. */
 export const CHAT_HERO_LOGO_PATH = '/chat-hero-logo.png';
 export const CHAT_HERO_LOGO_SRC = `${CHAT_HERO_LOGO_PATH}?v=${SITE_LOGO_V}`;
 
 /** Static path for next/image (no query string; see next.config images.localPatterns). */
-export const SITE_LOGO_PATH = '/logo-mark.png';
+export const SITE_LOGO_PATH = BRAND_MARK_PATH;
 
-/** White mark for dark app chrome (headers, loaders). */
-export const SITE_LOGO_DARK_PATH = '/logo-mark-dark.png';
+/** Same filled mark on black (legacy alias). */
+export const SITE_LOGO_DARK_PATH = BRAND_MARK_PATH;
 
 /** Primary UI logo with cache bust (use on <img>, not next/image). */
-export const SITE_LOGO_SRC = `${SITE_LOGO_PATH}?v=${SITE_LOGO_V}`;
+export const SITE_LOGO_SRC = `${BRAND_MARK_PATH}?v=${SITE_LOGO_V}`;
 
-/** White UI logo for dark mode with cache bust. */
-export const SITE_LOGO_DARK_SRC = `${SITE_LOGO_DARK_PATH}?v=${SITE_LOGO_V}`;
+/** Brand mark for headers, funnel, and dark chrome. */
+export const SITE_LOGO_DARK_SRC = `${BRAND_MARK_PATH}?v=${SITE_LOGO_V}`;
 
-/** App chrome logo: white mark on the black dashboard header; light mark elsewhere. */
-export function siteLogoSrcForTheme(theme: 'light' | 'dark'): string {
-  return theme === 'dark' ? SITE_LOGO_DARK_SRC : SITE_LOGO_SRC;
+/** App chrome logo: always the green-dot mark. */
+export function siteLogoSrcForTheme(_theme: 'light' | 'dark'): string {
+  return SITE_LOGO_DARK_SRC;
 }
 
-/** Official iZop header (black bar) always uses the white mark. */
-export function siteLogoSrcForAppHeader(theme: 'light' | 'dark', onBlackChrome = false): string {
-  if (onBlackChrome) return SITE_LOGO_DARK_SRC;
-  return siteLogoSrcForTheme(theme);
+/** Official iZop header (black bar) always uses the green-dot mark. */
+export function siteLogoSrcForAppHeader(_theme: 'light' | 'dark', _onBlackChrome = false): string {
+  return SITE_LOGO_DARK_SRC;
 }
 
 /** SVG variant of the same mark. */
