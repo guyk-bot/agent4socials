@@ -4,6 +4,7 @@ import {
   STANDARD_PLAN_HIGHLIGHTS,
 } from '@/lib/pricing/plan-marketing';
 import { PRO_PLAN_PRICING, STANDARD_PLAN_PRICING } from '@/lib/pricing/constants';
+import { landingChatLinksKnowledgeBlock } from '@/lib/landing-chat-links';
 
 /** Where users open a support ticket (same as Help → Support). */
 export const LANDING_CHAT_SUPPORT_URL = 'https://www.izop.ai/help#support-ticket';
@@ -38,5 +39,6 @@ export function landingChatKnowledgeBlock(): string {
     'Billing: no credit card for Free. Upgrade or cancel anytime from dashboard settings.',
     'Signup: Google or email. After signup, Connect links each social account securely.',
     `Support: ${LANDING_CHAT_SUPPORT_URL} — typical response within 24 hours.`,
+    landingChatLinksKnowledgeBlock(),
   ].join('\n');
 }

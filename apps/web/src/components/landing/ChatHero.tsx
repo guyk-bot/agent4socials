@@ -15,6 +15,7 @@ import {
   YoutubeIcon,
 } from '@/components/SocialPlatformIcons';
 import { CHAT_HERO_LOGO_SRC } from '@/lib/site-brand-assets';
+import { FunnelChatRichText } from '@/components/landing/FunnelChatRichText';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
 import { trackProductEvent } from '@/lib/product-analytics';
 import {
@@ -325,7 +326,7 @@ function AiMessage({
         {typewriter ? (
           <TypewriterText text={text} active={!!typewriterActive} onComplete={onTypewriterComplete} />
         ) : (
-          text
+          <FunnelChatRichText text={text} />
         )}
       </p>
     </div>

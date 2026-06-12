@@ -1,4 +1,5 @@
 import { LANDING_CHAT_ADS_REPLY, LANDING_CHAT_SUPPORT_FALLBACK } from '@/lib/landing-chat-knowledge';
+import { answerLandingChatLinkRequest } from '@/lib/landing-chat-links';
 import { PRO_PLAN_PRICING, STANDARD_PLAN_PRICING } from '@/lib/pricing/constants';
 
 export type ChatHeroPlatformId =
@@ -176,6 +177,8 @@ export function answerLandingChatPriority(ctx: LandingChatContext): string | nul
   if (asksAboutAds(ctx.text)) {
     return LANDING_CHAT_ADS_REPLY;
   }
+  const linkReply = answerLandingChatLinkRequest(ctx.text);
+  if (linkReply) return linkReply;
   if (wantsFunnelInAppAction(ctx.text) && !isBrandContextFunnelStep(ctx) && !ctx.connectedAccountId) {
     const namesFromMessage = ctx.matchedPlatforms.map(platformLabel);
     const namesSelected = selectedLabels(ctx.selectedPlatformIds);

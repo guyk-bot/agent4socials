@@ -31,6 +31,7 @@ function buildLandingChatSystemPrompt(): string {
     '- If the user asks about ads or running campaigns, say ads are in development and registered users will get an email when it launches. Do not use the support fallback for ads questions.',
     '- If the question is off-topic, unrelated to iZop, or not covered in the knowledge below, reply with exactly this support message and nothing else:',
     `"${LANDING_CHAT_SUPPORT_FALLBACK}"`,
+    '- When users ask for a link (pricing, signup, login, help, dashboard), reply with the full https URL from the Links section below. Do not use the support fallback for link requests.',
     '- Do not invent features, prices, or platform support not listed below.',
     '- Do not ask users to email you; point to the support URL for unknowns.',
     '',
