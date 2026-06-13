@@ -578,68 +578,79 @@ export default function AysopAiWorkspace() {
     };
   }, []);
 
-  const handleNewChat = async () => {
+  const handleNewChat = () => {
     if (creatingNewChat) return; // Prevent duplicate clicks
     
     setCreatingNewChat(true);
-    try {
-      // Save current chat if it has content
-      const prevId = activeIdRef.current;
-      const prevMsgs = [...messagesRef.current];
-      if (prevId && prevMsgs.length > 0) {
-        pendingPersistRef.current = { id: prevId, messages: prevMsgs };
-        await flushPersist();
+
+    // Create temporary offline session IMMEDIATELY for instant UI
+    const tempSession = makeOfflineSession();
+    
+    // Clear current state and show new chat instantly
+    setMessages([]);
+    messagesRef.current = [];
+    clearLastActiveChatId(user?.id);
+    setPanelResetKey((k) => k + 1);
+
+    // Remove any existing empty "New chat" sessions and add this one IMMEDIATELY
+    setSessions((prev) => {
+      const filtered = prev.filter(s => !(s.title === 'New chat' && !sessionHasConversation(s, user?.id)));
+      const updated = [tempSession, ...filtered];
+      writeCachedSessionList(user?.id, updated);
+      return updated;
+    });
+    
+    // Set as active IMMEDIATELY
+    setActiveId(tempSession.id);
+    activeIdRef.current = tempSession.id;
+    router.replace('/dashboard/aysop-ai', { scroll: false });
+
+    // Now handle server session creation in background
+    void (async () => {
+      try {
+        // Save previous chat if needed
+        const prevId = activeIdRef.current;
+        const prevMsgs = [...messagesRef.current];
+        if (prevId && prevMsgs.length > 0 && prevId !== tempSession.id) {
+          pendingPersistRef.current = { id: prevId, messages: prevMsgs };
+          await flushPersist();
+        }
+
+        // Create server session
+        const serverSession = await createSession();
+        
+        // Replace temp session with server session
+        setSessions((prev) => {
+          const updated = prev.map(s => 
+            s.id === tempSession.id 
+              ? {
+                  id: serverSession.id,
+                  title: 'New chat',
+                  updatedAt: serverSession.updatedAt,
+                  createdAt: serverSession.createdAt,
+                  preview: null,
+                }
+              : s
+          );
+          writeCachedSessionList(user?.id, updated);
+          return updated;
+        });
+        
+        // Update active session reference
+        if (activeIdRef.current === tempSession.id) {
+          setActiveId(serverSession.id);
+          activeIdRef.current = serverSession.id;
+          writeLastActiveChatId(user?.id, serverSession.id);
+          router.replace(`/dashboard/aysop-ai?c=${encodeURIComponent(serverSession.id)}`, { scroll: false });
+        }
+        
+      } catch (error) {
+        console.error('Failed to create server session:', error);
+        // Keep the offline session if server fails
+      } finally {
+        setCreatingNewChat(false);
       }
-
-      // Clear current state immediately
-      setMessages([]);
-      messagesRef.current = [];
-      clearLastActiveChatId(user?.id);
-      setPanelResetKey((k) => k + 1);
-
-      // Create new server session
-      const session = await createSession();
-      
-      // Create session summary
-      const newSession: AysopChatSessionSummary = {
-        id: session.id,
-        title: 'New chat',
-        updatedAt: session.updatedAt,
-        createdAt: session.createdAt,
-        preview: null,
-      };
-
-      // Remove any existing empty "New chat" sessions and add this one
-      setSessions((prev) => {
-        const filtered = prev.filter(s => !(s.title === 'New chat' && !sessionHasConversation(s, user?.id)));
-        const updated = [newSession, ...filtered];
-        writeCachedSessionList(user?.id, updated);
-        return updated;
-      });
-      
-      // Set as active immediately
-      setActiveId(session.id);
-      activeIdRef.current = session.id;
-      writeLastActiveChatId(user?.id, session.id);
-      router.replace(`/dashboard/aysop-ai?c=${encodeURIComponent(session.id)}`, { scroll: false });
-      
-    } catch (error) {
-      console.error('Failed to create new chat:', error);
-      // Fallback to offline chat
-      const offline = makeOfflineSession();
-      setSessions((prev) => {
-        const updated = [offline, ...prev];
-        writeCachedSessionList(user?.id, updated);
-        return updated;
-      });
-      setMessages([]);
-      messagesRef.current = [];
-      setActiveId(offline.id);
-      activeIdRef.current = offline.id;
-      router.replace('/dashboard/aysop-ai', { scroll: false });
-    } finally {
-      setCreatingNewChat(false);
-    }
+    })();
   };
 
   const handleSelect = (id: string) => {
