@@ -125,7 +125,7 @@ async function createGreetingWithActions(ctx: AysopToolContext): Promise<{ reply
   }, ctx);
   return {
     reply: 'Hi! What would you like to do?',
-    artifacts,
+    artifacts: artifacts ?? [],
   };
 }
 
@@ -147,7 +147,7 @@ export async function tryMediaActionFastPath(
     const { artifacts } = await runAysopTool('show_quick_actions', { actions: ['Show Analytics', 'Check Inbox', 'Create Post'] }, ctx);
     return {
       reply: 'Got it. What would you like to do?',
-      artifacts,
+      artifacts: artifacts ?? [],
     };
   }
 

@@ -1714,7 +1714,7 @@ export async function runAysopTool(
           action: mappedAction.action,
           style: 'secondary' as const,
         };
-      }).filter(Boolean);
+      }).filter((action): action is { type: 'button'; label: string; action: string; style: 'secondary' } => action !== null);
 
       return {
         result: { actionsShown: true, actionCount: quickActions.length },
