@@ -114,6 +114,7 @@ export default function AysopAiWorkspace() {
   const [activeId, setActiveId] = useState<string | null>(instantBoot.activeId);
   const [messages, setMessages] = useState<ChatMessage[]>(instantBoot.messages);
   const newChatIntentRef = useRef(false);
+  const loadGenerationRef = useRef(0);
 
   const initRef = useRef(false);
   const messagesRef = useRef<ChatMessage[]>(instantBoot.messages);
@@ -131,6 +132,7 @@ export default function AysopAiWorkspace() {
   }, [messages]);
 
   useLayoutEffect(() => {
+    if (newChatIntentRef.current) return;
     if (!user?.id || !activeId) return;
     if (messages.length > 0) return;
     const cached = readCachedMessages(user.id, activeId);
@@ -144,10 +146,19 @@ export default function AysopAiWorkspace() {
     activeIdRef.current = activeId;
   }, [activeId]);
 
-  const visibleSessions = useMemo(
-    () => visibleChatSessions(sessions, user?.id),
-    [sessions, user?.id]
-  );
+  const visibleSessions = useMemo(() => {
+    const base = visibleChatSessions(sessions, user?.id);
+    if (!activeId || base.some((s) => s.id === activeId)) return base;
+    const hit = sessions.find((s) => s.id === activeId);
+    const activeSummary: AysopChatSessionSummary = hit ?? {
+      id: activeId,
+      title: 'New chat',
+      preview: null,
+      updatedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    };
+    return [activeSummary, ...base];
+  }, [sessions, user?.id, activeId]);
 
   const cacheSessionList = useCallback(
     (next: AysopChatSessionSummary[]) => {
@@ -321,8 +332,9 @@ export default function AysopAiWorkspace() {
 
   const loadSession = useCallback(
     async (id: string, opts?: { background?: boolean }): Promise<boolean> => {
+      const gen = loadGenerationRef.current;
       const cached = (readCachedMessages(user?.id, id) ?? []) as ChatMessage[];
-      if (!opts?.background) {
+      if (!opts?.background && gen === loadGenerationRef.current) {
         setMessages(cached);
         messagesRef.current = cached;
       }
@@ -333,7 +345,7 @@ export default function AysopAiWorkspace() {
         const serverMessages = (res.data.session.messages ?? []) as ChatMessage[];
         let best = pickBestStoredMessages(cached, serverMessages) as ChatMessage[];
         if (best.length === 0 && cached.length > 0) best = cached;
-        if (activeIdRef.current === id) {
+        if (activeIdRef.current === id && gen === loadGenerationRef.current) {
           setMessages(best);
           messagesRef.current = best;
         }
@@ -361,7 +373,7 @@ export default function AysopAiWorkspace() {
           }
           return false;
         }
-        if (!opts?.background && cached.length) {
+        if (!opts?.background && cached.length && gen === loadGenerationRef.current) {
           setMessages(cached);
           messagesRef.current = cached;
         }
@@ -414,7 +426,7 @@ export default function AysopAiWorkspace() {
         ? chatParam
         : pickRestoreChatId(user.id, cachedList));
 
-    if (instantId) {
+    if (instantId && !newChatIntentRef.current) {
       setActiveId(instantId);
       activeIdRef.current = instantId;
       const cachedMsgs = (readCachedMessages(user.id, instantId) ?? []) as ChatMessage[];
@@ -560,11 +572,20 @@ export default function AysopAiWorkspace() {
   }, []);
 
   const handleNewChat = () => {
+    console.log('[DEBUG] New chat clicked');
     newChatIntentRef.current = true;
+    loadGenerationRef.current += 1;
     setPanelResetKey((k) => k + 1);
 
     const prevId = activeIdRef.current;
     const prevMsgs = [...messagesRef.current];
+
+    if (persistDebounceRef.current) {
+      clearTimeout(persistDebounceRef.current);
+      persistDebounceRef.current = null;
+    }
+
+    clearLastActiveChatId(user?.id);
 
     setSessions((prev) => {
       const kept = prev.filter((s) => sessionHasConversation(s, user?.id));
@@ -574,17 +595,44 @@ export default function AysopAiWorkspace() {
 
     setMessages([]);
     messagesRef.current = [];
-    startEphemeralChat();
+    const tempOfflineId = startEphemeralChat();
 
-    if (prevId && prevMsgs.length > 0) {
-      pendingPersistRef.current = { id: prevId, messages: prevMsgs };
-      void flushPersist();
-    }
+    void (async () => {
+      if (prevId && prevMsgs.length > 0) {
+        pendingPersistRef.current = { id: prevId, messages: prevMsgs };
+        await flushPersist();
+      }
+      if (!newChatIntentRef.current) return;
+
+      try {
+        const session = await createSession();
+        if (!newChatIntentRef.current) return;
+
+        writeCachedMessages(user?.id, session.id, []);
+        setMessages([]);
+        messagesRef.current = [];
+
+        const summary = sessionSummaryFromDetail({ ...session, messages: [] });
+        setSessions((prev) => {
+          const rest = prev.filter((s) => s.id !== summary.id && s.id !== tempOfflineId);
+          const merged = [summary, ...rest];
+          cacheSessionList(merged);
+          return merged;
+        });
+        setActiveChat(session.id);
+      } catch {
+        if (newChatIntentRef.current && activeIdRef.current === tempOfflineId) {
+          /* keep ephemeral offline chat */
+        }
+      }
+    })();
   };
 
   const handleSelect = (id: string) => {
+    console.log('[DEBUG] Chat selected:', id, 'current:', activeIdRef.current);
     if (id === activeIdRef.current || actionLockRef.current) return;
     newChatIntentRef.current = false;
+    loadGenerationRef.current += 1;
     setPanelResetKey((k) => k + 1);
 
     const prevId = activeIdRef.current;
@@ -694,6 +742,7 @@ export default function AysopAiWorkspace() {
           m.role === 'user' && (m.content.trim() || (m.attachments?.length ?? 0) > 0)
       );
       if (hasUserMessage) {
+        newChatIntentRef.current = false;
         upsertSessionSummary(summary);
       }
 
