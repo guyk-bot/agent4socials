@@ -16,6 +16,7 @@ import { shouldShowBrandContextOnboarding } from '@/lib/ai/brand-context-onboard
 import { formatAppSurfaceCatalog } from '@/lib/ai/aysop-artifacts';
 import {
   buildOpenAiUserContent,
+  lastUserMessageHasImages,
   threadHasImages,
   type AysopChatInputMessage,
 } from '@/lib/ai/aysop-openai-messages';
@@ -34,12 +35,14 @@ import {
   buildCasualAysopSystemPrompt,
   instantCasualAysopReply,
   isCasualAysopChatMessage,
+  tryMediaActionFastPath,
+  userResolvedMediaBrandChoice,
 } from '@/lib/ai/aysop-chat-fast-path';
 
 export type { AysopChatInputMessage };
 
 const MAX_TOOL_ROUNDS = 6;
-const MIN_MS_BEFORE_LLM = 12_000;
+const MIN_MS_BEFORE_LLM = 8_000;
 
 function timeLeftMs(deadlineMs: number): number {
   return deadlineMs - Date.now();
@@ -137,13 +140,16 @@ function buildSystemPrompt(
   workspaceCatalog: string,
   hasConnectedAccounts: boolean = false,
   needsBrandContextOnboarding: boolean = false,
-  hasMediaAttachments: boolean = false
+  hasMediaAttachments: boolean = false,
+  resolvedMediaBrandChoice: boolean = false
 ): string {
   let brandContextSection = brandContextBlock;
   
   if (!brandContextBlock) {
-    if (needsBrandContextOnboarding && hasMediaAttachments) {
-      brandContextSection = `Brand context: not set up yet. URGENT: User uploaded media without brand context. Call collect_contextual_brand_info immediately to gather post context and offer brand setup. ${hasConnectedAccounts ? 'User has connected accounts, so offer automatic analysis.' : 'Guide through manual questions.'}`;
+    if (needsBrandContextOnboarding && hasMediaAttachments && !resolvedMediaBrandChoice) {
+      brandContextSection = `Brand context: not set up yet. User uploaded media without brand context. Call collect_contextual_brand_info once (buttons only). Write ONE short reply: acknowledge the upload, ask topic/audience/tone, mention the buttons below. ${hasConnectedAccounts ? 'User has connected accounts, so offer automatic analysis if they choose setup.' : ''}`;
+    } else if (needsBrandContextOnboarding && hasMediaAttachments && resolvedMediaBrandChoice) {
+      brandContextSection = 'Brand context: not set up yet. User already chose an action from the media upload buttons. Do NOT call collect_contextual_brand_info again. If they chose to create the post, use prepare_platform_post_drafts or open_composer_draft with their uploaded media URLs from the thread.';
     } else if (needsBrandContextOnboarding) {
       brandContextSection = `Brand context: not set up yet. IMPORTANT: Proactively recommend brand context setup using show_brand_context_onboarding when the user first starts chatting or asks about content creation. ${hasConnectedAccounts ? 'This user has connected accounts, so offer automatic setup assistance.' : 'Guide them through manual setup questions.'}`;
     } else {
@@ -280,6 +286,11 @@ export async function runAysopChat(args: {
     return { reply: instantReply, artifacts: [] };
   }
 
+  const mediaFast = await tryMediaActionFastPath(args.messages, args.ctx);
+  if (mediaFast) {
+    return mediaFast;
+  }
+
   const cachedAccounts = accountsFromWorkspaces(args.ctx.workspaces);
   const [accounts, userRow] = await Promise.all([
     cachedAccounts ??
@@ -297,8 +308,9 @@ export async function runAysopChat(args: {
   const brandBlock = formatBrandContextForPrompt(userRow?.brandContext ?? null);
   const hasConnectedAccounts = accounts.length > 0;
   const needsBrandContextOnboarding = shouldShowBrandContextOnboarding(userRow?.brandContext as any);
-  const hasMediaAttachments = threadHasImages(args.messages) || 
+  const hasMediaAttachments = threadHasImages(args.messages) ||
     args.messages.some(m => m.attachments?.some(a => a.kind === 'video'));
+  const resolvedMediaBrandChoice = userResolvedMediaBrandChoice(args.messages);
   
   const contextNote =
     (args.contextOmittedCount ?? 0) > 0
@@ -315,7 +327,8 @@ export async function runAysopChat(args: {
           formatWorkspaceCatalog(args.ctx.workspaces, args.ctx.activeBrand ?? null),
           hasConnectedAccounts,
           needsBrandContextOnboarding,
-          hasMediaAttachments
+          hasMediaAttachments,
+          resolvedMediaBrandChoice
         ) + contextNote,
     },
     ...args.messages.map((m) => {
@@ -332,9 +345,9 @@ export async function runAysopChat(args: {
     process.env.OPENAI_CHAT_VISION_MODEL?.trim() ||
     'gpt-4.1-mini';
   const visionModel = getAysopOpenRouterApiKey() ? toOpenRouterModel(visionModelRaw) : visionModelRaw;
-  const chatOptions = threadHasImages(args.messages)
-    ? { max_tokens: 700, model: visionModel, providerScope: 'aysop' as const }
-    : { max_tokens: 512, providerScope: 'aysop' as const };
+  const chatOptions = lastUserMessageHasImages(args.messages)
+    ? { max_tokens: 550, model: visionModel, providerScope: 'aysop' as const }
+    : { max_tokens: 480, providerScope: 'aysop' as const };
 
   if (isCasualAysopChatMessage(args.messages)) {
     const casualThread = [

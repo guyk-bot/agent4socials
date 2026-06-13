@@ -12,3 +12,14 @@ export function quickReplyMessageForAction(action: string): string | null {
       return null;
   }
 }
+
+export const AYSOP_QUICK_REPLY_MESSAGES = [
+  'Set up brand context',
+  'Continue without brand context',
+  'Continue without setup',
+  'Just create this post',
+] as const;
+
+export function isAysopQuickReplyMessage(text: string): boolean {
+  return (AYSOP_QUICK_REPLY_MESSAGES as readonly string[]).includes(text.trim());
+}
