@@ -130,7 +130,6 @@ export default function AysopAiWorkspace() {
   const actionLockRef = useRef(false);
   const [panelResetKey, setPanelResetKey] = useState(0);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [creatingNewChat, setCreatingNewChat] = useState(false);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -579,10 +578,6 @@ export default function AysopAiWorkspace() {
   }, []);
 
   const handleNewChat = () => {
-    if (creatingNewChat) return; // Prevent duplicate clicks
-    
-    setCreatingNewChat(true);
-
     // Create temporary offline session IMMEDIATELY for instant UI
     const tempSession = makeOfflineSession();
     
@@ -592,10 +587,9 @@ export default function AysopAiWorkspace() {
     clearLastActiveChatId(user?.id);
     setPanelResetKey((k) => k + 1);
 
-    // Remove any existing empty "New chat" sessions and add this one IMMEDIATELY
+    // Add this new chat to the list IMMEDIATELY (keep existing ones)
     setSessions((prev) => {
-      const filtered = prev.filter(s => !(s.title === 'New chat' && !sessionHasConversation(s, user?.id)));
-      const updated = [tempSession, ...filtered];
+      const updated = [tempSession, ...prev];
       writeCachedSessionList(user?.id, updated);
       return updated;
     });
@@ -608,10 +602,10 @@ export default function AysopAiWorkspace() {
     // Now handle server session creation in background
     void (async () => {
       try {
-        // Save previous chat if needed
-        const prevId = activeIdRef.current;
+        // Save previous chat if needed (but not the temp session we just created)
+        const prevId = sessions.find(s => s.id === activeIdRef.current && s.id !== tempSession.id)?.id;
         const prevMsgs = [...messagesRef.current];
-        if (prevId && prevMsgs.length > 0 && prevId !== tempSession.id) {
+        if (prevId && prevMsgs.length > 0) {
           pendingPersistRef.current = { id: prevId, messages: prevMsgs };
           await flushPersist();
         }
@@ -647,8 +641,6 @@ export default function AysopAiWorkspace() {
       } catch (error) {
         console.error('Failed to create server session:', error);
         // Keep the offline session if server fails
-      } finally {
-        setCreatingNewChat(false);
       }
     })();
   };
@@ -782,8 +774,7 @@ export default function AysopAiWorkspace() {
         onDelete={setPendingDeleteId}
         onRename={renameSession}
         side="right"
-        onNewChat={() => void handleNewChat()}
-        newChatDisabled={creatingNewChat}
+        onNewChat={handleNewChat}
       />
       <ConfirmModal
         open={pendingDeleteId !== null}
