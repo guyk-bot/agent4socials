@@ -12,6 +12,7 @@ import {
 } from '@/lib/ai/aysop-tools';
 import { prisma } from '@/lib/db';
 import { formatBrandContextForPrompt } from '@/lib/ai/brand-context-prompt';
+import { shouldShowBrandContextOnboarding } from '@/lib/ai/brand-context-onboarding';
 import { formatAppSurfaceCatalog } from '@/lib/ai/aysop-artifacts';
 import {
   buildOpenAiUserContent,
@@ -133,8 +134,23 @@ function formatAccountCatalog(
 function buildSystemPrompt(
   accountCatalog: string,
   brandContextBlock: string | null,
-  workspaceCatalog: string
+  workspaceCatalog: string,
+  hasConnectedAccounts: boolean = false,
+  needsBrandContextOnboarding: boolean = false,
+  hasMediaAttachments: boolean = false
 ): string {
+  let brandContextSection = brandContextBlock;
+  
+  if (!brandContextBlock) {
+    if (needsBrandContextOnboarding && hasMediaAttachments) {
+      brandContextSection = `Brand context: not set up yet. URGENT: User uploaded media without brand context. Call collect_contextual_brand_info immediately to gather post context and offer brand setup. ${hasConnectedAccounts ? 'User has connected accounts, so offer automatic analysis.' : 'Guide through manual questions.'}`;
+    } else if (needsBrandContextOnboarding) {
+      brandContextSection = `Brand context: not set up yet. IMPORTANT: Proactively recommend brand context setup using show_brand_context_onboarding when the user first starts chatting or asks about content creation. ${hasConnectedAccounts ? 'This user has connected accounts, so offer automatic setup assistance.' : 'Guide them through manual setup questions.'}`;
+    } else {
+      brandContextSection = 'Brand context: not set yet. If the user asks about their brand voice or product, suggest they fill in AI Assistant under Brand context.';
+    }
+  }
+
   return [
     `You are ${BRAND_NAME} AI, the social media copilot inside the ${BRAND_NAME} dashboard.`,
     'You help creators manage all connected platforms from this chat: connect accounts, posts, scheduling, inbox replies, and analytics.',
@@ -143,7 +159,7 @@ function buildSystemPrompt(
     '',
     accountCatalog,
     '',
-    brandContextBlock ?? 'Brand context: not set yet. If the user asks about their brand voice or product, suggest they fill in AI Assistant under Brand context.',
+    brandContextSection,
     '',
     'Do everything in chat (critical):',
     '- The user should complete tasks here, not by navigating away. Interactive cards in chat have Connect, Reply, Allow, and Schedule buttons.',
@@ -192,6 +208,9 @@ function buildSystemPrompt(
     '- show_app_in_chat: preview only when user explicitly wants a full app page.',
     '',
     'Brand context (critical):',
+    '- ONBOARDING: If brand context is not set up and user starts a conversation (especially about content creation, posting, or asks for help), proactively call show_brand_context_onboarding. Do this early in conversations, not after other tasks.',
+    '- GUIDED SETUP: When user chooses "Set up brand context" from onboarding, call start_guided_brand_setup. Ask one question at a time, fill in their answers using propose_brand_context_update.',
+    '- MEDIA UPLOADS: When user uploads media without sufficient brand context, call collect_contextual_brand_info to gather post-specific context and offer to add to brand context.',
     '- Whenever the user describes a new or changed product, service, target audience, tone, or other brand info (e.g. "I just launched a product that does X", "my audience is now Y", "make my tone more casual"), call propose_brand_context_update with only the fields that change. This shows an editable Approve card. Do NOT say the brand context was updated until they approve; the card handles saving.',
     '- Make surgical edits: only pass the ONE field the user asked about (product change → productDescription only). Copy existing text verbatim; delete or add only the specific sentence or bullet they mentioned. Never pass targetAudience or toneOfVoice unless they explicitly mention audience or tone.',
     '- When they ask what their brand context is or to review it, call get_brand_context.',
@@ -274,6 +293,11 @@ export async function runAysopChat(args: {
   ]);
 
   const brandBlock = formatBrandContextForPrompt(userRow?.brandContext ?? null);
+  const hasConnectedAccounts = accounts.length > 0;
+  const needsBrandContextOnboarding = shouldShowBrandContextOnboarding(userRow?.brandContext as any);
+  const hasMediaAttachments = threadHasImages(args.messages) || 
+    args.messages.some(m => m.attachments?.some(a => a.kind === 'video'));
+  
   const contextNote =
     (args.contextOmittedCount ?? 0) > 0
       ? `\nNote: ${args.contextOmittedCount} older messages from this chat are not in context. Use tools for fresh analytics or posts; the user still sees full history in the UI.`
@@ -286,7 +310,10 @@ export async function runAysopChat(args: {
         buildSystemPrompt(
           formatAccountCatalog(accounts),
           brandBlock,
-          formatWorkspaceCatalog(args.ctx.workspaces, args.ctx.activeBrand ?? null)
+          formatWorkspaceCatalog(args.ctx.workspaces, args.ctx.activeBrand ?? null),
+          hasConnectedAccounts,
+          needsBrandContextOnboarding,
+          hasMediaAttachments
         ) + contextNote,
     },
     ...args.messages.map((m) => {

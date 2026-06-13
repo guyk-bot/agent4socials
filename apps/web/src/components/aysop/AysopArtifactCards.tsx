@@ -186,6 +186,43 @@ export function AysopArtifactCards({
           return <AysopBrandContextUpdateCard key={key} artifact={a} />;
         }
 
+        if (a.type === 'interactive_card') {
+          rendered.add(key);
+          return (
+            <div key={key} className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4">
+              <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-2">{a.title}</h3>
+              <p className="text-sm text-neutral-700 dark:text-neutral-300 mb-4 whitespace-pre-line">{a.body}</p>
+              <div className="flex flex-wrap gap-2">
+                {a.actions.map((action, actionIndex) => (
+                  <button
+                    key={actionIndex}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      action.style === 'primary'
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : 'bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-700 dark:hover:bg-neutral-600 text-neutral-900 dark:text-neutral-100'
+                    }`}
+                    onClick={() => {
+                      // Handle button actions - for now we'll simulate a message
+                      if (action.action === 'brand_setup_start') {
+                        // This would normally trigger the guided setup
+                        console.log('Starting brand context setup...');
+                      } else if (action.action === 'brand_setup_skip') {
+                        console.log('Skipping brand context setup...');
+                      } else if (action.action === 'brand_setup_from_media') {
+                        console.log('Setting up brand context from media...');
+                      } else if (action.action === 'create_post_only') {
+                        console.log('Creating post only...');
+                      }
+                    }}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        }
+
         if (a.type === 'leads') {
           rendered.add(key);
           return <AysopLeadsCard key={key} artifact={a} onScanLeads={onScanLeads} scanning={scanningLeads} />;

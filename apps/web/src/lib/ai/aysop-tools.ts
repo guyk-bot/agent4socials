@@ -52,6 +52,17 @@ import {
   shouldSkipCosmeticRewrite,
   surgicalProductDescriptionUpdate,
 } from '@/lib/brand-context-surgical';
+import {
+  shouldShowBrandContextOnboarding,
+  analyzeBrandContext,
+  generateBrandContextOnboardingMessage,
+  generateMediaUploadBrandPrompt,
+  hasSufficientBrandContext,
+} from '@/lib/ai/brand-context-onboarding';
+import {
+  autoFillBrandContextFromAccounts,
+  getBrandContextSetupQuestions,
+} from '@/lib/ai/brand-context-auto-fill';
 
 export type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 
@@ -75,6 +86,27 @@ async function loadBrandContext(userId: string): Promise<Record<string, string>>
     out[key] = typeof v === 'string' ? v : '';
   }
   return out;
+}
+
+function getFieldPrompt(fieldKey: string): string {
+  switch (fieldKey) {
+    case 'productDescription':
+      return 'What product or service do you offer? Describe what you do and what makes you unique.';
+    case 'targetAudience':
+      return 'Who is your ideal customer or audience? (e.g., small business owners, fitness enthusiasts, young professionals)';
+    case 'toneOfVoice':
+      return 'How should I communicate for your brand? (e.g., professional, friendly, casual, authoritative, fun)';
+    case 'toneExamples':
+      return 'Can you provide 2-3 example phrases or sentences that match your brand voice?';
+    case 'additionalContext':
+      return 'Any other important details about your brand, values, or messaging guidelines?';
+    case 'inboxReplyExamples':
+      return 'How do you typically respond to comments or messages? Provide 2-3 example replies.';
+    case 'commentReplyExamples':
+      return 'How do you respond to comments on your posts? Show me your style with a few examples.';
+    default:
+      return 'Please provide details for this field.';
+  }
 }
 
 export type AysopToolContext = {
@@ -1007,6 +1039,62 @@ export const AYSOP_TOOL_DEFINITIONS = [
   {
     type: 'function' as const,
     function: {
+      name: 'show_brand_context_onboarding',
+      description:
+        'Show brand context setup recommendation when user has no or minimal brand context. Provides options to set up brand context (with AI assistance if platforms are connected) or continue without setup.',
+      parameters: {
+        type: 'object',
+        properties: {
+          hasConnectedAccounts: {
+            type: 'boolean',
+            description: 'Whether user has connected social media accounts for AI analysis',
+          },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'start_guided_brand_setup',
+      description:
+        'Start guided brand context setup flow. Ask questions to fill brand context fields progressively. Use when user chooses to set up brand context from onboarding.',
+      parameters: {
+        type: 'object',
+        properties: {
+          autoFillFromAccounts: {
+            type: 'boolean',
+            description: 'Whether to attempt auto-filling from connected account analysis',
+          },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'collect_contextual_brand_info',
+      description:
+        'Collect brand context from user when they upload media without brand setup. Ask about post topic and target audience, then offer to add to brand context.',
+      parameters: {
+        type: 'object',
+        properties: {
+          mediaType: {
+            type: 'string',
+            enum: ['image', 'video'],
+            description: 'Type of media uploaded',
+          },
+        },
+        required: ['mediaType'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
       name: 'open_workspace_page',
       description:
         'Open a workspace page card in chat with a button: Brand, Leads, Team members, Support, or Brainstorm. Use when the user asks to open one of these pages and a richer in-chat tool (scan_leads, propose_brand_context_update, show_support_options) does not apply.',
@@ -1580,6 +1668,189 @@ export async function runAysopTool(
           note: 'Support card shown in chat with Send feedback, Open a ticket, and Schedule a Zoom call buttons.',
         },
         artifacts: [{ type: 'support_options', href: '/dashboard/support' }],
+      };
+    }
+
+    case 'show_brand_context_onboarding': {
+      const hasConnectedAccounts = Boolean(args.hasConnectedAccounts);
+      const setupBenefit = hasConnectedAccounts
+        ? 'I can analyze your connected accounts to help set this up automatically'
+        : 'This will help me create better captions and understand your brand';
+
+      return {
+        result: { onboardingShown: true, hasConnectedAccounts },
+        artifacts: [
+          {
+            type: 'interactive_card',
+            title: 'Set up brand context',
+            body: `I recommend setting up your brand context for better AI assistance. ${setupBenefit}.`,
+            actions: [
+              {
+                type: 'button',
+                label: '✨ Set up brand context',
+                action: 'brand_setup_start',
+                style: 'primary',
+              },
+              {
+                type: 'button',
+                label: 'Continue without setup',
+                action: 'brand_setup_skip',
+                style: 'secondary',
+              },
+            ],
+          },
+        ],
+      };
+    }
+
+    case 'start_guided_brand_setup': {
+      const autoFillFromAccounts = Boolean(args.autoFillFromAccounts);
+      const current = await loadBrandContext(ctx.userId);
+      
+      // Check what fields are missing
+      const missingFields = BRAND_CONTEXT_FIELDS.filter(field => 
+        !String(current[field.key] ?? '').trim()
+      );
+
+      if (missingFields.length === 0) {
+        return {
+          result: { alreadyComplete: true },
+          artifacts: [
+            {
+              type: 'text_block',
+              title: 'Brand context complete',
+              body: 'Your brand context is already set up! You can review or update it anytime.',
+              href: '/dashboard/brand',
+              hrefLabel: 'Review Brand Context',
+            },
+          ],
+        };
+      }
+
+      // Try auto-fill if requested
+      let autoFillResult = null;
+      if (autoFillFromAccounts) {
+        try {
+          autoFillResult = await autoFillBrandContextFromAccounts(ctx.userId);
+        } catch (error) {
+          console.error('[Brand setup auto-fill]', error);
+        }
+      }
+
+      const setupQuestions = await getBrandContextSetupQuestions(ctx.userId, current);
+      
+      if (autoFillResult?.success) {
+        // We have high-confidence auto-fill data
+        return {
+          result: {
+            setupStarted: true,
+            autoFillSuccess: true,
+            autoFillConfidence: autoFillResult.confidence,
+            sources: autoFillResult.sources,
+          },
+          artifacts: [
+            {
+              type: 'brand_context_update',
+              changes: Object.entries(autoFillResult.brandContext)
+                .filter(([_, value]) => value)
+                .map(([field, value]) => ({
+                  field,
+                  label: BRAND_CONTEXT_FIELDS.find(f => f.key === field)?.label || field,
+                  current: current[field] || '',
+                  proposed: value as string,
+                })),
+            },
+          ],
+        };
+      } else {
+        // Manual setup or low confidence auto-fill
+        const nextField = setupQuestions.nextQuestion;
+        if (!nextField) {
+          return {
+            result: { setupComplete: true },
+            artifacts: [
+              {
+                type: 'text_block',
+                title: 'Setup complete',
+                body: 'Your brand context setup is complete!',
+              },
+            ],
+          };
+        }
+
+        const confidence = autoFillResult?.confidence || 0;
+        const autoFillNote = confidence > 0 && confidence < 90 
+          ? `\n\n*I analyzed your connected accounts but only found ${confidence}% confidence data. I'll ask you questions to fill in the details manually.*`
+          : '';
+
+        return {
+          result: {
+            setupStarted: true,
+            nextField: nextField.field,
+            autoFillFromAccounts,
+            remainingFields: missingFields.length,
+            autoFillConfidence: confidence,
+          },
+          artifacts: [
+            {
+              type: 'text_block',
+              title: 'Brand context setup',
+              body: `Let's set up your brand context! I'll ask you a few questions to understand your business better.
+
+**${BRAND_CONTEXT_FIELDS.find(f => f.key === nextField.field)?.label}**: ${nextField.prompt}${autoFillNote}`,
+            },
+          ],
+        };
+      }
+    }
+
+    case 'collect_contextual_brand_info': {
+      const mediaType = String(args.mediaType ?? 'image') as 'image' | 'video';
+      const current = await loadBrandContext(ctx.userId);
+      
+      const hasMinimalContext = !!current.productDescription?.trim() && 
+                               !!current.targetAudience?.trim();
+
+      if (hasMinimalContext) {
+        return {
+          result: { contextualPrompt: true, hasMinimalContext: true },
+          artifacts: [
+            {
+              type: 'text_block',
+              title: `${mediaType === 'image' ? 'Image' : 'Video'} uploaded`,
+              body: `I see you've uploaded ${mediaType === 'image' ? 'an image' : 'a video'}! What would you like to post about, and who is your target audience for this content?`,
+            },
+          ],
+        };
+      }
+
+      return {
+        result: { contextualPrompt: true, hasMinimalContext: false },
+        artifacts: [
+          {
+            type: 'interactive_card',
+            title: `${mediaType === 'image' ? 'Image' : 'Video'} uploaded`,
+            body: `I see you've uploaded ${mediaType === 'image' ? 'an image' : 'a video'}! To create the best caption, I need to know more about your content.
+
+• What is this post about?
+• Who is your target audience?
+• What tone should I use? (professional, casual, fun, etc.)`,
+            actions: [
+              {
+                type: 'button',
+                label: 'Set up brand context with this info',
+                action: 'brand_setup_from_media',
+                style: 'primary',
+              },
+              {
+                type: 'button',
+                label: 'Just create this post',
+                action: 'create_post_only',
+                style: 'secondary',
+              },
+            ],
+          },
+        ],
       };
     }
 

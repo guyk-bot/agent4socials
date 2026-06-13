@@ -166,7 +166,18 @@ export type AysopArtifact =
       publicUrl: string | null;
       href: string;
     }
-  | { type: 'text_block'; title?: string; body: string; href?: string; hrefLabel?: string };
+  | { type: 'text_block'; title?: string; body: string; href?: string; hrefLabel?: string }
+  | {
+      type: 'interactive_card';
+      title: string;
+      body: string;
+      actions: Array<{
+        type: 'button';
+        label: string;
+        action: string;
+        style: 'primary' | 'secondary';
+      }>;
+    };
 
 export type AppViewId =
   | 'dashboard'
