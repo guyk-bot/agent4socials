@@ -139,11 +139,15 @@ export async function tryMediaActionFastPath(
       { autoFillFromAccounts: hasConnectedAccounts },
       ctx
     );
+    const hasCard = (out.artifacts ?? []).some((a) => a.type === 'brand_context_update');
+    const sources = (out.result as { sources?: string[] })?.sources ?? [];
+    const fallback = hasCard
+      ? sources.length
+        ? `I analyzed ${sources.join(', ')} and filled in a draft below. Review it in chat and tap Approve to save.`
+        : 'Review your brand context below, fill in any blanks, and tap Approve to save.'
+      : "Let's set up your brand context.";
     return {
-      reply: replyFromArtifacts(
-        out.artifacts ?? [],
-        "Let's set up your brand context. Answer the question below and I'll fill it in."
-      ),
+      reply: replyFromArtifacts(out.artifacts ?? [], fallback),
       artifacts: out.artifacts ?? [],
     };
   }

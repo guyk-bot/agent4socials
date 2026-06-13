@@ -61,7 +61,7 @@ import {
 } from '@/lib/ai/brand-context-onboarding';
 import {
   autoFillBrandContextFromAccounts,
-  getBrandContextSetupQuestions,
+  missingBrandContextFieldKeys,
 } from '@/lib/ai/brand-context-auto-fill';
 
 export type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
@@ -1701,10 +1701,9 @@ export async function runAysopTool(
     case 'start_guided_brand_setup': {
       const autoFillFromAccounts = Boolean(args.autoFillFromAccounts);
       const current = await loadBrandContext(ctx.userId);
-      
-      // Check what fields are missing
-      const missingFields = BRAND_CONTEXT_FIELDS.filter(field => 
-        !String(current[field.key] ?? '').trim()
+
+      const missingFields = BRAND_CONTEXT_FIELDS.filter(
+        (field) => !String(current[field.key] ?? '').trim()
       );
 
       if (missingFields.length === 0) {
@@ -1722,7 +1721,6 @@ export async function runAysopTool(
         };
       }
 
-      // Try auto-fill if requested
       let autoFillResult = null;
       if (autoFillFromAccounts) {
         try {
@@ -1732,71 +1730,65 @@ export async function runAysopTool(
         }
       }
 
-      const setupQuestions = await getBrandContextSetupQuestions(ctx.userId, current);
-      
-      if (autoFillResult?.success) {
-        // We have high-confidence auto-fill data
-        return {
-          result: {
-            setupStarted: true,
-            autoFillSuccess: true,
-            autoFillConfidence: autoFillResult.confidence,
-            sources: autoFillResult.sources,
-          },
-          artifacts: [
-            {
-              type: 'brand_context_update',
-              changes: Object.entries(autoFillResult.brandContext)
-                .filter(([_, value]) => value)
-                .map(([field, value]) => ({
-                  field,
-                  label: BRAND_CONTEXT_FIELDS.find(f => f.key === field)?.label || field,
-                  current: current[field] || '',
-                  proposed: value as string,
-                })),
-            },
-          ],
-        };
-      } else {
-        // Manual setup or low confidence auto-fill
-        const nextField = setupQuestions.nextQuestion;
-        if (!nextField) {
-          return {
-            result: { setupComplete: true },
-            artifacts: [
-              {
-                type: 'text_block',
-                title: 'Setup complete',
-                body: 'Your brand context setup is complete!',
-              },
-            ],
-          };
+      const proposed = autoFillResult?.brandContext ?? {};
+      const changes: Array<{ field: string; label: string; current: string; proposed: string }> = [];
+
+      for (const { key, label } of BRAND_CONTEXT_FIELDS) {
+        const cur = String(current[key] ?? '').trim();
+        if (cur) continue;
+        const prop = String(proposed[key as keyof typeof proposed] ?? '').trim();
+        if (prop.length >= 8) {
+          changes.push({ field: key, label, current: cur, proposed: prop });
         }
+      }
 
-        const confidence = autoFillResult?.confidence || 0;
-        const autoFillNote = confidence > 0 && confidence < 90 
-          ? `\n\n*I analyzed your connected accounts but only found ${confidence}% confidence data. I'll ask you questions to fill in the details manually.*`
-          : '';
+      if (!changes.length) {
+        for (const key of missingBrandContextFieldKeys(current, proposed)) {
+          const meta = BRAND_CONTEXT_FIELDS.find((f) => f.key === key);
+          if (!meta) continue;
+          changes.push({
+            field: meta.key,
+            label: meta.label,
+            current: '',
+            proposed: '',
+          });
+        }
+      }
 
+      if (!changes.length) {
         return {
-          result: {
-            setupStarted: true,
-            nextField: nextField.field,
-            autoFillFromAccounts,
-            remainingFields: missingFields.length,
-            autoFillConfidence: confidence,
-          },
+          result: { setupComplete: true },
           artifacts: [
             {
               type: 'text_block',
-              title: 'Brand context setup',
-              body: `Let's set up your brand context! I'll ask you a few questions to understand your business better.
-
-**${BRAND_CONTEXT_FIELDS.find(f => f.key === nextField.field)?.label}**: ${nextField.prompt}${autoFillNote}`,
+              title: 'Brand context complete',
+              body: 'Your brand context is already set up.',
             },
           ],
         };
       }
+
+      const fromAccounts = (autoFillResult?.sources?.length ?? 0) > 0;
+      const analyzedNote = fromAccounts
+        ? `Analyzed: ${autoFillResult!.sources.join(', ')}.`
+        : 'Fill in the fields below. Connect a platform and sync posts for automatic suggestions next time.';
+
+      return {
+        result: {
+          setupStarted: true,
+          autoFillSuccess: autoFillResult?.success ?? false,
+          autoFillConfidence: autoFillResult?.confidence ?? 0,
+          sources: autoFillResult?.sources ?? [],
+          requiresUserApproval: true,
+          note: analyzedNote,
+        },
+        artifacts: [
+          {
+            type: 'brand_context_update',
+            changes,
+          },
+        ],
+      };
     }
 
     case 'collect_contextual_brand_info': {

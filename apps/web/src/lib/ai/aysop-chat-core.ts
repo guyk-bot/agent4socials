@@ -215,7 +215,7 @@ function buildSystemPrompt(
     '',
     'Brand context (critical):',
     '- ONBOARDING: If brand context is not set up and user starts a conversation (especially about content creation, posting, or asks for help), proactively call show_brand_context_onboarding. Do this early in conversations, not after other tasks. Write your recommendation once in your reply; the tool only adds buttons.',
-    '- GUIDED SETUP: When user chooses "Set up brand context" (button or message), call start_guided_brand_setup. Ask one question at a time, fill in their answers using propose_brand_context_update.',
+    '- GUIDED SETUP: When user chooses "Set up brand context" (button or message), call start_guided_brand_setup with autoFillFromAccounts true. This shows an editable Approve card in chat filled from connected accounts. Do not ask setup questions in plain text.',
     '- MEDIA UPLOADS: When user uploads media without sufficient brand context, call collect_contextual_brand_info once. Write ONE reply only: acknowledge the upload once, ask what the post is about, who the audience is, and what tone to use. End by saying they can tap a button below. The tool adds buttons only; never repeat the same upload line twice.',
     '- When user taps or sends "Just create this post", help create the post with their uploaded media. Ask for caption/platform if needed, then use open_composer_draft or prepare_platform_post_drafts (Threads if they asked for Threads).',
     '- When user taps or sends "Continue without setup" or "Continue without brand context", keep helping without brand setup.',

@@ -25,7 +25,7 @@ function platformToFunnelId(platform: Platform): ChatHeroPlatformId {
 
 async function buildThreadsBrandDraft(
   account: { id: string; accessToken: string; expiresAt: Date | null; username: string }
-): Promise<{ draft: BrandContextRecord; source: BrandContextSource; hashtagPool: string[] }> {
+): Promise<{ draft: BrandContextRecord; source: BrandContextSource; hashtagPool: string[]; hasUsableDraft: boolean }> {
   const token = await getValidThreadsToken(account);
   const profile = await fetchThreadsProfile(token);
   const bio = profile?.threads_biography?.trim() ?? '';
@@ -65,7 +65,18 @@ async function buildThreadsBrandDraft(
     draft: synthesized.draft,
     hashtagPool: synthesized.hashtagPool,
     source: synthesized.hasUsableDraft ? 'profile' : 'manual',
+    hasUsableDraft: synthesized.hasUsableDraft,
   };
+}
+
+/** Build brand context draft from a connected Threads account (bio, posts, replies). */
+export async function buildThreadsBrandDraftForAccount(account: {
+  id: string;
+  accessToken: string;
+  expiresAt: Date | null;
+  username: string;
+}) {
+  return buildThreadsBrandDraft(account);
 }
 
 export type FunnelAccountSnapshot = {

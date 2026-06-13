@@ -1,32 +1,154 @@
+import type { Platform } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import type { BrandContextRecord } from '@/lib/brand-context-utils';
-import { openAiChat } from '@/lib/openai-client';
-import { isAysopLlmConfigured } from '@/lib/ai/llm-config';
+import { buildThreadsBrandDraftForAccount } from '@/lib/funnel/build-brand-draft';
+import { synthesizeThreadsBrandContext } from '@/lib/funnel/synthesize-threads-brand';
+import { fetchPageProfile } from '@/lib/facebook/fetchers';
 
 /**
- * Auto-fill brand context from connected account analysis
+ * Auto-fill brand context from connected account profiles and synced posts.
  */
 
 export interface BrandContextAutoFillResult {
   success: boolean;
-  confidence: number; // 0-100
+  confidence: number;
   brandContext: Partial<BrandContextRecord>;
   sources: string[];
   reasoning: string;
 }
 
+const PLATFORM_PRIORITY: Platform[] = [
+  'THREADS',
+  'INSTAGRAM',
+  'FACEBOOK',
+  'TIKTOK',
+  'YOUTUBE',
+  'TWITTER',
+  'LINKEDIN',
+  'PINTEREST',
+];
+
+const BRAND_FIELD_KEYS: (keyof BrandContextRecord)[] = [
+  'productDescription',
+  'targetAudience',
+  'toneOfVoice',
+  'toneExamples',
+  'additionalContext',
+  'inboxReplyExamples',
+  'commentReplyExamples',
+];
+
+type ConnectedAccount = {
+  id: string;
+  platform: Platform;
+  username: string;
+  accessToken: string;
+  expiresAt: Date | null;
+  platformUserId: string;
+};
+
+async function importedPostTexts(accountId: string, limit = 12): Promise<string[]> {
+  const rows = await prisma.importedPost.findMany({
+    where: { socialAccountId: accountId },
+    orderBy: { publishedAt: 'desc' },
+    take: limit,
+    select: { content: true },
+  });
+  return rows.map((r) => r.content?.trim()).filter((t): t is string => Boolean(t));
+}
+
+function mergeBrandDrafts(
+  base: Partial<BrandContextRecord>,
+  next: Partial<BrandContextRecord>
+): Partial<BrandContextRecord> {
+  const out = { ...base };
+  for (const key of BRAND_FIELD_KEYS) {
+    const existing = String(out[key] ?? '').trim();
+    const incoming = String(next[key] ?? '').trim();
+    if (!existing && incoming) {
+      out[key] = incoming;
+    }
+  }
+  return out;
+}
+
+function countFilledFields(draft: Partial<BrandContextRecord>): number {
+  return BRAND_FIELD_KEYS.filter((k) => String(draft[k] ?? '').trim().length >= 8).length;
+}
+
+function draftToAutoFillResult(args: {
+  brandContext: Partial<BrandContextRecord>;
+  sources: string[];
+  confidence: number;
+  reasoning: string;
+}): BrandContextAutoFillResult {
+  const filled = countFilledFields(args.brandContext);
+  return {
+    success: filled >= 2 || String(args.brandContext.productDescription ?? '').trim().length >= 20,
+    confidence: args.confidence,
+    brandContext: args.brandContext,
+    sources: args.sources,
+    reasoning: args.reasoning,
+  };
+}
+
+async function buildFromThreadsAccount(account: ConnectedAccount): Promise<Partial<BrandContextRecord> | null> {
+  try {
+    const built = await buildThreadsBrandDraftForAccount(account);
+    if (!built.hasUsableDraft) return null;
+    return built.draft;
+  } catch (error) {
+    console.warn('[Brand auto-fill] Threads failed:', (error as Error)?.message ?? error);
+    return null;
+  }
+}
+
+async function buildFromFacebookAccount(account: ConnectedAccount): Promise<Partial<BrandContextRecord> | null> {
+  try {
+    const res = await fetchPageProfile(account.platformUserId, account.accessToken);
+    const bio = String(res.data?.about ?? res.data?.category ?? '').trim();
+    const postTexts = await importedPostTexts(account.id);
+    const synthesized = synthesizeThreadsBrandContext({ bio, postTexts, replyTexts: [] });
+    return synthesized.hasUsableDraft ? synthesized.draft : null;
+  } catch (error) {
+    console.warn('[Brand auto-fill] Facebook failed:', (error as Error)?.message ?? error);
+    return null;
+  }
+}
+
+async function buildFromImportedPostsAccount(account: ConnectedAccount): Promise<Partial<BrandContextRecord> | null> {
+  const postTexts = await importedPostTexts(account.id);
+  if (postTexts.length < 2) return null;
+  const bio = account.username ? `@${account.username} on ${account.platform}` : '';
+  const synthesized = synthesizeThreadsBrandContext({ bio, postTexts, replyTexts: [] });
+  return synthesized.hasUsableDraft ? synthesized.draft : null;
+}
+
+async function buildFromAccount(account: ConnectedAccount): Promise<Partial<BrandContextRecord> | null> {
+  if (account.platform === 'THREADS') {
+    return buildFromThreadsAccount(account);
+  }
+  if (account.platform === 'FACEBOOK') {
+    const fb = await buildFromFacebookAccount(account);
+    if (fb) return fb;
+  }
+  return buildFromImportedPostsAccount(account);
+}
+
 /**
- * Analyze connected accounts to auto-fill brand context
+ * Analyze connected accounts to auto-fill brand context from live profile + synced posts.
  */
 export async function autoFillBrandContextFromAccounts(userId: string): Promise<BrandContextAutoFillResult> {
   try {
-    // Get connected accounts
     const accounts = await prisma.socialAccount.findMany({
-      where: { userId },
+      where: { userId, status: 'connected' },
       select: {
         id: true,
         platform: true,
         username: true,
+        accessToken: true,
+        expiresAt: true,
+        platformUserId: true,
       },
     });
 
@@ -36,41 +158,52 @@ export async function autoFillBrandContextFromAccounts(userId: string): Promise<
         confidence: 0,
         brandContext: {},
         sources: [],
-        reasoning: 'No connected accounts found for analysis.',
+        reasoning: 'No connected accounts found.',
       };
     }
 
-    // Extract account information for AI analysis
-    const accountSummaries = accounts.map(account => ({
-      platform: account.platform,
-      username: account.username,
-      // For now, we'll work with basic account info
-      // TODO: Integrate with platform-specific data when available
-      bio: null,
-      followerCount: null,
-    })).filter(summary => summary.username);
+    const byPlatform = new Map(accounts.map((a) => [a.platform, a as ConnectedAccount]));
+    const sources: string[] = [];
+    let merged: Partial<BrandContextRecord> = {};
+    let bestConfidence = 0;
+    const reasoningParts: string[] = [];
 
-    if (!accountSummaries.length) {
-      return {
-        success: false,
-        confidence: 0,
-        brandContext: {},
-        sources: [],
-        reasoning: 'No usable account data found for analysis.',
-      };
+    for (const platform of PLATFORM_PRIORITY) {
+      const account = byPlatform.get(platform);
+      if (!account) continue;
+
+      const draft = await buildFromAccount(account);
+      const label = `${platform}${account.username ? ` (@${account.username})` : ''}`;
+      if (!draft) {
+        reasoningParts.push(`${label}: no usable profile or post data yet`);
+        continue;
+      }
+
+      merged = mergeBrandDrafts(merged, draft);
+      sources.push(label);
+      const confidence = platform === 'THREADS' ? 88 : platform === 'FACEBOOK' ? 78 : 68;
+      bestConfidence = Math.max(bestConfidence, confidence);
+      reasoningParts.push(`${label}: analyzed profile and recent posts`);
     }
 
-    // Use AI to analyze accounts and suggest brand context
-    const aiResult = await analyzAccountsWithAI(accountSummaries);
-    
+    if (countFilledFields(merged) >= 2) {
+      return draftToAutoFillResult({
+        brandContext: merged,
+        sources,
+        confidence: bestConfidence,
+        reasoning: reasoningParts.join('; '),
+      });
+    }
+
     return {
-      success: aiResult.confidence >= 90, // User requested 90% accuracy threshold
-      confidence: aiResult.confidence,
-      brandContext: aiResult.brandContext,
-      sources: accountSummaries.map(a => `${a.platform}${a.username ? ` (@${a.username})` : ''}`),
-      reasoning: aiResult.reasoning,
+      success: false,
+      confidence: bestConfidence,
+      brandContext: merged,
+      sources,
+      reasoning:
+        reasoningParts.join('; ') ||
+        'Connected accounts found but no profile bios or synced posts yet. Open Console to sync posts, then try again.',
     };
-
   } catch (error) {
     console.error('[Auto-fill brand context]', error);
     return {
@@ -83,92 +216,28 @@ export async function autoFillBrandContextFromAccounts(userId: string): Promise<
   }
 }
 
-// TODO: Future enhancement - extract bio and follower data when platform data is stored
-// For now, we'll work with usernames and platform combinations to infer brand context
-
-async function analyzAccountsWithAI(accountSummaries: Array<{
-  platform: string;
-  username: string | null;
-  bio: string | null;
-  followerCount: number | null;
-}>): Promise<{
-  confidence: number;
-  brandContext: Partial<BrandContextRecord>;
-  reasoning: string;
-}> {
-  
-  if (!isAysopLlmConfigured()) {
-    throw new Error('AI model not configured');
-  }
-
-  const accountsText = accountSummaries.map(account => 
-    `${account.platform}${account.username ? ` (@${account.username})` : ''}`
-  ).join(', ');
-
-  const systemPrompt = `You are helping to set up brand context by analyzing social media accounts. 
-
-Based on the user's connected account platforms and usernames, try to infer brand context with HIGH CONFIDENCE ONLY. 
-Only fill fields where you can achieve 90%+ accuracy from the limited data. If uncertain, leave fields empty.
-
-With just platform names and usernames (no bios available), confidence will typically be low unless the username clearly indicates:
-- A business name or brand
-- A specific industry or service
-- A clear professional focus
-
-Respond in JSON format:
-{
-  "confidence": number (0-100),
-  "brandContext": {
-    "productDescription": "string or null",
-    "targetAudience": "string or null", 
-    "toneOfVoice": "string or null",
-    "toneExamples": "string or null",
-    "additionalContext": "string or null"
-  },
-  "reasoning": "explanation of analysis and confidence level"
-}
-
-Rules:
-- With limited data, confidence should typically be 20-40% unless username is very clear
-- Only include fields where confidence is 90%+ based on explicit username indicators
-- Be extremely conservative - better to leave empty than guess incorrectly
-- If no clear brand indicators, return low confidence with empty fields`;
-
-  const userPrompt = `Analyze these connected accounts and extract brand context:
-
-Connected platforms: ${accountsText}
-
-Remember: Only fill fields with 90%+ confidence based on clear username/platform indicators.`;
-
-  try {
-    const response = await openAiChat([
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt }
-    ]);
-
-    const result = JSON.parse(response.content);
-    
-    return {
-      confidence: Math.min(100, Math.max(0, result.confidence || 0)),
-      brandContext: result.brandContext || {},
-      reasoning: result.reasoning || 'AI analysis completed',
-    };
-
-  } catch (error) {
-    console.error('[AI account analysis]', error);
-    return {
-      confidence: 0,
-      brandContext: {},
-      reasoning: 'Failed to analyze accounts with AI',
-    };
-  }
-}
-
 /**
- * Get brand context questions based on what's missing and what can be auto-filled
+ * Fields still missing after auto-fill (for in-chat manual entry card).
  */
+export function missingBrandContextFieldKeys(
+  current: Partial<BrandContextRecord>,
+  proposed: Partial<BrandContextRecord>
+): (keyof BrandContextRecord)[] {
+  const keys: (keyof BrandContextRecord)[] = [
+    'productDescription',
+    'targetAudience',
+    'toneOfVoice',
+    'toneExamples',
+  ];
+  return keys.filter((key) => {
+    const cur = String(current[key] ?? '').trim();
+    const prop = String(proposed[key] ?? '').trim();
+    return !cur && !prop;
+  });
+}
+
 export async function getBrandContextSetupQuestions(
-  userId: string, 
+  userId: string,
   currentBrandContext?: BrandContextRecord | null
 ): Promise<{
   autoFillAvailable: boolean;
@@ -179,36 +248,29 @@ export async function getBrandContextSetupQuestions(
     dependsOnAutoFill: boolean;
   };
 }> {
-  
-  // Try auto-fill first
   const autoFillResult = await autoFillBrandContextFromAccounts(userId);
-  
   const current = currentBrandContext || {};
   const missingFields = [
     { key: 'productDescription', label: 'Product/Service' },
     { key: 'targetAudience', label: 'Target Audience' },
     { key: 'toneOfVoice', label: 'Tone of Voice' },
     { key: 'toneExamples', label: 'Tone Examples' },
-    { key: 'additionalContext', label: 'Additional Context' },
-  ].filter(field => !String(current[field.key as keyof BrandContextRecord] ?? '').trim());
+  ].filter((field) => !String(current[field.key as keyof BrandContextRecord] ?? '').trim());
 
   if (!missingFields.length) {
-    return {
-      autoFillAvailable: false,
-    };
+    return { autoFillAvailable: false };
   }
 
-  // Find next field that wasn't auto-filled or needs manual input
-  let nextField = missingFields.find(field => 
-    !autoFillResult.brandContext[field.key as keyof BrandContextRecord]
-  ) || missingFields[0];
+  const nextField =
+    missingFields.find(
+      (field) => !autoFillResult.brandContext[field.key as keyof BrandContextRecord]
+    ) || missingFields[0];
 
   const questionPrompts: Record<string, string> = {
-    productDescription: "What product or service do you offer? Describe what you do and what makes you unique.",
-    targetAudience: "Who is your ideal customer or audience? (e.g., small business owners, fitness enthusiasts, young professionals)",
-    toneOfVoice: "How should I communicate for your brand? (e.g., professional, friendly, casual, authoritative, fun)",
-    toneExamples: "Can you provide 2-3 example phrases or sentences that match your brand voice?",
-    additionalContext: "Any other important details about your brand, values, or messaging guidelines?",
+    productDescription: 'What product or service do you offer?',
+    targetAudience: 'Who is your ideal customer or audience?',
+    toneOfVoice: 'How should I communicate for your brand?',
+    toneExamples: 'Share 2-3 example phrases that match your brand voice.',
   };
 
   return {
@@ -216,7 +278,7 @@ export async function getBrandContextSetupQuestions(
     autoFillResult: autoFillResult.success ? autoFillResult : undefined,
     nextQuestion: {
       field: nextField.key,
-      prompt: questionPrompts[nextField.key] || `Please provide details for ${nextField.label}`,
+      prompt: questionPrompts[nextField.key] || `Please provide ${nextField.label}`,
       dependsOnAutoFill: false,
     },
   };

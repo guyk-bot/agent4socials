@@ -101,22 +101,27 @@ export function AysopBrandContextUpdateCard({ artifact }: { artifact: Artifact }
     return (
       <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-3 text-sm text-emerald-900 dark:text-emerald-200">
         <p className="flex items-center gap-1.5 font-medium">
-          <Check size={15} /> Brand context updated
+          <Check size={15} /> Brand context saved
         </p>
         <p className="mt-1 text-xs text-emerald-800/80 dark:text-emerald-300/80">
-          Your new brand details now power AI captions, replies, and outreach across the app.
+          Your brand details now power AI captions, replies, and outreach across the app.
         </p>
       </div>
     );
   }
 
+  const isSetup = artifact.changes.every((c) => !c.current.trim());
+
   return (
     <div className="rounded-xl border border-[var(--primary)]/30 bg-white dark:bg-neutral-900 p-3 text-sm">
       <p className="flex items-center gap-1.5 font-semibold text-neutral-900 dark:text-neutral-100">
-        <Sparkles size={15} className="text-[var(--primary)]" /> Update brand context?
+        <Sparkles size={15} className="text-[var(--primary)]" />
+        {isSetup ? 'Set up brand context' : 'Update brand context?'}
       </p>
       <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-        Only the highlighted lines below will change. Edit if needed, then Approve to save.
+        {isSetup
+          ? 'Edit any field below, then tap Approve to save.'
+          : 'Only the highlighted lines below will change. Edit if needed, then Approve to save.'}
       </p>
 
       <div className="mt-3 space-y-3">
