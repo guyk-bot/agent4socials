@@ -119,7 +119,6 @@ export default function AysopAiWorkspace() {
   const [activeId, setActiveId] = useState<string | null>(instantBoot.activeId);
   const [messages, setMessages] = useState<ChatMessage[]>(instantBoot.messages);
   const newChatIntentRef = useRef(false);
-  const newChatInFlightRef = useRef(false);
   const loadGenerationRef = useRef(0);
 
   const initRef = useRef(false);
@@ -131,7 +130,6 @@ export default function AysopAiWorkspace() {
   const actionLockRef = useRef(false);
   const [panelResetKey, setPanelResetKey] = useState(0);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [creatingNewChat, setCreatingNewChat] = useState(false);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -580,15 +578,6 @@ export default function AysopAiWorkspace() {
   }, []);
 
   const handleNewChat = () => {
-    if (newChatInFlightRef.current) {
-      console.log('[DEBUG] New chat blocked - already in flight');
-      return;
-    }
-    
-    console.log('[DEBUG] Starting new chat creation');
-    newChatInFlightRef.current = true;
-    setCreatingNewChat(true);
-
     newChatIntentRef.current = true;
     loadGenerationRef.current += 1;
     setPanelResetKey((k) => k + 1);
@@ -606,31 +595,28 @@ export default function AysopAiWorkspace() {
     setMessages([]);
     messagesRef.current = [];
 
-    (async () => {
+    void (async () => {
       try {
-        console.log('[DEBUG] New chat async started');
         if (prevId && prevMsgs.length > 0) {
           pendingPersistRef.current = { id: prevId, messages: prevMsgs };
           await flushPersist();
         }
-        if (!newChatIntentRef.current) {
-          console.log('[DEBUG] New chat intent cancelled during persist');
-          return;
-        }
+        if (!newChatIntentRef.current) return;
 
-        console.log('[DEBUG] Creating server session');
         const session = await createSession();
-        if (!newChatIntentRef.current) {
-          console.log('[DEBUG] New chat intent cancelled after create');
-          return;
-        }
+        if (!newChatIntentRef.current) return;
 
-        console.log('[DEBUG] Session created:', session.id);
         writeCachedMessages(user?.id, session.id, []);
         setMessages([]);
         messagesRef.current = [];
 
-        const summary = sessionSummaryFromDetail({ ...session, messages: [] });
+        const summary: AysopChatSessionSummary = {
+          id: session.id,
+          title: session.title,
+          updatedAt: session.updatedAt,
+          createdAt: session.createdAt,
+          preview: null,
+        };
         setSessions((prev) => {
           const kept = prev.filter((s) => sessionShouldShowInSidebar(s, user?.id) && sessionHasConversation(s, user?.id));
           const merged = [summary, ...kept.filter((s) => s.id !== summary.id)];
@@ -638,17 +624,11 @@ export default function AysopAiWorkspace() {
           return merged;
         });
         setActiveChat(session.id);
-
-        console.log('[DEBUG] New chat complete');
       } catch (error) {
-        console.error('[DEBUG] New chat error:', error);
+        console.error('[New Chat Error]', error);
         if (newChatIntentRef.current) {
           startEphemeralChat();
         }
-      } finally {
-        console.log('[DEBUG] New chat cleanup');
-        newChatInFlightRef.current = false;
-        setCreatingNewChat(false);
       }
     })();
   };
@@ -786,7 +766,6 @@ export default function AysopAiWorkspace() {
         onRename={renameSession}
         side="right"
         onNewChat={handleNewChat}
-        newChatDisabled={creatingNewChat}
       />
       <ConfirmModal
         open={pendingDeleteId !== null}
