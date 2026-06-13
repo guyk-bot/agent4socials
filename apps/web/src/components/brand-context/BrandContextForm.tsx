@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Sparkles, Loader2, MessageCircle, MessagesSquare } from 'lucide-react';
+import { Loader2, MessageCircle, MessagesSquare } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -179,13 +179,6 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
       .then((res) => {
         const data = parseBrandContextApiPayload(res.data);
         applyBrandContext(data);
-        setMessage({
-          type: 'success',
-          text:
-            isDarkVariant(variant)
-              ? 'Brand context saved.'
-              : 'Brand context saved. You can use "Generate with AI" in the Composer.',
-        });
       })
       .catch((err: { response?: { data?: { message?: string }; status?: number }; message?: string }) => {
         const status = err.response?.status;
@@ -205,11 +198,10 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
             doPut()
               .then((res) => {
                 applyBrandContext(parseBrandContextApiPayload(res.data));
-                setMessage({ type: 'success', text: 'Brand context saved.' });
               })
               .catch((retryErr: { response?: { data?: { message?: string } }; message?: string }) => {
                 const retryMsg = retryErr.response?.data?.message || retryErr.message || msg;
-                setMessage({ type: 'error', text: retryMsg + ' Click "Save brand context" again to retry.' });
+                setMessage({ type: 'error', text: retryMsg + ' Click Save again to retry.' });
               })
               .finally(() => setSaving(false));
           }, 2000);
@@ -217,7 +209,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
         }
         setMessage({
           type: 'error',
-          text: msg + (status === 401 ? '' : ' Click "Save brand context" again to retry.'),
+          text: msg + (status === 401 ? '' : ' Click Save again to retry.'),
         });
       })
       .finally(() => {
@@ -226,7 +218,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
   };
 
   const saveButtonClass =
-    'inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-chrome-text bg-[var(--button)] hover:bg-[var(--button-hover)] disabled:opacity-50';
+    'inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-chrome-text bg-[var(--button)] hover:bg-[var(--button-hover)] disabled:opacity-50 min-w-[88px]';
 
   return (
     <div className={isDarkVariant(variant) ? 'space-y-5' : 'flex flex-col flex-1 min-h-0'}>
@@ -360,12 +352,6 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
           />
         </div>
 
-        <div className={`pt-6 mt-4 border-t ${isDarkVariant(variant) ? 'border-neutral-800' : 'border-gray-100'}`}>
-          <button type="button" onClick={handleSave} disabled={saving} className={saveButtonClass}>
-            {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-            Save brand context
-          </button>
-        </div>
       </div>
 
       <div className={sectionClass(variant)}>
@@ -412,12 +398,6 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
             AI draft replies in the Inbox are disabled until you add examples here and save.
           </p>
         ) : null}
-        <div className={`pt-4 mt-2 border-t ${isDarkVariant(variant) ? 'border-neutral-800' : 'border-gray-100'}`}>
-          <button type="button" onClick={handleSave} disabled={saving} className={saveButtonClass}>
-            {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-            Save
-          </button>
-        </div>
       </div>
 
       <div className={sectionClass(variant)}>
@@ -464,15 +444,15 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
             AI draft replies for comments are disabled until you add examples here and save.
           </p>
         ) : null}
-        <div className={`pt-4 mt-2 border-t ${isDarkVariant(variant) ? 'border-neutral-800' : 'border-gray-100'}`}>
-          <button type="button" onClick={handleSave} disabled={saving} className={saveButtonClass}>
-            {saving ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
-            Save
-          </button>
-        </div>
       </div>
 
       <HashtagPoolSection variant={variant} />
+
+      <div className="flex justify-end pt-2">
+        <button type="button" onClick={handleSave} disabled={saving} className={saveButtonClass}>
+          {saving ? <Loader2 size={18} className="animate-spin" /> : 'Save'}
+        </button>
+      </div>
     </div>
   );
 }

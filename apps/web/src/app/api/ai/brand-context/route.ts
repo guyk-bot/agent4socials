@@ -87,7 +87,10 @@ export async function PUT(request: NextRequest) {
       where: { id: userId },
       select: { brandContext: true },
     });
-    const data = mergeBrandContextOnSave(existing?.brandContext, incoming);
+    const explicitKeys = (Object.keys(body) as (keyof typeof bodySchema)[]).filter(
+      (k) => k in bodySchema
+    );
+    const data = mergeBrandContextOnSave(existing?.brandContext, incoming, explicitKeys);
     await prisma.user.update({
       where: { id: userId },
       data: { brandContext: data as object },

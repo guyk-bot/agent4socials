@@ -139,20 +139,28 @@ export function hasCommentReplyExamples(ctx: unknown): boolean {
 }
 
 /**
- * When the client saves with empty fields (e.g. form not loaded yet), keep existing DB values
- * so inbox/comment-only saves do not wipe brand context.
+ * Merge incoming brand context with existing DB values.
+ * Keys listed in `explicitKeys` are taken from `incoming` as-is (null clears the field).
+ * Other keys keep existing values when incoming is empty (partial saves from iZop AI cards).
  */
 export function mergeBrandContextOnSave(
   previous: unknown,
-  incoming: BrandContextRecord
+  incoming: BrandContextRecord,
+  explicitKeys?: Iterable<keyof BrandContextRecord>
 ): BrandContextRecord {
   const prev = (previous && typeof previous === 'object' ? previous : {}) as BrandContextRecord;
-  const pick = (key: keyof BrandContextRecord, value: string | null): string | null => {
+  const explicit = explicitKeys ? new Set(explicitKeys) : null;
+
+  const pick = (key: keyof BrandContextRecord, value: string | null | undefined): string | null => {
+    if (explicit?.has(key)) {
+      return value ?? null;
+    }
     if (value) return value;
     const existing = prev[key];
     if (typeof existing === 'string' && existing.trim()) return existing.trim();
     return null;
   };
+
   return {
     targetAudience: pick('targetAudience', incoming.targetAudience ?? null),
     toneOfVoice: pick('toneOfVoice', incoming.toneOfVoice ?? null),
