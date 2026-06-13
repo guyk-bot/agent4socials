@@ -457,8 +457,12 @@ export default function AysopAiWorkspace() {
 
       const merged = mergeChatSessionsWithServer(user.id, serverSessions, cachedList);
       if (!newChatIntentRef.current) {
-        setSessions(merged);
-        writeCachedSessionList(user.id, merged);
+        // Ensure proper sorting when setting merged sessions
+        const sortedMerged = merged.sort((a, b) => 
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
+        setSessions(sortedMerged);
+        writeCachedSessionList(user.id, sortedMerged);
       }
       
       // Clear any cached messages for sessions that no longer exist on the server
@@ -587,9 +591,11 @@ export default function AysopAiWorkspace() {
     clearLastActiveChatId(user?.id);
     setPanelResetKey((k) => k + 1);
 
-    // Add this new chat to the list IMMEDIATELY (keep existing ones)
+    // Add this new chat to the TOP of the list with proper sorting
     setSessions((prev) => {
-      const updated = [tempSession, ...prev];
+      const updated = [tempSession, ...prev].sort((a, b) => 
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      );
       writeCachedSessionList(user?.id, updated);
       return updated;
     });
@@ -613,7 +619,7 @@ export default function AysopAiWorkspace() {
         // Create server session
         const serverSession = await createSession();
         
-        // Replace temp session with server session
+        // Replace temp session with server session maintaining proper order
         setSessions((prev) => {
           const updated = prev.map(s => 
             s.id === tempSession.id 
@@ -625,6 +631,8 @@ export default function AysopAiWorkspace() {
                   preview: null,
                 }
               : s
+          ).sort((a, b) => 
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
           );
           writeCachedSessionList(user?.id, updated);
           return updated;
@@ -670,18 +678,30 @@ export default function AysopAiWorkspace() {
     async (id: string) => {
       setPendingDeleteId(null);
 
+      // Delete from server FIRST for real sessions
+      if (!id.startsWith('offline-')) {
+        try {
+          await api.delete(`/ai/aysop-chats/${id}`);
+        } catch (e) {
+          console.warn('Server delete failed for chat', id, e);
+          // If server delete fails, don't proceed with local deletion
+          // This prevents the session from reappearing on refresh
+          return;
+        }
+      }
+
       const wasActive = activeIdRef.current === id;
-      
-      // Immediately remove from UI
+
+      // Now remove from local state and cache
       setSessions((prev) => {
         const filtered = prev.filter((s) => s.id !== id);
         writeCachedSessionList(user?.id, filtered);
         return filtered;
       });
-      
+
       // Clear cached messages
       writeCachedMessages(user?.id, id, []);
-      
+
       // Clear from last active if needed
       if (readLastActiveChatId(user?.id) === id) {
         clearLastActiveChatId(user?.id);
@@ -689,9 +709,15 @@ export default function AysopAiWorkspace() {
 
       // If this was the active chat, switch to another one
       if (wasActive) {
-        const remaining = sessions.filter((s) => s.id !== id);
-        if (remaining.length > 0) {
-          const next = remaining[0];
+        // Find remaining sessions after deletion
+        const currentSessions = sessions.filter((s) => s.id !== id);
+        
+        if (currentSessions.length > 0) {
+          // Sort to ensure we get the most recent chat
+          const sorted = currentSessions.sort((a, b) => 
+            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          );
+          const next = sorted[0];
           setActiveId(next.id);
           activeIdRef.current = next.id;
           const cached = readCachedMessages(user?.id, next.id) || [];
@@ -708,15 +734,6 @@ export default function AysopAiWorkspace() {
           router.replace('/dashboard/aysop-ai', { scroll: false });
         }
         setPanelResetKey((k) => k + 1);
-      }
-
-      // Delete from server (background, ignore errors)
-      if (!id.startsWith('offline-')) {
-        try {
-          await api.delete(`/ai/aysop-chats/${id}`);
-        } catch (e) {
-          console.warn('Server delete failed for chat', id, e);
-        }
       }
     },
     [sessions, user?.id, router]

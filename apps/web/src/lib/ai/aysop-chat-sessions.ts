@@ -132,15 +132,21 @@ export function syncChatSessionsWithServer(
   const serverIds = new Set(serverSessions.map((s) => s.id));
   const cached = readCachedSessionList(userId) ?? [];
 
+  // Clean up cache for deleted sessions
   for (const s of cached) {
     if (!s.id.startsWith('offline-') && !serverIds.has(s.id)) {
       writeCachedMessages(userId, s.id, []);
     }
   }
 
-  const merged = serverSessions.filter((s) => sessionShouldShowInSidebar(s, userId));
+  // Only include server sessions that should show in sidebar, properly sorted
+  const merged = serverSessions
+    .filter((s) => sessionShouldShowInSidebar(s, userId))
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  
   writeCachedSessionList(userId, merged);
 
+  // Clear last active if it was deleted
   const lastId = readLastActiveChatId(userId);
   if (lastId && !lastId.startsWith('offline-') && !serverIds.has(lastId)) {
     clearLastActiveChatId(userId);
@@ -156,11 +162,15 @@ export function mergeChatSessionsWithServer(
 ): AysopChatSessionSummary[] {
   const synced = syncChatSessionsWithServer(userId, serverSessions);
   const map = new Map(synced.map((s) => [s.id, s]));
+  
+  // Only preserve offline sessions that have content
   for (const s of prevSessions) {
     if (s.id.startsWith('offline-') && sessionHasConversation(s, userId)) {
       map.set(s.id, s);
     }
   }
+  
+  // Return properly sorted sessions
   return [...map.values()]
     .filter((s) => sessionShouldShowInSidebar(s, userId))
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
