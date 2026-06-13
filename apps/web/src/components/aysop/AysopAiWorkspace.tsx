@@ -678,21 +678,9 @@ export default function AysopAiWorkspace() {
     async (id: string) => {
       setPendingDeleteId(null);
 
-      // Delete from server FIRST for real sessions
-      if (!id.startsWith('offline-')) {
-        try {
-          await api.delete(`/ai/aysop-chats/${id}`);
-        } catch (e) {
-          console.warn('Server delete failed for chat', id, e);
-          // If server delete fails, don't proceed with local deletion
-          // This prevents the session from reappearing on refresh
-          return;
-        }
-      }
-
       const wasActive = activeIdRef.current === id;
 
-      // Now remove from local state and cache
+      // Immediately remove from local state and cache for instant UX
       setSessions((prev) => {
         const filtered = prev.filter((s) => s.id !== id);
         writeCachedSessionList(user?.id, filtered);
@@ -734,6 +722,17 @@ export default function AysopAiWorkspace() {
           router.replace('/dashboard/aysop-ai', { scroll: false });
         }
         setPanelResetKey((k) => k + 1);
+      }
+
+      // Delete from server in background (after UI is already updated)
+      if (!id.startsWith('offline-')) {
+        try {
+          await api.delete(`/ai/aysop-chats/${id}`, { timeout: 10000 });
+        } catch (e) {
+          console.warn('Server delete failed for chat', id, e);
+          // The session is already gone from UI, so this is just a background cleanup
+          // The server sync logic will handle any inconsistencies on next load
+        }
       }
     },
     [sessions, user?.id, router]
