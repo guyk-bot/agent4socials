@@ -1355,7 +1355,41 @@
   }
 }
 
-/* Header nav: slightly larger than Lucide icons; inherits link color, no glass chrome. */
+/* Header nav: mask icon, same 18px box as Lucide; color from link text. */
+.izop-ai-nav-mark {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  background-color: currentColor;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+}
+
+/* Chat empty state mark (no background box). */
+.izop-ai-outline-mark {
+  display: inline-block;
+  width: 2rem;
+  height: 2rem;
+  background-color: #404040;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+}
+
+[data-theme='dark'] .izop-ai-outline-mark,
+.izop-ai-outline-mark--dark {
+  background-color: #e5e5e5;
+}
+
+/* Legacy izop-glass-logo nav img rules (unused after mask icon). */
 .izop-glass-logo--nav-icon {
   position: relative;
   display: inline-flex;

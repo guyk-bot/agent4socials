@@ -22,7 +22,7 @@ export const BRAND_HEADER_BG = BRAND_PAGE_BG;
 export const BRAND_CHROME_TEXT = '#FFFFFF';
 
 /** Bumped when shared logo mark assets change (cache bust for browsers and CDNs). */
-export const SITE_LOGO_V = '66';
+export const SITE_LOGO_V = '67';
 
 /** iZop AI outline mark (black on light backgrounds). */
 export const IZOP_AI_MARK_DARK_PATH = '/izop-ai-mark-dark.png';
@@ -32,6 +32,14 @@ export const IZOP_AI_MARK_WHITE_PATH = '/izop-ai-mark-white.png';
 
 export const IZOP_AI_MARK_DARK_SRC = `${IZOP_AI_MARK_DARK_PATH}?v=${SITE_LOGO_V}`;
 export const IZOP_AI_MARK_WHITE_SRC = `${IZOP_AI_MARK_WHITE_PATH}?v=${SITE_LOGO_V}`;
+
+/** Transparent line-art mask (header nav, matches Lucide stroke weight). */
+export const IZOP_AI_MARK_MASK_PATH = '/izop-ai-mark-mask.png';
+export const IZOP_AI_MARK_MASK_SRC = `${IZOP_AI_MARK_MASK_PATH}?v=${SITE_LOGO_V}`;
+
+/** Chat empty state mask (slightly finer lines). */
+export const IZOP_AI_MARK_MASK_CHAT_PATH = '/izop-ai-mark-mask-chat.png';
+export const IZOP_AI_MARK_MASK_CHAT_SRC = `${IZOP_AI_MARK_MASK_CHAT_PATH}?v=${SITE_LOGO_V}`;
 
 /** Canonical brand mark: white Z + lime green dot on black (filled, not outline). */
 export const BRAND_MARK_PATH = '/logo-mark-dark.png';

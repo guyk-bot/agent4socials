@@ -1,8 +1,8 @@
 'use client';
 
 import {
-  IZOP_AI_MARK_DARK_SRC,
-  IZOP_AI_MARK_WHITE_SRC,
+  IZOP_AI_MARK_MASK_CHAT_SRC,
+  IZOP_AI_MARK_MASK_SRC,
   SITE_HEADER_LOGO_CLASS,
   SITE_LOGO_DARK_SRC,
 } from '@/lib/site-brand-assets';
@@ -16,7 +16,7 @@ type Props = {
   className?: string;
   /** Pulse animation during OAuth connect. */
   animated?: boolean;
-  /** outline only: light = black mark, dark = white mark */
+  /** outline only: light = dark mark, dark = light mark */
   tone?: 'light' | 'dark';
 };
 
@@ -25,7 +25,7 @@ const sizeClass = {
   md: 'h-8 w-8 sm:h-9 sm:w-9 shrink-0 object-contain',
 } as const;
 
-/** iZop AI nav mark (white outline). Not used for the main app wordmark. */
+/** iZop AI nav mark (mask, inherits header link color). Not used for the main app wordmark. */
 export function IzopGlassLogo({
   alt = 'iZop',
   size = 'sm',
@@ -36,25 +36,25 @@ export function IzopGlassLogo({
 }: Props) {
   if (variant === 'nav') {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={IZOP_AI_MARK_WHITE_SRC}
-        alt={alt}
-        className={`izop-glass-logo__mark-nav ${className}`.trim()}
-        draggable={false}
+      <span
+        className={`izop-ai-nav-mark ${className}`.trim()}
+        style={{ WebkitMaskImage: `url(${IZOP_AI_MARK_MASK_SRC})`, maskImage: `url(${IZOP_AI_MARK_MASK_SRC})` }}
+        role={alt ? 'img' : undefined}
+        aria-label={alt || undefined}
+        aria-hidden={!alt}
       />
     );
   }
 
   if (variant === 'outline') {
-    const src = tone === 'dark' ? IZOP_AI_MARK_WHITE_SRC : IZOP_AI_MARK_DARK_SRC;
+    const maskSrc = IZOP_AI_MARK_MASK_CHAT_SRC;
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={src}
-        alt={alt}
-        className={`h-8 w-8 object-contain ${tone === 'light' ? 'mix-blend-multiply dark:mix-blend-normal' : ''} ${className}`.trim()}
-        draggable={false}
+      <span
+        className={`izop-ai-outline-mark ${tone === 'dark' ? 'izop-ai-outline-mark--dark' : ''} ${className}`.trim()}
+        style={{ WebkitMaskImage: `url(${maskSrc})`, maskImage: `url(${maskSrc})` }}
+        role={alt ? 'img' : undefined}
+        aria-label={alt || undefined}
+        aria-hidden={!alt}
       />
     );
   }
