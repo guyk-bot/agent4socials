@@ -19,7 +19,11 @@ export function MediaUploadProgress({
   const inProgress = isUploadInProgress(state);
   const statusMessage = getStatusMessage(state);
 
-  if (state.stage === 'idle') {
+  // Only show progress for conversion/error states - hide for normal upload flow
+  if (state.stage === 'idle' || 
+      (state.stage === 'validating' && !state.error) || 
+      (state.stage === 'uploading' && !state.result?.wasConverted && !state.error) ||
+      (state.stage === 'complete' && !state.result?.wasConverted && !state.error)) {
     return null;
   }
 

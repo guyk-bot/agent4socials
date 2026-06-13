@@ -443,6 +443,7 @@ export default function ChatHero() {
   const mediaUpload = useMediaUpload({
     platform: selectedPlatforms[0] || connectedPlatform || undefined,
     autoConvert: true,
+    silentSuccess: true,
     onError: (error) => {
       console.error('Media upload error:', error);
     },
@@ -1479,8 +1480,8 @@ export default function ChatHero() {
 
             <div className="mt-3 flex w-full flex-col gap-2">
             
-            {/* Media upload progress */}
-            {mediaUpload.stage !== 'idle' && (
+            {/* Media upload progress - only show for conversion/errors */}
+            {(mediaUpload.stage === 'converting' || mediaUpload.stage === 'error') && (
               <div className="px-3">
                 <MediaUploadProgress 
                   state={mediaUpload} 

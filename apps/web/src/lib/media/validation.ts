@@ -407,9 +407,9 @@ export function getValidationErrorMessage(
   
   if (errorViolations.length === 0) return '';
   
-  // If we can auto-fix, show encouraging message
+  // If we can auto-fix, ask for permission
   if (result.canAutoFix && canConvert) {
-    return `This file needs to be optimized for ${platformName}. We'll automatically adjust it for you.`;
+    return `This file isn't compatible with ${platformName}. Would you like me to convert it for you?`;
   }
   
   // Otherwise, show specific error
@@ -420,16 +420,16 @@ export function getValidationErrorMessage(
       if (violation.message.includes("doesn't support")) {
         return violation.message;
       }
-      return `This file format isn't compatible with ${platformName}. ${canConvert ? "We'll convert it for you." : "Please choose a different file."}`;
+      return `This file format isn't compatible with ${platformName}. ${canConvert ? "Would you like me to convert it?" : "Please choose a different file."}`;
       
     case 'size':
-      return `This file is too large for ${platformName}. ${canConvert ? "We'll compress it for you." : `Maximum size is ${violation.expected}.`}`;
+      return `This file is too large for ${platformName}. ${canConvert ? "Would you like me to reduce the size?" : `Maximum size is ${violation.expected}.`}`;
       
     case 'duration':
       return `This video is too long for ${platformName}. Maximum length is ${violation.expected}.`;
       
     case 'dimensions':
-      return `This file's dimensions are too large for ${platformName}. ${canConvert ? "We'll resize it for you." : `Maximum is ${violation.expected}.`}`;
+      return `This file's dimensions are too large for ${platformName}. ${canConvert ? "Would you like me to resize it?" : `Maximum is ${violation.expected}.`}`;
       
     case 'aspect_ratio':
       return `This video's aspect ratio isn't supported by ${platformName}. Expected ${violation.expected}.`;

@@ -17,6 +17,7 @@ export interface MediaUploadState {
 export interface UseMediaUploadOptions extends UploadOptions {
   onSuccess?: (result: UploadResult) => void;
   onError?: (error: string) => void;
+  silentSuccess?: boolean; // If true, don't show progress for successful uploads
 }
 
 export function useMediaUpload(options: UseMediaUploadOptions = {}) {
@@ -35,15 +36,28 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
 
   const uploadFile = useCallback(async (file: File): Promise<UploadResult | null> => {
     try {
-      updateState({
-        isUploading: true,
-        isValidating: true,
-        stage: 'validating',
-        progress: 0,
-        message: 'Checking file compatibility...',
-        error: undefined,
-        result: undefined,
-      });
+      // Only show validation UI if we're not in silent mode
+      if (!options.silentSuccess) {
+        updateState({
+          isUploading: true,
+          isValidating: true,
+          stage: 'validating',
+          progress: 0,
+          message: 'Checking file compatibility...',
+          error: undefined,
+          result: undefined,
+        });
+      } else {
+        updateState({
+          isUploading: true,
+          isValidating: true,
+          stage: 'idle', // Keep UI hidden
+          progress: 0,
+          message: '',
+          error: undefined,
+          result: undefined,
+        });
+      }
 
       const uploadOptions: UploadOptions = {
         ...options,
@@ -55,14 +69,22 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
               isValidating: false,
               isConverting: true,
               stage: 'converting',
-              message: 'Optimizing file for upload...',
+              message: 'This file isn\'t compatible with your selected platform. Converting it now...',
             });
-          } else if (result.isValid) {
+          } else if (result.isValid && !options.silentSuccess) {
             updateState({
               isValidating: false,
               stage: 'uploading',
               progress: 30,
               message: 'Uploading file...',
+            });
+          } else if (result.isValid && options.silentSuccess) {
+            // File is valid and we want silent upload - keep UI hidden
+            updateState({
+              isValidating: false,
+              stage: 'idle',
+              progress: 0,
+              message: '',
             });
           }
         },
@@ -72,7 +94,7 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
             isConverting: true,
             stage: 'converting',
             progress: 10,
-            message: 'Converting file...',
+            message: 'This file isn\'t compatible with your selected platform. Converting it now...',
           });
         },
         onConversionProgress: (progress: ConversionProgress) => {
@@ -89,8 +111,8 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
           
           const savings = result.compressionRatio * 100;
           const message = savings > 5 
-            ? `File optimized (${savings.toFixed(0)}% smaller). Uploading...`
-            : 'File converted. Uploading...';
+            ? `File optimized (${savings.toFixed(0)}% size reduction). Uploading...`
+            : 'File converted successfully. Uploading...';
             
           updateState({
             isConverting: false,
@@ -103,13 +125,25 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
 
       const result = await uploadMediaFile(file, uploadOptions);
 
-      updateState({
-        isUploading: false,
-        stage: 'complete',
-        progress: 100,
-        message: 'Upload complete!',
-        result,
-      });
+      if (options.silentSuccess && !result.wasConverted) {
+        // Silent success - reset to idle without showing success message
+        updateState({
+          isUploading: false,
+          stage: 'idle',
+          progress: 0,
+          message: '',
+          result,
+        });
+      } else {
+        // Show completion only if there was conversion or not in silent mode
+        updateState({
+          isUploading: false,
+          stage: 'complete',
+          progress: 100,
+          message: result.wasConverted ? 'File optimized and uploaded!' : 'Upload complete!',
+          result,
+        });
+      }
 
       options.onSuccess?.(result);
       return result;
