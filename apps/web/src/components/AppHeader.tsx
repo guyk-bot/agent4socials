@@ -24,7 +24,7 @@ type TopNavItem = {
   badgeKey?: 'inbox';
   /** Small line above the label (e.g. Ads → Coming soon / Ads). */
   stackedTop?: string;
-  /** iZop AI nav mark (white logo + sparkle), not the main app wordmark. */
+  /** iZop AI nav mark (white outline logo), not the main app wordmark. */
   aysopNavIcon?: boolean;
 };
 
@@ -67,7 +67,7 @@ function TopNavItemContent({
   return (
     <>
       {item.aysopNavIcon ? (
-        <IzopGlassLogo alt="" variant="nav" showSparkle className="shrink-0" />
+        <IzopGlassLogo alt="" variant="nav" className="shrink-0" />
       ) : item.icon ? (
         <item.icon size={18} className="shrink-0" aria-hidden />
       ) : null}
@@ -308,7 +308,7 @@ export default function AppHeader() {
                   ) : (
                     <>
                       {item.aysopNavIcon ? (
-                        <IzopGlassLogo alt="" variant="nav" showSparkle className="shrink-0" />
+                        <IzopGlassLogo alt="" variant="nav" className="shrink-0" />
                       ) : item.icon ? (
                         <item.icon size={18} className="shrink-0" aria-hidden />
                       ) : null}

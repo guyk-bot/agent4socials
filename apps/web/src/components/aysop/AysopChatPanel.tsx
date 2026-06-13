@@ -2,7 +2,8 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BRAND_NAME } from '@/lib/site-brand-assets';
-import { Loader2, Paperclip, Send, Sparkles, Square } from 'lucide-react';
+import { Loader2, Paperclip, Send, Square } from 'lucide-react';
+import { IzopGlassLogo } from '@/components/IzopGlassLogo';
 import { ZThinkingLoopAnimation } from '@/components/ZThinkingLoopAnimation';
 import { useTheme } from '@/context/ThemeContext';
 import api, {
@@ -382,11 +383,13 @@ export default function AysopChatPanel({
       >
         {messages.length === 0 ? (
           <div className="text-center py-8 px-4">
-            <Sparkles className="mx-auto text-[var(--primary)] mb-3" size={32} />
+            <IzopGlassLogo
+              alt=""
+              variant="outline"
+              tone={theme === 'dark' ? 'dark' : 'light'}
+              className="mx-auto mb-3"
+            />
             <p className="text-neutral-700 dark:text-neutral-200 font-medium">Your social copilot</p>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1 max-w-md mx-auto">
-              Connect platforms, draft and schedule posts, reply to comments, and pull analytics, all from chat. Attach media with the paperclip.
-            </p>
             <div className="flex flex-wrap justify-center gap-2 mt-6">
               {STARTERS.map((s) => (
                 <button

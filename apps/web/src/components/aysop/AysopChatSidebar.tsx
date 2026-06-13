@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { MessageSquarePlus, Pencil, Trash2 } from 'lucide-react';
-import { BRAND_NAME } from '@/lib/site-brand-assets';
 import {
   groupChatSessions,
   type AysopChatSessionSummary,
@@ -62,11 +61,6 @@ export default function AysopChatSidebar({
       <div className="flex-1 overflow-y-auto p-2 pt-3 space-y-4">
         {loading && sessions.length === 0 ? (
           <p className="text-xs text-neutral-400 dark:text-neutral-500 px-2 py-4">Loading chats…</p>
-        ) : null}
-        {!loading && sessions.length === 0 ? (
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 px-2 py-4 leading-relaxed">
-            Your {BRAND_NAME} AI conversations appear here. Start a new chat to ask about analytics, content, or your brand.
-          </p>
         ) : null}
         {groups.map((group) => (
           <div key={group.label}>

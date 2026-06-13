@@ -22,7 +22,16 @@ export const BRAND_HEADER_BG = BRAND_PAGE_BG;
 export const BRAND_CHROME_TEXT = '#FFFFFF';
 
 /** Bumped when shared logo mark assets change (cache bust for browsers and CDNs). */
-export const SITE_LOGO_V = '65';
+export const SITE_LOGO_V = '66';
+
+/** iZop AI outline mark (black on light backgrounds). */
+export const IZOP_AI_MARK_DARK_PATH = '/izop-ai-mark-dark.png';
+
+/** iZop AI outline mark (white on dark backgrounds / header nav). */
+export const IZOP_AI_MARK_WHITE_PATH = '/izop-ai-mark-white.png';
+
+export const IZOP_AI_MARK_DARK_SRC = `${IZOP_AI_MARK_DARK_PATH}?v=${SITE_LOGO_V}`;
+export const IZOP_AI_MARK_WHITE_SRC = `${IZOP_AI_MARK_WHITE_PATH}?v=${SITE_LOGO_V}`;
 
 /** Canonical brand mark: white Z + lime green dot on black (filled, not outline). */
 export const BRAND_MARK_PATH = '/logo-mark-dark.png';
