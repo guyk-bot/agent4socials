@@ -67,7 +67,7 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
           }
         },
         onConversionStart: () => {
-          options.onConversionStart?.(options.onConversionStart);
+          options.onConversionStart?.();
           updateState({
             isConverting: true,
             stage: 'converting',

@@ -117,6 +117,7 @@ export const PLATFORM_MEDIA_CONSTRAINTS: Record<string, MediaConstraints> = {
     },
     videos: {
       maxSizeBytes: 512 * 1024 * 1024, // 512 MB
+      formats: ['video/mp4', 'video/quicktime', 'video/webm'],
       maxDurationSeconds: 140, // 140 seconds for standard users
     },
   },
