@@ -27,7 +27,6 @@ export async function autoFillBrandContextFromAccounts(userId: string): Promise<
         id: true,
         platform: true,
         username: true,
-        platformData: true,
       },
     });
 
@@ -45,10 +44,11 @@ export async function autoFillBrandContextFromAccounts(userId: string): Promise<
     const accountSummaries = accounts.map(account => ({
       platform: account.platform,
       username: account.username,
-      // Extract relevant data from platformData
-      bio: extractBioFromPlatformData(account.platformData),
-      followerCount: extractFollowerCountFromPlatformData(account.platformData),
-    })).filter(summary => summary.bio || summary.username);
+      // For now, we'll work with basic account info
+      // TODO: Integrate with platform-specific data when available
+      bio: null,
+      followerCount: null,
+    })).filter(summary => summary.username);
 
     if (!accountSummaries.length) {
       return {
@@ -83,37 +83,8 @@ export async function autoFillBrandContextFromAccounts(userId: string): Promise<
   }
 }
 
-function extractBioFromPlatformData(platformData: unknown): string | null {
-  if (!platformData || typeof platformData !== 'object') return null;
-  const data = platformData as Record<string, unknown>;
-  
-  // Try common bio field names across platforms
-  const bioFields = ['biography', 'bio', 'description', 'about', 'summary'];
-  for (const field of bioFields) {
-    const value = data[field];
-    if (typeof value === 'string' && value.trim()) {
-      return value.trim();
-    }
-  }
-  
-  return null;
-}
-
-function extractFollowerCountFromPlatformData(platformData: unknown): number | null {
-  if (!platformData || typeof platformData !== 'object') return null;
-  const data = platformData as Record<string, unknown>;
-  
-  // Try common follower count field names
-  const followerFields = ['follower_count', 'followers_count', 'subscribers', 'fans'];
-  for (const field of followerFields) {
-    const value = data[field];
-    if (typeof value === 'number') {
-      return value;
-    }
-  }
-  
-  return null;
-}
+// TODO: Future enhancement - extract bio and follower data when platform data is stored
+// For now, we'll work with usernames and platform combinations to infer brand context
 
 async function analyzAccountsWithAI(accountSummaries: Array<{
   platform: string;
@@ -131,15 +102,18 @@ async function analyzAccountsWithAI(accountSummaries: Array<{
   }
 
   const accountsText = accountSummaries.map(account => 
-    `${account.platform}${account.username ? ` (@${account.username})` : ''}:
-    ${account.bio ? `Bio: "${account.bio}"` : 'No bio available'}
-    ${account.followerCount ? `Followers: ${account.followerCount.toLocaleString()}` : ''}`
-  ).join('\n\n');
+    `${account.platform}${account.username ? ` (@${account.username})` : ''}`
+  ).join(', ');
 
   const systemPrompt = `You are helping to set up brand context by analyzing social media accounts. 
 
-Based on the user's connected account information, extract brand context details with HIGH CONFIDENCE ONLY. 
-Only fill fields where you can achieve 90%+ accuracy from the provided data. If uncertain, leave fields empty.
+Based on the user's connected account platforms and usernames, try to infer brand context with HIGH CONFIDENCE ONLY. 
+Only fill fields where you can achieve 90%+ accuracy from the limited data. If uncertain, leave fields empty.
+
+With just platform names and usernames (no bios available), confidence will typically be low unless the username clearly indicates:
+- A business name or brand
+- A specific industry or service
+- A clear professional focus
 
 Respond in JSON format:
 {
@@ -155,28 +129,22 @@ Respond in JSON format:
 }
 
 Rules:
-- Only include fields where confidence is 90%+ based on clear, explicit information
-- productDescription: What they offer/do (from bio descriptions)
-- targetAudience: Who they serve (inferrable from bio + platform + content style)
-- toneOfVoice: Communication style (professional, casual, fun, etc.)
-- toneExamples: Specific phrases that demonstrate their voice
-- additionalContext: Any other clear brand information
-- Be conservative - better to leave empty than guess incorrectly`;
+- With limited data, confidence should typically be 20-40% unless username is very clear
+- Only include fields where confidence is 90%+ based on explicit username indicators
+- Be extremely conservative - better to leave empty than guess incorrectly
+- If no clear brand indicators, return low confidence with empty fields`;
 
   const userPrompt = `Analyze these connected accounts and extract brand context:
 
-${accountsText}
+Connected platforms: ${accountsText}
 
-Remember: Only fill fields with 90%+ confidence. Leave uncertain fields as null.`;
+Remember: Only fill fields with 90%+ confidence based on clear username/platform indicators.`;
 
   try {
-    const response = await openAiChat({
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: 0.1, // Low temperature for consistency
-    });
+    const response = await openAiChat([
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ]);
 
     const result = JSON.parse(response.content);
     
