@@ -15,6 +15,7 @@ type Props = {
   onRename?: (id: string, title: string) => void;
   side?: 'left' | 'right';
   onNewChat: () => void;
+  newChatDisabled?: boolean;
 };
 
 export default function AysopChatSidebar({
@@ -25,6 +26,7 @@ export default function AysopChatSidebar({
   onRename,
   side = 'left',
   onNewChat,
+  newChatDisabled = false,
 }: Props) {
   const groups = groupChatSessions(sessions);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -46,7 +48,12 @@ export default function AysopChatSidebar({
       className={`w-[260px] shrink-0 flex flex-col ${borderClass} bg-neutral-50/80 dark:bg-neutral-950 h-full`}
     >
       <div className="shrink-0 border-b border-neutral-200 dark:border-neutral-800 px-2 pt-4 pb-3 space-y-2">
-        <button type="button" onClick={onNewChat} className={navItemClass(false)}>
+        <button 
+          type="button" 
+          onClick={onNewChat} 
+          disabled={newChatDisabled}
+          className={`${navItemClass(false)} ${newChatDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
           <span className="inline-flex items-center gap-2">
             <MessageSquarePlus size={18} className="shrink-0" />
             New chat

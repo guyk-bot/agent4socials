@@ -130,6 +130,7 @@ export default function AysopAiWorkspace() {
   const actionLockRef = useRef(false);
   const [panelResetKey, setPanelResetKey] = useState(0);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [creatingNewChat, setCreatingNewChat] = useState(false);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -578,6 +579,9 @@ export default function AysopAiWorkspace() {
   }, []);
 
   const handleNewChat = async () => {
+    if (creatingNewChat) return; // Prevent duplicate clicks
+    
+    setCreatingNewChat(true);
     try {
       // Save current chat if it has content
       const prevId = activeIdRef.current;
@@ -587,7 +591,7 @@ export default function AysopAiWorkspace() {
         await flushPersist();
       }
 
-      // Clear current state
+      // Clear current state immediately
       setMessages([]);
       messagesRef.current = [];
       clearLastActiveChatId(user?.id);
@@ -596,7 +600,7 @@ export default function AysopAiWorkspace() {
       // Create new server session
       const session = await createSession();
       
-      // Update local state
+      // Create session summary
       const newSession: AysopChatSessionSummary = {
         id: session.id,
         title: 'New chat',
@@ -605,11 +609,15 @@ export default function AysopAiWorkspace() {
         preview: null,
       };
 
-      // Add to sessions list
-      setSessions((prev) => [newSession, ...prev]);
-      writeCachedSessionList(user?.id, [newSession, ...sessions]);
+      // Remove any existing empty "New chat" sessions and add this one
+      setSessions((prev) => {
+        const filtered = prev.filter(s => !(s.title === 'New chat' && !sessionHasConversation(s, user?.id)));
+        const updated = [newSession, ...filtered];
+        writeCachedSessionList(user?.id, updated);
+        return updated;
+      });
       
-      // Set as active
+      // Set as active immediately
       setActiveId(session.id);
       activeIdRef.current = session.id;
       writeLastActiveChatId(user?.id, session.id);
@@ -619,11 +627,18 @@ export default function AysopAiWorkspace() {
       console.error('Failed to create new chat:', error);
       // Fallback to offline chat
       const offline = makeOfflineSession();
+      setSessions((prev) => {
+        const updated = [offline, ...prev];
+        writeCachedSessionList(user?.id, updated);
+        return updated;
+      });
       setMessages([]);
       messagesRef.current = [];
       setActiveId(offline.id);
       activeIdRef.current = offline.id;
       router.replace('/dashboard/aysop-ai', { scroll: false });
+    } finally {
+      setCreatingNewChat(false);
     }
   };
 
@@ -757,6 +772,7 @@ export default function AysopAiWorkspace() {
         onRename={renameSession}
         side="right"
         onNewChat={() => void handleNewChat()}
+        newChatDisabled={creatingNewChat}
       />
       <ConfirmModal
         open={pendingDeleteId !== null}
