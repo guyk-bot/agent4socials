@@ -39,6 +39,7 @@ import {
   parseBrandContextApiPayload,
   writeBrandContextCache,
   writeComposerBrandReadyCache,
+  shouldApplyRemoteBrandContext,
 } from '@/lib/brand-context-utils';
 
 export type CachedPost = {
@@ -751,12 +752,16 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
           api.get<CachedScheduledPost[]>('/posts').then((r) => {
             if (!cancelled && Array.isArray(r.data)) setScheduledPosts(r.data);
           }).catch(() => {}),
-          api.get('/ai/brand-context', { timeout: 30_000 }).then((r) => {
-            if (cancelled || !user?.id) return;
-            const data = parseBrandContextApiPayload(r.data);
-            writeBrandContextCache(data, user.id);
-            writeComposerBrandReadyCache(hasComposerBrandContext(data));
-          }).catch(() => {}),
+          (() => {
+            const fetchStartedAt = Date.now();
+            return api.get('/ai/brand-context', { timeout: 30_000 }).then((r) => {
+              if (cancelled || !user?.id) return;
+              if (!shouldApplyRemoteBrandContext(fetchStartedAt)) return;
+              const data = parseBrandContextApiPayload(r.data);
+              writeBrandContextCache(data, user.id);
+              writeComposerBrandReadyCache(hasComposerBrandContext(data));
+            });
+          })().catch(() => {}),
         ]);
         if (cancelled) return;
         setPrefetchStatus('done');

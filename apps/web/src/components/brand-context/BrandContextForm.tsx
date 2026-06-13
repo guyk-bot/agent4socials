@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, MessageCircle, MessagesSquare } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -12,6 +12,8 @@ import {
   readBrandContextCacheHasContent,
   writeBrandContextCache,
   writeComposerBrandReadyCache,
+  markBrandContextSaved,
+  shouldApplyRemoteBrandContext,
   type BrandContextRecord,
 } from '@/lib/brand-context-utils';
 import HashtagPoolSection from '@/components/brand-context/HashtagPoolSection';
@@ -105,6 +107,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
   const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
+  const fetchAbortRef = useRef<AbortController | null>(null);
 
   const applyBrandContext = useCallback(
     (data: ReturnType<typeof parseBrandContextApiPayload>) => {
@@ -118,13 +121,18 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
 
   useEffect(() => {
     if (!user?.id) return;
+    const fetchStartedAt = Date.now();
     const cached = readBrandContextCache(user.id);
     if (cached) applyBrandContext(cached);
 
+    fetchAbortRef.current?.abort();
     const ctrl = new AbortController();
+    fetchAbortRef.current = ctrl;
     api
       .get('/ai/brand-context', { signal: ctrl.signal, timeout: 30_000 })
       .then((res) => {
+        if (ctrl.signal.aborted) return;
+        if (!shouldApplyRemoteBrandContext(fetchStartedAt)) return;
         setLoadFailed(false);
         applyBrandContext(parseBrandContextApiPayload(res.data));
       })
@@ -167,6 +175,8 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
     }
     setSaving(true);
     setMessage(null);
+    markBrandContextSaved();
+    fetchAbortRef.current?.abort();
     const payload = savePayload();
     if (user?.id) {
       writeBrandContextCache(payload, user.id);
@@ -177,6 +187,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
     const doPut = () => api.put('/ai/brand-context', payload);
     doPut()
       .then((res) => {
+        markBrandContextSaved();
         const data = parseBrandContextApiPayload(res.data);
         applyBrandContext(data);
       })
@@ -197,6 +208,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
           window.setTimeout(() => {
             doPut()
               .then((res) => {
+                markBrandContextSaved();
                 applyBrandContext(parseBrandContextApiPayload(res.data));
               })
               .catch((retryErr: { response?: { data?: { message?: string } }; message?: string }) => {
@@ -219,6 +231,17 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
 
   const saveButtonClass =
     'inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-chrome-text bg-[var(--button)] hover:bg-[var(--button-hover)] disabled:opacity-50 min-w-[88px]';
+
+  const sectionSaveFooterClass = (variant: BrandContextVariant) =>
+    `pt-6 mt-4 border-t flex justify-end ${isDarkVariant(variant) ? 'border-neutral-800' : 'border-gray-100'}`;
+
+  const SectionSaveButton = () => (
+    <div className={sectionSaveFooterClass(variant)}>
+      <button type="button" onClick={handleSave} disabled={saving} className={saveButtonClass}>
+        {saving ? <Loader2 size={18} className="animate-spin" /> : 'Save'}
+      </button>
+    </div>
+  );
 
   return (
     <div className={isDarkVariant(variant) ? 'space-y-5' : 'flex flex-col flex-1 min-h-0'}>
@@ -352,6 +375,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
           />
         </div>
 
+        <SectionSaveButton />
       </div>
 
       <div className={sectionClass(variant)}>
@@ -398,6 +422,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
             AI draft replies in the Inbox are disabled until you add examples here and save.
           </p>
         ) : null}
+        <SectionSaveButton />
       </div>
 
       <div className={sectionClass(variant)}>
@@ -444,15 +469,10 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
             AI draft replies for comments are disabled until you add examples here and save.
           </p>
         ) : null}
+        <SectionSaveButton />
       </div>
 
       <HashtagPoolSection variant={variant} />
-
-      <div className="flex justify-end pt-2">
-        <button type="button" onClick={handleSave} disabled={saving} className={saveButtonClass}>
-          {saving ? <Loader2 size={18} className="animate-spin" /> : 'Save'}
-        </button>
-      </div>
     </div>
   );
 }

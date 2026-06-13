@@ -72,6 +72,18 @@ export function writeBrandContextCache(data: BrandContextRecord, userId: string)
   }
 }
 
+/** When set, in-flight brand-context GETs that started before this time must not overwrite the form or cache. */
+let lastBrandContextSaveAt = 0;
+
+export function markBrandContextSaved(): void {
+  lastBrandContextSaveAt = Date.now();
+}
+
+/** True when a remote fetch started after the latest successful save (safe to apply). */
+export function shouldApplyRemoteBrandContext(fetchStartedAt: number): boolean {
+  return fetchStartedAt >= lastBrandContextSaveAt;
+}
+
 export function clearBrandContextCache(userId?: string | null): void {
   if (typeof window === 'undefined') return;
   try {
