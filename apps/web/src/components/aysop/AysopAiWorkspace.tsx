@@ -674,6 +674,7 @@ export default function AysopAiWorkspace() {
           panelResetKey={panelResetKey}
           messages={messages}
           onMessagesChange={handleMessagesChange}
+          onNewChat={handleNewChat}
         />
       </div>
       <AysopChatSidebar
