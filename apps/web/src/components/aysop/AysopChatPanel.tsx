@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BRAND_NAME } from '@/lib/site-brand-assets';
-import { Loader2, MessageSquarePlus, Paperclip, Send, Square, Star } from 'lucide-react';
+import { Loader2, MessageSquarePlus, Paperclip, Send, Sparkles, Square, Star } from 'lucide-react';
 import { ZThinkingLoopAnimation } from '@/components/ZThinkingLoopAnimation';
 import { useTheme } from '@/context/ThemeContext';
 import api, {
