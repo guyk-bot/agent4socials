@@ -13,8 +13,7 @@ export default function BrandPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-[var(--foreground)]">Brand</h1>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Tell iZop about your product, audience, and voice. This context powers AI captions,
-          replies, and outreach across the app.
+          Describe your product, audience, and voice. iZop uses this for on-brand captions and replies.
         </p>
       </div>
       <BrandContextForm variant="page" />

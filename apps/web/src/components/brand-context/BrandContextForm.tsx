@@ -230,17 +230,12 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
 
   return (
     <div className={isDarkVariant(variant) ? 'space-y-5' : 'flex flex-col flex-1 min-h-0'}>
-      {variant === 'page' ? (
-        <p className={`${bodyTextClass(variant)} mb-4`}>
-          Set your brand context once. Then in the Composer use &quot;Generate with AI&quot; for post descriptions, and
-          use the sparkle button in the Inbox to draft replies.
-        </p>
-      ) : (
+      {variant !== 'page' ? (
         <p className={bodyTextClass(variant)}>
           Teach the AI about your brand voice, audience, reply style, and saved hashtags. Brand and reply settings apply to
           iZop AI, Composer, and Inbox drafts.
         </p>
-      )}
+      ) : null}
 
       {message ? (
         <div className={messageBoxClass(message.type, variant)}>
