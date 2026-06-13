@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BRAND_NAME } from '@/lib/site-brand-assets';
-import { Loader2, MessageSquarePlus, Paperclip, Send, Sparkles, Square, Star } from 'lucide-react';
+import { Loader2, Paperclip, Send, Sparkles, Square } from 'lucide-react';
 import { ZThinkingLoopAnimation } from '@/components/ZThinkingLoopAnimation';
 import { useTheme } from '@/context/ThemeContext';
 import api, {
@@ -54,8 +54,6 @@ type Props = {
   disabled?: boolean;
   /** Bumped when the user switches chats so in-flight requests reset without remounting the panel. */
   panelResetKey?: number;
-  /** Callback for starting a new chat */
-  onNewChat?: () => void;
 };
 
 async function uploadChatFile(
@@ -84,7 +82,6 @@ export default function AysopChatPanel({
   onMessagesChange,
   disabled,
   panelResetKey = 0,
-  onNewChat,
 }: Props) {
   const accountsCache = useAccountsCache();
   const { theme } = useTheme();
@@ -379,34 +376,6 @@ export default function AysopChatPanel({
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      {/* Chat Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--bg-surface)] shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="relative flex items-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img 
-              src="/logo-z-white-mask.png" 
-              alt="iZop"
-              className="h-6 w-6 object-contain"
-              draggable={false}
-            />
-            <Star className="text-[var(--primary)] ml-1" size={12} fill="currentColor" />
-          </div>
-          <h1 className="font-semibold text-[var(--foreground)]">{BRAND_NAME} AI</h1>
-        </div>
-        {onNewChat && (
-          <button
-            type="button"
-            onClick={onNewChat}
-            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg bg-[var(--bg-primary)] hover:bg-[var(--bg-hover)] text-[var(--foreground)] border border-[var(--border)] transition-colors"
-            disabled={disabled}
-          >
-            <MessageSquarePlus size={16} />
-            New chat
-          </button>
-        )}
-      </div>
-      
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-[var(--bg-primary)] min-h-0"
@@ -433,32 +402,51 @@ export default function AysopChatPanel({
             </div>
           </div>
         ) : (
-          messages.map((m) => (
-            <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div
-                className={`max-w-[95%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap ${
-                  m.role === 'user'
-                    ? 'aysop-bubble-user rounded-br-md'
-                    : 'aysop-bubble-assistant rounded-bl-md shadow-sm'
-                }`}
-              >
-                {m.attachments?.length ? (
-                  <AysopMessageAttachments attachments={m.attachments} variant={m.role} />
-                ) : null}
-                {m.content ? <AysopChatMessageContent content={m.content} variant={m.role} /> : null}
-                {m.role === 'assistant' && !m.content?.trim() && m.artifacts?.length ? (
-                  <p className="text-neutral-600 dark:text-neutral-300">Here is what I prepared:</p>
-                ) : null}
-                {m.role === 'assistant' && m.artifacts?.length ? (
-                  <AysopArtifactCards
-                    artifacts={m.artifacts}
-                    onScanLeads={() => void runLeadsScan()}
-                    scanningLeads={scanningLeads}
-                  />
-                ) : null}
+          messages.map((m) => {
+            const userHasMedia = m.role === 'user' && (m.attachments?.length ?? 0) > 0;
+
+            if (userHasMedia) {
+              return (
+                <div key={m.id} className="flex justify-end">
+                  <div className="flex max-w-[95%] flex-col items-end gap-2">
+                    <AysopMessageAttachments attachments={m.attachments!} variant="user" detached />
+                    {m.content ? (
+                      <div className="rounded-2xl rounded-br-md px-4 py-3 text-sm whitespace-pre-wrap aysop-bubble-user">
+                        <AysopChatMessageContent content={m.content} variant="user" />
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`max-w-[95%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap ${
+                    m.role === 'user'
+                      ? 'aysop-bubble-user rounded-br-md'
+                      : 'aysop-bubble-assistant rounded-bl-md shadow-sm'
+                  }`}
+                >
+                  {m.attachments?.length ? (
+                    <AysopMessageAttachments attachments={m.attachments} variant={m.role} />
+                  ) : null}
+                  {m.content ? <AysopChatMessageContent content={m.content} variant={m.role} /> : null}
+                  {m.role === 'assistant' && !m.content?.trim() && m.artifacts?.length ? (
+                    <p className="text-neutral-600 dark:text-neutral-300">Here is what I prepared:</p>
+                  ) : null}
+                  {m.role === 'assistant' && m.artifacts?.length ? (
+                    <AysopArtifactCards
+                      artifacts={m.artifacts}
+                      onScanLeads={() => void runLeadsScan()}
+                      scanningLeads={scanningLeads}
+                    />
+                  ) : null}
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
         {loading ? (
           <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400 text-sm">

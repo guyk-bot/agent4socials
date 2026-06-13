@@ -8,15 +8,17 @@ import { AysopChatVideoPreview } from '@/components/aysop/AysopChatVideoPreview'
 type Props = {
   attachments: AysopChatAttachment[];
   variant?: 'user' | 'assistant';
+  /** User media shown outside the purple bubble (plain image, text in bubble below). */
+  detached?: boolean;
 };
 
-export function AysopMessageAttachments({ attachments, variant = 'user' }: Props) {
+export function AysopMessageAttachments({ attachments, variant = 'user', detached = false }: Props) {
   if (!attachments.length) return null;
 
-  const onDark = variant === 'user';
+  const onDark = variant === 'user' && !detached;
 
   return (
-    <div className={`${variant === 'user' ? 'mt-2' : 'mt-2'} space-y-2`}>
+    <div className="space-y-2">
       {attachments.map((att) => {
         if (att.kind === 'image') {
           return (
@@ -31,11 +33,15 @@ export function AysopMessageAttachments({ attachments, variant = 'user' }: Props
               <img
                 src={att.fileUrl}
                 alt={att.fileName}
-                className={`max-w-full max-h-48 rounded-lg object-contain ${
-                  variant === 'user' 
-                    ? 'bg-white/10 border border-white/20' 
-                    : 'bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700'
-                }`}
+                className={
+                  detached
+                    ? 'max-w-full max-h-48 rounded-lg object-contain'
+                    : `max-w-full max-h-48 rounded-lg object-contain ${
+                        variant === 'user'
+                          ? 'bg-white/10 border border-white/20'
+                          : 'bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700'
+                      }`
+                }
                 style={{ display: 'block' }}
               />
             </a>
