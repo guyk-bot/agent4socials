@@ -411,12 +411,12 @@ export default function AysopChatPanel({
                     : 'aysop-bubble-assistant rounded-bl-md shadow-sm'
                 }`}
               >
+                {m.attachments?.length ? (
+                  <AysopMessageAttachments attachments={m.attachments} variant={m.role} />
+                ) : null}
                 {m.content ? <AysopChatMessageContent content={m.content} variant={m.role} /> : null}
                 {m.role === 'assistant' && !m.content?.trim() && m.artifacts?.length ? (
                   <p className="text-neutral-600 dark:text-neutral-300">Here is what I prepared:</p>
-                ) : null}
-                {m.attachments?.length ? (
-                  <AysopMessageAttachments attachments={m.attachments} variant={m.role} />
                 ) : null}
                 {m.role === 'assistant' && m.artifacts?.length ? (
                   <AysopArtifactCards
