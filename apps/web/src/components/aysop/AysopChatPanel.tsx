@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BRAND_NAME } from '@/lib/site-brand-assets';
-import { Loader2, MessageSquarePlus, Paperclip, Send, Sparkles, Square } from 'lucide-react';
+import { Loader2, MessageSquarePlus, Paperclip, Send, Square, Star } from 'lucide-react';
 import { ZThinkingLoopAnimation } from '@/components/ZThinkingLoopAnimation';
 import { useTheme } from '@/context/ThemeContext';
 import api, {
@@ -382,7 +382,16 @@ export default function AysopChatPanel({
       {/* Chat Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--bg-surface)] shrink-0">
         <div className="flex items-center gap-2">
-          <Sparkles className="text-[var(--primary)]" size={20} />
+          <div className="relative flex items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img 
+              src="/logo-z-white-mask.png" 
+              alt="iZop"
+              className="h-6 w-6 object-contain"
+              draggable={false}
+            />
+            <Star className="text-[var(--primary)] ml-1" size={12} fill="currentColor" />
+          </div>
           <h1 className="font-semibold text-[var(--foreground)]">{BRAND_NAME} AI</h1>
         </div>
         {onNewChat && (
