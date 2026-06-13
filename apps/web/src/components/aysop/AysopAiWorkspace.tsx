@@ -124,6 +124,7 @@ export default function AysopAiWorkspace() {
   const actionLockRef = useRef(false);
   const [panelResetKey, setPanelResetKey] = useState(0);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -442,6 +443,14 @@ export default function AysopAiWorkspace() {
       const merged = mergeChatSessionsWithServer(user.id, serverSessions, cachedList);
       setSessions(merged);
       writeCachedSessionList(user.id, merged);
+      
+      // Clear any cached messages for sessions that no longer exist on the server
+      const serverIds = new Set(serverSessions.map(s => s.id));
+      cachedList.forEach(session => {
+        if (!session.id.startsWith('offline-') && !serverIds.has(session.id)) {
+          writeCachedMessages(user.id, session.id, []);
+        }
+      });
 
       if (funnelImportedChatId) {
         const known = merged.some((s) => s.id === funnelImportedChatId);
@@ -590,42 +599,64 @@ export default function AysopAiWorkspace() {
   };
 
   const executeDelete = useCallback(
-    (id: string) => {
+    async (id: string) => {
       const wasActive = activeIdRef.current === id;
-      writeCachedMessages(user?.id, id, []);
+      
+      // Mark as deleting to prevent race conditions
+      setDeletingIds(prev => new Set(prev).add(id));
+      
+      try {
+        // Clear cached messages immediately
+        writeCachedMessages(user?.id, id, []);
 
-      if (readLastActiveChatId(user?.id) === id) {
-        clearLastActiveChatId(user?.id);
-      }
-
-      let remaining: AysopChatSessionSummary[] = [];
-      setSessions((prev) => {
-        remaining = prev.filter((s) => s.id !== id);
-        cacheSessionList(remaining);
-        return remaining;
-      });
-
-      if (wasActive) {
-        setPanelResetKey((k) => k + 1);
-        const nextVisible = visibleChatSessions(remaining, user?.id);
-        if (nextVisible.length > 0) {
-          const nextId = nextVisible[0]!.id;
-          setMessages([]);
-          messagesRef.current = [];
-          hydrateMessages(nextId);
-          setActiveChat(nextId);
-          void loadSession(nextId, { background: true });
-        } else {
-          startEphemeralChat();
+        if (readLastActiveChatId(user?.id) === id) {
+          clearLastActiveChatId(user?.id);
         }
-      }
 
-      if (!id.startsWith('offline-')) {
-        void api.delete(`/ai/aysop-chats/${id}`).catch((e) => {
-          const status = (e as { response?: { status?: number } })?.response?.status;
-          if (status !== 404) {
-            console.warn('[Aysop] server delete failed; removed chat locally', e);
+        // Delete from server first, before updating local state
+        if (!id.startsWith('offline-')) {
+          try {
+            await api.delete(`/ai/aysop-chats/${id}`);
+          } catch (e) {
+            const status = (e as { response?: { status?: number } })?.response?.status;
+            if (status !== 404) {
+              console.error('[Aysop] Server delete failed for chat', id, e);
+              // Don't proceed with local deletion if server deletion failed
+              return;
+            }
           }
+        }
+
+        // Only update local state after successful server deletion
+        let remaining: AysopChatSessionSummary[] = [];
+        setSessions((prev) => {
+          remaining = prev.filter((s) => s.id !== id);
+          cacheSessionList(remaining);
+          return remaining;
+        });
+
+        if (wasActive) {
+          setPanelResetKey((k) => k + 1);
+          const nextVisible = visibleChatSessions(remaining, user?.id);
+          if (nextVisible.length > 0) {
+            const nextId = nextVisible[0]!.id;
+            setMessages([]);
+            messagesRef.current = [];
+            hydrateMessages(nextId);
+            setActiveChat(nextId);
+            void loadSession(nextId, { background: true });
+          } else {
+            startEphemeralChat();
+          }
+        }
+        
+        setPendingDeleteId(null);
+      } finally {
+        // Remove from deleting set
+        setDeletingIds(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
         });
       }
     },
@@ -686,6 +717,7 @@ export default function AysopAiWorkspace() {
         onRename={renameSession}
         side="right"
         onNewChat={handleNewChat}
+        deletingIds={deletingIds}
       />
       <ConfirmModal
         open={pendingDeleteId !== null}
@@ -697,7 +729,7 @@ export default function AysopAiWorkspace() {
         cancelLabel="Cancel"
         onConfirm={() => {
           const id = pendingDeleteId;
-          if (id) executeDelete(id);
+          if (id) void executeDelete(id);
         }}
       />
     </div>

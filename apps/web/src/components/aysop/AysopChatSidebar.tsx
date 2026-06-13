@@ -17,6 +17,7 @@ type Props = {
   onRename?: (id: string, title: string) => void;
   side?: 'left' | 'right';
   onNewChat: () => void;
+  deletingIds?: Set<string>;
 };
 
 export default function AysopChatSidebar({
@@ -28,6 +29,7 @@ export default function AysopChatSidebar({
   onRename,
   side = 'left',
   onNewChat,
+  deletingIds,
 }: Props) {
   const groups = groupChatSessions(sessions);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -75,8 +77,9 @@ export default function AysopChatSidebar({
               {group.sessions.map((s) => {
                 const active = s.id === activeId;
                 const renaming = renamingId === s.id;
+                const isDeleting = deletingIds?.has(s.id);
                 return (
-                  <li key={s.id} className="group relative">
+                  <li key={s.id} className={`group relative ${isDeleting ? 'opacity-50 pointer-events-none' : ''}`}>
                     {renaming ? (
                       <input
                         autoFocus
