@@ -12,6 +12,7 @@ import {
   matchesPublishIntent,
 } from '@/lib/chat-intent-detection';
 import { getFunnelSessionByToken } from '@/lib/funnel-guest';
+import { guestPublishMetaToJson, type GuestPublishMeta } from '@/lib/funnel-import-to-app';
 import { publishToThreads } from '@/lib/threads/publish';
 import { getValidThreadsToken } from '@/lib/threads/threads-token';
 import { buildThreadsInsightsBundle } from '@/lib/threads/analytics-bundle';
@@ -115,10 +116,13 @@ async function loadGuestAccount(guestUserId: string, accountId: string) {
   });
 }
 
-async function markGuestPublishUsed(sessionId: string): Promise<void> {
+async function markGuestPublishUsed(sessionId: string, meta: GuestPublishMeta): Promise<void> {
   await prisma.funnelSession.update({
     where: { id: sessionId },
-    data: { guestPublishUsedAt: new Date() },
+    data: {
+      guestPublishUsedAt: new Date(),
+      guestPublishMeta: guestPublishMetaToJson(meta),
+    },
   });
 }
 
@@ -287,7 +291,12 @@ export async function runFunnelGuestPublish(
     return { text: result.error, source: 'funnel_action' };
   }
 
-  await markGuestPublishUsed(session.id);
+  await markGuestPublishUsed(session.id, {
+    caption,
+    platform: account.platform,
+    platformPostId: result.ok ? result.platformPostId : undefined,
+    publishedAt: new Date().toISOString(),
+  });
   const label = platformLabel(account.platform);
   return {
     text: `Published to your ${label} account. ${signupAfterPublishMessage()}`,

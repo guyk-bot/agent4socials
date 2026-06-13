@@ -7,12 +7,12 @@ import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import { readOAuthConnectInFlight, isOAuthRedirectGuarded, readPostConnectTargetAccount } from '@/lib/oauth-connect';
 import {
-  CONNECTED_ACCOUNTS_PATH,
+  FIRST_CONNECT_PATH,
   shouldRedirectEmptyAccountsToConnect,
 } from '@/lib/dashboard-onboarding';
 
 /**
- * Sends users with zero connected platforms to Account → Connected accounts
+ * Sends users with zero connected platforms to the first-connect page
  * instead of empty analytics (Console / legacy /dashboard).
  */
 export function useRedirectIfNoConnectedAccounts(): void {
@@ -43,7 +43,7 @@ export function useRedirectIfNoConnectedAccounts(): void {
     const goToConnect = () => {
       if (cancelled || redirectedRef.current) return;
       redirectedRef.current = true;
-      router.replace(CONNECTED_ACCOUNTS_PATH);
+      router.replace(FIRST_CONNECT_PATH);
     };
 
     void (async () => {

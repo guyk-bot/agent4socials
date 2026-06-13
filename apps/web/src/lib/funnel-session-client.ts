@@ -48,6 +48,7 @@ export function funnelAuthHeaders(): Record<string, string> {
 export function persistFunnelChatState(state: FunnelPersistedChatState): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(state));
+  saveFunnelForAppHandoff();
   const token = readFunnelSessionToken();
   if (!token) return;
   const payload: FunnelChatPayload = {
@@ -77,6 +78,7 @@ export function readFunnelChatState(): FunnelPersistedChatState | null {
 export function persistFunnelBrandDraft(draft: BrandContextRecord): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(BRAND_STORAGE_KEY, JSON.stringify(draft));
+  saveFunnelForAppHandoff();
   void fetch('/api/funnel/session', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...funnelAuthHeaders() },

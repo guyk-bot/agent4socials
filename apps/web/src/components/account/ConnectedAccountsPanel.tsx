@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import api from '@/lib/api';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
@@ -9,9 +8,10 @@ import { useAppData } from '@/context/AppDataContext';
 import { useSelectedAccount } from '@/context/SelectedAccountContext';
 import type { SocialAccount } from '@/context/SelectedAccountContext';
 import { ConfirmModal } from '@/components/ConfirmModal';
-import { InstagramIcon, FacebookIcon, TikTokIcon, YoutubeIcon, XTwitterIcon, LinkedinIcon, PinterestIcon, ThreadsIcon } from '@/components/SocialPlatformIcons';
-import { Loader2, RefreshCw } from 'lucide-react';
-import { avatarDisplayUrl } from '@/lib/avatar-display-url';
+import {
+  ConnectPlatformCardsGrid,
+  type ConnectGridAccount,
+} from '@/components/account/ConnectPlatformCardsGrid';
 import { buildDashboardSuccessRedirect } from '@/lib/brand-account-move';
 import {
   closeOAuthConnectPopup,
@@ -27,43 +27,6 @@ import {
   readPostConnectTargetAccount,
   pollOAuthConnectAccount,
 } from '@/lib/oauth-connect';
-
-/** Platform order matches sidebar; uniform cards in a 4×2 grid on Account → Connected accounts. */
-const CONNECT_PLATFORM_CARDS: { id: string; name: string; slug: string }[] = [
-  { id: 'FACEBOOK', name: 'Facebook', slug: 'facebook' },
-  { id: 'INSTAGRAM', name: 'Instagram', slug: 'instagram' },
-  { id: 'TIKTOK', name: 'TikTok', slug: 'tiktok' },
-  { id: 'YOUTUBE', name: 'YouTube', slug: 'youtube' },
-  { id: 'TWITTER', name: 'Twitter/X', slug: 'twitter' },
-  { id: 'THREADS', name: 'Threads', slug: 'threads' },
-  { id: 'PINTEREST', name: 'Pinterest', slug: 'pinterest' },
-  { id: 'LINKEDIN', name: 'LinkedIn', slug: 'linkedin' },
-];
-
-const CONNECT_CARD_CLASS =
-  'account-connect-card flex flex-col items-center justify-center gap-2 p-3 sm:p-4 rounded-xl border border-neutral-200 bg-white hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 group text-center';
-
-const CONNECT_GRID_ICON: Record<string, React.ReactNode> = {
-  FACEBOOK: <FacebookIcon size={26} />,
-  INSTAGRAM: <InstagramIcon size={26} />,
-  TIKTOK: <TikTokIcon size={26} />,
-  YOUTUBE: <YoutubeIcon size={26} />,
-  TWITTER: <XTwitterIcon size={26} className="text-neutral-800" />,
-  LINKEDIN: <LinkedinIcon size={26} />,
-  PINTEREST: <PinterestIcon size={26} />,
-  THREADS: <ThreadsIcon size={26} />,
-};
-
-const CONNECT_LABEL_ICON: Record<string, React.ReactNode> = {
-  FACEBOOK: <FacebookIcon size={14} />,
-  INSTAGRAM: <InstagramIcon size={14} />,
-  TIKTOK: <TikTokIcon size={14} />,
-  YOUTUBE: <YoutubeIcon size={14} />,
-  TWITTER: <XTwitterIcon size={14} className="text-neutral-800" />,
-  LINKEDIN: <LinkedinIcon size={14} />,
-  PINTEREST: <PinterestIcon size={14} />,
-  THREADS: <ThreadsIcon size={14} />,
-};
 
 /**
  * Connected social accounts management (reconnect, disconnect).
@@ -197,11 +160,70 @@ export function ConnectedAccountsPanel() {
     })();
   };
 
-  // Build a lookup from platform id → connected account
-  const accountByPlatform = accounts.reduce<Record<string, SocialAccount>>((map, acc) => {
-    map[acc.platform] = acc;
-    return map;
-  }, {});
+  const handleReconnect = async (acc: ConnectGridAccount) => {
+    if (reconnectingId) return;
+    const oauthPopup = prepareOAuthConnectPopup();
+    setReconnectingId(acc.id);
+    storeOAuthConnectInFlight(acc.platform);
+    storePostConnectTargetAccount(acc.id, acc.platform);
+    try {
+      const liMethod =
+        acc.platform === 'LINKEDIN' && acc.linkedinConnectionKind === 'organization_page'
+          ? 'page'
+          : acc.platform === 'LINKEDIN'
+            ? 'personal'
+            : undefined;
+      const tiktokMethod =
+        acc.platform === 'TIKTOK' && acc.tiktokConnectionKind === 'business'
+          ? 'business'
+          : acc.platform === 'TIKTOK' && acc.tiktokConnectionKind === 'personal'
+            ? 'personal'
+            : undefined;
+      const reconnectMethod = liMethod ?? tiktokMethod;
+      const startParams = new URLSearchParams();
+      if (reconnectMethod != null) {
+        startParams.set('method', reconnectMethod);
+      }
+      if (acc.platform === 'LINKEDIN') {
+        startParams.set('step', 'consent');
+        startParams.set('reconnect_account_id', acc.id);
+      }
+      const qs = startParams.toString() ? `?${startParams.toString()}` : '';
+      const res = await api.get(`/social/oauth/${acc.platform.toLowerCase()}/start${qs}`);
+      const url = res?.data?.url;
+      if (url && typeof url === 'string') {
+        if (acc.platform === 'TWITTER') {
+          closeOAuthConnectPopup(oauthPopup);
+          window.location.assign(url);
+          return;
+        }
+        const opened = navigateOAuthConnect(url, oauthPopup);
+        if (!opened.opened) {
+          alert('Could not open sign-in. Allow pop-ups for www.izop.io or try Reconnect again.');
+        } else if (oauthPopup && !oauthPopup.closed) {
+          watchOAuthConnectPopup(oauthPopup, acc.platform, () => {
+            pollOAuthConnectAccount(
+              acc.platform,
+              async () => {
+                const r = await api.get(`/social/accounts?_=${Date.now()}`);
+                return Array.isArray(r.data) ? r.data : [];
+              },
+              (found) => {
+                goToPlatformDashboard(found.id, found.platform);
+                setReconnectingId(null);
+              },
+              { requireInFlight: false, maxMs: 90_000 }
+            );
+          });
+        }
+      } else {
+        closeOAuthConnectPopup(oauthPopup);
+      }
+    } catch {
+      closeOAuthConnectPopup(oauthPopup);
+    }
+    setReconnectingId(null);
+  };
 
   return (
     <div className="space-y-4">
@@ -211,184 +233,14 @@ export function ConnectedAccountsPanel() {
         </div>
       )}
 
-      <div className="account-connect-frame rounded-xl border border-neutral-200 bg-neutral-50/40 p-4 sm:p-5">
-        {accounts.length === 0 && (
-          <p className="text-sm text-neutral-600 text-center mb-4">No accounts connected yet.</p>
-        )}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-          {CONNECT_PLATFORM_CARDS.map(({ id, name, slug }) => {
-            const acc = accountByPlatform[id];
-            if (acc) {
-              const isDisconnecting = disconnectingId === acc.id;
-              return (
-                <div
-                  key={acc.id}
-                  className={`account-connect-card relative rounded-xl border border-neutral-200 bg-white p-3 sm:p-4 text-center transition-opacity ${isDisconnecting ? 'opacity-60 pointer-events-none' : ''}`}
-                >
-                  {isDisconnecting && (
-                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-xl bg-white/90 dark:bg-neutral-900/90">
-                      <Loader2 size={22} className="animate-spin text-red-600" aria-hidden />
-                      <span className="text-xs font-medium text-neutral-700 dark:text-neutral-200">Disconnecting...</span>
-                    </div>
-                  )}
-                  <div className="flex justify-center">
-                    <div className="w-9 h-9 rounded-full overflow-hidden bg-neutral-100 flex items-center justify-center">
-                      {(() => {
-                        const src = avatarDisplayUrl(acc.platform, acc.profilePicture);
-                        if (src) {
-                          return <img src={src} alt="" className="h-full w-full object-cover" />;
-                        }
-                        return (
-                          <span className="w-9 h-9 flex items-center justify-center">{CONNECT_GRID_ICON[acc.platform] ?? <FacebookIcon size={24} />}</span>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                  <div className="mt-2 inline-flex items-center justify-center gap-1.5 text-xs sm:text-sm font-semibold text-neutral-800">
-                    <span className="inline-flex h-4 w-4 items-center justify-center shrink-0">
-                      {CONNECT_LABEL_ICON[acc.platform] ?? <FacebookIcon size={14} />}
-                    </span>
-                    <span>{acc.platform === 'TWITTER' ? 'Twitter/X' : acc.platform.charAt(0) + acc.platform.slice(1).toLowerCase()}</span>
-                  </div>
-                  <div className="text-[10px] sm:text-xs text-neutral-500 truncate">
-                    {(acc.username || '').replace(/^@/, '') || 'Connected'}
-                  </div>
-                  {acc.platform === 'LINKEDIN' &&
-                  (acc as { linkedinConnectionKind?: string }).linkedinConnectionKind === 'organization_page' ? (
-                    <p className="mt-1 text-[10px] font-medium text-blue-700">Company Page</p>
-                  ) : acc.platform === 'LINKEDIN' ? (
-                    <p className="mt-1 text-[10px] font-medium text-blue-700">Personal profile</p>
-                  ) : acc.platform === 'TIKTOK' &&
-                    (acc as { tiktokConnectionKind?: string }).tiktokConnectionKind === 'business' ? (
-                    <p className="mt-1 text-[10px] font-medium text-neutral-800">Business account</p>
-                  ) : acc.platform === 'TIKTOK' &&
-                    (acc as { tiktokConnectionKind?: string }).tiktokConnectionKind === 'personal' ? (
-                    <p className="mt-1 text-[10px] font-medium text-neutral-800">Personal account</p>
-                  ) : null}
-                  {acc.platform === 'LINKEDIN' &&
-                  (acc as { linkedinPublishReady?: boolean }).linkedinPublishReady === false &&
-                  typeof acc.linkedinReconnectHint === 'string' &&
-                  acc.linkedinReconnectHint.trim() ? (
-                    <p className="mt-2 text-left text-[10px] leading-snug text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
-                      {acc.linkedinReconnectHint}
-                    </p>
-                  ) : null}
-                  <div className="mt-2 flex items-center justify-center gap-2">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (reconnectingId) return;
-                        const oauthPopup = prepareOAuthConnectPopup();
-                        setReconnectingId(acc.id);
-                        storeOAuthConnectInFlight(acc.platform);
-                        storePostConnectTargetAccount(acc.id, acc.platform);
-                        let stopPoll: (() => void) | undefined;
-                        try {
-                          const liMethod =
-                            acc.platform === 'LINKEDIN' &&
-                            typeof (acc as { linkedinConnectionKind?: string }).linkedinConnectionKind ===
-                              'string' &&
-                            (acc as { linkedinConnectionKind?: string }).linkedinConnectionKind ===
-                              'organization_page'
-                              ? 'page'
-                              : acc.platform === 'LINKEDIN'
-                                ? 'personal'
-                                : undefined;
-                          const tiktokMethod =
-                            acc.platform === 'TIKTOK' &&
-                            (acc as { tiktokConnectionKind?: string }).tiktokConnectionKind === 'business'
-                              ? 'business'
-                              : acc.platform === 'TIKTOK' &&
-                                  (acc as { tiktokConnectionKind?: string }).tiktokConnectionKind === 'personal'
-                                ? 'personal'
-                                : undefined;
-                          const reconnectMethod = liMethod ?? tiktokMethod;
-                          const startParams = new URLSearchParams();
-                          if (reconnectMethod != null) {
-                            startParams.set('method', reconnectMethod);
-                          }
-                          if (acc.platform === 'LINKEDIN') {
-                            startParams.set('step', 'consent');
-                            startParams.set('reconnect_account_id', acc.id);
-                          }
-                          const qs = startParams.toString() ? `?${startParams.toString()}` : '';
-                          const res = await api.get(
-                            `/social/oauth/${acc.platform.toLowerCase()}/start${qs}`
-                          );
-                          const url = res?.data?.url;
-                          if (url && typeof url === 'string') {
-                            if (acc.platform === 'TWITTER') {
-                              closeOAuthConnectPopup(oauthPopup);
-                              window.location.assign(url);
-                              return;
-                            }
-                            const opened = navigateOAuthConnect(url, oauthPopup);
-                            if (!opened.opened) {
-                              alert('Could not open sign-in. Allow pop-ups for www.izop.io or try Reconnect again.');
-                            } else if (oauthPopup && !oauthPopup.closed) {
-                              watchOAuthConnectPopup(oauthPopup, acc.platform, () => {
-                                stopPoll = pollOAuthConnectAccount(
-                                  acc.platform,
-                                  async () => {
-                                    const r = await api.get(`/social/accounts?_=${Date.now()}`);
-                                    return Array.isArray(r.data) ? r.data : [];
-                                  },
-                                  (found) => {
-                                    goToPlatformDashboard(found.id, found.platform);
-                                    setReconnectingId(null);
-                                  },
-                                  { requireInFlight: false, maxMs: 90_000 }
-                                );
-                              });
-                            }
-                          } else {
-                            closeOAuthConnectPopup(oauthPopup);
-                          }
-                        } catch (_) {
-                          closeOAuthConnectPopup(oauthPopup);
-                        }
-                        setReconnectingId(null);
-                      }}
-                      disabled={reconnectingId === acc.id || isDisconnecting}
-                      className="inline-flex items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 py-1 text-[10px] sm:text-xs text-neutral-700 hover:bg-neutral-50 disabled:opacity-60"
-                    >
-                      {reconnectingId === acc.id ? <RefreshCw size={12} className="animate-spin" /> : null}
-                      Reconnect
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDisconnectClick(acc)}
-                      disabled={Boolean(disconnectingId) || reconnectingId === acc.id}
-                      className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-white px-2 py-1 text-[10px] sm:text-xs text-red-600 hover:bg-red-50 disabled:opacity-60"
-                    >
-                      {isDisconnecting ? <Loader2 size={12} className="animate-spin" aria-hidden /> : null}
-                      Disconnect
-                    </button>
-                  </div>
-                </div>
-              );
-            }
-            return (
-              <Link
-                key={id}
-                href={`/dashboard?connect=${slug}`}
-                className={CONNECT_CARD_CLASS}
-                onClick={() => {
-                  try {
-                    sessionStorage.setItem('a4s_connect_from_account', '1');
-                  } catch {
-                    /* ignore */
-                  }
-                }}
-              >
-                <div className="w-9 h-9 flex items-center justify-center shrink-0">{CONNECT_GRID_ICON[id]}</div>
-                <span className="text-xs sm:text-sm font-semibold text-neutral-800">{name}</span>
-                <span className="text-[10px] sm:text-xs text-neutral-500 group-hover:text-neutral-700">Connect</span>
-              </Link>
-            );
-          })}
-        </div>
-      </div>
+      <ConnectPlatformCardsGrid
+        connectHrefPrefix="/dashboard"
+        accounts={accounts as ConnectGridAccount[]}
+        reconnectingId={reconnectingId}
+        disconnectingId={disconnectingId}
+        onReconnect={handleReconnect}
+        onDisconnect={(acc) => handleDisconnectClick(acc as SocialAccount)}
+      />
 
       <ConfirmModal
         open={disconnectConfirmOpen}

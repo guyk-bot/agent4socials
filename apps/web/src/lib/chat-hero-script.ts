@@ -93,7 +93,7 @@ export function demoBlocksForPainPoint(pain: ChatHeroPainPointId): DemoBlock[] {
 
 export function connectRedirectForPlatforms(platformIds: ChatHeroPlatformId[]): string {
   const first = platformIds[0] ?? 'instagram';
-  return `/dashboard?connect=${first}`;
+  return `/dashboard/connect?connect=${first}`;
 }
 
 export type LandingChatContext = {

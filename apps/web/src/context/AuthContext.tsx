@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { resolveOAuthCallbackUrl } from '@/lib/app-base-url';
 import { recordAuthenticatedProductEvent } from '@/lib/product-analytics';
+import { resetFunnelMergeState, runFunnelMergeIfNeeded } from '@/lib/funnel-merge-client';
 import { getSupabaseBrowser } from '@/lib/supabase/client';
 import type { Session } from '@supabase/supabase-js';
 
@@ -38,6 +39,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
 
   const syncUserFromApi = async (accessToken: string, fallbackUser?: { id: string; email?: string; name?: string; avatarUrl?: string } | null) => {
+    void runFunnelMergeIfNeeded(accessToken);
     try {
       const init: RequestInit = {
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -49,26 +51,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();
       setUser(data);
+      await runFunnelMergeIfNeeded(accessToken);
       if (typeof window !== 'undefined') {
-        try {
-          const handoffRaw = sessionStorage.getItem('izop_funnel_handoff_v1');
-          if (handoffRaw) {
-            const handoff = JSON.parse(handoffRaw) as { token?: string };
-            if (handoff.token) {
-              void fetch('/api/funnel/merge', {
-                method: 'POST',
-                headers: {
-                  Authorization: `Bearer ${accessToken}`,
-                  'Content-Type': 'application/json',
-                  'X-Funnel-Session': handoff.token,
-                },
-                body: JSON.stringify({ funnelToken: handoff.token }),
-              }).finally(() => sessionStorage.removeItem('izop_funnel_handoff_v1'));
-            }
-          }
-        } catch {
-          /* ignore funnel merge errors */
-        }
         sessionStorage.removeItem('profile_error');
         const syncStatus = res.headers.get('X-Profile-Sync');
         const syncError = res.headers.get('X-Profile-Sync-Error');
@@ -129,6 +113,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (cancelled) return;
         if (session?.access_token) {
           const fallback = sessionFallbackUser(session);
+          void runFunnelMergeIfNeeded(session.access_token);
           // Show the shell immediately; profile can lag or fail without bricking the app.
           setUser({
             id: fallback.id,
@@ -154,6 +139,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session: Session | null) => {
       if (session?.access_token) {
         const fallback = sessionFallbackUser(session);
+        void runFunnelMergeIfNeeded(session.access_token);
         setUser({
           id: fallback.id,
           email: fallback.email,
@@ -212,6 +198,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = async () => {
     const supabase = getSupabaseBrowser();
     await supabase.auth.signOut();
+    resetFunnelMergeState();
     setUser(null);
     if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem('appDataPhase1Done');
     router.push('/');

@@ -532,6 +532,7 @@ model FunnelSession {
   chatPayload         Json?
   brandContextDraft   Json?
   guestPublishUsedAt  DateTime?
+  guestPublishMeta    Json?
   guestAnalyticsUsedAt DateTime?
   expiresAt           DateTime
   mergedToUserId      String?

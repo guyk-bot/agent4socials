@@ -816,6 +816,7 @@ export default function ComposerPage() {
     const searchParams = useSearchParams();
     const editPostId = searchParams.get('edit');
     const aysopDraftFlag = searchParams.get('aysopDraft');
+    const isComposerEmbed = searchParams.get('embed') === '1';
     /** Real DB post id from History; `pending-*` ids are client-only and must create a new post. */
     const persistedEditPostId =
         editPostId && !isPendingHistoryPostId(editPostId) ? editPostId : null;
@@ -3120,8 +3121,8 @@ export default function ComposerPage() {
     if (!composerReady) {
     return (
             <>
-                <LoadingVideoOverlay loading={true} />
-                <div className="max-w-6xl mx-auto px-2 sm:px-4 flex flex-col items-center justify-center min-h-[60vh]">
+                {!isComposerEmbed ? <LoadingVideoOverlay loading={true} /> : null}
+                <div className={`${isComposerEmbed ? 'composer-embed-root px-2 py-3' : 'max-w-6xl mx-auto px-2 sm:px-4'} flex flex-col items-center justify-center ${isComposerEmbed ? 'min-h-[40vh]' : 'min-h-[60vh]'}`}>
                     <div className="flex flex-col items-center gap-4">
                         <Loader2 size={40} className="animate-spin text-[var(--primary)]" aria-hidden />
                         <p className="text-neutral-600 font-medium">Loading composer…</p>
@@ -3133,7 +3134,7 @@ export default function ComposerPage() {
     }
 
     return (
-        <div className="max-w-6xl mx-auto px-2 sm:px-4 space-y-6">
+        <div className={isComposerEmbed ? 'composer-embed-root px-2 py-2 space-y-3' : 'max-w-6xl mx-auto px-2 sm:px-4 space-y-6'}>
             {storyCropFile && (
                 <StoryImageCropModal
                     file={storyCropFile}

@@ -38,11 +38,18 @@ export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
     setPublishing(true);
     setError(null);
     setStatus(null);
+    const media = draft.sessionDraft?.mediaList ?? [];
+    const resolvedMediaType =
+      media.length > 0
+        ? media[0].type === 'VIDEO'
+          ? 'video'
+          : 'photo'
+        : draft.mediaType;
     try {
       const createRes = await api.post<{ id: string }>('/posts', {
         content: draft.caption,
-        mediaType: 'text',
-        media: [],
+        mediaType: resolvedMediaType === 'text' ? 'text' : resolvedMediaType,
+        media,
         targets: [{ platform: draft.platform, socialAccountId: draft.accountId }],
       });
       const postId = createRes.data.id;
@@ -66,12 +73,19 @@ export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
     setPublishing(true);
     setError(null);
     setStatus(null);
+    const media = draft.sessionDraft?.mediaList ?? [];
+    const resolvedMediaType =
+      media.length > 0
+        ? media[0].type === 'VIDEO'
+          ? 'video'
+          : 'photo'
+        : draft.mediaType;
     try {
       const iso = new Date(scheduleAt).toISOString();
       await api.post('/posts', {
         content: draft.caption,
-        mediaType: 'text',
-        media: [],
+        mediaType: resolvedMediaType === 'text' ? 'text' : resolvedMediaType,
+        media,
         targets: [{ platform: draft.platform, socialAccountId: draft.accountId }],
         scheduledAt: iso,
         scheduleDelivery: 'auto',
@@ -127,6 +141,23 @@ export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
           <p className="text-sm text-neutral-800 dark:text-neutral-100 whitespace-pre-wrap leading-relaxed">
             {draft.caption}
           </p>
+          {draft.sessionDraft?.mediaList?.[0] ? (
+            <div className="mt-3 rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-900">
+              {draft.sessionDraft.mediaList[0].type === 'VIDEO' ? (
+                <video
+                  src={draft.sessionDraft.mediaList[0].fileUrl}
+                  controls
+                  className="w-full max-h-48 object-contain"
+                />
+              ) : (
+                <img
+                  src={draft.sessionDraft.mediaList[0].fileUrl}
+                  alt=""
+                  className="w-full max-h-48 object-contain"
+                />
+              )}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -209,10 +240,10 @@ export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
           )
         ) : (
           <p className="text-xs text-amber-700 dark:text-amber-300">
-            {draft.platformLabel} needs media before you can publish.
+            {draft.platformLabel} needs media before you can publish from chat. Use inline Composer below.
           </p>
         )}
-        {!draft.canPublishFromChat || draft.mediaType !== 'text' ? (
+        {!draft.canPublishFromChat ? (
           <ComposerOpenLink
             href={draft.composerUrl}
             draft={draft.sessionDraft ?? null}

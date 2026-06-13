@@ -1,7 +1,14 @@
-/** Default landing when the user has not connected any social platform yet. */
-export const CONNECTED_ACCOUNTS_PATH = '/dashboard/account#connected-accounts';
+/** First-time connect landing: platform cards only, not Account settings. */
+export const FIRST_CONNECT_PATH = '/dashboard/connect';
 
-const ANALYTICS_LANDING_PATHS = new Set(['/dashboard/console', '/dashboard/summary']);
+/** @deprecated Use FIRST_CONNECT_PATH */
+export const CONNECTED_ACCOUNTS_PATH = FIRST_CONNECT_PATH;
+
+const REDIRECT_TO_FIRST_CONNECT_PATHS = new Set([
+  '/dashboard',
+  '/dashboard/console',
+  '/dashboard/summary',
+]);
 
 /** True when URL params indicate an in-progress or post-OAuth connect flow (do not redirect away). */
 export function isActiveConnectFlow(search: string): boolean {
@@ -18,12 +25,13 @@ export function shouldRedirectEmptyAccountsToConnect(
   pathname: string,
   search: string
 ): boolean {
+  if (pathname === FIRST_CONNECT_PATH) return false;
   if (pathname === '/dashboard/account') return false;
   if (isActiveConnectFlow(search)) return false;
   const params = new URLSearchParams(search);
   if (params.get('accountId')) return false;
   if (params.get('newPlatform')) return false;
-  return ANALYTICS_LANDING_PATHS.has(pathname);
+  return REDIRECT_TO_FIRST_CONNECT_PATHS.has(pathname);
 }
 
 /** After OAuth, keep the user on Inbox/Composer/etc. instead of forcing analytics dashboard. */
@@ -36,10 +44,11 @@ export function shouldStayOnPageAfterOAuthConnect(): boolean {
     path.startsWith('/calendar') ||
     path.startsWith('/dashboard/aysop-ai') ||
     path.startsWith('/dashboard/brand') ||
-    path.startsWith('/posts')
+    path.startsWith('/posts') ||
+    path.startsWith(FIRST_CONNECT_PATH)
   );
 }
 
 export function consoleHrefForAccountState(hasConnectedAccounts: boolean): string {
-  return hasConnectedAccounts ? '/dashboard/console' : CONNECTED_ACCOUNTS_PATH;
+  return hasConnectedAccounts ? '/dashboard/console' : FIRST_CONNECT_PATH;
 }

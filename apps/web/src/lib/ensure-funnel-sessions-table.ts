@@ -50,6 +50,9 @@ async function runMigration(): Promise<void> {
   await prisma.$executeRawUnsafe(`
     ALTER TABLE "funnel_sessions" ADD COLUMN IF NOT EXISTS "guestAnalyticsUsedAt" TIMESTAMP(3)
   `);
+  await prisma.$executeRawUnsafe(`
+    ALTER TABLE "funnel_sessions" ADD COLUMN IF NOT EXISTS "guestPublishMeta" JSONB
+  `);
 }
 
 /** Best-effort: create funnel_sessions if migrations have not run yet. */

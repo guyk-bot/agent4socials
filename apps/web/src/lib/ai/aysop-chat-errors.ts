@@ -16,6 +16,9 @@ export function friendlyAysopChatError(e: unknown, fallback: string): string {
   ) {
     return 'That took too long (file uploads and AI replies can take up to a few minutes). Wait a moment and try again, or attach one file at a time.';
   }
+  if (/failed to fetch|network error|load failed/i.test(raw)) {
+    return 'Network error. Check your connection and try again.';
+  }
 
   return raw || fallback;
 }

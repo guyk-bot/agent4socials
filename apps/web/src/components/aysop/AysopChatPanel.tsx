@@ -8,10 +8,9 @@ import { useTheme } from '@/context/ThemeContext';
 import api, {
   API_AYSOP_CHAT_ATTACHMENTS_TIMEOUT_MS,
   API_AYSOP_CHAT_TIMEOUT_MS,
-  API_MEDIA_UPLOAD_TIMEOUT_MS,
-  R2_DIRECT_UPLOAD_TIMEOUT_MS,
 } from '@/lib/api';
 import { friendlyAysopChatError } from '@/lib/ai/aysop-chat-errors';
+import { uploadMediaFile } from '@/lib/media/upload-client';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { resolveChatBrandContext } from '@/lib/ai/aysop-workspace-snapshot';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
@@ -56,34 +55,7 @@ type Props = {
 };
 
 async function uploadChatFile(file: File): Promise<AysopChatAttachment> {
-  const res = await api.post<{ uploadUrl: string; fileUrl: string }>(
-    '/media/upload-url',
-    {
-      fileName: file.name,
-      contentType: file.type || 'application/octet-stream',
-    },
-    { timeout: API_MEDIA_UPLOAD_TIMEOUT_MS }
-  );
-  const { uploadUrl, fileUrl } = res.data;
-  const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), R2_DIRECT_UPLOAD_TIMEOUT_MS);
-  let putRes: Response;
-  try {
-    putRes = await fetch(uploadUrl, {
-      method: 'PUT',
-      body: file,
-      headers: { 'Content-Type': file.type || 'application/octet-stream' },
-      signal: ac.signal,
-    });
-  } catch (e) {
-    if (e instanceof Error && e.name === 'AbortError') {
-      throw new Error('Upload timed out. Try a smaller file or check your connection.');
-    }
-    throw e;
-  } finally {
-    clearTimeout(timer);
-  }
-  if (!putRes.ok) throw new Error(`Upload failed (${putRes.status})`);
+  const fileUrl = await uploadMediaFile(file);
   return {
     fileUrl,
     fileName: file.name,

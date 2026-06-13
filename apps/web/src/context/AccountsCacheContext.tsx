@@ -25,6 +25,10 @@ import {
   prepareBrandMoveNavigation,
 } from '@/lib/brand-account-move';
 import { BRAND_NAME, normalizeLegacyBrandName } from '@/lib/site-brand-assets';
+import {
+  FUNNEL_MERGED_EVENT,
+  type FunnelMergeClientResult,
+} from '@/lib/funnel-merge-client';
 
 type CachedAccount = {
   id: string;
@@ -234,6 +238,23 @@ export function AccountsCacheProvider({ children }: { children: React.ReactNode 
   }, []);
 
   useEffect(() => { persist(STORAGE_KEY, allCachedAccounts); }, [allCachedAccounts, persist]);
+
+  useEffect(() => {
+    const onFunnelMerged = (event: Event) => {
+      const detail = (event as CustomEvent<FunnelMergeClientResult>).detail;
+      const rows = detail?.accounts;
+      if (!rows?.length) return;
+      setAllCachedAccountsState((prev) => {
+        let next = prev;
+        for (const row of rows) {
+          next = upsertOptimisticConnectedAccount(next, row);
+        }
+        return next;
+      });
+    };
+    window.addEventListener(FUNNEL_MERGED_EVENT, onFunnelMerged);
+    return () => window.removeEventListener(FUNNEL_MERGED_EVENT, onFunnelMerged);
+  }, []);
 
   const dismissBrandMovePrompt = useCallback(() => setBrandMovePrompt(null), []);
 

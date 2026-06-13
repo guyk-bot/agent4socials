@@ -26,6 +26,7 @@ import {
   type AysopChatSessionSummary,
 } from '@/lib/ai/aysop-chat-sessions';
 import { pickBestStoredMessages } from '@/lib/ai/aysop-chat-persist';
+import { consumeFunnelOpenAysopChatId } from '@/lib/funnel-onboarding';
 
 type SessionDetail = AysopChatSessionSummary & { messages: ChatMessage[] };
 
@@ -406,10 +407,12 @@ export default function AysopAiWorkspace() {
       setListLoading(false);
     }
 
+    const funnelImportedChatId = consumeFunnelOpenAysopChatId();
     const instantId =
-      chatParam && cachedList.some((s) => s.id === chatParam)
+      funnelImportedChatId ??
+      (chatParam && cachedList.some((s) => s.id === chatParam)
         ? chatParam
-        : pickRestoreChatId(user.id, cachedList);
+        : pickRestoreChatId(user.id, cachedList));
 
     if (instantId) {
       setActiveId(instantId);
@@ -439,6 +442,23 @@ export default function AysopAiWorkspace() {
       const merged = mergeChatSessionsWithServer(user.id, serverSessions, cachedList);
       setSessions(merged);
       writeCachedSessionList(user.id, merged);
+
+      if (funnelImportedChatId) {
+        const known = merged.some((s) => s.id === funnelImportedChatId);
+        if (known) {
+          setActiveChat(funnelImportedChatId);
+          hydrateMessages(funnelImportedChatId);
+          void loadSession(funnelImportedChatId, { background: true });
+        } else {
+          void loadSession(funnelImportedChatId).then((ok) => {
+            if (ok) {
+              setActiveChat(funnelImportedChatId);
+            }
+          });
+        }
+        setListLoading(false);
+        return;
+      }
 
       if (chatParam) {
         const known = merged.some((s) => s.id === chatParam);

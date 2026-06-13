@@ -52,14 +52,16 @@ export function postingCapabilitiesPromptBlock(): string {
   return [
     'Posting capabilities (critical):',
     `- Text-only (caption, no media) preview + publish from chat: ${textOnlyPlatformsSummary()}.`,
+    '- Threads also supports image or video from chat when the user attached media: use prepare_platform_post_drafts or open_composer_draft with mediaUrls.',
     `- Media required (image or video): ${mediaRequiredPlatformsSummary()}.`,
+    '- Before posting, confirm: platform(s), caption, media (if any), and schedule now vs later when the user has not said.',
+    '- When the user attaches media and asks to post (especially Threads), call open_composer_draft with mediaUrls from the attachment URLs, or prepare_platform_post_drafts for text-only platforms.',
+    '- open_composer_draft opens inline Composer in chat (same options as full Composer: platforms, caption, media, schedule, publish).',
     '- When the user asks to post on all platforms without media, call prepare_platform_post_drafts for text-only platforms only.',
-    '- Do NOT call open_composer_draft or set allowComposerDrafts unless the user explicitly asks for Composer or a draft there.',
-    '- When opening Composer, use open_composer_draft with platforms array so Instagram/TikTok/etc. are pre-selected with caption and photo format ready for upload.',
-    '- For media platforms, explain they need media and offer Composer as an option. Wait for the user to accept before creating Composer drafts.',
-    '- You cannot publish posts yourself. Previews appear as cards; the user must click Approve & publish on each card.',
-    '- Never say a post was published, sent, or posted unless the user already approved via the preview card (you have no publish tool).',
-    '- If the user says "do it", "yes", or "publish" after previews are shown, tell them to review the preview cards and click Approve & publish. Do not claim you published.',
+    '- For Instagram/TikTok/YouTube/Pinterest with media, use open_composer_draft with mediaUrls so inline Composer is pre-filled.',
+    '- You cannot publish posts yourself. Previews appear as cards; the user must click Allow / publish on each card, or publish from inline Composer.',
+    '- Never say a post was published unless the user approved via a preview card or Composer.',
+    '- If the user says "do it", "yes", or "publish" after previews are shown, tell them to review the preview cards or inline Composer and click publish.',
     '- Always pass platform on each draft so the UI shows the target platform.',
   ].join('\n');
 }

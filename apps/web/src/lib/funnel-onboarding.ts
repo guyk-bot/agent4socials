@@ -21,6 +21,7 @@ export function dashboardPathAfterAuth(): string {
 }
 
 const FUNNEL_HANDOFF_KEY = 'izop_funnel_handoff_v1';
+const FUNNEL_OPEN_AYSOP_CHAT_KEY = 'izop_funnel_open_aysop_chat_v1';
 
 export type FunnelHandoffPayload = {
   token?: string | null;
@@ -45,6 +46,19 @@ export function clearFunnelHandoff(): void {
   sessionStorage.removeItem(FUNNEL_HANDOFF_KEY);
 }
 
+export function setFunnelOpenAysopChatId(sessionId: string): void {
+  if (typeof window === 'undefined') return;
+  sessionStorage.setItem(FUNNEL_OPEN_AYSOP_CHAT_KEY, sessionId);
+}
+
+export function consumeFunnelOpenAysopChatId(): string | null {
+  if (typeof window === 'undefined') return null;
+  const raw = sessionStorage.getItem(FUNNEL_OPEN_AYSOP_CHAT_KEY);
+  if (!raw) return null;
+  sessionStorage.removeItem(FUNNEL_OPEN_AYSOP_CHAT_KEY);
+  return raw;
+}
+
 export type FunnelOnboardingActionId =
   | 'connect'
   | 'brand'
@@ -66,7 +80,7 @@ export const FUNNEL_ONBOARDING_ACTIONS: FunnelOnboardingAction[] = [
     id: 'connect',
     label: 'Connect my social accounts',
     description: 'Instagram, TikTok, YouTube, and more',
-    redirect: '/dashboard?connect=instagram',
+    redirect: '/dashboard/connect?connect=instagram',
     assistantReply:
       'Great choice. After you sign in with Google we will open Connect so you can link your first account in under a minute.',
   },

@@ -27,6 +27,9 @@ export function buildAysopComposerDraftPayload(args: {
   mediaType: AysopComposerMediaType;
   contentByPlatform?: Record<string, string>;
   differentContentPerPlatform?: boolean;
+  mediaList?: { fileUrl: string; type: 'IMAGE' | 'VIDEO'; thumbnailUrl?: string }[];
+  scheduledAt?: string;
+  scheduleDelivery?: 'auto' | 'email_links';
 }): AysopComposerDraftPayload {
   const platforms = [...new Set(args.platforms.map((p) => p.toUpperCase()))];
   return {
@@ -35,15 +38,25 @@ export function buildAysopComposerDraftPayload(args: {
     contentByPlatform: args.contentByPlatform ?? {},
     differentContentPerPlatform: args.differentContentPerPlatform ?? false,
     mediaType: args.mediaType,
-    mediaList: [],
+    mediaList: args.mediaList ?? [],
     mediaByPlatform: {},
     differentMediaPerPlatform: false,
-    scheduledAt: '',
-    scheduleDelivery: 'auto',
+    scheduledAt: args.scheduledAt ?? '',
+    scheduleDelivery: args.scheduleDelivery ?? 'auto',
     selectedHashtags: [],
     differentHashtagsPerPlatform: false,
     selectedHashtagsByPlatform: {},
   };
+}
+
+export function mediaListFromUrls(urls: string[]): { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[] {
+  return urls
+    .map((u) => (typeof u === 'string' ? u.trim() : ''))
+    .filter(Boolean)
+    .map((fileUrl) => ({
+      fileUrl,
+      type: /\.(mp4|mov|webm|m4v|avi|mkv)(\?|$)/i.test(fileUrl) ? ('VIDEO' as const) : ('IMAGE' as const),
+    }));
 }
 
 export function inferComposerMediaType(

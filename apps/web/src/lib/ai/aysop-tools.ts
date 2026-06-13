@@ -39,7 +39,9 @@ import {
   AYSOP_COMPOSER_HREF,
   buildAysopComposerDraftPayload,
   inferComposerMediaType,
+  mediaListFromUrls,
   type AysopComposerDraftPayload,
+  type AysopComposerMediaType,
 } from '@/lib/composer/aysop-composer-draft-bridge';
 import { AYSOP_CONNECT_PLATFORMS } from '@/lib/ai/aysop-connect-platforms';
 import { appViewArtifact, type AppViewId } from '@/lib/ai/aysop-artifacts';
@@ -445,6 +447,22 @@ function mapPostTypeToMediaType(postType: string): 'text' | 'photo' | 'video' | 
   return 'photo';
 }
 
+function parseMediaUrlsArg(args: Record<string, unknown>): { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[] {
+  if (!Array.isArray(args.mediaUrls)) return [];
+  return mediaListFromUrls(args.mediaUrls.filter((u): u is string => typeof u === 'string'));
+}
+
+function canPublishDraftFromChat(
+  platform: string,
+  mediaType: AysopComposerMediaType,
+  hasMedia: boolean
+): boolean {
+  const upper = platform.toUpperCase();
+  if (platformSupportsTextOnly(upper) && mediaType === 'text' && !hasMedia) return true;
+  if (upper === 'THREADS' && hasMedia && (mediaType === 'photo' || mediaType === 'video')) return true;
+  return false;
+}
+
 async function resolvePlatformsFromArgs(
   userId: string,
   args: Record<string, unknown>
@@ -484,7 +502,12 @@ async function buildComposerSessionDraft(
 
   const platforms = await resolvePlatformsFromArgs(userId, args);
   const postType = String(args.postType ?? '');
-  const mediaType = inferComposerMediaType(platforms, postType, platformRequiresMedia);
+  const mediaList = parseMediaUrlsArg(args);
+  const mediaType = mediaList.length
+    ? mediaList.some((m) => m.type === 'VIDEO')
+      ? 'video'
+      : 'photo'
+    : inferComposerMediaType(platforms, postType, platformRequiresMedia);
 
   if (mediaType === 'text' && platforms.some((p) => platformRequiresMedia(p))) {
     throw new Error(
@@ -496,6 +519,7 @@ async function buildComposerSessionDraft(
     platforms,
     caption,
     mediaType,
+    mediaList,
   });
 
   const artifact: Extract<AysopArtifact, { type: 'composer_session_draft' }> = {
@@ -529,7 +553,12 @@ async function buildComposerPostDraft(
   if (!caption) throw new Error('caption is required');
 
   const postType = String(args.postType ?? 'text');
-  const mediaType = mapPostTypeToMediaType(postType);
+  const mediaList = parseMediaUrlsArg(args);
+  const mediaType = mediaList.length
+    ? mediaList.some((m) => m.type === 'VIDEO')
+      ? 'video'
+      : 'photo'
+    : mapPostTypeToMediaType(postType);
   const platformArg = normalizePlatformArg(args.platform as string | undefined);
   const accountId = await resolveAccountId(
     userId,
@@ -539,7 +568,8 @@ async function buildComposerPostDraft(
   const account = await assertAccount(userId, accountId!);
   const platformUpper = account.platform;
   const textOnlySupported = platformSupportsTextOnly(platformUpper);
-  const canPublishFromChat = textOnlySupported && mediaType === 'text';
+  const hasMedia = mediaList.length > 0;
+  const canPublishFromChat = canPublishDraftFromChat(platformUpper, mediaType, hasMedia);
 
   if (mediaType === 'text' && platformRequiresMedia(platformUpper) && !opts?.allowComposerOnly) {
     throw new Error(
@@ -551,6 +581,7 @@ async function buildComposerPostDraft(
     platforms: [platformUpper],
     caption,
     mediaType: mediaType === 'text' && platformRequiresMedia(platformUpper) ? 'photo' : mediaType,
+    mediaList,
   });
 
   const artifact: Extract<AysopArtifact, { type: 'composer_post_draft' }> = {
@@ -858,6 +889,11 @@ export const AYSOP_TOOL_DEFINITIONS = [
                   type: 'string',
                   enum: ['text', 'feed', 'photo', 'video', 'reel', 'carousel', 'story'],
                 },
+                mediaUrls: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Attached media URLs from chat (for Threads image/video posts).',
+                },
               },
               required: ['platform', 'caption'],
             },
@@ -875,7 +911,7 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'open_composer_draft',
       description:
-        'Open Composer with platforms pre-selected, caption filled, and media type set (photo for Instagram/TikTok/etc.). Call when the user asks to open Composer or see drafts there. Pass all discussed platforms in platforms array.',
+        'Open inline Composer in chat with platforms, caption, media type, and any attached media URLs pre-filled. Ask which platform(s), caption, schedule, and post type first if missing. Call when the user attaches media, asks to post to Threads/Instagram/etc., or wants the full Composer flow.',
       parameters: {
         type: 'object',
         properties: {
@@ -891,6 +927,12 @@ export const AYSOP_TOOL_DEFINITIONS = [
             type: 'string',
             enum: ['text', 'feed', 'photo', 'video', 'reel', 'carousel', 'story'],
             description: 'Use photo for media platforms when no file is attached yet.',
+          },
+          mediaUrls: {
+            type: 'array',
+            items: { type: 'string' },
+            description:
+              'HTTPS URLs from user chat attachments (image or video). Pass every attached file URL when opening Composer or posting to Threads.',
           },
         },
         required: ['caption'],

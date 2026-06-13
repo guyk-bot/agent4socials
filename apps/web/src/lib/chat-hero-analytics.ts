@@ -1,6 +1,12 @@
 /** Landing chat hero analytics: Vercel custom events + gtag. */
 
-import { trackProductEvent, type ProductAnalyticsEvent, type ProductAnalyticsProps } from '@/lib/product-analytics';
+import {
+  platformAnalyticsSlug,
+  trackPlatformProductEvent,
+  trackProductEvent,
+  type ProductAnalyticsEvent,
+  type ProductAnalyticsProps,
+} from '@/lib/product-analytics';
 
 export type ChatHeroAnalyticsEvent =
   | 'chat_started'
@@ -31,7 +37,26 @@ export function trackChatHeroEvent(
     }
   }
   if (mapped) {
-    trackProductEvent(mapped, props);
+    if (mapped === 'platforms_selected') {
+      const raw = properties?.platforms;
+      const platforms = Array.isArray(raw)
+        ? raw.map((p) => String(p))
+        : typeof raw === 'string'
+          ? raw.split(',').map((p) => p.trim()).filter(Boolean)
+          : [];
+      if (platforms.length === 0) {
+        trackProductEvent(mapped, props);
+      } else {
+        for (const platform of platforms) {
+          trackPlatformProductEvent(mapped, platform, {
+            ...props,
+            platforms: platformAnalyticsSlug(platform) || platform,
+          });
+        }
+      }
+    } else {
+      trackProductEvent(mapped, props);
+    }
     return;
   }
 

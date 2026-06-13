@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { prisma } from '@/lib/db';
-import { CONNECTED_ACCOUNTS_PATH } from '@/lib/dashboard-onboarding';
+import { FIRST_CONNECT_PATH } from '@/lib/dashboard-onboarding';
 
 /**
  * OAuth callback Route Handler: exchange the authorization code for a session on the server.
@@ -38,12 +38,12 @@ export async function GET(request: Request) {
             select: { id: true },
           });
           if (!dbUser) {
-            redirectPath = CONNECTED_ACCOUNTS_PATH;
+            redirectPath = FIRST_CONNECT_PATH;
           } else {
             const connectedCount = await prisma.socialAccount.count({
               where: { userId: dbUser.id, status: 'connected' },
             });
-            if (connectedCount === 0) redirectPath = CONNECTED_ACCOUNTS_PATH;
+            if (connectedCount === 0) redirectPath = FIRST_CONNECT_PATH;
           }
         }
       } catch (e) {

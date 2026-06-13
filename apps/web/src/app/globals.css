@@ -1433,6 +1433,16 @@
   }
 }
 
+/* iZop AI: inline Composer iframe (embed=1, no app chrome). */
+.composer-embed-shell {
+  min-height: 0;
+  overflow: auto;
+}
+
+.composer-embed-root {
+  max-width: none;
+}
+
 .platform-connect-loading {
   display: flex;
   flex-direction: column;

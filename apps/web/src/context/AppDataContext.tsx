@@ -4,6 +4,12 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { useAuth } from '@/context/AuthContext';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import api from '@/lib/api';
+import {
+  getFunnelMergePromise,
+  resolveFunnelTokenForMerge,
+  runFunnelMergeIfNeeded,
+} from '@/lib/funnel-merge-client';
+import { getSupabaseBrowser } from '@/lib/supabase/client';
 import { getDefaultAnalyticsDateRange } from '@/lib/calendar-date';
 import { stripLegacyInsightsHint } from '@/lib/strip-legacy-insights-hint';
 import {
@@ -722,6 +728,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
     (async () => {
       try {
+        if (resolveFunnelTokenForMerge()) {
+          const { data: { session } } = await getSupabaseBrowser().auth.getSession();
+          if (session?.access_token) {
+            await runFunnelMergeIfNeeded(session.access_token);
+          } else {
+            await getFunnelMergePromise();
+          }
+        }
         const accountsRes = await api.get<{ id: string; platform: string; username?: string; profilePicture?: string | null; platformUserId?: string }[]>('/social/accounts');
         const accounts = Array.isArray(accountsRes.data) ? accountsRes.data : [];
         if (cancelled) return;

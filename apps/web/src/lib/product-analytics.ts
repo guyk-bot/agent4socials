@@ -35,14 +35,19 @@ function baseProps(extra?: ProductAnalyticsProps): ProductAnalyticsProps {
   };
 }
 
-/** Vercel Web Analytics custom event (anonymous funnel + site-wide counts). */
-export function trackProductEvent(
-  event: ProductAnalyticsEvent,
-  properties?: ProductAnalyticsProps
-): void {
-  if (typeof window === 'undefined') return;
+/** Slug for Vercel event names (Events panel lists names, not property values). */
+export function platformAnalyticsSlug(platform: string | null | undefined): string {
+  if (!platform?.trim()) return '';
+  const normalized = platform.trim().toLowerCase();
+  const map: Record<string, string> = {
+    twitter: 'x',
+    'twitter/x': 'x',
+  };
+  const key = map[normalized] ?? normalized.replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  return key.slice(0, 48);
+}
 
-  const payload = baseProps(properties);
+function emitAnalyticsEvent(event: string, payload: ProductAnalyticsProps): void {
   try {
     track(event, payload);
   } catch {
@@ -56,6 +61,36 @@ export function trackProductEvent(
   const gtag = (window as Window & { gtag?: (...args: unknown[]) => void }).gtag;
   if (typeof gtag === 'function') {
     gtag('event', event, payload);
+  }
+}
+
+/** Vercel Web Analytics custom event (anonymous funnel + site-wide counts). */
+export function trackProductEvent(
+  event: ProductAnalyticsEvent,
+  properties?: ProductAnalyticsProps
+): void {
+  if (typeof window === 'undefined') return;
+  emitAnalyticsEvent(event, baseProps(properties));
+}
+
+/**
+ * Track an event plus a platform-suffixed copy (e.g. connect_started_threads).
+ * Vercel's Events list shows event names only; suffixed names make the platform visible there.
+ */
+export function trackPlatformProductEvent(
+  event: ProductAnalyticsEvent,
+  platform: string | null | undefined,
+  properties?: ProductAnalyticsProps
+): void {
+  if (typeof window === 'undefined') return;
+  const slug = platformAnalyticsSlug(platform);
+  const payload = baseProps({
+    ...properties,
+    ...(slug ? { platform: slug } : {}),
+  });
+  emitAnalyticsEvent(event, payload);
+  if (slug) {
+    emitAnalyticsEvent(`${event}_${slug}`, payload);
   }
 }
 

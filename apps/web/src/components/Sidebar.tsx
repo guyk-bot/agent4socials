@@ -232,7 +232,10 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
       : (textColor || '#171717');
   const hasConnectedAccounts = allCachedAccounts.length > 0;
   const consoleHref = consoleHrefForAccountState(hasConnectedAccounts);
-  const isMainAnalyticsView = pathname === '/dashboard' || pathname === '/dashboard/console';
+  const isMainAnalyticsView =
+    pathname === '/dashboard' ||
+    pathname === '/dashboard/console' ||
+    pathname === '/dashboard/connect';
   const isPostsPage = pathname === '/posts';
   const isReportsPage = pathname === '/dashboard/reports';
   const isBrandPage = pathname === '/dashboard/brand';
@@ -264,7 +267,9 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
                 searchParams.get('newPlatform')?.toUpperCase() === platform) ||
               oauthInFlightPlatform === platform;
             /** Connect URL per platform; optional gem styling when platform is in UPGRADE_TO_CONNECT_PLATFORMS. */
-            const href = `/dashboard?connect=${connectParam}`;
+            const href = hasConnectedAccounts
+              ? `/dashboard?connect=${connectParam}`
+              : `/dashboard/connect?connect=${connectParam}`;
             const openConnectOrExistingAccount = (e: React.MouseEvent) => {
               const existing = (allCachedAccounts as SocialAccount[]).find((a) => a.platform === platform);
               if (existing?.id) {

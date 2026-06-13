@@ -17,7 +17,7 @@ import {
 import { CHAT_HERO_LOGO_SRC } from '@/lib/site-brand-assets';
 import { FunnelChatRichText } from '@/components/landing/FunnelChatRichText';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
-import { trackProductEvent } from '@/lib/product-analytics';
+import { trackPlatformProductEvent, trackProductEvent } from '@/lib/product-analytics';
 import {
   matchesInsightsIntent,
   matchesPricingIntent,
@@ -505,6 +505,8 @@ export default function ChatHero() {
       setShowBrandContext(restored.step === 'brand_context' || restored.step === 'free_chat');
       if (restored.connectedAccountId) {
         oauthReturnHandled.current = true;
+        setFunnelPostAuthRedirect('/dashboard/aysop-ai');
+        saveFunnelForAppHandoff();
       }
       setShowOpeningFollowUp(true);
     } else if (!isOAuthReturn) {
@@ -550,6 +552,8 @@ export default function ChatHero() {
       setShowActionOptions(false);
       setFunnelStep('brand_context');
       setStep(2);
+      setFunnelPostAuthRedirect('/dashboard/aysop-ai');
+      saveFunnelForAppHandoff();
 
       window.history.replaceState({}, '', window.location.pathname);
       return true;
@@ -561,7 +565,7 @@ export default function ChatHero() {
     async (accountId: string, platformId: ChatHeroPlatformId, username: string | null, profilePicture?: string | null) => {
       if (!finishFunnelOAuthConnect(accountId, platformId, username, profilePicture)) return;
 
-      trackProductEvent('connect_completed', { platform: platformId, guest: true });
+      trackPlatformProductEvent('connect_completed', platformId, { guest: true });
 
       const label = platformLabelFromId(platformId);
       const displayUser = username || 'you';
@@ -674,8 +678,7 @@ export default function ChatHero() {
   const failFunnelOAuthConnect = useCallback(
     (message: string) => {
       const pending = readFunnelOAuthPending();
-      trackProductEvent('connect_abandoned', {
-        platform: pending?.platform ?? 'unknown',
+      trackPlatformProductEvent('connect_abandoned', pending?.platform ?? 'unknown', {
         guest: true,
         reason: message.slice(0, 120),
       });
@@ -694,7 +697,10 @@ export default function ChatHero() {
     const funnelError = params.get('funnel_error');
     if (funnelError) {
       window.history.replaceState({}, '', window.location.pathname);
-      trackProductEvent('connect_failed', { guest: true, error_type: 'oauth_callback' });
+      trackPlatformProductEvent('connect_failed', readFunnelOAuthPending()?.platform ?? 'unknown', {
+        guest: true,
+        error_type: 'oauth_callback',
+      });
       failFunnelOAuthConnect(funnelError);
       return;
     }
@@ -813,7 +819,7 @@ export default function ChatHero() {
       setSelectedPlatforms([id]);
       setBlocks((prev) => stripUserPillBlocks(prev));
       trackChatHeroEvent('platforms_selected', { platforms: [id] });
-      trackProductEvent('connect_started', { platform: id, guest: true });
+      trackPlatformProductEvent('connect_started', id, { guest: true });
 
       try {
         const token = await ensureFunnelSession();
@@ -845,7 +851,7 @@ export default function ChatHero() {
           msg =
             'This platform blocked the connection. In Meta for Developers, whitelist exactly: https://izop.ai/api/social/oauth/[platform]/callback (no www, no trailing slash). Also add the Threads URL under Facebook Login → Valid OAuth Redirect URIs, then Save and wait a few minutes.';
         }
-        trackProductEvent('connect_failed', { platform: id, guest: true, error_type: 'oauth_start' });
+        trackPlatformProductEvent('connect_failed', id, { guest: true, error_type: 'oauth_start' });
         appendBlocks([{ id: blockId('ai'), kind: 'ai', text: msg }]);
         setShowPlatformOptions(true);
         setBusy(false);

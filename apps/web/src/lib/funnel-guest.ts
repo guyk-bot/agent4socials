@@ -3,6 +3,11 @@ import { Prisma, type Platform } from '@prisma/client';
 import { prisma, withPrismaPoolRetry } from '@/lib/db';
 import { ensureFunnelSessionsTable } from '@/lib/ensure-funnel-sessions-table';
 import type { BrandContextRecord } from '@/lib/brand-context-utils';
+import {
+  importFunnelChatToAysop,
+  importGuestPublishToPost,
+  parseGuestPublishMeta,
+} from '@/lib/funnel-import-to-app';
 
 export const FUNNEL_SESSION_COOKIE = 'izop_funnel_sid';
 export const FUNNEL_MESSAGE_LIMIT = 100;
@@ -163,21 +168,43 @@ export async function saveFunnelBrandContextDraft(
   );
 }
 
+export type FunnelMergeAccount = {
+  id: string;
+  platform: string;
+  username?: string;
+  profilePicture?: string | null;
+};
+
+export type FunnelMergeResult = {
+  mergedAccounts: number;
+  accounts: FunnelMergeAccount[];
+  brandContextMerged: boolean;
+  aysopChatSessionId?: string;
+  importedPostId?: string;
+};
+
 /** Move guest social account + brand context onto the signed-in user. */
 export async function mergeFunnelSessionToUser(
   funnelToken: string,
   targetUserId: string
-): Promise<{ mergedAccounts: number }> {
+): Promise<FunnelMergeResult> {
+  const empty: FunnelMergeResult = {
+    mergedAccounts: 0,
+    accounts: [],
+    brandContextMerged: false,
+  };
+
   const row = await getFunnelSessionByToken(funnelToken);
-  if (!row || row.mergedToUserId) return { mergedAccounts: 0 };
+  if (!row || row.mergedToUserId) return empty;
 
   const guestUserId = row.guestUserId;
-  if (guestUserId === targetUserId) return { mergedAccounts: 0 };
+  if (guestUserId === targetUserId) return empty;
 
   const accounts = await prisma.socialAccount.findMany({
     where: { userId: guestUserId, status: 'connected' },
   });
 
+  const mergedAccountRows: FunnelMergeAccount[] = [];
   let mergedAccounts = 0;
   for (const acc of accounts) {
     const existing = await prisma.socialAccount.findFirst({
@@ -204,15 +231,28 @@ export async function mergeFunnelSessionToUser(
         },
       });
       await prisma.socialAccount.delete({ where: { id: acc.id } }).catch(() => {});
+      mergedAccountRows.push({
+        id: existing.id,
+        platform: existing.platform,
+        username: acc.username ?? existing.username ?? undefined,
+        profilePicture: acc.profilePicture ?? existing.profilePicture,
+      });
     } else {
       await prisma.socialAccount.update({
         where: { id: acc.id },
         data: { userId: targetUserId },
       });
+      mergedAccountRows.push({
+        id: acc.id,
+        platform: acc.platform,
+        username: acc.username ?? undefined,
+        profilePicture: acc.profilePicture,
+      });
     }
     mergedAccounts += 1;
   }
 
+  let brandContextMerged = false;
   if (row.brandContextDraft && typeof row.brandContextDraft === 'object') {
     const target = await prisma.user.findUnique({
       where: { id: targetUserId },
@@ -231,14 +271,36 @@ export async function mergeFunnelSessionToUser(
       where: { id: targetUserId },
       data: { brandContext: merged as object },
     });
+    brandContextMerged = true;
   }
+
+  const chatPayload =
+    row.chatPayload && typeof row.chatPayload === 'object'
+      ? (row.chatPayload as FunnelChatPayload)
+      : null;
+  const aysopChatSessionId = await importFunnelChatToAysop(targetUserId, chatPayload).catch(() => undefined);
+
+  const publishMeta = parseGuestPublishMeta(row.guestPublishMeta);
+  const publishAccountId =
+    mergedAccountRows.find((a) => a.id === row.connectedAccountId)?.id ??
+    mergedAccountRows[0]?.id;
+  const importedPostId =
+    row.guestPublishUsedAt && publishMeta && publishAccountId
+      ? await importGuestPublishToPost(targetUserId, publishAccountId, publishMeta).catch(() => undefined)
+      : undefined;
 
   await prisma.funnelSession.update({
     where: { id: row.id },
     data: { mergedToUserId: targetUserId },
   });
 
-  return { mergedAccounts };
+  return {
+    mergedAccounts,
+    accounts: mergedAccountRows,
+    brandContextMerged,
+    aysopChatSessionId,
+    importedPostId,
+  };
 }
 
 export function funnelSessionLimitMessage(): string {
