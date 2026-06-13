@@ -1355,15 +1355,15 @@
   }
 }
 
-/* Header nav: mask icon, same 18px box as Lucide; color from link text. */
+/* Header nav: mask icon, sized to match Lucide 18px nav icons. */
 .izop-ai-nav-mark {
   display: inline-block;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   flex-shrink: 0;
   background-color: currentColor;
-  -webkit-mask-size: contain;
-  mask-size: contain;
+  -webkit-mask-size: 100%;
+  mask-size: 100%;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
   -webkit-mask-position: center;
@@ -1373,11 +1373,11 @@
 /* Chat empty state mark (no background box). */
 .izop-ai-outline-mark {
   display: inline-block;
-  width: 2rem;
-  height: 2rem;
+  width: 2.75rem;
+  height: 2.75rem;
   background-color: #404040;
-  -webkit-mask-size: contain;
-  mask-size: contain;
+  -webkit-mask-size: 100%;
+  mask-size: 100%;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
   -webkit-mask-position: center;
