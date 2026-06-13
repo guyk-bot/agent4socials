@@ -389,7 +389,9 @@ export default function AysopChatPanel({
               tone={theme === 'dark' ? 'dark' : 'light'}
               className="mx-auto mb-3"
             />
-            <p className="text-neutral-700 dark:text-neutral-200 font-medium">Your social copilot</p>
+            <p className="text-neutral-700 dark:text-neutral-200 font-medium">
+              {BRAND_NAME} AI, your AI social media manager
+            </p>
             <div className="flex flex-wrap justify-center gap-2 mt-6">
               {STARTERS.map((s) => (
                 <button
