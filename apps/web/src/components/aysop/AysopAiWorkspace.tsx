@@ -577,60 +577,54 @@ export default function AysopAiWorkspace() {
     };
   }, []);
 
-  const handleNewChat = () => {
-    newChatIntentRef.current = true;
-    loadGenerationRef.current += 1;
-    setPanelResetKey((k) => k + 1);
-
-    const prevId = activeIdRef.current;
-    const prevMsgs = [...messagesRef.current];
-
-    if (persistDebounceRef.current) {
-      clearTimeout(persistDebounceRef.current);
-      persistDebounceRef.current = null;
-    }
-
-    clearLastActiveChatId(user?.id);
-
-    setMessages([]);
-    messagesRef.current = [];
-
-    void (async () => {
-      try {
-        if (prevId && prevMsgs.length > 0) {
-          pendingPersistRef.current = { id: prevId, messages: prevMsgs };
-          await flushPersist();
-        }
-        if (!newChatIntentRef.current) return;
-
-        const session = await createSession();
-        if (!newChatIntentRef.current) return;
-
-        writeCachedMessages(user?.id, session.id, []);
-        setMessages([]);
-        messagesRef.current = [];
-
-        const summary: AysopChatSessionSummary = {
-          id: session.id,
-          title: session.title,
-          updatedAt: session.updatedAt,
-          createdAt: session.createdAt,
-          preview: null,
-        };
-        setSessions((prev) => {
-          const kept = prev.filter((s) => sessionShouldShowInSidebar(s, user?.id) && sessionHasConversation(s, user?.id));
-          const merged = [summary, ...kept.filter((s) => s.id !== summary.id)];
-          cacheSessionList(merged);
-          return merged;
-        });
-        setActiveChat(session.id);
-      } catch (error) {
-        console.error('[New Chat Error]', error);
-        if (newChatIntentRef.current) {
-          startEphemeralChat();
-        }
+  const handleNewChat = async () => {
+    try {
+      // Save current chat if it has content
+      const prevId = activeIdRef.current;
+      const prevMsgs = [...messagesRef.current];
+      if (prevId && prevMsgs.length > 0) {
+        pendingPersistRef.current = { id: prevId, messages: prevMsgs };
+        await flushPersist();
       }
-    })();
+
+      // Clear current state
+      setMessages([]);
+      messagesRef.current = [];
+      clearLastActiveChatId(user?.id);
+      setPanelResetKey((k) => k + 1);
+
+      // Create new server session
+      const session = await createSession();
+      
+      // Update local state
+      const newSession: AysopChatSessionSummary = {
+        id: session.id,
+        title: 'New chat',
+        updatedAt: session.updatedAt,
+        createdAt: session.createdAt,
+        preview: null,
+      };
+
+      // Add to sessions list
+      setSessions((prev) => [newSession, ...prev]);
+      writeCachedSessionList(user?.id, [newSession, ...sessions]);
+      
+      // Set as active
+      setActiveId(session.id);
+      activeIdRef.current = session.id;
+      writeLastActiveChatId(user?.id, session.id);
+      router.replace(`/dashboard/aysop-ai?c=${encodeURIComponent(session.id)}`, { scroll: false });
+      
+    } catch (error) {
+      console.error('Failed to create new chat:', error);
+      // Fallback to offline chat
+      const offline = makeOfflineSession();
+      setMessages([]);
+      messagesRef.current = [];
+      setActiveId(offline.id);
+      activeIdRef.current = offline.id;
+      router.replace('/dashboard/aysop-ai', { scroll: false });
+    }
   };
 
   const handleSelect = (id: string) => {
@@ -659,58 +653,55 @@ export default function AysopAiWorkspace() {
       setPendingDeleteId(null);
 
       const wasActive = activeIdRef.current === id;
-      loadGenerationRef.current += 1;
-
+      
+      // Immediately remove from UI
+      setSessions((prev) => {
+        const filtered = prev.filter((s) => s.id !== id);
+        writeCachedSessionList(user?.id, filtered);
+        return filtered;
+      });
+      
+      // Clear cached messages
       writeCachedMessages(user?.id, id, []);
-
+      
+      // Clear from last active if needed
       if (readLastActiveChatId(user?.id) === id) {
         clearLastActiveChatId(user?.id);
       }
 
-      let deletedSession: AysopChatSessionSummary | undefined;
-      let remaining: AysopChatSessionSummary[] = [];
-      setSessions((prev) => {
-        deletedSession = prev.find((s) => s.id === id);
-        remaining = prev.filter((s) => s.id !== id);
-        cacheSessionList(remaining);
-        return remaining;
-      });
-
+      // If this was the active chat, switch to another one
       if (wasActive) {
-        setPanelResetKey((k) => k + 1);
-        const nextVisible = visibleChatSessions(remaining, user?.id);
-        if (nextVisible.length > 0) {
-          const nextId = nextVisible[0]!.id;
+        const remaining = sessions.filter((s) => s.id !== id);
+        if (remaining.length > 0) {
+          const next = remaining[0];
+          setActiveId(next.id);
+          activeIdRef.current = next.id;
+          const cached = readCachedMessages(user?.id, next.id) || [];
+          setMessages(cached as ChatMessage[]);
+          messagesRef.current = cached as ChatMessage[];
+          writeLastActiveChatId(user?.id, next.id);
+          router.replace(`/dashboard/aysop-ai?c=${encodeURIComponent(next.id)}`, { scroll: false });
+        } else {
+          // No chats left, create a new one
           setMessages([]);
           messagesRef.current = [];
-          hydrateMessages(nextId);
-          setActiveChat(nextId);
-          void loadSession(nextId, { background: true });
-        } else {
-          startEphemeralChat();
+          setActiveId(null);
+          activeIdRef.current = null;
+          router.replace('/dashboard/aysop-ai', { scroll: false });
+        }
+        setPanelResetKey((k) => k + 1);
+      }
+
+      // Delete from server (background, ignore errors)
+      if (!id.startsWith('offline-')) {
+        try {
+          await api.delete(`/ai/aysop-chats/${id}`);
+        } catch (e) {
+          console.warn('Server delete failed for chat', id, e);
         }
       }
-
-      if (id.startsWith('offline-')) return;
-
-      try {
-        await api.delete(`/ai/aysop-chats/${id}`);
-      } catch (e) {
-        const status = (e as { response?: { status?: number } })?.response?.status;
-        if (status === 404) return;
-        console.error('[Aysop] Server delete failed for chat', id, e);
-        if (!deletedSession) return;
-        setSessions((prev) => {
-          if (prev.some((s) => s.id === id)) return prev;
-          const merged = [deletedSession!, ...prev].sort(
-            (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-          );
-          cacheSessionList(merged);
-          return merged;
-        });
-      }
     },
-    [cacheSessionList, hydrateMessages, loadSession, setActiveChat, startEphemeralChat, user?.id]
+    [sessions, user?.id, router]
   );
 
   const handleMessagesChange = useCallback(
@@ -765,7 +756,7 @@ export default function AysopAiWorkspace() {
         onDelete={setPendingDeleteId}
         onRename={renameSession}
         side="right"
-        onNewChat={handleNewChat}
+        onNewChat={() => void handleNewChat()}
       />
       <ConfirmModal
         open={pendingDeleteId !== null}
