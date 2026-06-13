@@ -43,6 +43,7 @@ import {
     remapTikTokPublishPayloadForTargets,
     type TikTokDirectPostPayload,
 } from '@/lib/tiktok/tiktok-publish-compliance';
+import { uploadMediaFile as uploadMediaFileWithValidation } from '@/lib/media/upload-client';
 import {
     buildOptimisticPostingRow,
     pushPostsHistoryClientUpdate,
@@ -1842,8 +1843,71 @@ export default function ComposerPage() {
         return fileUrl;
     }
 
+    // Helper to get the most restrictive platform for validation
+    function getMostRestrictivePlatform(platforms: string[], mediaType: string): string | undefined {
+        if (!platforms.length) return undefined;
+        
+        // Platform restrictiveness order (most restrictive first)
+        const restrictiveness: Record<string, number> = {
+            'TWITTER': 1,    // 5-15MB images, 512MB videos, 140s max
+            'LINKEDIN': 2,   // 5MB images, 5GB videos, 10min max
+            'INSTAGRAM': 3,  // 8MB images, 300MB videos (100MB stories)
+            'THREADS': 4,    // 8MB images, 100MB videos, 5min max
+            'FACEBOOK': 5,   // 10MB images, 10GB videos, 4hrs max
+            'PINTEREST': 6,  // 20MB images, 2GB videos, 15min max
+            'TIKTOK': 7,     // Videos only, 1GB, 10min max
+            'YOUTUBE': 8,    // 256GB videos, 12hrs max
+        };
+        
+        // Find the most restrictive platform
+        const sortedPlatforms = platforms
+            .map(p => p.toUpperCase())
+            .filter(p => restrictiveness[p] !== undefined)
+            .sort((a, b) => restrictiveness[a] - restrictiveness[b]);
+            
+        const primary = sortedPlatforms[0];
+        
+        // For Instagram stories/reels, use more restrictive limits
+        if (primary === 'INSTAGRAM' && (mediaType === 'story' || mediaType === 'reel')) {
+            return 'instagram_story';
+        }
+        
+        // For YouTube Shorts, use more restrictive limits
+        if (primary === 'YOUTUBE' && mediaType === 'reel') {
+            return 'youtube_shorts';
+        }
+        
+        return primary?.toLowerCase();
+    }
+
     async function uploadFile(file: File): Promise<{ fileUrl: string; type: 'IMAGE' | 'VIDEO' }> {
         const type: 'IMAGE' | 'VIDEO' = file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE';
+        
+        // Try platform-aware upload with validation and conversion
+        const targetPlatform = getMostRestrictivePlatform(platforms, mediaType);
+        
+        try {
+            if (targetPlatform) {
+                // Use new validation and conversion system
+                const result = await uploadMediaFileWithValidation(file, {
+                    platform: targetPlatform,
+                    postType: mediaType === 'story' ? 'story' : mediaType === 'reel' ? 'shorts' : 'feed',
+                    autoConvert: true,
+                });
+                
+                return { fileUrl: result.fileUrl, type };
+            }
+        } catch (validationError) {
+            // If platform validation fails, fall back to legacy upload with better error message
+            console.warn('Platform validation failed, falling back to legacy upload:', validationError);
+            
+            // Show user-friendly error message if it's a validation issue
+            if (validationError instanceof Error && validationError.message.includes('not compatible')) {
+                throw validationError; // Pass through platform-specific errors
+            }
+        }
+        
+        // Legacy upload logic (fallback)
         const contentType = file.type?.split(';')[0]?.trim() || (type === 'VIDEO' ? 'video/mp4' : 'image/jpeg');
         const safeName = (file.name || (type === 'VIDEO' ? 'video.mp4' : 'image.jpg'))
             .replace(/[^a-zA-Z0-9._-]/g, '_')

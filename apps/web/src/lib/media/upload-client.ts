@@ -1,4 +1,6 @@
 import api, { API_MEDIA_UPLOAD_TIMEOUT_MS, R2_DIRECT_UPLOAD_TIMEOUT_MS } from '@/lib/api';
+import { validateFileForPlatform, getValidationErrorMessage, type ValidationResult } from './validation';
+import { convertMediaFile, supportsCanvasConversion, estimateConversionTime, type ConversionProgress, type ConversionResult } from './conversion';
 
 /** Vercel serverless body limit; same-origin route avoids R2 CORS for small files. */
 export const MEDIA_API_ROUTE_MAX_BYTES = 4 * 1024 * 1024;
@@ -70,8 +72,102 @@ async function uploadFileViaPresignedPut(file: File, safeName: string, contentTy
   return fileUrl;
 }
 
-/** Upload a file to R2 (same-origin API for small files, presigned PUT for large). */
-export async function uploadMediaFile(file: File): Promise<string> {
+export interface UploadOptions {
+  platform?: string;
+  postType?: 'feed' | 'story' | 'shorts';
+  onValidation?: (result: ValidationResult) => void;
+  onConversionStart?: () => void;
+  onConversionProgress?: (progress: ConversionProgress) => void;
+  onConversionComplete?: (result: ConversionResult) => void;
+  autoConvert?: boolean; // Default: true
+}
+
+export interface UploadResult {
+  fileUrl: string;
+  originalFile: File;
+  finalFile: File;
+  wasConverted: boolean;
+  validationResult?: ValidationResult;
+  conversionResult?: ConversionResult;
+}
+
+/** Upload a file to R2 with platform validation and auto-conversion */
+export async function uploadMediaFile(file: File, options: UploadOptions = {}): Promise<UploadResult> {
+  const { platform, postType, autoConvert = true } = options;
+  
+  let finalFile = file;
+  let validationResult: ValidationResult | undefined;
+  let conversionResult: ConversionResult | undefined;
+  let wasConverted = false;
+
+  // Validate against platform constraints if platform is specified
+  if (platform) {
+    validationResult = await validateFileForPlatform(file, platform, postType);
+    options.onValidation?.(validationResult);
+
+    // If validation fails and auto-conversion is enabled
+    if (!validationResult.isValid && validationResult.canAutoFix && autoConvert) {
+      if (!supportsCanvasConversion()) {
+        throw new Error('File needs conversion but your browser doesn\'t support it. Please try a different file.');
+      }
+
+      if (!validationResult.suggestedFixes) {
+        throw new Error(getValidationErrorMessage(validationResult, platform, false));
+      }
+
+      options.onConversionStart?.();
+
+      try {
+        conversionResult = await convertMediaFile(
+          file,
+          validationResult.suggestedFixes,
+          options.onConversionProgress
+        );
+        
+        finalFile = conversionResult.file;
+        wasConverted = true;
+        
+        options.onConversionComplete?.(conversionResult);
+
+        // Re-validate the converted file
+        const newValidation = await validateFileForPlatform(finalFile, platform, postType);
+        if (!newValidation.isValid) {
+          throw new Error(getValidationErrorMessage(newValidation, platform, false));
+        }
+      } catch (conversionError) {
+        throw new Error(
+          conversionError instanceof Error 
+            ? `Conversion failed: ${conversionError.message}` 
+            : 'File conversion failed'
+        );
+      }
+    } else if (!validationResult.isValid) {
+      // Cannot auto-fix or auto-convert disabled
+      throw new Error(getValidationErrorMessage(validationResult, platform, autoConvert));
+    }
+  }
+
+  // Upload the final file
+  const fileUrl = await uploadFileCore(finalFile);
+
+  return {
+    fileUrl,
+    originalFile: file,
+    finalFile,
+    wasConverted,
+    validationResult,
+    conversionResult
+  };
+}
+
+/** Legacy function for backward compatibility */
+export async function uploadMediaFileSimple(file: File): Promise<string> {
+  const result = await uploadMediaFile(file, { autoConvert: false });
+  return result.fileUrl;
+}
+
+/** Core upload logic (internal) */
+async function uploadFileCore(file: File): Promise<string> {
   const contentType =
     file.type?.split(';')[0]?.trim() ||
     (file.name.toLowerCase().match(/\.(mp4|mov|webm|m4v)$/) ? 'video/mp4' : 'image/jpeg');

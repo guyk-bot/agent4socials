@@ -11,6 +11,8 @@ import api, {
 } from '@/lib/api';
 import { friendlyAysopChatError } from '@/lib/ai/aysop-chat-errors';
 import { uploadMediaFile } from '@/lib/media/upload-client';
+import { useMediaUpload } from '@/hooks/useMediaUpload';
+import { MediaUploadProgress } from '@/components/media/MediaUploadProgress';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { resolveChatBrandContext } from '@/lib/ai/aysop-workspace-snapshot';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
@@ -54,10 +56,15 @@ type Props = {
   panelResetKey?: number;
 };
 
-async function uploadChatFile(file: File): Promise<AysopChatAttachment> {
-  const fileUrl = await uploadMediaFile(file);
+async function uploadChatFile(
+  file: File, 
+  uploadFile: (file: File) => Promise<any>
+): Promise<AysopChatAttachment> {
+  const result = await uploadFile(file);
+  if (!result) throw new Error('Upload failed');
+  
   return {
-    fileUrl,
+    fileUrl: result.fileUrl,
     fileName: file.name,
     contentType: file.type || undefined,
     kind: attachmentKindFromMime(file.type || '', file.name),
@@ -94,6 +101,15 @@ export default function AysopChatPanel({
   const requestGenRef = useRef(0);
   const userStoppedRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Media upload with platform awareness
+  const mediaUpload = useMediaUpload({
+    autoConvert: true,
+    onError: (error) => {
+      setError(error);
+      setUploading(false);
+    },
+  });
 
   /** ChatGPT-style auto-grow: expand up to 5 rows, then scroll within the box. */
   const autoResizeInput = useCallback(() => {
@@ -152,7 +168,7 @@ export default function AysopChatPanel({
   }, [messages, loading]);
 
   const handleFilePick = async (files: FileList | null) => {
-    if (!files?.length || disabled || loading || uploading) return;
+    if (!files?.length || disabled || loading || uploading || mediaUpload.isUploading) return;
     setError(null);
 
     const remaining = AYSOP_CHAT_MAX_ATTACHMENTS - pendingAttachments.length;
@@ -162,6 +178,8 @@ export default function AysopChatPanel({
     }
 
     const toUpload = Array.from(files).slice(0, remaining);
+    
+    // Basic file validation (size, type) - platform-specific validation happens in upload
     for (const file of toUpload) {
       const validationError = validateChatFile(file);
       if (validationError) {
@@ -173,9 +191,20 @@ export default function AysopChatPanel({
     setUploading(true);
     try {
       const uploaded: AysopChatAttachment[] = [];
+      
       for (const file of toUpload) {
-        uploaded.push(await uploadChatFile(file));
+        // Use new media upload system with auto-conversion
+        const result = await mediaUpload.uploadFile(file);
+        if (result) {
+          uploaded.push({
+            fileUrl: result.fileUrl,
+            fileName: file.name,
+            contentType: file.type || undefined,
+            kind: attachmentKindFromMime(file.type || '', file.name),
+          });
+        }
       }
+      
       setPendingAttachments((prev) => [...prev, ...uploaded].slice(0, AYSOP_CHAT_MAX_ATTACHMENTS));
     } catch (e) {
       setError(friendlyAysopChatError(e, 'Upload failed. Check media storage configuration.'));
@@ -415,6 +444,16 @@ export default function AysopChatPanel({
         <p className="px-4 py-2 text-sm text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-950/40 border-t border-red-100 dark:border-red-900 shrink-0">{error}</p>
       ) : null}
 
+      {/* Media upload progress */}
+      {mediaUpload.stage !== 'idle' && (
+        <div className="px-3 py-2 border-t border-[var(--border)]">
+          <MediaUploadProgress 
+            state={mediaUpload} 
+            className="bg-[var(--bg-surface)] border-[var(--border)]"
+          />
+        </div>
+      )}
+
       <AysopPendingAttachments
         attachments={pendingAttachments}
         uploading={uploading}
@@ -439,12 +478,12 @@ export default function AysopChatPanel({
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          disabled={loading || disabled || uploading || pendingAttachments.length >= AYSOP_CHAT_MAX_ATTACHMENTS}
+          disabled={loading || disabled || uploading || mediaUpload.isUploading || pendingAttachments.length >= AYSOP_CHAT_MAX_ATTACHMENTS}
           className="shrink-0 rounded-xl border border-neutral-200 dark:border-neutral-700 px-3 py-3 text-neutral-600 dark:text-neutral-300 hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:opacity-40 transition-colors"
           aria-label="Attach file"
           title="Attach image, video, or file"
         >
-          {uploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={18} />}
+          {uploading || mediaUpload.isUploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={18} />}
         </button>
         <textarea
           ref={textareaRef}
@@ -459,7 +498,7 @@ export default function AysopChatPanel({
           rows={1}
           placeholder={loading ? 'Type your next message…' : 'Ask anything or attach media…'}
           className="flex-1 resize-none rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--foreground)] placeholder:text-[var(--muted)] px-4 py-3 text-sm leading-5 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/40"
-          disabled={disabled || uploading}
+          disabled={disabled || uploading || mediaUpload.isUploading}
         />
         {loading ? (
           <button
