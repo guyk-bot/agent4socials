@@ -21,6 +21,7 @@ import {
   pickRestoreChatId,
   previewFromMessages,
   sessionHasConversation,
+  sessionShouldShowInSidebar,
   titleFromMessages,
   visibleChatSessions,
   type AysopChatSessionSummary,
@@ -79,7 +80,7 @@ function resolveInstantChatState(
     return { sessions: [], activeId: null, messages: [] };
   }
   const sessions = (readCachedSessionList(userId) ?? []).filter((s) =>
-    sessionHasConversation(s, userId)
+    sessionShouldShowInSidebar(s, userId)
   );
   let activeId: string | null = null;
 
@@ -148,7 +149,9 @@ export default function AysopAiWorkspace() {
 
   const visibleSessions = useMemo(() => {
     const base = visibleChatSessions(sessions, user?.id);
-    if (!activeId || base.some((s) => s.id === activeId)) return base;
+    if (!activeId || base.some((s) => s.id === activeId) || !activeId.startsWith('offline-')) {
+      return base;
+    }
     const hit = sessions.find((s) => s.id === activeId);
     const activeSummary: AysopChatSessionSummary = hit ?? {
       id: activeId,
@@ -164,7 +167,7 @@ export default function AysopAiWorkspace() {
     (next: AysopChatSessionSummary[]) => {
       writeCachedSessionList(
         user?.id,
-        next.filter((s) => sessionHasConversation(s, user?.id))
+        next.filter((s) => sessionShouldShowInSidebar(s, user?.id))
       );
     },
     [user?.id]
@@ -413,7 +416,7 @@ export default function AysopAiWorkspace() {
     initRef.current = true;
 
     const cachedList = (readCachedSessionList(user.id) ?? []).filter((s) =>
-      sessionHasConversation(s, user.id)
+      sessionShouldShowInSidebar(s, user.id)
     );
     if (cachedList.length) {
       setSessions(cachedList);
@@ -587,7 +590,7 @@ export default function AysopAiWorkspace() {
     clearLastActiveChatId(user?.id);
 
     setSessions((prev) => {
-      const kept = prev.filter((s) => sessionHasConversation(s, user?.id));
+      const kept = prev.filter((s) => sessionShouldShowInSidebar(s, user?.id));
       cacheSessionList(kept);
       return kept;
     });

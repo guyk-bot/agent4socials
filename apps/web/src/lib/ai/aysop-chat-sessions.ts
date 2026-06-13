@@ -106,12 +106,22 @@ export function sessionHasConversation(
   );
 }
 
-/** Sidebar list: only chats that have actually started (no empty "New chat" rows). */
+/** Sidebar: chats with messages, or server sessions the user explicitly created (New chat). */
+export function sessionShouldShowInSidebar(
+  s: AysopChatSessionSummary,
+  userId?: string
+): boolean {
+  if (sessionHasConversation(s, userId)) return true;
+  if (s.id.startsWith('offline-')) return false;
+  return true;
+}
+
+/** Sidebar list: started chats plus empty server sessions (not offline drafts). */
 export function visibleChatSessions(
   sessions: AysopChatSessionSummary[],
   userId?: string
 ): AysopChatSessionSummary[] {
-  return sessions.filter((s) => sessionHasConversation(s, userId));
+  return sessions.filter((s) => sessionShouldShowInSidebar(s, userId));
 }
 
 /** Drop deleted server chats from localStorage; server list is source of truth. */
@@ -128,7 +138,7 @@ export function syncChatSessionsWithServer(
     }
   }
 
-  const merged = serverSessions.filter((s) => sessionHasConversation(s, userId));
+  const merged = serverSessions.filter((s) => sessionShouldShowInSidebar(s, userId));
   writeCachedSessionList(userId, merged);
 
   const lastId = readLastActiveChatId(userId);
@@ -152,7 +162,7 @@ export function mergeChatSessionsWithServer(
     }
   }
   return [...map.values()]
-    .filter((s) => sessionHasConversation(s, userId))
+    .filter((s) => sessionShouldShowInSidebar(s, userId))
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 }
 
@@ -160,16 +170,18 @@ export function pickRestoreChatId(
   userId: string,
   sessions: AysopChatSessionSummary[]
 ): string | null {
-  const visible = sessions.filter((s) => sessionHasConversation(s, userId));
-  const byId = new Map(visible.map((s) => [s.id, s]));
+  const sidebar = sessions.filter((s) => sessionShouldShowInSidebar(s, userId));
+  const byId = new Map(sidebar.map((s) => [s.id, s]));
   const lastId = readLastActiveChatId(userId);
 
   if (lastId && byId.has(lastId)) return lastId;
 
-  const real = visible.filter((s) => !s.id.startsWith('offline-'));
+  const real = sidebar.filter((s) => !s.id.startsWith('offline-'));
+  const withConvo = real.filter((s) => sessionHasConversation(s, userId));
+  if (withConvo.length) return withConvo[0]!.id;
   if (real.length) return real[0]!.id;
 
-  const offline = visible.find((s) => s.id.startsWith('offline-'));
+  const offline = sidebar.find((s) => s.id.startsWith('offline-'));
   return offline?.id ?? null;
 }
 
