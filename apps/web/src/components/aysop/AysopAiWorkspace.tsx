@@ -582,8 +582,16 @@ export default function AysopAiWorkspace() {
   }, []);
 
   const handleNewChat = () => {
+    console.log('handleNewChat clicked, user:', user?.id);
+    
+    if (!user?.id) {
+      console.error('No user ID available for new chat');
+      return;
+    }
+    
     // Create temporary offline session IMMEDIATELY for instant UI
     const tempSession = makeOfflineSession();
+    console.log('Created temp session:', tempSession.id);
     
     // Clear current state and show new chat instantly
     setMessages([]);
@@ -603,7 +611,7 @@ export default function AysopAiWorkspace() {
     // Set as active IMMEDIATELY
     setActiveId(tempSession.id);
     activeIdRef.current = tempSession.id;
-    router.replace('/dashboard/aysop-ai', { scroll: false });
+    router.replace(`/dashboard/aysop-ai?c=${encodeURIComponent(tempSession.id)}`, { scroll: false });
 
     // Now handle server session creation in background
     void (async () => {
