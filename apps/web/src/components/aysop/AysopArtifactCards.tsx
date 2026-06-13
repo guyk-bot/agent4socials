@@ -31,6 +31,7 @@ import { AysopBrandContextUpdateCard } from '@/components/aysop/AysopBrandContex
 import { AysopLeadsCard } from '@/components/aysop/AysopLeadsCard';
 import { AysopLeadsScanPromptCard } from '@/components/aysop/AysopLeadsScanPromptCard';
 import { PostContentPreviewThumb } from '@/components/PostContentPreviewThumb';
+import { quickReplyMessageForAction } from '@/lib/ai/aysop-quick-replies';
 
 const SUPPORT_OPTIONS: Array<{ label: string; desc: string; href: string; icon: React.ReactNode }> = [
   {
@@ -104,10 +105,14 @@ export function AysopArtifactCards({
   artifacts,
   onScanLeads,
   scanningLeads,
+  onQuickReply,
+  quickReplyDisabled,
 }: {
   artifacts: AysopArtifact[];
   onScanLeads?: () => void;
   scanningLeads?: boolean;
+  onQuickReply?: (message: string) => void;
+  quickReplyDisabled?: boolean;
 }) {
   if (!artifacts.length) return null;
 
@@ -188,36 +193,37 @@ export function AysopArtifactCards({
 
         if (a.type === 'interactive_card') {
           rendered.add(key);
+          const title = a.title?.trim();
+          const body = a.body?.trim();
           return (
-            <div key={key} className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4">
-              <h3 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-2">{a.title}</h3>
-              <p className="text-sm text-neutral-700 dark:text-neutral-300 mb-4 whitespace-pre-line">{a.body}</p>
+            <div key={key} className="mt-2">
+              {title ? (
+                <p className="font-medium text-neutral-900 dark:text-neutral-100 mb-1">{title}</p>
+              ) : null}
+              {body ? (
+                <p className="text-sm text-neutral-700 dark:text-neutral-300 mb-2 whitespace-pre-line">{body}</p>
+              ) : null}
               <div className="flex flex-wrap gap-2">
-                {a.actions.map((action, actionIndex) => (
-                  <button
-                    key={actionIndex}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      action.style === 'primary'
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                        : 'bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-700 dark:hover:bg-neutral-600 text-neutral-900 dark:text-neutral-100'
-                    }`}
-                    onClick={() => {
-                      // Handle button actions - for now we'll simulate a message
-                      if (action.action === 'brand_setup_start') {
-                        // This would normally trigger the guided setup
-                        console.log('Starting brand context setup...');
-                      } else if (action.action === 'brand_setup_skip') {
-                        console.log('Skipping brand context setup...');
-                      } else if (action.action === 'brand_setup_from_media') {
-                        console.log('Setting up brand context from media...');
-                      } else if (action.action === 'create_post_only') {
-                        console.log('Creating post only...');
+                {a.actions.map((action, actionIndex) => {
+                  const reply = quickReplyMessageForAction(action.action);
+                  return (
+                    <button
+                      key={actionIndex}
+                      type="button"
+                      disabled={quickReplyDisabled || !reply || !onQuickReply}
+                      className={
+                        action.style === 'primary'
+                          ? 'rounded-lg gradient-cta-pro px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40 transition-opacity'
+                          : 'rounded-lg border border-neutral-200 dark:border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-800 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-40 transition-colors'
                       }
-                    }}
-                  >
-                    {action.label}
-                  </button>
-                ))}
+                      onClick={() => {
+                        if (reply && onQuickReply) onQuickReply(reply);
+                      }}
+                    >
+                      {action.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           );

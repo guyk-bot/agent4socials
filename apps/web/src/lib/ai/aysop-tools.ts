@@ -1041,7 +1041,7 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'show_brand_context_onboarding',
       description:
-        'Show brand context setup recommendation when user has no or minimal brand context. Provides options to set up brand context (with AI assistance if platforms are connected) or continue without setup.',
+        'Add Set up brand context / Continue without setup buttons in chat when brand context is missing. You write the recommendation in your reply; this tool only adds the buttons (no duplicate text in the card).',
       parameters: {
         type: 'object',
         properties: {
@@ -1077,7 +1077,7 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'collect_contextual_brand_info',
       description:
-        'Collect brand context from user when they upload media without brand setup. Ask about post topic and target audience, then offer to add to brand context.',
+        'Add Set up brand context / Just create this post buttons when user uploads media without brand setup. You write ONE message in your reply (acknowledge upload once, ask topic, audience, tone). This tool only adds buttons; do not duplicate your text in the card.',
       parameters: {
         type: 'object',
         properties: {
@@ -1673,21 +1673,16 @@ export async function runAysopTool(
 
     case 'show_brand_context_onboarding': {
       const hasConnectedAccounts = Boolean(args.hasConnectedAccounts);
-      const setupBenefit = hasConnectedAccounts
-        ? 'I can analyze your connected accounts to help set this up automatically'
-        : 'This will help me create better captions and understand your brand';
 
       return {
         result: { onboardingShown: true, hasConnectedAccounts },
         artifacts: [
           {
             type: 'interactive_card',
-            title: 'Set up brand context',
-            body: `I recommend setting up your brand context for better AI assistance. ${setupBenefit}.`,
             actions: [
               {
                 type: 'button',
-                label: '✨ Set up brand context',
+                label: 'Set up brand context',
                 action: 'brand_setup_start',
                 style: 'primary',
               },
@@ -1807,38 +1802,26 @@ export async function runAysopTool(
     case 'collect_contextual_brand_info': {
       const mediaType = String(args.mediaType ?? 'image') as 'image' | 'video';
       const current = await loadBrandContext(ctx.userId);
-      
-      const hasMinimalContext = !!current.productDescription?.trim() && 
-                               !!current.targetAudience?.trim();
+
+      const hasMinimalContext =
+        !!current.productDescription?.trim() && !!current.targetAudience?.trim();
 
       if (hasMinimalContext) {
         return {
-          result: { contextualPrompt: true, hasMinimalContext: true },
-          artifacts: [
-            {
-              type: 'text_block',
-              title: `${mediaType === 'image' ? 'Image' : 'Video'} uploaded`,
-              body: `I see you've uploaded ${mediaType === 'image' ? 'an image' : 'a video'}! What would you like to post about, and who is your target audience for this content?`,
-            },
-          ],
+          result: { contextualPrompt: true, hasMinimalContext: true, buttonsOnly: false },
+          artifacts: [],
         };
       }
 
       return {
-        result: { contextualPrompt: true, hasMinimalContext: false },
+        result: { contextualPrompt: true, hasMinimalContext: false, buttonsOnly: true, mediaType },
         artifacts: [
           {
             type: 'interactive_card',
-            title: `${mediaType === 'image' ? 'Image' : 'Video'} uploaded`,
-            body: `I see you've uploaded ${mediaType === 'image' ? 'an image' : 'a video'}! To create the best caption, I need to know more about your content.
-
-• What is this post about?
-• Who is your target audience?
-• What tone should I use? (professional, casual, fun, etc.)`,
             actions: [
               {
                 type: 'button',
-                label: 'Set up brand context with this info',
+                label: 'Set up brand context',
                 action: 'brand_setup_from_media',
                 style: 'primary',
               },

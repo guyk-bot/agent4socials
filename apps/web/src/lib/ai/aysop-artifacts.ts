@@ -169,8 +169,8 @@ export type AysopArtifact =
   | { type: 'text_block'; title?: string; body: string; href?: string; hrefLabel?: string }
   | {
       type: 'interactive_card';
-      title: string;
-      body: string;
+      title?: string;
+      body?: string;
       actions: Array<{
         type: 'button';
         label: string;

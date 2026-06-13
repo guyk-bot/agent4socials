@@ -441,6 +441,8 @@ export default function AysopChatPanel({
                       artifacts={m.artifacts}
                       onScanLeads={() => void runLeadsScan()}
                       scanningLeads={scanningLeads}
+                      onQuickReply={(text) => void send(text)}
+                      quickReplyDisabled={loading || disabled || uploading}
                     />
                   ) : null}
                 </div>
