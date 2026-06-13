@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowUp, Check } from 'lucide-react';
+import { ArrowUp, Check, Paperclip, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useAuthModal } from '@/context/AuthModalContext';
 import {
@@ -56,6 +56,8 @@ import {
 } from '@/lib/funnel-chat-flow';
 import type { BrandContextRecord } from '@/lib/brand-context-utils';
 import { writeHashtagPool } from '@/lib/hashtag-pool';
+import { useMediaUpload } from '@/hooks/useMediaUpload';
+import { MediaUploadProgress } from '@/components/media/MediaUploadProgress';
 import { preloadImageUrl } from '@/lib/funnel/preload-image';
 import {
   clearFunnelOAuthPending,
@@ -432,6 +434,19 @@ export default function ChatHero() {
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
   const [draftText, setDraftText] = useState('');
+
+  // Media upload state
+  const [pendingAttachments, setPendingAttachments] = useState<{ fileUrl: string; fileName: string; contentType: string }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Media upload hook with platform awareness
+  const mediaUpload = useMediaUpload({
+    platform: selectedPlatforms[0] || connectedPlatform || undefined,
+    autoConvert: true,
+    onError: (error) => {
+      console.error('Media upload error:', error);
+    },
+  });
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -995,6 +1010,30 @@ export default function ChatHero() {
     openSignup('funnel_chat');
   }, [connectedAccountId, openSignup, selectedPlatforms]);
 
+  const handleFileUpload = useCallback(async (files: FileList | null) => {
+    if (!files?.length || busy || mediaUpload.isUploading) return;
+    
+    const file = files[0]; // Only handle single file for simplicity in funnel
+    if (!file) return;
+    
+    try {
+      const result = await mediaUpload.uploadFile(file);
+      if (result) {
+        setPendingAttachments(prev => [...prev, {
+          fileUrl: result.fileUrl,
+          fileName: file.name,
+          contentType: file.type || 'application/octet-stream'
+        }]);
+      }
+    } catch (error) {
+      console.error('File upload failed:', error);
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }, [busy, mediaUpload]);
+
   const handleFreeTextSubmit = useCallback(async () => {
     const trimmed = draftText.trim();
     if (!trimmed || busy || isTyping || messageLimited) return;
@@ -1036,6 +1075,7 @@ export default function ChatHero() {
       funnelFlowStep: funnelStep,
       brandContextDraft: brandDraft as Record<string, unknown>,
       hashtagPool: hashtagPoolDraft,
+      attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined,
     };
 
     setBusy(true);
@@ -1139,6 +1179,10 @@ export default function ChatHero() {
       saveFunnelForAppHandoff();
     }
     if (hitLimit) saveFunnelForAppHandoff();
+    
+    // Clear attachments after successful send
+    setPendingAttachments([]);
+    
     setBusy(false);
     scrollToLatest();
   }, [
@@ -1434,6 +1478,41 @@ export default function ChatHero() {
             </div>
 
             <div className="mt-3 flex w-full flex-col gap-2">
+            
+            {/* Media upload progress */}
+            {mediaUpload.stage !== 'idle' && (
+              <div className="px-3">
+                <MediaUploadProgress 
+                  state={mediaUpload} 
+                  className="bg-[var(--chat-hero-surface)] border-[var(--chat-hero-border)]"
+                />
+              </div>
+            )}
+
+            {/* File attachments display */}
+            {pendingAttachments.length > 0 && (
+              <div className="px-3">
+                <div className="space-y-2">
+                  {pendingAttachments.map((attachment, index) => (
+                    <div 
+                      key={index}
+                      className="flex items-center gap-2 p-2 rounded-lg bg-[var(--chat-hero-surface)] border border-[var(--chat-hero-border)]"
+                    >
+                      <Paperclip size={16} className="text-[var(--chat-hero-muted)]" />
+                      <span className="text-sm text-[var(--chat-hero-text)] truncate">{attachment.fileName}</span>
+                      <button
+                        type="button"
+                        onClick={() => setPendingAttachments(prev => prev.filter((_, i) => i !== index))}
+                        className="ml-auto text-[var(--chat-hero-muted)] hover:text-red-500"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             <form
               className="flex w-full items-center gap-2.5 rounded-2xl border border-[var(--chat-hero-border)] bg-[var(--chat-hero-input-bg)] px-3.5 py-2.5 sm:px-5 sm:py-3 shadow-sm focus-within:border-[#7C3AED]/40 focus-within:ring-2 focus-within:ring-[#7C3AED]/15"
               onSubmit={(e) => {
@@ -1441,13 +1520,37 @@ export default function ChatHero() {
                 void handleFreeTextSubmit();
               }}
             >
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/*"
+                className="hidden"
+                onChange={(e) => void handleFileUpload(e.target.files)}
+              />
+              
+              {/* File upload button */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={busy || isTyping || messageLimited || mediaUpload.isUploading}
+                className="shrink-0 p-1 text-[var(--chat-hero-muted)] hover:text-[#7C3AED] disabled:opacity-40 transition-colors"
+                aria-label="Attach media"
+              >
+                {mediaUpload.isUploading ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <Paperclip size={18} />
+                )}
+              </button>
+              
               <input
                 ref={inputRef}
                 type="text"
                 value={draftText}
                 onChange={(e) => setDraftText(e.target.value)}
                 placeholder={inputPlaceholder}
-                disabled={busy || isTyping || messageLimited}
+                disabled={busy || isTyping || messageLimited || mediaUpload.isUploading}
                 className="flex-1 min-w-0 bg-transparent text-[19px] text-[var(--chat-hero-text)] placeholder:text-[var(--chat-hero-muted)] outline-none disabled:opacity-50"
                 aria-label="Message iZop"
               />

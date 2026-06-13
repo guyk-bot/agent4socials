@@ -44,6 +44,7 @@ type Body = {
   funnelFlowStep?: string | null;
   brandContextDraft?: Record<string, unknown> | null;
   hashtagPool?: string | null;
+  attachments?: Array<{ fileUrl: string; fileName: string; contentType: string }>;
 };
 
 export async function POST(req: Request) {
@@ -94,6 +95,7 @@ export async function POST(req: Request) {
       body.brandContextDraft && typeof body.brandContextDraft === 'object'
         ? (body.brandContextDraft as Record<string, unknown>)
         : null,
+    attachments: Array.isArray(body.attachments) ? body.attachments : undefined,
   };
 
   const guestAction = await tryHandleFunnelGuestAction(chatCtx, funnelToken);

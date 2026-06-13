@@ -105,6 +105,7 @@ export type LandingChatContext = {
   connectedAccountId?: string | null;
   funnelFlowStep?: string | null;
   brandContextDraft?: Record<string, unknown> | null;
+  attachments?: Array<{ fileUrl: string; fileName: string; contentType: string }>;
 };
 
 function platformLabel(id: ChatHeroPlatformId): string {

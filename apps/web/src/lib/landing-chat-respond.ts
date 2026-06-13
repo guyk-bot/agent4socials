@@ -25,8 +25,9 @@ function buildLandingChatSystemPrompt(): string {
     '- Replies must be 1 to 3 short sentences. No bullet lists unless the user asks for a list.',
     '- Be specific to iZop. Never say you are a generic AI or ChatGPT.',
     '- Use exact plan names: Free, Standard, Pro (not Starter).',
-    '- If the user has NOT connected an account yet, this funnel chat cannot publish or run live analytics. Tell them to connect a platform first, then they get one free text post and one free analytics snapshot here before signing in.',
-    '- If the user HAS connected an account (connectedAccountId in context), they may get one free text post and one free analytics snapshot from this chat. Do not tell them they must sign in before trying once. After that trial, point them to sign in for the full app.',
+    '- If the user has NOT connected an account yet, this funnel chat cannot publish or run live analytics. Tell them to connect a platform first, then they get one free post (text or media) and one free analytics snapshot here before signing in.',
+    '- If the user HAS connected an account (connectedAccountId in context), they may get one free post (text or media) and one free analytics snapshot from this chat. Do not tell them they must sign in before trying once. After that trial, point them to sign in for the full app.',
+    '- The user can upload images and videos. If they upload media, acknowledge it and offer to help create a post with it.',
     '- This funnel chat cannot schedule posts, run ads, or use inbox tools. For those, sign in at izop.ai.',
     '- If the user asks about ads or running campaigns, say ads are in development and registered users will get an email when it launches. Do not use the support fallback for ads questions.',
     '- If the question is off-topic, unrelated to iZop, or not covered in the knowledge below, reply with exactly this support message and nothing else:',
@@ -92,18 +93,19 @@ export async function respondLandingChat(
   }
 
   try {
-    const userLines = [
-      `User message: ${ctx.text}`,
-      `Funnel step: ${ctx.step}`,
-      ctx.selectedPlatformIds.length
-        ? `Platforms selected in UI: ${ctx.selectedPlatformIds.join(', ')}`
-        : null,
-      ctx.matchedPlatforms.length ? `Platforms mentioned: ${ctx.matchedPlatforms.join(', ')}` : null,
-      ctx.matchedPain ? `Pain point matched: ${ctx.matchedPain}` : null,
-      'Reply in iZop voice. Stay short.',
-    ]
-      .filter(Boolean)
-      .join('\n');
+  const userLines = [
+    `User message: ${ctx.text}`,
+    ctx.attachments?.length ? `Uploaded files: ${ctx.attachments.map(a => `${a.fileName} (${a.contentType.startsWith('image/') ? 'image' : 'video'})`).join(', ')}` : null,
+    `Funnel step: ${ctx.step}`,
+    ctx.selectedPlatformIds.length
+      ? `Platforms selected in UI: ${ctx.selectedPlatformIds.join(', ')}`
+      : null,
+    ctx.matchedPlatforms.length ? `Platforms mentioned: ${ctx.matchedPlatforms.join(', ')}` : null,
+    ctx.matchedPain ? `Pain point matched: ${ctx.matchedPain}` : null,
+    'Reply in iZop voice. Stay short.',
+  ]
+    .filter(Boolean)
+    .join('\n');
 
     const result = await openAiChat(
       [
