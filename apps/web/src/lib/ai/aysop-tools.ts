@@ -1039,6 +1039,29 @@ export const AYSOP_TOOL_DEFINITIONS = [
   {
     type: 'function' as const,
     function: {
+      name: 'show_quick_actions',
+      description:
+        'Add instant action buttons for common tasks. Use when mentioning multiple options to let user click instead of typing. No text duplication - just the buttons.',
+      parameters: {
+        type: 'object',
+        properties: {
+          actions: {
+            type: 'array',
+            items: {
+              type: 'string',
+              enum: ['Show Analytics', 'Check Inbox', 'Create Post', 'Connect Platform', 'Find Leads', 'Get Support']
+            },
+            description: 'Array of quick action buttons to show',
+          },
+        },
+        required: ['actions'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
       name: 'show_brand_context_onboarding',
       description:
         'Add Set up brand context / Continue without setup buttons in chat when brand context is missing. You write the recommendation in your reply; this tool only adds the buttons (no duplicate text in the card).',
@@ -1668,6 +1691,39 @@ export async function runAysopTool(
           note: 'Support card shown in chat with Send feedback, Open a ticket, and Schedule a Zoom call buttons.',
         },
         artifacts: [{ type: 'support_options', href: '/dashboard/support' }],
+      };
+    }
+
+    case 'show_quick_actions': {
+      const actions = args.actions as string[];
+      const actionMap: Record<string, { label: string; action: string }> = {
+        'Show Analytics': { label: 'Show Analytics', action: 'show analytics' },
+        'Check Inbox': { label: 'Check Inbox', action: 'check inbox' },
+        'Create Post': { label: 'Create Post', action: 'create post' },
+        'Connect Platform': { label: 'Connect Platform', action: 'connect platform' },
+        'Find Leads': { label: 'Find Leads', action: 'find leads' },
+        'Get Support': { label: 'Get Support', action: 'get support' },
+      };
+
+      const quickActions = actions.map((actionKey) => {
+        const mappedAction = actionMap[actionKey];
+        if (!mappedAction) return null;
+        return {
+          type: 'button' as const,
+          label: mappedAction.label,
+          action: mappedAction.action,
+          style: 'secondary' as const,
+        };
+      }).filter(Boolean);
+
+      return {
+        result: { actionsShown: true, actionCount: quickActions.length },
+        artifacts: [
+          {
+            type: 'interactive_card',
+            actions: quickActions,
+          },
+        ],
       };
     }
 

@@ -30,11 +30,9 @@ export function isCasualAysopChatMessage(messages: AysopChatInputMessage[]): boo
 
 export function buildCasualAysopSystemPrompt(): string {
   return [
-    `You are ${BRAND_NAME} AI inside the ${BRAND_NAME} dashboard.`,
-    'Reply in one or two short sentences. Plain text only, no markdown.',
-    'You help with connecting accounts, posts, scheduling, inbox replies, analytics, brand context, and leads.',
-    'If they need live numbers or inbox data, tell them to ask specifically (e.g. "show my Instagram analytics" or "Threads replies this week").',
-    'No em dashes.',
+    `You are ${BRAND_NAME} AI. Execute instantly. One sentence max.`,
+    'Available: connect accounts, create posts, check analytics, reply to comments, find leads.',
+    'Ask for specific platform if needed (e.g. "Instagram analytics" or "TikTok comments").',
   ].join('\n');
 }
 
@@ -42,11 +40,18 @@ export function instantCasualAysopReply(messages: AysopChatInputMessage[]): stri
   const last = [...messages].reverse().find((m) => m.role === 'user');
   const text = last?.content.trim() ?? '';
   if (CASUAL_GREETING.test(text)) {
-    return `Hi! I'm ${BRAND_NAME} AI. Ask about analytics, inbox, posts, or leads and I'll pull live data from your workspace.`;
+    return `Hi! What would you like to do?`;
   }
   if (CAPABILITY_QUESTION.test(text)) {
-    return `I'm ${BRAND_NAME} AI. I can connect platforms, draft posts, show inbox comments, run analytics, manage brand context, and save leads. What do you want to do first?`;
+    return `I can connect platforms, create posts, show analytics, check inbox, and find leads.`;
   }
+  // Single-word requests
+  if (/^analytics?$/i.test(text)) return `Which platform analytics do you want to see?`;
+  if (/^inbox$/i.test(text)) return `Checking your inbox...`;
+  if (/^post$/i.test(text)) return `Ready to create a post. Upload media or describe what you want to post.`;
+  if (/^connect$/i.test(text)) return `Let me show you available platforms to connect.`;
+  if (/^leads?$/i.test(text)) return `Checking your saved leads...`;
+  
   return null;
 }
 
@@ -113,6 +118,17 @@ function replyFromArtifacts(artifacts: AysopArtifact[], fallback: string): strin
   return fallback;
 }
 
+/** Enhanced greeting with quick actions */
+async function createGreetingWithActions(ctx: AysopToolContext): Promise<{ reply: string; artifacts: AysopArtifact[] }> {
+  const { artifacts } = await runAysopTool('show_quick_actions', { 
+    actions: ['Show Analytics', 'Check Inbox', 'Create Post', 'Connect Platform'] 
+  }, ctx);
+  return {
+    reply: 'Hi! What would you like to do?',
+    artifacts,
+  };
+}
+
 /** Skip the LLM for brand-context button taps and post creation from uploaded media. */
 export async function tryMediaActionFastPath(
   messages: AysopChatInputMessage[],
@@ -122,10 +138,16 @@ export async function tryMediaActionFastPath(
   if (!lastUser) return null;
   const text = lastUser.content.trim();
 
+  // Enhanced greeting with action buttons
+  if (/^(hi|hello|hey)([.,!]?\s*)*$/i.test(text)) {
+    return await createGreetingWithActions(ctx);
+  }
+
   if (text === 'Continue without brand context' || text === 'Continue without setup') {
+    const { artifacts } = await runAysopTool('show_quick_actions', { actions: ['Show Analytics', 'Check Inbox', 'Create Post'] }, ctx);
     return {
-      reply: 'Got it. Tell me what you want to post, or ask about analytics or inbox anytime.',
-      artifacts: [],
+      reply: 'Got it. What would you like to do?',
+      artifacts,
     };
   }
 
@@ -149,6 +171,47 @@ export async function tryMediaActionFastPath(
     return {
       reply: replyFromArtifacts(out.artifacts ?? [], fallback),
       artifacts: out.artifacts ?? [],
+    };
+  }
+
+  // Direct action fast paths for common requests
+  if (/^show analytics?$/i.test(text) || text === 'Show Analytics') {
+    const result = await runAysopTool('get_analytics_all_accounts', {}, ctx);
+    return {
+      reply: 'Here are your latest analytics:',
+      artifacts: result.artifacts ?? [],
+    };
+  }
+
+  if (/^check inbox$/i.test(text) || text === 'Check Inbox') {
+    const result = await runAysopTool('list_recent_inbox', { days: 7 }, ctx);
+    return {
+      reply: 'Here are your recent inbox comments:',
+      artifacts: result.artifacts ?? [],
+    };
+  }
+
+  if (/^connect platform$/i.test(text) || text === 'Connect Platform') {
+    const result = await runAysopTool('list_connect_platforms', {}, ctx);
+    return {
+      reply: 'Choose a platform to connect:',
+      artifacts: result.artifacts ?? [],
+    };
+  }
+
+  if (/^find leads$/i.test(text) || text === 'Find Leads') {
+    const result = await runAysopTool('get_saved_leads', {}, ctx);
+    return {
+      reply: 'Here are your saved leads:',
+      artifacts: result.artifacts ?? [],
+    };
+  }
+
+  if (/^get support$/i.test(text) || text === 'Get Support') {
+    const result = await runAysopTool('show_support_options', {}, ctx);
+    return {
+      reply: 'Here are your support options:',
+      artifacts: result.artifacts ?? [],
     };
   }
 
