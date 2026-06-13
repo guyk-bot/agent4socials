@@ -580,7 +580,12 @@ export default function AysopAiWorkspace() {
   }, []);
 
   const handleNewChat = () => {
-    if (newChatInFlightRef.current) return;
+    if (newChatInFlightRef.current) {
+      console.log('[DEBUG] New chat blocked - already in flight');
+      return;
+    }
+    
+    console.log('[DEBUG] Starting new chat creation');
     newChatInFlightRef.current = true;
     setCreatingNewChat(true);
 
@@ -590,9 +595,6 @@ export default function AysopAiWorkspace() {
 
     const prevId = activeIdRef.current;
     const prevMsgs = [...messagesRef.current];
-    const staleEmptyIds = sessions
-      .filter((s) => isEmptyServerChat(s, user?.id))
-      .map((s) => s.id);
 
     if (persistDebounceRef.current) {
       clearTimeout(persistDebounceRef.current);
@@ -604,46 +606,47 @@ export default function AysopAiWorkspace() {
     setMessages([]);
     messagesRef.current = [];
 
-    void (async () => {
+    (async () => {
       try {
+        console.log('[DEBUG] New chat async started');
         if (prevId && prevMsgs.length > 0) {
           pendingPersistRef.current = { id: prevId, messages: prevMsgs };
           await flushPersist();
         }
-        if (!newChatIntentRef.current) return;
+        if (!newChatIntentRef.current) {
+          console.log('[DEBUG] New chat intent cancelled during persist');
+          return;
+        }
 
+        console.log('[DEBUG] Creating server session');
         const session = await createSession();
-        if (!newChatIntentRef.current) return;
+        if (!newChatIntentRef.current) {
+          console.log('[DEBUG] New chat intent cancelled after create');
+          return;
+        }
 
+        console.log('[DEBUG] Session created:', session.id);
         writeCachedMessages(user?.id, session.id, []);
         setMessages([]);
         messagesRef.current = [];
 
         const summary = sessionSummaryFromDetail({ ...session, messages: [] });
         setSessions((prev) => {
-          const withoutStale = prev.filter(
-            (s) =>
-              sessionShouldShowInSidebar(s, user?.id) &&
-              (sessionHasConversation(s, user?.id) || s.id === summary.id)
-          );
-          const merged = [summary, ...withoutStale.filter((s) => s.id !== summary.id)];
+          const kept = prev.filter((s) => sessionShouldShowInSidebar(s, user?.id) && sessionHasConversation(s, user?.id));
+          const merged = [summary, ...kept.filter((s) => s.id !== summary.id)];
           cacheSessionList(merged);
           return merged;
         });
         setActiveChat(session.id);
 
-        for (const staleId of staleEmptyIds) {
-          if (staleId === session.id) continue;
-          writeCachedMessages(user?.id, staleId, []);
-          if (!staleId.startsWith('offline-')) {
-            void api.delete(`/ai/aysop-chats/${staleId}`).catch(() => {});
-          }
-        }
-      } catch {
+        console.log('[DEBUG] New chat complete');
+      } catch (error) {
+        console.error('[DEBUG] New chat error:', error);
         if (newChatIntentRef.current) {
           startEphemeralChat();
         }
       } finally {
+        console.log('[DEBUG] New chat cleanup');
         newChatInFlightRef.current = false;
         setCreatingNewChat(false);
       }
