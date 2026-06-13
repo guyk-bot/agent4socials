@@ -384,8 +384,8 @@ export default function AysopChatPanel({
         {messages.length === 0 ? (
           <div className="text-center py-8 px-4">
             <IzopGlassLogo
-              alt=""
-              variant="outline"
+              alt={`${BRAND_NAME} AI`}
+              variant="square"
               tone={theme === 'dark' ? 'dark' : 'light'}
               className="mx-auto mb-3"
             />

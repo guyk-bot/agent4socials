@@ -1,8 +1,9 @@
 'use client';
 
 import {
-  IZOP_AI_MARK_MASK_CHAT_SRC,
+  IZOP_AI_MARK_DARK_SRC,
   IZOP_AI_MARK_MASK_SRC,
+  IZOP_AI_MARK_WHITE_SRC,
   SITE_HEADER_LOGO_CLASS,
   SITE_LOGO_DARK_SRC,
 } from '@/lib/site-brand-assets';
@@ -11,12 +12,12 @@ type Props = {
   alt?: string;
   /** sm: header mark. md: slightly larger hero contexts. */
   size?: 'sm' | 'md';
-  /** full: main app mark. nav: iZop AI top nav. outline: iZop AI chat empty state. */
-  variant?: 'full' | 'nav' | 'outline';
+  /** full: main app mark. nav: iZop AI top nav. square: filled mark + title area in chat. */
+  variant?: 'full' | 'nav' | 'square';
   className?: string;
   /** Pulse animation during OAuth connect. */
   animated?: boolean;
-  /** outline only: light = dark mark, dark = light mark */
+  /** square only: light = black mark on white tile, dark = white mark on black tile */
   tone?: 'light' | 'dark';
 };
 
@@ -46,15 +47,15 @@ export function IzopGlassLogo({
     );
   }
 
-  if (variant === 'outline') {
-    const maskSrc = IZOP_AI_MARK_MASK_CHAT_SRC;
+  if (variant === 'square') {
+    const src = tone === 'dark' ? IZOP_AI_MARK_WHITE_SRC : IZOP_AI_MARK_DARK_SRC;
     return (
-      <span
-        className={`izop-ai-outline-mark ${tone === 'dark' ? 'izop-ai-outline-mark--dark' : ''} ${className}`.trim()}
-        style={{ WebkitMaskImage: `url(${maskSrc})`, maskImage: `url(${maskSrc})` }}
-        role={alt ? 'img' : undefined}
-        aria-label={alt || undefined}
-        aria-hidden={!alt}
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt={alt}
+        className={`izop-ai-square-mark ${className}`.trim()}
+        draggable={false}
       />
     );
   }

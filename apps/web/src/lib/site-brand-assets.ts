@@ -22,7 +22,7 @@ export const BRAND_HEADER_BG = BRAND_PAGE_BG;
 export const BRAND_CHROME_TEXT = '#FFFFFF';
 
 /** Bumped when shared logo mark assets change (cache bust for browsers and CDNs). */
-export const SITE_LOGO_V = '69';
+export const SITE_LOGO_V = '70';
 
 /** iZop AI outline mark (black on light backgrounds). */
 export const IZOP_AI_MARK_DARK_PATH = '/izop-ai-mark-dark.png';

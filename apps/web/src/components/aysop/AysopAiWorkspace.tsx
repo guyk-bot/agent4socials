@@ -113,7 +113,7 @@ export default function AysopAiWorkspace() {
   const [sessions, setSessions] = useState<AysopChatSessionSummary[]>(instantBoot.sessions);
   const [activeId, setActiveId] = useState<string | null>(instantBoot.activeId);
   const [messages, setMessages] = useState<ChatMessage[]>(instantBoot.messages);
-  const [listLoading, setListLoading] = useState(instantBoot.sessions.length === 0);
+  const newChatIntentRef = useRef(false);
 
   const initRef = useRef(false);
   const messagesRef = useRef<ChatMessage[]>(instantBoot.messages);
@@ -405,7 +405,6 @@ export default function AysopAiWorkspace() {
     );
     if (cachedList.length) {
       setSessions(cachedList);
-      setListLoading(false);
     }
 
     const funnelImportedChatId = consumeFunnelOpenAysopChatId();
@@ -455,17 +454,22 @@ export default function AysopAiWorkspace() {
       if (funnelImportedChatId) {
         const known = merged.some((s) => s.id === funnelImportedChatId);
         if (known) {
-          setActiveChat(funnelImportedChatId);
-          hydrateMessages(funnelImportedChatId);
-          void loadSession(funnelImportedChatId, { background: true });
-        } else {
+          if (!newChatIntentRef.current) {
+            setActiveChat(funnelImportedChatId);
+            hydrateMessages(funnelImportedChatId);
+            void loadSession(funnelImportedChatId, { background: true });
+          }
+        } else if (!newChatIntentRef.current) {
           void loadSession(funnelImportedChatId).then((ok) => {
             if (ok) {
               setActiveChat(funnelImportedChatId);
             }
           });
         }
-        setListLoading(false);
+        return;
+      }
+
+      if (newChatIntentRef.current) {
         return;
       }
 
@@ -475,7 +479,6 @@ export default function AysopAiWorkspace() {
           clearLastActiveChatId(user.id);
           router.replace('/dashboard/aysop-ai', { scroll: false });
           startEphemeralChat();
-          setListLoading(false);
           return;
         }
 
@@ -488,7 +491,6 @@ export default function AysopAiWorkspace() {
           hydrateMessages(restoreId);
           void loadSession(restoreId, { background: true });
         }
-        setListLoading(false);
         return;
       }
 
@@ -499,17 +501,14 @@ export default function AysopAiWorkspace() {
           hydrateMessages(restoreId);
           void loadSession(restoreId, { background: true });
         }
-        setListLoading(false);
         return;
       }
 
       if (activeIdRef.current && merged.some((s) => s.id === activeIdRef.current)) {
-        setListLoading(false);
         return;
       }
 
       startEphemeralChat();
-      setListLoading(false);
     })();
   }, [
     user?.id,
@@ -525,7 +524,6 @@ export default function AysopAiWorkspace() {
   useEffect(() => {
     if (!user?.id) {
       initRef.current = false;
-      setListLoading(true);
       setActiveId(null);
       activeIdRef.current = null;
     }
@@ -533,6 +531,7 @@ export default function AysopAiWorkspace() {
 
   useEffect(() => {
     if (!chatParam || chatParam === activeIdRef.current) return;
+    if (newChatIntentRef.current) return;
     if (isEphemeralOfflineSession(chatParam, user?.id)) {
       router.replace('/dashboard/aysop-ai', { scroll: false });
       startEphemeralChat();
@@ -561,6 +560,7 @@ export default function AysopAiWorkspace() {
   }, []);
 
   const handleNewChat = () => {
+    newChatIntentRef.current = true;
     setPanelResetKey((k) => k + 1);
 
     const prevId = activeIdRef.current;
@@ -571,6 +571,9 @@ export default function AysopAiWorkspace() {
       cacheSessionList(kept);
       return kept;
     });
+
+    setMessages([]);
+    messagesRef.current = [];
     startEphemeralChat();
 
     if (prevId && prevMsgs.length > 0) {
@@ -581,6 +584,7 @@ export default function AysopAiWorkspace() {
 
   const handleSelect = (id: string) => {
     if (id === activeIdRef.current || actionLockRef.current) return;
+    newChatIntentRef.current = false;
     setPanelResetKey((k) => k + 1);
 
     const prevId = activeIdRef.current;
@@ -710,7 +714,6 @@ export default function AysopAiWorkspace() {
       <AysopChatSidebar
         sessions={visibleSessions}
         activeId={activeId}
-        loading={listLoading && visibleSessions.length === 0}
         onSelect={handleSelect}
         onDelete={setPendingDeleteId}
         onRename={renameSession}

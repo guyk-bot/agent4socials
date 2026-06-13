@@ -95,6 +95,7 @@ export function sessionHasConversation(
   s: AysopChatSessionSummary,
   userId?: string
 ): boolean {
+  if (s.preview?.trim()) return true;
   if (s.title.trim() !== '' && s.title !== 'New chat') return true;
   if (!userId) return false;
   const msgs = readCachedMessages(userId, s.id);

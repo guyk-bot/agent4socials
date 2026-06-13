@@ -1355,11 +1355,11 @@
   }
 }
 
-/* Header nav: mask icon, sized to match Lucide 18px nav icons. */
+/* Header nav: mask icon sized to match Lucide nav icons. */
 .izop-ai-nav-mark {
   display: inline-block;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
   background-color: currentColor;
   -webkit-mask-size: 100%;
@@ -1370,23 +1370,13 @@
   mask-position: center;
 }
 
-/* Chat empty state mark (no background box). */
-.izop-ai-outline-mark {
-  display: inline-block;
-  width: 2.75rem;
-  height: 2.75rem;
-  background-color: #404040;
-  -webkit-mask-size: 100%;
-  mask-size: 100%;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-  mask-position: center;
-}
-
-[data-theme='dark'] .izop-ai-outline-mark,
-.izop-ai-outline-mark--dark {
-  background-color: #e5e5e5;
+/* Chat empty state: filled square mark tile. */
+.izop-ai-square-mark {
+  display: block;
+  width: 3.5rem;
+  height: 3.5rem;
+  object-fit: contain;
+  border-radius: 0.75rem;
 }
 
 /* Legacy izop-glass-logo nav img rules (unused after mask icon). */

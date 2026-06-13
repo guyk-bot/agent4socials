@@ -10,7 +10,6 @@ import {
 type Props = {
   sessions: AysopChatSessionSummary[];
   activeId: string | null;
-  loading?: boolean;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
   onRename?: (id: string, title: string) => void;
@@ -22,7 +21,6 @@ type Props = {
 export default function AysopChatSidebar({
   sessions,
   activeId,
-  loading,
   onSelect,
   onDelete,
   onRename,
@@ -59,9 +57,6 @@ export default function AysopChatSidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto p-2 pt-3 space-y-4">
-        {loading && sessions.length === 0 ? (
-          <p className="text-xs text-neutral-400 dark:text-neutral-500 px-2 py-4">Loading chats…</p>
-        ) : null}
         {groups.map((group) => (
           <div key={group.label}>
             <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500 px-2 mb-1.5">
