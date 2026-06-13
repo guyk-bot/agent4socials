@@ -572,7 +572,6 @@ export default function AysopAiWorkspace() {
   }, []);
 
   const handleNewChat = () => {
-    console.log('[DEBUG] New chat clicked');
     newChatIntentRef.current = true;
     loadGenerationRef.current += 1;
     setPanelResetKey((k) => k + 1);
@@ -629,7 +628,6 @@ export default function AysopAiWorkspace() {
   };
 
   const handleSelect = (id: string) => {
-    console.log('[DEBUG] Chat selected:', id, 'current:', activeIdRef.current);
     if (id === activeIdRef.current || actionLockRef.current) return;
     newChatIntentRef.current = false;
     loadGenerationRef.current += 1;
