@@ -29,6 +29,7 @@ import {
   sessionHasConversation,
   sessionHasUserMessages,
   sessionShouldShowInSidebar,
+  withPendingNewChatSession,
   titleFromMessages,
   shouldReplaceChatTitle,
   visibleChatSessions,
@@ -93,12 +94,16 @@ function resolveInstantChatState(
   if (!userId) {
     return { sessions: [], activeId: null, messages: [] };
   }
-  const sessions = dedupeChatSessions(
-    (readCachedSessionList(userId) ?? []).filter((s) =>
-      sessionShouldShowInSidebar(s, userId) && !readDeletedChatIds(userId).has(s.id)
-    )
+  const sessions = withPendingNewChatSession(
+    dedupeChatSessions(
+      (readCachedSessionList(userId) ?? []).filter((s) =>
+        sessionShouldShowInSidebar(s, userId) && !readDeletedChatIds(userId).has(s.id)
+      )
+    ),
+    userId
   );
-  let activeId: string | null = chatParam;
+  const pendingId = readPendingNewChatId(userId);
+  let activeId: string | null = pendingId ?? chatParam;
 
   if (!activeId) {
     activeId = pickRestoreChatId(userId, sessions);
@@ -361,6 +366,13 @@ export default function AysopAiWorkspace() {
       if (readDeletedChatIds(user?.id).has(id)) return false;
       const gen = loadGenerationRef.current;
       const cached = (readCachedMessages(user?.id, id) ?? []) as ChatMessage[];
+      if (id.startsWith('offline-')) {
+        if (!opts?.background && gen === loadGenerationRef.current) {
+          setMessages(cached);
+          messagesRef.current = cached;
+        }
+        return true;
+      }
       if (!opts?.background && gen === loadGenerationRef.current) {
         setMessages(cached);
         messagesRef.current = cached;
@@ -445,19 +457,24 @@ export default function AysopAiWorkspace() {
     if (!user?.id || initRef.current) return;
     initRef.current = true;
 
-    const cachedList = dedupeChatSessions(
-      (readCachedSessionList(user.id) ?? []).filter(
-        (s) =>
-          sessionShouldShowInSidebar(s, user.id) && !readDeletedChatIds(user.id).has(s.id)
-      )
+    const cachedList = withPendingNewChatSession(
+      dedupeChatSessions(
+        (readCachedSessionList(user.id) ?? []).filter(
+          (s) =>
+            sessionShouldShowInSidebar(s, user.id) && !readDeletedChatIds(user.id).has(s.id)
+        )
+      ),
+      user.id
     );
     if (cachedList.length) {
       setSessions(cachedList);
     }
 
     const funnelImportedChatId = consumeFunnelOpenAysopChatId();
+    const pendingNew = readPendingNewChatId(user.id);
     const instantId =
       funnelImportedChatId ??
+      pendingNew ??
       chatParam ??
       pickRestoreChatId(user.id, cachedList);
 
@@ -471,9 +488,15 @@ export default function AysopAiWorkspace() {
         writeLastActiveChatId(user.id, instantId);
       }
       if (!chatParam || chatParam !== instantId) {
-        router.replace(`/dashboard/aysop-ai?c=${encodeURIComponent(instantId)}`, { scroll: false });
+        if (instantId.startsWith('offline-')) {
+          router.replace('/dashboard/aysop-ai', { scroll: false });
+        } else {
+          router.replace(`/dashboard/aysop-ai?c=${encodeURIComponent(instantId)}`, { scroll: false });
+        }
       }
-      void loadSession(instantId, { background: true });
+      if (!instantId.startsWith('offline-')) {
+        void loadSession(instantId, { background: true });
+      }
     }
 
     void (async () => {
@@ -598,6 +621,13 @@ export default function AysopAiWorkspace() {
   }, [user?.id]);
 
   useEffect(() => {
+    const pending = user?.id ? readPendingNewChatId(user.id) : null;
+    if (pending && chatParam && chatParam !== pending) {
+      restoreActiveChat(pending);
+      hydrateMessages(pending);
+      return;
+    }
+
     if (chatParam === activeIdRef.current) return;
     if (newChatIntentRef.current) return;
 

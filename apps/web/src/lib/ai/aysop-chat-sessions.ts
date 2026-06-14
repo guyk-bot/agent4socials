@@ -179,6 +179,30 @@ export function sessionShouldShowInSidebar(
   return sessionHasUserMessages(userId, s.id);
 }
 
+/** Ensure the pending empty New chat draft is in the session list for sidebar/restore. */
+export function withPendingNewChatSession(
+  sessions: AysopChatSessionSummary[],
+  userId: string
+): AysopChatSessionSummary[] {
+  const pendingId = readPendingNewChatId(userId);
+  if (!pendingId) return sessions;
+  if (sessions.some((s) => s.id === pendingId)) return sessions;
+
+  const cached = readCachedSessionList(userId)?.find((s) => s.id === pendingId);
+  const now = new Date().toISOString();
+  const shell: AysopChatSessionSummary =
+    cached ??
+    ({
+      id: pendingId,
+      title: 'New chat',
+      updatedAt: now,
+      createdAt: now,
+      preview: null,
+    } satisfies AysopChatSessionSummary);
+
+  return dedupeChatSessions([shell, ...sessions]);
+}
+
 export function dedupeChatSessions(
   sessions: AysopChatSessionSummary[]
 ): AysopChatSessionSummary[] {
@@ -219,18 +243,23 @@ export function syncChatSessionsWithServer(
     }
   }
 
+  const pendingId = readPendingNewChatId(userId);
+
   const merged = dedupeChatSessions(
     [
       ...serverSessions
         .filter((s) => !hidden.has(s.id))
         .filter((s) => sessionShouldShowInSidebar(s, userId)),
-      ...cached.filter(
-        (s) =>
-          !s.id.startsWith('offline-') &&
+      ...cached.filter((s) => {
+        if (hidden.has(s.id)) return false;
+        if (s.id.startsWith('offline-')) {
+          return s.id === pendingId || sessionHasUserMessages(userId, s.id);
+        }
+        return (
           !serverIds.has(s.id) &&
-          !hidden.has(s.id) &&
           sessionHasConversation(s, userId)
-      ),
+        );
+      }),
     ]
   );
 
@@ -272,17 +301,13 @@ export function pickRestoreChatId(
   userId: string,
   sessions: AysopChatSessionSummary[]
 ): string | null {
-  const sidebar = sessions.filter((s) => sessionShouldShowInSidebar(s, userId));
+  const withPending = withPendingNewChatSession(sessions, userId);
+  const pendingNew = readPendingNewChatId(userId);
+  if (pendingNew) return pendingNew;
+
+  const sidebar = withPending.filter((s) => sessionShouldShowInSidebar(s, userId));
   const byId = new Map(sidebar.map((s) => [s.id, s]));
   const lastId = readLastActiveChatId(userId);
-  const pendingNew = readPendingNewChatId(userId);
-
-  if (pendingNew) {
-    if (sessionHasUserMessages(userId, pendingNew)) {
-      return pendingNew;
-    }
-    clearPendingNewChatId(userId);
-  }
 
   if (lastId && !lastId.startsWith('offline-')) {
     if (sessionHasUserMessages(userId, lastId) || byId.has(lastId)) {

@@ -157,7 +157,7 @@ function pendingNewChatKey(userId: string) {
   return `izop_aysop_pending_new_chat_${userId}`;
 }
 
-/** Empty draft opened via New chat (shown in sidebar until first message or leave). */
+/** Empty draft opened via New chat (shown in sidebar until first message, delete, or switching chats). */
 export function readPendingNewChatId(userId: string | undefined): string | null {
   if (!userId) return null;
   try {
