@@ -36,6 +36,7 @@ import {
   shouldReplaceChatTitle,
   visibleChatSessions,
   ensureActiveChatInSessionList,
+  sanitizeChatSessionList,
   type IzopChatSessionSummary,
 } from '@/lib/ai/izop-chat-sessions';
 import { pickBestStoredMessages } from '@/lib/ai/izop-chat-persist';
@@ -118,7 +119,7 @@ function resolveInstantChatState(
   if (sessionsWithActive.length !== sessions.length) {
     writeCachedSessionList(
       userId,
-      sessionsWithActive.filter((s) => sessionShouldShowInSidebar(s, userId))
+      sanitizeChatSessionList(userId, sessionsWithActive)
     );
   }
 
@@ -183,10 +184,8 @@ export default function IzopAiWorkspace() {
 
   const cacheSessionList = useCallback(
     (next: IzopChatSessionSummary[]) => {
-      writeCachedSessionList(
-        user?.id,
-        next.filter((s) => sessionShouldShowInSidebar(s, user?.id))
-      );
+      if (!user?.id) return;
+      writeCachedSessionList(user.id, sanitizeChatSessionList(user.id, next));
     },
     [user?.id]
   );
@@ -530,18 +529,18 @@ export default function IzopAiWorkspace() {
     if (!user?.id || initRef.current) return;
     initRef.current = true;
 
-    const cachedList = withPendingNewChatSession(
-      dedupeChatSessions(
-        (readCachedSessionList(user.id) ?? []).filter(
-          (s) =>
-            sessionShouldShowInSidebar(s, user.id) && !readDeletedChatIds(user.id).has(s.id)
-        )
-      ),
-      user.id
+    const cachedList = sanitizeChatSessionList(
+      user.id,
+      withPendingNewChatSession(
+        dedupeChatSessions(
+          (readCachedSessionList(user.id) ?? []).filter(
+            (s) => !readDeletedChatIds(user.id).has(s.id)
+          )
+        ),
+        user.id
+      )
     );
-    if (cachedList.length) {
-      setSessions(cachedList);
-    }
+    setSessions(cachedList);
 
     const funnelImportedChatId = consumeFunnelOpenIzopChatId();
     const instantId =
@@ -577,32 +576,35 @@ export default function IzopAiWorkspace() {
       const listRes = await listPromise;
       const serverSessions = listRes.data.sessions ?? [];
 
-      let merged = mergeChatSessionsWithServer(
-        user.id,
-        serverSessions,
-        readCachedSessionList(user.id) ?? cachedList
-      );
-      if (!newChatIntentRef.current) {
-        setSessions((prev) => {
-          const next = mergeChatSessionsWithServer(user.id, serverSessions, prev);
-          writeCachedSessionList(user.id, next);
-          return next;
-        });
+      if (newChatIntentRef.current) {
+        return;
       }
 
-      merged = mergeChatSessionsWithServer(
-        user.id,
-        serverSessions,
-        readCachedSessionList(user.id) ?? merged
-      );
-      
-      // Clear any cached messages for sessions that no longer exist on the server
-      const serverIds = new Set(serverSessions.map(s => s.id));
-      cachedList.forEach(session => {
-        if (!session.id.startsWith('offline-') && !serverIds.has(session.id)) {
+      const merged = mergeChatSessionsWithServer(user.id, serverSessions, cachedList);
+      writeCachedSessionList(user.id, merged);
+      setSessions(merged);
+
+      // Clear cached messages for server chats removed on the server (or deleted locally).
+      const serverIds = new Set(serverSessions.map((s) => s.id));
+      const hidden = readDeletedChatIds(user.id);
+      for (const session of readCachedSessionList(user.id) ?? []) {
+        if (session.id.startsWith('offline-')) continue;
+        if (!serverIds.has(session.id) || hidden.has(session.id)) {
           writeCachedMessages(user.id, session.id, []);
         }
-      });
+      }
+
+      const currentActive = activeIdRef.current;
+      if (
+        currentActive &&
+        !readDeletedChatIds(user.id).has(currentActive) &&
+        merged.some((s) => s.id === currentActive)
+      ) {
+        if (!currentActive.startsWith('offline-')) {
+          void loadSession(currentActive, { background: true });
+        }
+        return;
+      }
 
       if (funnelImportedChatId) {
         const known = merged.some((s) => s.id === funnelImportedChatId);
@@ -807,7 +809,12 @@ export default function IzopAiWorkspace() {
 
     const summary = sessionSummaryFromDetail(tempSession);
     setSessions((prev) => {
-      const merged = dedupeChatSessions([summary, ...prev]);
+      const filtered = prev.filter((s) => {
+        if (!s.id.startsWith('offline-')) return true;
+        if (s.id === tempSession.id) return true;
+        return sessionHasUserMessages(user.id, s.id);
+      });
+      const merged = dedupeChatSessions([summary, ...filtered]);
       cacheSessionList(merged);
       return merged;
     });
@@ -851,9 +858,7 @@ export default function IzopAiWorkspace() {
       setPendingDeleteId(null);
 
       const wasActive = activeIdRef.current === id;
-      if (!id.startsWith('offline-')) {
-        markChatDeleted(user?.id, id);
-      }
+      markChatDeleted(user?.id, id);
 
       writeCachedMessages(user?.id, id, []);
       abortChatRunner(id, true);

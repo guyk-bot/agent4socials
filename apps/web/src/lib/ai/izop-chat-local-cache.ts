@@ -130,7 +130,7 @@ export function readDeletedChatIds(userId: string | undefined): Set<string> {
 }
 
 export function markChatDeleted(userId: string | undefined, sessionId: string): void {
-  if (!userId || !sessionId.trim() || sessionId.startsWith('offline-')) return;
+  if (!userId || !sessionId.trim()) return;
   const next = readDeletedChatIds(userId);
   next.add(sessionId);
   try {
@@ -147,7 +147,7 @@ export function reconcileDeletedChatIds(userId: string | undefined, serverIds: S
   if (!deleted.size) return;
   const next = new Set<string>();
   for (const id of deleted) {
-    if (serverIds.has(id)) next.add(id);
+    if (id.startsWith('offline-') || serverIds.has(id)) next.add(id);
   }
   try {
     if (next.size) {

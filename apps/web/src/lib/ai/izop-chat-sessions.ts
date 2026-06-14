@@ -169,14 +169,26 @@ export function sessionHasUserMessages(userId: string | undefined, sessionId: st
   );
 }
 
-/** Sidebar: offline drafts the user opened, plus chats with at least one user message. */
+/** Sidebar: pending empty draft, offline chats with user messages, or server chats with content. */
 export function sessionShouldShowInSidebar(
   s: IzopChatSessionSummary,
   userId?: string
 ): boolean {
   if (!userId) return sessionHasConversation(s, userId);
-  if (s.id.startsWith('offline-')) return true;
-  return sessionHasUserMessages(userId, s.id);
+  if (readDeletedChatIds(userId).has(s.id)) return false;
+  if (s.id.startsWith('offline-')) {
+    if (s.id === readPendingNewChatId(userId)) return true;
+    return sessionHasUserMessages(userId, s.id);
+  }
+  return sessionHasConversation(s, userId);
+}
+
+/** Drop deleted, duplicate, and stale empty offline drafts before rendering or caching. */
+export function sanitizeChatSessionList(
+  userId: string,
+  sessions: IzopChatSessionSummary[]
+): IzopChatSessionSummary[] {
+  return dedupeChatSessions(sessions).filter((s) => sessionShouldShowInSidebar(s, userId));
 }
 
 /** Ensure the pending empty New chat draft is in the session list for sidebar/restore. */
@@ -264,6 +276,7 @@ export function ensureActiveChatInSessionList(
   activeId: string | null
 ): IzopChatSessionSummary[] {
   if (!userId || !activeId) return sessions;
+  if (readDeletedChatIds(userId).has(activeId)) return sessions;
   if (sessions.some((s) => s.id === activeId)) return sessions;
   if (!isChatSessionAccessible(userId, activeId, sessions)) return sessions;
 
@@ -317,23 +330,18 @@ export function syncChatSessionsWithServer(
     }
   }
 
-  const merged = dedupeChatSessions(
-    [
-      ...serverSessions
-        .filter((s) => !hidden.has(s.id))
-        .filter((s) => sessionShouldShowInSidebar(s, userId)),
-      ...cached.filter((s) => {
-        if (hidden.has(s.id)) return false;
-        if (s.id.startsWith('offline-')) return true;
-        return (
-          !serverIds.has(s.id) &&
-          sessionHasConversation(s, userId)
-        );
-      }),
-    ]
-  );
+  const merged = sanitizeChatSessionList(userId, [
+    ...serverSessions.filter((s) => !hidden.has(s.id)),
+    ...cached.filter((s) => !hidden.has(s.id) && !serverIds.has(s.id)),
+  ]);
 
   writeCachedSessionList(userId, merged);
+
+  for (const s of cached) {
+    if (s.id.startsWith('offline-') && !merged.some((m) => m.id === s.id)) {
+      writeCachedMessages(userId, s.id, []);
+    }
+  }
 
   // Clear last active if it was deleted
   const lastId = readLastActiveChatId(userId);
@@ -352,21 +360,19 @@ export function mergeChatSessionsWithServer(
   const synced = syncChatSessionsWithServer(userId, serverSessions);
   const map = new Map(synced.map((s) => [s.id, s]));
   
-  // Preserve all offline drafts from the current client session list and cache.
+  // Preserve in-flight offline drafts that still belong in the sidebar.
   for (const s of prevSessions) {
-    if (s.id.startsWith('offline-')) {
+    if (s.id.startsWith('offline-') && sessionShouldShowInSidebar(s, userId)) {
       map.set(s.id, s);
     }
   }
   for (const s of readCachedSessionList(userId) ?? []) {
-    if (s.id.startsWith('offline-')) {
+    if (s.id.startsWith('offline-') && sessionShouldShowInSidebar(s, userId)) {
       map.set(s.id, s);
     }
   }
 
-  return dedupeChatSessions(
-    [...map.values()].filter((s) => sessionShouldShowInSidebar(s, userId))
-  );
+  return sanitizeChatSessionList(userId, [...map.values()]);
 }
 
 /** Pick the most recently updated offline draft in the sidebar list. */
