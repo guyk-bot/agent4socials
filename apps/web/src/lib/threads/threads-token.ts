@@ -5,7 +5,6 @@ import {
   refreshThreadsLongLivedToken,
 } from '@/lib/threads/threads-api';
 
-const REFRESH_BUFFER_MS = 7 * 24 * 60 * 60 * 1000;
 /** Short-lived Threads tokens last about 1 hour. */
 export const THREADS_SHORT_LIVED_TTL_MS = 55 * 60 * 1000;
 
@@ -87,30 +86,33 @@ async function resolveThreadsToken(
   let token = account.accessToken.trim();
   if (!token) throw new ThreadsReconnectRequiredError();
 
-  const expiresAt = account.expiresAt;
-  const expired = !expiresAt || expiresAt.getTime() <= Date.now();
-  const nearExpiry =
-    expiresAt != null && expiresAt.getTime() - Date.now() < REFRESH_BUFFER_MS;
-
-  if (opts?.forceRefresh || expired || nearExpiry) {
+  const upgradeToken = async (): Promise<string | null> => {
     const next = await tryRefreshThreadsToken(token);
-    if (next) {
-      const profile = await fetchThreadsProfile(next.accessToken, 12_000);
-      if (profile?.id) {
-        return persistThreadsToken(account.id, next.accessToken, next.expiresInSec);
-      }
-      token = next.accessToken;
+    if (!next) return null;
+    const profile = await fetchThreadsProfile(next.accessToken, 12_000);
+    if (profile?.id) {
+      return persistThreadsToken(account.id, next.accessToken, next.expiresInSec);
     }
-  }
+    token = next.accessToken;
+    return null;
+  };
+
+  const upgraded = await upgradeToken();
+  if (upgraded) return upgraded;
 
   const profile = await fetchThreadsProfile(token, 12_000);
   if (profile?.id) return token;
 
-  const next = await tryRefreshThreadsToken(token);
-  if (next) {
-    const profile2 = await fetchThreadsProfile(next.accessToken, 12_000);
+  if (opts?.forceRefresh) {
+    const forced = await upgradeToken();
+    if (forced) return forced;
+  }
+
+  const lastChance = await tryRefreshThreadsToken(token);
+  if (lastChance) {
+    const profile2 = await fetchThreadsProfile(lastChance.accessToken, 12_000);
     if (profile2?.id) {
-      return persistThreadsToken(account.id, next.accessToken, next.expiresInSec);
+      return persistThreadsToken(account.id, lastChance.accessToken, lastChance.expiresInSec);
     }
   }
 

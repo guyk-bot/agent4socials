@@ -18,6 +18,8 @@ type OAuthAccountWrite = {
   status: 'connected';
   connectedAt: Date;
   disconnectedAt: null;
+  lastSyncStatus?: 'idle';
+  lastSyncError?: null;
   credentialsJson?: object;
   firstConnectedAt?: Date;
 };
@@ -42,6 +44,8 @@ export async function upsertSocialAccountAfterOAuth(params: UpsertParams): Promi
     status: write.status,
     connectedAt: write.connectedAt,
     disconnectedAt: write.disconnectedAt,
+    ...(write.lastSyncStatus ? { lastSyncStatus: write.lastSyncStatus } : {}),
+    ...(write.lastSyncError === null ? { lastSyncError: null } : {}),
     ...(write.credentialsJson ? { credentialsJson: write.credentialsJson } : {}),
   };
   const createData: Prisma.SocialAccountUncheckedCreateInput = {

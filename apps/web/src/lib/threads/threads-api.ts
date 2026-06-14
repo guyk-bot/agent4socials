@@ -240,13 +240,14 @@ export async function exchangeThreadsOAuthConnect(
   ]);
   if (!long?.accessToken) {
     console.error(
-      '[Threads OAuth] long-lived exchange failed; token will expire in ~1 hour unless user reconnects. Check THREADS_APP_SECRET in Vercel.'
+      '[Threads OAuth] long-lived exchange failed. Check THREADS_APP_SECRET in Vercel matches Meta → Threads → Basic.'
+    );
+    throw new Error(
+      'Threads long-lived token exchange failed. In Vercel, set THREADS_APP_SECRET to the Threads App Secret from Meta (same app as THREADS_APP_ID), redeploy, then connect Threads again.'
     );
   }
-  const accessToken = long?.accessToken ?? short.accessToken;
-  const expiresAt = long
-    ? new Date(Date.now() + long.expiresInSec * 1000)
-    : new Date(Date.now() + 55 * 60 * 1000);
+  const accessToken = long.accessToken;
+  const expiresAt = new Date(Date.now() + long.expiresInSec * 1000);
   const threadsUserId =
     short.userId !== undefined && short.userId !== null ? String(short.userId).trim() : '';
   let platformUserId = threadsUserId || profile?.id || 'threads-' + accessToken.slice(-8);

@@ -10,7 +10,6 @@ import { ensureThreadsPlatformEnum } from '@/lib/ensure-threads-platform-enum';
 import {
   exchangeThreadsOAuthConnect,
   resolveThreadsRedirectUri,
-  threadsRedirectUriFromRequestUrl,
 } from '@/lib/threads/threads-api';
 import { ensureSocialAccountOAuthSchema } from '@/lib/ensure-social-account-oauth-schema';
 import { syncTikTokImportedVideos } from '@/lib/tiktok/sync-imported-videos';
@@ -666,7 +665,7 @@ async function exchangeCode(
       };
     }
     case 'THREADS': {
-      const redirectUri = (callbackUrl || resolveThreadsRedirectUri()).replace(/\/+$/, '');
+      const redirectUri = resolveThreadsRedirectUri().replace(/\/+$/, '');
       const connected = await exchangeThreadsOAuthConnect(code, redirectUri);
       return {
         accessToken: connected.accessToken,
@@ -882,7 +881,7 @@ export async function GET(
   } else if (plat === 'LINKEDIN' && process.env.LINKEDIN_REDIRECT_URI?.trim()) {
     callbackUrl = process.env.LINKEDIN_REDIRECT_URI.replace(/\/+$/, '');
   } else if (plat === 'THREADS') {
-    callbackUrl = threadsRedirectUriFromRequestUrl(request.url);
+    callbackUrl = resolveThreadsRedirectUri().replace(/\/+$/, '');
   }
 
   let tokenData: TokenResult;
@@ -1517,6 +1516,8 @@ export async function GET(
       status: 'connected' as const,
       connectedAt: new Date(),
       disconnectedAt: null as null,
+      lastSyncStatus: 'idle' as const,
+      lastSyncError: null as null,
       ...(credentialsJsonToSet && { credentialsJson: credentialsJsonToSet }),
       firstConnectedAt: new Date(),
     };

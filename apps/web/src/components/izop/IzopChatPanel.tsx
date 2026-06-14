@@ -363,11 +363,13 @@ export default function IzopChatPanel({
     setLoading(false);
   }, [sessionId]);
 
+  const isUploadingMedia = uploading || mediaUpload.isUploading;
+
   const send = useCallback(
     async (text: string, attachments: IzopChatAttachment[] = [], opts?: { resume?: boolean }) => {
       const trimmed = text.trim();
       const hasAttachments = attachments.length > 0;
-      if ((!trimmed && !hasAttachments) || disabled || uploading) return;
+      if ((!trimmed && !hasAttachments) || disabled || isUploadingMedia) return;
       if (loading && !opts?.resume) return;
       if (loading && opts?.resume) {
         userStoppedRef.current = true;
@@ -507,10 +509,14 @@ export default function IzopChatPanel({
         }
       }
     },
-    [accountsCache?.activeBrandId, allCachedAccounts, brands, disabled, getAccountBrandId, loading, messages, onMessagesChange, sessionId, uploading, userId]
+    [accountsCache?.activeBrandId, allCachedAccounts, brands, disabled, getAccountBrandId, isUploadingMedia, loading, messages, onMessagesChange, sessionId, userId]
   );
 
-  const canSend = (input.trim().length > 0 || pendingAttachments.length > 0) && !loading && !disabled && !uploading;
+  const canSend =
+    (input.trim().length > 0 || pendingAttachments.length > 0) &&
+    !loading &&
+    !disabled &&
+    !isUploadingMedia;
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -615,7 +621,7 @@ export default function IzopChatPanel({
       ) : null}
 
       {/* Media upload progress - only show for conversion/errors */}
-      {(mediaUpload.stage === 'converting' || mediaUpload.stage === 'error') && (
+      {(mediaUpload.stage === 'uploading' || mediaUpload.stage === 'converting' || mediaUpload.stage === 'error') && (
         <div className="px-3 py-2 border-t border-[var(--border)]">
           <MediaUploadProgress 
             state={mediaUpload} 
@@ -667,9 +673,15 @@ export default function IzopChatPanel({
             }
           }}
           rows={1}
-          placeholder={loading ? 'Type your next message…' : 'Ask anything or attach media…'}
+          placeholder={
+            isUploadingMedia
+              ? 'Add a caption while your file uploads…'
+              : loading
+                ? 'Type your next message…'
+                : 'Ask anything or attach media…'
+          }
           className="izop-chat-input-glass flex-1 resize-none rounded-xl text-[var(--foreground)] placeholder:text-[var(--muted)] px-4 py-3 text-sm leading-5 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/45"
-          disabled={disabled || uploading || mediaUpload.isUploading}
+          disabled={disabled}
         />
         {loading ? (
           <button

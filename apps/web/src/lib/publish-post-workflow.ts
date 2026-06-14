@@ -531,11 +531,14 @@ export async function runPublishPostWorkflow(input: {
     }
     if (platform === 'THREADS') {
       try {
-        token = await getValidThreadsToken({
-          id: socialAccount.id,
-          accessToken: socialAccount.accessToken,
-          expiresAt: socialAccount.expiresAt,
-        });
+        token = await getValidThreadsToken(
+          {
+            id: socialAccount.id,
+            accessToken: socialAccount.accessToken,
+            expiresAt: socialAccount.expiresAt,
+          },
+          { forceRefresh: true }
+        );
       } catch (tokenErr) {
         const msg =
           (tokenErr as Error)?.message ??
