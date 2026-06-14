@@ -6,6 +6,8 @@ import {
   readCachedSessionList,
   readDeletedChatIds,
   readLastActiveChatId,
+  readPendingNewChatId,
+  clearPendingNewChatId,
   reconcileDeletedChatIds,
   writeCachedMessages,
   writeCachedSessionList,
@@ -167,12 +169,13 @@ export function sessionHasUserMessages(userId: string | undefined, sessionId: st
   );
 }
 
-/** Sidebar: only chats the user actually started (at least one user message). */
+/** Sidebar: started chats plus the active empty New chat draft. */
 export function sessionShouldShowInSidebar(
   s: AysopChatSessionSummary,
   userId?: string
 ): boolean {
   if (!userId) return sessionHasConversation(s, userId);
+  if (s.id === readPendingNewChatId(userId)) return true;
   return sessionHasUserMessages(userId, s.id);
 }
 
@@ -250,9 +253,12 @@ export function mergeChatSessionsWithServer(
   const synced = syncChatSessionsWithServer(userId, serverSessions);
   const map = new Map(synced.map((s) => [s.id, s]));
   
-  // Preserve offline drafts only once the user has sent a message.
+  // Preserve offline drafts with messages or the active New chat shell.
   for (const s of prevSessions) {
-    if (s.id.startsWith('offline-') && sessionHasConversation(s, userId)) {
+    if (
+      s.id.startsWith('offline-') &&
+      (sessionHasUserMessages(userId, s.id) || s.id === readPendingNewChatId(userId))
+    ) {
       map.set(s.id, s);
     }
   }
@@ -269,6 +275,14 @@ export function pickRestoreChatId(
   const sidebar = sessions.filter((s) => sessionShouldShowInSidebar(s, userId));
   const byId = new Map(sidebar.map((s) => [s.id, s]));
   const lastId = readLastActiveChatId(userId);
+  const pendingNew = readPendingNewChatId(userId);
+
+  if (pendingNew) {
+    if (sessionHasUserMessages(userId, pendingNew)) {
+      return pendingNew;
+    }
+    clearPendingNewChatId(userId);
+  }
 
   if (lastId && !lastId.startsWith('offline-')) {
     if (sessionHasUserMessages(userId, lastId) || byId.has(lastId)) {

@@ -153,6 +153,39 @@ export function reconcileDeletedChatIds(userId: string | undefined, serverIds: S
   }
 }
 
+function pendingNewChatKey(userId: string) {
+  return `izop_aysop_pending_new_chat_${userId}`;
+}
+
+/** Empty draft opened via New chat (shown in sidebar until first message or leave). */
+export function readPendingNewChatId(userId: string | undefined): string | null {
+  if (!userId) return null;
+  try {
+    const raw = localStorage.getItem(pendingNewChatKey(userId));
+    return raw?.trim() ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writePendingNewChatId(userId: string | undefined, sessionId: string): void {
+  if (!userId || !sessionId.trim()) return;
+  try {
+    localStorage.setItem(pendingNewChatKey(userId), sessionId);
+  } catch {
+    /* quota */
+  }
+}
+
+export function clearPendingNewChatId(userId: string | undefined): void {
+  if (!userId) return;
+  try {
+    localStorage.removeItem(pendingNewChatKey(userId));
+  } catch {
+    /* quota */
+  }
+}
+
 /** Remove cached messages for each session id (e.g. before clearing all chat history). */
 export function clearCachedMessagesForSessions(
   userId: string | undefined,
