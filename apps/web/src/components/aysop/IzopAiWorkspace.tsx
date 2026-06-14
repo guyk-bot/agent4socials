@@ -757,11 +757,6 @@ export default function IzopAiWorkspace() {
     }
     pendingPersistRef.current = null;
 
-    const prevPending = readPendingNewChatId(user.id);
-    if (prevPending && !sessionHasUserMessages(user.id, prevPending)) {
-      writeCachedMessages(user.id, prevPending, []);
-    }
-
     const tempSession = makeOfflineSession();
     writePendingNewChatId(user.id, tempSession.id);
     writeCachedMessages(user.id, tempSession.id, []);
@@ -772,11 +767,7 @@ export default function IzopAiWorkspace() {
 
     const summary = sessionSummaryFromDetail(tempSession);
     setSessions((prev) => {
-      const withoutStalePending =
-        prevPending && !sessionHasUserMessages(user.id, prevPending)
-          ? prev.filter((s) => s.id !== prevPending)
-          : prev;
-      const merged = dedupeChatSessions([summary, ...withoutStalePending]);
+      const merged = dedupeChatSessions([summary, ...prev]);
       cacheSessionList(merged);
       return merged;
     });
@@ -795,8 +786,12 @@ export default function IzopAiWorkspace() {
   const handleSelect = (id: string) => {
     if (id === activeIdRef.current || actionLockRef.current) return;
     newChatIntentRef.current = false;
-    if (user?.id && id !== readPendingNewChatId(user.id)) {
-      clearPendingNewChatId(user.id);
+    if (user?.id) {
+      if (id.startsWith('offline-') && !sessionHasUserMessages(user.id, id)) {
+        writePendingNewChatId(user.id, id);
+      } else if (id !== readPendingNewChatId(user.id)) {
+        clearPendingNewChatId(user.id);
+      }
     }
     loadGenerationRef.current += 1;
 
@@ -835,29 +830,21 @@ export default function IzopAiWorkspace() {
         clearLastActiveChatId(user?.id);
       }
 
-      const remainingSessions = (() => {
-        const base = withPendingNewChatSession(
-          readCachedSessionList(user?.id) ?? [],
-          user?.id ?? ''
-        );
-        return base.filter((s) => s.id !== id);
-      })();
-
       let nextActiveId: string | null = null;
-      if (wasActive && remainingSessions.length > 0) {
-        const sorted = [...remainingSessions].sort(
-          (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-        );
-        nextActiveId = sorted[0]!.id;
-      }
-
-      setSessions(() => {
-        cacheSessionList(remainingSessions);
-        return remainingSessions;
+      setSessions((prev) => {
+        const filtered = prev.filter((s) => s.id !== id);
+        cacheSessionList(filtered);
+        if (wasActive && filtered.length > 0) {
+          const sorted = [...filtered].sort(
+            (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          );
+          nextActiveId = sorted[0]!.id;
+        }
+        return filtered;
       });
 
       if (wasActive) {
-        const nextId = nextActiveId;
+        const nextId = nextActiveId as string | null;
         if (nextId !== null) {
           setActiveId(nextId);
           activeIdRef.current = nextId;
@@ -870,16 +857,19 @@ export default function IzopAiWorkspace() {
               scroll: false,
             });
           } else {
-            router.replace(IZOP_AI_DASHBOARD_PATH, { scroll: false });
+            if (user?.id) writePendingNewChatId(user.id, nextId);
+            clearChatUrlIfNeeded();
           }
         } else {
           setMessages([]);
           messagesRef.current = [];
-          handleNewChat();
+          setActiveId(null);
+          activeIdRef.current = null;
+          clearChatUrlIfNeeded();
         }
         setPanelResetKey((k) => k + 1);
       } else if (chatParam === id) {
-        router.replace(IZOP_AI_DASHBOARD_PATH, { scroll: false });
+        clearChatUrlIfNeeded();
       }
 
       if (!id.startsWith('offline-')) {
@@ -890,7 +880,7 @@ export default function IzopAiWorkspace() {
         }
       }
     },
-    [user?.id, router, handleNewChat, cacheSessionList, chatParam]
+    [user?.id, router, cacheSessionList, chatParam, clearChatUrlIfNeeded]
   );
 
   const handleMessagesChange = useCallback(

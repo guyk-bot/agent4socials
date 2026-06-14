@@ -169,13 +169,13 @@ export function sessionHasUserMessages(userId: string | undefined, sessionId: st
   );
 }
 
-/** Sidebar: started chats plus the active empty New chat draft. */
+/** Sidebar: offline drafts the user opened, plus chats with at least one user message. */
 export function sessionShouldShowInSidebar(
   s: AysopChatSessionSummary,
   userId?: string
 ): boolean {
   if (!userId) return sessionHasConversation(s, userId);
-  if (s.id === readPendingNewChatId(userId)) return true;
+  if (s.id.startsWith('offline-')) return true;
   return sessionHasUserMessages(userId, s.id);
 }
 
@@ -274,8 +274,6 @@ export function syncChatSessionsWithServer(
     }
   }
 
-  const pendingId = readPendingNewChatId(userId);
-
   const merged = dedupeChatSessions(
     [
       ...serverSessions
@@ -283,9 +281,7 @@ export function syncChatSessionsWithServer(
         .filter((s) => sessionShouldShowInSidebar(s, userId)),
       ...cached.filter((s) => {
         if (hidden.has(s.id)) return false;
-        if (s.id.startsWith('offline-')) {
-          return s.id === pendingId || sessionHasUserMessages(userId, s.id);
-        }
+        if (s.id.startsWith('offline-')) return true;
         return (
           !serverIds.has(s.id) &&
           sessionHasConversation(s, userId)
@@ -313,12 +309,9 @@ export function mergeChatSessionsWithServer(
   const synced = syncChatSessionsWithServer(userId, serverSessions);
   const map = new Map(synced.map((s) => [s.id, s]));
   
-  // Preserve offline drafts with messages or the active New chat shell.
+  // Preserve all offline drafts from the current client session list.
   for (const s of prevSessions) {
-    if (
-      s.id.startsWith('offline-') &&
-      (sessionHasUserMessages(userId, s.id) || s.id === readPendingNewChatId(userId))
-    ) {
+    if (s.id.startsWith('offline-')) {
       map.set(s.id, s);
     }
   }
