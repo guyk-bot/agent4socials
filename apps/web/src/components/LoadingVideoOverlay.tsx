@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
-import { LogoLoadingAnimation } from '@/components/LogoLoadingAnimation';
 import { ZThinkingLoopAnimation } from '@/components/ZThinkingLoopAnimation';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -64,14 +63,10 @@ export default function LoadingVideoOverlay({ loading, contained = false }: Prop
       aria-live="polite"
       aria-label="Loading"
     >
-      {isDark ? (
-        <ZThinkingLoopAnimation
-          size={200}
-          className="w-[min(40vw,200px)] max-w-[200px] sm:w-[min(32vw,220px)] sm:max-w-[220px]"
-        />
-      ) : (
-        <LogoLoadingAnimation className="w-[min(40vw,200px)] max-w-[200px] sm:w-[min(32vw,220px)] sm:max-w-[220px]" />
-      )}
+      <ZThinkingLoopAnimation
+        size={200}
+        className="w-[min(40vw,200px)] max-w-[200px] sm:w-[min(32vw,220px)] sm:max-w-[220px]"
+      />
     </div>
   );
 }

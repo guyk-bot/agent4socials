@@ -877,27 +877,68 @@
   height: 100%;
   object-fit: contain;
   display: block;
+  transform-origin: center center;
+  animation: izop-thinking-logo-breathe 1.5s ease-in-out infinite;
 }
 .izop-thinking-mark__dot {
   position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: izop-thinking-dot-pulse 1s ease-in-out infinite;
+}
+/* Dark mode: white Z mask + separate lime dot */
+.izop-thinking-mark--dark .izop-thinking-mark__dot {
   top: 5%;
   left: 7%;
   width: 22%;
   height: 22%;
-  border-radius: 50%;
   background: #aaff45;
   box-shadow: 0 0 6px rgba(170, 255, 69, 0.8);
-  animation: izop-thinking-dot-pulse 1s ease-in-out infinite;
+}
+/* Light mode: black Z + baked-in dot; overlay pulses glow on the green accent */
+.izop-thinking-mark--light .izop-thinking-mark__dot {
+  top: 3.5%;
+  left: 3.5%;
+  width: 21%;
+  height: 21%;
+  background: #aaff45;
+  opacity: 0.35;
+  box-shadow: 0 0 10px rgba(170, 255, 69, 0.75);
+}
+@keyframes izop-thinking-logo-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
 }
 @keyframes izop-thinking-dot-pulse {
   0%,
   100% {
     transform: scale(0.85);
-    opacity: 0.7;
+    opacity: 0.65;
   }
   50% {
-    transform: scale(1.15);
+    transform: scale(1.18);
     opacity: 1;
+  }
+}
+.izop-thinking-mark--light .izop-thinking-mark__dot {
+  animation: izop-thinking-dot-pulse-light 1s ease-in-out infinite;
+}
+@keyframes izop-thinking-dot-pulse-light {
+  0%,
+  100% {
+    transform: scale(0.9);
+    opacity: 0.25;
+    box-shadow: 0 0 4px rgba(170, 255, 69, 0.5);
+  }
+  50% {
+    transform: scale(1.22);
+    opacity: 0.55;
+    box-shadow: 0 0 14px rgba(170, 255, 69, 0.95);
   }
 }
 

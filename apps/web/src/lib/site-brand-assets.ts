@@ -41,6 +41,14 @@ export const IZOP_AI_MARK_MASK_SRC = `${IZOP_AI_MARK_MASK_PATH}?v=${SITE_LOGO_V}
 export const IZOP_AI_MARK_MASK_CHAT_PATH = '/izop-ai-mark-mask-chat.png';
 export const IZOP_AI_MARK_MASK_CHAT_SRC = `${IZOP_AI_MARK_MASK_CHAT_PATH}?v=${SITE_LOGO_V}`;
 
+/** Thinking animation: black Z + lime dot (light backgrounds). */
+export const IZOP_THINKING_LIGHT_PATH = '/logo-z-thinking-light.png';
+export const IZOP_THINKING_LIGHT_SRC = `${IZOP_THINKING_LIGHT_PATH}?v=${SITE_LOGO_V}`;
+
+/** Thinking animation: white Z mask only (dark backgrounds; lime dot is CSS). */
+export const IZOP_THINKING_DARK_MASK_PATH = '/logo-z-white-mask.png';
+export const IZOP_THINKING_DARK_MASK_SRC = `${IZOP_THINKING_DARK_MASK_PATH}?v=${SITE_LOGO_V}`;
+
 /** Canonical brand mark: white Z + lime green dot on black (filled, not outline). */
 export const BRAND_MARK_PATH = '/logo-mark-dark.png';
 
