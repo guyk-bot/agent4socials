@@ -90,7 +90,7 @@ async function resolveThreadsToken(
   const expiresAt = account.expiresAt;
   const expired = !expiresAt || expiresAt.getTime() <= Date.now();
   const nearExpiry =
-    Boolean(expiresAt) && expiresAt.getTime() - Date.now() < REFRESH_BUFFER_MS;
+    expiresAt != null && expiresAt.getTime() - Date.now() < REFRESH_BUFFER_MS;
 
   if (opts?.forceRefresh || expired || nearExpiry) {
     const next = await tryRefreshThreadsToken(token);
