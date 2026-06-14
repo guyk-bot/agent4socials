@@ -391,8 +391,8 @@ export default function AysopAiWorkspace() {
           if (readLastActiveChatId(user?.id) === id) {
             clearLastActiveChatId(user?.id);
           }
-          if (activeIdRef.current === id) {
-            const fallback = pickRestoreChatId(user?.id, readCachedSessionList(user?.id) ?? []);
+          if (user?.id && activeIdRef.current === id) {
+            const fallback = pickRestoreChatId(user.id, readCachedSessionList(user.id) ?? []);
             if (fallback && fallback !== id) {
               restoreActiveChat(fallback);
               hydrateMessages(fallback);
@@ -580,7 +580,8 @@ export default function AysopAiWorkspace() {
     if (newChatIntentRef.current) return;
 
     if (isEphemeralOfflineSession(chatParam, user?.id)) {
-      const restoreId = pickRestoreChatId(user?.id, readCachedSessionList(user?.id) ?? []);
+      if (!user?.id) return;
+      const restoreId = pickRestoreChatId(user.id, readCachedSessionList(user.id) ?? []);
       if (restoreId) {
         restoreActiveChat(restoreId);
         hydrateMessages(restoreId);
@@ -596,7 +597,8 @@ export default function AysopAiWorkspace() {
       if (activeIdRef.current !== chatParam) return;
       const cached = readCachedMessages(user?.id, chatParam);
       if (cached?.length) return;
-      const fallback = pickRestoreChatId(user?.id, readCachedSessionList(user?.id) ?? []);
+      if (!user?.id) return;
+      const fallback = pickRestoreChatId(user.id, readCachedSessionList(user.id) ?? []);
       if (fallback && fallback !== chatParam) {
         restoreActiveChat(fallback);
         hydrateMessages(fallback);
