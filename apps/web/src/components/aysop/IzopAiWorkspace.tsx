@@ -206,7 +206,7 @@ export default function IzopAiWorkspace() {
         writeLastActiveChatId(user.id, id);
       }
       if (isEphemeralOfflineSession(id, user?.id)) {
-        router.replace('${IZOP_AI_DASHBOARD_PATH}', { scroll: false });
+        router.replace(IZOP_AI_DASHBOARD_PATH, { scroll: false });
       } else {
         router.replace(`${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(id)}`, { scroll: false });
       }
@@ -220,7 +220,7 @@ export default function IzopAiWorkspace() {
     messagesRef.current = [];
     setActiveId(quick.id);
     activeIdRef.current = quick.id;
-    router.replace('${IZOP_AI_DASHBOARD_PATH}', { scroll: false });
+    router.replace(IZOP_AI_DASHBOARD_PATH, { scroll: false });
     return quick.id;
   }, [router]);
 
@@ -232,7 +232,7 @@ export default function IzopAiWorkspace() {
         writeLastActiveChatId(user.id, id);
       }
       if (isEphemeralOfflineSession(id, user?.id)) {
-        router.replace('${IZOP_AI_DASHBOARD_PATH}', { scroll: false });
+        router.replace(IZOP_AI_DASHBOARD_PATH, { scroll: false });
       } else {
         router.replace(`${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(id)}`, { scroll: false });
       }
@@ -426,7 +426,7 @@ export default function IzopAiWorkspace() {
               messagesRef.current = [];
               setActiveId(null);
               activeIdRef.current = null;
-              router.replace('${IZOP_AI_DASHBOARD_PATH}', { scroll: false });
+              router.replace(IZOP_AI_DASHBOARD_PATH, { scroll: false });
             }
           }
           return false;
@@ -500,13 +500,13 @@ export default function IzopAiWorkspace() {
       if (chatParam && readDeletedChatIds(user.id).has(chatParam)) {
         router.replace(
           instantId.startsWith('offline-')
-            ? '${IZOP_AI_DASHBOARD_PATH}'
+            ? IZOP_AI_DASHBOARD_PATH
             : `${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(instantId)}`,
           { scroll: false }
         );
       } else if (!chatParam || chatParam !== instantId) {
         if (instantId.startsWith('offline-')) {
-          router.replace('${IZOP_AI_DASHBOARD_PATH}', { scroll: false });
+          router.replace(IZOP_AI_DASHBOARD_PATH, { scroll: false });
         } else {
           router.replace(`${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(instantId)}`, { scroll: false });
         }
@@ -594,7 +594,7 @@ export default function IzopAiWorkspace() {
             activeIdRef.current = null;
             setMessages([]);
             messagesRef.current = [];
-            router.replace('${IZOP_AI_DASHBOARD_PATH}', { scroll: false });
+            router.replace(IZOP_AI_DASHBOARD_PATH, { scroll: false });
           }
           return;
         }
@@ -673,7 +673,7 @@ export default function IzopAiWorkspace() {
         activeIdRef.current = null;
         setMessages([]);
         messagesRef.current = [];
-        router.replace('${IZOP_AI_DASHBOARD_PATH}', { scroll: false });
+        router.replace(IZOP_AI_DASHBOARD_PATH, { scroll: false });
       }
       return;
     }
@@ -777,7 +777,7 @@ export default function IzopAiWorkspace() {
 
     setActiveId(tempSession.id);
     activeIdRef.current = tempSession.id;
-    router.replace('${IZOP_AI_DASHBOARD_PATH}', { scroll: false });
+    router.replace(IZOP_AI_DASHBOARD_PATH, { scroll: false });
 
     queueMicrotask(() => {
       newChatIntentRef.current = false;
@@ -862,7 +862,7 @@ export default function IzopAiWorkspace() {
               scroll: false,
             });
           } else {
-            router.replace('${IZOP_AI_DASHBOARD_PATH}', { scroll: false });
+            router.replace(IZOP_AI_DASHBOARD_PATH, { scroll: false });
           }
         } else {
           setMessages([]);
@@ -871,7 +871,7 @@ export default function IzopAiWorkspace() {
         }
         setPanelResetKey((k) => k + 1);
       } else if (chatParam === id) {
-        router.replace('${IZOP_AI_DASHBOARD_PATH}', { scroll: false });
+        router.replace(IZOP_AI_DASHBOARD_PATH, { scroll: false });
       }
 
       if (!id.startsWith('offline-')) {
