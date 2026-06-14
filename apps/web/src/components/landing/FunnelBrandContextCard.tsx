@@ -98,7 +98,7 @@ export default function FunnelBrandContextCard({
         type="button"
         disabled={disabled}
         onClick={onSave}
-        className="rounded-full bg-gradient-to-br from-[#7C3AED] to-[#4F46E5] px-5 py-2.5 text-sm font-medium text-white hover:brightness-110 disabled:opacity-50"
+        className="btn-glass btn-glass-primary btn-glass-md"
       >
         Save brand context
       </button>

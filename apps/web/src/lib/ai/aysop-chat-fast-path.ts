@@ -6,6 +6,12 @@ import { runAysopTool, type AysopArtifact, type AysopToolContext } from '@/lib/a
 import { platformLabel } from '@/lib/composer/platform-capabilities';
 import { accountsFromWorkspaces } from '@/lib/ai/aysop-workspace-snapshot';
 import { prisma } from '@/lib/db';
+import {
+  MEDIA_BRAND_SETUP_REPLY,
+  userWantsToPostFromMessage,
+} from '@/lib/ai/aysop-media-brand-prompt';
+import type { BrandContextRecord } from '@/lib/brand-context-utils';
+import { shouldShowBrandContextOnboarding } from '@/lib/ai/brand-context-onboarding';
 
 const DATA_INTENT =
   /\b(analytics|followers?|comments?|inbox|leads?|posts?|schedule|scheduled|connect|report|chart|graph|scan|reply|replies|draft|caption|publish|instagram|tiktok|facebook|youtube|threads|linkedin|pinterest|twitter|brand context|team|brainstorm|support|metrics?|engagement|views?|likes?)\b/i;
@@ -129,6 +135,39 @@ async function createGreetingWithActions(ctx: AysopToolContext): Promise<{ reply
   };
 }
 
+/** Fast path: media + post intent without brand context → setup buttons, no LLM wait. */
+export async function tryMediaBrandSetupFastPath(
+  messages: AysopChatInputMessage[],
+  ctx: AysopToolContext
+): Promise<{ reply: string; artifacts: AysopArtifact[] } | null> {
+  if (userResolvedMediaBrandChoice(messages)) return null;
+
+  const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+  if (!lastUser) return null;
+
+  const hasMedia = Boolean(
+    lastUser.attachments?.some((a) => a.kind === 'image' || a.kind === 'video')
+  );
+  if (!hasMedia) return null;
+
+  const userRow = await prisma.user.findUnique({
+    where: { id: ctx.userId },
+    select: { brandContext: true },
+  });
+  if (!shouldShowBrandContextOnboarding(userRow?.brandContext as BrandContextRecord | null)) {
+    return null;
+  }
+
+  if (!userWantsToPostFromMessage(lastUser.content, hasMedia)) return null;
+
+  const mediaType = lastUser.attachments?.some((a) => a.kind === 'video') ? 'video' : 'image';
+  const out = await runAysopTool('collect_contextual_brand_info', { mediaType }, ctx);
+  return {
+    reply: MEDIA_BRAND_SETUP_REPLY,
+    artifacts: out.artifacts ?? [],
+  };
+}
+
 /** Skip the LLM for brand-context button taps and post creation from uploaded media. */
 export async function tryMediaActionFastPath(
   messages: AysopChatInputMessage[],
@@ -162,11 +201,8 @@ export async function tryMediaActionFastPath(
       ctx
     );
     const hasCard = (out.artifacts ?? []).some((a) => a.type === 'brand_context_update');
-    const sources = (out.result as { sources?: string[] })?.sources ?? [];
     const fallback = hasCard
-      ? sources.length
-        ? `I analyzed ${sources.join(', ')} and filled in a draft below. Review it in chat and tap Approve to save.`
-        : 'Review your brand context below, fill in any blanks, and tap Approve to save.'
+      ? 'Please set up your brand context before continuing.'
       : "Let's set up your brand context.";
     return {
       reply: replyFromArtifacts(out.artifacts ?? [], fallback),

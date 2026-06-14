@@ -32,6 +32,7 @@ import { AysopLeadsCard } from '@/components/aysop/AysopLeadsCard';
 import { AysopLeadsScanPromptCard } from '@/components/aysop/AysopLeadsScanPromptCard';
 import { PostContentPreviewThumb } from '@/components/PostContentPreviewThumb';
 import { quickReplyMessageForAction } from '@/lib/ai/aysop-quick-replies';
+import { GlassButton } from '@/components/ui/GlassButton';
 
 const SUPPORT_OPTIONS: Array<{ label: string; desc: string; href: string; icon: React.ReactNode }> = [
   {
@@ -207,21 +208,17 @@ export function AysopArtifactCards({
                 {a.actions.map((action, actionIndex) => {
                   const reply = quickReplyMessageForAction(action.action);
                   return (
-                    <button
+                    <GlassButton
                       key={actionIndex}
-                      type="button"
+                      variant={action.style === 'primary' ? 'primary' : 'secondary'}
+                      size="md"
                       disabled={quickReplyDisabled || !reply || !onQuickReply}
-                      className={
-                        action.style === 'primary'
-                          ? 'rounded-lg gradient-cta-pro px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40 transition-opacity'
-                          : 'rounded-lg border border-neutral-200 dark:border-neutral-700 px-4 py-2 text-sm font-medium text-neutral-800 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 disabled:opacity-40 transition-colors'
-                      }
                       onClick={() => {
                         if (reply && onQuickReply) onQuickReply(reply);
                       }}
                     >
                       {action.label}
-                    </button>
+                    </GlassButton>
                   );
                 })}
               </div>

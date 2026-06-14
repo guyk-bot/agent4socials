@@ -376,12 +376,12 @@ function OptionSquareButton({
       style={{ animationDelay: animateEnter && staggerIndex !== undefined ? `${staggerIndex * 60}ms` : undefined }}
       className={[
         animateEnter ? 'chat-hero-pill-enter' : '',
-        'flex w-full flex-col items-center justify-center rounded-lg border p-2.5 transition-all duration-150',
+        'flex w-full flex-col items-center justify-center rounded-2xl border p-2.5 transition-all duration-150 backdrop-blur-md',
         isTall ? 'min-h-[120px] sm:min-h-[135px] gap-2' : 'h-[100px] sm:h-[115px] gap-2',
         'active:scale-[0.97]',
         selected
-          ? 'border-[#7C3AED] bg-[var(--chat-hero-accent-soft)] shadow-[0_0_0_1px_rgba(124,58,237,0.2)]'
-          : 'border-[var(--chat-hero-border)] bg-[var(--chat-hero-surface)] hover:border-[#7C3AED]/50 hover:bg-[var(--chat-hero-bg)]',
+          ? 'border-[#7C3AED]/60 bg-[var(--chat-hero-accent-soft)] shadow-[inset_0_1px_0_rgba(255,255,255,0.45),0_8px_24px_rgba(124,58,237,0.2)]'
+          : 'border-white/30 bg-white/20 hover:border-[#7C3AED]/40 hover:bg-white/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_4px_16px_rgba(0,0,0,0.08)] dark:border-white/15 dark:bg-white/8 dark:hover:bg-white/12',
         disabled ? 'opacity-50 pointer-events-none' : '',
       ].join(' ')}
     >

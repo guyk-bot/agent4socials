@@ -36,8 +36,10 @@ import {
   instantCasualAysopReply,
   isCasualAysopChatMessage,
   tryMediaActionFastPath,
+  tryMediaBrandSetupFastPath,
   userResolvedMediaBrandChoice,
 } from '@/lib/ai/aysop-chat-fast-path';
+import { MEDIA_BRAND_SETUP_REPLY } from '@/lib/ai/aysop-media-brand-prompt';
 
 export type { AysopChatInputMessage };
 
@@ -60,6 +62,9 @@ function tryArtifactOnlyReply(artifacts: AysopArtifact[], toolNames: string[]): 
     }
     const label = feed.title?.toLowerCase() ?? 'inbox items';
     return `Here ${n === 1 ? 'is' : 'are'} ${n} ${label}${n === 1 ? '' : 's'} below.`;
+  }
+  if (only === 'collect_contextual_brand_info') {
+    return MEDIA_BRAND_SETUP_REPLY;
   }
   if (only === 'add_inbox_comments_to_leads') {
     const card = artifacts.find((a) => a.type === 'leads');
@@ -147,7 +152,7 @@ function buildSystemPrompt(
   
   if (!brandContextBlock) {
     if (needsBrandContextOnboarding && hasMediaAttachments && !resolvedMediaBrandChoice) {
-      brandContextSection = `Brand context: not set up yet. User uploaded media without brand context. Call collect_contextual_brand_info once (buttons only). Write ONE short reply: acknowledge the upload, ask topic/audience/tone. The tool creates action buttons automatically. ${hasConnectedAccounts ? 'User has connected accounts, so offer automatic analysis if they choose setup.' : ''}`;
+      brandContextSection = `Brand context: not set up yet. User uploaded media to post. Call collect_contextual_brand_info once (buttons only). Reply with exactly: "Image received. I suggest setting up brand context so I can come up with the best content for you. I can create your brand context by scanning your connected accounts. Choose one of the options below." Do not ask for topic, audience, or tone. ${hasConnectedAccounts ? 'Buttons: Set up brand context (scans connected accounts) or Just create this post.' : ''}`;
     } else if (needsBrandContextOnboarding && hasMediaAttachments && resolvedMediaBrandChoice) {
       brandContextSection = 'Brand context: not set up yet. User already chose an action from the media upload buttons. Do NOT call collect_contextual_brand_info again. If they chose to create the post, use prepare_platform_post_drafts or open_composer_draft with their uploaded media URLs from the thread.';
     } else if (needsBrandContextOnboarding) {
@@ -184,7 +189,7 @@ function buildSystemPrompt(
     'BRAND SETUP (streamlined):',
     '- New users → show_brand_context_onboarding (instant buttons)',
     '- "Set up" → start_guided_brand_setup with autoFillFromAccounts true',
-    '- Media upload → collect_contextual_brand_info (creates action buttons)',  
+    '- Media upload to post → collect_contextual_brand_info (setup buttons, no topic/audience/tone questions)',
     '- "Just create this post" → prepare_platform_post_drafts or open_composer_draft',
     '- Brand changes → propose_brand_context_update (surgical edits only)',
     '',
@@ -228,6 +233,11 @@ export async function runAysopChat(args: {
   const mediaFast = await tryMediaActionFastPath(args.messages, args.ctx);
   if (mediaFast) {
     return mediaFast;
+  }
+
+  const mediaBrandSetup = await tryMediaBrandSetupFastPath(args.messages, args.ctx);
+  if (mediaBrandSetup) {
+    return mediaBrandSetup;
   }
 
   const cachedAccounts = accountsFromWorkspaces(args.ctx.workspaces);

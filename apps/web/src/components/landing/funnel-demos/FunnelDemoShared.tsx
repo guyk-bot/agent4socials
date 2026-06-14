@@ -48,7 +48,7 @@ export function FunnelDemoAllowBar({
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          className={`inline-flex items-center rounded-lg bg-[#7C3AED] font-bold text-white shadow-md hover:bg-[#6D28D9] ${
+          className={`btn-glass btn-glass-primary inline-flex items-center font-bold ${
             prominent ? 'px-4 py-2 text-[14px]' : 'px-3 py-1.5 text-[12px] font-semibold shadow-sm'
           }`}
         >

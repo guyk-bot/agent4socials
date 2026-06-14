@@ -1100,7 +1100,7 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'collect_contextual_brand_info',
       description:
-        'Add Set up brand context / Just create this post buttons when user uploads media without brand setup. You write ONE message in your reply (acknowledge upload once, ask topic, audience, tone). This tool only adds buttons; do not duplicate your text in the card.',
+        'Add Set up brand context / Just create this post buttons when user uploads media without brand setup. You write ONE short reply in your message (suggest brand setup, mention scanning connected accounts, ask user to choose below). This tool only adds buttons.',
       parameters: {
         type: 'object',
         properties: {
