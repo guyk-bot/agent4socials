@@ -28,7 +28,7 @@ import { ensureInstagramJpegOnR2 } from '@/lib/instagram-media-r2';
 import { ensureStoryJpegOnR2 } from '@/lib/story-media-r2';
 import { refreshTwitterToken } from '@/lib/twitter-refresh';
 import { getValidPinterestToken } from '@/lib/pinterest-token';
-import { getValidThreadsToken } from '@/lib/threads/threads-token';
+import { getValidThreadsToken, isThreadsInvalidTokenMessage, markThreadsNeedsReconnect } from '@/lib/threads/threads-token';
 import {
   buildPostScalarsSelect,
   isMissingPostAlsoPostToStoryColumn,
@@ -530,11 +530,22 @@ export async function runPublishPostWorkflow(input: {
       });
     }
     if (platform === 'THREADS') {
-      token = await getValidThreadsToken({
-        id: socialAccount.id,
-        accessToken: socialAccount.accessToken,
-        expiresAt: socialAccount.expiresAt,
-      });
+      try {
+        token = await getValidThreadsToken({
+          id: socialAccount.id,
+          accessToken: socialAccount.accessToken,
+          expiresAt: socialAccount.expiresAt,
+        });
+      } catch (tokenErr) {
+        const msg =
+          (tokenErr as Error)?.message ??
+          'Threads session expired. Disconnect and reconnect Threads in Accounts.';
+        await prisma.postTarget.update({
+          where: { id: target.id },
+          data: { status: PostStatus.FAILED, error: msg.slice(0, 500) },
+        });
+        return { platform, ok: false, error: msg.slice(0, 200) };
+      }
     }
     const platformUserId = socialAccount.platformUserId;
     const caption = (contentByPlatform?.[platform] ?? post.content ?? '').trim();
@@ -859,6 +870,31 @@ export async function runPublishPostWorkflow(input: {
       platform === 'TWITTER' &&
       !result.ok &&
       (result.error?.includes('401') || (result.error?.toLowerCase?.() ?? '').includes('unauthorized'));
+    const isThreadsTokenError =
+      platform === 'THREADS' && !result.ok && isThreadsInvalidTokenMessage(result.error);
+    if (isThreadsTokenError) {
+      try {
+        token = await getValidThreadsToken(
+          {
+            id: socialAccount.id,
+            accessToken: token,
+            expiresAt: socialAccount.expiresAt,
+          },
+          { forceRefresh: true }
+        );
+        result = await promiseWithTimeout(
+          publishTarget({ ...publishOpts, token }, publishDeps),
+          publishTargetTimeoutMs(platform),
+          targetTimeoutLabel
+        );
+      } catch (refreshErr) {
+        const msg =
+          (refreshErr as Error)?.message ??
+          'Threads session expired. Disconnect and reconnect Threads in Accounts.';
+        await markThreadsNeedsReconnect(socialAccount.id, msg);
+        result = { ok: false, error: msg };
+      }
+    }
     if (isTwitterUnauthorized && socialAccount.refreshToken && process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
       try {
         const { accessToken: newAccess, refreshToken: newRefresh } = await refreshTwitterToken(socialAccount.refreshToken);
@@ -935,6 +971,16 @@ export async function runPublishPostWorkflow(input: {
     }
     if (platform === 'LINKEDIN' && !result.ok) {
       console.error('[LinkedIn publish failed]', { postId, accountId: socialAccount.id, error: result.error });
+    }
+    if (platform === 'THREADS' && !result.ok) {
+      console.error('[Threads publish failed]', { postId, accountId: socialAccount.id, error: result.error });
+      if (isThreadsInvalidTokenMessage(result.error)) {
+        await markThreadsNeedsReconnect(
+          socialAccount.id,
+          result.error?.slice(0, 500) ??
+            'Threads access token is invalid. Disconnect and reconnect Threads in Accounts.'
+        );
+      }
     }
     // Do not overwrite POSTED: overlapping publishes (double submit / retry) can succeed on
     // the platform first, then a slower duplicate attempt returns an error and would wrongly

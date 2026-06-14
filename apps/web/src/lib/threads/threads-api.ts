@@ -238,10 +238,15 @@ export async function exchangeThreadsOAuthConnect(
     exchangeThreadsLongLivedToken(short.accessToken, OAUTH_MS),
     fetchThreadsProfile(short.accessToken, OAUTH_MS).catch(() => null),
   ]);
+  if (!long?.accessToken) {
+    console.error(
+      '[Threads OAuth] long-lived exchange failed; token will expire in ~1 hour unless user reconnects. Check THREADS_APP_SECRET in Vercel.'
+    );
+  }
   const accessToken = long?.accessToken ?? short.accessToken;
-  const expiresAt = new Date(
-    Date.now() + (long?.expiresInSec ?? 60 * 24 * 60 * 60) * 1000
-  );
+  const expiresAt = long
+    ? new Date(Date.now() + long.expiresInSec * 1000)
+    : new Date(Date.now() + 55 * 60 * 1000);
   const threadsUserId =
     short.userId !== undefined && short.userId !== null ? String(short.userId).trim() : '';
   let platformUserId = threadsUserId || profile?.id || 'threads-' + accessToken.slice(-8);
@@ -300,7 +305,10 @@ export async function refreshThreadsLongLivedToken(currentToken: string): Promis
     timeout: 20_000,
     validateStatus: () => true,
   });
-  if (r.status !== 200 || !r.data?.access_token) return null;
+  if (r.status !== 200 || !r.data?.access_token) {
+    console.error('[Threads OAuth] refresh long-lived token:', r.status, r.data);
+    return null;
+  }
   return {
     accessToken: r.data.access_token,
     expiresInSec: r.data.expires_in ?? 60 * 24 * 60 * 60,

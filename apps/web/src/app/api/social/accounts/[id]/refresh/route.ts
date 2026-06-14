@@ -294,7 +294,22 @@ export async function PATCH(
       }
     } else if (account.platform === 'THREADS') {
       const { fetchThreadsProfile } = await import('@/lib/threads/threads-api');
-      const profile = await fetchThreadsProfile(token);
+      const { getValidThreadsToken, markThreadsNeedsReconnect } = await import('@/lib/threads/threads-token');
+      let threadsToken: string;
+      try {
+        threadsToken = await getValidThreadsToken({
+          id: account.id,
+          accessToken: account.accessToken,
+          expiresAt: account.expiresAt,
+        });
+      } catch (tokenErr) {
+        const msg =
+          (tokenErr as Error)?.message ??
+          'Threads session expired. Disconnect and reconnect Threads in Accounts.';
+        await markThreadsNeedsReconnect(account.id, msg);
+        return NextResponse.json({ ok: false, needsReconnect: true, message: msg }, { status: 401 });
+      }
+      const profile = await fetchThreadsProfile(threadsToken);
       if (profile?.id) platformUserId = profile.id;
       if (profile?.username) username = profile.username;
       else if (profile?.name) username = profile.name;
