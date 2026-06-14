@@ -59,6 +59,17 @@ export function isChatRunnerActive(sessionId: string | null | undefined): boolea
   return Boolean(sessionId && jobs.has(sessionId));
 }
 
+/** Move an in-flight chat job when an offline draft is promoted to a server session. */
+export function migrateChatRunnerSession(fromId: string, toId: string): void {
+  if (!fromId || !toId || fromId === toId) return;
+  const job = jobs.get(fromId);
+  if (!job) return;
+  jobs.delete(fromId);
+  job.sessionId = toId;
+  jobs.set(toId, job);
+  writeCachedMessages(job.userId, toId, job.pendingMessages);
+}
+
 export function abortChatRunner(sessionId: string, userStopped = false) {
   const job = jobs.get(sessionId);
   if (!job) return;

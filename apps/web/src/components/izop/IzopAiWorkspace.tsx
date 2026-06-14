@@ -39,7 +39,7 @@ import {
 } from '@/lib/ai/izop-chat-sessions';
 import { pickBestStoredMessages } from '@/lib/ai/izop-chat-persist';
 import { consumeFunnelOpenIzopChatId } from '@/lib/funnel-onboarding';
-import { abortChatRunner } from '@/lib/ai/izop-chat-runner';
+import { abortChatRunner, isChatRunnerActive, migrateChatRunnerSession, subscribeChatRunner } from '@/lib/ai/izop-chat-runner';
 import { IZOP_AI_DASHBOARD_PATH } from '@/lib/site-brand-assets';
 
 function isEmptyServerChat(s: IzopChatSessionSummary, userId?: string): boolean {
@@ -141,6 +141,7 @@ export default function IzopAiWorkspace() {
   const pendingPersistRef = useRef<{ id: string; messages: ChatMessage[] } | null>(null);
   const actionLockRef = useRef(false);
   const offlineToServerPromiseRef = useRef<Map<string, Promise<SessionDetail>>>(new Map());
+  const pendingOfflinePersistRef = useRef<{ offlineId: string; messages: ChatMessage[] } | null>(null);
   const [panelResetKey, setPanelResetKey] = useState(0);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
@@ -259,6 +260,9 @@ export default function IzopAiWorkspace() {
     (id: string): ChatMessage[] => {
       const cached = readCachedMessages(user?.id, id);
       const next = (cached ?? []) as ChatMessage[];
+      if (next.length === 0 && messagesRef.current.length > 0) {
+        return messagesRef.current;
+      }
       setMessages(next);
       messagesRef.current = next;
       return next;
@@ -283,6 +287,11 @@ export default function IzopAiWorkspace() {
         );
         if (!hasUserMessage) return true;
 
+        if (isChatRunnerActive(id)) {
+          pendingOfflinePersistRef.current = { offlineId: id, messages: nextMessages };
+          return true;
+        }
+
         try {
           let promise = offlineToServerPromiseRef.current.get(id);
           if (!promise) {
@@ -296,6 +305,7 @@ export default function IzopAiWorkspace() {
           }
           const created = await promise;
           targetId = created.id;
+          migrateChatRunnerSession(id, targetId);
           setSessions((prev) => {
             const offline = prev.find((s) => s.id === id);
             const summary: IzopChatSessionSummary = {
@@ -378,21 +388,37 @@ export default function IzopAiWorkspace() {
     }
   }, [persistSessionNow]);
 
+  useEffect(() => {
+    if (!user?.id) return;
+    return subscribeChatRunner((sessionId, event) => {
+      if (event !== 'complete' && event !== 'error' && event !== 'abort') return;
+      const pending = pendingOfflinePersistRef.current;
+      if (!pending || pending.offlineId !== sessionId) return;
+      pendingOfflinePersistRef.current = null;
+      const latest =
+        (readCachedMessages(user.id, pending.offlineId) as ChatMessage[] | null) ??
+        pending.messages;
+      void persistSessionNow(pending.offlineId, latest);
+    });
+  }, [user?.id, persistSessionNow]);
+
   const loadSession = useCallback(
     async (id: string, opts?: { background?: boolean }): Promise<boolean> => {
       if (readDeletedChatIds(user?.id).has(id)) return false;
       const gen = loadGenerationRef.current;
       const cached = (readCachedMessages(user?.id, id) ?? []) as ChatMessage[];
       if (id.startsWith('offline-')) {
-        if (!opts?.background && gen === loadGenerationRef.current) {
+        if (!opts?.background && gen === loadGenerationRef.current && cached.length > 0) {
           setMessages(cached);
           messagesRef.current = cached;
         }
         return true;
       }
       if (!opts?.background && gen === loadGenerationRef.current) {
-        setMessages(cached);
-        messagesRef.current = cached;
+        if (cached.length > 0 || messagesRef.current.length === 0) {
+          setMessages(cached);
+          messagesRef.current = cached;
+        }
       }
       try {
         const res = await api.get<{ session: SessionDetail }>(`/ai/izop-chats/${id}`, {

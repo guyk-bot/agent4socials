@@ -176,6 +176,7 @@ export default function IzopChatPanel({
 
       if (event === 'error') {
         setLoading(false);
+        setError('Something went wrong. Send again to retry.');
         return;
       }
 
@@ -217,13 +218,16 @@ export default function IzopChatPanel({
   }, [input, pendingAttachments, autoResizeInput]);
 
   useEffect(() => {
-    requestGenRef.current += 1;
-    abortRef.current?.abort();
-    abortRef.current = null;
+    const preserveInFlight = Boolean(sessionId && isChatRunnerActive(sessionId));
+    if (!preserveInFlight) {
+      requestGenRef.current += 1;
+      abortRef.current?.abort();
+      abortRef.current = null;
+      setInput('');
+      setPendingAttachments([]);
+      setError(null);
+    }
     setLoading(Boolean(sessionId && isChatRunnerActive(sessionId)));
-    setInput('');
-    setPendingAttachments([]);
-    setError(null);
     requestAnimationFrame(() => textareaRef.current?.focus());
   }, [panelResetKey, sessionId]);
 
@@ -416,7 +420,7 @@ export default function IzopChatPanel({
           },
         });
         if (gen !== requestGenRef.current || ac.signal.aborted) {
-          if (ac.signal.aborted && !userStoppedRef.current) {
+          if (ac.signal.aborted && !userStoppedRef.current && !isChatRunnerActive(sessionId)) {
             setError('Response was interrupted. Send again to retry.');
           }
           return;
@@ -464,7 +468,7 @@ export default function IzopChatPanel({
           { timeout: chatTimeout, signal: ac.signal }
         );
         if (gen !== requestGenRef.current || ac.signal.aborted) {
-          if (ac.signal.aborted && !userStoppedRef.current) {
+          if (ac.signal.aborted && !userStoppedRef.current && !isChatRunnerActive(sessionId)) {
             setError('Response was interrupted. Send again to retry.');
           }
           return;
