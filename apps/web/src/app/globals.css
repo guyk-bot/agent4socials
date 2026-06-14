@@ -874,12 +874,21 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: visible;
+  border: none;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
 }
 .izop-thinking-mark__logo {
   width: 100%;
   height: 100%;
   object-fit: contain;
   display: block;
+  border: none;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
   transform-origin: center center;
   animation: izop-thinking-logo-breathe 1.5s ease-in-out infinite;
 }
@@ -891,6 +900,8 @@
   height: var(--izop-dot-d);
   transform: translate(-50%, -50%);
   pointer-events: none;
+  overflow: visible;
+  border: none;
 }
 .izop-thinking-mark__dot-core {
   position: absolute;
