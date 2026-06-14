@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { MessageCircle, PlusSquare, Calendar, Menu, Sun, Moon, Megaphone, type LucideIcon } from 'lucide-react';
+import { ThemeAutoIcon } from '@/components/ThemeAutoIcon';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { IzopGlassLogo } from '@/components/IzopGlassLogo';
 import { BRAND_NAME, BRAND_HEADER_BG, normalizeLegacyBrandName, siteLogoSrcForAppHeader } from '@/lib/site-brand-assets';
@@ -89,7 +90,7 @@ export default function AppHeader() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { logoUrl, appName } = useWhiteLabel();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, preference, toggleTheme } = useTheme();
   const appData = useAppData();
   const [topNavOpen, setTopNavOpen] = useState(false);
   const [inboxCount, setInboxCount] = useState(0);
@@ -215,10 +216,28 @@ export default function AppHeader() {
           type="button"
           onClick={toggleTheme}
           className={iconBtnClass}
-          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+          aria-label={
+            preference === 'auto'
+              ? 'Auto mode (follows sunset). Switch to light mode'
+              : preference === 'dark'
+                ? 'Dark mode. Switch to auto mode'
+                : 'Light mode. Switch to dark mode'
+          }
+          title={
+            preference === 'auto'
+              ? 'Auto: light by day, dark after sunset'
+              : preference === 'dark'
+                ? 'Dark mode'
+                : 'Light mode'
+          }
         >
-          {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+          {preference === 'auto' ? (
+            <ThemeAutoIcon size={20} />
+          ) : preference === 'dark' ? (
+            <Sun size={20} />
+          ) : (
+            <Moon size={20} />
+          )}
         </button>
         <Link
           href="/dashboard/account"

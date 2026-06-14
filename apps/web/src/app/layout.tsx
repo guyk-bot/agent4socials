@@ -97,7 +97,7 @@ export default function RootLayout({
       <body className="antialiased min-h-screen min-h-dvh">
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var t=localStorage.getItem('agent4socials-theme');if(t!=='dark'&&t!=='light')t='light';if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);})();`,
+            __html: `(function(){var p=localStorage.getItem('agent4socials-theme');if(p!=='dark'&&p!=='light'&&p!=='auto')p='light';var applied=p;if(p==='auto'){var h=new Date().getHours();applied=(h>=6&&h<18)?'light':'dark';}document.documentElement.setAttribute('data-theme',applied);})();`,
           }}
         />
         <script
