@@ -1099,6 +1099,18 @@ export const AYSOP_TOOL_DEFINITIONS = [
             type: 'boolean',
             description: 'Whether to attempt auto-filling from connected account analysis',
           },
+          resumeIntent: {
+            type: 'object',
+            description:
+              'When brand setup interrupted a media post, pass pending_post so the approve card can offer to resume uploading.',
+            properties: {
+              kind: { type: 'string', enum: ['pending_post'] },
+              platform: { type: 'string' },
+              platformLabel: { type: 'string' },
+            },
+            required: ['kind', 'platform', 'platformLabel'],
+            additionalProperties: false,
+          },
         },
         additionalProperties: false,
       },
@@ -1866,6 +1878,20 @@ export async function runAysopTool(
         ? `Analyzed: ${autoFillResult!.sources.join(', ')}.`
         : 'Fill in the fields below. Connect a platform and sync posts for automatic suggestions next time.';
 
+      const rawResume = args.resumeIntent as
+        | { kind?: string; platform?: string; platformLabel?: string }
+        | undefined;
+      const resumeIntent =
+        rawResume?.kind === 'pending_post' &&
+        typeof rawResume.platform === 'string' &&
+        typeof rawResume.platformLabel === 'string'
+          ? {
+              kind: 'pending_post' as const,
+              platform: rawResume.platform,
+              platformLabel: rawResume.platformLabel,
+            }
+          : undefined;
+
       return {
         result: {
           setupStarted: true,
@@ -1879,6 +1905,7 @@ export async function runAysopTool(
           {
             type: 'brand_context_update',
             changes,
+            ...(resumeIntent ? { resumeIntent } : {}),
           },
         ],
       };

@@ -119,7 +119,7 @@ export default function AysopChatPanel({
     (
       messageId: string,
       artifactIndex: number,
-      patch: { approvedAt?: string; dismissedAt?: string }
+      patch: { approvedAt?: string; dismissedAt?: string; resumeDismissedAt?: string }
     ) => {
       const next = messages.map((m) => {
         if (m.id !== messageId || !m.artifacts?.[artifactIndex]) return m;

@@ -206,11 +206,17 @@ export async function tryMediaActionFastPath(
       accountsFromWorkspaces(ctx.workspaces)?.length ||
         (await prisma.socialAccount.count({ where: { userId: ctx.userId } }))
     );
-    const out = await runAysopTool(
-      'start_guided_brand_setup',
-      { autoFillFromAccounts: hasConnectedAccounts },
-      ctx
-    );
+    const mediaMsg = findLatestMediaUserMessage(messages);
+    const platform = inferPlatformFromThread(messages, ctx);
+    const toolArgs: Record<string, unknown> = { autoFillFromAccounts: hasConnectedAccounts };
+    if (mediaMsg && platform) {
+      toolArgs.resumeIntent = {
+        kind: 'pending_post',
+        platform,
+        platformLabel: platformLabel(platform),
+      };
+    }
+    const out = await runAysopTool('start_guided_brand_setup', toolArgs, ctx);
     const hasCard = (out.artifacts ?? []).some((a) => a.type === 'brand_context_update');
     const fallback = hasCard
       ? 'Please set up your brand context before continuing.'
@@ -262,7 +268,7 @@ export async function tryMediaActionFastPath(
     };
   }
 
-  if (text === 'Just create this post') {
+  if (text === 'Just create this post' || text === "Let's upload") {
     const mediaMsg = findLatestMediaUserMessage(messages);
     const attachments = mediaMsg?.attachments?.filter((a) => a.kind === 'image' || a.kind === 'video') ?? [];
     if (!attachments.length) {

@@ -104,6 +104,13 @@ export type AysopArtifact =
       /** Set when the user approved this card so it stays resolved after navigation. */
       approvedAt?: string | null;
       dismissedAt?: string | null;
+      /** When brand setup interrupted a media post flow, offer to resume after approve. */
+      resumeIntent?: {
+        kind: 'pending_post';
+        platform: string;
+        platformLabel: string;
+      } | null;
+      resumeDismissedAt?: string | null;
     }
   | {
       type: 'leads';

@@ -8,6 +8,8 @@ export function quickReplyMessageForAction(action: string): string | null {
       return 'Continue without brand context';
     case 'create_post_only':
       return 'Just create this post';
+    case 'resume_pending_post':
+      return "Let's upload";
     default:
       return null;
   }
@@ -18,6 +20,7 @@ export const AYSOP_QUICK_REPLY_MESSAGES = [
   'Continue without brand context',
   'Continue without setup',
   'Just create this post',
+  "Let's upload",
 ] as const;
 
 export function isAysopQuickReplyMessage(text: string): boolean {

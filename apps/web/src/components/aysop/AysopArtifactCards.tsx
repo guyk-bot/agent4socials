@@ -115,7 +115,7 @@ export function AysopArtifactCards({
   messageId?: string;
   onArtifactResolved?: (
     artifactIndex: number,
-    patch: { approvedAt?: string; dismissedAt?: string }
+    patch: { approvedAt?: string; dismissedAt?: string; resumeDismissedAt?: string }
   ) => void;
   onScanLeads?: () => void;
   scanningLeads?: boolean;
@@ -205,6 +205,8 @@ export function AysopArtifactCards({
               onArtifactResolved={
                 onArtifactResolved ? (patch) => onArtifactResolved(i, patch) : undefined
               }
+              onQuickReply={onQuickReply}
+              quickReplyDisabled={quickReplyDisabled}
             />
           );
         }

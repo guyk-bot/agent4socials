@@ -100,10 +100,23 @@ type Props = {
   artifact: Artifact;
   messageId: string;
   artifactIndex: number;
-  onArtifactResolved?: (patch: { approvedAt?: string; dismissedAt?: string }) => void;
+  onArtifactResolved?: (patch: {
+    approvedAt?: string;
+    dismissedAt?: string;
+    resumeDismissedAt?: string;
+  }) => void;
+  onQuickReply?: (message: string) => void;
+  quickReplyDisabled?: boolean;
 };
 
-export function AysopBrandContextUpdateCard({ artifact, messageId, artifactIndex, onArtifactResolved }: Props) {
+export function AysopBrandContextUpdateCard({
+  artifact,
+  messageId,
+  artifactIndex,
+  onArtifactResolved,
+  onQuickReply,
+  quickReplyDisabled,
+}: Props) {
   const { user } = useAuth();
   const initialApprovedAt =
     artifact.approvedAt ?? readBrandContextArtifactApproved(user?.id, messageId, artifactIndex);
@@ -187,7 +200,24 @@ export function AysopBrandContextUpdateCard({ artifact, messageId, artifactIndex
   const isSetup = artifact.changes.every((c) => !c.current.trim());
 
   if (status === 'saved') {
-    return <BrandContextSavedCelebration isSetup={isSetup} />;
+    return (
+      <BrandContextSavedCelebration
+        isSetup={isSetup}
+        resumeIntent={artifact.resumeIntent}
+        resumeDismissed={Boolean(artifact.resumeDismissedAt)}
+        quickReplyDisabled={quickReplyDisabled}
+        onResume={
+          onQuickReply && artifact.resumeIntent && !artifact.resumeDismissedAt
+            ? () => onQuickReply("Let's upload")
+            : undefined
+        }
+        onCancelResume={
+          onArtifactResolved && artifact.resumeIntent && !artifact.resumeDismissedAt
+            ? () => onArtifactResolved({ resumeDismissedAt: new Date().toISOString() })
+            : undefined
+        }
+      />
+    );
   }
 
   return (
