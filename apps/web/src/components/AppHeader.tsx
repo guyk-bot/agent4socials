@@ -218,25 +218,25 @@ export default function AppHeader() {
           className={iconBtnClass}
           aria-label={
             preference === 'auto'
-              ? 'Auto mode. Switch to light mode'
+              ? 'Auto mode'
               : preference === 'dark'
-                ? 'Switch to auto mode'
-                : 'Switch to dark mode'
+                ? 'Dark mode'
+                : 'Light mode'
           }
           title={
             preference === 'auto'
-              ? 'Auto mode. Switch to light mode'
+              ? 'Auto mode'
               : preference === 'dark'
-                ? 'Switch to auto mode'
-                : 'Switch to dark mode'
+                ? 'Dark mode'
+                : 'Light mode'
           }
         >
           {preference === 'auto' ? (
             <ThemeAutoIcon size={20} />
           ) : preference === 'dark' ? (
-            <Sun size={20} />
-          ) : (
             <Moon size={20} />
+          ) : (
+            <Sun size={20} />
           )}
         </button>
         <Link
