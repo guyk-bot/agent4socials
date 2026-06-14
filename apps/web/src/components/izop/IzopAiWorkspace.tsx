@@ -142,6 +142,7 @@ export default function IzopAiWorkspace() {
   const [messages, setMessages] = useState<ChatMessage[]>(instantBoot.messages);
   const newChatIntentRef = useRef(false);
   const loadGenerationRef = useRef(0);
+  const initSyncGenRef = useRef(0);
 
   const initRef = useRef(false);
   const messagesRef = useRef<ChatMessage[]>(instantBoot.messages);
@@ -182,6 +183,40 @@ export default function IzopAiWorkspace() {
     );
   }, [sessions, user?.id, activeId]);
 
+  const applyMergedSessions = useCallback(
+    (serverSessions: IzopChatSessionSummary[]) => {
+      if (!user?.id) return [] as IzopChatSessionSummary[];
+      const merged = sanitizeChatSessionList(
+        user.id,
+        withPendingNewChatSession(
+          mergeChatSessionsWithServer(
+            user.id,
+            serverSessions,
+            readCachedSessionList(user.id) ?? []
+          ),
+          user.id
+        )
+      );
+      writeCachedSessionList(user.id, merged);
+      return merged;
+    },
+    [user?.id]
+  );
+
+  const pruneRemovedServerMessageCaches = useCallback(
+    (serverSessions: IzopChatSessionSummary[]) => {
+      if (!user?.id) return;
+      const serverIds = new Set(serverSessions.map((s) => s.id));
+      const hidden = readDeletedChatIds(user.id);
+      for (const session of readCachedSessionList(user.id) ?? []) {
+        if (session.id.startsWith('offline-')) continue;
+        if (!serverIds.has(session.id) || hidden.has(session.id)) {
+          writeCachedMessages(user.id, session.id, []);
+        }
+      }
+    },
+    [user?.id]
+  );
   const cacheSessionList = useCallback(
     (next: IzopChatSessionSummary[]) => {
       if (!user?.id) return;
@@ -450,7 +485,9 @@ export default function IzopAiWorkspace() {
           messagesRef.current = best;
         }
         writeCachedMessages(user?.id, id, best);
-        upsertSessionSummary(sessionSummaryFromDetail({ ...res.data.session, messages: best }));
+        if (gen === loadGenerationRef.current) {
+          upsertSessionSummary(sessionSummaryFromDetail({ ...res.data.session, messages: best }));
+        }
 
         if (cached.length > serverMessages.length && best.length > 0 && !id.startsWith('offline-')) {
           void persistSessionNow(id, best);
@@ -528,6 +565,7 @@ export default function IzopAiWorkspace() {
   useEffect(() => {
     if (!user?.id || initRef.current) return;
     initRef.current = true;
+    const initGen = ++initSyncGenRef.current;
 
     const cachedList = sanitizeChatSessionList(
       user.id,
@@ -576,32 +614,41 @@ export default function IzopAiWorkspace() {
       const listRes = await listPromise;
       const serverSessions = listRes.data.sessions ?? [];
 
-      if (newChatIntentRef.current) {
+      const mergeOnly = () => {
+        const merged = applyMergedSessions(serverSessions);
+        pruneRemovedServerMessageCaches(serverSessions);
+        setSessions(merged);
+        return merged;
+      };
+
+      // User already chose a chat (New chat, delete, switch) while the list was loading.
+      if (initGen !== initSyncGenRef.current || loadGenerationRef.current > 0) {
+        mergeOnly();
         return;
       }
 
-      const merged = mergeChatSessionsWithServer(user.id, serverSessions, cachedList);
-      writeCachedSessionList(user.id, merged);
-      setSessions(merged);
-
-      // Clear cached messages for server chats removed on the server (or deleted locally).
-      const serverIds = new Set(serverSessions.map((s) => s.id));
-      const hidden = readDeletedChatIds(user.id);
-      for (const session of readCachedSessionList(user.id) ?? []) {
-        if (session.id.startsWith('offline-')) continue;
-        if (!serverIds.has(session.id) || hidden.has(session.id)) {
-          writeCachedMessages(user.id, session.id, []);
-        }
+      if (newChatIntentRef.current) {
+        mergeOnly();
+        return;
       }
 
-      const currentActive = activeIdRef.current;
+      const merged = mergeOnly();
+
+      const active = activeIdRef.current;
+      const pending = readPendingNewChatId(user.id);
+      const urlChatId = chatParamFromWindow();
+
+      if (pending && active === pending) {
+        return;
+      }
+
       if (
-        currentActive &&
-        !readDeletedChatIds(user.id).has(currentActive) &&
-        merged.some((s) => s.id === currentActive)
+        active &&
+        !readDeletedChatIds(user.id).has(active) &&
+        (merged.some((s) => s.id === active) || active.startsWith('offline-'))
       ) {
-        if (!currentActive.startsWith('offline-')) {
-          void loadSession(currentActive, { background: true });
+        if (!active.startsWith('offline-')) {
+          void loadSession(active, { background: true });
         }
         return;
       }
@@ -609,14 +656,12 @@ export default function IzopAiWorkspace() {
       if (funnelImportedChatId) {
         const known = merged.some((s) => s.id === funnelImportedChatId);
         if (known) {
-          if (!newChatIntentRef.current) {
-            setActiveChat(funnelImportedChatId);
-            hydrateMessages(funnelImportedChatId);
-            void loadSession(funnelImportedChatId, { background: true });
-          }
-        } else if (!newChatIntentRef.current) {
+          setActiveChat(funnelImportedChatId);
+          hydrateMessages(funnelImportedChatId);
+          void loadSession(funnelImportedChatId, { background: true });
+        } else {
           void loadSession(funnelImportedChatId).then((ok) => {
-            if (ok) {
+            if (ok && initGen === initSyncGenRef.current) {
               setActiveChat(funnelImportedChatId);
             }
           });
@@ -624,17 +669,8 @@ export default function IzopAiWorkspace() {
         return;
       }
 
-      if (newChatIntentRef.current) {
-        return;
-      }
-
-      const pendingNew = readPendingNewChatId(user.id);
-      if (pendingNew && activeIdRef.current === pendingNew) {
-        return;
-      }
-
-      if (chatParam) {
-        if (readDeletedChatIds(user.id).has(chatParam)) {
+      if (urlChatId) {
+        if (readDeletedChatIds(user.id).has(urlChatId)) {
           const restoreId = resolveActiveChatId(user.id, merged, null);
           if (restoreId && restoreId !== activeIdRef.current) {
             setActiveChat(restoreId);
@@ -652,42 +688,43 @@ export default function IzopAiWorkspace() {
           return;
         }
 
-        const known = merged.some((s) => s.id === chatParam);
-        if (!known && !isEphemeralOfflineSession(chatParam, user.id)) {
-          restoreActiveChat(chatParam);
-          hydrateMessages(chatParam);
-          void loadSession(chatParam, { background: true });
+        const known = merged.some((s) => s.id === urlChatId);
+        if (!known && !isEphemeralOfflineSession(urlChatId, user.id)) {
+          restoreActiveChat(urlChatId);
+          hydrateMessages(urlChatId);
+          void loadSession(urlChatId, { background: true });
           return;
         }
 
-        const restoreId = isEphemeralOfflineSession(chatParam, user.id)
-          ? pickRestoreChatId(user.id, merged) ?? chatParam
-          : chatParam;
+        const restoreId = isEphemeralOfflineSession(urlChatId, user.id)
+          ? pickRestoreChatId(user.id, merged) ?? urlChatId
+          : urlChatId;
 
         if (restoreId !== activeIdRef.current) {
           setActiveChat(restoreId);
           hydrateMessages(restoreId);
-          void loadSession(restoreId, { background: true });
+          if (!restoreId.startsWith('offline-')) {
+            void loadSession(restoreId, { background: true });
+          }
         }
         return;
       }
 
       const restoreId = pickRestoreChatId(user.id, merged);
-      if (restoreId) {
-        if (restoreId !== activeIdRef.current) {
-          setActiveChat(restoreId);
-          hydrateMessages(restoreId);
+      if (restoreId && restoreId !== activeIdRef.current) {
+        setActiveChat(restoreId);
+        hydrateMessages(restoreId);
+        if (!restoreId.startsWith('offline-')) {
           void loadSession(restoreId, { background: true });
         }
         return;
       }
 
-      if (activeIdRef.current && merged.some((s) => s.id === activeIdRef.current)) {
+      if (active && merged.some((s) => s.id === active)) {
         return;
       }
 
-      const keepActiveId = activeIdRef.current ?? chatParam;
-      if (keepActiveId && (readCachedMessages(user.id, keepActiveId)?.length ?? 0) > 0) {
+      if (active && (readCachedMessages(user.id, active)?.length ?? 0) > 0) {
         return;
       }
 
@@ -699,7 +736,8 @@ export default function IzopAiWorkspace() {
     loadSession,
     setActiveChat,
     hydrateMessages,
-    cacheSessionList,
+    applyMergedSessions,
+    pruneRemovedServerMessageCaches,
     router,
     restoreActiveChat,
     startEphemeralChat,
@@ -790,6 +828,7 @@ export default function IzopAiWorkspace() {
 
     newChatIntentRef.current = true;
     loadGenerationRef.current += 1;
+    initSyncGenRef.current += 1;
 
     const prevId = activeIdRef.current;
     if (prevId) abortChatRunner(prevId, true);
@@ -823,7 +862,7 @@ export default function IzopAiWorkspace() {
 
     window.setTimeout(() => {
       newChatIntentRef.current = false;
-    }, 800);
+    }, 2000);
   }, [user?.id, cacheSessionList, setActiveChat]);
 
   const handleSelect = (id: string) => {
@@ -856,6 +895,8 @@ export default function IzopAiWorkspace() {
   const executeDelete = useCallback(
     (id: string) => {
       setPendingDeleteId(null);
+      loadGenerationRef.current += 1;
+      initSyncGenRef.current += 1;
 
       const wasActive = activeIdRef.current === id;
       markChatDeleted(user?.id, id);
