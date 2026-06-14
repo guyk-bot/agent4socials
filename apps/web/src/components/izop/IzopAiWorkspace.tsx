@@ -30,6 +30,7 @@ import {
   previewFromMessages,
   sessionHasConversation,
   sessionHasUserMessages,
+  sessionHasChatContent,
   sessionShouldShowInSidebar,
   withPendingNewChatSession,
   titleFromMessages,
@@ -359,14 +360,23 @@ export default function IzopAiWorkspace() {
           const created = await promise;
           targetId = created.id;
           migrateChatRunnerSession(id, targetId);
+          const stored = nextMessages.map((m) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            artifacts: m.artifacts,
+            attachments: m.attachments,
+          }));
           setSessions((prev) => {
             const offline = prev.find((s) => s.id === id);
             const summary: IzopChatSessionSummary = {
               id: targetId,
-              title: offline?.title ?? 'New chat',
+              title: offline?.title && offline.title !== 'New chat'
+                ? offline.title
+                : titleFromMessages(stored),
               updatedAt: created.updatedAt,
               createdAt: created.createdAt,
-              preview: null,
+              preview: previewFromMessages(stored),
             };
             const merged = dedupeChatSessions([
               summary,
@@ -831,12 +841,22 @@ export default function IzopAiWorkspace() {
     initSyncGenRef.current += 1;
 
     const prevId = activeIdRef.current;
+    const prevMsgs = [...messagesRef.current];
     if (prevId) abortChatRunner(prevId, true);
     if (persistDebounceRef.current) {
       clearTimeout(persistDebounceRef.current);
       persistDebounceRef.current = null;
     }
-    pendingPersistRef.current = null;
+    if (prevId && prevMsgs.length > 0) {
+      writeCachedMessages(user.id, prevId, prevMsgs);
+      pendingPersistRef.current = { id: prevId, messages: prevMsgs };
+      if (sessionHasUserMessages(user.id, prevId)) {
+        clearPendingNewChatId(user.id);
+      }
+      void flushPersist();
+    } else {
+      pendingPersistRef.current = null;
+    }
 
     const tempSession = makeOfflineSession();
     writePendingNewChatId(user.id, tempSession.id);
@@ -848,10 +868,30 @@ export default function IzopAiWorkspace() {
 
     const summary = sessionSummaryFromDetail(tempSession);
     setSessions((prev) => {
-      const filtered = prev.filter((s) => {
+      let base = prev;
+      if (prevId && prevMsgs.length > 0 && !prev.some((s) => s.id === prevId)) {
+        const stored = prevMsgs.map((m) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          artifacts: m.artifacts,
+          attachments: m.attachments,
+        }));
+        const now = new Date().toISOString();
+        const prevSummary: IzopChatSessionSummary = {
+          id: prevId,
+          title: titleFromMessages(stored),
+          preview: previewFromMessages(stored),
+          updatedAt: now,
+          createdAt: now,
+        };
+        base = dedupeChatSessions([prevSummary, ...prev]);
+      }
+
+      const filtered = base.filter((s) => {
         if (!s.id.startsWith('offline-')) return true;
         if (s.id === tempSession.id) return true;
-        return sessionHasUserMessages(user.id, s.id);
+        return sessionHasChatContent(user.id, s.id);
       });
       const merged = dedupeChatSessions([summary, ...filtered]);
       cacheSessionList(merged);
@@ -863,7 +903,7 @@ export default function IzopAiWorkspace() {
     window.setTimeout(() => {
       newChatIntentRef.current = false;
     }, 2000);
-  }, [user?.id, cacheSessionList, setActiveChat]);
+  }, [user?.id, cacheSessionList, setActiveChat, flushPersist]);
 
   const handleSelect = (id: string) => {
     if (id === activeIdRef.current || actionLockRef.current) return;
@@ -995,11 +1035,13 @@ export default function IzopAiWorkspace() {
           (m) =>
             m.role === 'user' && (m.content.trim() || (m.attachments?.length ?? 0) > 0)
         );
-        if (!hasUserMessage) return prev;
+        if (!hasUserMessage && stored.length === 0) return prev;
         newChatIntentRef.current = false;
         if (user?.id) {
-          writeLastActiveChatId(user.id, id);
-          clearPendingNewChatId(user.id);
+          if (hasUserMessage) {
+            writeLastActiveChatId(user.id, id);
+            clearPendingNewChatId(user.id);
+          }
         }
         const rest = prev.filter((s) => s.id !== id);
         const merged = dedupeChatSessions([summary, ...rest]);

@@ -42,10 +42,14 @@ describe('sessionShouldShowInSidebar', () => {
     expect(sessionShouldShowInSidebar(shell('server-1', 'Threads post'), userId)).toBe(false);
   });
 
-  it('shows only pending or message-bearing offline drafts', () => {
+  it('shows only pending or content-bearing offline drafts', () => {
     jest.mocked(readPendingNewChatId).mockReturnValue('offline-pending');
     expect(sessionShouldShowInSidebar(shell('offline-pending'), userId)).toBe(true);
     expect(sessionShouldShowInSidebar(shell('offline-empty'), userId)).toBe(false);
+    jest.mocked(readCachedMessages).mockReturnValue([
+      { id: '1', role: 'assistant', content: 'Hello' },
+    ]);
+    expect(sessionShouldShowInSidebar(shell('offline-with-reply'), userId)).toBe(true);
   });
 
   it('shows server chats from summary metadata without local cache', () => {

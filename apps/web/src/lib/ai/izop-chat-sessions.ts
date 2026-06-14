@@ -142,6 +142,20 @@ const GROUP_ORDER: ChatDateGroup[] = [
   'Older',
 ];
 
+/** True when cached messages contain any user or assistant content. */
+export function sessionHasChatContent(userId: string | undefined, sessionId: string): boolean {
+  if (!userId || !sessionId) return false;
+  const msgs = readCachedMessages(userId, sessionId);
+  return Boolean(
+    msgs?.some(
+      (m) =>
+        Boolean(m.content?.trim()) ||
+        (m.attachments?.length ?? 0) > 0 ||
+        (m.artifacts?.length ?? 0) > 0
+    )
+  );
+}
+
 /** True once the user has sent at least one message (not assistant-only). */
 export function sessionHasConversation(
   s: IzopChatSessionSummary,
@@ -150,12 +164,7 @@ export function sessionHasConversation(
   if (s.preview?.trim()) return true;
   if (s.title.trim() !== '' && s.title !== 'New chat') return true;
   if (!userId) return false;
-  const msgs = readCachedMessages(userId, s.id);
-  return Boolean(
-    msgs?.some(
-      (m) => m.role === 'user' && (m.content?.trim() || (m.attachments?.length ?? 0) > 0)
-    )
-  );
+  return sessionHasChatContent(userId, s.id);
 }
 
 /** True when the user has sent at least one message in this session (cached). */
@@ -178,7 +187,7 @@ export function sessionShouldShowInSidebar(
   if (readDeletedChatIds(userId).has(s.id)) return false;
   if (s.id.startsWith('offline-')) {
     if (s.id === readPendingNewChatId(userId)) return true;
-    return sessionHasUserMessages(userId, s.id);
+    return sessionHasChatContent(userId, s.id);
   }
   return sessionHasConversation(s, userId);
 }
