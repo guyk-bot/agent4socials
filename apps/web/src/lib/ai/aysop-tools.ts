@@ -984,6 +984,15 @@ export const AYSOP_TOOL_DEFINITIONS = [
   {
     type: 'function' as const,
     function: {
+      name: 'clear_brand_context',
+      description:
+        "Delete all brand context fields immediately (product, audience, tone, reply examples). Use when the user asks to delete, remove, erase, or clear all brand context. Do not claim it was cleared unless you call this tool.",
+      parameters: { type: 'object', properties: {}, additionalProperties: false },
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
       name: 'propose_brand_context_update',
       description:
         "Propose changes to the user's brand context and show an editable Approve card in chat. ONLY pass fields the user explicitly asked to change: product/features → productDescription only; audience → targetAudience only; tone → toneOfVoice only. Never pass targetAudience or toneOfVoice when the user only mentions product or features. CRITICAL: copy the existing field text verbatim and make the smallest edit (remove one bullet, add one sentence). Do NOT rewrite, summarize, or rephrase unchanged sections. Nothing is saved until Approve.",
@@ -1615,6 +1624,34 @@ export async function runAysopTool(
       return {
         result: { fields },
         artifacts: [{ type: 'brand_context', fields, href: '/dashboard/brand' }],
+      };
+    }
+
+    case 'clear_brand_context': {
+      const empty = {
+        targetAudience: null,
+        toneOfVoice: null,
+        toneExamples: null,
+        productDescription: null,
+        additionalContext: null,
+        inboxReplyExamples: null,
+        commentReplyExamples: null,
+      };
+      await prisma.user.update({
+        where: { id: ctx.userId },
+        data: { brandContext: empty },
+      });
+      return {
+        result: { cleared: true },
+        artifacts: [
+          {
+            type: 'text_block',
+            title: 'Brand context cleared',
+            body: 'All brand context has been removed. You can set it up again anytime from Brand or here in chat.',
+            href: '/dashboard/brand',
+            hrefLabel: 'Open Brand',
+          },
+        ],
       };
     }
 

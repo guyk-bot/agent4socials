@@ -96,6 +96,16 @@ export function clearBrandContextCache(userId?: string | null): void {
   }
 }
 
+export const EMPTY_BRAND_CONTEXT: Required<BrandContextRecord> = {
+  targetAudience: null,
+  toneOfVoice: null,
+  toneExamples: null,
+  productDescription: null,
+  additionalContext: null,
+  inboxReplyExamples: null,
+  commentReplyExamples: null,
+};
+
 export function brandContextToFormFields(data: BrandContextRecord): Required<BrandContextRecord> {
   return {
     targetAudience: data.targetAudience ?? null,

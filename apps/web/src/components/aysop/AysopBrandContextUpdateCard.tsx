@@ -114,7 +114,6 @@ export function AysopBrandContextUpdateCard({ artifact }: { artifact: Artifact }
   };
 
   const approve = async () => {
-    setStatus('saving');
     setError(null);
     markBrandContextSaved();
 
@@ -123,6 +122,7 @@ export function AysopBrandContextUpdateCard({ artifact }: { artifact: Artifact }
       writeBrandContextCache(payload, user.id);
       writeComposerBrandReadyCache(hasComposerBrandContext(payload));
     }
+    setStatus('saved');
 
     const doPut = () => api.put('/ai/brand-context', payload, { timeout: 30_000 });
 
@@ -134,7 +134,6 @@ export function AysopBrandContextUpdateCard({ artifact }: { artifact: Artifact }
         writeBrandContextCache(saved, user.id);
         writeComposerBrandReadyCache(hasComposerBrandContext(saved));
       }
-      setStatus('saved');
     } catch (e: unknown) {
       const err = e as { response?: { data?: { message?: string }; status?: number }; message?: string };
       const statusCode = err.response?.status;
@@ -152,7 +151,6 @@ export function AysopBrandContextUpdateCard({ artifact }: { artifact: Artifact }
           if (user?.id) {
             writeBrandContextCache(parseBrandContextApiPayload(retry.data), user.id);
           }
-          setStatus('saved');
           return;
         } catch {
           /* fall through */

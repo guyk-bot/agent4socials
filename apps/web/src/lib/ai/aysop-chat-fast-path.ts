@@ -16,6 +16,9 @@ import { shouldShowBrandContextOnboarding } from '@/lib/ai/brand-context-onboard
 const DATA_INTENT =
   /\b(analytics|followers?|comments?|inbox|leads?|posts?|schedule|scheduled|connect|report|chart|graph|scan|reply|replies|draft|caption|publish|instagram|tiktok|facebook|youtube|threads|linkedin|pinterest|twitter|brand context|team|brainstorm|support|metrics?|engagement|views?|likes?)\b/i;
 
+const CLEAR_BRAND_CONTEXT_INTENT =
+  /\b(delete|remove|erase|clear|wipe)\b[\s\S]{0,80}\b(all\s+)?(the\s+)?brand\s+context\b|\bbrand\s+context\b[\s\S]{0,80}\b(delete|remove|erase|clear|wipe)\b/i;
+
 const CASUAL_GREETING =
   /^(hi|hello|hey|howdy|good (morning|afternoon|evening)|thanks|thank you|thx|ok|okay|cool|great|nice|got it|sounds good|bye|goodbye)\b[!.,?\s]*$/i;
 
@@ -176,6 +179,14 @@ export async function tryMediaActionFastPath(
   const lastUser = [...messages].reverse().find((m) => m.role === 'user');
   if (!lastUser) return null;
   const text = lastUser.content.trim();
+
+  if (CLEAR_BRAND_CONTEXT_INTENT.test(text)) {
+    const out = await runAysopTool('clear_brand_context', {}, ctx);
+    return {
+      reply: 'All brand context has been cleared.',
+      artifacts: out.artifacts ?? [],
+    };
+  }
 
   // Enhanced greeting with action buttons
   if (/^(hi|hello|hey)([.,!]?\s*)*$/i.test(text)) {

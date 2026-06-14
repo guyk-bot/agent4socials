@@ -176,6 +176,7 @@ function buildSystemPrompt(
     '- Inbox → list_recent_inbox (reply buttons appear)',
     '- Post → prepare_platform_post_drafts (schedule cards appear)',
     '- Leads → get_saved_leads or scan_leads',
+    '- Clear brand context → clear_brand_context (only when user asks to delete/remove/clear all brand context)',
     '- Save commenters → add_inbox_comments_to_leads',
     '- Help → show_support_options',
     '',

@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, MessageCircle, MessagesSquare } from 'lucide-react';
+import { MessageCircle, MessagesSquare, Trash2 } from 'lucide-react';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { GlassButton } from '@/components/ui/GlassButton';
 import {
   brandContextToFormFields,
+  EMPTY_BRAND_CONTEXT,
   hasComposerBrandContext,
   parseBrandContextApiPayload,
   readBrandContextCache,
@@ -28,19 +30,9 @@ const MAX_LENGTH = {
   commentReplyExamples: 1000,
 } as const;
 
-const defaultForm: Required<BrandContextRecord> = {
-  targetAudience: null,
-  toneOfVoice: null,
-  toneExamples: null,
-  productDescription: null,
-  additionalContext: null,
-  inboxReplyExamples: null,
-  commentReplyExamples: null,
-};
-
 function formFromCache(userId?: string | null): Required<BrandContextRecord> {
   const cached = readBrandContextCache(userId);
-  if (!cached) return defaultForm;
+  if (!cached) return EMPTY_BRAND_CONTEXT;
   return brandContextToFormFields(cached);
 }
 
@@ -105,9 +97,15 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
   const [form, setForm] = useState<Required<BrandContextRecord>>(() => formFromCache());
   const [hydratedFromCache, setHydratedFromCache] = useState(() => readBrandContextCacheHasContent());
   const [loadFailed, setLoadFailed] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
   const fetchAbortRef = useRef<AbortController | null>(null);
+  const saveSeqRef = useRef(0);
+  const lastEditAtRef = useRef(0);
+
+  const touchEdit = useCallback(() => {
+    lastEditAtRef.current = Date.now();
+  }, []);
 
   const applyBrandContext = useCallback(
     (data: ReturnType<typeof parseBrandContextApiPayload>) => {
@@ -132,6 +130,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
       .get('/ai/brand-context', { signal: ctrl.signal, timeout: 30_000 })
       .then((res) => {
         if (ctrl.signal.aborted) return;
+        if (lastEditAtRef.current > fetchStartedAt) return;
         if (!shouldApplyRemoteBrandContext(fetchStartedAt)) return;
         setLoadFailed(false);
         applyBrandContext(parseBrandContextApiPayload(res.data));
@@ -155,15 +154,95 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
     return () => ctrl.abort();
   }, [user?.id, applyBrandContext]);
 
-  const savePayload = () => ({
-    targetAudience: form.targetAudience || null,
-    toneOfVoice: form.toneOfVoice || null,
-    toneExamples: form.toneExamples || null,
-    productDescription: form.productDescription || null,
-    additionalContext: form.additionalContext || null,
-    inboxReplyExamples: form.inboxReplyExamples || null,
-    commentReplyExamples: form.commentReplyExamples || null,
+  const savePayload = (source: Required<BrandContextRecord>): BrandContextRecord => ({
+    targetAudience: source.targetAudience || null,
+    toneOfVoice: source.toneOfVoice || null,
+    toneExamples: source.toneExamples || null,
+    productDescription: source.productDescription || null,
+    additionalContext: source.additionalContext || null,
+    inboxReplyExamples: source.inboxReplyExamples || null,
+    commentReplyExamples: source.commentReplyExamples || null,
   });
+
+  const persistBrandContext = useCallback(
+    (payload: BrandContextRecord, opts?: { successText?: string; nextForm?: Required<BrandContextRecord> }) => {
+      const seq = ++saveSeqRef.current;
+      setMessage(null);
+      markBrandContextSaved();
+      fetchAbortRef.current?.abort();
+
+      if (opts?.nextForm) {
+        setForm(opts.nextForm);
+      }
+
+      if (user?.id) {
+        writeBrandContextCache(payload, user.id);
+        writeComposerBrandReadyCache(hasComposerBrandContext(payload));
+        setHydratedFromCache(true);
+      }
+
+      setMessage({ type: 'success', text: opts?.successText ?? 'Saved.' });
+      setSyncing(true);
+
+      const doPut = () => api.put('/ai/brand-context', payload, { timeout: 30_000 });
+
+      const finishSync = () => {
+        if (seq === saveSeqRef.current) setSyncing(false);
+      };
+
+      doPut()
+        .then((res) => {
+          if (seq !== saveSeqRef.current) return;
+          markBrandContextSaved();
+          if (user?.id) {
+            writeBrandContextCache(parseBrandContextApiPayload(res.data), user.id);
+          }
+        })
+        .catch((err: { response?: { data?: { message?: string }; status?: number }; message?: string }) => {
+          if (seq !== saveSeqRef.current) return;
+          const status = err.response?.status;
+          const msg =
+            err.response?.data?.message ||
+            (status === 401
+              ? 'Please log in again.'
+              : status === 503
+                ? 'Service unavailable. Try again later.'
+                : status === 500
+                  ? 'Server error. Try again in a moment or log out and back in.'
+                  : err.message || 'Failed to sync to the server.');
+
+          if (status === 500 || status === undefined) {
+            window.setTimeout(() => {
+              if (seq !== saveSeqRef.current) return;
+              doPut()
+                .then((res) => {
+                  if (seq !== saveSeqRef.current) return;
+                  markBrandContextSaved();
+                  if (user?.id) writeBrandContextCache(parseBrandContextApiPayload(res.data), user.id);
+                  setMessage({ type: 'success', text: opts?.successText ?? 'Saved.' });
+                })
+                .catch((retryErr: { response?: { data?: { message?: string } }; message?: string }) => {
+                  if (seq !== saveSeqRef.current) return;
+                  const retryMsg = retryErr.response?.data?.message || retryErr.message || msg;
+                  setMessage({
+                    type: 'error',
+                    text: `${retryMsg} Your edits are kept on this device. Click Save to retry.`,
+                  });
+                })
+                .finally(finishSync);
+            }, 1500);
+            return;
+          }
+
+          setMessage({
+            type: 'error',
+            text: `${msg} Your edits are kept on this device. Click Save to retry.`,
+          });
+        })
+        .finally(finishSync);
+    },
+    [user?.id]
+  );
 
   const handleSave = () => {
     if (loadFailed && !hydratedFromCache) {
@@ -173,75 +252,32 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
       });
       return;
     }
-    setSaving(true);
-    setMessage(null);
-    markBrandContextSaved();
-    fetchAbortRef.current?.abort();
-    const payload = savePayload();
-    if (user?.id) {
-      writeBrandContextCache(payload, user.id);
-      writeComposerBrandReadyCache(hasComposerBrandContext(payload));
-      setHydratedFromCache(true);
-    }
-    let willRetry = false;
-    const doPut = () => api.put('/ai/brand-context', payload);
-    doPut()
-      .then((res) => {
-        markBrandContextSaved();
-        const data = parseBrandContextApiPayload(res.data);
-        applyBrandContext(data);
-      })
-      .catch((err: { response?: { data?: { message?: string }; status?: number }; message?: string }) => {
-        const status = err.response?.status;
-        const msg =
-          err.response?.data?.message ||
-          (status === 401
-            ? 'Please log in again.'
-            : status === 503
-              ? 'Service unavailable. Try again later.'
-              : status === 500
-                ? 'Server error. Try again in a moment or log out and back in.'
-                : err.message || 'Failed to save. Check your connection and try again.');
-        if ((status === 500 || status === undefined) && !willRetry) {
-          willRetry = true;
-          setMessage({ type: 'error', text: msg + ' Retrying once in a moment…' });
-          window.setTimeout(() => {
-            doPut()
-              .then((res) => {
-                markBrandContextSaved();
-                applyBrandContext(parseBrandContextApiPayload(res.data));
-              })
-              .catch((retryErr: { response?: { data?: { message?: string } }; message?: string }) => {
-                const retryMsg = retryErr.response?.data?.message || retryErr.message || msg;
-                setMessage({ type: 'error', text: retryMsg + ' Click Save again to retry.' });
-              })
-              .finally(() => setSaving(false));
-          }, 2000);
-          return;
-        }
-        setMessage({
-          type: 'error',
-          text: msg + (status === 401 ? '' : ' Click Save again to retry.'),
-        });
-      })
-      .finally(() => {
-        if (!willRetry) setSaving(false);
-      });
+    persistBrandContext(savePayload(form));
   };
 
-  const saveButtonClass =
-    'inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium text-chrome-text bg-[var(--button)] hover:bg-[var(--button-hover)] disabled:opacity-50 min-w-[88px]';
+  const handleDeleteAll = () => {
+    if (
+      !window.confirm(
+        'Delete all brand context? This clears product, audience, tone, reply examples, and related AI settings.'
+      )
+    ) {
+      return;
+    }
+    touchEdit();
+    persistBrandContext(savePayload(EMPTY_BRAND_CONTEXT), {
+      nextForm: EMPTY_BRAND_CONTEXT,
+      successText: 'All brand context deleted.',
+    });
+  };
 
-  const sectionSaveFooterClass = (variant: BrandContextVariant) =>
-    `pt-6 mt-4 border-t flex justify-end ${isDarkVariant(variant) ? 'border-neutral-800' : 'border-gray-100'}`;
+  const footerClass = `pt-6 mt-6 border-t flex flex-wrap items-center justify-end gap-3 ${
+    isDarkVariant(variant) ? 'border-neutral-800' : 'border-gray-100'
+  }`;
 
-  const SectionSaveButton = () => (
-    <div className={sectionSaveFooterClass(variant)}>
-      <button type="button" onClick={handleSave} disabled={saving} className={saveButtonClass}>
-        {saving ? <Loader2 size={18} className="animate-spin" /> : 'Save'}
-      </button>
-    </div>
-  );
+  const updateField = <K extends keyof BrandContextRecord>(key: K, value: string | null) => {
+    touchEdit();
+    setForm((f) => ({ ...f, [key]: value }));
+  };
 
   return (
     <div className={isDarkVariant(variant) ? 'space-y-5' : 'flex flex-col flex-1 min-h-0'}>
@@ -256,18 +292,9 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
         <div className={messageBoxClass(message.type, variant)}>
           <p>{message.text}</p>
           {message.type === 'error' ? (
-            <button
-              type="button"
-              onClick={() => handleSave()}
-              disabled={saving}
-              className={`mt-3 px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50 ${
-                isDarkVariant(variant)
-                  ? 'bg-red-950 text-red-200 hover:bg-red-900'
-                  : 'bg-red-100 hover:bg-red-200 text-red-800'
-              }`}
-            >
-              {saving ? 'Saving…' : 'Try again'}
-            </button>
+            <GlassButton variant="secondary" size="sm" className="mt-3" onClick={handleSave} disabled={syncing}>
+              {syncing ? 'Syncing…' : 'Try again'}
+            </GlassButton>
           ) : null}
         </div>
       ) : null}
@@ -287,7 +314,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
               value={form.targetAudience ?? ''}
               onChange={(e) => {
                 const v = e.target.value.slice(0, MAX_LENGTH.targetAudience);
-                setForm((f) => ({ ...f, targetAudience: v || null }));
+                updateField('targetAudience', v || null);
               }}
               placeholder="e.g. Small business owners, 25-45..."
               rows={7}
@@ -306,7 +333,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
               value={form.productDescription ?? ''}
               onChange={(e) => {
                 const v = e.target.value.slice(0, MAX_LENGTH.productDescription);
-                setForm((f) => ({ ...f, productDescription: v || null }));
+                updateField('productDescription', v || null);
               }}
               placeholder="What you offer in one or two sentences"
               rows={7}
@@ -326,7 +353,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
               value={form.toneOfVoice ?? ''}
               onChange={(e) => {
                 const v = e.target.value.slice(0, MAX_LENGTH.toneOfVoice);
-                setForm((f) => ({ ...f, toneOfVoice: v || null }));
+                updateField('toneOfVoice', v || null);
               }}
               placeholder="e.g. Professional but friendly, concise"
               rows={5}
@@ -345,7 +372,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
               value={form.toneExamples ?? ''}
               onChange={(e) => {
                 const v = e.target.value.slice(0, MAX_LENGTH.toneExamples);
-                setForm((f) => ({ ...f, toneExamples: v || null }));
+                updateField('toneExamples', v || null);
               }}
               placeholder="Paste 1-3 example phrases that match the tone you want"
               rows={5}
@@ -366,7 +393,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
             value={form.additionalContext ?? ''}
             onChange={(e) => {
               const v = e.target.value.slice(0, MAX_LENGTH.additionalContext);
-              setForm((f) => ({ ...f, additionalContext: v || null }));
+              updateField('additionalContext', v || null);
             }}
             placeholder="Brand values, key messages, hashtags you often use..."
             rows={4}
@@ -374,8 +401,6 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
             className={textareaClass(variant, 'min-h-[100px]')}
           />
         </div>
-
-        <SectionSaveButton />
       </div>
 
       <div className={sectionClass(variant)}>
@@ -401,7 +426,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
             value={form.inboxReplyExamples ?? ''}
             onChange={(e) => {
               const v = e.target.value.slice(0, MAX_LENGTH.inboxReplyExamples);
-              setForm((f) => ({ ...f, inboxReplyExamples: v || null }));
+              updateField('inboxReplyExamples', v || null);
             }}
             placeholder={
               "Example 1: Hi! Thanks for reaching out. We ship within 2-3 business days.\nExample 2: Hey, so glad you love it! Let us know if you need anything else.\nExample 3: Thanks for your message! We'll get back to you shortly."
@@ -422,7 +447,6 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
             AI draft replies in the Inbox are disabled until you add examples here and save.
           </p>
         ) : null}
-        <SectionSaveButton />
       </div>
 
       <div className={sectionClass(variant)}>
@@ -448,7 +472,7 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
             value={form.commentReplyExamples ?? ''}
             onChange={(e) => {
               const v = e.target.value.slice(0, MAX_LENGTH.commentReplyExamples);
-              setForm((f) => ({ ...f, commentReplyExamples: v || null }));
+              updateField('commentReplyExamples', v || null);
             }}
             placeholder={
               "Example 1: Thank you so much! We're really happy to hear that.\nExample 2: Great question! Feel free to DM us for details.\nExample 3: Love the support! Stay tuned for more updates."
@@ -469,10 +493,24 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
             AI draft replies for comments are disabled until you add examples here and save.
           </p>
         ) : null}
-        <SectionSaveButton />
       </div>
 
       <HashtagPoolSection variant={variant} />
+
+      <div className={footerClass}>
+        {syncing ? (
+          <span className={`text-xs ${isDarkVariant(variant) ? 'text-neutral-500' : 'text-gray-500'}`}>
+            Syncing to server…
+          </span>
+        ) : null}
+        <GlassButton variant="secondary" size="md" onClick={handleDeleteAll} disabled={syncing}>
+          <Trash2 size={16} />
+          Delete all
+        </GlassButton>
+        <GlassButton variant="primary" size="md" onClick={handleSave} disabled={syncing}>
+          Save
+        </GlassButton>
+      </div>
     </div>
   );
 }
