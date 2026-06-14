@@ -3,6 +3,7 @@
 import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import AuthenticatedShell from '@/components/AuthenticatedShell';
+import { ComposerEmbedThemeSync } from '@/components/composer/ComposerEmbedThemeSync';
 
 function ComposerRouteFallback() {
   return (
@@ -20,6 +21,7 @@ function ComposerLayoutInner({ children }: { children: React.ReactNode }) {
   if (isEmbed) {
     return (
       <div className="composer-embed-shell min-h-0 bg-[var(--background)] text-[var(--foreground)]">
+        <ComposerEmbedThemeSync />
         <Suspense fallback={<ComposerRouteFallback />}>{children}</Suspense>
       </div>
     );

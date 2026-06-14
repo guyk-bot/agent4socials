@@ -11,7 +11,14 @@ import {
   userWantsToPostFromMessage,
 } from '@/lib/ai/aysop-media-brand-prompt';
 import type { BrandContextRecord } from '@/lib/brand-context-utils';
+import { generatePostCaptionForUser } from '@/lib/ai/generate-post-caption';
 import { shouldShowBrandContextOnboarding } from '@/lib/ai/brand-context-onboarding';
+
+const UPLOAD_POST_INTENT =
+  /^let'?s\s+(just\s+)?upload(\s+the\s+post|\s+it)?$/i;
+
+const SKIP_CAPTION_TEXT =
+  /^(set up brand context|just create this post|let'?s upload(\s+(just\s+)?the\s+post)?|continue without( brand context| setup)?|new post)$/i;
 
 const DATA_INTENT =
   /\b(analytics|followers?|comments?|inbox|leads?|posts?|schedule|scheduled|connect|report|chart|graph|scan|reply|replies|draft|caption|publish|instagram|tiktok|facebook|youtube|threads|linkedin|pinterest|twitter|brand context|team|brainstorm|support|metrics?|engagement|views?|likes?)\b/i;
@@ -113,10 +120,78 @@ function draftCaptionFromThread(messages: AysopChatInputMessage[]): string {
     const m = messages[i]!;
     if (m.role !== 'user') continue;
     const text = m.content.trim();
-    if (!text || isAysopQuickReplyMessage(text)) continue;
+    if (!text || isAysopQuickReplyMessage(text) || SKIP_CAPTION_TEXT.test(text)) continue;
     return text;
   }
-  return 'New post';
+  return '';
+}
+
+function userIntentFromThread(messages: AysopChatInputMessage[]): string {
+  const parts: string[] = [];
+  for (const m of messages) {
+    if (m.role !== 'user') continue;
+    const text = m.content.trim();
+    if (!text || isAysopQuickReplyMessage(text) || SKIP_CAPTION_TEXT.test(text)) continue;
+    parts.push(text);
+  }
+  return parts.join('\n').slice(0, 2000);
+}
+
+async function resolveCaptionForUpload(
+  messages: AysopChatInputMessage[],
+  ctx: AysopToolContext,
+  platform: string,
+  attachments: Array<{ kind: string }>
+): Promise<string> {
+  const fromThread = draftCaptionFromThread(messages);
+  if (fromThread) return fromThread;
+
+  try {
+    return await generatePostCaptionForUser(ctx.userId, {
+      platform,
+      userIntent: userIntentFromThread(messages),
+      hasImage: attachments.some((a) => a.kind === 'image'),
+      hasVideo: attachments.some((a) => a.kind === 'video'),
+    });
+  } catch {
+    return 'Here is something new for you. Let us know what you think.';
+  }
+}
+
+async function createPostPreviewFromThread(
+  messages: AysopChatInputMessage[],
+  ctx: AysopToolContext
+): Promise<{ reply: string; artifacts: AysopArtifact[] } | null> {
+  const mediaMsg = findLatestMediaUserMessage(messages);
+  const attachments = mediaMsg?.attachments?.filter((a) => a.kind === 'image' || a.kind === 'video') ?? [];
+  if (!attachments.length) {
+    return {
+      reply: 'Attach an image or video first, then try again.',
+      artifacts: [],
+    };
+  }
+
+  const platform = await resolvePlatformForDraft(messages, ctx);
+  const caption = await resolveCaptionForUpload(messages, ctx, platform, attachments);
+  const postType = attachments.some((a) => a.kind === 'video') ? 'video' : 'photo';
+  const mediaUrls = attachments.map((a) => a.fileUrl);
+
+  const out = await runAysopTool(
+    'prepare_platform_post_drafts',
+    {
+      drafts: [{ platform, caption, postType, mediaUrls }],
+    },
+    ctx
+  );
+
+  const label = platformLabel(platform);
+  return {
+    reply: replyFromArtifacts(
+      out.artifacts ?? [],
+      `Here is your ${label} post preview. Review the caption and media, then tap Allow to publish or schedule.`
+    ),
+    artifacts: out.artifacts ?? [],
+  };
 }
 
 function replyFromArtifacts(artifacts: AysopArtifact[], fallback: string): string {
@@ -268,37 +343,12 @@ export async function tryMediaActionFastPath(
     };
   }
 
-  if (text === 'Just create this post' || text === "Let's upload") {
-    const mediaMsg = findLatestMediaUserMessage(messages);
-    const attachments = mediaMsg?.attachments?.filter((a) => a.kind === 'image' || a.kind === 'video') ?? [];
-    if (!attachments.length) {
-      return {
-        reply: 'Attach an image or video first, then tap Just create this post again.',
-        artifacts: [],
-      };
-    }
-
-    const platform = await resolvePlatformForDraft(messages, ctx);
-    const caption = draftCaptionFromThread(messages);
-    const postType = attachments.some((a) => a.kind === 'video') ? 'video' : 'photo';
-    const mediaUrls = attachments.map((a) => a.fileUrl);
-
-    const out = await runAysopTool(
-      'prepare_platform_post_drafts',
-      {
-        drafts: [{ platform, caption, postType, mediaUrls }],
-      },
-      ctx
-    );
-
-    const label = platformLabel(platform);
-    return {
-      reply: replyFromArtifacts(
-        out.artifacts ?? [],
-        `Here is your ${label} draft. Review it below and tap Allow to publish or schedule.`
-      ),
-      artifacts: out.artifacts ?? [],
-    };
+  if (
+    text === 'Just create this post' ||
+    text === "Let's upload" ||
+    UPLOAD_POST_INTENT.test(text)
+  ) {
+    return await createPostPreviewFromThread(messages, ctx);
   }
 
   return null;

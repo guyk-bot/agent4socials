@@ -1,47 +1,39 @@
 'use client';
 
-/** White Z silhouette only (no lime dot), from the standalone thinking-loop spec. */
-const Z_WHITE_MASK_SRC = '/logo-z-white-mask.png';
+import { useTheme } from '@/context/ThemeContext';
+
+const Z_MASK_DARK_SRC = '/logo-z-white-mask.png';
+const Z_MASK_LIGHT_SRC = '/logo-mark-dark.png';
 
 type ZThinkingLoopAnimationProps = {
-  /** Logical artboard size in px (default 400, matches source animation). */
+  /** Logical size in px (default 40 for chat). */
   size?: number;
   className?: string;
   'aria-label'?: string;
 };
 
 /**
- * Dark-mode "AI thinking" logo loop — matches the standalone HTML spec:
- * white Z image + sheen, lime dot pulse + glow (400px artboard).
+ * iZop mark with a pulsing lime dot on the top-left (brand accent position).
+ * Works in light and dark mode.
  */
 export function ZThinkingLoopAnimation({
-  size = 400,
+  size = 40,
   className,
   'aria-label': ariaLabel = 'Loading',
 }: ZThinkingLoopAnimationProps) {
+  const { theme } = useTheme();
+  const markSrc = theme === 'dark' ? Z_MASK_DARK_SRC : Z_MASK_LIGHT_SRC;
+
   return (
     <div
-      className={`izop-z-thinking ${className ?? ''}`}
-      style={{ '--izop-z-size': `${size}px` } as React.CSSProperties}
+      className={`izop-thinking-mark ${className ?? ''}`}
+      style={{ '--izop-thinking-size': `${size}px` } as React.CSSProperties}
       role="img"
       aria-label={ariaLabel}
     >
-      <div className="izop-z-thinking__art">
-        <div className="izop-z-thinking__z">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={Z_WHITE_MASK_SRC}
-            alt=""
-            className="izop-z-thinking__z-img"
-            draggable={false}
-          />
-          <div className="izop-z-thinking__z-sheen" aria-hidden />
-        </div>
-        <div className="izop-z-thinking__dot-wrap" aria-hidden>
-          <div className="izop-z-thinking__glow" />
-          <div className="izop-z-thinking__dot" />
-        </div>
-      </div>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={markSrc} alt="" className="izop-thinking-mark__logo" draggable={false} />
+      <span className="izop-thinking-mark__dot" aria-hidden />
     </div>
   );
 }

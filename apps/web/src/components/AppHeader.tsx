@@ -218,17 +218,17 @@ export default function AppHeader() {
           className={iconBtnClass}
           aria-label={
             preference === 'auto'
-              ? 'Auto mode (follows sunset). Switch to light mode'
+              ? 'Auto mode. Switch to light mode'
               : preference === 'dark'
-                ? 'Dark mode. Switch to auto mode'
-                : 'Light mode. Switch to dark mode'
+                ? 'Switch to auto mode'
+                : 'Switch to dark mode'
           }
           title={
             preference === 'auto'
-              ? 'Auto: light by day, dark after sunset'
+              ? 'Auto mode. Switch to light mode'
               : preference === 'dark'
-                ? 'Dark mode'
-                : 'Light mode'
+                ? 'Switch to auto mode'
+                : 'Switch to dark mode'
           }
         >
           {preference === 'auto' ? (

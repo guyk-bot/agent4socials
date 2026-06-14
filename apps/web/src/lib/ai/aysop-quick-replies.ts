@@ -21,6 +21,7 @@ export const AYSOP_QUICK_REPLY_MESSAGES = [
   'Continue without setup',
   'Just create this post',
   "Let's upload",
+  "Let's just upload the post",
 ] as const;
 
 export function isAysopQuickReplyMessage(text: string): boolean {

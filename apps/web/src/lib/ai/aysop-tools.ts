@@ -901,7 +901,7 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'prepare_platform_post_drafts',
       description:
-        'Show platform-specific post preview cards in chat. Nothing is published until the user clicks Approve & publish on a card. Use for text-only platforms (X, Facebook, LinkedIn, Threads) when posting without media. Skip media-required platforms unless allowComposerDrafts is true and the user asked for Composer.',
+        'Show platform-specific post preview cards in chat (preferred when user has media). Nothing is published until the user clicks Approve & publish. Always pass mediaUrls from chat attachments. Use for Threads with image/video and text-only platforms. Do not use open_composer_draft when media is attached unless the user explicitly asks for the full Composer editor.',
       parameters: {
         type: 'object',
         properties: {
@@ -943,7 +943,7 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'open_composer_draft',
       description:
-        'Open inline Composer in chat with platforms, caption, media type, and any attached media URLs pre-filled. Ask which platform(s), caption, schedule, and post type first if missing. Call when the user attaches media, asks to post to Threads/Instagram/etc., or wants the full Composer flow.',
+        'Open the full inline Composer editor only when the user explicitly asks to edit in Composer. If the user attached media or wants to post/publish, use prepare_platform_post_drafts with mediaUrls instead (post preview card).',
       parameters: {
         type: 'object',
         properties: {
@@ -1555,8 +1555,13 @@ export async function runAysopTool(
             : false;
 
         if (allowComposerDrafts && isMediaPlatform) {
-          composerDraftRows.push(row);
-          continue;
+          const rowMedia =
+            Array.isArray(row.mediaUrls) &&
+            row.mediaUrls.filter((u): u is string => typeof u === 'string').length > 0;
+          if (!rowMedia) {
+            composerDraftRows.push(row);
+            continue;
+          }
         }
 
         try {
@@ -1606,6 +1611,25 @@ export async function runAysopTool(
     }
 
     case 'open_composer_draft': {
+      const mediaList = parseMediaUrlsArg(args);
+      if (mediaList.length > 0) {
+        try {
+          const platforms = await resolvePlatformsFromArgs(ctx.userId, args);
+          if (platforms.length === 1) {
+            const built = await buildComposerPostDraft(ctx.userId, {
+              ...args,
+              platform: platforms[0],
+              mediaUrls: mediaList.map((m) => m.fileUrl),
+            });
+            return {
+              result: built.result,
+              artifacts: [built.artifact],
+            };
+          }
+        } catch {
+          /* fall through to Composer session draft */
+        }
+      }
       const built = await buildComposerSessionDraft(ctx.userId, args);
       return {
         result: built.result,

@@ -154,7 +154,7 @@ function buildSystemPrompt(
     if (needsBrandContextOnboarding && hasMediaAttachments && !resolvedMediaBrandChoice) {
       brandContextSection = `Brand context: not set up yet. User uploaded media to post. Call collect_contextual_brand_info once (buttons only). Reply with exactly: "Image received. I suggest setting up brand context so I can come up with the best content for you. I can create your brand context by scanning your connected accounts. Choose one of the options below." Do not ask for topic, audience, or tone. ${hasConnectedAccounts ? 'Buttons: Set up brand context (scans connected accounts) or Just create this post.' : ''}`;
     } else if (needsBrandContextOnboarding && hasMediaAttachments && resolvedMediaBrandChoice) {
-      brandContextSection = 'Brand context: not set up yet. User already chose an action from the media upload buttons. Do NOT call collect_contextual_brand_info again. If they chose to create the post, use prepare_platform_post_drafts or open_composer_draft with their uploaded media URLs from the thread.';
+      brandContextSection = 'Brand context: not set up yet. User already chose an action from the media upload buttons. Do NOT call collect_contextual_brand_info again. If they chose to create the post, call prepare_platform_post_drafts with mediaUrls from the thread and an AI-generated caption (never open_composer_draft unless they ask for the full Composer editor).';
     } else if (needsBrandContextOnboarding) {
       brandContextSection = `Brand context: not set up yet. IMPORTANT: Proactively recommend brand context setup using show_brand_context_onboarding when the user first starts chatting or asks about content creation. ${hasConnectedAccounts ? 'This user has connected accounts, so offer automatic setup assistance.' : 'Guide them through manual setup questions.'}`;
     } else {
@@ -174,7 +174,7 @@ function buildSystemPrompt(
     '- Connect → list_connect_platforms (buttons appear)',
     '- Analytics → get_analytics_report_snapshot (charts appear)',
     '- Inbox → list_recent_inbox (reply buttons appear)',
-    '- Post → prepare_platform_post_drafts (schedule cards appear)',
+    '- Post → prepare_platform_post_drafts with mediaUrls (platform preview cards, not Composer embed)',
     '- Leads → get_saved_leads or scan_leads',
     '- Clear brand context → clear_brand_context (only when user asks to delete/remove/clear all brand context)',
     '- Save commenters → add_inbox_comments_to_leads',
@@ -191,7 +191,7 @@ function buildSystemPrompt(
     '- New users → show_brand_context_onboarding (instant buttons)',
     '- "Set up" → start_guided_brand_setup with autoFillFromAccounts true',
     '- Media upload to post → collect_contextual_brand_info (setup buttons, no topic/audience/tone questions)',
-    '- "Just create this post" → prepare_platform_post_drafts or open_composer_draft',
+    '- "Just create this post" / "Let\'s upload" → prepare_platform_post_drafts with mediaUrls + generated caption (preview card)',
     '- Brand changes → propose_brand_context_update (surgical edits only)',
     '',
     'QUICK BUTTONS:',
@@ -209,7 +209,9 @@ function buildSystemPrompt(
     postingCapabilitiesPromptBlock(),
     '',
     'MEDIA HANDLING:',
-    '- Media attached → open_composer_draft or prepare_platform_post_drafts',
+    '- Media attached + post intent → prepare_platform_post_drafts with every mediaUrls from chat (shows platform post preview with caption and media)',
+    '- open_composer_draft only when user explicitly asks for Composer / full editor',
+    '- Never ask user to re-upload media already in the thread',
     '- No markdown. Plain text only. Use real numbers only.',
     '',
     'Scope (critical):',

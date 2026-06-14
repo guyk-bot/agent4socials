@@ -558,11 +558,7 @@ export default function AysopChatPanel({
         )}
         {loading ? (
           <div className="flex items-center gap-2 text-neutral-500 dark:text-neutral-400 text-sm">
-            {theme === 'dark' ? (
-              <ZThinkingLoopAnimation size={40} className="h-10 w-10 shrink-0" aria-label="Thinking" />
-            ) : (
-              <Loader2 size={16} className="animate-spin shrink-0" />
-            )}
+            <ZThinkingLoopAnimation size={40} className="h-10 w-10 shrink-0" aria-label="Thinking" />
             <span>{BRAND_NAME} is thinking…</span>
           </div>
         ) : null}

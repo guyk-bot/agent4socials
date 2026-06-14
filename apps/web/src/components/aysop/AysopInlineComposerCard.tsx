@@ -1,18 +1,24 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { PenSquare } from 'lucide-react';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 import { ComposerOpenLink } from '@/components/aysop/ComposerOpenLink';
 import { stageAysopComposerDraft } from '@/lib/composer/aysop-composer-draft-bridge';
+import { useTheme } from '@/context/ThemeContext';
 
 type Draft = Extract<AysopArtifact, { type: 'composer_session_draft' }>;
-
-const EMBED_COMPOSER_SRC = '/composer?aysopDraft=1&embed=1';
 
 /** Embedded Composer inside iZop AI chat (same flow as full Composer, staged via sessionStorage). */
 export function AysopInlineComposerCard({ draft }: { draft: Draft }) {
   const stagedRef = useRef<string | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const { theme } = useTheme();
+
+  const embedSrc = useMemo(
+    () => `/composer?aysopDraft=1&embed=1&theme=${theme}`,
+    [theme]
+  );
 
   useEffect(() => {
     const key = JSON.stringify(draft.draft);
@@ -21,18 +27,20 @@ export function AysopInlineComposerCard({ draft }: { draft: Draft }) {
     stageAysopComposerDraft(draft.draft);
   }, [draft.draft]);
 
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe?.contentWindow) return;
+    iframe.contentWindow.postMessage({ type: 'izop-theme', theme }, window.location.origin);
+  }, [theme, embedSrc]);
+
   return (
-    <div className="rounded-xl border border-[var(--primary)]/30 bg-white dark:bg-neutral-900 overflow-hidden text-sm shadow-sm">
-      <div className="px-3 py-2 flex items-center justify-between gap-2 border-b border-[var(--primary)]/20 bg-[#E8F4FF]/50 dark:bg-[var(--primary)]/10">
+    <div className="rounded-xl border border-[var(--primary)]/30 bg-[var(--card-bg)] overflow-hidden text-sm shadow-sm">
+      <div className="px-3 py-2 flex items-center justify-between gap-2 border-b border-[var(--primary)]/20 bg-[var(--surface-soft)]">
         <div className="flex items-center gap-2 min-w-0">
           <PenSquare size={16} className="text-[var(--primary)] shrink-0" />
           <div className="min-w-0">
-            <p className="font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-              Composer
-            </p>
-            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
-              {draft.platformLabels.join(', ')}
-            </p>
+            <p className="font-semibold text-[var(--foreground)] truncate">Composer</p>
+            <p className="text-[11px] text-[var(--muted)] truncate">{draft.platformLabels.join(', ')}</p>
           </div>
         </div>
         <ComposerOpenLink
@@ -43,13 +51,14 @@ export function AysopInlineComposerCard({ draft }: { draft: Draft }) {
         />
       </div>
       <iframe
+        ref={iframeRef}
         title="Composer"
-        src={EMBED_COMPOSER_SRC}
+        src={embedSrc}
         className="w-full border-0 bg-[var(--background)]"
         style={{ height: 'min(72vh, 720px)' }}
         allow="clipboard-write"
       />
-      <p className="px-3 py-2 text-[11px] text-neutral-500 dark:text-neutral-400 border-t border-neutral-100 dark:border-neutral-800">
+      <p className="px-3 py-2 text-[11px] text-[var(--muted)] border-t border-[var(--border)]">
         Same options as full Composer: platforms, caption, media, schedule, and publish.
       </p>
     </div>
