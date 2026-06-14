@@ -106,13 +106,13 @@ export function sessionHasConversation(
   );
 }
 
-/** Sidebar: chats with messages, or server sessions the user explicitly created (New chat). */
+/** Sidebar: chats with messages, empty server sessions, or offline drafts from New chat. */
 export function sessionShouldShowInSidebar(
   s: AysopChatSessionSummary,
   userId?: string
 ): boolean {
   if (sessionHasConversation(s, userId)) return true;
-  if (s.id.startsWith('offline-')) return false;
+  if (s.id.startsWith('offline-')) return true;
   return true;
 }
 
@@ -163,9 +163,9 @@ export function mergeChatSessionsWithServer(
   const synced = syncChatSessionsWithServer(userId, serverSessions);
   const map = new Map(synced.map((s) => [s.id, s]));
   
-  // Only preserve offline sessions that have content
+  // Preserve offline drafts the user created via New chat (may not have messages yet).
   for (const s of prevSessions) {
-    if (s.id.startsWith('offline-') && sessionHasConversation(s, userId)) {
+    if (s.id.startsWith('offline-')) {
       map.set(s.id, s);
     }
   }

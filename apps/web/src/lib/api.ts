@@ -69,7 +69,12 @@ function isPriorityApiPath(url?: string, baseURL?: string): boolean {
   );
 }
 
-function applyApiTimeout(config: { url?: string; baseURL?: string; timeout?: number }): void {
+function applyApiTimeout(config: {
+  url?: string;
+  baseURL?: string;
+  timeout?: number;
+  method?: string;
+}): void {
   const path = resolveRequestPath(config.url, config.baseURL);
   const floor = (ms: number) => {
     config.timeout = Math.max(config.timeout ?? 0, ms);
@@ -82,8 +87,12 @@ function applyApiTimeout(config: { url?: string; baseURL?: string; timeout?: num
     floor(API_AYSOP_CHAT_TIMEOUT_MS);
   } else if (path.includes('/media/upload-url') || path.includes('/media/upload')) {
     floor(API_MEDIA_UPLOAD_TIMEOUT_MS);
-  } else if (path.includes('/ai/aysop-chats')) {
-    floor(API_AYSOP_SESSION_PERSIST_TIMEOUT_MS);
+  } else if (/\/ai\/aysop-chats\/[^/?]+$/.test(path)) {
+    // Only PATCH (save messages) needs the long timeout; GET/DELETE stay fast.
+    const method = (config.method ?? 'get').toLowerCase();
+    if (method === 'patch') {
+      floor(API_AYSOP_SESSION_PERSIST_TIMEOUT_MS);
+    }
   }
 }
 
