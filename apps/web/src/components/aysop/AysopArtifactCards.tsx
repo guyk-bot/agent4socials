@@ -104,12 +104,19 @@ function AppViewCard({ artifact }: { artifact: Extract<AysopArtifact, { type: 'a
 
 export function AysopArtifactCards({
   artifacts,
+  messageId,
+  onArtifactResolved,
   onScanLeads,
   scanningLeads,
   onQuickReply,
   quickReplyDisabled,
 }: {
   artifacts: AysopArtifact[];
+  messageId?: string;
+  onArtifactResolved?: (
+    artifactIndex: number,
+    patch: { approvedAt?: string; dismissedAt?: string }
+  ) => void;
   onScanLeads?: () => void;
   scanningLeads?: boolean;
   onQuickReply?: (message: string) => void;
@@ -189,7 +196,17 @@ export function AysopArtifactCards({
 
         if (a.type === 'brand_context_update') {
           rendered.add(key);
-          return <AysopBrandContextUpdateCard key={key} artifact={a} />;
+          return (
+            <AysopBrandContextUpdateCard
+              key={key}
+              artifact={a}
+              messageId={messageId ?? `msg-${i}`}
+              artifactIndex={i}
+              onArtifactResolved={
+                onArtifactResolved ? (patch) => onArtifactResolved(i, patch) : undefined
+              }
+            />
+          );
         }
 
         if (a.type === 'interactive_card') {

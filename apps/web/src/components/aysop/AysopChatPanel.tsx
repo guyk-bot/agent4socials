@@ -11,6 +11,14 @@ import api, {
   API_AYSOP_CHAT_TIMEOUT_MS,
 } from '@/lib/api';
 import { friendlyAysopChatError } from '@/lib/ai/aysop-chat-errors';
+import {
+  abortChatRunner,
+  getChatRunnerJob,
+  isChatRunnerActive,
+  runChatInBackground,
+  subscribeChatRunner,
+} from '@/lib/ai/aysop-chat-runner';
+import { readCachedMessages } from '@/lib/ai/aysop-chat-local-cache';
 import { uploadMediaFile } from '@/lib/media/upload-client';
 import { useMediaUpload } from '@/hooks/useMediaUpload';
 import { MediaUploadProgress } from '@/components/media/MediaUploadProgress';
@@ -55,6 +63,8 @@ type Props = {
   disabled?: boolean;
   /** Bumped when the user switches chats so in-flight requests reset without remounting the panel. */
   panelResetKey?: number;
+  sessionId?: string | null;
+  userId?: string | null;
 };
 
 async function uploadChatFile(
@@ -83,6 +93,8 @@ export default function AysopChatPanel({
   onMessagesChange,
   disabled,
   panelResetKey = 0,
+  sessionId = null,
+  userId = null,
 }: Props) {
   const accountsCache = useAccountsCache();
   const { theme } = useTheme();
@@ -102,6 +114,62 @@ export default function AysopChatPanel({
   const requestGenRef = useRef(0);
   const userStoppedRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const patchArtifact = useCallback(
+    (
+      messageId: string,
+      artifactIndex: number,
+      patch: { approvedAt?: string; dismissedAt?: string }
+    ) => {
+      const next = messages.map((m) => {
+        if (m.id !== messageId || !m.artifacts?.[artifactIndex]) return m;
+        const artifacts = [...m.artifacts];
+        const current = artifacts[artifactIndex];
+        if (current?.type !== 'brand_context_update') return m;
+        artifacts[artifactIndex] = { ...current, ...patch };
+        return { ...m, artifacts };
+      });
+      onMessagesChange(next);
+    },
+    [messages, onMessagesChange]
+  );
+
+  useEffect(() => {
+    if (!sessionId) return;
+    setLoading(isChatRunnerActive(sessionId));
+  }, [sessionId, panelResetKey]);
+
+  useEffect(() => {
+    if (!sessionId || !userId) return;
+
+    return subscribeChatRunner((runnerSessionId, event) => {
+      if (runnerSessionId !== sessionId) return;
+
+      if (event === 'start') {
+        setLoading(true);
+        setError(null);
+        return;
+      }
+
+      if (event === 'complete') {
+        const cached = readCachedMessages(userId, sessionId);
+        if (cached?.length) {
+          onMessagesChange(cached as ChatMessage[]);
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (event === 'error') {
+        setLoading(false);
+        return;
+      }
+
+      if (event === 'abort') {
+        setLoading(false);
+      }
+    });
+  }, [sessionId, userId, onMessagesChange]);
 
   // Media upload with platform awareness
   const mediaUpload = useMediaUpload({
@@ -138,17 +206,26 @@ export default function AysopChatPanel({
     requestGenRef.current += 1;
     abortRef.current?.abort();
     abortRef.current = null;
-    setLoading(false);
+    setLoading(Boolean(sessionId && isChatRunnerActive(sessionId)));
     setInput('');
     setPendingAttachments([]);
     setError(null);
   }, [panelResetKey]);
 
-  useLayoutEffect(() => {
-    return () => {
-      abortRef.current?.abort();
-    };
-  }, []);
+  useEffect(() => {
+    setLoading(Boolean(sessionId && isChatRunnerActive(sessionId)));
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!sessionId || !userId) return;
+    const job = getChatRunnerJob(sessionId);
+    if (!job) return;
+    const cached = readCachedMessages(userId, sessionId);
+    if (cached?.length && cached.length > job.pendingMessages.length) {
+      onMessagesChange(cached as ChatMessage[]);
+      setLoading(false);
+    }
+  }, [sessionId, userId, onMessagesChange]);
 
   useLayoutEffect(() => {
     const container = scrollContainerRef.current;
@@ -259,10 +336,11 @@ export default function AysopChatPanel({
   const stopGeneration = useCallback(() => {
     userStoppedRef.current = true;
     requestGenRef.current += 1;
+    if (sessionId) abortChatRunner(sessionId, true);
     abortRef.current?.abort();
     abortRef.current = null;
     setLoading(false);
-  }, []);
+  }, [sessionId]);
 
   const send = useCallback(
     async (text: string, attachments: AysopChatAttachment[] = []) => {
@@ -326,13 +404,32 @@ export default function AysopChatPanel({
             ? API_AYSOP_CHAT_ATTACHMENTS_TIMEOUT_MS
             : API_AYSOP_CHAT_TIMEOUT_MS;
 
+        const apiBody = {
+          messages: payload,
+          workspaces: brandContext.workspaces,
+          activeBrand: brandContext.activeBrand,
+        };
+
+        if (sessionId && userId) {
+          const result = await runChatInBackground({
+            sessionId,
+            userId,
+            pendingMessages: next,
+            apiBody,
+            timeout: chatTimeout,
+          });
+          if (gen !== requestGenRef.current) return;
+          if (result) {
+            onMessagesChange(result.messages as ChatMessage[]);
+          } else if (!userStoppedRef.current) {
+            setError('Response was interrupted. Send again to retry.');
+          }
+          return;
+        }
+
         const res = await api.post<{ reply: string; artifacts?: AysopArtifact[] }>(
           '/ai/aysop-chat',
-          {
-            messages: payload,
-            workspaces: brandContext.workspaces,
-            activeBrand: brandContext.activeBrand,
-          },
+          apiBody,
           { timeout: chatTimeout, signal: ac.signal }
         );
         if (gen !== requestGenRef.current || ac.signal.aborted) {
@@ -370,7 +467,7 @@ export default function AysopChatPanel({
         }
       }
     },
-    [accountsCache?.activeBrandId, allCachedAccounts, brands, disabled, getAccountBrandId, loading, messages, onMessagesChange, uploading]
+    [accountsCache?.activeBrandId, allCachedAccounts, brands, disabled, getAccountBrandId, loading, messages, onMessagesChange, sessionId, uploading, userId]
   );
 
   const canSend = (input.trim().length > 0 || pendingAttachments.length > 0) && !loading && !disabled && !uploading;
@@ -444,6 +541,10 @@ export default function AysopChatPanel({
                   {m.role === 'assistant' && m.artifacts?.length ? (
                     <AysopArtifactCards
                       artifacts={m.artifacts}
+                      messageId={m.id}
+                      onArtifactResolved={(artifactIndex, patch) =>
+                        patchArtifact(m.id, artifactIndex, patch)
+                      }
                       onScanLeads={() => void runLeadsScan()}
                       scanningLeads={scanningLeads}
                       onQuickReply={(text) => void send(text)}

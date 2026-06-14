@@ -28,6 +28,7 @@ import {
 } from '@/lib/ai/aysop-chat-sessions';
 import { pickBestStoredMessages } from '@/lib/ai/aysop-chat-persist';
 import { consumeFunnelOpenAysopChatId } from '@/lib/funnel-onboarding';
+import { abortChatRunner } from '@/lib/ai/aysop-chat-runner';
 
 function isEmptyServerChat(s: AysopChatSessionSummary, userId?: string): boolean {
   return !s.id.startsWith('offline-') && !sessionHasConversation(s, userId);
@@ -640,7 +641,6 @@ export default function AysopAiWorkspace() {
     if (id === activeIdRef.current || actionLockRef.current) return;
     newChatIntentRef.current = false;
     loadGenerationRef.current += 1;
-    setPanelResetKey((k) => k + 1);
 
     const prevId = activeIdRef.current;
     const prevMsgs = [...messagesRef.current];
@@ -672,6 +672,7 @@ export default function AysopAiWorkspace() {
 
       // Clear cached messages
       writeCachedMessages(user?.id, id, []);
+      abortChatRunner(id, true);
 
       // Clear from last active if needed
       if (readLastActiveChatId(user?.id) === id) {
@@ -764,6 +765,8 @@ export default function AysopAiWorkspace() {
           panelResetKey={panelResetKey}
           messages={messages}
           onMessagesChange={handleMessagesChange}
+          sessionId={activeId}
+          userId={user?.id ?? null}
         />
       </div>
       <AysopChatSidebar

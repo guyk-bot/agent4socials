@@ -101,6 +101,9 @@ export type AysopArtifact =
   | {
       type: 'brand_context_update';
       changes: Array<{ field: string; label: string; current: string; proposed: string }>;
+      /** Set when the user approved this card so it stays resolved after navigation. */
+      approvedAt?: string | null;
+      dismissedAt?: string | null;
     }
   | {
       type: 'leads';

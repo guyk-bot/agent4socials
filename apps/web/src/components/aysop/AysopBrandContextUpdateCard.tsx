@@ -1,12 +1,17 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { Check, Loader2, X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import api from '@/lib/api';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 import { diffBrandContextText } from '@/lib/brand-context-diff';
 import { GlassButton } from '@/components/ui/GlassButton';
+import { BrandContextSavedCelebration } from '@/components/aysop/BrandContextSavedCelebration';
 import { useAuth } from '@/context/AuthContext';
+import {
+  markBrandContextArtifactApproved,
+  readBrandContextArtifactApproved,
+} from '@/lib/ai/brand-context-artifact-state';
 import {
   markBrandContextSaved,
   parseBrandContextApiPayload,
@@ -91,8 +96,18 @@ function DiffPreview({ current, proposed }: { current: string; proposed: string 
   return <div className="mt-0.5 space-y-1">{nodes}</div>;
 }
 
-export function AysopBrandContextUpdateCard({ artifact }: { artifact: Artifact }) {
+type Props = {
+  artifact: Artifact;
+  messageId: string;
+  artifactIndex: number;
+  onArtifactResolved?: (patch: { approvedAt?: string; dismissedAt?: string }) => void;
+};
+
+export function AysopBrandContextUpdateCard({ artifact, messageId, artifactIndex, onArtifactResolved }: Props) {
   const { user } = useAuth();
+  const initialApprovedAt =
+    artifact.approvedAt ?? readBrandContextArtifactApproved(user?.id, messageId, artifactIndex);
+
   const initial = useMemo(() => {
     const map: Record<string, string> = {};
     for (const c of artifact.changes) map[c.field] = c.proposed;
@@ -100,7 +115,9 @@ export function AysopBrandContextUpdateCard({ artifact }: { artifact: Artifact }
   }, [artifact.changes]);
 
   const [values, setValues] = useState<Record<string, string>>(initial);
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error' | 'dismissed'>('idle');
+  const [status, setStatus] = useState<'idle' | 'saved' | 'error' | 'dismissed'>(() =>
+    artifact.dismissedAt ? 'dismissed' : initialApprovedAt ? 'saved' : 'idle'
+  );
   const [error, setError] = useState<string | null>(null);
 
   const buildPayload = (): BrandContextRecord => {
@@ -118,6 +135,9 @@ export function AysopBrandContextUpdateCard({ artifact }: { artifact: Artifact }
     markBrandContextSaved();
 
     const payload = buildPayload();
+    const approvedAt = markBrandContextArtifactApproved(user?.id, messageId, artifactIndex);
+    onArtifactResolved?.({ approvedAt });
+
     if (user?.id) {
       writeBrandContextCache(payload, user.id);
       writeComposerBrandReadyCache(hasComposerBrandContext(payload));
@@ -141,7 +161,7 @@ export function AysopBrandContextUpdateCard({ artifact }: { artifact: Artifact }
         err.response?.data?.message ??
         (statusCode === 401
           ? 'Please log in again.'
-          : 'Could not save brand context. Try again.');
+          : 'Could not sync to the server. Your brand context is saved on this device.');
 
       if (statusCode === 500 || statusCode === undefined) {
         try {
@@ -164,20 +184,11 @@ export function AysopBrandContextUpdateCard({ artifact }: { artifact: Artifact }
 
   if (status === 'dismissed') return null;
 
-  if (status === 'saved') {
-    return (
-      <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 p-3 text-sm text-emerald-900 dark:text-emerald-200">
-        <p className="flex items-center gap-1.5 font-medium">
-          <Check size={15} /> Brand context saved
-        </p>
-        <p className="mt-1 text-xs text-emerald-800/80 dark:text-emerald-300/80">
-          Your brand details now power AI captions, replies, and outreach across the app.
-        </p>
-      </div>
-    );
-  }
-
   const isSetup = artifact.changes.every((c) => !c.current.trim());
+
+  if (status === 'saved') {
+    return <BrandContextSavedCelebration isSetup={isSetup} />;
+  }
 
   return (
     <div className="rounded-xl border border-[var(--primary)]/30 bg-white dark:bg-neutral-900 p-3 text-sm">
@@ -211,20 +222,16 @@ export function AysopBrandContextUpdateCard({ artifact }: { artifact: Artifact }
       {error ? <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p> : null}
 
       <div className="mt-3 flex items-center gap-2">
-        <GlassButton
-          variant="primary"
-          size="sm"
-          onClick={() => void approve()}
-          disabled={status === 'saving'}
-        >
-          {status === 'saving' ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
-          {status === 'saving' ? 'Saving…' : 'Approve'}
+        <GlassButton variant="primary" size="sm" onClick={() => void approve()}>
+          <Check size={13} /> Approve
         </GlassButton>
         <GlassButton
           variant="secondary"
           size="sm"
-          onClick={() => setStatus('dismissed')}
-          disabled={status === 'saving'}
+          onClick={() => {
+            onArtifactResolved?.({ dismissedAt: new Date().toISOString() });
+            setStatus('dismissed');
+          }}
         >
           <X size={13} /> Discard
         </GlassButton>
