@@ -76,7 +76,8 @@ function sessionSummaryFromDetail(s: SessionDetail): AysopChatSessionSummary {
 
 function isEphemeralOfflineSession(id: string, userId: string | undefined): boolean {
   if (!id.startsWith('offline-')) return false;
-  if (userId && id === readPendingNewChatId(userId)) return false;
+  const list = readCachedSessionList(userId) ?? [];
+  if (list.some((s) => s.id === id)) return false;
   const cached = readCachedMessages(userId, id);
   return !cached?.length;
 }
@@ -211,24 +212,36 @@ export default function IzopAiWorkspace() {
       if (shouldRemember && user?.id) {
         writeLastActiveChatId(user.id, id);
       }
-      if (isEphemeralOfflineSession(id, user?.id)) {
-        clearChatUrlIfNeeded();
-      } else {
-        router.replace(`${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(id)}`, { scroll: false });
-      }
+      router.replace(`${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(id)}`, { scroll: false });
     },
-    [router, user?.id, clearChatUrlIfNeeded]
+    [router, user?.id]
   );
 
   const startEphemeralChat = useCallback(() => {
+    if (!user?.id) {
+      const quick = makeOfflineSession();
+      setMessages([]);
+      messagesRef.current = [];
+      setActiveId(quick.id);
+      activeIdRef.current = quick.id;
+      router.replace(`${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(quick.id)}`, { scroll: false });
+      return quick.id;
+    }
+
     const quick = makeOfflineSession();
+    writePendingNewChatId(user.id, quick.id);
+    writeCachedMessages(user.id, quick.id, []);
+    const summary = sessionSummaryFromDetail(quick);
+    setSessions((prev) => {
+      const merged = dedupeChatSessions([summary, ...prev]);
+      cacheSessionList(merged);
+      return merged;
+    });
     setMessages([]);
     messagesRef.current = [];
-    setActiveId(quick.id);
-    activeIdRef.current = quick.id;
-    clearChatUrlIfNeeded();
+    setActiveChat(quick.id, { remember: false });
     return quick.id;
-  }, [clearChatUrlIfNeeded]);
+  }, [user?.id, cacheSessionList, setActiveChat, router]);
 
   const restoreActiveChat = useCallback(
     (id: string) => {
@@ -237,13 +250,9 @@ export default function IzopAiWorkspace() {
       if (!id.startsWith('offline-') && user?.id) {
         writeLastActiveChatId(user.id, id);
       }
-      if (isEphemeralOfflineSession(id, user?.id)) {
-        clearChatUrlIfNeeded();
-      } else {
-        router.replace(`${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(id)}`, { scroll: false });
-      }
+      router.replace(`${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(id)}`, { scroll: false });
     },
-    [router, user?.id, clearChatUrlIfNeeded]
+    [router, user?.id]
   );
 
   const hydrateMessages = useCallback(
@@ -504,18 +513,9 @@ export default function IzopAiWorkspace() {
         writeLastActiveChatId(user.id, instantId);
       }
       if (chatParam && readDeletedChatIds(user.id).has(chatParam)) {
-        router.replace(
-          instantId.startsWith('offline-')
-            ? IZOP_AI_DASHBOARD_PATH
-            : `${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(instantId)}`,
-          { scroll: false }
-        );
+        router.replace(`${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(instantId)}`, { scroll: false });
       } else if (!chatParam || chatParam !== instantId) {
-        if (instantId.startsWith('offline-')) {
-          router.replace(IZOP_AI_DASHBOARD_PATH, { scroll: false });
-        } else {
-          router.replace(`${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(instantId)}`, { scroll: false });
-        }
+        router.replace(`${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(instantId)}`, { scroll: false });
       }
       if (!instantId.startsWith('offline-')) {
         void loadSession(instantId, { background: true });
@@ -701,17 +701,6 @@ export default function IzopAiWorkspace() {
 
     if (!chatParam || chatParam === activeIdRef.current) return;
 
-    if (isEphemeralOfflineSession(chatParam, user?.id)) {
-      if (!user?.id) return;
-      const restoreId = pickRestoreChatId(user.id, readCachedSessionList(user.id) ?? []);
-      if (restoreId) {
-        restoreActiveChat(restoreId);
-        hydrateMessages(restoreId);
-        void loadSession(restoreId, { background: true });
-      }
-      return;
-    }
-
     restoreActiveChat(chatParam);
     hydrateMessages(chatParam);
     void loadSession(chatParam, { background: true }).then((ok) => {
@@ -772,16 +761,12 @@ export default function IzopAiWorkspace() {
       return merged;
     });
 
-    setActiveId(tempSession.id);
-    activeIdRef.current = tempSession.id;
-
-    // Avoid replace to the same path: it remounts the workspace and drops panelResetKey.
-    clearChatUrlIfNeeded();
+    setActiveChat(tempSession.id, { remember: false });
 
     window.setTimeout(() => {
       newChatIntentRef.current = false;
-    }, 300);
-  }, [user?.id, cacheSessionList, clearChatUrlIfNeeded]);
+    }, 800);
+  }, [user?.id, cacheSessionList, setActiveChat]);
 
   const handleSelect = (id: string) => {
     if (id === activeIdRef.current || actionLockRef.current) return;
@@ -811,7 +796,7 @@ export default function IzopAiWorkspace() {
   };
 
   const executeDelete = useCallback(
-    async (id: string) => {
+    (id: string) => {
       setPendingDeleteId(null);
 
       const wasActive = activeIdRef.current === id;
@@ -853,13 +838,12 @@ export default function IzopAiWorkspace() {
           messagesRef.current = cached as ChatMessage[];
           if (!nextId.startsWith('offline-')) {
             writeLastActiveChatId(user?.id, nextId);
-            router.replace(`${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(nextId)}`, {
-              scroll: false,
-            });
-          } else {
-            if (user?.id) writePendingNewChatId(user.id, nextId);
-            clearChatUrlIfNeeded();
+          } else if (user?.id) {
+            writePendingNewChatId(user.id, nextId);
           }
+          router.replace(`${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(nextId)}`, {
+            scroll: false,
+          });
         } else {
           setMessages([]);
           messagesRef.current = [];
@@ -873,11 +857,9 @@ export default function IzopAiWorkspace() {
       }
 
       if (!id.startsWith('offline-')) {
-        try {
-          await api.delete(`/ai/aysop-chats/${id}`, { timeout: 10000 });
-        } catch (e) {
+        void api.delete(`/ai/aysop-chats/${id}`, { timeout: 15_000 }).catch((e) => {
           console.warn('Server delete failed for chat', id, e);
-        }
+        });
       }
     },
     [user?.id, router, cacheSessionList, chatParam, clearChatUrlIfNeeded]
@@ -965,7 +947,7 @@ export default function IzopAiWorkspace() {
         cancelLabel="Cancel"
         onConfirm={() => {
           const id = pendingDeleteId;
-          if (id) void executeDelete(id);
+          if (id) executeDelete(id);
         }}
       />
     </div>

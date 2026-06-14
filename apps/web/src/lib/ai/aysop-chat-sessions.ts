@@ -309,8 +309,13 @@ export function mergeChatSessionsWithServer(
   const synced = syncChatSessionsWithServer(userId, serverSessions);
   const map = new Map(synced.map((s) => [s.id, s]));
   
-  // Preserve all offline drafts from the current client session list.
+  // Preserve all offline drafts from the current client session list and cache.
   for (const s of prevSessions) {
+    if (s.id.startsWith('offline-')) {
+      map.set(s.id, s);
+    }
+  }
+  for (const s of readCachedSessionList(userId) ?? []) {
     if (s.id.startsWith('offline-')) {
       map.set(s.id, s);
     }
@@ -319,6 +324,16 @@ export function mergeChatSessionsWithServer(
   return dedupeChatSessions(
     [...map.values()].filter((s) => sessionShouldShowInSidebar(s, userId))
   );
+}
+
+/** Pick the most recently updated offline draft in the sidebar list. */
+export function newestOfflineDraftId(
+  sessions: AysopChatSessionSummary[]
+): string | null {
+  const offline = sessions
+    .filter((s) => s.id.startsWith('offline-'))
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  return offline[0]?.id ?? null;
 }
 
 export function pickRestoreChatId(
@@ -350,8 +365,10 @@ export function pickRestoreChatId(
   if (withUserMsgs.length) return withUserMsgs[0]!.id;
   if (real.length) return real[0]!.id;
 
-  const offline = sidebar.find((s) => s.id.startsWith('offline-'));
-  return offline?.id ?? null;
+  const offline = sidebar
+    .filter((s) => s.id.startsWith('offline-'))
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  return offline[0]?.id ?? null;
 }
 
 export function groupChatSessions(
