@@ -156,12 +156,11 @@ export function sessionHasConversation(
   );
 }
 
-/** Sidebar: chats with real content, or an in-progress offline draft from New chat. */
+/** Sidebar: chats with real content. Offline drafts only after the user sends a message. */
 export function sessionShouldShowInSidebar(
   s: AysopChatSessionSummary,
   userId?: string
 ): boolean {
-  if (s.id.startsWith('offline-')) return true;
   return sessionHasConversation(s, userId);
 }
 
@@ -206,9 +205,18 @@ export function syncChatSessionsWithServer(
   }
 
   const merged = dedupeChatSessions(
-    serverSessions
-      .filter((s) => !hidden.has(s.id))
-      .filter((s) => sessionShouldShowInSidebar(s, userId))
+    [
+      ...serverSessions
+        .filter((s) => !hidden.has(s.id))
+        .filter((s) => sessionShouldShowInSidebar(s, userId)),
+      ...cached.filter(
+        (s) =>
+          !s.id.startsWith('offline-') &&
+          !serverIds.has(s.id) &&
+          !hidden.has(s.id) &&
+          sessionHasConversation(s, userId)
+      ),
+    ]
   );
 
   writeCachedSessionList(userId, merged);
@@ -230,9 +238,9 @@ export function mergeChatSessionsWithServer(
   const synced = syncChatSessionsWithServer(userId, serverSessions);
   const map = new Map(synced.map((s) => [s.id, s]));
   
-  // Preserve offline drafts the user created via New chat (may not have messages yet).
+  // Preserve offline drafts only once the user has sent a message.
   for (const s of prevSessions) {
-    if (s.id.startsWith('offline-')) {
+    if (s.id.startsWith('offline-') && sessionHasConversation(s, userId)) {
       map.set(s.id, s);
     }
   }
