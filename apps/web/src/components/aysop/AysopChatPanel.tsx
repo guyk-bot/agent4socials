@@ -582,19 +582,20 @@ export default function AysopChatPanel({
         </div>
       )}
 
-      <AysopPendingAttachments
-        attachments={pendingAttachments}
-        uploading={uploading}
-        onRemove={(index) => setPendingAttachments((prev) => prev.filter((_, i) => i !== index))}
-      />
+      <div className="aysop-chat-dock shrink-0">
+        <AysopPendingAttachments
+          attachments={pendingAttachments}
+          uploading={uploading}
+          onRemove={(index) => setPendingAttachments((prev) => prev.filter((_, i) => i !== index))}
+        />
 
-      <form
-        className="p-3 border-t border-[var(--border)] flex items-end gap-2 bg-[var(--bg-surface)] shrink-0"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void send(input, pendingAttachments);
-        }}
-      >
+        <form
+          className="p-3 flex items-end gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void send(input, pendingAttachments);
+          }}
+        >
         <input
           ref={fileInputRef}
           type="file"
@@ -607,7 +608,7 @@ export default function AysopChatPanel({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={loading || disabled || uploading || mediaUpload.isUploading || pendingAttachments.length >= AYSOP_CHAT_MAX_ATTACHMENTS}
-          className="shrink-0 rounded-xl border border-neutral-200 dark:border-neutral-700 px-3 py-3 text-neutral-600 dark:text-neutral-300 hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:opacity-40 transition-colors"
+          className="aysop-chat-icon-btn-glass shrink-0 rounded-xl px-3 py-3 text-neutral-600 dark:text-neutral-300 disabled:opacity-40 transition-colors"
           aria-label="Attach file"
           title="Attach image, video, or file"
         >
@@ -625,14 +626,14 @@ export default function AysopChatPanel({
           }}
           rows={1}
           placeholder={loading ? 'Type your next message…' : 'Ask anything or attach media…'}
-          className="flex-1 resize-none rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--foreground)] placeholder:text-[var(--muted)] px-4 py-3 text-sm leading-5 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/40"
+          className="aysop-chat-input-glass flex-1 resize-none rounded-xl text-[var(--foreground)] placeholder:text-[var(--muted)] px-4 py-3 text-sm leading-5 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/45"
           disabled={disabled || uploading || mediaUpload.isUploading}
         />
         {loading ? (
           <button
             type="button"
             onClick={stopGeneration}
-            className="shrink-0 rounded-xl bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--foreground)] px-4 py-3 hover:bg-[var(--bg-hover)] transition-opacity"
+            className="aysop-chat-icon-btn-glass shrink-0 rounded-xl text-[var(--foreground)] px-4 py-3 transition-opacity"
             aria-label="Stop generating"
             title="Stop"
           >
@@ -649,6 +650,7 @@ export default function AysopChatPanel({
           </button>
         )}
       </form>
+      </div>
     </div>
   );
 }

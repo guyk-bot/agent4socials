@@ -213,28 +213,42 @@
 /* CTA gradient: brand purple with liquid glass texture. */
 .gradient-cta-pro {
   position: relative;
+  overflow: hidden;
   color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.38);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.48);
+  backdrop-filter: blur(18px) saturate(190%);
+  -webkit-backdrop-filter: blur(18px) saturate(190%);
   background: linear-gradient(
     135deg,
-    rgba(124, 58, 237, 0.72) 0%,
-    rgba(79, 70, 229, 0.62) 50%,
-    rgba(99, 102, 241, 0.55) 100%
+    rgba(124, 58, 237, 0.94) 0%,
+    rgba(79, 70, 229, 0.88) 50%,
+    rgba(99, 102, 241, 0.82) 100%
   );
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.42),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.12),
-    0 8px 28px rgba(79, 70, 229, 0.28);
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -1px 0 rgba(55, 48, 163, 0.35),
+    0 8px 28px rgba(79, 70, 229, 0.38);
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.2s ease;
+}
+.gradient-cta-pro::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.38) 0%,
+    rgba(255, 255, 255, 0.06) 38%,
+    transparent 55%
+  );
+  pointer-events: none;
 }
 .gradient-cta-pro:hover {
   filter: brightness(1.05);
   transform: translateY(-1px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    0 12px 36px rgba(79, 70, 229, 0.35);
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 12px 36px rgba(79, 70, 229, 0.42);
 }
 .gradient-cta-pro:active {
   filter: brightness(0.98);
@@ -244,6 +258,7 @@
 /* Liquid glass buttons (site-wide + chat + funnel) */
 .btn-glass {
   position: relative;
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -252,14 +267,31 @@
   font-weight: 500;
   line-height: 1.25;
   cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(18px) saturate(190%);
+  -webkit-backdrop-filter: blur(18px) saturate(190%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.42),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.1),
-    0 6px 24px rgba(0, 0, 0, 0.14);
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.08),
+    0 6px 22px rgba(79, 70, 229, 0.18);
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.2s ease, background 0.2s ease;
+}
+.btn-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.42) 0%,
+    rgba(255, 255, 255, 0.08) 40%,
+    transparent 58%
+  );
+  pointer-events: none;
+}
+.btn-glass > * {
+  position: relative;
+  z-index: 1;
 }
 .btn-glass:disabled {
   opacity: 0.45;
@@ -269,8 +301,8 @@
 .btn-glass:not(:disabled):hover {
   transform: translateY(-1px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    0 10px 32px rgba(0, 0, 0, 0.18);
+    inset 0 1px 0 rgba(255, 255, 255, 0.62),
+    0 10px 30px rgba(79, 70, 229, 0.24);
 }
 .btn-glass:not(:disabled):active {
   transform: translateY(0) scale(0.98);
@@ -282,33 +314,144 @@
   color: #fff;
   background: linear-gradient(
     135deg,
-    rgba(124, 58, 237, 0.68) 0%,
-    rgba(79, 70, 229, 0.58) 55%,
-    rgba(99, 102, 241, 0.5) 100%
+    rgba(124, 58, 237, 0.94) 0%,
+    rgba(79, 70, 229, 0.88) 55%,
+    rgba(99, 102, 241, 0.82) 100%
   );
-  border-color: rgba(255, 255, 255, 0.4);
+  border-color: rgba(255, 255, 255, 0.48);
 }
 .btn-glass-secondary {
   color: #1f2937;
-  background: rgba(255, 255, 255, 0.52);
-  border-color: rgba(0, 0, 0, 0.08);
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(237, 233, 254, 0.9) 48%,
+    rgba(224, 231, 255, 0.82) 100%
+  );
+  border-color: rgba(124, 58, 237, 0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(124, 58, 237, 0.1),
+    0 4px 18px rgba(124, 58, 237, 0.16);
 }
 [data-theme='dark'] .btn-glass-secondary {
   color: #f3f4f6;
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.22);
+  background: linear-gradient(
+    145deg,
+    rgba(55, 55, 72, 0.92) 0%,
+    rgba(45, 45, 62, 0.88) 50%,
+    rgba(38, 38, 54, 0.85) 100%
+  );
+  border-color: rgba(167, 139, 250, 0.38);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 6px 22px rgba(0, 0, 0, 0.35);
 }
 .btn-glass-lime {
   color: #0a0a0a;
   background: linear-gradient(
     135deg,
-    rgba(170, 255, 69, 0.88) 0%,
-    rgba(134, 239, 76, 0.78) 100%
+    rgba(170, 255, 69, 0.95) 0%,
+    rgba(134, 239, 76, 0.88) 100%
   );
-  border-color: rgba(255, 255, 255, 0.5);
+  border-color: rgba(255, 255, 255, 0.55);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 10px 28px rgba(170, 255, 69, 0.22);
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 10px 28px rgba(170, 255, 69, 0.28);
+}
+
+/* iZop AI chat composer dock */
+.aysop-chat-dock {
+  position: relative;
+  backdrop-filter: blur(22px) saturate(1.75);
+  -webkit-backdrop-filter: blur(22px) saturate(1.75);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.9) 0%,
+    rgba(245, 243, 255, 0.96) 100%
+  );
+  border-top: 1px solid rgba(124, 58, 237, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 -10px 36px rgba(124, 58, 237, 0.14);
+}
+.aysop-chat-dock::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.08) 28%,
+    transparent 45%
+  );
+}
+[data-theme='dark'] .aysop-chat-dock {
+  background: linear-gradient(
+    180deg,
+    rgba(28, 28, 38, 0.94) 0%,
+    rgba(12, 12, 18, 0.98) 100%
+  );
+  border-top-color: rgba(167, 139, 250, 0.32);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 -10px 36px rgba(0, 0, 0, 0.45);
+}
+[data-theme='dark'] .aysop-chat-dock::before {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    transparent 40%
+  );
+}
+.aysop-chat-input-glass {
+  position: relative;
+  backdrop-filter: blur(14px) saturate(1.5);
+  -webkit-backdrop-filter: blur(14px) saturate(1.5);
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(124, 58, 237, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(124, 58, 237, 0.06),
+    0 2px 10px rgba(124, 58, 237, 0.08);
+}
+[data-theme='dark'] .aysop-chat-input-glass {
+  background: rgba(24, 24, 32, 0.88);
+  border-color: rgba(167, 139, 250, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 2px 12px rgba(0, 0, 0, 0.3);
+}
+.aysop-chat-icon-btn-glass {
+  position: relative;
+  backdrop-filter: blur(14px) saturate(1.5);
+  -webkit-backdrop-filter: blur(14px) saturate(1.5);
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.96) 0%,
+    rgba(237, 233, 254, 0.88) 100%
+  );
+  border: 1px solid rgba(124, 58, 237, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 2px 10px rgba(124, 58, 237, 0.1);
+}
+.aysop-chat-icon-btn-glass:hover:not(:disabled) {
+  border-color: rgba(124, 58, 237, 0.45);
+  color: var(--primary);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 4px 14px rgba(124, 58, 237, 0.18);
+}
+[data-theme='dark'] .aysop-chat-icon-btn-glass {
+  background: linear-gradient(
+    145deg,
+    rgba(42, 42, 56, 0.95) 0%,
+    rgba(32, 32, 44, 0.9) 100%
+  );
+  border-color: rgba(167, 139, 250, 0.3);
 }
 
 /* Brand pill / badge */
