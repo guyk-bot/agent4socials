@@ -178,20 +178,36 @@ async function uploadFileCore(file: File, preferDirectUpload = false): Promise<s
       .replace(/[^a-zA-Z0-9._-]/g, '_')
       .slice(0, 200) || (contentType.startsWith('video/') ? 'video.mp4' : 'image.jpg');
 
-  try {
-    if (!preferDirectUpload && file.size <= MEDIA_API_ROUTE_MAX_BYTES) {
+  const canUseApiRoute = file.size <= MEDIA_API_ROUTE_MAX_BYTES;
+
+  if (canUseApiRoute && !preferDirectUpload) {
+    try {
       return await uploadFileViaApi(file, safeName);
-    }
-    return await uploadFileViaPresignedPut(file, safeName, contentType);
-  } catch (err: unknown) {
-    if (!preferDirectUpload && file.size <= MEDIA_API_ROUTE_MAX_BYTES) {
+    } catch (err) {
       try {
         return await uploadFileViaPresignedPut(file, safeName, contentType);
-      } catch (e2: unknown) {
+      } catch (e2) {
         throw new Error(uploadErrorMessage(e2, 'Upload failed. Try again.'));
       }
     }
-    throw new Error(uploadErrorMessage(err, 'Upload failed. Try again.'));
+  }
+
+  try {
+    return await uploadFileViaPresignedPut(file, safeName, contentType);
+  } catch (err) {
+    if (canUseApiRoute) {
+      try {
+        return await uploadFileViaApi(file, safeName);
+      } catch (e2) {
+        throw new Error(uploadErrorMessage(e2, 'Upload failed. Try again.'));
+      }
+    }
+    throw new Error(
+      uploadErrorMessage(
+        err,
+        'Upload failed. Files over 4 MB need storage CORS configured, or compress the file first.'
+      )
+    );
   }
 }
 

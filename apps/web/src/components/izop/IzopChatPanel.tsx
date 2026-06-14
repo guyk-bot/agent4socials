@@ -189,7 +189,6 @@ export default function IzopChatPanel({
   // Media upload with platform awareness
   const mediaUpload = useMediaUpload({
     autoConvert: false,
-    directUpload: true,
     silentSuccess: true,
     onError: (error) => {
       setError(error);
@@ -291,7 +290,7 @@ export default function IzopChatPanel({
     try {
       const results = await Promise.all(
         toUpload.map(async (file) => {
-          const result = await uploadMediaFile(file, { autoConvert: false, directUpload: true });
+          const result = await uploadMediaFile(file, { autoConvert: false });
           return {
             fileUrl: result.fileUrl,
             fileName: file.name,
