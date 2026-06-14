@@ -3,7 +3,9 @@ import {
   clearLastActiveChatId,
   readCachedMessages,
   readCachedSessionList,
+  readDeletedChatIds,
   readLastActiveChatId,
+  reconcileDeletedChatIds,
   writeCachedMessages,
   writeCachedSessionList,
 } from '@/lib/ai/aysop-chat-local-cache';
@@ -106,14 +108,28 @@ export function sessionHasConversation(
   );
 }
 
-/** Sidebar: chats with messages, empty server sessions, or offline drafts from New chat. */
+/** Sidebar: chats with real content, or an in-progress offline draft from New chat. */
 export function sessionShouldShowInSidebar(
   s: AysopChatSessionSummary,
   userId?: string
 ): boolean {
-  if (sessionHasConversation(s, userId)) return true;
   if (s.id.startsWith('offline-')) return true;
-  return true;
+  return sessionHasConversation(s, userId);
+}
+
+export function dedupeChatSessions(
+  sessions: AysopChatSessionSummary[]
+): AysopChatSessionSummary[] {
+  const map = new Map<string, AysopChatSessionSummary>();
+  for (const s of sessions) {
+    const existing = map.get(s.id);
+    if (!existing || new Date(s.updatedAt).getTime() > new Date(existing.updatedAt).getTime()) {
+      map.set(s.id, s);
+    }
+  }
+  return [...map.values()].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
 }
 
 /** Sidebar list: started chats plus empty server sessions (not offline drafts). */
@@ -130,6 +146,8 @@ export function syncChatSessionsWithServer(
   serverSessions: AysopChatSessionSummary[]
 ): AysopChatSessionSummary[] {
   const serverIds = new Set(serverSessions.map((s) => s.id));
+  reconcileDeletedChatIds(userId, serverIds);
+  const hidden = readDeletedChatIds(userId);
   const cached = readCachedSessionList(userId) ?? [];
 
   // Clean up cache for deleted sessions
@@ -139,16 +157,17 @@ export function syncChatSessionsWithServer(
     }
   }
 
-  // Only include server sessions that should show in sidebar, properly sorted
-  const merged = serverSessions
-    .filter((s) => sessionShouldShowInSidebar(s, userId))
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-  
+  const merged = dedupeChatSessions(
+    serverSessions
+      .filter((s) => !hidden.has(s.id))
+      .filter((s) => sessionShouldShowInSidebar(s, userId))
+  );
+
   writeCachedSessionList(userId, merged);
 
   // Clear last active if it was deleted
   const lastId = readLastActiveChatId(userId);
-  if (lastId && !lastId.startsWith('offline-') && !serverIds.has(lastId)) {
+  if (lastId && !lastId.startsWith('offline-') && (!serverIds.has(lastId) || hidden.has(lastId))) {
     clearLastActiveChatId(userId);
   }
 
@@ -169,11 +188,10 @@ export function mergeChatSessionsWithServer(
       map.set(s.id, s);
     }
   }
-  
-  // Return properly sorted sessions
-  return [...map.values()]
-    .filter((s) => sessionShouldShowInSidebar(s, userId))
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+  return dedupeChatSessions(
+    [...map.values()].filter((s) => sessionShouldShowInSidebar(s, userId))
+  );
 }
 
 export function pickRestoreChatId(

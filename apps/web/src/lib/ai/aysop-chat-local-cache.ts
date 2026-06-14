@@ -92,7 +92,62 @@ export function readCachedSessionList(userId: string | undefined): AysopChatSess
 export function writeCachedSessionList(userId: string | undefined, sessions: AysopChatSessionSummary[]): void {
   if (!userId) return;
   try {
-    localStorage.setItem(listKey(userId), JSON.stringify(sessions.slice(0, 100)));
+    const seen = new Set<string>();
+    const deduped = sessions.filter((s) => {
+      if (seen.has(s.id)) return false;
+      seen.add(s.id);
+      return true;
+    });
+    localStorage.setItem(listKey(userId), JSON.stringify(deduped.slice(0, 100)));
+  } catch {
+    /* quota */
+  }
+}
+
+function deletedIdsKey(userId: string) {
+  return `izop_aysop_chat_deleted_${userId}`;
+}
+
+/** Locally deleted server chats stay hidden until the server list no longer includes them. */
+export function readDeletedChatIds(userId: string | undefined): Set<string> {
+  if (!userId) return new Set();
+  try {
+    const raw = localStorage.getItem(deletedIdsKey(userId));
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((x): x is string => typeof x === 'string' && x.trim().length > 0));
+  } catch {
+    return new Set();
+  }
+}
+
+export function markChatDeleted(userId: string | undefined, sessionId: string): void {
+  if (!userId || !sessionId.trim() || sessionId.startsWith('offline-')) return;
+  const next = readDeletedChatIds(userId);
+  next.add(sessionId);
+  try {
+    localStorage.setItem(deletedIdsKey(userId), JSON.stringify([...next].slice(-200)));
+  } catch {
+    /* quota */
+  }
+}
+
+/** Drop tombstones once the server no longer returns that chat id. */
+export function reconcileDeletedChatIds(userId: string | undefined, serverIds: Set<string>): void {
+  if (!userId) return;
+  const deleted = readDeletedChatIds(userId);
+  if (!deleted.size) return;
+  const next = new Set<string>();
+  for (const id of deleted) {
+    if (serverIds.has(id)) next.add(id);
+  }
+  try {
+    if (next.size) {
+      localStorage.setItem(deletedIdsKey(userId), JSON.stringify([...next]));
+    } else {
+      localStorage.removeItem(deletedIdsKey(userId));
+    }
   } catch {
     /* quota */
   }

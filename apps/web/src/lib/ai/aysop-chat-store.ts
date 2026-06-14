@@ -8,6 +8,7 @@ import {
 } from '@/lib/ai/aysop-chat-sessions';
 import { normalizeStoredMessages, hasConversation } from '@/lib/ai/aysop-chat-persist';
 import type { StoredAysopMessage } from '@/lib/ai/aysop-chat-sessions';
+import { sessionHasConversation } from '@/lib/ai/aysop-chat-sessions';
 
 export type AysopChatSessionRow = AysopChatSessionSummary & {
   messages: StoredAysopMessage[];
@@ -138,7 +139,7 @@ export async function listAysopChatSessions(userId: string): Promise<AysopChatSe
         take: 100,
         select: { id: true, title: true, updatedAt: true, createdAt: true, messages: true },
       });
-      return rows.map(summaryFromRow);
+      return rows.map(summaryFromRow).filter((s) => sessionHasConversation(s));
     }
   } catch (e) {
     if (!isMissingTableError(e)) throw e;
@@ -146,7 +147,7 @@ export async function listAysopChatSessions(userId: string): Promise<AysopChatSe
     await ensureAysopChatTable();
   }
   const rows = await listSessionsRaw(userId);
-  return rows.map(summaryFromRow);
+  return rows.map(summaryFromRow).filter((s) => sessionHasConversation(s));
 }
 
 export async function getAysopChatSession(userId: string, id: string): Promise<AysopChatSessionRow | null> {
