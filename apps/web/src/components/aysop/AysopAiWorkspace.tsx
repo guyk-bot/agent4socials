@@ -26,6 +26,7 @@ import {
   sessionHasConversation,
   sessionShouldShowInSidebar,
   titleFromMessages,
+  shouldReplaceChatTitle,
   visibleChatSessions,
   type AysopChatSessionSummary,
 } from '@/lib/ai/aysop-chat-sessions';
@@ -704,25 +705,35 @@ export default function AysopAiWorkspace() {
         artifacts: m.artifacts,
         attachments: m.attachments,
       }));
-      const summary: AysopChatSessionSummary = {
-        id,
-        title: titleFromMessages(stored),
-        preview: previewFromMessages(stored),
-        updatedAt: now,
-        createdAt: now,
-      };
-      const hasUserMessage = stored.some(
-        (m) =>
-          m.role === 'user' && (m.content.trim() || (m.attachments?.length ?? 0) > 0)
-      );
-      if (hasUserMessage) {
+      const nextTitle = titleFromMessages(stored);
+      setSessions((prev) => {
+        const existing = prev.find((s) => s.id === id);
+        const title =
+          existing && !shouldReplaceChatTitle(existing.title, nextTitle)
+            ? existing.title
+            : nextTitle;
+        const summary: AysopChatSessionSummary = {
+          id,
+          title,
+          preview: previewFromMessages(stored),
+          updatedAt: now,
+          createdAt: existing?.createdAt ?? now,
+        };
+        const hasUserMessage = stored.some(
+          (m) =>
+            m.role === 'user' && (m.content.trim() || (m.attachments?.length ?? 0) > 0)
+        );
+        if (!hasUserMessage) return prev;
         newChatIntentRef.current = false;
-        upsertSessionSummary(summary);
-      }
+        const rest = prev.filter((s) => s.id !== id);
+        const merged = dedupeChatSessions([summary, ...rest]);
+        writeCachedSessionList(user?.id, merged);
+        return merged;
+      });
 
       schedulePersist(id, next);
     },
-    [schedulePersist, upsertSessionSummary, user?.id]
+    [schedulePersist, user?.id]
   );
 
   return (

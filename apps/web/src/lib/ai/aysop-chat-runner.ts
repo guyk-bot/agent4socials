@@ -75,6 +75,7 @@ export async function runChatInBackground(opts: {
     messages: Array<{ role: string; content: string; attachments?: unknown[] }>;
     workspaces?: unknown;
     activeBrand?: unknown;
+    brandContextSnapshot?: unknown;
   };
   timeout: number;
 }): Promise<ChatRunnerComplete | null> {

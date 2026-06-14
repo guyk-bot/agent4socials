@@ -15,6 +15,7 @@ import {
 import {
   markBrandContextSaved,
   parseBrandContextApiPayload,
+  readBrandContextCache,
   writeBrandContextCache,
   writeComposerBrandReadyCache,
   hasComposerBrandContext,
@@ -132,6 +133,7 @@ export function AysopBrandContextUpdateCard({
     artifact.dismissedAt ? 'dismissed' : initialApprovedAt ? 'saved' : 'idle'
   );
   const [error, setError] = useState<string | null>(null);
+  const [syncWarning, setSyncWarning] = useState<string | null>(null);
 
   const buildPayload = (): BrandContextRecord => {
     const payload: BrandContextRecord = {};
@@ -145,19 +147,24 @@ export function AysopBrandContextUpdateCard({
 
   const approve = async () => {
     setError(null);
+    setSyncWarning(null);
     markBrandContextSaved();
 
     const payload = buildPayload();
+    const mergedPayload: BrandContextRecord = {
+      ...(user?.id ? parseBrandContextApiPayload(readBrandContextCache(user.id) ?? {}) : {}),
+      ...payload,
+    };
     const approvedAt = markBrandContextArtifactApproved(user?.id, messageId, artifactIndex);
     onArtifactResolved?.({ approvedAt });
 
     if (user?.id) {
-      writeBrandContextCache(payload, user.id);
-      writeComposerBrandReadyCache(hasComposerBrandContext(payload));
+      writeBrandContextCache(mergedPayload, user.id);
+      writeComposerBrandReadyCache(hasComposerBrandContext(mergedPayload));
     }
     setStatus('saved');
 
-    const doPut = () => api.put('/ai/brand-context', payload, { timeout: 30_000 });
+    const doPut = () => api.put('/ai/brand-context', mergedPayload, { timeout: 30_000 });
 
     try {
       const res = await doPut();
@@ -190,8 +197,7 @@ export function AysopBrandContextUpdateCard({
         }
       }
 
-      setError(msg);
-      setStatus('error');
+      setSyncWarning(msg);
     }
   };
 
@@ -201,22 +207,29 @@ export function AysopBrandContextUpdateCard({
 
   if (status === 'saved') {
     return (
-      <BrandContextSavedCelebration
-        isSetup={isSetup}
-        resumeIntent={artifact.resumeIntent}
-        resumeDismissed={Boolean(artifact.resumeDismissedAt)}
-        quickReplyDisabled={quickReplyDisabled}
-        onResume={
-          onQuickReply && artifact.resumeIntent && !artifact.resumeDismissedAt
-            ? () => onQuickReply("Let's upload")
-            : undefined
-        }
-        onCancelResume={
-          onArtifactResolved && artifact.resumeIntent && !artifact.resumeDismissedAt
-            ? () => onArtifactResolved({ resumeDismissedAt: new Date().toISOString() })
-            : undefined
-        }
-      />
+      <>
+        {syncWarning ? (
+          <p className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+            {syncWarning}
+          </p>
+        ) : null}
+        <BrandContextSavedCelebration
+          isSetup={isSetup}
+          resumeIntent={artifact.resumeIntent}
+          resumeDismissed={Boolean(artifact.resumeDismissedAt)}
+          quickReplyDisabled={quickReplyDisabled}
+          onResume={
+            onQuickReply && artifact.resumeIntent && !artifact.resumeDismissedAt
+              ? () => onQuickReply("Let's upload")
+              : undefined
+          }
+          onCancelResume={
+            onArtifactResolved && artifact.resumeIntent && !artifact.resumeDismissedAt
+              ? () => onArtifactResolved({ resumeDismissedAt: new Date().toISOString() })
+              : undefined
+          }
+        />
+      </>
     );
   }
 

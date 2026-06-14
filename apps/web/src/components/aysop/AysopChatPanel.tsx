@@ -27,7 +27,10 @@ import { resolveChatBrandContext } from '@/lib/ai/aysop-workspace-snapshot';
 import {
   applyBrandContextClearedOnClient,
   artifactsClearedBrandContext,
+  parseBrandContextApiPayload,
+  readBrandContextCache,
 } from '@/lib/brand-context-utils';
+import { isAysopQuickReplyMessage } from '@/lib/ai/aysop-quick-replies';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 import {
   AYSOP_CHAT_FILE_ACCEPT,
@@ -354,11 +357,19 @@ export default function AysopChatPanel({
   }, [sessionId]);
 
   const send = useCallback(
-    async (text: string, attachments: AysopChatAttachment[] = []) => {
+    async (text: string, attachments: AysopChatAttachment[] = [], opts?: { resume?: boolean }) => {
       const trimmed = text.trim();
       const hasAttachments = attachments.length > 0;
       if ((!trimmed && !hasAttachments) || disabled || uploading) return;
-      if (loading) return;
+      if (loading && !opts?.resume) return;
+      if (loading && opts?.resume) {
+        userStoppedRef.current = true;
+        requestGenRef.current += 1;
+        if (sessionId) abortChatRunner(sessionId, true);
+        abortRef.current?.abort();
+        abortRef.current = null;
+        setLoading(false);
+      }
 
       setError(null);
       userStoppedRef.current = false;
@@ -415,10 +426,15 @@ export default function AysopChatPanel({
             ? API_AYSOP_CHAT_ATTACHMENTS_TIMEOUT_MS
             : API_AYSOP_CHAT_TIMEOUT_MS;
 
+        const brandContextSnapshot = userId
+          ? parseBrandContextApiPayload(readBrandContextCache(userId) ?? {})
+          : null;
+
         const apiBody = {
           messages: payload,
           workspaces: brandContext.workspaces,
           activeBrand: brandContext.activeBrand,
+          brandContextSnapshot,
         };
 
         if (sessionId && userId) {
@@ -564,7 +580,13 @@ export default function AysopChatPanel({
                       }
                       onScanLeads={() => void runLeadsScan()}
                       scanningLeads={scanningLeads}
-                      onQuickReply={(text) => void send(text)}
+                      onQuickReply={(text) =>
+                        void send(text, [], {
+                          resume:
+                            isAysopQuickReplyMessage(text) &&
+                            (text === "Let's upload" || text === 'Just create this post'),
+                        })
+                      }
                       quickReplyDisabled={loading || disabled || uploading}
                     />
                   ) : null}

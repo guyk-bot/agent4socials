@@ -21,6 +21,9 @@ const UPLOAD_POST_INTENT =
 const SKIP_CAPTION_TEXT =
   /^(set up brand context|just create this post|let'?s upload(\s+(just\s+)?the\s+post)?|continue without( brand context| setup)?|new post)$/i;
 
+const SKIP_POST_INTENT_TEXT =
+  /^(delete|remove|erase|clear|wipe)\b[\s\S]{0,80}\b(all\s+)?(the\s+)?brand\s+context\b|\bbrand\s+context\b[\s\S]{0,80}\b(delete|remove|erase|clear|wipe)\b|^(set up brand context|just create this post|let'?s upload|continue without)/i;
+
 const DATA_INTENT =
   /\b(analytics|followers?|comments?|inbox|leads?|posts?|schedule|scheduled|connect|report|chart|graph|scan|reply|replies|draft|caption|publish|instagram|tiktok|facebook|youtube|threads|linkedin|pinterest|twitter|brand context|team|brainstorm|support|metrics?|engagement|views?|likes?)\b/i;
 
@@ -116,23 +119,13 @@ async function resolvePlatformForDraft(
   throw new Error('Connect a platform first, then try again.');
 }
 
-function draftCaptionFromThread(messages: AysopChatInputMessage[]): string {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i]!;
-    if (m.role !== 'user') continue;
-    const text = m.content.trim();
-    if (!text || isAysopQuickReplyMessage(text) || SKIP_CAPTION_TEXT.test(text)) continue;
-    return text;
-  }
-  return '';
-}
-
-function userIntentFromThread(messages: AysopChatInputMessage[]): string {
+function postIntentFromThread(messages: AysopChatInputMessage[]): string {
   const parts: string[] = [];
   for (const m of messages) {
     if (m.role !== 'user') continue;
     const text = m.content.trim();
     if (!text || isAysopQuickReplyMessage(text) || SKIP_CAPTION_TEXT.test(text)) continue;
+    if (CLEAR_BRAND_CONTEXT_INTENT.test(text) || SKIP_POST_INTENT_TEXT.test(text)) continue;
     parts.push(text);
   }
   return parts.join('\n').slice(0, 2000);
@@ -142,17 +135,20 @@ async function resolveCaptionForUpload(
   messages: AysopChatInputMessage[],
   ctx: AysopToolContext,
   platform: string,
-  attachments: Array<{ kind: string }>
+  attachments: Array<{ kind: string; fileUrl?: string }>
 ): Promise<string> {
-  const fromThread = draftCaptionFromThread(messages);
-  if (fromThread) return fromThread;
+  const imageUrl = attachments.find((a) => a.kind === 'image')?.fileUrl ?? null;
+  const videoUrl = attachments.find((a) => a.kind === 'video')?.fileUrl ?? null;
 
   try {
     return await generatePostCaptionForUser(ctx.userId, {
       platform,
-      userIntent: userIntentFromThread(messages),
+      userIntent: postIntentFromThread(messages),
       hasImage: attachments.some((a) => a.kind === 'image'),
       hasVideo: attachments.some((a) => a.kind === 'video'),
+      imageUrl,
+      videoUrl,
+      brandContextOverride: ctx.brandContextSnapshot ?? null,
     });
   } catch {
     return 'Here is something new for you. Let us know what you think.';

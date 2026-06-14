@@ -77,6 +77,7 @@ export type AysopArtifact =
       canPublishFromChat: boolean;
       composerUrl: string;
       sessionDraft?: import('@/lib/composer/aysop-composer-draft-bridge').AysopComposerDraftPayload;
+      previewMediaUrls?: string[];
     }
   | {
       type: 'composer_session_draft';

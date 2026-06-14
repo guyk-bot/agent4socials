@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { ensureAysopChatTable, resetAysopChatTableEnsure } from '@/lib/ai/ensure-aysop-chat-table';
 import {
   previewFromMessages,
+  shouldReplaceChatTitle,
   titleFromMessages,
   type AysopChatSessionSummary,
 } from '@/lib/ai/aysop-chat-sessions';
@@ -240,7 +241,7 @@ export async function updateAysopChatSession(
     nextTitle = explicitTitle;
   } else if (messages) {
     const auto = titleFromMessages(nextMessages ?? messages);
-    if ((existing.title === 'New chat' || !existing.title.trim()) && auto !== 'New chat') {
+    if (shouldReplaceChatTitle(existing.title, auto)) {
       nextTitle = auto;
     }
   }

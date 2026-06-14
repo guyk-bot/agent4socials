@@ -139,6 +139,18 @@ export async function openAiChat(
   messages: OpenAIChatMessage[],
   options: OpenAIChatOptions = {}
 ): Promise<OpenAIChatResult> {
+  return openAiChatWithUserParts(messages, options);
+}
+
+/** Chat Completions with optional multimodal user content (images). */
+export async function openAiChatWithUserParts(
+  messages: Array<
+    | OpenAIChatMessage
+    | OpenAIUserMessage
+    | { role: 'assistant'; content: string }
+  >,
+  options: OpenAIChatOptions = {}
+): Promise<OpenAIChatResult> {
   const scope = options.providerScope ?? 'default';
   const config = resolveLlmConfig(scope, options.model);
   const model = config.model;

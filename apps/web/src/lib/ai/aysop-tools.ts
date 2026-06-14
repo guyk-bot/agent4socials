@@ -115,6 +115,8 @@ export type AysopToolContext = {
   userId: string;
   workspaces?: AysopWorkspaceSnapshot[];
   activeBrand?: AysopActiveBrandSnapshot;
+  /** Latest brand context from the client cache (used when DB sync lags after approve). */
+  brandContextSnapshot?: import('@/lib/brand-context-utils').BrandContextRecord | null;
 };
 
 const PLATFORM_ALIASES: Record<string, Platform> = {
@@ -159,10 +161,54 @@ function normalizePlatformArg(input: string | undefined): Platform | null {
 async function assertAccount(userId: string, accountId: string) {
   const account = await prisma.socialAccount.findFirst({
     where: { id: accountId, userId },
-    select: { id: true, platform: true, username: true, profilePicture: true },
+    select: {
+      id: true,
+      platform: true,
+      username: true,
+      profilePicture: true,
+      accessToken: true,
+    },
   });
   if (!account) throw new Error('Account not found or not connected to your workspace.');
   return account;
+}
+
+async function enrichAccountDisplayForDraft(
+  account: {
+    id: string;
+    platform: string;
+    username: string | null;
+    profilePicture: string | null;
+    accessToken: string | null;
+  }
+): Promise<{ username: string | null; profilePicture: string | null }> {
+  let username = account.username;
+  let profilePicture = account.profilePicture;
+
+  if (account.platform === 'THREADS' && account.accessToken && (!profilePicture || !username)) {
+    try {
+      const { fetchThreadsProfile } = await import('@/lib/threads/threads-api');
+      const profile = await fetchThreadsProfile(account.accessToken, 12_000);
+      if (profile?.username) username = profile.username;
+      else if (profile?.name) username = profile.name;
+      if (profile?.threads_profile_picture_url) profilePicture = profile.threads_profile_picture_url;
+      if (username || profilePicture) {
+        void prisma.socialAccount
+          .update({
+            where: { id: account.id },
+            data: {
+              ...(username ? { username } : {}),
+              ...(profilePicture ? { profilePicture } : {}),
+            },
+          })
+          .catch(() => {});
+      }
+    } catch {
+      /* keep stored values */
+    }
+  }
+
+  return { username, profilePicture };
 }
 
 async function resolveAccountId(
@@ -601,6 +647,7 @@ async function buildComposerPostDraft(
   );
   const account = await assertAccount(userId, accountId!);
   const platformUpper = account.platform;
+  const display = await enrichAccountDisplayForDraft(account);
   const textOnlySupported = platformSupportsTextOnly(platformUpper);
   const hasMedia = mediaList.length > 0;
   const canPublishFromChat = canPublishDraftFromChat(platformUpper, mediaType, hasMedia);
@@ -622,8 +669,8 @@ async function buildComposerPostDraft(
     type: 'composer_post_draft',
     platform: platformUpper,
     platformLabel: platformLabel(platformUpper),
-    username: account.username,
-    profilePicture: account.profilePicture ?? null,
+    username: display.username,
+    profilePicture: display.profilePicture ?? null,
     accountId: accountId!,
     caption,
     mediaType,
@@ -631,6 +678,7 @@ async function buildComposerPostDraft(
     canPublishFromChat,
     composerUrl: AYSOP_COMPOSER_HREF,
     sessionDraft,
+    previewMediaUrls: mediaList.map((m) => m.fileUrl),
   };
 
   return {

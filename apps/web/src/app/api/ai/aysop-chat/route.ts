@@ -4,6 +4,7 @@ import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 import { runAysopChat } from '@/lib/ai/aysop-chat-core';
 import { isAysopLlmConfigured } from '@/lib/ai/llm-config';
 import { trackUsage } from '@/lib/usage-tracking';
+import { parseBrandContextApiPayload } from '@/lib/brand-context-utils';
 import { normalizeChatAttachments } from '@/lib/ai/aysop-attachments';
 import { trimMessagesForLlmContext } from '@/lib/ai/aysop-chat-context-window';
 
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
       accounts: Array<{ id: string; platform: string; username: string | null }>;
     }>;
     activeBrand?: { id: string; name: string } | null;
+    brandContextSnapshot?: Record<string, unknown> | null;
   };
 
   const messages = (body.messages ?? [])
@@ -69,7 +71,14 @@ export async function POST(request: NextRequest) {
     const { reply, artifacts } = await Promise.race([
       runAysopChat({
         messages: llmMessages,
-        ctx: { userId, workspaces: body.workspaces, activeBrand: body.activeBrand ?? null },
+        ctx: {
+          userId,
+          workspaces: body.workspaces,
+          activeBrand: body.activeBrand ?? null,
+          brandContextSnapshot: body.brandContextSnapshot
+            ? parseBrandContextApiPayload(body.brandContextSnapshot)
+            : null,
+        },
         contextOmittedCount: omittedCount,
         deadlineMs,
       }),

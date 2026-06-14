@@ -1,4 +1,5 @@
 import type { AysopChatAttachment } from '@/lib/ai/aysop-attachments';
+import { isAysopQuickReplyMessage } from '@/lib/ai/aysop-quick-replies';
 import {
   clearLastActiveChatId,
   readCachedMessages,
@@ -26,16 +27,55 @@ export type AysopChatSessionSummary = {
   preview: string | null;
 };
 
+const CHAT_TITLE_SKIP =
+  /^(delete|remove|erase|clear|wipe)\b[\s\S]{0,80}\b(all\s+)?(the\s+)?brand\s+context\b|\bbrand\s+context\b[\s\S]{0,80}\b(delete|remove|erase|clear|wipe)\b|^(set up brand context|just create this post|let'?s upload|continue without)/i;
+
+function trimChatTitle(text: string): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= 52) return trimmed;
+  return `${trimmed.slice(0, 52).trim()}…`;
+}
+
+function mediaTitleFromMessage(m: StoredAysopMessage): string | null {
+  const att = m.attachments?.find((a) => a.kind === 'image' || a.kind === 'video');
+  if (!att) return null;
+  const platformHint = /\bthreads?\b/i.test(m.content) ? 'Threads post' : 'Post';
+  if (att.kind === 'video') return trimChatTitle(`${platformHint}: ${att.fileName}`);
+  return trimChatTitle(`${platformHint}: ${att.fileName}`);
+}
+
+/** Pick a sidebar title that reflects the current task, not an old "delete brand context" message. */
 export function titleFromMessages(messages: StoredAysopMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]!;
+    if (m.role !== 'user') continue;
+    const mediaTitle = mediaTitleFromMessage(m);
+    if (mediaTitle) return mediaTitle;
+  }
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]!;
+    if (m.role !== 'user') continue;
+    const text = m.content.trim();
+    if (!text || isAysopQuickReplyMessage(text) || CHAT_TITLE_SKIP.test(text)) continue;
+    if (/\b(post|upload|publish|caption|threads|instagram|tiktok|schedule)\b/i.test(text)) {
+      return trimChatTitle(text);
+    }
+  }
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]!;
+    if (m.role !== 'user') continue;
+    const text = m.content.trim();
+    if (!text || isAysopQuickReplyMessage(text) || CHAT_TITLE_SKIP.test(text)) continue;
+    return trimChatTitle(text);
+  }
+
   const firstUser = messages.find(
     (m) => m.role === 'user' && (m.content.trim() || (m.attachments?.length ?? 0) > 0)
   );
   if (!firstUser) return 'New chat';
-  if (firstUser.content.trim()) {
-    const trimmed = firstUser.content.trim();
-    if (trimmed.length <= 52) return trimmed;
-    return `${trimmed.slice(0, 52).trim()}…`;
-  }
+  if (firstUser.content.trim()) return trimChatTitle(firstUser.content);
   const firstAtt = firstUser.attachments?.[0];
   if (firstAtt) {
     const label =
@@ -44,9 +84,17 @@ export function titleFromMessages(messages: StoredAysopMessage[]): string {
         : firstAtt.kind === 'video'
           ? `Video: ${firstAtt.fileName}`
           : firstAtt.fileName;
-    return label.length <= 52 ? label : `${label.slice(0, 52).trim()}…`;
+    return trimChatTitle(label);
   }
   return 'New chat';
+}
+
+export function shouldReplaceChatTitle(existingTitle: string, nextTitle: string): boolean {
+  if (!nextTitle.trim() || nextTitle === 'New chat') return false;
+  const existing = existingTitle.trim();
+  if (!existing || existing === 'New chat') return true;
+  if (CHAT_TITLE_SKIP.test(existing) && !CHAT_TITLE_SKIP.test(nextTitle)) return true;
+  return false;
 }
 
 export function previewFromMessages(messages: StoredAysopMessage[]): string | null {

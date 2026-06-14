@@ -1,7 +1,15 @@
-import { openAiChat } from '@/lib/openai-client';
+import {
+  openAiChatWithUserParts,
+  type OpenAIContentPart,
+} from '@/lib/openai-client';
 import { prisma } from '@/lib/db';
-import { hasComposerBrandContext } from '@/lib/brand-context-utils';
+import {
+  hasComposerBrandContext,
+  parseBrandContextApiPayload,
+  type BrandContextRecord,
+} from '@/lib/brand-context-utils';
 import { platformLabel } from '@/lib/composer/platform-capabilities';
+import { getAysopOpenRouterApiKey, toOpenRouterModel } from '@/lib/ai/llm-config';
 
 function cleanGeneratedText(text: string): string {
   return text
@@ -25,6 +33,7 @@ function buildSystemPrompt(brand: {
   const parts: string[] = [
     'You are a social media copywriter. Write one ready-to-publish caption for the requested platform. Output only the caption text, no meta-commentary.',
     'Rules: Plain text only. No markdown. No em dashes or en dashes; use commas or " to " instead. Keep it concise (1 to 4 short lines). Include a clear call-to-action when it fits the brand.',
+    'When an image or video is attached, describe what you see and tie it naturally to the brand voice.',
   ];
   if (brand.targetAudience?.trim()) parts.push(`Target audience: ${brand.targetAudience.trim()}`);
   if (brand.toneOfVoice?.trim()) parts.push(`Tone of voice: ${brand.toneOfVoice.trim()}`);
@@ -34,6 +43,17 @@ function buildSystemPrompt(brand: {
   return parts.join('\n\n');
 }
 
+function brandFieldsFromRecord(ctx: BrandContextRecord | null | undefined) {
+  const c = parseBrandContextApiPayload(ctx ?? {});
+  return {
+    targetAudience: c.targetAudience ?? null,
+    toneOfVoice: c.toneOfVoice ?? null,
+    toneExamples: c.toneExamples ?? null,
+    productDescription: c.productDescription ?? null,
+    additionalContext: c.additionalContext ?? null,
+  };
+}
+
 export async function generatePostCaptionForUser(
   userId: string,
   opts: {
@@ -41,34 +61,26 @@ export async function generatePostCaptionForUser(
     userIntent?: string;
     hasImage?: boolean;
     hasVideo?: boolean;
+    imageUrl?: string | null;
+    videoUrl?: string | null;
+    brandContextOverride?: BrandContextRecord | null;
   }
 ): Promise<string> {
-  if (!process.env.OPENAI_API_KEY?.trim()) {
+  if (!process.env.OPENAI_API_KEY?.trim() && !getAysopOpenRouterApiKey()) {
     throw new Error('Caption generation is not configured.');
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { brandContext: true },
-  });
-  const ctx = user?.brandContext as Record<string, unknown> | null;
-  const hasBrand = hasComposerBrandContext(ctx);
+  let brandRecord: BrandContextRecord | null = opts.brandContextOverride ?? null;
+  if (!brandRecord || !hasComposerBrandContext(brandRecord)) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { brandContext: true },
+    });
+    brandRecord = parseBrandContextApiPayload(user?.brandContext);
+  }
 
-  const brand = hasBrand
-    ? {
-        targetAudience: (ctx!.targetAudience as string | undefined) ?? null,
-        toneOfVoice: (ctx!.toneOfVoice as string | undefined) ?? null,
-        toneExamples: (ctx!.toneExamples as string | undefined) ?? null,
-        productDescription: (ctx!.productDescription as string | undefined) ?? null,
-        additionalContext: (ctx!.additionalContext as string | undefined) ?? null,
-      }
-    : {
-        targetAudience: null,
-        toneOfVoice: null,
-        toneExamples: null,
-        productDescription: null,
-        additionalContext: null,
-      };
+  const hasBrand = hasComposerBrandContext(brandRecord);
+  const brand = brandFieldsFromRecord(brandRecord);
 
   const label = platformLabel(opts.platform);
   const mediaHint = opts.hasVideo
@@ -77,26 +89,48 @@ export async function generatePostCaptionForUser(
       ? 'The post includes an image.'
       : 'This is a text post.';
 
-  const userParts = [
+  const userTextParts = [
     `Write a caption for ${label}.`,
     mediaHint,
     opts.userIntent?.trim()
       ? `User request or context from chat:\n${opts.userIntent.trim().slice(0, 1500)}`
-      : 'Write an engaging caption that fits the platform.',
+      : 'Write an engaging caption that fits the platform and brand.',
     'Output only the caption text.',
   ];
 
-  const { content } = await openAiChat(
+  const userParts: OpenAIContentPart[] = [{ type: 'text', text: userTextParts.join('\n\n') }];
+  if (opts.imageUrl?.trim()) {
+    userParts.push({ type: 'image_url', image_url: { url: opts.imageUrl.trim(), detail: 'low' } });
+  } else if (opts.videoUrl?.trim()) {
+    userParts.push({
+      type: 'text',
+      text: `[Attached video URL for context: ${opts.videoUrl.trim()}]`,
+    });
+  }
+
+  const visionModelRaw =
+    process.env.IZOP_AI_VISION_MODEL?.trim() ||
+    process.env.OPENAI_VISION_MODEL?.trim() ||
+    process.env.OPENAI_CHAT_VISION_MODEL?.trim() ||
+    'gpt-4.1-mini';
+  const visionModel = getAysopOpenRouterApiKey() ? toOpenRouterModel(visionModelRaw) : visionModelRaw;
+  const useVision = Boolean(opts.imageUrl?.trim());
+
+  const { content } = await openAiChatWithUserParts(
     [
       {
         role: 'system',
         content: hasBrand
           ? buildSystemPrompt(brand)
-          : 'You are a social media copywriter. Write one engaging, platform-appropriate caption. Plain text only. No markdown.',
+          : 'You are a social media copywriter. Write one engaging, platform-appropriate caption. Plain text only. No markdown. When media is attached, reference what you see.',
       },
-      { role: 'user', content: userParts.join('\n\n') },
+      { role: 'user', content: userParts },
     ],
-    { max_tokens: 320 }
+    {
+      max_tokens: 320,
+      providerScope: 'aysop',
+      ...(useVision ? { model: visionModel } : {}),
+    }
   );
 
   const cleaned = cleanGeneratedText(content);

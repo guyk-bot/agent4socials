@@ -32,6 +32,16 @@ export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
 
   const accent = PLATFORM_ACCENT[draft.platform.toUpperCase()] ?? 'bg-[var(--primary)] text-chrome-text';
   const handle = draft.username ? `@${draft.username.replace(/^@/, '')}` : 'Your account';
+  const previewMedia =
+    draft.sessionDraft?.mediaList?.[0] ??
+    (draft.previewMediaUrls?.[0]
+      ? {
+          fileUrl: draft.previewMediaUrls[0],
+          type: /\.(mp4|mov|webm|m4v|avi|mkv)(\?|$)/i.test(draft.previewMediaUrls[0])
+            ? ('VIDEO' as const)
+            : ('IMAGE' as const),
+        }
+      : null);
 
   const handlePublish = async () => {
     if (!draft.canPublishFromChat || publishing || published || scheduled) return;
@@ -141,17 +151,17 @@ export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
           <p className="text-sm text-neutral-800 dark:text-neutral-100 whitespace-pre-wrap leading-relaxed">
             {draft.caption}
           </p>
-          {draft.sessionDraft?.mediaList?.[0] ? (
+          {previewMedia ? (
             <div className="mt-3 rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-900">
-              {draft.sessionDraft.mediaList[0].type === 'VIDEO' ? (
+              {previewMedia.type === 'VIDEO' ? (
                 <video
-                  src={draft.sessionDraft.mediaList[0].fileUrl}
+                  src={previewMedia.fileUrl}
                   controls
                   className="w-full max-h-48 object-contain"
                 />
               ) : (
                 <img
-                  src={draft.sessionDraft.mediaList[0].fileUrl}
+                  src={previewMedia.fileUrl}
                   alt=""
                   className="w-full max-h-48 object-contain"
                 />
