@@ -128,6 +128,7 @@ export default function AysopAiWorkspace() {
   const persistDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPersistRef = useRef<{ id: string; messages: ChatMessage[] } | null>(null);
   const actionLockRef = useRef(false);
+  const lastNewChatClickRef = useRef(0);
   const [panelResetKey, setPanelResetKey] = useState(0);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
@@ -152,9 +153,16 @@ export default function AysopAiWorkspace() {
 
   const visibleSessions = useMemo(() => {
     const base = visibleChatSessions(sessions, user?.id);
-    if (!activeId || base.some((s) => s.id === activeId) || !activeId.startsWith('offline-')) {
-      return base;
+    
+    // Always ensure proper chronological sorting (newest first)
+    const sorted = base.sort((a, b) => 
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+    
+    if (!activeId || sorted.some((s) => s.id === activeId) || !activeId.startsWith('offline-')) {
+      return sorted;
     }
+    
     const hit = sessions.find((s) => s.id === activeId);
     const activeSummary: AysopChatSessionSummary = hit ?? {
       id: activeId,
@@ -163,7 +171,7 @@ export default function AysopAiWorkspace() {
       updatedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     };
-    return [activeSummary, ...base];
+    return [activeSummary, ...sorted];
   }, [sessions, user?.id, activeId]);
 
   const cacheSessionList = useCallback(
@@ -581,29 +589,31 @@ export default function AysopAiWorkspace() {
     };
   }, []);
 
-  const handleNewChat = () => {
-    console.log('handleNewChat clicked, user:', user?.id);
-    
+  const handleNewChat = useCallback(() => {
     if (!user?.id) {
       console.error('No user ID available for new chat');
       return;
     }
+
+    // Prevent rapid successive clicks (but allow reasonable frequency)
+    const now = Date.now();
+    if (now - lastNewChatClickRef.current < 300) {
+      return;
+    }
+    lastNewChatClickRef.current = now;
     
     // Create temporary offline session IMMEDIATELY for instant UI
     const tempSession = makeOfflineSession();
-    console.log('Created temp session:', tempSession.id);
     
-    // Clear current state and show new chat instantly
+    // IMMEDIATELY update UI - no dependencies on current state
     setMessages([]);
     messagesRef.current = [];
     clearLastActiveChatId(user?.id);
     setPanelResetKey((k) => k + 1);
 
-    // Add this new chat to the TOP of the list with proper sorting
+    // Add new chat to list IMMEDIATELY (always at top)
     setSessions((prev) => {
-      const updated = [tempSession, ...prev].sort((a, b) => 
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-      );
+      const updated = [tempSession, ...prev];
       writeCachedSessionList(user?.id, updated);
       return updated;
     });
@@ -613,40 +623,29 @@ export default function AysopAiWorkspace() {
     activeIdRef.current = tempSession.id;
     router.replace(`/dashboard/aysop-ai?c=${encodeURIComponent(tempSession.id)}`, { scroll: false });
 
-    // Now handle server session creation in background
+    // Create server session in background (independent of UI state)
     void (async () => {
       try {
-        // Save previous chat if needed (but not the temp session we just created)
-        const prevId = sessions.find(s => s.id === activeIdRef.current && s.id !== tempSession.id)?.id;
-        const prevMsgs = [...messagesRef.current];
-        if (prevId && prevMsgs.length > 0) {
-          pendingPersistRef.current = { id: prevId, messages: prevMsgs };
-          await flushPersist();
-        }
-
-        // Create server session
         const serverSession = await createSession();
         
-        // Replace temp session with server session maintaining proper order
-        setSessions((prev) => {
-          const updated = prev.map(s => 
-            s.id === tempSession.id 
-              ? {
-                  id: serverSession.id,
-                  title: 'New chat',
-                  updatedAt: serverSession.updatedAt,
-                  createdAt: serverSession.createdAt,
-                  preview: null,
-                }
-              : s
-          ).sort((a, b) => 
-            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-          );
+        // Only replace temp session if it still exists and is the same one
+        setSessions((currentSessions) => {
+          const tempIndex = currentSessions.findIndex(s => s.id === tempSession.id);
+          if (tempIndex === -1) return currentSessions; // Temp session already gone
+          
+          const updated = [...currentSessions];
+          updated[tempIndex] = {
+            id: serverSession.id,
+            title: 'New chat',
+            updatedAt: serverSession.updatedAt,
+            createdAt: serverSession.createdAt,
+            preview: null,
+          };
           writeCachedSessionList(user?.id, updated);
           return updated;
         });
         
-        // Update active session reference
+        // Update active reference only if this temp session is still active
         if (activeIdRef.current === tempSession.id) {
           setActiveId(serverSession.id);
           activeIdRef.current = serverSession.id;
@@ -656,10 +655,10 @@ export default function AysopAiWorkspace() {
         
       } catch (error) {
         console.error('Failed to create server session:', error);
-        // Keep the offline session if server fails
+        // Temp session remains - user can still use it
       }
     })();
-  };
+  }, [user?.id, router]);
 
   const handleSelect = (id: string) => {
     if (id === activeIdRef.current || actionLockRef.current) return;
