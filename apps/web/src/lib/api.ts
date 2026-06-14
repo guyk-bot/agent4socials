@@ -65,7 +65,8 @@ function isPriorityApiPath(url?: string, baseURL?: string): boolean {
     path.includes('/inbox/instagram-dms') ||
     path.includes('/sender-profile') ||
     /\/conversations(\?|$|\/)/.test(path) ||
-    /\/posts\/[^/]+(\/publish|\/finalize-publish-status)?$/.test(path)
+    /\/posts\/[^/]+(\/publish|\/finalize-publish-status)?$/.test(path) ||
+    /\/posts(\?|$)/.test(path)
   );
 }
 

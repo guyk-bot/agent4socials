@@ -47,6 +47,7 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
   const [scheduleAt, setScheduleAt] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
+  const [publishedPostId, setPublishedPostId] = useState<string | null>(null);
   const [scheduled, setScheduled] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -195,6 +196,7 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
       const createRes = await api.post<{ id: string }>('/posts', buildPostPayload(resolvedMediaType, media));
       const postId = createRes.data.id;
       await api.post(`/posts/${postId}/publish`, {});
+      setPublishedPostId(postId);
       setPublished(true);
       setConfirming(false);
       setScheduling(false);
@@ -424,12 +426,17 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
       {status ? (
         <div className="px-3 pb-3 space-y-1.5">
           <p className="text-xs text-emerald-700 dark:text-emerald-300">{status}</p>
-          {scheduled ? (
+          {published || scheduled ? (
             <div className="flex flex-wrap gap-3 text-xs">
-              <Link href="/calendar" className="inline-flex items-center gap-1 font-medium text-[var(--primary)] hover:underline">
-                Open Calendar <ExternalLink size={12} />
-              </Link>
-              <Link href="/posts" className="inline-flex items-center gap-1 font-medium text-[var(--primary)] hover:underline">
+              {scheduled ? (
+                <Link href="/calendar" className="inline-flex items-center gap-1 font-medium text-[var(--primary)] hover:underline">
+                  Open Calendar <ExternalLink size={12} />
+                </Link>
+              ) : null}
+              <Link
+                href={publishedPostId ? `/posts?highlight=${encodeURIComponent(publishedPostId)}` : '/posts'}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 font-medium text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+              >
                 Open History <ExternalLink size={12} />
               </Link>
             </div>

@@ -557,9 +557,13 @@ export async function runPublishPostWorkflow(input: {
     let videoThumbnailUrl =
       targetMedia[0] && targetMedia[0].type === 'VIDEO' ? (targetMedia[0] as { thumbnailUrl?: string }).thumbnailUrl : undefined;
     let imageUrls: string[] | undefined;
-    if (platform === 'TIKTOK' || platform === 'LINKEDIN' || platform === 'YOUTUBE') {
+    if (platform === 'TIKTOK' || platform === 'LINKEDIN' || platform === 'YOUTUBE' || platform === 'THREADS') {
       if (firstMediaUrl) firstMediaUrl = resolveDirectPublishMediaUrl(firstMediaUrl);
       if (firstImageUrl) firstImageUrl = resolveDirectPublishMediaUrl(firstImageUrl);
+    }
+    if (platform === 'THREADS') {
+      if (firstImageUrl) firstImageUrl = publicMediaUrlForMeta(firstImageUrl);
+      if (firstMediaUrl && !firstVideo?.fileUrl) firstMediaUrl = publicMediaUrlForMeta(firstMediaUrl);
     }
     if (platform === 'PINTEREST' && firstImageUrl) {
       firstImageUrl = publicMediaUrlForMeta(firstImageUrl);

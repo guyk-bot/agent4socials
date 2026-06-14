@@ -359,55 +359,67 @@ export default function PostsPage() {
         if (!hadRows) setLoading(true);
 
         (async () => {
+            const maxAttempts = 4;
             try {
-                const res = await api.get('/posts', { timeout: 30_000, params: { _: Date.now() } });
-                if (cancelled) return;
-                const list = Array.isArray(res.data) ? (res.data as PostHistoryRow[]) : [];
-                applyHistoryList(list);
-                setLoadError(null);
-                const needsTikTokSync = list.filter((p) => {
-                    const targets = Array.isArray(p.targets) ? p.targets : [];
-                    return targets.some((t) => {
-                        const row = t as { platform?: string; status?: string; error?: string | null };
-                        return (
-                            String(row.platform ?? '').toUpperCase() === 'TIKTOK' &&
-                            row.status === 'FAILED' &&
-                            /still processing/i.test(String(row.error ?? ''))
-                        );
-                    });
-                });
-                for (const p of needsTikTokSync.slice(0, 10)) {
-                    void api
-                        .post<{ post?: PostHistoryRow }>(`/posts/${p.id}/finalize-publish-status`, {}, { timeout: 25_000 })
-                        .then((syncRes) => {
-                            if (syncRes.data?.post?.id) applyHistoryPost(syncRes.data.post);
-                        })
-                        .catch(() => undefined);
-                }
-            } catch (err) {
-                if (cancelled) return;
-                console.error('Failed to fetch posts', err);
-                const res =
-                    err && typeof err === 'object' && 'response' in err
-                        ? (err as { response?: { status?: number; data?: { message?: string } } }).response
-                        : undefined;
-                const serverMsg =
-                    typeof res?.data?.message === 'string' && res.data.message.trim()
-                        ? res.data.message.trim()
-                        : null;
-                const poolBusy = res?.status === 503;
-                if (postsRef.current.length > 0) {
-                    setLoadError(
-                        poolBusy
-                            ? serverMsg ?? 'Database is busy. Showing cached history; refresh again in a few seconds.'
-                            : 'Could not refresh history right now. Showing latest available data.'
-                    );
-                } else {
-                    setLoadError(
-                        poolBusy
-                            ? serverMsg ?? 'Database is busy. Wait a few seconds and refresh, or close extra dashboard tabs.'
-                            : 'Could not load post history. Check your connection and try again.'
-                    );
+                for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                    if (cancelled) return;
+                    try {
+                        const res = await api.get('/posts', { timeout: 30_000, params: { _: Date.now() } });
+                        if (cancelled) return;
+                        const list = Array.isArray(res.data) ? (res.data as PostHistoryRow[]) : [];
+                        applyHistoryList(list);
+                        setLoadError(null);
+                        const needsTikTokSync = list.filter((p) => {
+                            const targets = Array.isArray(p.targets) ? p.targets : [];
+                            return targets.some((t) => {
+                                const row = t as { platform?: string; status?: string; error?: string | null };
+                                return (
+                                    String(row.platform ?? '').toUpperCase() === 'TIKTOK' &&
+                                    row.status === 'FAILED' &&
+                                    /still processing/i.test(String(row.error ?? ''))
+                                );
+                            });
+                        });
+                        for (const p of needsTikTokSync.slice(0, 10)) {
+                            void api
+                                .post<{ post?: PostHistoryRow }>(`/posts/${p.id}/finalize-publish-status`, {}, { timeout: 25_000 })
+                                .then((syncRes) => {
+                                    if (syncRes.data?.post?.id) applyHistoryPost(syncRes.data.post);
+                                })
+                                .catch(() => undefined);
+                        }
+                        return;
+                    } catch (err) {
+                        if (cancelled) return;
+                        const res =
+                            err && typeof err === 'object' && 'response' in err
+                                ? (err as { response?: { status?: number; data?: { message?: string } } }).response
+                                : undefined;
+                        const poolBusy = res?.status === 503;
+                        if (poolBusy && attempt < maxAttempts - 1) {
+                            await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+                            continue;
+                        }
+                        console.error('Failed to fetch posts', err);
+                        const serverMsg =
+                            typeof res?.data?.message === 'string' && res.data.message.trim()
+                                ? res.data.message.trim()
+                                : null;
+                        if (postsRef.current.length > 0) {
+                            setLoadError(
+                                poolBusy
+                                    ? serverMsg ?? 'Database is busy. Showing cached history; refresh again in a few seconds.'
+                                    : 'Could not refresh history right now. Showing latest available data.'
+                            );
+                        } else {
+                            setLoadError(
+                                poolBusy
+                                    ? serverMsg ?? 'Database is busy. Wait a few seconds and refresh, or close extra dashboard tabs.'
+                                    : 'Could not load post history. Check your connection and try again.'
+                            );
+                        }
+                        return;
+                    }
                 }
             } finally {
                 if (!cancelled) setLoading(false);

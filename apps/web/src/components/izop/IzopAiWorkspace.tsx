@@ -684,6 +684,11 @@ export default function IzopAiWorkspace() {
         return;
       }
 
+      const keepActiveId = activeIdRef.current ?? chatParam;
+      if (keepActiveId && (readCachedMessages(user.id, keepActiveId)?.length ?? 0) > 0) {
+        return;
+      }
+
       startEphemeralChat();
     })();
   }, [
@@ -772,7 +777,8 @@ export default function IzopAiWorkspace() {
     return () => {
       const uid = user?.id;
       const id = activeIdRef.current;
-      if (!uid || !id || id.startsWith('offline-')) return;
+      if (!uid || !id) return;
+      if (id.startsWith('offline-') && !sessionHasUserMessages(uid, id)) return;
       writeLastActiveChatId(uid, id);
     };
   }, [user?.id]);
@@ -946,9 +952,7 @@ export default function IzopAiWorkspace() {
         if (!hasUserMessage) return prev;
         newChatIntentRef.current = false;
         if (user?.id) {
-          if (!id.startsWith('offline-')) {
-            writeLastActiveChatId(user.id, id);
-          }
+          writeLastActiveChatId(user.id, id);
           clearPendingNewChatId(user.id);
         }
         const rest = prev.filter((s) => s.id !== id);

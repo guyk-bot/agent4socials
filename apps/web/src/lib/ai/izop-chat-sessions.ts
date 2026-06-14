@@ -392,13 +392,14 @@ export function pickRestoreChatId(
   const byId = new Map(sidebar.map((s) => [s.id, s]));
   const lastId = readLastActiveChatId(userId);
 
-  if (lastId && !lastId.startsWith('offline-') && !hidden.has(lastId)) {
-    if (sessionHasUserMessages(userId, lastId) || byId.has(lastId)) {
-      return lastId;
+  if (lastId && !hidden.has(lastId)) {
+    const offlineWithMessages = lastId.startsWith('offline-') && sessionHasUserMessages(userId, lastId);
+    if (!lastId.startsWith('offline-') || offlineWithMessages) {
+      if (sessionHasUserMessages(userId, lastId) || byId.has(lastId)) {
+        return lastId;
+      }
     }
   }
-
-  if (lastId && byId.has(lastId)) return lastId;
 
   const real = sidebar
     .filter((s) => !s.id.startsWith('offline-'))
@@ -407,6 +408,11 @@ export function pickRestoreChatId(
   const withUserMsgs = real.filter((s) => sessionHasUserMessages(userId, s.id));
   if (withUserMsgs.length) return withUserMsgs[0]!.id;
   if (real.length) return real[0]!.id;
+
+  const offlineWithMessages = sidebar
+    .filter((s) => s.id.startsWith('offline-') && sessionHasUserMessages(userId, s.id))
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  if (offlineWithMessages.length) return offlineWithMessages[0]!.id;
 
   const offline = sidebar
     .filter((s) => s.id.startsWith('offline-'))
