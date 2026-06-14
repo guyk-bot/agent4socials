@@ -18,6 +18,19 @@ import { shouldShowBrandContextOnboarding } from '@/lib/ai/brand-context-onboard
 const UPLOAD_POST_INTENT =
   /^let'?s\s+(just\s+)?upload(\s+the\s+post|\s+it)?$/i;
 
+function isPostUploadIntent(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (t === "Let's upload" || t === 'Just create this post') return true;
+  if (UPLOAD_POST_INTENT.test(t)) return true;
+  if (!/\b(upload|post|publish|share|schedule)\b/i.test(t)) return false;
+  return (
+    /\b(this|it|that)\b/i.test(t) ||
+    /\b(to|on|for)\s+(threads?|instagram|tiktok|facebook|youtube|twitter|x|linkedin|pinterest)\b/i.test(t) ||
+    /\b(threads?|instagram|tiktok|facebook|youtube|twitter|x|linkedin|pinterest)\b/i.test(t)
+  );
+}
+
 const SKIP_CAPTION_TEXT =
   /^(set up brand context|just create this post|let'?s upload(\s+(just\s+)?the\s+post)?|continue without( brand context| setup)?|new post)$/i;
 
@@ -181,12 +194,8 @@ async function createPostPreviewFromThread(
     ctx
   );
 
-  const label = platformLabel(platform);
   return {
-    reply: replyFromArtifacts(
-      out.artifacts ?? [],
-      `Here is your ${label} post preview. Review the caption and media, then tap Allow to publish or schedule.`
-    ),
+    reply: '',
     artifacts: out.artifacts ?? [],
   };
 }
@@ -341,9 +350,7 @@ export async function tryMediaActionFastPath(
   }
 
   if (
-    text === 'Just create this post' ||
-    text === "Let's upload" ||
-    UPLOAD_POST_INTENT.test(text)
+    isPostUploadIntent(text)
   ) {
     return await createPostPreviewFromThread(messages, ctx);
   }

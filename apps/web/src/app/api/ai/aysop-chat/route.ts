@@ -7,6 +7,8 @@ import { trackUsage } from '@/lib/usage-tracking';
 import { parseBrandContextApiPayload } from '@/lib/brand-context-utils';
 import { normalizeChatAttachments } from '@/lib/ai/aysop-attachments';
 import { trimMessagesForLlmContext } from '@/lib/ai/aysop-chat-context-window';
+import { findLatestMediaUserMessage } from '@/lib/ai/aysop-openai-messages';
+import { polishPostPreviewChatResponse } from '@/lib/ai/aysop-post-preview-response';
 
 export const maxDuration = 120;
 
@@ -64,6 +66,11 @@ export async function POST(request: NextRequest) {
   }
 
   const { messages: llmMessages, omittedCount } = trimMessagesForLlmContext(messages);
+  const mediaMsg = findLatestMediaUserMessage(llmMessages);
+  const threadMediaUrls =
+    mediaMsg?.attachments
+      ?.filter((a) => a.kind === 'image' || a.kind === 'video')
+      .map((a) => a.fileUrl) ?? [];
 
   try {
     const started = Date.now();
@@ -78,6 +85,7 @@ export async function POST(request: NextRequest) {
           brandContextSnapshot: body.brandContextSnapshot
             ? parseBrandContextApiPayload(body.brandContextSnapshot)
             : null,
+          threadMediaUrls,
         },
         contextOmittedCount: omittedCount,
         deadlineMs,
@@ -87,7 +95,8 @@ export async function POST(request: NextRequest) {
       }),
     ]);
     void trackUsage(userId, 'ai_generation', 1);
-    return NextResponse.json({ reply, artifacts, elapsedMs: Date.now() - started });
+    const polished = polishPostPreviewChatResponse({ reply, artifacts });
+    return NextResponse.json({ ...polished, elapsedMs: Date.now() - started });
   } catch (e) {
     console.error('[aysop-chat]', (e as Error).message?.slice(0, 300));
     return NextResponse.json(

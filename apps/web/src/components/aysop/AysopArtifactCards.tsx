@@ -480,9 +480,6 @@ export function AysopArtifactCards({
 
           return (
             <div key={key} className="space-y-2">
-              <div className="rounded-lg border border-[#7C3AED]/25 bg-[#7C3AED]/5 dark:bg-[#7C3AED]/10 px-3 py-2 text-xs text-neutral-800 dark:text-neutral-200">
-                Review each platform preview below. Nothing is published until you click Allow or type allow in chat.
-              </div>
               {draftRun.map((draft, j) => (
                 <AysopComposerPostDraftCard key={`${key}-${j}`} draft={draft} />
               ))}

@@ -73,6 +73,9 @@ function tryArtifactOnlyReply(artifacts: AysopArtifact[], toolNames: string[]): 
     }
     return null;
   }
+  if (only === 'prepare_platform_post_drafts') {
+    return '';
+  }
   if (only === 'add_inbox_comments_to_leads') {
     const card = artifacts.find((a) => a.type === 'leads');
     if (!card || card.type !== 'leads') {
@@ -181,7 +184,8 @@ function buildSystemPrompt(
     '- Connect → list_connect_platforms (buttons appear)',
     '- Analytics → get_analytics_report_snapshot (charts appear)',
     '- Inbox → list_recent_inbox (reply buttons appear)',
-    '- Post → prepare_platform_post_drafts with mediaUrls (platform preview cards, not Composer embed)',
+    '- Post → prepare_platform_post_drafts with mediaUrls (platform preview cards, not Composer embed). Reply with empty text; caption lives only in the preview card.',
+    '- Do NOT call list_connect_platforms or list_connected_accounts when the user asks to post or upload to a platform they already connected.',
     '- Leads → get_saved_leads or scan_leads',
     '- Clear brand context → clear_brand_context (only when user asks to delete/remove/clear all brand context)',
     '- Save commenters → add_inbox_comments_to_leads',

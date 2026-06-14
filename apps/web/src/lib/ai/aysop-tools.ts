@@ -117,6 +117,8 @@ export type AysopToolContext = {
   activeBrand?: AysopActiveBrandSnapshot;
   /** Latest brand context from the client cache (used when DB sync lags after approve). */
   brandContextSnapshot?: import('@/lib/brand-context-utils').BrandContextRecord | null;
+  /** Media URLs from the chat thread (fills drafts when the model omits mediaUrls). */
+  threadMediaUrls?: string[];
 };
 
 const PLATFORM_ALIASES: Record<string, Platform> = {
@@ -185,13 +187,15 @@ async function enrichAccountDisplayForDraft(
   let username = account.username;
   let profilePicture = account.profilePicture;
 
-  if (account.platform === 'THREADS' && account.accessToken && (!profilePicture || !username)) {
+  if (account.platform === 'THREADS' && account.accessToken) {
     try {
       const { fetchThreadsProfile } = await import('@/lib/threads/threads-api');
       const profile = await fetchThreadsProfile(account.accessToken, 12_000);
       if (profile?.username) username = profile.username;
-      else if (profile?.name) username = profile.name;
-      if (profile?.threads_profile_picture_url) profilePicture = profile.threads_profile_picture_url;
+      else if (profile?.name && !username) username = profile.name;
+      if (profile?.threads_profile_picture_url) {
+        profilePicture = profile.threads_profile_picture_url;
+      }
       if (username || profilePicture) {
         void prisma.socialAccount
           .update({
@@ -1321,10 +1325,7 @@ export async function runAysopTool(
       const connectArtifact = await buildConnectPlatformsArtifact(ctx.userId);
       return {
         result: { accounts, missingPlatforms: connectArtifact.missing.map((m) => m.name) },
-        artifacts: [
-          { type: 'accounts', accounts },
-          ...(connectArtifact.missing.length ? [connectArtifact] : []),
-        ],
+        artifacts: [{ type: 'accounts', accounts }],
       };
     }
 
@@ -1597,7 +1598,13 @@ export async function runAysopTool(
 
       for (const raw of drafts.slice(0, 8)) {
         if (!raw || typeof raw !== 'object') continue;
-        const row = raw as Record<string, unknown>;
+        const row = { ...(raw as Record<string, unknown>) };
+        const rowMedia = Array.isArray(row.mediaUrls)
+          ? row.mediaUrls.filter((u): u is string => typeof u === 'string' && u.trim().length > 0)
+          : [];
+        if (!rowMedia.length && ctx.threadMediaUrls?.length) {
+          row.mediaUrls = ctx.threadMediaUrls;
+        }
         const platformArg = normalizePlatformArg(row.platform as string | undefined);
         const isMediaPlatform =
           platformArg != null

@@ -6,6 +6,7 @@ import { CalendarClock, CheckCircle2, ExternalLink, Loader2, Send } from 'lucide
 import api from '@/lib/api';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 import { ComposerOpenLink } from '@/components/aysop/ComposerOpenLink';
+import { draftMediaDisplayUrl } from '@/lib/ai/aysop-draft-media-display';
 
 type Draft = Extract<AysopArtifact, { type: 'composer_post_draft' }>;
 
@@ -31,7 +32,9 @@ export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
   const [error, setError] = useState<string | null>(null);
 
   const accent = PLATFORM_ACCENT[draft.platform.toUpperCase()] ?? 'bg-[var(--primary)] text-chrome-text';
-  const handle = draft.username ? `@${draft.username.replace(/^@/, '')}` : 'Your account';
+  const displayName = draft.username?.trim() || 'Your account';
+  const handle = draft.username?.trim() ? `@${draft.username.replace(/^@/, '')}` : '@account';
+  const avatarUrl = draftMediaDisplayUrl(draft.profilePicture);
   const previewMedia =
     draft.sessionDraft?.mediaList?.[0] ??
     (draft.previewMediaUrls?.[0]
@@ -42,6 +45,7 @@ export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
             : ('IMAGE' as const),
         }
       : null);
+  const previewMediaUrl = previewMedia ? draftMediaDisplayUrl(previewMedia.fileUrl) : '';
 
   const handlePublish = async () => {
     if (!draft.canPublishFromChat || publishing || published || scheduled) return;
@@ -135,33 +139,33 @@ export function AysopComposerPostDraftCard({ draft }: { draft: Draft }) {
         <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 p-3">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 overflow-hidden shrink-0 flex items-center justify-center text-xs font-semibold text-neutral-600 dark:text-neutral-300">
-              {draft.profilePicture ? (
-                <img src={draft.profilePicture} alt="" className="w-full h-full object-cover" />
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
               ) : (
-                (draft.username ?? draft.platformLabel).slice(0, 1).toUpperCase()
+                displayName.slice(0, 1).toUpperCase()
               )}
             </div>
             <div className="min-w-0">
               <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-                {draft.username ?? draft.platformLabel}
+                {displayName}
               </p>
-              <p className="text-[10px] text-neutral-500 dark:text-neutral-400">{draft.platformLabel}</p>
+              <p className="text-[10px] text-neutral-500 dark:text-neutral-400 truncate">{handle}</p>
             </div>
           </div>
           <p className="text-sm text-neutral-800 dark:text-neutral-100 whitespace-pre-wrap leading-relaxed">
             {draft.caption}
           </p>
-          {previewMedia ? (
+          {previewMedia && previewMediaUrl ? (
             <div className="mt-3 rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-900">
               {previewMedia.type === 'VIDEO' ? (
                 <video
-                  src={previewMedia.fileUrl}
+                  src={previewMediaUrl}
                   controls
                   className="w-full max-h-48 object-contain"
                 />
               ) : (
                 <img
-                  src={previewMedia.fileUrl}
+                  src={previewMediaUrl}
                   alt=""
                   className="w-full max-h-48 object-contain"
                 />
