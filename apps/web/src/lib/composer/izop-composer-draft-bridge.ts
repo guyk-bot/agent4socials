@@ -19,6 +19,8 @@ export type IzopComposerDraftPayload = {
   selectedHashtags: string[];
   differentHashtagsPerPlatform: boolean;
   selectedHashtagsByPlatform: Record<string, string[]>;
+  threadsShareToInstagram?: boolean;
+  alsoPostToStory?: boolean;
 };
 
 export function buildIzopComposerDraftPayload(args: {
@@ -30,6 +32,8 @@ export function buildIzopComposerDraftPayload(args: {
   mediaList?: { fileUrl: string; type: 'IMAGE' | 'VIDEO'; thumbnailUrl?: string }[];
   scheduledAt?: string;
   scheduleDelivery?: 'auto' | 'email_links';
+  threadsShareToInstagram?: boolean;
+  alsoPostToStory?: boolean;
 }): IzopComposerDraftPayload {
   const platforms = [...new Set(args.platforms.map((p) => p.toUpperCase()))];
   return {
@@ -46,6 +50,8 @@ export function buildIzopComposerDraftPayload(args: {
     selectedHashtags: [],
     differentHashtagsPerPlatform: false,
     selectedHashtagsByPlatform: {},
+    ...(args.threadsShareToInstagram === true ? { threadsShareToInstagram: true } : {}),
+    ...(args.alsoPostToStory === true ? { alsoPostToStory: true } : {}),
   };
 }
 

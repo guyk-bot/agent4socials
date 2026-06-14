@@ -34,10 +34,14 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
     setState(prev => ({ ...prev, ...updates }));
   }, []);
 
-  const uploadFile = useCallback(async (file: File): Promise<UploadResult | null> => {
+  const uploadFile = useCallback(async (
+    file: File,
+    overrides: Partial<UploadOptions> = {}
+  ): Promise<UploadResult | null> => {
+    const mergedOptions = { ...options, ...overrides };
     try {
       // Only show validation UI if we're not in silent mode
-      if (!options.silentSuccess) {
+      if (!mergedOptions.silentSuccess) {
         updateState({
           isUploading: true,
           isValidating: true,
@@ -60,9 +64,9 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
       }
 
       const uploadOptions: UploadOptions = {
-        ...options,
+        ...mergedOptions,
         onValidation: (result: ValidationResult) => {
-          options.onValidation?.(result);
+          mergedOptions.onValidation?.(result);
           
           if (!result.isValid && result.canAutoFix) {
             updateState({
@@ -71,14 +75,14 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
               stage: 'converting',
               message: 'This file isn\'t compatible with your selected platform. Converting it now...',
             });
-          } else if (result.isValid && !options.silentSuccess) {
+          } else if (result.isValid && !mergedOptions.silentSuccess) {
             updateState({
               isValidating: false,
               stage: 'uploading',
               progress: 30,
               message: 'Uploading file...',
             });
-          } else if (result.isValid && options.silentSuccess) {
+          } else if (result.isValid && mergedOptions.silentSuccess) {
             // File is valid and we want silent upload - keep UI hidden
             updateState({
               isValidating: false,
@@ -89,7 +93,7 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
           }
         },
         onConversionStart: () => {
-          options.onConversionStart?.();
+          mergedOptions.onConversionStart?.();
           updateState({
             isConverting: true,
             stage: 'converting',
@@ -98,7 +102,7 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
           });
         },
         onConversionProgress: (progress: ConversionProgress) => {
-          options.onConversionProgress?.(progress);
+          mergedOptions.onConversionProgress?.(progress);
           
           const progressPercent = Math.round(10 + (progress.progress * 0.6)); // 10-70%
           updateState({
@@ -107,7 +111,7 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
           });
         },
         onConversionComplete: (result: ConversionResult) => {
-          options.onConversionComplete?.(result);
+          mergedOptions.onConversionComplete?.(result);
           
           const savings = result.compressionRatio * 100;
           const message = savings > 5 
@@ -125,7 +129,7 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
 
       const result = await uploadMediaFile(file, uploadOptions);
 
-      if (options.silentSuccess && !result.wasConverted) {
+      if (mergedOptions.silentSuccess && !result.wasConverted) {
         // Silent success - reset to idle without showing success message
         updateState({
           isUploading: false,
@@ -145,7 +149,7 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
         });
       }
 
-      options.onSuccess?.(result);
+      mergedOptions.onSuccess?.(result);
       return result;
 
     } catch (error) {
@@ -160,7 +164,7 @@ export function useMediaUpload(options: UseMediaUploadOptions = {}) {
         message: 'Upload failed',
       });
 
-      options.onError?.(errorMessage);
+      mergedOptions.onError?.(errorMessage);
       return null;
     }
   }, [options, updateState]);

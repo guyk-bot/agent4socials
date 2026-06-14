@@ -257,6 +257,49 @@ export function visibleChatSessions(
   return sessions.filter((s) => sessionShouldShowInSidebar(s, userId));
 }
 
+/** Keep the open chat in the sidebar even when only message cache exists (offline URL restore). */
+export function ensureActiveChatInSessionList(
+  userId: string | undefined,
+  sessions: IzopChatSessionSummary[],
+  activeId: string | null
+): IzopChatSessionSummary[] {
+  if (!userId || !activeId) return sessions;
+  if (sessions.some((s) => s.id === activeId)) return sessions;
+  if (!isChatSessionAccessible(userId, activeId, sessions)) return sessions;
+
+  const existing = readCachedSessionList(userId)?.find((s) => s.id === activeId);
+  const msgs = readCachedMessages(userId, activeId) as StoredIzopMessage[] | null;
+  const now = new Date().toISOString();
+
+  if (existing) {
+    return dedupeChatSessions([existing, ...sessions]);
+  }
+
+  if (msgs?.length) {
+    const shell: IzopChatSessionSummary = {
+      id: activeId,
+      title: titleFromMessages(msgs),
+      preview: previewFromMessages(msgs),
+      updatedAt: now,
+      createdAt: now,
+    };
+    return dedupeChatSessions([shell, ...sessions]);
+  }
+
+  if (activeId.startsWith('offline-') && activeId === readPendingNewChatId(userId)) {
+    const shell: IzopChatSessionSummary = {
+      id: activeId,
+      title: 'New chat',
+      preview: null,
+      updatedAt: now,
+      createdAt: now,
+    };
+    return dedupeChatSessions([shell, ...sessions]);
+  }
+
+  return sessions;
+}
+
 /** Drop deleted server chats from localStorage; server list is source of truth. */
 export function syncChatSessionsWithServer(
   userId: string,

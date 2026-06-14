@@ -19,7 +19,7 @@ import {
   subscribeChatRunner,
 } from '@/lib/ai/izop-chat-runner';
 import { readCachedMessages } from '@/lib/ai/izop-chat-local-cache';
-import { uploadMediaFile } from '@/lib/media/upload-client';
+import { resolveChatUploadTarget } from '@/lib/media/resolve-chat-upload-target';
 import { useMediaUpload } from '@/hooks/useMediaUpload';
 import { MediaUploadProgress } from '@/components/media/MediaUploadProgress';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
@@ -73,21 +73,6 @@ type Props = {
   sessionId?: string | null;
   userId?: string | null;
 };
-
-async function uploadChatFile(
-  file: File, 
-  uploadFile: (file: File) => Promise<any>
-): Promise<IzopChatAttachment> {
-  const result = await uploadFile(file);
-  if (!result) throw new Error('Upload failed');
-  
-  return {
-    fileUrl: result.fileUrl,
-    fileName: file.name,
-    contentType: file.type || undefined,
-    kind: attachmentKindFromMime(file.type || '', file.name),
-  };
-}
 
 function isAbortError(e: unknown): boolean {
   if (!e || typeof e !== 'object') return false;
@@ -186,9 +171,9 @@ export default function IzopChatPanel({
     });
   }, [sessionId, userId, onMessagesChange]);
 
-  // Media upload with platform awareness
+  // Media upload with platform validation and auto-conversion
   const mediaUpload = useMediaUpload({
-    autoConvert: false,
+    autoConvert: true,
     silentSuccess: true,
     onError: (error) => {
       setError(error);
@@ -276,9 +261,17 @@ export default function IzopChatPanel({
     }
 
     const toUpload = Array.from(files).slice(0, remaining);
-    
-    // Basic file validation (size, type) - platform-specific validation happens in upload
+
+    const connectedPlatforms = allCachedAccounts.map((a) => a.platform);
+    const uploadTarget = resolveChatUploadTarget({
+      messageTexts: messages.filter((m) => m.role === 'user').map((m) => m.content),
+      inputText: input,
+      connectedPlatforms,
+    });
+
     for (const file of toUpload) {
+      const kind = attachmentKindFromMime(file.type || '', file.name);
+      if (kind !== 'file' && uploadTarget.platform) continue;
       const validationError = validateChatFile(file);
       if (validationError) {
         setError(validationError);
@@ -290,12 +283,25 @@ export default function IzopChatPanel({
     try {
       const results = await Promise.all(
         toUpload.map(async (file) => {
-          const result = await uploadMediaFile(file, { autoConvert: false });
+          const kind = attachmentKindFromMime(file.type || '', file.name);
+          const usePlatformPipeline = kind !== 'file' && Boolean(uploadTarget.platform);
+          const result = await mediaUpload.uploadFile(
+            file,
+            usePlatformPipeline
+              ? {
+                  platform: uploadTarget.platform,
+                  postType: uploadTarget.postType,
+                  autoConvert: true,
+                }
+              : { autoConvert: false }
+          );
+          if (!result) throw new Error('Upload failed');
+          const finalFile = result.finalFile;
           return {
             fileUrl: result.fileUrl,
-            fileName: file.name,
-            contentType: file.type || undefined,
-            kind: attachmentKindFromMime(file.type || '', file.name),
+            fileName: finalFile.name,
+            contentType: finalFile.type || file.type || undefined,
+            kind: attachmentKindFromMime(finalFile.type || file.type || '', finalFile.name),
           } satisfies IzopChatAttachment;
         })
       );

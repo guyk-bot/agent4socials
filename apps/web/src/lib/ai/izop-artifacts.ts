@@ -69,6 +69,7 @@ export type IzopArtifact =
       platform: string;
       platformLabel: string;
       username: string | null;
+      displayName?: string | null;
       profilePicture?: string | null;
       accountId: string;
       caption: string;

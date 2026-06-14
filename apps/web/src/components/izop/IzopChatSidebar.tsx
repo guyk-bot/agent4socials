@@ -55,6 +55,11 @@ export default function IzopChatSidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto p-2 pt-3 space-y-4">
+        {groups.length === 0 ? (
+          <p className="px-2 text-xs text-neutral-400 dark:text-neutral-500">
+            Your chats will appear here.
+          </p>
+        ) : null}
         {groups.map((group) => (
           <div key={group.label}>
             <p className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500 px-2 mb-1.5">

@@ -183,9 +183,10 @@ async function enrichAccountDisplayForDraft(
     profilePicture: string | null;
     accessToken: string | null;
   }
-): Promise<{ username: string | null; profilePicture: string | null }> {
+): Promise<{ username: string | null; profilePicture: string | null; displayName: string | null }> {
   let username = account.username;
   let profilePicture = account.profilePicture;
+  let displayName: string | null = null;
 
   if (account.platform === 'THREADS' && account.accessToken) {
     try {
@@ -193,6 +194,7 @@ async function enrichAccountDisplayForDraft(
       const profile = await fetchThreadsProfile(account.accessToken, 12_000);
       if (profile?.username) username = profile.username;
       else if (profile?.name && !username) username = profile.name;
+      if (profile?.name) displayName = profile.name;
       if (profile?.threads_profile_picture_url) {
         profilePicture = profile.threads_profile_picture_url;
       }
@@ -212,7 +214,7 @@ async function enrichAccountDisplayForDraft(
     }
   }
 
-  return { username, profilePicture };
+  return { username, profilePicture, displayName };
 }
 
 async function resolveAccountId(
@@ -674,6 +676,7 @@ async function buildComposerPostDraft(
     platform: platformUpper,
     platformLabel: platformLabel(platformUpper),
     username: display.username,
+    displayName: display.displayName ?? null,
     profilePicture: display.profilePicture ?? null,
     accountId: accountId!,
     caption,

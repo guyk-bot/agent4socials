@@ -1,12 +1,26 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CalendarClock, CheckCircle2, ExternalLink, Loader2, Send } from 'lucide-react';
 import api from '@/lib/api';
 import type { IzopArtifact } from '@/lib/ai/izop-artifacts';
 import { ComposerOpenLink } from '@/components/izop/ComposerOpenLink';
+import { ChatDraftStoryOption } from '@/components/izop/ChatDraftStoryOption';
+import { IzopPostDraftPreview } from '@/components/izop/IzopPostDraftPreview';
 import { draftMediaDisplayUrl } from '@/lib/ai/izop-draft-media-display';
+import { resolveDraftAccountDisplay } from '@/lib/composer/draft-account-display';
+import {
+  THREADS_INSTAGRAM_STORY_DESCRIPTION,
+  THREADS_INSTAGRAM_STORY_LABEL,
+  metaAlsoStoryDescription,
+  metaAlsoStoryEligible,
+  metaAlsoStoryLabel,
+  threadsInstagramStoryEligible,
+} from '@/lib/composer/story-share-options';
+import type { IzopComposerDraftPayload } from '@/lib/composer/izop-composer-draft-bridge';
+import { avatarDisplayUrl } from '@/lib/avatar-display-url';
+import { useAccountsCache } from '@/context/AccountsCacheContext';
 
 type Draft = Extract<IzopArtifact, { type: 'composer_post_draft' }>;
 
@@ -22,6 +36,8 @@ const PLATFORM_ACCENT: Record<string, string> = {
 };
 
 export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
+  const accountsCache = useAccountsCache();
+  const allCachedAccounts = accountsCache?.allCachedAccounts ?? [];
   const [confirming, setConfirming] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [scheduleAt, setScheduleAt] = useState('');
@@ -30,11 +46,18 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
   const [scheduled, setScheduled] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [threadsShareToInstagram, setThreadsShareToInstagram] = useState(false);
+  const [alsoPostToStory, setAlsoPostToStory] = useState(false);
 
   const accent = PLATFORM_ACCENT[draft.platform.toUpperCase()] ?? 'bg-[var(--primary)] text-chrome-text';
-  const displayName = draft.username?.trim() || 'Your account';
-  const handle = draft.username?.trim() ? `@${draft.username.replace(/^@/, '')}` : '@account';
-  const avatarUrl = draftMediaDisplayUrl(draft.profilePicture);
+  const accountDisplay = useMemo(
+    () =>
+      resolveDraftAccountDisplay(
+        draft,
+        allCachedAccounts.find((a) => a.id === draft.accountId)
+      ),
+    [draft, allCachedAccounts]
+  );
   const previewMedia =
     draft.sessionDraft?.mediaList?.[0] ??
     (draft.previewMediaUrls?.[0]
@@ -45,7 +68,74 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
             : ('IMAGE' as const),
         }
       : null);
-  const previewMediaUrl = previewMedia ? draftMediaDisplayUrl(previewMedia.fileUrl) : '';
+  const previewMediaForCard =
+    previewMedia && previewMedia.fileUrl
+      ? {
+          fileUrl: previewMedia.fileUrl,
+          type: previewMedia.type,
+        }
+      : null;
+
+  const hasMedia = Boolean(
+    (draft.sessionDraft?.mediaList?.length ?? 0) > 0 || (draft.previewMediaUrls?.length ?? 0) > 0
+  );
+
+  const threadsStoryOption = useMemo(
+    () =>
+      threadsInstagramStoryEligible({
+        platform: draft.platform,
+        mediaType: draft.mediaType,
+        hasMedia,
+      }),
+    [draft.platform, draft.mediaType, hasMedia]
+  );
+
+  const metaStoryOption = useMemo(
+    () =>
+      metaAlsoStoryEligible({
+        platform: draft.platform,
+        mediaType: draft.mediaType,
+        hasMedia,
+      }),
+    [draft.platform, draft.mediaType, hasMedia]
+  );
+
+  useEffect(() => {
+    if (!threadsStoryOption.eligible && threadsShareToInstagram) {
+      setThreadsShareToInstagram(false);
+    }
+  }, [threadsStoryOption.eligible, threadsShareToInstagram]);
+
+  useEffect(() => {
+    if (!metaStoryOption.eligible && alsoPostToStory) {
+      setAlsoPostToStory(false);
+    }
+  }, [metaStoryOption.eligible, alsoPostToStory]);
+
+  const composerDraftWithStoryFlags = useMemo((): IzopComposerDraftPayload | null => {
+    if (!draft.sessionDraft) return null;
+    return {
+      ...draft.sessionDraft,
+      ...(threadsShareToInstagram ? { threadsShareToInstagram: true } : {}),
+      ...(alsoPostToStory ? { alsoPostToStory: true } : {}),
+    };
+  }, [draft.sessionDraft, threadsShareToInstagram, alsoPostToStory]);
+
+  const buildPostPayload = (resolvedMediaType: string, media: { fileUrl: string; type: string }[]) => {
+    const platformUpper = draft.platform.toUpperCase();
+    return {
+      content: draft.caption,
+      mediaType: resolvedMediaType === 'text' ? 'text' : resolvedMediaType,
+      media,
+      targets: [{ platform: draft.platform, socialAccountId: draft.accountId }],
+      ...(platformUpper === 'THREADS' && threadsShareToInstagram
+        ? { threadsShareToInstagram: true }
+        : {}),
+      ...((platformUpper === 'INSTAGRAM' || platformUpper === 'FACEBOOK') && alsoPostToStory
+        ? { alsoPostToStory: true }
+        : {}),
+    };
+  };
 
   const handlePublish = async () => {
     if (!draft.canPublishFromChat || publishing || published || scheduled) return;
@@ -60,18 +150,17 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
           : 'photo'
         : draft.mediaType;
     try {
-      const createRes = await api.post<{ id: string }>('/posts', {
-        content: draft.caption,
-        mediaType: resolvedMediaType === 'text' ? 'text' : resolvedMediaType,
-        media,
-        targets: [{ platform: draft.platform, socialAccountId: draft.accountId }],
-      });
+      const createRes = await api.post<{ id: string }>('/posts', buildPostPayload(resolvedMediaType, media));
       const postId = createRes.data.id;
       await api.post(`/posts/${postId}/publish`, {});
       setPublished(true);
       setConfirming(false);
       setScheduling(false);
-      setStatus('Publishing started. Check History for live status.');
+      setStatus(
+        threadsShareToInstagram || alsoPostToStory
+          ? 'Publishing started (including Story). Check History for live status.'
+          : 'Publishing started. Check History for live status.'
+      );
     } catch (e) {
       const msg =
         (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
@@ -97,10 +186,7 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
     try {
       const iso = new Date(scheduleAt).toISOString();
       await api.post('/posts', {
-        content: draft.caption,
-        mediaType: resolvedMediaType === 'text' ? 'text' : resolvedMediaType,
-        media,
-        targets: [{ platform: draft.platform, socialAccountId: draft.accountId }],
+        ...buildPostPayload(resolvedMediaType, media),
         scheduledAt: iso,
         scheduleDelivery: 'auto',
       });
@@ -108,7 +194,9 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
       setConfirming(false);
       setScheduling(false);
       setStatus(
-        `Scheduled for ${new Date(scheduleAt).toLocaleString()}. Preview on Calendar or History anytime.`
+        `Scheduled for ${new Date(scheduleAt).toLocaleString()}.${
+          threadsShareToInstagram || alsoPostToStory ? ' Story sharing is included.' : ''
+        } Preview on Calendar or History anytime.`
       );
     } catch (e) {
       const msg =
@@ -123,9 +211,24 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
   return (
     <div className="rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 overflow-hidden text-sm shadow-sm">
       <div className={`px-3 py-2 flex items-center justify-between gap-2 ${accent}`}>
-        <div className="min-w-0">
-          <p className="font-semibold truncate">{draft.platformLabel}</p>
-          <p className="text-[11px] opacity-90 truncate">{handle}</p>
+        <div className="min-w-0 flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-white/15 overflow-hidden shrink-0 flex items-center justify-center text-xs font-semibold">
+            {(() => {
+              const src =
+                avatarDisplayUrl(draft.platform, accountDisplay.profilePicture) ||
+                draftMediaDisplayUrl(accountDisplay.profilePicture) ||
+                undefined;
+              return src ? (
+                <img src={src} alt="" className="w-full h-full object-cover" />
+              ) : (
+                accountDisplay.username.slice(0, 1).toUpperCase()
+              );
+            })()}
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold truncate">{draft.platformLabel}</p>
+            <p className="text-[11px] opacity-90 truncate">{accountDisplay.handle}</p>
+          </div>
         </div>
         <span className="shrink-0 text-[10px] uppercase tracking-wide font-semibold opacity-90">
           {draft.mediaType === 'text' ? 'Text post' : draft.mediaType}
@@ -136,44 +239,41 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
         <p className="text-[10px] uppercase tracking-wide text-neutral-400 dark:text-neutral-500 mb-1.5">
           Preview
         </p>
-        <div className="rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-950 p-3">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-700 overflow-hidden shrink-0 flex items-center justify-center text-xs font-semibold text-neutral-600 dark:text-neutral-300">
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-              ) : (
-                displayName.slice(0, 1).toUpperCase()
-              )}
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-                {displayName}
-              </p>
-              <p className="text-[10px] text-neutral-500 dark:text-neutral-400 truncate">{handle}</p>
-            </div>
-          </div>
-          <p className="text-sm text-neutral-800 dark:text-neutral-100 whitespace-pre-wrap leading-relaxed">
-            {draft.caption}
-          </p>
-          {previewMedia && previewMediaUrl ? (
-            <div className="mt-3 rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-900">
-              {previewMedia.type === 'VIDEO' ? (
-                <video
-                  src={previewMediaUrl}
-                  controls
-                  className="w-full max-h-48 object-contain"
-                />
-              ) : (
-                <img
-                  src={previewMediaUrl}
-                  alt=""
-                  className="w-full max-h-48 object-contain"
-                />
-              )}
-            </div>
+        <IzopPostDraftPreview
+          platform={draft.platform}
+          account={accountDisplay}
+          caption={draft.caption}
+          mediaType={draft.mediaType}
+          media={previewMediaForCard}
+        />
+      </div>
+
+      {draft.canPublishFromChat && !published && !scheduled ? (
+        <div className="px-3 pb-2 space-y-2 border-b border-neutral-100 dark:border-neutral-800">
+          {draft.platform.toUpperCase() === 'THREADS' ? (
+            <ChatDraftStoryOption
+              checked={threadsShareToInstagram}
+              disabled={publishing}
+              eligible={threadsStoryOption.eligible}
+              label={THREADS_INSTAGRAM_STORY_LABEL}
+              description={THREADS_INSTAGRAM_STORY_DESCRIPTION}
+              hint={threadsStoryOption.hint}
+              onChange={setThreadsShareToInstagram}
+            />
+          ) : null}
+          {draft.platform.toUpperCase() === 'INSTAGRAM' || draft.platform.toUpperCase() === 'FACEBOOK' ? (
+            <ChatDraftStoryOption
+              checked={alsoPostToStory}
+              disabled={publishing}
+              eligible={metaStoryOption.eligible}
+              label={metaAlsoStoryLabel(draft.platform)}
+              description={metaAlsoStoryDescription(draft.platform)}
+              hint={metaStoryOption.hint}
+              onChange={setAlsoPostToStory}
+            />
           ) : null}
         </div>
-      </div>
+      ) : null}
 
       <div className="p-3 flex flex-wrap items-center gap-2">
         {draft.canPublishFromChat ? (
@@ -188,6 +288,16 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
                 {scheduling
                   ? `Schedule this post to ${draft.platformLabel}?`
                   : `Publish this post to ${draft.platformLabel} now?`}
+                {threadsShareToInstagram ? (
+                  <span className="block mt-1 text-[11px] text-neutral-500">
+                    Instagram Story sharing is enabled for this Threads post.
+                  </span>
+                ) : null}
+                {alsoPostToStory ? (
+                  <span className="block mt-1 text-[11px] text-neutral-500">
+                    {metaAlsoStoryLabel(draft.platform)} is enabled.
+                  </span>
+                ) : null}
               </p>
               {scheduling ? (
                 <input
@@ -260,7 +370,7 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
         {!draft.canPublishFromChat ? (
           <ComposerOpenLink
             href={draft.composerUrl}
-            draft={draft.sessionDraft ?? null}
+            draft={composerDraftWithStoryFlags ?? draft.sessionDraft ?? null}
             label="Open Composer"
             className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--primary)] hover:underline"
           />

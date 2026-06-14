@@ -35,6 +35,7 @@ import {
   titleFromMessages,
   shouldReplaceChatTitle,
   visibleChatSessions,
+  ensureActiveChatInSessionList,
   type IzopChatSessionSummary,
 } from '@/lib/ai/izop-chat-sessions';
 import { pickBestStoredMessages } from '@/lib/ai/izop-chat-persist';
@@ -107,13 +108,21 @@ function resolveInstantChatState(
     userId
   );
   const activeId = resolveActiveChatId(userId, sessions, chatParam);
+  const sessionsWithActive = ensureActiveChatInSessionList(userId, sessions, activeId);
 
   const messages =
-    activeId && isChatSessionAccessible(userId, activeId, sessions)
+    activeId && isChatSessionAccessible(userId, activeId, sessionsWithActive)
       ? ((readCachedMessages(userId, activeId) ?? []) as ChatMessage[])
       : [];
 
-  return { sessions, activeId, messages };
+  if (sessionsWithActive.length !== sessions.length) {
+    writeCachedSessionList(
+      userId,
+      sessionsWithActive.filter((s) => sessionShouldShowInSidebar(s, userId))
+    );
+  }
+
+  return { sessions: sessionsWithActive, activeId, messages };
 }
 
 export default function IzopAiWorkspace() {
@@ -166,10 +175,11 @@ export default function IzopAiWorkspace() {
   }, [activeId]);
 
   const visibleSessions = useMemo(() => {
-    return visibleChatSessions(sessions, user?.id).sort(
+    const withActive = ensureActiveChatInSessionList(user?.id, sessions, activeId);
+    return visibleChatSessions(withActive, user?.id).sort(
       (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     );
-  }, [sessions, user?.id]);
+  }, [sessions, user?.id, activeId]);
 
   const cacheSessionList = useCallback(
     (next: IzopChatSessionSummary[]) => {
@@ -180,6 +190,15 @@ export default function IzopAiWorkspace() {
     },
     [user?.id]
   );
+
+  useEffect(() => {
+    if (!user?.id || !activeId) return;
+    if (sessions.some((s) => s.id === activeId)) return;
+    const next = ensureActiveChatInSessionList(user.id, sessions, activeId);
+    if (next.length === sessions.length) return;
+    cacheSessionList(next);
+    setSessions(next);
+  }, [user?.id, activeId, sessions, cacheSessionList]);
 
   const upsertSessionSummary = useCallback(
     (summary: IzopChatSessionSummary, bumpToTop = true) => {
