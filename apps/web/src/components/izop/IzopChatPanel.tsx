@@ -188,7 +188,8 @@ export default function IzopChatPanel({
 
   // Media upload with platform awareness
   const mediaUpload = useMediaUpload({
-    autoConvert: true,
+    autoConvert: false,
+    directUpload: true,
     silentSuccess: true,
     onError: (error) => {
       setError(error);
@@ -288,22 +289,18 @@ export default function IzopChatPanel({
 
     setUploading(true);
     try {
-      const uploaded: IzopChatAttachment[] = [];
-      
-      for (const file of toUpload) {
-        // Use new media upload system with auto-conversion
-        const result = await mediaUpload.uploadFile(file);
-        if (result) {
-          uploaded.push({
+      const results = await Promise.all(
+        toUpload.map(async (file) => {
+          const result = await uploadMediaFile(file, { autoConvert: false, directUpload: true });
+          return {
             fileUrl: result.fileUrl,
             fileName: file.name,
             contentType: file.type || undefined,
             kind: attachmentKindFromMime(file.type || '', file.name),
-          });
-        }
-      }
-      
-      setPendingAttachments((prev) => [...prev, ...uploaded].slice(0, IZOP_CHAT_MAX_ATTACHMENTS));
+          } satisfies IzopChatAttachment;
+        })
+      );
+      setPendingAttachments((prev) => [...prev, ...results].slice(0, IZOP_CHAT_MAX_ATTACHMENTS));
     } catch (e) {
       setError(friendlyIzopChatError(e, 'Upload failed. Check media storage configuration.'));
     } finally {

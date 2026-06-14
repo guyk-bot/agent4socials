@@ -80,6 +80,8 @@ export interface UploadOptions {
   onConversionProgress?: (progress: ConversionProgress) => void;
   onConversionComplete?: (result: ConversionResult) => void;
   autoConvert?: boolean; // Default: true
+  /** Skip the Vercel /media/upload proxy and PUT straight to R2 (faster for chat attachments). */
+  directUpload?: boolean;
 }
 
 export interface UploadResult {
@@ -148,7 +150,7 @@ export async function uploadMediaFile(file: File, options: UploadOptions = {}): 
   }
 
   // Upload the final file
-  const fileUrl = await uploadFileCore(finalFile);
+  const fileUrl = await uploadFileCore(finalFile, options.directUpload === true);
 
   return {
     fileUrl,
@@ -167,7 +169,7 @@ export async function uploadMediaFileSimple(file: File): Promise<string> {
 }
 
 /** Core upload logic (internal) */
-async function uploadFileCore(file: File): Promise<string> {
+async function uploadFileCore(file: File, preferDirectUpload = false): Promise<string> {
   const contentType =
     file.type?.split(';')[0]?.trim() ||
     (file.name.toLowerCase().match(/\.(mp4|mov|webm|m4v)$/) ? 'video/mp4' : 'image/jpeg');
@@ -177,12 +179,12 @@ async function uploadFileCore(file: File): Promise<string> {
       .slice(0, 200) || (contentType.startsWith('video/') ? 'video.mp4' : 'image.jpg');
 
   try {
-    if (file.size <= MEDIA_API_ROUTE_MAX_BYTES) {
+    if (!preferDirectUpload && file.size <= MEDIA_API_ROUTE_MAX_BYTES) {
       return await uploadFileViaApi(file, safeName);
     }
     return await uploadFileViaPresignedPut(file, safeName, contentType);
   } catch (err: unknown) {
-    if (file.size <= MEDIA_API_ROUTE_MAX_BYTES) {
+    if (!preferDirectUpload && file.size <= MEDIA_API_ROUTE_MAX_BYTES) {
       try {
         return await uploadFileViaPresignedPut(file, safeName, contentType);
       } catch (e2: unknown) {
