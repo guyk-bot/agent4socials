@@ -43,6 +43,16 @@ function ProfileAvatar({
   );
 }
 
+function PreviewImage({ url, className = '' }: { url: string; className?: string }) {
+  return (
+    <img
+      src={url}
+      alt=""
+      className={`block max-w-full w-auto h-auto max-h-[min(420px,70vh)] object-contain ${className}`.trim()}
+    />
+  );
+}
+
 function PreviewMediaBlock({
   media,
   mediaType,
@@ -62,20 +72,16 @@ function PreviewMediaBlock({
 
   return (
     <div
-      className={`${className} overflow-hidden ${
+      className={`${className} overflow-hidden inline-block max-w-full ${
         vertical
-          ? 'rounded-xl border border-neutral-200 dark:border-neutral-800 bg-black max-w-[220px]'
+          ? 'rounded-xl border border-neutral-200 dark:border-neutral-800 bg-black max-w-[280px]'
           : 'rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-100 dark:bg-neutral-900'
       }`}
     >
       {media.type === 'VIDEO' ? (
-        <video src={url} controls className={`w-full ${vertical ? 'max-h-72 object-contain' : 'max-h-52 object-contain'}`} />
+        <video src={url} controls className={`w-full ${vertical ? 'max-h-72 object-contain' : 'max-h-72 object-contain'}`} />
       ) : (
-        <img
-          src={url}
-          alt=""
-          className={`w-full ${vertical ? 'max-h-72 object-contain' : 'max-h-52 object-cover'}`}
-        />
+        <PreviewImage url={url} />
       )}
     </div>
   );
@@ -126,11 +132,11 @@ function InstagramPreview({ account, caption, media }: Omit<Props, 'platform' | 
         </div>
       </div>
       {media && mediaUrl ? (
-        <div className="bg-neutral-100 dark:bg-neutral-900 aspect-square flex items-center justify-center">
+        <div className="bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center">
           {media.type === 'VIDEO' ? (
-            <video src={mediaUrl} controls className="w-full h-full object-cover" />
+            <video src={mediaUrl} controls className="max-w-full max-h-[min(420px,70vh)] object-contain" />
           ) : (
-            <img src={mediaUrl} alt="" className="w-full h-full object-cover" />
+            <PreviewImage url={mediaUrl} />
           )}
         </div>
       ) : null}

@@ -9,7 +9,11 @@ import { ComposerOpenLink } from '@/components/izop/ComposerOpenLink';
 import { ChatDraftStoryOption } from '@/components/izop/ChatDraftStoryOption';
 import { IzopPostDraftPreview } from '@/components/izop/IzopPostDraftPreview';
 import { draftMediaDisplayUrl } from '@/lib/ai/izop-draft-media-display';
-import { resolveDraftAccountDisplay } from '@/lib/composer/draft-account-display';
+import {
+  findCachedAccountForDraft,
+  isGenericAccountUsername,
+  resolveDraftAccountDisplay,
+} from '@/lib/composer/draft-account-display';
 import {
   THREADS_INSTAGRAM_STORY_DESCRIPTION,
   THREADS_INSTAGRAM_STORY_LABEL,
@@ -48,15 +52,53 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
   const [error, setError] = useState<string | null>(null);
   const [threadsShareToInstagram, setThreadsShareToInstagram] = useState(false);
   const [alsoPostToStory, setAlsoPostToStory] = useState(false);
+  const [liveAccount, setLiveAccount] = useState<{
+    username?: string;
+    profilePicture?: string | null;
+  } | null>(null);
+
+  const cachedAccount = useMemo(
+    () => findCachedAccountForDraft(draft, allCachedAccounts),
+    [draft, allCachedAccounts]
+  );
+
+  useEffect(() => {
+    const merged = resolveDraftAccountDisplay(draft, cachedAccount);
+    const needsProfile =
+      isGenericAccountUsername(merged.username, draft.platform) || !merged.profilePicture;
+    if (!needsProfile) {
+      setLiveAccount(null);
+      return;
+    }
+
+    let cancelled = false;
+    void api
+      .get<Array<{ id: string; platform: string; username?: string; profilePicture?: string | null }>>(
+        '/social/accounts'
+      )
+      .then((res) => {
+        if (cancelled) return;
+        const rows = Array.isArray(res.data) ? res.data : [];
+        const acc = findCachedAccountForDraft(draft, rows);
+        if (!acc) return;
+        setLiveAccount({
+          username: acc.username,
+          profilePicture: acc.profilePicture ?? null,
+        });
+      })
+      .catch(() => {
+        /* keep cache-only display */
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [draft, cachedAccount]);
 
   const accent = PLATFORM_ACCENT[draft.platform.toUpperCase()] ?? 'bg-[var(--primary)] text-chrome-text';
   const accountDisplay = useMemo(
-    () =>
-      resolveDraftAccountDisplay(
-        draft,
-        allCachedAccounts.find((a) => a.id === draft.accountId)
-      ),
-    [draft, allCachedAccounts]
+    () => resolveDraftAccountDisplay(draft, liveAccount ?? cachedAccount),
+    [draft, cachedAccount, liveAccount]
   );
   const previewMedia =
     draft.sessionDraft?.mediaList?.[0] ??
@@ -226,8 +268,10 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
             })()}
           </div>
           <div className="min-w-0">
-            <p className="font-semibold truncate">{draft.platformLabel}</p>
-            <p className="text-[11px] opacity-90 truncate">{accountDisplay.handle}</p>
+            <p className="font-semibold truncate">{accountDisplay.username}</p>
+            <p className="text-[11px] opacity-90 truncate">
+              {accountDisplay.handle} · {draft.platformLabel}
+            </p>
           </div>
         </div>
         <span className="shrink-0 text-[10px] uppercase tracking-wide font-semibold opacity-90">

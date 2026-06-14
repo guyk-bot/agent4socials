@@ -39,6 +39,16 @@ export type DraftAccountDisplay = {
   profilePicture: string | null;
 };
 
+export function findCachedAccountForDraft(
+  draft: { accountId: string; platform: string },
+  accounts: Array<{ id: string; platform: string; username?: string; profilePicture?: string | null }>
+): { id: string; platform: string; username?: string; profilePicture?: string | null } | undefined {
+  const byId = accounts.find((a) => a.id === draft.accountId);
+  if (byId) return byId;
+  const platformUpper = draft.platform.toUpperCase();
+  return accounts.find((a) => String(a.platform).toUpperCase() === platformUpper);
+}
+
 export function resolveDraftAccountDisplay(
   draft: {
     platform: string;
@@ -59,26 +69,27 @@ export function resolveDraftAccountDisplay(
     if (isGenericAccountUsername(username, platformUpper) && cachedAccount.username?.trim()) {
       username = cachedAccount.username;
     }
-    if (!profilePicture && cachedAccount.profilePicture) {
+    if (!profilePicture?.trim() && cachedAccount.profilePicture) {
       profilePicture = cachedAccount.profilePicture;
     }
   }
 
   const cleanUsername = normalizeHandle(username ?? '');
+  const cachedUsername = cachedAccount?.username ? normalizeHandle(cachedAccount.username) : '';
   const resolvedUsername =
+    (!isGenericAccountUsername(cleanUsername, platformUpper) && cleanUsername) ||
+    (cachedUsername && !isGenericAccountUsername(cachedUsername, platformUpper) ? cachedUsername : '') ||
     cleanUsername ||
-    (cachedAccount?.username ? normalizeHandle(cachedAccount.username) : '') ||
+    cachedUsername ||
     'account';
 
-  const profileName =
-    (displayName && !isGenericAccountUsername(displayName, platformUpper)
-      ? displayName
-      : null) ??
-    (isGenericAccountUsername(resolvedUsername, platformUpper)
-      ? PLATFORM_LABELS[platformUpper] ?? draft.platform
-      : resolvedUsername);
+  const profileName = isGenericAccountUsername(resolvedUsername, platformUpper)
+    ? PLATFORM_LABELS[platformUpper] ?? draft.platform
+    : (displayName && !isGenericAccountUsername(displayName, platformUpper) ? displayName : resolvedUsername);
 
-  const handle = `@${resolvedUsername}`;
+  const handle = isGenericAccountUsername(resolvedUsername, platformUpper)
+    ? `@${normalizeHandle(resolvedUsername)}`
+    : `@${resolvedUsername}`;
 
   return {
     profileName,
