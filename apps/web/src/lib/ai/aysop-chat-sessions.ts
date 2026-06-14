@@ -179,6 +179,12 @@ export function sessionShouldShowInSidebar(
   return sessionHasUserMessages(userId, s.id);
 }
 
+/** True when a chat id may be opened (not locally deleted). */
+export function isRestorableChatId(userId: string | undefined, id: string | null | undefined): boolean {
+  if (!userId || !id?.trim()) return false;
+  return !readDeletedChatIds(userId).has(id);
+}
+
 /** Ensure the pending empty New chat draft is in the session list for sidebar/restore. */
 export function withPendingNewChatSession(
   sessions: AysopChatSessionSummary[],
@@ -309,13 +315,13 @@ export function pickRestoreChatId(
   const byId = new Map(sidebar.map((s) => [s.id, s]));
   const lastId = readLastActiveChatId(userId);
 
-  if (lastId && !lastId.startsWith('offline-')) {
+  if (lastId && !readDeletedChatIds(userId).has(lastId) && !lastId.startsWith('offline-')) {
     if (sessionHasUserMessages(userId, lastId) || byId.has(lastId)) {
       return lastId;
     }
   }
 
-  if (lastId && byId.has(lastId)) return lastId;
+  if (lastId && !readDeletedChatIds(userId).has(lastId) && byId.has(lastId)) return lastId;
 
   const real = sidebar
     .filter((s) => !s.id.startsWith('offline-'))
