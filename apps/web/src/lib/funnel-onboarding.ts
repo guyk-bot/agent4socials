@@ -1,3 +1,5 @@
+import { IZOP_AI_DASHBOARD_PATH } from '@/lib/site-brand-assets';
+
 /** Post-sign-in redirect from landing funnel chat (sessionStorage). */
 
 const POST_AUTH_KEY = 'izop_funnel_post_auth_redirect_v1';
@@ -104,7 +106,7 @@ export const FUNNEL_ONBOARDING_ACTIONS: FunnelOnboardingAction[] = [
     id: 'ai',
     label: 'Try iZop AI',
     description: 'Chat, leads, and content ideas',
-    redirect: '/dashboard/aysop-ai',
+    redirect: IZOP_AI_DASHBOARD_PATH,
     assistantReply:
       'Love it. After Google sign-in you will land in iZop AI to explore chat, leads, and ideas.',
   },

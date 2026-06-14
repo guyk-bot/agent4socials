@@ -1,3 +1,5 @@
+import { IZOP_AI_DASHBOARD_PATH } from '@/lib/site-brand-assets';
+
 /** First-time connect landing: platform cards only, not Account settings. */
 export const FIRST_CONNECT_PATH = '/dashboard/connect';
 
@@ -42,6 +44,7 @@ export function shouldStayOnPageAfterOAuthConnect(): boolean {
     path.startsWith('/dashboard/inbox') ||
     path.startsWith('/composer') ||
     path.startsWith('/calendar') ||
+    path.startsWith(IZOP_AI_DASHBOARD_PATH) ||
     path.startsWith('/dashboard/aysop-ai') ||
     path.startsWith('/dashboard/brand') ||
     path.startsWith('/posts') ||

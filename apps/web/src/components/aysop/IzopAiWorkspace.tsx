@@ -40,6 +40,7 @@ import {
 import { pickBestStoredMessages } from '@/lib/ai/aysop-chat-persist';
 import { consumeFunnelOpenAysopChatId } from '@/lib/funnel-onboarding';
 import { abortChatRunner } from '@/lib/ai/aysop-chat-runner';
+import { IZOP_AI_DASHBOARD_PATH } from '@/lib/site-brand-assets';
 
 function isEmptyServerChat(s: AysopChatSessionSummary, userId?: string): boolean {
   return !s.id.startsWith('offline-') && !sessionHasConversation(s, userId);
@@ -114,7 +115,7 @@ function resolveInstantChatState(
   return { sessions, activeId, messages };
 }
 
-export default function AysopAiWorkspace() {
+export default function IzopAiWorkspace() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -205,9 +206,9 @@ export default function AysopAiWorkspace() {
         writeLastActiveChatId(user.id, id);
       }
       if (isEphemeralOfflineSession(id, user?.id)) {
-        router.replace('/dashboard/aysop-ai', { scroll: false });
+        router.replace('${IZOP_AI_DASHBOARD_PATH}', { scroll: false });
       } else {
-        router.replace(`/dashboard/aysop-ai?c=${encodeURIComponent(id)}`, { scroll: false });
+        router.replace(`${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(id)}`, { scroll: false });
       }
     },
     [router, user?.id]
@@ -219,7 +220,7 @@ export default function AysopAiWorkspace() {
     messagesRef.current = [];
     setActiveId(quick.id);
     activeIdRef.current = quick.id;
-    router.replace('/dashboard/aysop-ai', { scroll: false });
+    router.replace('${IZOP_AI_DASHBOARD_PATH}', { scroll: false });
     return quick.id;
   }, [router]);
 
@@ -231,9 +232,9 @@ export default function AysopAiWorkspace() {
         writeLastActiveChatId(user.id, id);
       }
       if (isEphemeralOfflineSession(id, user?.id)) {
-        router.replace('/dashboard/aysop-ai', { scroll: false });
+        router.replace('${IZOP_AI_DASHBOARD_PATH}', { scroll: false });
       } else {
-        router.replace(`/dashboard/aysop-ai?c=${encodeURIComponent(id)}`, { scroll: false });
+        router.replace(`${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(id)}`, { scroll: false });
       }
     },
     [router, user?.id]
@@ -425,7 +426,7 @@ export default function AysopAiWorkspace() {
               messagesRef.current = [];
               setActiveId(null);
               activeIdRef.current = null;
-              router.replace('/dashboard/aysop-ai', { scroll: false });
+              router.replace('${IZOP_AI_DASHBOARD_PATH}', { scroll: false });
             }
           }
           return false;
@@ -499,15 +500,15 @@ export default function AysopAiWorkspace() {
       if (chatParam && readDeletedChatIds(user.id).has(chatParam)) {
         router.replace(
           instantId.startsWith('offline-')
-            ? '/dashboard/aysop-ai'
-            : `/dashboard/aysop-ai?c=${encodeURIComponent(instantId)}`,
+            ? '${IZOP_AI_DASHBOARD_PATH}'
+            : `${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(instantId)}`,
           { scroll: false }
         );
       } else if (!chatParam || chatParam !== instantId) {
         if (instantId.startsWith('offline-')) {
-          router.replace('/dashboard/aysop-ai', { scroll: false });
+          router.replace('${IZOP_AI_DASHBOARD_PATH}', { scroll: false });
         } else {
-          router.replace(`/dashboard/aysop-ai?c=${encodeURIComponent(instantId)}`, { scroll: false });
+          router.replace(`${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(instantId)}`, { scroll: false });
         }
       }
       if (!instantId.startsWith('offline-')) {
@@ -593,7 +594,7 @@ export default function AysopAiWorkspace() {
             activeIdRef.current = null;
             setMessages([]);
             messagesRef.current = [];
-            router.replace('/dashboard/aysop-ai', { scroll: false });
+            router.replace('${IZOP_AI_DASHBOARD_PATH}', { scroll: false });
           }
           return;
         }
@@ -672,7 +673,7 @@ export default function AysopAiWorkspace() {
         activeIdRef.current = null;
         setMessages([]);
         messagesRef.current = [];
-        router.replace('/dashboard/aysop-ai', { scroll: false });
+        router.replace('${IZOP_AI_DASHBOARD_PATH}', { scroll: false });
       }
       return;
     }
@@ -776,7 +777,7 @@ export default function AysopAiWorkspace() {
 
     setActiveId(tempSession.id);
     activeIdRef.current = tempSession.id;
-    router.replace('/dashboard/aysop-ai', { scroll: false });
+    router.replace('${IZOP_AI_DASHBOARD_PATH}', { scroll: false });
 
     queueMicrotask(() => {
       newChatIntentRef.current = false;
@@ -857,11 +858,11 @@ export default function AysopAiWorkspace() {
           messagesRef.current = cached as ChatMessage[];
           if (!nextId.startsWith('offline-')) {
             writeLastActiveChatId(user?.id, nextId);
-            router.replace(`/dashboard/aysop-ai?c=${encodeURIComponent(nextId)}`, {
+            router.replace(`${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(nextId)}`, {
               scroll: false,
             });
           } else {
-            router.replace('/dashboard/aysop-ai', { scroll: false });
+            router.replace('${IZOP_AI_DASHBOARD_PATH}', { scroll: false });
           }
         } else {
           setMessages([]);
@@ -870,7 +871,7 @@ export default function AysopAiWorkspace() {
         }
         setPanelResetKey((k) => k + 1);
       } else if (chatParam === id) {
-        router.replace('/dashboard/aysop-ai', { scroll: false });
+        router.replace('${IZOP_AI_DASHBOARD_PATH}', { scroll: false });
       }
 
       if (!id.startsWith('offline-')) {

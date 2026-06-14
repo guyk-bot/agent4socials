@@ -462,10 +462,10 @@
 }
 
 /* iZop AI nav: purple text only when that page is active (not a permanent pill). */
-.nav-aysop-ai-active {
+.nav-izop-ai-active {
   color: #7C3AED !important;
 }
-[data-theme='dark'] .nav-aysop-ai-active {
+[data-theme='dark'] .nav-izop-ai-active {
   color: #A78BFA !important;
 }
 

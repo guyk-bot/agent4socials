@@ -34,7 +34,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | Product analytics (Vercel funnel events + signed-in Supabase activity) | `lib/product-analytics.ts`, `lib/user-product-events.ts`, `components/ProductAnalyticsBootstrap.tsx`, `app/api/user/product-events/route.ts` |
 | Funnel guest trial (one free publish + one free analytics before signup) | `lib/funnel-guest-actions.ts`, `app/api/funnel/publish/route.ts`, `app/api/funnel/analytics/route.ts`, `app/api/landing/chat/route.ts`, `components/landing/ChatHero.tsx` |
 | Auth, shell layout | `AuthContext.tsx`, `AuthenticatedShell.tsx`, `middleware.ts`, `app/api/auth/` |
-| iZop AI chat | `app/dashboard/aysop-ai/page.tsx`, `components/aysop/*` (incl. `AysopComposerPostDraftCard.tsx`, `AysopComposerSessionDraftCard.tsx`, `ComposerOpenLink.tsx`), `app/api/ai/aysop-chats/`, `lib/composer/platform-capabilities.ts`, `lib/composer/aysop-composer-draft-bridge.ts`, `lib/ai/llm-config.ts`, `lib/ai/aysop-chat-store.ts`, `lib/ai/aysop-chat-local-cache.ts`, `lib/ai/aysop-tools.ts`, `lib/ai/aysop-attachments.ts`, `lib/ai/aysop-show-app.ts`, `lib/ai/aysop-artifacts.ts`, `lib/ai/aysop-chat-core.ts`, `lib/ai/aysop-chat-fast-path.ts` |
+| iZop AI chat | `app/dashboard/izop-ai/page.tsx`, `components/aysop/*` (incl. `AysopComposerPostDraftCard.tsx`, `AysopComposerSessionDraftCard.tsx`, `ComposerOpenLink.tsx`), `app/api/ai/aysop-chats/`, `lib/composer/platform-capabilities.ts`, `lib/composer/aysop-composer-draft-bridge.ts`, `lib/ai/llm-config.ts`, `lib/ai/aysop-chat-store.ts`, `lib/ai/aysop-chat-local-cache.ts`, `lib/ai/aysop-tools.ts`, `lib/ai/aysop-attachments.ts`, `lib/ai/aysop-show-app.ts`, `lib/ai/aysop-artifacts.ts`, `lib/ai/aysop-chat-core.ts`, `lib/ai/aysop-chat-fast-path.ts` |
 | Media upload / proxy (R2) | `apps/web/src/app/api/media/`, `instagram-media-r2.ts` |
 | Prisma DB access | `apps/web/prisma/schema.prisma`, `apps/web/src/lib/db.ts` |
 | Cron | `apps/web/src/app/api/cron/` (includes `fast-tick` for one 5-minute job: scheduled posts only) |
@@ -84,7 +84,7 @@ Use this map to go straight to the right files. Prefer **targeted reads** and **
 | `/dashboard/console` (Console: unified KPIs, Growth / Engagement / Views charts, `AnalyticsDateRangePicker`, cache `lib/dashboard-unified-summary-cache.ts`) | `dashboard/console/page.tsx` |
 | `/dashboard/summary` | Redirects to `/dashboard/console` (same query string) |
 | `/dashboard/ai-assistant` | `dashboard/ai-assistant/page.tsx` |
-| `/dashboard/aysop-ai` | `dashboard/aysop-ai/page.tsx` (iZop AI chat) |
+| `/dashboard/izop-ai` | `dashboard/izop-ai/page.tsx` (iZop AI chat; legacy `/dashboard/aysop-ai` redirects here) |
 | `/dashboard/hashtag-pool` | `dashboard/hashtag-pool/page.tsx` |
 | `/dashboard/team-members` | Redirects to `/dashboard/account#team-members`; team UI is `components/account/BrandTeamMembersSection.tsx` on Account |
 | `/dashboard/analytics` | `dashboard/analytics/page.tsx` |

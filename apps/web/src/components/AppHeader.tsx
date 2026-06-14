@@ -7,7 +7,7 @@ import { MessageCircle, PlusSquare, Calendar, Menu, Sun, Moon, Megaphone, type L
 import { ThemeAutoIcon } from '@/components/ThemeAutoIcon';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { IzopGlassLogo } from '@/components/IzopGlassLogo';
-import { BRAND_NAME, BRAND_HEADER_BG, normalizeLegacyBrandName, siteLogoSrcForAppHeader } from '@/lib/site-brand-assets';
+import { BRAND_AI_NAME, BRAND_NAME, BRAND_HEADER_BG, IZOP_AI_DASHBOARD_PATH, normalizeLegacyBrandName, siteLogoSrcForAppHeader } from '@/lib/site-brand-assets';
 import { useTheme } from '@/context/ThemeContext';
 import { useAppData } from '@/context/AppDataContext';
 import { useAuth } from '@/context/AuthContext';
@@ -26,7 +26,7 @@ type TopNavItem = {
   /** Small line above the label (e.g. Ads → Coming soon / Ads). */
   stackedTop?: string;
   /** iZop AI nav mark (white outline logo), not the main app wordmark. */
-  aysopNavIcon?: boolean;
+  izopAiNavIcon?: boolean;
 };
 
 export const topNavItems: TopNavItem[] = [
@@ -34,7 +34,7 @@ export const topNavItems: TopNavItem[] = [
   { icon: PlusSquare, label: 'Composer', href: '/composer' },
   { icon: Calendar, label: 'Calendar', href: '/calendar' },
   { icon: Megaphone, label: 'Ads', href: '/dashboard/ads', stackedTop: 'Coming soon' },
-  { aysopNavIcon: true, label: `${BRAND_NAME} AI`, href: '/dashboard/aysop-ai' },
+  { izopAiNavIcon: true, label: BRAND_AI_NAME, href: IZOP_AI_DASHBOARD_PATH },
 ];
 
 function TopNavItemContent({
@@ -67,7 +67,7 @@ function TopNavItemContent({
 
   return (
     <>
-      {item.aysopNavIcon ? (
+      {item.izopAiNavIcon ? (
         <IzopGlassLogo alt="" variant="nav" className="shrink-0" />
       ) : item.icon ? (
         <item.icon size={18} className="shrink-0" aria-hidden />
@@ -326,7 +326,7 @@ export default function AppHeader() {
                     </>
                   ) : (
                     <>
-                      {item.aysopNavIcon ? (
+                      {item.izopAiNavIcon ? (
                         <IzopGlassLogo alt="" variant="nav" className="shrink-0" />
                       ) : item.icon ? (
                         <item.icon size={18} className="shrink-0" aria-hidden />

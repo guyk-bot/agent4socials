@@ -10,7 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useWhiteLabel } from '@/context/WhiteLabelContext';
 import { useTheme } from '@/context/ThemeContext';
-import { BRAND_HEADER_BG } from '@/lib/site-brand-assets';
+import { BRAND_HEADER_BG, IZOP_AI_DASHBOARD_PATH } from '@/lib/site-brand-assets';
 import { consumeFunnelPostAuthRedirect } from '@/lib/funnel-onboarding';
 
 /** Above in-page overlays (e.g. z-300 loaders); below portaled modals (8.5k+). */
@@ -26,7 +26,8 @@ function AuthenticatedContent({
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
-    const isAysopAiPage = pathname?.startsWith('/dashboard/aysop-ai');
+    const isIzopAiPage =
+      pathname?.startsWith(IZOP_AI_DASHBOARD_PATH) || pathname?.startsWith('/dashboard/aysop-ai');
     const { backgroundColor, primaryColor, textColor } = useWhiteLabel();
     const { theme } = useTheme();
     const usingDefaultWhiteLabelBg = !backgroundColor || backgroundColor.toLowerCase() === '#f5f5f5';
@@ -61,7 +62,7 @@ function AuthenticatedContent({
             >
                 <div
                     className={
-                        isAysopAiPage
+                        isIzopAiPage
                             ? 'h-[calc(100vh-3.5rem)] min-h-0'
                             : 'max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-6 md:py-8'
                     }

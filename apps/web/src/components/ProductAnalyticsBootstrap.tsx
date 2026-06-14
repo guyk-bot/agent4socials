@@ -23,7 +23,7 @@ export function ProductAnalyticsBootstrap() {
       void recordAuthenticatedProductEvent('pricing_page_viewed', { path: pathname });
     } else if (pathname.includes('/inbox')) {
       void recordAuthenticatedProductEvent('inbox_opened', { path: pathname });
-    } else if (pathname.includes('/aysop-ai')) {
+    } else if (pathname.includes('/izop-ai') || pathname.includes('/aysop-ai')) {
       void recordAuthenticatedProductEvent('aysop_chat_used', { path: pathname });
     }
   }, [pathname]);

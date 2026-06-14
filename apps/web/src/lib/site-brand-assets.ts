@@ -1,6 +1,12 @@
 /** User-facing product name (funnel, app shell, emails, metadata). */
 export const BRAND_NAME = 'iZop';
 
+/** User-facing AI product name (nav, page titles, chat chrome). */
+export const BRAND_AI_NAME = `${BRAND_NAME} AI`;
+
+/** Signed-in iZop AI chat dashboard route. */
+export const IZOP_AI_DASHBOARD_PATH = '/dashboard/izop-ai';
+
 /** Prior product names that should display as {@link BRAND_NAME}. */
 export function isLegacyProductBrandName(name: string): boolean {
   const n = name.trim().toLowerCase();

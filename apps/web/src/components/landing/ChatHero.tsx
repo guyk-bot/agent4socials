@@ -14,7 +14,7 @@ import {
   XTwitterIcon,
   YoutubeIcon,
 } from '@/components/SocialPlatformIcons';
-import { CHAT_HERO_LOGO_SRC } from '@/lib/site-brand-assets';
+import { CHAT_HERO_LOGO_SRC, IZOP_AI_DASHBOARD_PATH } from '@/lib/site-brand-assets';
 import { FunnelChatRichText } from '@/components/landing/FunnelChatRichText';
 import { trackChatHeroEvent } from '@/lib/chat-hero-analytics';
 import { trackPlatformProductEvent, trackProductEvent } from '@/lib/product-analytics';
@@ -521,7 +521,7 @@ export default function ChatHero() {
       setShowBrandContext(restored.step === 'brand_context' || restored.step === 'free_chat');
       if (restored.connectedAccountId) {
         oauthReturnHandled.current = true;
-        setFunnelPostAuthRedirect('/dashboard/aysop-ai');
+        setFunnelPostAuthRedirect(IZOP_AI_DASHBOARD_PATH);
         saveFunnelForAppHandoff();
       }
       setShowOpeningFollowUp(true);
@@ -568,7 +568,7 @@ export default function ChatHero() {
       setShowActionOptions(false);
       setFunnelStep('brand_context');
       setStep(2);
-      setFunnelPostAuthRedirect('/dashboard/aysop-ai');
+      setFunnelPostAuthRedirect(IZOP_AI_DASHBOARD_PATH);
       saveFunnelForAppHandoff();
 
       window.history.replaceState({}, '', window.location.pathname);
@@ -973,7 +973,7 @@ export default function ChatHero() {
 
   const handleContinueInApp = useCallback(() => {
     saveFunnelForAppHandoff();
-    setFunnelPostAuthRedirect('/dashboard/aysop-ai');
+    setFunnelPostAuthRedirect(IZOP_AI_DASHBOARD_PATH);
     setShowSignup(true);
     setFunnelStep('signup_required');
   }, []);
@@ -988,7 +988,7 @@ export default function ChatHero() {
       trackChatHeroEvent('signup_clicked', { method: 'google', source: 'funnel_chat' });
     }
     try {
-      setFunnelPostAuthRedirect(connectedAccountId ? '/dashboard/aysop-ai' : connectRedirectForPlatforms(selectedPlatforms));
+      setFunnelPostAuthRedirect(connectedAccountId ? IZOP_AI_DASHBOARD_PATH : connectRedirectForPlatforms(selectedPlatforms));
       await signInWithGoogle();
     } catch (err: unknown) {
       setAuthError(
@@ -1007,7 +1007,7 @@ export default function ChatHero() {
     } else {
       trackChatHeroEvent('signup_clicked', { method: 'email', source: 'funnel_chat' });
     }
-    setFunnelPostAuthRedirect(connectedAccountId ? '/dashboard/aysop-ai' : connectRedirectForPlatforms(selectedPlatforms));
+    setFunnelPostAuthRedirect(connectedAccountId ? IZOP_AI_DASHBOARD_PATH : connectRedirectForPlatforms(selectedPlatforms));
     openSignup('funnel_chat');
   }, [connectedAccountId, openSignup, selectedPlatforms]);
 

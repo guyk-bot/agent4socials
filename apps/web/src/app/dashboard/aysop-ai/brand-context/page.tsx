@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 
-/** Brand settings live on the main Brand page (left sidebar). */
-export default function AysopBrandContextRedirectPage() {
+/** Legacy route under old iZop AI path. */
+export default function LegacyAysopBrandContextRedirectPage() {
   redirect('/dashboard/brand');
 }
