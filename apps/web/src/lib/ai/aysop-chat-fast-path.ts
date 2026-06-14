@@ -8,6 +8,7 @@ import { accountsFromWorkspaces } from '@/lib/ai/aysop-workspace-snapshot';
 import { prisma } from '@/lib/db';
 import {
   MEDIA_BRAND_SETUP_REPLY,
+  BRAND_CONTEXT_SETUP_READY_REPLY,
   userWantsToPostFromMessage,
 } from '@/lib/ai/aysop-media-brand-prompt';
 import type { BrandContextRecord } from '@/lib/brand-context-utils';
@@ -294,7 +295,7 @@ export async function tryMediaActionFastPath(
     const out = await runAysopTool('start_guided_brand_setup', toolArgs, ctx);
     const hasCard = (out.artifacts ?? []).some((a) => a.type === 'brand_context_update');
     const fallback = hasCard
-      ? 'Please set up your brand context before continuing.'
+      ? BRAND_CONTEXT_SETUP_READY_REPLY
       : "Let's set up your brand context.";
     return {
       reply: replyFromArtifacts(out.artifacts ?? [], fallback),

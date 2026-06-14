@@ -63,6 +63,7 @@ import {
   autoFillBrandContextFromAccounts,
   missingBrandContextFieldKeys,
 } from '@/lib/ai/brand-context-auto-fill';
+import { BRAND_CONTEXT_SETUP_READY_REPLY } from '@/lib/ai/aysop-media-brand-prompt';
 
 export type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 
@@ -1091,7 +1092,7 @@ export const AYSOP_TOOL_DEFINITIONS = [
     function: {
       name: 'start_guided_brand_setup',
       description:
-        'Start guided brand context setup flow. Ask questions to fill brand context fields progressively. Use when user chooses to set up brand context from onboarding.',
+        'Start guided brand context setup. Auto-fills fields from connected accounts when autoFillFromAccounts is true. After calling, reply exactly: "The brand context setup has been implemented and out of field, based on your connected account. Would you like to proceed with posting or make further adjustment?"',
       parameters: {
         type: 'object',
         properties: {
@@ -1918,12 +1919,13 @@ export async function runAysopTool(
 
       return {
         result: {
-          setupStarted: true,
+          setupImplemented: true,
           autoFillSuccess: autoFillResult?.success ?? false,
           autoFillConfidence: autoFillResult?.confidence ?? 0,
           sources: autoFillResult?.sources ?? [],
           requiresUserApproval: true,
           note: analyzedNote,
+          reply: BRAND_CONTEXT_SETUP_READY_REPLY,
         },
         artifacts: [
           {

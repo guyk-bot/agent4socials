@@ -39,7 +39,7 @@ import {
   tryMediaBrandSetupFastPath,
   userResolvedMediaBrandChoice,
 } from '@/lib/ai/aysop-chat-fast-path';
-import { MEDIA_BRAND_SETUP_REPLY } from '@/lib/ai/aysop-media-brand-prompt';
+import { MEDIA_BRAND_SETUP_REPLY, BRAND_CONTEXT_SETUP_READY_REPLY } from '@/lib/ai/aysop-media-brand-prompt';
 
 export type { AysopChatInputMessage };
 
@@ -65,6 +65,13 @@ function tryArtifactOnlyReply(artifacts: AysopArtifact[], toolNames: string[]): 
   }
   if (only === 'collect_contextual_brand_info') {
     return MEDIA_BRAND_SETUP_REPLY;
+  }
+  if (only === 'start_guided_brand_setup') {
+    const card = artifacts.find((a) => a.type === 'brand_context_update');
+    if (card && card.type === 'brand_context_update') {
+      return BRAND_CONTEXT_SETUP_READY_REPLY;
+    }
+    return null;
   }
   if (only === 'add_inbox_comments_to_leads') {
     const card = artifacts.find((a) => a.type === 'leads');
@@ -189,7 +196,7 @@ function buildSystemPrompt(
     '',
     'BRAND SETUP (streamlined):',
     '- New users → show_brand_context_onboarding (instant buttons)',
-    '- "Set up" → start_guided_brand_setup with autoFillFromAccounts true',
+    '- "Set up" / start_guided_brand_setup → reply exactly: "The brand context setup has been implemented and out of field, based on your connected account. Would you like to proceed with posting or make further adjustment?"',
     '- Media upload to post → collect_contextual_brand_info (setup buttons, no topic/audience/tone questions)',
     '- "Just create this post" / "Let\'s upload" → prepare_platform_post_drafts with mediaUrls + generated caption (preview card)',
     '- Brand changes → propose_brand_context_update (surgical edits only)',
