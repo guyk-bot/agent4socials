@@ -1,6 +1,10 @@
 import api from '@/lib/api';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 import { writeCachedMessages } from '@/lib/ai/aysop-chat-local-cache';
+import {
+  applyBrandContextClearedOnClient,
+  artifactsClearedBrandContext,
+} from '@/lib/brand-context-utils';
 
 export type ChatRunnerMessage = {
   id: string;
@@ -108,6 +112,9 @@ export async function runChatInBackground(opts: {
     };
     const completeMessages = [...opts.pendingMessages, assistantMsg];
     writeCachedMessages(opts.userId, opts.sessionId, completeMessages);
+    if (artifactsClearedBrandContext(res.data.artifacts)) {
+      applyBrandContextClearedOnClient(opts.userId);
+    }
     jobs.delete(opts.sessionId);
     emit(opts.sessionId, 'complete');
 

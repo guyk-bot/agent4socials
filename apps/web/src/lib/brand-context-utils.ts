@@ -96,6 +96,34 @@ export function clearBrandContextCache(userId?: string | null): void {
   }
 }
 
+export const BRAND_CONTEXT_CLEARED_EVENT = 'izop-brand-context-cleared';
+
+/** After chat or API clears brand context, sync local caches so Brand page shows empty fields. */
+export function applyBrandContextClearedOnClient(userId?: string | null): void {
+  if (typeof window === 'undefined') return;
+  if (userId) {
+    writeBrandContextCache(EMPTY_BRAND_CONTEXT, userId);
+  } else {
+    clearBrandContextCache();
+  }
+  writeComposerBrandReadyCache(false);
+  markBrandContextSaved();
+  try {
+    window.dispatchEvent(new CustomEvent(BRAND_CONTEXT_CLEARED_EVENT));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function artifactsClearedBrandContext(artifacts: unknown[] | undefined): boolean {
+  if (!Array.isArray(artifacts)) return false;
+  return artifacts.some((raw) => {
+    if (!raw || typeof raw !== 'object') return false;
+    const a = raw as { type?: string; title?: string };
+    return a.type === 'text_block' && a.title === 'Brand context cleared';
+  });
+}
+
 export const EMPTY_BRAND_CONTEXT: Required<BrandContextRecord> = {
   targetAudience: null,
   toneOfVoice: null,

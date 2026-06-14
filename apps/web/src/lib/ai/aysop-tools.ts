@@ -63,6 +63,7 @@ import {
   autoFillBrandContextFromAccounts,
   missingBrandContextFieldKeys,
 } from '@/lib/ai/brand-context-auto-fill';
+import { clearBrandContextForUser } from '@/lib/ai/brand-context-clear';
 import { BRAND_CONTEXT_SETUP_READY_REPLY } from '@/lib/ai/aysop-media-brand-prompt';
 
 export type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
@@ -1665,19 +1666,7 @@ export async function runAysopTool(
     }
 
     case 'clear_brand_context': {
-      const empty = {
-        targetAudience: null,
-        toneOfVoice: null,
-        toneExamples: null,
-        productDescription: null,
-        additionalContext: null,
-        inboxReplyExamples: null,
-        commentReplyExamples: null,
-      };
-      await prisma.user.update({
-        where: { id: ctx.userId },
-        data: { brandContext: empty },
-      });
+      await clearBrandContextForUser(ctx.userId);
       return {
         result: { cleared: true },
         artifacts: [

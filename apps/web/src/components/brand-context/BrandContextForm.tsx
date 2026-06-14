@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { GlassButton } from '@/components/ui/GlassButton';
 import {
   brandContextToFormFields,
+  BRAND_CONTEXT_CLEARED_EVENT,
   EMPTY_BRAND_CONTEXT,
   hasComposerBrandContext,
   parseBrandContextApiPayload,
@@ -116,6 +117,16 @@ export default function BrandContextForm({ variant = 'page' }: Props) {
     },
     [user?.id]
   );
+
+  useEffect(() => {
+    const onCleared = () => {
+      setForm(EMPTY_BRAND_CONTEXT);
+      setHydratedFromCache(false);
+      setMessage(null);
+    };
+    window.addEventListener(BRAND_CONTEXT_CLEARED_EVENT, onCleared);
+    return () => window.removeEventListener(BRAND_CONTEXT_CLEARED_EVENT, onCleared);
+  }, []);
 
   useEffect(() => {
     if (!user?.id) return;

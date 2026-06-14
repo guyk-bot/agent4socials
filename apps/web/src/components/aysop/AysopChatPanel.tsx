@@ -24,6 +24,10 @@ import { useMediaUpload } from '@/hooks/useMediaUpload';
 import { MediaUploadProgress } from '@/components/media/MediaUploadProgress';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 import { resolveChatBrandContext } from '@/lib/ai/aysop-workspace-snapshot';
+import {
+  applyBrandContextClearedOnClient,
+  artifactsClearedBrandContext,
+} from '@/lib/brand-context-utils';
 import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
 import {
   AYSOP_CHAT_FILE_ACCEPT,
@@ -155,6 +159,13 @@ export default function AysopChatPanel({
         const cached = readCachedMessages(userId, sessionId);
         if (cached?.length) {
           onMessagesChange(cached as ChatMessage[]);
+          const last = cached[cached.length - 1];
+          if (
+            last?.role === 'assistant' &&
+            artifactsClearedBrandContext(last.artifacts)
+          ) {
+            applyBrandContextClearedOnClient(userId);
+          }
         }
         setLoading(false);
         return;
@@ -421,6 +432,9 @@ export default function AysopChatPanel({
           if (gen !== requestGenRef.current) return;
           if (result) {
             onMessagesChange(result.messages as ChatMessage[]);
+            if (artifactsClearedBrandContext(result.artifacts)) {
+              applyBrandContextClearedOnClient(userId);
+            }
           } else if (!userStoppedRef.current) {
             setError('Response was interrupted. Send again to retry.');
           }
@@ -448,6 +462,9 @@ export default function AysopChatPanel({
             artifacts: res.data.artifacts,
           },
         ];
+        if (artifactsClearedBrandContext(res.data.artifacts)) {
+          applyBrandContextClearedOnClient(userId);
+        }
         onMessagesChange(withAssistant);
       } catch (e) {
         if (isAbortError(e)) {
