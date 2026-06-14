@@ -14,9 +14,9 @@ type ZThinkingLoopAnimationProps = {
 };
 
 /**
- * iZop thinking mark with a pulsing lime dot on the top-left.
- * Light mode: black Z + green dot asset on white backgrounds.
- * Dark mode: white Z mask with animated lime dot overlay.
+ * iZop thinking mark with lime glow centered on the green dot.
+ * Light mode: black Z + baked-in dot asset.
+ * Dark mode: white Z mask + rendered dot + same glow.
  */
 export function ZThinkingLoopAnimation({
   size = 40,
@@ -40,7 +40,11 @@ export function ZThinkingLoopAnimation({
         className="izop-thinking-mark__logo"
         draggable={false}
       />
-      <span className="izop-thinking-mark__dot" aria-hidden />
+      <span className="izop-thinking-mark__dot-wrap" aria-hidden>
+        <span className="izop-thinking-mark__glow izop-thinking-mark__glow--outer" />
+        <span className="izop-thinking-mark__glow izop-thinking-mark__glow--inner" />
+        <span className="izop-thinking-mark__dot-core" />
+      </span>
     </div>
   );
 }

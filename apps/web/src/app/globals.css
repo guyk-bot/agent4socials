@@ -862,8 +862,11 @@
   --chat-hero-cursor: rgba(242, 242, 242, 0.5);
 }
 
-/* iZop thinking mark: logo + lime dot on top-left */
+/* iZop thinking mark: glow centered on lime dot (measured from logo asset) */
 .izop-thinking-mark {
+  --izop-dot-cx: 30.62%;
+  --izop-dot-cy: 35.99%;
+  --izop-dot-d: 21%;
   position: relative;
   width: var(--izop-thinking-size, 40px);
   height: var(--izop-thinking-size, 40px);
@@ -880,30 +883,59 @@
   transform-origin: center center;
   animation: izop-thinking-logo-breathe 1.5s ease-in-out infinite;
 }
-.izop-thinking-mark__dot {
+.izop-thinking-mark__dot-wrap {
   position: absolute;
+  left: var(--izop-dot-cx);
+  top: var(--izop-dot-cy);
+  width: var(--izop-dot-d);
+  height: var(--izop-dot-d);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.izop-thinking-mark__dot-core {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #aaff45;
+  box-shadow: 0 0 6px rgba(170, 255, 69, 0.85);
+  animation: izop-thinking-core-pulse 1.1s ease-in-out infinite;
+}
+.izop-thinking-mark--light .izop-thinking-mark__dot-core {
+  display: none;
+}
+.izop-thinking-mark__glow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
   border-radius: 50%;
   pointer-events: none;
-  animation: izop-thinking-dot-pulse 1s ease-in-out infinite;
+  transform: translate(-50%, -50%);
+  will-change: transform, opacity;
 }
-/* Dark mode: white Z mask + separate lime dot */
-.izop-thinking-mark--dark .izop-thinking-mark__dot {
-  top: 5%;
-  left: 7%;
-  width: 22%;
-  height: 22%;
-  background: #aaff45;
-  box-shadow: 0 0 6px rgba(170, 255, 69, 0.8);
+.izop-thinking-mark__glow--inner {
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(
+    circle,
+    rgba(170, 255, 69, 0.95) 0%,
+    rgba(170, 255, 69, 0.55) 28%,
+    rgba(170, 255, 69, 0.18) 52%,
+    transparent 72%
+  );
+  animation: izop-thinking-glow-inner 1.1s ease-in-out infinite;
 }
-/* Light mode: black Z + baked-in dot; overlay pulses glow on the green accent */
-.izop-thinking-mark--light .izop-thinking-mark__dot {
-  top: 3.5%;
-  left: 3.5%;
-  width: 21%;
-  height: 21%;
-  background: #aaff45;
-  opacity: 0.35;
-  box-shadow: 0 0 10px rgba(170, 255, 69, 0.75);
+.izop-thinking-mark__glow--outer {
+  width: 360%;
+  height: 360%;
+  background: radial-gradient(
+    circle,
+    rgba(170, 255, 69, 0.45) 0%,
+    rgba(170, 255, 69, 0.2) 24%,
+    rgba(170, 255, 69, 0.06) 48%,
+    transparent 70%
+  );
+  animation: izop-thinking-glow-outer 1.1s ease-in-out infinite;
+  animation-delay: 0.12s;
 }
 @keyframes izop-thinking-logo-breathe {
   0%,
@@ -914,31 +946,51 @@
     transform: scale(1.03);
   }
 }
-@keyframes izop-thinking-dot-pulse {
+@keyframes izop-thinking-core-pulse {
   0%,
   100% {
-    transform: scale(0.85);
-    opacity: 0.65;
+    transform: scale(0.94);
+    filter: brightness(0.96);
   }
   50% {
-    transform: scale(1.18);
+    transform: scale(1.06);
+    filter: brightness(1.12);
+  }
+}
+@keyframes izop-thinking-glow-inner {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: translate(-50%, -50%) scale(0.82);
+  }
+  50% {
     opacity: 1;
+    transform: translate(-50%, -50%) scale(1.18);
   }
 }
-.izop-thinking-mark--light .izop-thinking-mark__dot {
-  animation: izop-thinking-dot-pulse-light 1s ease-in-out infinite;
-}
-@keyframes izop-thinking-dot-pulse-light {
+@keyframes izop-thinking-glow-outer {
   0%,
   100% {
-    transform: scale(0.9);
-    opacity: 0.25;
-    box-shadow: 0 0 4px rgba(170, 255, 69, 0.5);
+    opacity: 0.2;
+    transform: translate(-50%, -50%) scale(0.68);
   }
   50% {
-    transform: scale(1.22);
+    opacity: 0.75;
+    transform: translate(-50%, -50%) scale(1.28);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .izop-thinking-mark__logo,
+  .izop-thinking-mark__dot-core,
+  .izop-thinking-mark__glow--inner,
+  .izop-thinking-mark__glow--outer {
+    animation: none;
+  }
+  .izop-thinking-mark__glow--inner {
     opacity: 0.55;
-    box-shadow: 0 0 14px rgba(170, 255, 69, 0.95);
+  }
+  .izop-thinking-mark__glow--outer {
+    opacity: 0.3;
   }
 }
 
