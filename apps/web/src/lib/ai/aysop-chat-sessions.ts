@@ -156,12 +156,24 @@ export function sessionHasConversation(
   );
 }
 
-/** Sidebar: chats with real content. Offline drafts only after the user sends a message. */
+/** True when the user has sent at least one message in this session (cached). */
+export function sessionHasUserMessages(userId: string | undefined, sessionId: string): boolean {
+  if (!userId || !sessionId) return false;
+  const msgs = readCachedMessages(userId, sessionId);
+  return Boolean(
+    msgs?.some(
+      (m) => m.role === 'user' && (m.content?.trim() || (m.attachments?.length ?? 0) > 0)
+    )
+  );
+}
+
+/** Sidebar: only chats the user actually started (at least one user message). */
 export function sessionShouldShowInSidebar(
   s: AysopChatSessionSummary,
   userId?: string
 ): boolean {
-  return sessionHasConversation(s, userId);
+  if (!userId) return sessionHasConversation(s, userId);
+  return sessionHasUserMessages(userId, s.id);
 }
 
 export function dedupeChatSessions(
@@ -258,11 +270,20 @@ export function pickRestoreChatId(
   const byId = new Map(sidebar.map((s) => [s.id, s]));
   const lastId = readLastActiveChatId(userId);
 
+  if (lastId && !lastId.startsWith('offline-')) {
+    if (sessionHasUserMessages(userId, lastId) || byId.has(lastId)) {
+      return lastId;
+    }
+  }
+
   if (lastId && byId.has(lastId)) return lastId;
 
-  const real = sidebar.filter((s) => !s.id.startsWith('offline-'));
-  const withConvo = real.filter((s) => sessionHasConversation(s, userId));
-  if (withConvo.length) return withConvo[0]!.id;
+  const real = sidebar
+    .filter((s) => !s.id.startsWith('offline-'))
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+  const withUserMsgs = real.filter((s) => sessionHasUserMessages(userId, s.id));
+  if (withUserMsgs.length) return withUserMsgs[0]!.id;
   if (real.length) return real[0]!.id;
 
   const offline = sidebar.find((s) => s.id.startsWith('offline-'));

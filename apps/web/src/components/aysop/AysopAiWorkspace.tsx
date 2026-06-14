@@ -24,6 +24,7 @@ import {
   pickRestoreChatId,
   previewFromMessages,
   sessionHasConversation,
+  sessionHasUserMessages,
   sessionShouldShowInSidebar,
   titleFromMessages,
   shouldReplaceChatTitle,
@@ -95,7 +96,9 @@ function resolveInstantChatState(
   );
   let activeId: string | null = chatParam;
 
-  if (!activeId || (activeId.startsWith('offline-') && !sessions.some((s) => s.id === activeId))) {
+  if (!activeId) {
+    activeId = pickRestoreChatId(userId, sessions);
+  } else if (activeId.startsWith('offline-') && !sessions.some((s) => s.id === activeId)) {
     activeId = pickRestoreChatId(userId, sessions);
   }
 
@@ -451,9 +454,8 @@ export default function AysopAiWorkspace() {
     const funnelImportedChatId = consumeFunnelOpenAysopChatId();
     const instantId =
       funnelImportedChatId ??
-      (chatParam && cachedList.some((s) => s.id === chatParam)
-        ? chatParam
-        : pickRestoreChatId(user.id, cachedList));
+      chatParam ??
+      pickRestoreChatId(user.id, cachedList);
 
     if (instantId && !newChatIntentRef.current) {
       setActiveId(instantId);
@@ -608,6 +610,15 @@ export default function AysopAiWorkspace() {
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      const uid = user?.id;
+      const id = activeIdRef.current;
+      if (!uid || !id || id.startsWith('offline-')) return;
+      writeLastActiveChatId(uid, id);
+    };
+  }, [user?.id]);
+
   const handleNewChat = useCallback(() => {
     if (!user?.id) return;
 
@@ -618,7 +629,6 @@ export default function AysopAiWorkspace() {
 
     setMessages([]);
     messagesRef.current = [];
-    clearLastActiveChatId(user?.id);
     setPanelResetKey((k) => k + 1);
 
     setActiveId(tempSession.id);
@@ -744,6 +754,9 @@ export default function AysopAiWorkspace() {
         );
         if (!hasUserMessage) return prev;
         newChatIntentRef.current = false;
+        if (user?.id && !id.startsWith('offline-')) {
+          writeLastActiveChatId(user.id, id);
+        }
         const rest = prev.filter((s) => s.id !== id);
         const merged = dedupeChatSessions([summary, ...rest]);
         writeCachedSessionList(user?.id, merged);
