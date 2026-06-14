@@ -194,6 +194,12 @@ export default function IzopAiWorkspace() {
     [cacheSessionList, user?.id]
   );
 
+  const clearChatUrlIfNeeded = useCallback(() => {
+    if (chatParam) {
+      router.replace(IZOP_AI_DASHBOARD_PATH, { scroll: false });
+    }
+  }, [chatParam, router]);
+
   const setActiveChat = useCallback(
     (id: string, opts?: { remember?: boolean }) => {
       setActiveId(id);
@@ -206,12 +212,12 @@ export default function IzopAiWorkspace() {
         writeLastActiveChatId(user.id, id);
       }
       if (isEphemeralOfflineSession(id, user?.id)) {
-        router.replace(IZOP_AI_DASHBOARD_PATH, { scroll: false });
+        clearChatUrlIfNeeded();
       } else {
         router.replace(`${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(id)}`, { scroll: false });
       }
     },
-    [router, user?.id]
+    [router, user?.id, clearChatUrlIfNeeded]
   );
 
   const startEphemeralChat = useCallback(() => {
@@ -220,9 +226,9 @@ export default function IzopAiWorkspace() {
     messagesRef.current = [];
     setActiveId(quick.id);
     activeIdRef.current = quick.id;
-    router.replace(IZOP_AI_DASHBOARD_PATH, { scroll: false });
+    clearChatUrlIfNeeded();
     return quick.id;
-  }, [router]);
+  }, [clearChatUrlIfNeeded]);
 
   const restoreActiveChat = useCallback(
     (id: string) => {
@@ -232,12 +238,12 @@ export default function IzopAiWorkspace() {
         writeLastActiveChatId(user.id, id);
       }
       if (isEphemeralOfflineSession(id, user?.id)) {
-        router.replace(IZOP_AI_DASHBOARD_PATH, { scroll: false });
+        clearChatUrlIfNeeded();
       } else {
         router.replace(`${IZOP_AI_DASHBOARD_PATH}?c=${encodeURIComponent(id)}`, { scroll: false });
       }
     },
-    [router, user?.id]
+    [router, user?.id, clearChatUrlIfNeeded]
   );
 
   const hydrateMessages = useCallback(
@@ -777,12 +783,14 @@ export default function IzopAiWorkspace() {
 
     setActiveId(tempSession.id);
     activeIdRef.current = tempSession.id;
-    router.replace(IZOP_AI_DASHBOARD_PATH, { scroll: false });
 
-    queueMicrotask(() => {
+    // Avoid replace to the same path: it remounts the workspace and drops panelResetKey.
+    clearChatUrlIfNeeded();
+
+    window.setTimeout(() => {
       newChatIntentRef.current = false;
-    });
-  }, [user?.id, router, cacheSessionList]);
+    }, 300);
+  }, [user?.id, cacheSessionList, clearChatUrlIfNeeded]);
 
   const handleSelect = (id: string) => {
     if (id === activeIdRef.current || actionLockRef.current) return;

@@ -225,11 +225,11 @@ export function resolveActiveChatId(
   const pendingId = readPendingNewChatId(userId);
   const hidden = readDeletedChatIds(userId);
 
-  if (pendingId && !hidden.has(pendingId)) return pendingId;
-
   if (chatParam && !hidden.has(chatParam) && isChatSessionAccessible(userId, chatParam, withPending)) {
     return chatParam;
   }
+
+  if (pendingId && !hidden.has(pendingId)) return pendingId;
 
   return pickRestoreChatId(userId, withPending);
 }

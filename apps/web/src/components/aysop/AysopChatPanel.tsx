@@ -224,7 +224,8 @@ export default function AysopChatPanel({
     setInput('');
     setPendingAttachments([]);
     setError(null);
-  }, [panelResetKey]);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, [panelResetKey, sessionId]);
 
   useEffect(() => {
     setLoading(Boolean(sessionId && isChatRunnerActive(sessionId)));
