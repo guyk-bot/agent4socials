@@ -30,7 +30,7 @@ model User {
   automationFollowerWelcomes AutomationFollowerWelcome[]
   dmFirstWelcomeSent       DmFirstWelcomeSent[]
   linkPage               LinkPage?
-  aysopChatSessions      AysopChatSession[]
+  izopChatSessions       IzopChatSession[]
   productEvents          UserProductEvent[]
 }
 
@@ -508,7 +508,7 @@ model AppKv {
 }
 
 /// Persisted iZop AI chat threads (ChatGPT-style history).
-model AysopChatSession {
+model IzopChatSession {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)

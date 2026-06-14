@@ -356,7 +356,7 @@ export async function buildLightweightDashboardReport(
   };
 }
 
-const INSIGHTS_BUDGET_MS = Number(process.env.AYSOP_INSIGHTS_BUDGET_MS) || 22_000;
+const INSIGHTS_BUDGET_MS = Number(process.env.IZOP_INSIGHTS_BUDGET_MS) || 22_000;
 
 /** Full dashboard insights with timeout; falls back to synced DB metrics. */
 export async function buildDashboardAnalyticsReportSafe(

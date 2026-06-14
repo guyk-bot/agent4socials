@@ -23,7 +23,7 @@ export function dashboardPathAfterAuth(): string {
 }
 
 const FUNNEL_HANDOFF_KEY = 'izop_funnel_handoff_v1';
-const FUNNEL_OPEN_AYSOP_CHAT_KEY = 'izop_funnel_open_aysop_chat_v1';
+const FUNNEL_OPEN_IZOP_CHAT_KEY = 'izop_funnel_open_izop_chat_v1';
 
 export type FunnelHandoffPayload = {
   token?: string | null;
@@ -48,16 +48,19 @@ export function clearFunnelHandoff(): void {
   sessionStorage.removeItem(FUNNEL_HANDOFF_KEY);
 }
 
-export function setFunnelOpenAysopChatId(sessionId: string): void {
+export function setFunnelOpenIzopChatId(sessionId: string): void {
   if (typeof window === 'undefined') return;
-  sessionStorage.setItem(FUNNEL_OPEN_AYSOP_CHAT_KEY, sessionId);
+  sessionStorage.setItem(FUNNEL_OPEN_IZOP_CHAT_KEY, sessionId);
 }
 
-export function consumeFunnelOpenAysopChatId(): string | null {
+export function consumeFunnelOpenIzopChatId(): string | null {
   if (typeof window === 'undefined') return null;
-  const raw = sessionStorage.getItem(FUNNEL_OPEN_AYSOP_CHAT_KEY);
+  const raw =
+    sessionStorage.getItem(FUNNEL_OPEN_IZOP_CHAT_KEY) ??
+    sessionStorage.getItem('izop_funnel_open_aysop_chat_v1');
   if (!raw) return null;
-  sessionStorage.removeItem(FUNNEL_OPEN_AYSOP_CHAT_KEY);
+  sessionStorage.removeItem(FUNNEL_OPEN_IZOP_CHAT_KEY);
+  sessionStorage.removeItem('izop_funnel_open_aysop_chat_v1');
   return raw;
 }
 

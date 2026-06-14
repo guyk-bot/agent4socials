@@ -8,12 +8,12 @@ export const API_DEFAULT_TIMEOUT_MS = 25_000;
 export const API_THREADS_COMMENT_REPLY_TIMEOUT_MS = 90_000;
 export const API_INSTAGRAM_DM_TIMEOUT_MS = 58_000;
 /** iZop AI chat (tool rounds + vision). */
-export const API_AYSOP_CHAT_TIMEOUT_MS = 120_000;
+export const API_IZOP_CHAT_TIMEOUT_MS = 120_000;
 /** iZop chat with PDF/video attachments (slower model + tools). */
-export const API_AYSOP_CHAT_ATTACHMENTS_TIMEOUT_MS = 180_000;
+export const API_IZOP_CHAT_ATTACHMENTS_TIMEOUT_MS = 180_000;
 /** Presigned URL + large PUT to R2. */
 export const API_MEDIA_UPLOAD_TIMEOUT_MS = 180_000;
-export const API_AYSOP_SESSION_PERSIST_TIMEOUT_MS = 120_000;
+export const API_IZOP_SESSION_PERSIST_TIMEOUT_MS = 120_000;
 /** Direct PUT to R2 after presign (large PDFs/videos). */
 export const R2_DIRECT_UPLOAD_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -50,8 +50,8 @@ function isPriorityApiPath(url?: string, baseURL?: string): boolean {
   const path = resolveRequestPath(url, baseURL);
   if (!path) return false;
   return (
-    path.includes('/ai/aysop-chat') ||
-    path.includes('/ai/aysop-chats') ||
+    path.includes('/ai/izop-chat') ||
+    path.includes('/ai/izop-chats') ||
     path.includes('/leads/scan') ||
     path.includes('/leads/last') ||
     path.includes('/media/upload-url') ||
@@ -83,15 +83,15 @@ function applyApiTimeout(config: {
     floor(API_THREADS_COMMENT_REPLY_TIMEOUT_MS);
   } else if (path.includes('/inbox/instagram-dms')) {
     floor(API_INSTAGRAM_DM_TIMEOUT_MS);
-  } else if (path.includes('/ai/aysop-chat')) {
-    floor(API_AYSOP_CHAT_TIMEOUT_MS);
+  } else if (path.includes('/ai/izop-chat')) {
+    floor(API_IZOP_CHAT_TIMEOUT_MS);
   } else if (path.includes('/media/upload-url') || path.includes('/media/upload')) {
     floor(API_MEDIA_UPLOAD_TIMEOUT_MS);
-  } else if (/\/ai\/aysop-chats\/[^/?]+$/.test(path)) {
+  } else if (/\/ai\/izop-chats\/[^/?]+$/.test(path)) {
     // Only PATCH (save messages) needs the long timeout; GET/DELETE stay fast.
     const method = (config.method ?? 'get').toLowerCase();
     if (method === 'patch') {
-      floor(API_AYSOP_SESSION_PERSIST_TIMEOUT_MS);
+      floor(API_IZOP_SESSION_PERSIST_TIMEOUT_MS);
     }
   }
 }

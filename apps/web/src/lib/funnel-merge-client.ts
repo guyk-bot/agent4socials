@@ -3,7 +3,7 @@
 import {
   clearFunnelHandoff,
   readFunnelHandoff,
-  setFunnelOpenAysopChatId,
+  setFunnelOpenIzopChatId,
 } from '@/lib/funnel-onboarding';
 import { readFunnelSessionToken } from '@/lib/funnel-session-client';
 
@@ -21,7 +21,7 @@ export type FunnelMergeClientResult = {
   mergedAccounts?: number;
   accounts?: FunnelMergedAccount[];
   brandContextMerged?: boolean;
-  aysopChatSessionId?: string;
+  izopChatSessionId?: string;
   importedPostId?: string;
 };
 
@@ -75,8 +75,8 @@ async function performFunnelMerge(
       return null;
     }
     clearFunnelHandoff();
-    if (data.aysopChatSessionId) {
-      setFunnelOpenAysopChatId(data.aysopChatSessionId);
+    if (data.izopChatSessionId) {
+      setFunnelOpenIzopChatId(data.izopChatSessionId);
     }
     window.dispatchEvent(new CustomEvent(FUNNEL_MERGED_EVENT, { detail: data }));
     return data;

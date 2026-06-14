@@ -86,9 +86,9 @@ import {
 } from '@/lib/linkedin/publish-settings';
 import { LinkedInVisibilitySelect } from '@/components/composer/LinkedInVisibilitySelect';
 import {
-    consumeAysopComposerDraft,
-    parseAysopComposerDraftFromSearchParams,
-} from '@/lib/composer/aysop-composer-draft-bridge';
+    consumeIzopComposerDraft,
+    parseIzopComposerDraftFromSearchParams,
+} from '@/lib/composer/izop-composer-draft-bridge';
 
 const COMPOSER_DRAFT_KEY = 'agent4socials_composer_draft';
 
@@ -816,7 +816,7 @@ export default function ComposerPage() {
     const accountsLoadError = accountsCache?.accountsLoadError ?? null;
     const searchParams = useSearchParams();
     const editPostId = searchParams.get('edit');
-    const aysopDraftFlag = searchParams.get('aysopDraft');
+    const izopDraftFlag = searchParams.get('izopDraft') ?? searchParams.get('aysopDraft');
     const isComposerEmbed = searchParams.get('embed') === '1';
     /** Real DB post id from History; `pending-*` ids are client-only and must create a new post. */
     const persistedEditPostId =
@@ -1234,10 +1234,10 @@ export default function ComposerPage() {
             return;
         }
 
-        if (aysopDraftFlag === '1') {
+        if (izopDraftFlag === '1') {
             const staged =
-                consumeAysopComposerDraft() ??
-                parseAysopComposerDraftFromSearchParams(searchParams);
+                consumeIzopComposerDraft() ??
+                parseIzopComposerDraftFromSearchParams(searchParams);
             if (staged) {
                 applyComposerDraftFromPartial(staged);
                 setSectionOpen((s) => ({
@@ -1260,7 +1260,7 @@ export default function ComposerPage() {
             applyComposerDraftFromPartial(JSON.parse(raw) as Partial<ComposerDraft>);
         } catch (_) { /* ignore */ }
         setDraftRestored(true);
-    }, [applyComposerDraftFromPartial, aysopDraftFlag, draftRestored, editPostId, searchParams]);
+    }, [applyComposerDraftFromPartial, izopDraftFlag, draftRestored, editPostId, searchParams]);
 
     // Load post for editing when ?edit=id is present
     const [editLoaded, setEditLoaded] = useState(false);

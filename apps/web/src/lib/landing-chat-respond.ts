@@ -1,5 +1,5 @@
 import { openAiChat } from '@/lib/openai-client';
-import { isAysopLlmConfigured } from '@/lib/ai/llm-config';
+import { isIzopLlmConfigured } from '@/lib/ai/llm-config';
 import {
   answerLandingChatQuestion,
   answerLandingChatPriority,
@@ -88,7 +88,7 @@ export async function respondLandingChat(
 
   const scripted = answerLandingChatQuestion(ctx);
 
-  if (!isAysopLlmConfigured()) {
+  if (!isIzopLlmConfigured()) {
     return { text: scripted, source: 'script' };
   }
 

@@ -9,6 +9,6 @@
     "app/api/posts/[id]/publish/route.ts": { "maxDuration": 300 },
     "app/api/social/accounts/[id]/conversations/route.ts": { "maxDuration": 60 },
     "app/api/inbox/instagram-dms/route.ts": { "maxDuration": 60 },
-    "app/api/ai/aysop-chat/route.ts": { "maxDuration": 120 }
+    "app/api/ai/izop-chat/route.ts": { "maxDuration": 120 }
   }
 }

@@ -1,6 +1,6 @@
 import type { BrandContextRecord } from '@/lib/brand-context-utils';
 import { openAiChat } from '@/lib/openai-client';
-import { isAysopLlmConfigured } from '@/lib/ai/llm-config';
+import { isIzopLlmConfigured } from '@/lib/ai/llm-config';
 import type { LandingChatContext } from '@/lib/chat-hero-script';
 import { isBrandContextFunnelStep, normalizeLandingChatText } from '@/lib/chat-hero-script';
 import { buildFunnelBrandDraftForAccount } from '@/lib/funnel/build-brand-draft';
@@ -133,7 +133,7 @@ async function llmFillBrandContext(params: {
   platformLabel?: string;
   username?: string;
 }): Promise<{ reply: string; draft: BrandContextRecord; hashtagPool: string } | null> {
-  if (!isAysopLlmConfigured()) return null;
+  if (!isIzopLlmConfigured()) return null;
 
   const system = [
     'You help fill the iZop brand context form during the pre-signup funnel.',

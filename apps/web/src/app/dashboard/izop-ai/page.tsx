@@ -2,7 +2,7 @@
 
 import React, { Suspense } from 'react';
 import { Loader2 } from 'lucide-react';
-import IzopAiWorkspace from '@/components/aysop/IzopAiWorkspace';
+import IzopAiWorkspace from '@/components/izop/IzopAiWorkspace';
 
 function LoadingShell() {
   return (

@@ -25,7 +25,7 @@ export interface OpenAIChatOptions {
   response_format?: { type: 'json_object' } | { type: 'text' };
   model?: string;
   /** Use OpenRouter for iZop AI when Izop_AI is set. Default uses OpenAI directly. */
-  providerScope?: 'default' | 'aysop';
+  providerScope?: 'default' | 'izop';
 }
 
 export interface OpenAIChatResult {

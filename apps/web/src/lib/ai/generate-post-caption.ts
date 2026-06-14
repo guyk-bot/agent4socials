@@ -9,7 +9,7 @@ import {
   type BrandContextRecord,
 } from '@/lib/brand-context-utils';
 import { platformLabel } from '@/lib/composer/platform-capabilities';
-import { getAysopOpenRouterApiKey, toOpenRouterModel } from '@/lib/ai/llm-config';
+import { getIzopOpenRouterApiKey, toOpenRouterModel } from '@/lib/ai/llm-config';
 
 function cleanGeneratedText(text: string): string {
   return text
@@ -66,7 +66,7 @@ export async function generatePostCaptionForUser(
     brandContextOverride?: BrandContextRecord | null;
   }
 ): Promise<string> {
-  if (!process.env.OPENAI_API_KEY?.trim() && !getAysopOpenRouterApiKey()) {
+  if (!process.env.OPENAI_API_KEY?.trim() && !getIzopOpenRouterApiKey()) {
     throw new Error('Caption generation is not configured.');
   }
 
@@ -113,7 +113,7 @@ export async function generatePostCaptionForUser(
     process.env.OPENAI_VISION_MODEL?.trim() ||
     process.env.OPENAI_CHAT_VISION_MODEL?.trim() ||
     'gpt-4.1-mini';
-  const visionModel = getAysopOpenRouterApiKey() ? toOpenRouterModel(visionModelRaw) : visionModelRaw;
+  const visionModel = getIzopOpenRouterApiKey() ? toOpenRouterModel(visionModelRaw) : visionModelRaw;
   const useVision = Boolean(opts.imageUrl?.trim());
 
   const { content } = await openAiChatWithUserParts(
@@ -128,7 +128,7 @@ export async function generatePostCaptionForUser(
     ],
     {
       max_tokens: 320,
-      providerScope: 'aysop',
+      providerScope: 'izop',
       ...(useVision ? { model: visionModel } : {}),
     }
   );

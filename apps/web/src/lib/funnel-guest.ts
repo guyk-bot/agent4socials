@@ -4,7 +4,7 @@ import { prisma, withPrismaPoolRetry } from '@/lib/db';
 import { ensureFunnelSessionsTable } from '@/lib/ensure-funnel-sessions-table';
 import type { BrandContextRecord } from '@/lib/brand-context-utils';
 import {
-  importFunnelChatToAysop,
+  importFunnelChatToIzop,
   importGuestPublishToPost,
   parseGuestPublishMeta,
 } from '@/lib/funnel-import-to-app';
@@ -179,7 +179,7 @@ export type FunnelMergeResult = {
   mergedAccounts: number;
   accounts: FunnelMergeAccount[];
   brandContextMerged: boolean;
-  aysopChatSessionId?: string;
+  izopChatSessionId?: string;
   importedPostId?: string;
 };
 
@@ -278,7 +278,7 @@ export async function mergeFunnelSessionToUser(
     row.chatPayload && typeof row.chatPayload === 'object'
       ? (row.chatPayload as FunnelChatPayload)
       : null;
-  const aysopChatSessionId = await importFunnelChatToAysop(targetUserId, chatPayload).catch(() => undefined);
+  const izopChatSessionId = await importFunnelChatToIzop(targetUserId, chatPayload).catch(() => undefined);
 
   const publishMeta = parseGuestPublishMeta(row.guestPublishMeta);
   const publishAccountId =
@@ -298,7 +298,7 @@ export async function mergeFunnelSessionToUser(
     mergedAccounts,
     accounts: mergedAccountRows,
     brandContextMerged,
-    aysopChatSessionId,
+    izopChatSessionId,
     importedPostId,
   };
 }

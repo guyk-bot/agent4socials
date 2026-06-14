@@ -1,8 +1,8 @@
 import { randomUUID } from 'crypto';
 import type { Platform, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
-import { createAysopChatSession, updateAysopChatSession } from '@/lib/ai/aysop-chat-store';
-import type { StoredAysopMessage } from '@/lib/ai/aysop-chat-sessions';
+import { createIzopChatSession, updateIzopChatSession } from '@/lib/ai/izop-chat-store';
+import type { StoredIzopMessage } from '@/lib/ai/izop-chat-sessions';
 import type { FunnelChatPayload } from '@/lib/funnel-guest';
 
 export type GuestPublishMeta = {
@@ -19,8 +19,8 @@ type FunnelBlock = {
   items?: Array<{ value?: string; label?: string }>;
 };
 
-export function funnelBlocksToAysopMessages(blocks: unknown[]): StoredAysopMessage[] {
-  const messages: StoredAysopMessage[] = [];
+export function funnelBlocksToIzopMessages(blocks: unknown[]): StoredIzopMessage[] {
+  const messages: StoredIzopMessage[] = [];
   for (const raw of blocks) {
     if (!raw || typeof raw !== 'object') continue;
     const block = raw as FunnelBlock;
@@ -50,16 +50,16 @@ export function funnelBlocksToAysopMessages(blocks: unknown[]): StoredAysopMessa
   return messages.slice(-40);
 }
 
-export async function importFunnelChatToAysop(
+export async function importFunnelChatToIzop(
   userId: string,
   chatPayload: FunnelChatPayload | null | undefined
 ): Promise<string | undefined> {
   const blocks = Array.isArray(chatPayload?.blocks) ? chatPayload.blocks : [];
-  const messages = funnelBlocksToAysopMessages(blocks);
+  const messages = funnelBlocksToIzopMessages(blocks);
   if (messages.length === 0) return undefined;
 
-  const session = await createAysopChatSession(userId, 'Landing chat');
-  const updated = await updateAysopChatSession(userId, session.id, { messages });
+  const session = await createIzopChatSession(userId, 'Landing chat');
+  const updated = await updateIzopChatSession(userId, session.id, { messages });
   return updated?.id ?? session.id;
 }
 

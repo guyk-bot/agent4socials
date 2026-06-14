@@ -33,16 +33,16 @@ export function toOpenRouterModel(model: string): string {
   return trimmed;
 }
 
-export function getAysopOpenRouterApiKey(): string {
+export function getIzopOpenRouterApiKey(): string {
   return readEnv('Izop_AI', 'IZOP_AI', 'OPENROUTER_API_KEY');
 }
 
-export function isAysopLlmConfigured(): boolean {
-  return Boolean(getAysopOpenRouterApiKey() || readEnv('OPENAI_API_KEY'));
+export function isIzopLlmConfigured(): boolean {
+  return Boolean(getIzopOpenRouterApiKey() || readEnv('OPENAI_API_KEY'));
 }
 
-export function resolveAysopLlmConfig(modelOverride?: string): ResolvedLlmConfig {
-  const openRouterKey = getAysopOpenRouterApiKey();
+export function resolveIzopLlmConfig(modelOverride?: string): ResolvedLlmConfig {
+  const openRouterKey = getIzopOpenRouterApiKey();
   if (openRouterKey) {
     const model = toOpenRouterModel(
       modelOverride ||
@@ -95,9 +95,9 @@ export function resolveDefaultLlmConfig(modelOverride?: string): ResolvedLlmConf
 }
 
 export function resolveLlmConfig(
-  scope: 'default' | 'aysop',
+  scope: 'default' | 'izop',
   modelOverride?: string
 ): ResolvedLlmConfig {
-  if (scope === 'aysop') return resolveAysopLlmConfig(modelOverride);
+  if (scope === 'izop') return resolveIzopLlmConfig(modelOverride);
   return resolveDefaultLlmConfig(modelOverride);
 }

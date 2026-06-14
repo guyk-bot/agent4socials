@@ -81,7 +81,7 @@ export function FunnelDemoUserBubble({
   return (
     <div className="flex justify-end funnel-demo-message-in">
       <div
-        className={`${visual ? 'max-w-[98%]' : 'max-w-[94%]'} rounded-2xl rounded-br-md leading-snug aysop-bubble-user whitespace-pre-wrap ${
+        className={`${visual ? 'max-w-[98%]' : 'max-w-[94%]'} rounded-2xl rounded-br-md leading-snug izop-bubble-user whitespace-pre-wrap ${
           visual ? 'p-2 text-[17px] sm:text-[18px]' : 'px-3.5 py-3 text-[17px] sm:text-[18px]'
         }`}
       >
@@ -114,7 +114,7 @@ export function FunnelDemoAssistantBubble({
   return (
     <div className="flex min-h-0 shrink justify-start funnel-demo-message-in">
       <div
-        className={`${wide ? 'max-w-[98%]' : 'max-w-[96%]'} min-w-0 rounded-2xl rounded-bl-md leading-snug aysop-bubble-assistant shadow-sm ${
+        className={`${wide ? 'max-w-[98%]' : 'max-w-[96%]'} min-w-0 rounded-2xl rounded-bl-md leading-snug izop-bubble-assistant shadow-sm ${
           visual ? 'p-2.5 text-[17px] sm:text-[18px]' : 'px-3.5 py-3 text-[17px] sm:text-[18px]'
         } ${contained ? `w-full ${overflowClass} flex flex-col min-h-0` : ''}`}
       >

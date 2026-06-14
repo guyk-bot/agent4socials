@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { IZOP_AI_DASHBOARD_PATH } from '@/lib/site-brand-assets';
 
 /** Legacy route: keep bookmarks and funnel redirects working. */
-export default async function LegacyAysopAiRedirectPage({
+export default async function LegacyIzopAiRedirectPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;

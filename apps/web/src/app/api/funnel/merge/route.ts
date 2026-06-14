@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     void recordUserProductEvent(userId, 'funnel_merged', {
       merged_accounts: result.mergedAccounts,
     });
-    return NextResponse.json({ ok: true, ...result, merged: result.mergedAccounts > 0 || !!result.aysopChatSessionId });
+    return NextResponse.json({ ok: true, ...result, merged: result.mergedAccounts > 0 || !!result.izopChatSessionId });
   } catch (e) {
     console.error('[funnel/merge]', (e as Error)?.message);
     return NextResponse.json({ error: 'Merge failed' }, { status: 503 });

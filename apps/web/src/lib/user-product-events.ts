@@ -13,7 +13,7 @@ export type UserProductEventName =
   | 'analytics_viewed'
   | 'pricing_page_viewed'
   | 'pricing_plan_interest'
-  | 'aysop_chat_used'
+  | 'izop_chat_used'
   | 'inbox_opened';
 
 type EventProps = Record<string, string | number | boolean | null | undefined>;

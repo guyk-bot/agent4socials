@@ -1,11 +1,11 @@
-import type { AysopArtifact } from '@/lib/ai/aysop-artifacts';
+import type { IzopArtifact } from '@/lib/ai/izop-artifacts';
 import type { ScannedLead } from '@/lib/leads/scan-leads';
 
 export function leadsToChatArtifacts(
   leads: ScannedLead[],
   scanned: number,
   opts?: { lastScannedAt?: string | null; accountId?: string | null }
-): AysopArtifact[] {
+): IzopArtifact[] {
   if (leads.length > 0) {
     const slice = leads.slice(0, 25);
     return [
