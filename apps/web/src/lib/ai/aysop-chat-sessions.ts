@@ -179,12 +179,6 @@ export function sessionShouldShowInSidebar(
   return sessionHasUserMessages(userId, s.id);
 }
 
-/** True when a chat id may be opened (not locally deleted). */
-export function isRestorableChatId(userId: string | undefined, id: string | null | undefined): boolean {
-  if (!userId || !id?.trim()) return false;
-  return !readDeletedChatIds(userId).has(id);
-}
-
 /** Ensure the pending empty New chat draft is in the session list for sidebar/restore. */
 export function withPendingNewChatSession(
   sessions: AysopChatSessionSummary[],
@@ -207,6 +201,37 @@ export function withPendingNewChatSession(
     } satisfies AysopChatSessionSummary);
 
   return dedupeChatSessions([shell, ...sessions]);
+}
+
+/** Whether this chat id may be opened (not tombstoned / deleted). */
+export function isChatSessionAccessible(
+  userId: string,
+  sessionId: string,
+  sessions: AysopChatSessionSummary[] = []
+): boolean {
+  if (readDeletedChatIds(userId).has(sessionId)) return false;
+  if (sessionId === readPendingNewChatId(userId)) return true;
+  if (sessions.some((s) => s.id === sessionId)) return true;
+  return sessionHasUserMessages(userId, sessionId);
+}
+
+/** Pick the chat to open from URL param, pending draft, or restore heuristics. */
+export function resolveActiveChatId(
+  userId: string,
+  sessions: AysopChatSessionSummary[],
+  chatParam: string | null
+): string | null {
+  const withPending = withPendingNewChatSession(sessions, userId);
+  const pendingId = readPendingNewChatId(userId);
+  const hidden = readDeletedChatIds(userId);
+
+  if (pendingId && !hidden.has(pendingId)) return pendingId;
+
+  if (chatParam && !hidden.has(chatParam) && isChatSessionAccessible(userId, chatParam, withPending)) {
+    return chatParam;
+  }
+
+  return pickRestoreChatId(userId, withPending);
 }
 
 export function dedupeChatSessions(
@@ -309,19 +334,20 @@ export function pickRestoreChatId(
 ): string | null {
   const withPending = withPendingNewChatSession(sessions, userId);
   const pendingNew = readPendingNewChatId(userId);
-  if (pendingNew) return pendingNew;
+  const hidden = readDeletedChatIds(userId);
+  if (pendingNew && !hidden.has(pendingNew)) return pendingNew;
 
   const sidebar = withPending.filter((s) => sessionShouldShowInSidebar(s, userId));
   const byId = new Map(sidebar.map((s) => [s.id, s]));
   const lastId = readLastActiveChatId(userId);
 
-  if (lastId && !readDeletedChatIds(userId).has(lastId) && !lastId.startsWith('offline-')) {
+  if (lastId && !lastId.startsWith('offline-') && !hidden.has(lastId)) {
     if (sessionHasUserMessages(userId, lastId) || byId.has(lastId)) {
       return lastId;
     }
   }
 
-  if (lastId && !readDeletedChatIds(userId).has(lastId) && byId.has(lastId)) return lastId;
+  if (lastId && byId.has(lastId)) return lastId;
 
   const real = sidebar
     .filter((s) => !s.id.startsWith('offline-'))
