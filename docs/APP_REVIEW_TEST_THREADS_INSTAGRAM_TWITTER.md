@@ -173,7 +173,7 @@ Copy the returned **`id`** (media container id).
 **Request 3 – publish + cross-share**
 
 - Method: **POST**
-- Path: `me/threads_publish`
+- Path: `me/threads_publish` (not on container creation; media containers fail with 4279044 if `crossreshare_to_ig` is set on step 1)
 - Body:
 
 | Key | Value |

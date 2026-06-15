@@ -250,7 +250,29 @@ export function IzopComposerPostDraftCard({
             (t) => String(t.platform ?? '').toUpperCase() === platformUpper
           );
           if (target?.status === 'POSTED') {
-            const msg = `Published to ${draft.platformLabel}. Check History for details.`;
+            const note = String(target.error ?? '').trim();
+            if (
+              threadsShareToInstagram &&
+              /ig story failed/i.test(note)
+            ) {
+              setPublished(false);
+              setPublishedPostId(null);
+              setError(note);
+              setStatus(null);
+              persistPublishState({
+                publishedAt: undefined,
+                publishedPostId: undefined,
+                publishStatusMessage: undefined,
+                publishError: note,
+              });
+              return;
+            }
+            const msg =
+              threadsShareToInstagram && /story:\s*shared/i.test(note)
+                ? `Published to ${draft.platformLabel} and Instagram Story.`
+                : threadsShareToInstagram
+                  ? `Published to ${draft.platformLabel}. Check your Instagram Story ring (may take a minute).`
+                  : `Published to ${draft.platformLabel}. Check History for details.`;
             setStatus(msg);
             persistPublishState({
               publishedAt: new Date().toISOString(),

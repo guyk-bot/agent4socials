@@ -113,11 +113,11 @@ function threadsInstagramStoryStatus(post: PostHistoryRow): {
     if (/story:\s*shared/i.test(err)) {
         return { label: 'IG Story: shared', className: 'bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-950/50 dark:text-fuchsia-200' };
     }
-    if (/story failed/i.test(err)) {
-        return { label: 'IG Story: failed', className: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400' };
+    if (/ig story failed/i.test(err)) {
+        return { label: 'IG Story: failed', className: 'bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-200' };
     }
     if (threadsStatus === 'POSTED') {
-        return { label: 'IG Story: shared', className: 'bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-950/50 dark:text-fuchsia-200' };
+        return { label: 'IG Story: check ring', className: 'bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200' };
     }
     if (threadsStatus === 'POSTING' || post.status === 'POSTING') {
         return { label: 'IG Story: pending', className: 'bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-950/40 dark:text-fuchsia-300' };
