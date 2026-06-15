@@ -183,9 +183,27 @@ export default function IzopAiWorkspace() {
 
   const visibleSessions = useMemo(() => {
     const withActive = ensureActiveChatInSessionList(user?.id, sessions, activeId);
-    return visibleChatSessions(withActive, user?.id).sort(
+    const visible = visibleChatSessions(withActive, user?.id);
+    const sorted = visible.sort(
       (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     );
+    
+    // Debug logging for chat visibility issues
+    if (user?.id && withActive.length !== sorted.length) {
+      console.log('[Chat Debug] Session visibility filtering:', {
+        totalSessions: withActive.length,
+        visibleSessions: sorted.length,
+        pendingNewChatId: readPendingNewChatId(user.id),
+        activeId,
+        filteredOut: withActive.filter(s => !visible.find(v => v.id === s.id)).map(s => ({
+          id: s.id,
+          title: s.title,
+          isOffline: s.id.startsWith('offline-'),
+        }))
+      });
+    }
+    
+    return sorted;
   }, [sessions, user?.id, activeId]);
 
   const applyMergedSessions = useCallback(
@@ -1077,7 +1095,8 @@ export default function IzopAiWorkspace() {
         if (user?.id) {
           if (hasUserMessage) {
             writeLastActiveChatId(user.id, id);
-            if (!id.startsWith('offline-')) {
+            // Only clear pending ID if this chat has substantial content (more than just a draft)
+            if (!id.startsWith('offline-') || next.length > 1) {
               clearPendingNewChatId(user.id);
             }
           }
