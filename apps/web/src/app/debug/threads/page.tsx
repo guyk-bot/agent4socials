@@ -237,6 +237,11 @@ export default function ThreadsDebugPage() {
                         
                         {step.data != null ? (
                           <div className="text-sm">
+                            {typeof (step.data as { warning?: unknown }).warning === 'string' ? (
+                              <p className="mb-2 text-amber-700 dark:text-amber-300">
+                                {(step.data as { warning: string }).warning}
+                              </p>
+                            ) : null}
                             <details className="mt-2">
                               <summary className="cursor-pointer text-[var(--muted)] hover:text-[var(--foreground)]">
                                 View Data

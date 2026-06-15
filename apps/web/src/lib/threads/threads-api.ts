@@ -117,6 +117,74 @@ export async function revokeThreadsAppAuthorization(accessToken: string): Promis
   return false;
 }
 
+export type ThreadsTokenScopeProbe = {
+  scopes: string[];
+  isValid?: boolean;
+  source: 'debug_token' | 'me_permissions' | 'unavailable';
+  httpStatus?: number;
+  apiError?: string;
+};
+
+/** Best-effort scope list for a Threads user token (debug_token preferred). */
+export async function probeThreadsTokenScopes(
+  accessToken: string,
+  timeoutMs = 12_000
+): Promise<ThreadsTokenScopeProbe> {
+  const appId = threadsAppId();
+  const appSecret = threadsAppSecret();
+  if (appId && appSecret) {
+    const appToken = `${appId}|${appSecret}`;
+    for (const base of ['https://graph.threads.net', 'https://graph.facebook.com/v21.0']) {
+      const r = await axios.get<{
+        data?: { is_valid?: boolean; scopes?: string[]; error?: { message?: string } };
+        error?: { message?: string };
+      }>(`${base}/debug_token`, {
+        params: { input_token: accessToken, access_token: appToken },
+        timeout: timeoutMs,
+        validateStatus: () => true,
+      });
+      const data = r.data?.data;
+      if (r.status === 200 && data && Array.isArray(data.scopes)) {
+        return {
+          scopes: data.scopes,
+          isValid: data.is_valid,
+          source: 'debug_token',
+          httpStatus: r.status,
+        };
+      }
+      const apiError = data?.error?.message ?? r.data?.error?.message;
+      if (apiError && process.env.NODE_ENV !== 'test') {
+        console.warn('[Threads scope probe debug_token]', { base, httpStatus: r.status, apiError });
+      }
+    }
+  }
+
+  const { status, data } = await threadsGet<{
+    data?: Array<{ permission?: string; status?: string; name?: string }>;
+    error?: { message?: string };
+  }>('me/permissions', accessToken, undefined, timeoutMs);
+
+  const rows = Array.isArray(data?.data) ? data.data : [];
+  const scopes = rows
+    .filter((row) => {
+      const granted = (row?.status ?? '').toLowerCase() === 'granted';
+      const name = row?.permission ?? row?.name;
+      return granted && typeof name === 'string' && name.length > 0;
+    })
+    .map((row) => (row.permission ?? row.name) as string);
+
+  if (scopes.length > 0) {
+    return { scopes, source: 'me_permissions', httpStatus: status };
+  }
+
+  return {
+    scopes: [],
+    source: 'unavailable',
+    httpStatus: status,
+    apiError: data?.error?.message,
+  };
+}
+
 export async function threadsGet<T = unknown>(
   path: string,
   accessToken: string,

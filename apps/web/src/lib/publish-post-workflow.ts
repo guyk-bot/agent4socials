@@ -542,7 +542,7 @@ export async function runPublishPostWorkflow(input: {
             accessToken,
             expiresAt: freshAccount?.expiresAt ?? socialAccount.expiresAt,
           },
-          { forceRefresh: true }
+          { forceRefresh: false }
         );
       } catch (tokenErr) {
         const msg =

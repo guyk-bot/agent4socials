@@ -1,7 +1,11 @@
 import { prisma } from '@/lib/db';
 import { getValidThreadsToken } from './threads-token';
 import { publishToThreads } from './publish';
-import { defaultThreadsOAuthScopes, threadsGet } from './threads-api';
+import {
+  defaultThreadsOAuthScopes,
+  probeThreadsAccessToken,
+  probeThreadsTokenScopes,
+} from './threads-api';
 
 const REQUIRED_PUBLISH_SCOPES = ['threads_basic', 'threads_content_publish'];
 
@@ -11,19 +15,6 @@ type DebugStep = {
   data?: Record<string, unknown>;
   error?: string;
 };
-
-async function fetchThreadsGrantedScopes(accessToken: string): Promise<string[]> {
-  const { status, data } = await threadsGet<{ data?: Array<{ permission?: string; status?: string }> }>(
-    'me/permissions',
-    accessToken,
-    undefined,
-    12_000
-  );
-  if (status !== 200 || !Array.isArray(data?.data)) return [];
-  return data.data
-    .filter((row) => row?.status === 'granted' && typeof row.permission === 'string')
-    .map((row) => row.permission as string);
-}
 
 export async function debugThreadsPublishWorkflow(
   accountId: string,
@@ -43,6 +34,7 @@ export async function debugThreadsPublishWorkflow(
         username: true,
         lastSyncStatus: true,
         lastSyncError: true,
+        scopes: true,
       },
     });
 
@@ -65,6 +57,7 @@ export async function debugThreadsPublishWorkflow(
       hasToken: !!socialAccount.accessToken,
       tokenLength: socialAccount.accessToken?.length || 0,
       expiresAt: socialAccount.expiresAt,
+      storedScopes: socialAccount.scopes,
     };
 
     steps.push({ step: '2. Validating Threads token', success: false });
@@ -111,23 +104,35 @@ export async function debugThreadsPublishWorkflow(
     }
 
     steps.push({ step: '3. Checking granted OAuth scopes', success: false });
-    const grantedScopes = await fetchThreadsGrantedScopes(validToken);
+    const scopeProbe = await probeThreadsTokenScopes(validToken);
+    const grantedScopes = scopeProbe.scopes;
     const missingScopes = REQUIRED_PUBLISH_SCOPES.filter((s) => !grantedScopes.includes(s));
-    steps[2].success = missingScopes.length === 0;
+    const scopeListUnavailable = scopeProbe.source === 'unavailable' || grantedScopes.length === 0;
+
+    steps[2].success = !scopeListUnavailable ? missingScopes.length === 0 : true;
     steps[2].data = {
       grantedScopes,
       requiredScopes: REQUIRED_PUBLISH_SCOPES,
       configuredOAuthScopes: defaultThreadsOAuthScopes().split(','),
-      missingScopes,
+      missingScopes: scopeListUnavailable ? [] : missingScopes,
+      scopeProbeSource: scopeProbe.source,
+      scopeProbeHttpStatus: scopeProbe.httpStatus,
+      tokenDebugValid: scopeProbe.isValid,
+      ...(scopeListUnavailable
+        ? {
+            warning:
+              'Meta did not return a scope list for this token (common on Threads). Continuing because the profile token check passed.',
+          }
+        : {}),
     };
-    if (missingScopes.length > 0) {
+
+    if (!scopeListUnavailable && missingScopes.length > 0) {
       steps[2].error = `Missing scopes: ${missingScopes.join(', ')}. Disconnect Threads in Accounts and reconnect, approving all permissions.`;
       return steps;
     }
 
     steps.push({ step: '4. Testing token with profile fetch', success: false });
     try {
-      const { probeThreadsAccessToken } = await import('./threads-api');
       const probe = await probeThreadsAccessToken(validToken, 12000);
 
       steps[3].success = probe.valid;
