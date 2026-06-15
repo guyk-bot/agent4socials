@@ -30,9 +30,19 @@ function AuthenticatedContent({
       pathname?.startsWith(IZOP_AI_DASHBOARD_PATH) || pathname?.startsWith('/dashboard/aysop-ai');
     const { backgroundColor, primaryColor, textColor } = useWhiteLabel();
     const { theme } = useTheme();
-    const usingDefaultWhiteLabelBg = !backgroundColor || backgroundColor.toLowerCase() === '#f5f5f5';
+    const usingDefaultWhiteLabelBg =
+      !backgroundColor ||
+      ['#f5f5f5', '#f8f7fc', '#ffffff'].includes(backgroundColor.toLowerCase());
     const usingDefaultWhiteLabelText = !textColor || textColor.toLowerCase() === '#171717';
-    const resolvedBackground = theme === 'dark' && usingDefaultWhiteLabelBg ? 'var(--background)' : (backgroundColor || 'var(--background)');
+    // In dark mode always follow theme tokens; white-label page bg is light-only branding.
+    const resolvedBackground =
+      theme === 'dark'
+        ? 'var(--background)'
+        : usingDefaultWhiteLabelBg
+          ? 'var(--background)'
+          : (backgroundColor || 'var(--background)');
+    const resolvedSidebarBg =
+      theme === 'dark' ? undefined : resolvedBackground;
     const resolvedText = theme === 'dark' && usingDefaultWhiteLabelText ? 'var(--foreground)' : (textColor || undefined);
 
     const chromeStyle: React.CSSProperties = {
@@ -40,7 +50,7 @@ function AuthenticatedContent({
         ['--wl-primary' as string]: primaryColor || undefined,
         ['--primary' as string]: primaryColor || undefined,
         ['--wl-text' as string]: resolvedText,
-        ['--wl-sidebar-bg' as string]: resolvedBackground,
+        ...(resolvedSidebarBg ? { ['--wl-sidebar-bg' as string]: resolvedSidebarBg } : {}),
         pointerEvents: 'auto',
     };
 
@@ -53,7 +63,7 @@ function AuthenticatedContent({
                 ['--wl-primary' as string]: primaryColor || undefined,
                 ['--primary' as string]: primaryColor || undefined,
                 ['--wl-text' as string]: resolvedText,
-                ['--wl-sidebar-bg' as string]: resolvedBackground,
+                ...(resolvedSidebarBg ? { ['--wl-sidebar-bg' as string]: resolvedSidebarBg } : {}),
             }}
         >
             {/* Main content sits below the fixed chrome (chrome is rendered in fixed wrappers above) */}

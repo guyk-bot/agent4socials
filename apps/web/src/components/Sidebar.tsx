@@ -49,7 +49,7 @@ const PLATFORM_ICON: Record<string, React.ReactNode> = {
   FACEBOOK: <FacebookIcon size={28} />,
   TIKTOK: <TikTokIcon size={28} />,
   YOUTUBE: <YoutubeIcon size={28} />,
-  TWITTER: <XTwitterIcon size={28} className="text-neutral-800" />,
+  TWITTER: <XTwitterIcon size={28} className="text-[var(--foreground)]" />,
   LINKEDIN: <LinkedinIcon size={28} />,
   PINTEREST: <PinterestIcon size={28} />,
   THREADS: <ThreadsIcon size={28} />,
@@ -284,7 +284,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
               setSelectedPlatformForConnect(platform);
             };
             const platformRowClass = `flex items-center gap-3 px-3 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors border border-transparent ${
-              isPlatformSelected || connectPending ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80 dark:hover:border-neutral-700'
+              isPlatformSelected || connectPending ? 'sidebar-item-selected' : 'hover:bg-[var(--bg-hover)]'
             } ${needsUpgrade ? 'ring-1 ring-orange-400/50 bg-gradient-to-r from-orange-500/10 to-orange-500/10' : ''}`;
             const platformRowInner = (
               <>
@@ -302,8 +302,8 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
                     connectPending
-                      ? 'bg-orange-100 text-orange-600'
-                      : 'bg-neutral-200 hover:bg-neutral-300 text-neutral-600'
+                      ? 'bg-orange-100 text-orange-600 dark:bg-orange-950/40 dark:text-orange-400'
+                      : 'bg-[var(--bg-hover)] hover:opacity-90 text-[var(--muted)]'
                   }`}
                   aria-hidden
                 >
@@ -333,7 +333,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
               {accounts.map((acc) => {
                 const isSelected = selectedAccountId === acc.id;
                 const accountRowClass = `flex items-center gap-3 px-3 ${PLATFORM_ROW_PY} rounded-lg text-left text-sm transition-colors min-w-0 border border-transparent ${
-                  isSelected ? 'sidebar-item-selected' : 'hover:bg-neutral-100/80 dark:hover:border-neutral-700'
+                  isSelected ? 'sidebar-item-selected' : 'hover:bg-[var(--bg-hover)]'
                 }`;
                 // From Inbox or any page: go to this account's analytics via client-side nav (keeps cache, no reload).
                 const dashboardUrl = `/dashboard?accountId=${encodeURIComponent(acc.id)}`;
@@ -367,7 +367,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium">{acc.username || PLATFORM_LABELS[platform]}</div>
                     </div>
-                    <div className={`w-8 h-8 flex items-center justify-center shrink-0 rounded-full overflow-hidden ${acc.profilePicture && !brokenAvatarIds[acc.id] ? '' : 'bg-neutral-200 dark:bg-neutral-700'}`}>
+                    <div className={`w-8 h-8 flex items-center justify-center shrink-0 rounded-full overflow-hidden ${acc.profilePicture && !brokenAvatarIds[acc.id] ? '' : 'bg-[var(--bg-hover)]'}`}>
                       {(() => {
                         const avatarSrc = avatarDisplayUrl(platform, acc.profilePicture);
                         return avatarSrc && !brokenAvatarIds[acc.id] ? (
@@ -381,7 +381,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
                             }}
                           />
                         ) : (
-                          PLATFORM_ICON[platform] ?? <span className="font-bold text-xs text-neutral-500">?</span>
+                          PLATFORM_ICON[platform] ?? <span className="font-bold text-xs text-[var(--muted)]">?</span>
                         );
                       })()}
                     </div>
@@ -393,7 +393,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
         })}
       </div>
 
-      <div className="mt-2 pt-1.5 px-2 pb-1.5 space-y-0 border-t border-neutral-200 shrink-0">
+      <div className="mt-2 pt-1.5 px-2 pb-1.5 space-y-0 border-t border-[var(--border)] shrink-0">
         {workspaceNav.map((item) => (
           <Link
             key={item.key}
@@ -408,7 +408,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
         ))}
       </div>
 
-      <div className="pt-1 px-2 pb-1.5 space-y-0 border-t border-neutral-200 shrink-0">
+      <div className="pt-1 px-2 pb-1.5 space-y-0 border-t border-[var(--border)] shrink-0">
         <Link
           href="/posts"
           className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm font-medium border border-transparent ${isPostsPage ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)]'}`}
@@ -418,7 +418,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
         </Link>
       </div>
 
-      <div className="mt-auto px-2 py-2 border-t border-neutral-200 shrink-0">
+      <div className="mt-auto px-2 py-2 border-t border-[var(--border)] shrink-0">
         <Link
           href="/help"
           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-transparent ${isHelpSection ? 'sidebar-item-selected text-[var(--foreground)]' : 'hover:bg-[var(--bg-hover)]'}`}
@@ -432,10 +432,10 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
 
   return (
     <div
-      className="flex flex-1 border-r border-[var(--border)] flex-col bg-[var(--bg-surface)] min-h-0 pointer-events-auto overflow-hidden"
-      style={{ backgroundColor: 'var(--wl-sidebar-bg, var(--bg-surface))', color: text }}
+      className="flex flex-1 border-r border-[var(--border)] flex-col bg-[var(--wl-sidebar-bg,var(--bg-surface))] min-h-0 pointer-events-auto overflow-hidden"
+      style={{ color: text }}
     >
-      <div className="flex items-stretch gap-0 border-b border-neutral-200 shrink-0 pl-1.5">
+      <div className="flex items-stretch gap-0 border-b border-[var(--border)] shrink-0 pl-1.5">
         <Link
           href={consoleHref}
           onClick={(e) => {
@@ -462,7 +462,7 @@ export default function Sidebar({ onSidebarToggle = () => {} }: SidebarProps) {
         <button
           type="button"
           onClick={onSidebarToggle}
-          className="shrink-0 border-l border-neutral-200 px-2 py-3 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          className="shrink-0 border-l border-[var(--border)] px-2 py-3 text-[var(--muted)] hover:bg-[var(--bg-hover)]"
           aria-label="Close sidebar"
           title="Close sidebar"
         >
