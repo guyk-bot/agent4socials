@@ -223,7 +223,10 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
       if (!postId) {
         throw new Error('Post was created but no id was returned. Try History or Composer.');
       }
-      await api.post(`/posts/${postId}/publish`, {});
+      await api.post(`/posts/${postId}/publish`, {
+        ...(threadsShareToInstagram ? { threadsShareToInstagram: true } : {}),
+        ...(alsoPostToStory ? { alsoPostToStory: true } : {}),
+      });
       setPublishedPostId(postId);
       setPublished(true);
       setConfirming(false);

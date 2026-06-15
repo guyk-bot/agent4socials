@@ -480,6 +480,8 @@ export default function DashboardPage() {
   const [justConnected, setJustConnected] = useState(false);
   /** Stays true for the whole post-connect session until analytics are on screen. */
   const [connectBannerVisible, setConnectBannerVisible] = useState(false);
+  /** True once connect-flow analytics are on screen; dismiss banner without waiting on background post sync. */
+  const [connectInsightsReady, setConnectInsightsReady] = useState(false);
   const postConnectLoadActive = isOAuthConnectSyncActive(
     analyticsAccount?.id,
     justConnected,
@@ -1345,8 +1347,7 @@ export default function DashboardPage() {
       };
       const refreshPostsInBackground = () => {
         // Keep dashboard charts stable after initial render.
-        // Threads always re-syncs so post-level likes/replies/reposts stay current.
-        if (hasAnyCachedPosts && analyticsAccount?.platform !== 'THREADS') return;
+        if (hasAnyCachedPosts && !shouldBackgroundSyncPosts()) return;
         if (skipInstagramAutoRefresh && hasAnyCachedPosts && !shouldBackgroundSyncPosts()) return;
         const bgParams = postsSyncParamsForPlatform(analyticsAccount?.platform, {
           explicitSync: syncAllTrigger > 0 || postConnectLoadActive,
@@ -1967,8 +1968,7 @@ export default function DashboardPage() {
       ? explicitAction
       : explicitAction ||
         isDateRangeChange ||
-        (!exactCached && !staleCandidate) ||
-        analyticsAccount?.platform === 'THREADS';
+        (!exactCached && !staleCandidate);
 
     if (!shouldFetchInsights) {
       setInsightsLoading(false);
@@ -2433,24 +2433,34 @@ export default function DashboardPage() {
     postConnectLoadActive,
   ]);
 
-  // End connect loading banner once this account's analytics and posts have finished loading.
+  // End connect loading banner once this account's analytics are on screen (posts may still sync in background).
   const connectDashboardReady = Boolean(
     analyticsAccount?.id &&
-      displayInsights &&
-      !insightsLoading &&
-      !importedPostsLoading
+      connectInsightsReady &&
+      !insightsLoading
   );
+
+  useEffect(() => {
+    if (!connectBannerVisible) return;
+    if (displayInsights && !insightsLoading) {
+      setConnectInsightsReady(true);
+    }
+  }, [connectBannerVisible, displayInsights, insightsLoading]);
 
   useEffect(() => {
     const accountId = analyticsAccount?.id;
     if (accountId && isConnectLoadDone(accountId)) {
       setConnectBannerVisible(false);
+      setConnectInsightsReady(false);
       return;
     }
     const shouldOpen =
       oauthConnectUiActive && (!accountId || !isConnectLoadDone(accountId));
-    if (shouldOpen) setConnectBannerVisible(true);
-  }, [oauthConnectUiActive, analyticsAccount?.id]);
+    if (shouldOpen) {
+      setConnectInsightsReady(false);
+      setConnectBannerVisible(true);
+    }
+  }, [oauthConnectUiActive, analyticsAccount?.id, displayInsights, insightsLoading]);
 
   useEffect(() => {
     if (!connectBannerVisible || !connectDashboardReady) return;
@@ -2464,6 +2474,7 @@ export default function DashboardPage() {
       setOauthInFlightPlatform(null);
       setJustConnected(false);
       setConnectBannerVisible(false);
+      setConnectInsightsReady(false);
       clearPostConnectOAuthUrlParams();
       router.replace(postConnectDashboardHref(accountId, platform), { scroll: false });
     }, CONNECT_BANNER_SETTLE_MS);
@@ -2482,6 +2493,7 @@ export default function DashboardPage() {
       setOauthInFlightPlatform(null);
       setJustConnected(false);
       setConnectBannerVisible(false);
+      setConnectInsightsReady(false);
       setInsightsLoading(false);
       setImportedPostsLoading(false);
     }, CONNECT_FINISH_MAX_MS);
@@ -2659,9 +2671,8 @@ export default function DashboardPage() {
   const showViewsHint = hasFbOrIg && effectiveFollowers > 0 && effectiveImpressions === 0 && !effectiveTimeSeries.some((d) => d.value > 0) && (analyticsAccount?.platform === 'INSTAGRAM' || !analyticsAccount);
   const syncBannerPlatform =
     analyticsAccount?.platform ?? oauthInFlightPlatform ?? connectPlatformCandidate ?? null;
-  const syncBannerInsightsLoading = oauthConnectUiActive ? !displayInsights : insightsLoading;
-  const syncBannerPostsLoading =
-    oauthConnectUiActive ? importedPostsLoading || !displayInsights : importedPostsLoading;
+  const syncBannerInsightsLoading = oauthConnectUiActive ? !connectInsightsReady && insightsLoading : insightsLoading;
+  const syncBannerPostsLoading = oauthConnectUiActive ? !connectInsightsReady && importedPostsLoading : importedPostsLoading;
   const hideAnalyticsWhileConnectLoading = connectBannerVisible && !connectDashboardReady;
   const analyticsLoadingOnly = Boolean(
     analyticsAccount &&

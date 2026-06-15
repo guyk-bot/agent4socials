@@ -8,6 +8,14 @@ export function friendlyIzopChatError(e: unknown, fallback: string): string {
   const serverMsg = axiosErr.response?.data?.message;
   if (serverMsg && typeof serverMsg === 'string') return serverMsg;
 
+  const status = axiosErr.response?.status;
+  if (status === 500) {
+    return 'Server error while saving or publishing. Wait 30 seconds and try again, or use Open Composer.';
+  }
+  if (status === 503) {
+    return 'Database is busy. Wait 30 seconds and try Allow again.';
+  }
+
   const raw = String(axiosErr.message ?? '');
   if (
     axiosErr.code === 'ECONNABORTED' ||

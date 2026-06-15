@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
-import { prisma } from '@/lib/db';
+import { isPrismaPoolError, prisma } from '@/lib/db';
 import { trackUsage } from '@/lib/usage-tracking';
+import { friendlyMessageIfPrismaSchemaDrift } from '@/lib/prisma-db-hints';
 import {
   failStuckPostingTargets,
   finalizePostPublishState,
@@ -54,6 +55,7 @@ export async function POST(
 
   const isDebug = request.nextUrl.searchParams.get('debug') === '1';
 
+  try {
   if (!isCron && !linkToken) {
     const prep = await preparePostForBackgroundPublish(postId, userId!, requestBody);
     if (!prep.ok) {
@@ -105,4 +107,19 @@ export async function POST(
     isDebug,
   });
   return NextResponse.json(wf.body, { status: wf.status });
+  } catch (e) {
+    console.error('[POST /api/posts/[id]/publish]', postId, e);
+    const drift = friendlyMessageIfPrismaSchemaDrift(e);
+    if (drift) {
+      return NextResponse.json({ message: drift }, { status: 503 });
+    }
+    if (isPrismaPoolError(e)) {
+      return NextResponse.json(
+        { message: 'Database is busy. Wait 30 seconds and try Allow again.' },
+        { status: 503 }
+      );
+    }
+    const message = e instanceof Error ? e.message : 'Failed to start publish';
+    return NextResponse.json({ message }, { status: 500 });
+  }
 }
