@@ -230,22 +230,25 @@ async function resolveAccountId(
   }
   const platform = normalizePlatformArg(args.platform as string | undefined);
   if (platform) {
-    const acc = await prisma.socialAccount.findFirst({
-      where: { userId, platform, accessToken: { not: null } },
-      select: { id: true },
+    // First try to get accounts with tokens and pick the best one
+    const allAccounts = await prisma.socialAccount.findMany({
+      where: { userId, platform },
+      select: { id: true, accessToken: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
     });
-    if (!acc) {
-      // Fallback: try any account for this platform (even without token)
-      const fallbackAcc = await prisma.socialAccount.findFirst({
-        where: { userId, platform },
-        select: { id: true },
-        orderBy: { createdAt: 'desc' },
-      });
-      if (!fallbackAcc) throw new Error(`No connected ${platform} account found.`);
-      return fallbackAcc.id;
+    
+    if (!allAccounts.length) {
+      throw new Error(`No connected ${platform} account found.`);
     }
-    return acc.id;
+    
+    // Prefer accounts with valid access tokens
+    const accountWithToken = allAccounts.find(acc => acc.accessToken && acc.accessToken.trim());
+    if (accountWithToken) {
+      return accountWithToken.id;
+    }
+    
+    // Fallback to most recent account even without token
+    return allAccounts[0]!.id;
   }
   if (opts?.required) {
     throw new Error(
