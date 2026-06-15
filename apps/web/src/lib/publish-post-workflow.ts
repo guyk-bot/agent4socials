@@ -15,7 +15,8 @@ import {
   type TikTokDirectPostPayload,
 } from '@/lib/tiktok/tiktok-publish-compliance';
 import { createMediaServeToken } from '@/lib/media-serve-token';
-import { resolveDirectPublishMediaUrl } from '@/lib/publish-media-fetch';
+import { resolveDirectPublishMediaUrl, isDirectPublishMediaUrl } from '@/lib/publish-media-fetch';
+import { verifyMediaServeToken } from '@/lib/media-serve-token';
 import {
   linkedInAuthorUrnMissingMessage,
   resolveLinkedInAuthorUrn,
@@ -73,6 +74,96 @@ function publishTargetTimeoutMs(platform: string): number {
   if (platform === 'LINKEDIN') return 240_000;
   if (platform === 'THREADS') return 180_000;
   return 120_000;
+}
+
+/** Enhanced media URL resolution specifically for Threads - ensures Facebook can access the URLs */
+function resolveThreadsMediaUrl(url: string): string {
+  if (!url?.startsWith('http')) return url;
+  
+  // First try the standard resolution
+  const standardResolved = resolveDirectPublishMediaUrl(url);
+  if (isDirectPublishMediaUrl(standardResolved)) {
+    console.log('[Threads URL] Standard resolution succeeded:', {
+      original: url.slice(0, 100),
+      resolved: standardResolved.slice(0, 100),
+    });
+    return standardResolved;
+  }
+
+  // Enhanced resolution for Threads - try multiple approaches
+  console.log('[Threads URL] Standard resolution failed, trying enhanced methods:', {
+    url: url.slice(0, 100),
+    standardResult: standardResolved.slice(0, 100),
+  });
+
+  try {
+    const parsed = new URL(url);
+    
+    // Method 1: Extract direct URL from media serve token
+    const token = parsed.searchParams.get('t');
+    if (token && parsed.pathname.includes('/api/media/serve')) {
+      try {
+        const decoded = verifyMediaServeToken(token);
+        if (decoded?.url?.startsWith('http')) {
+          console.log('[Threads URL] Token decode success:', {
+            original: url.slice(0, 100),
+            decoded: decoded.url.slice(0, 100),
+          });
+          return decoded.url;
+        }
+      } catch (tokenError) {
+        console.log('[Threads URL] Token decode failed:', (tokenError as Error)?.message);
+      }
+    }
+
+    // Method 2: Check if it's already a direct R2/S3 URL
+    const hostname = parsed.hostname;
+    if (/\.r2\.dev$/i.test(hostname) || /cloudflarestorage\.com$/i.test(hostname)) {
+      console.log('[Threads URL] Already a direct R2/S3 URL:', url.slice(0, 100));
+      return url;
+    }
+
+    // Method 3: Convert relative media URLs to absolute
+    if (url.startsWith('/api/media/')) {
+      const appBase = (process.env.NEXT_PUBLIC_APP_URL || 
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
+      ).replace(/\/$/, '');
+      
+      if (appBase) {
+        const absoluteUrl = `${appBase}${url}`;
+        console.log('[Threads URL] Made relative URL absolute:', {
+          original: url.slice(0, 100),
+          absolute: absoluteUrl.slice(0, 100),
+        });
+        return absoluteUrl;
+      }
+    }
+
+    // Method 4: Check S3_PUBLIC_URL environment variable
+    const s3PublicUrl = process.env.S3_PUBLIC_URL?.trim();
+    if (s3PublicUrl && url.includes('/api/media/')) {
+      // Try to construct direct S3 URL
+      const mediaPathMatch = url.match(/\/api\/media\/serve\/(.+)$/);
+      if (mediaPathMatch?.[1]) {
+        const directS3Url = `${s3PublicUrl.replace(/\/$/, '')}/${mediaPathMatch[1]}`;
+        console.log('[Threads URL] Constructed S3 URL:', {
+          original: url.slice(0, 100),
+          s3Url: directS3Url.slice(0, 100),
+        });
+        return directS3Url;
+      }
+    }
+
+  } catch (parseError) {
+    console.log('[Threads URL] URL parsing failed:', (parseError as Error)?.message);
+  }
+
+  // Fallback: return the standard resolved URL even if not ideal
+  console.log('[Threads URL] All methods failed, using fallback:', {
+    original: url.slice(0, 100),
+    fallback: standardResolved.slice(0, 100),
+  });
+  return standardResolved;
 }
 
 /** If publish was killed mid-flight, derive final post status from per-platform targets. */
@@ -621,11 +712,38 @@ export async function runPublishPostWorkflow(input: {
     }
     if (platform === 'THREADS') {
       // For Threads, use direct URLs - Meta's API can't access our proxy URLs
-      // firstImageUrl and firstMediaUrl already converted to direct URLs above
-      console.log('[Threads media URLs]', {
+      // Enhance URL resolution specifically for Threads
+      if (firstImageUrl) {
+        const originalImageUrl = firstImageUrl;
+        // Try additional resolution methods for Threads
+        firstImageUrl = resolveThreadsMediaUrl(firstImageUrl);
+        console.log('[Threads Image URL Resolution]', {
+          postId,
+          original: originalImageUrl.slice(0, 100),
+          resolved: firstImageUrl?.slice(0, 100),
+          changed: originalImageUrl !== firstImageUrl,
+          isDirectURL: isDirectPublishMediaUrl(firstImageUrl || ''),
+        });
+      }
+      if (firstMediaUrl) {
+        const originalMediaUrl = firstMediaUrl;
+        // Try additional resolution methods for Threads
+        firstMediaUrl = resolveThreadsMediaUrl(firstMediaUrl);
+        console.log('[Threads Media URL Resolution]', {
+          postId,
+          original: originalMediaUrl.slice(0, 100),
+          resolved: firstMediaUrl?.slice(0, 100),
+          changed: originalMediaUrl !== firstMediaUrl,
+          isDirectURL: isDirectPublishMediaUrl(firstMediaUrl || ''),
+        });
+      }
+      console.log('[Threads Final URLs]', {
         postId,
-        firstImageUrl: firstImageUrl?.slice(0, 80),
-        firstMediaUrl: firstMediaUrl?.slice(0, 80),
+        finalImageUrl: firstImageUrl?.slice(0, 80),
+        finalMediaUrl: firstMediaUrl?.slice(0, 80),
+        bothResolved: 
+          (!firstImageUrl || isDirectPublishMediaUrl(firstImageUrl)) &&
+          (!firstMediaUrl || isDirectPublishMediaUrl(firstMediaUrl)),
       });
     }
     if (platform === 'PINTEREST' && firstImageUrl) {

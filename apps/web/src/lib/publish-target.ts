@@ -2216,6 +2216,39 @@ export async function publishTarget(
         shareToInstagramStory: threadsShareToInstagram === true,
       };
       
+      // Final validation: ensure URLs are accessible to Facebook
+      if ('imageUrl' in publishParams && publishParams.imageUrl) {
+        const imageUrl = publishParams.imageUrl;
+        const isAccessible = imageUrl.startsWith('https://') && 
+          (imageUrl.includes('.r2.dev') || imageUrl.includes('cloudflarestorage.com') || 
+           imageUrl.includes('amazonaws.com') || imageUrl.includes('s3.'));
+        console.log('[Threads Image URL Validation]', {
+          url: imageUrl.slice(0, 100),
+          isAccessible,
+          isHttps: imageUrl.startsWith('https://'),
+          isDirectStorage: imageUrl.includes('.r2.dev') || imageUrl.includes('cloudflarestorage.com'),
+        });
+        if (!isAccessible) {
+          console.log('[Threads URL Warning] Image URL may not be accessible to Facebook:', imageUrl.slice(0, 200));
+        }
+      }
+      
+      if ('videoUrl' in publishParams && publishParams.videoUrl) {
+        const videoUrl = publishParams.videoUrl;
+        const isAccessible = videoUrl.startsWith('https://') && 
+          (videoUrl.includes('.r2.dev') || videoUrl.includes('cloudflarestorage.com') || 
+           videoUrl.includes('amazonaws.com') || videoUrl.includes('s3.'));
+        console.log('[Threads Video URL Validation]', {
+          url: videoUrl.slice(0, 100),
+          isAccessible,
+          isHttps: videoUrl.startsWith('https://'),
+          isDirectStorage: videoUrl.includes('.r2.dev') || videoUrl.includes('cloudflarestorage.com'),
+        });
+        if (!isAccessible) {
+          console.log('[Threads URL Warning] Video URL may not be accessible to Facebook:', videoUrl.slice(0, 200));
+        }
+      }
+
       console.log('[Threads publishToThreads] Calling with params:', {
         isTextOnly,
         textLength: publishParams.text?.length,
