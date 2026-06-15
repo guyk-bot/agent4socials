@@ -308,15 +308,41 @@ export function IzopComposerPostDraftCard({
   };
 
   const handlePublish = async () => {
-    if (!draft.canPublishFromChat || publishing || published || scheduled) return;
+    console.log('[AI Chat Publish Debug]', {
+      canPublishFromChat: draft.canPublishFromChat,
+      publishing,
+      published,
+      scheduled,
+      platform: draft.platform,
+      caption: draft.caption?.slice(0, 50),
+      storedPublish,
+    });
+    if (!draft.canPublishFromChat || publishing || published || scheduled) {
+      console.log('[AI Chat Publish] Blocked by conditions:', {
+        canPublishFromChat: draft.canPublishFromChat,
+        publishing,
+        published,
+        scheduled,
+      });
+      return;
+    }
+    console.log('[AI Chat Publish] Starting publish...');
     setPublishing(true);
     setError(null);
     setStatus(null);
     const media = resolveDraftMediaForPublish(draft);
+    console.log('[AI Chat Publish] Media check:', {
+      mediaLength: media.length,
+      platform: draft.platform.toUpperCase(),
+      mediaType: draft.mediaType,
+      requiresMedia: (draft.platform.toUpperCase() === 'THREADS' || draft.mediaType === 'photo' || draft.mediaType === 'video'),
+      media: media.map(m => ({ fileUrl: m.fileUrl?.slice(0, 50), type: m.type })),
+    });
     if (
       (draft.platform.toUpperCase() === 'THREADS' || draft.mediaType === 'photo' || draft.mediaType === 'video') &&
       media.length === 0
     ) {
+      console.log('[AI Chat Publish] BLOCKED: Media missing');
       setError(
         'Media is missing from this draft. Re-attach the image in chat or use Open Composer, then try again.'
       );
@@ -330,15 +356,19 @@ export function IzopComposerPostDraftCard({
           : 'photo'
         : draft.mediaType;
     try {
+      console.log('[AI Chat Publish] Creating post via API...');
       const createRes = await api.post<{ id: string }>('/posts', buildPostPayload(resolvedMediaType, media));
+      console.log('[AI Chat Publish] Post created:', { postId: createRes.data?.id });
       const postId = createRes.data?.id;
       if (!postId) {
         throw new Error('Post was created but no id was returned. Try History or Composer.');
       }
+      console.log('[AI Chat Publish] Starting publish via API...');
       await api.post(`/posts/${postId}/publish`, {
         ...(threadsShareToInstagram ? { threadsShareToInstagram: true } : {}),
         ...(alsoPostToStory ? { alsoPostToStory: true } : {}),
       });
+      console.log('[AI Chat Publish] Publish API call completed');
       setPublishedPostId(postId);
       setPublished(true);
       setConfirming(false);
