@@ -14,7 +14,11 @@ export async function POST(request: NextRequest) {
     const isDirect = isDirectPublishMediaUrl(resolvedUrl);
     
     // Test accessibility with timeout
-    let accessibilityTest = { accessible: false, status: 0, error: null };
+    let accessibilityTest: { accessible: boolean; status: number; error: string | null } = {
+      accessible: false,
+      status: 0,
+      error: null,
+    };
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);

@@ -155,7 +155,6 @@ export default function IzopAiWorkspace() {
   const persistInFlightRef = useRef<Promise<boolean> | null>(null);
   const persistDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPersistRef = useRef<{ id: string; messages: ChatMessage[] } | null>(null);
-  const actionLockRef = useRef(false);
   const offlineToServerPromiseRef = useRef<Map<string, Promise<SessionDetail>>>(new Map());
   const pendingOfflinePersistRef = useRef<{ offlineId: string; messages: ChatMessage[] } | null>(null);
   const [panelResetKey, setPanelResetKey] = useState(0);
@@ -169,13 +168,10 @@ export default function IzopAiWorkspace() {
     if (newChatIntentRef.current) return;
     if (!user?.id || !activeId) return;
     if (readDeletedChatIds(user.id).has(activeId)) return;
-    if (messages.length > 0) return;
-    const cached = readCachedMessages(user.id, activeId);
-    if (cached?.length) {
-      setMessages(cached as ChatMessage[]);
-      messagesRef.current = cached as ChatMessage[];
-    }
-  }, [user?.id, activeId, messages.length]);
+    const cached = (readCachedMessages(user.id, activeId) ?? []) as ChatMessage[];
+    setMessages(cached);
+    messagesRef.current = cached;
+  }, [user?.id, activeId]);
 
   useEffect(() => {
     activeIdRef.current = activeId;
@@ -184,26 +180,9 @@ export default function IzopAiWorkspace() {
   const visibleSessions = useMemo(() => {
     const withActive = ensureActiveChatInSessionList(user?.id, sessions, activeId);
     const visible = visibleChatSessions(withActive, user?.id);
-    const sorted = visible.sort(
+    return visible.sort(
       (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     );
-    
-    // Debug logging for chat visibility issues
-    if (user?.id && withActive.length !== sorted.length) {
-      console.log('[Chat Debug] Session visibility filtering:', {
-        totalSessions: withActive.length,
-        visibleSessions: sorted.length,
-        pendingNewChatId: readPendingNewChatId(user.id),
-        activeId,
-        filteredOut: withActive.filter(s => !visible.find(v => v.id === s.id)).map(s => ({
-          id: s.id,
-          title: s.title,
-          isOffline: s.id.startsWith('offline-'),
-        }))
-      });
-    }
-    
-    return sorted;
   }, [sessions, user?.id, activeId]);
 
   const applyMergedSessions = useCallback(
@@ -347,11 +326,7 @@ export default function IzopAiWorkspace() {
 
   const hydrateMessages = useCallback(
     (id: string): ChatMessage[] => {
-      const cached = readCachedMessages(user?.id, id);
-      const next = (cached ?? []) as ChatMessage[];
-      if (next.length === 0 && messagesRef.current.length > 0) {
-        return messagesRef.current;
-      }
+      const next = (readCachedMessages(user?.id, id) ?? []) as ChatMessage[];
       setMessages(next);
       messagesRef.current = next;
       return next;
@@ -515,11 +490,9 @@ export default function IzopAiWorkspace() {
         }
         return true;
       }
-      if (!opts?.background && gen === loadGenerationRef.current) {
-        if (cached.length > 0 || messagesRef.current.length === 0) {
-          setMessages(cached);
-          messagesRef.current = cached;
-        }
+      if (gen === loadGenerationRef.current && activeIdRef.current === id) {
+        setMessages(cached);
+        messagesRef.current = cached;
       }
       try {
         const res = await api.get<{ session: SessionDetail }>(`/ai/izop-chats/${id}`, {
@@ -963,7 +936,7 @@ export default function IzopAiWorkspace() {
   }, [user?.id, cacheSessionList, setActiveChat, flushPersist]);
 
   const handleSelect = (id: string) => {
-    if (id === activeIdRef.current || actionLockRef.current) return;
+    if (id === activeIdRef.current) return;
     newChatIntentRef.current = false;
     if (user?.id) {
       if (id.startsWith('offline-') && !sessionHasUserMessages(user.id, id)) {
@@ -979,14 +952,13 @@ export default function IzopAiWorkspace() {
 
     hydrateMessages(id);
     setActiveChat(id);
+    setPanelResetKey((k) => k + 1);
 
-    void (async () => {
-      if (prevId && prevMsgs.length > 0) {
-        pendingPersistRef.current = { id: prevId, messages: prevMsgs };
-        await flushPersist();
-      }
-      await loadSession(id, { background: true });
-    })();
+    if (prevId && prevMsgs.length > 0) {
+      pendingPersistRef.current = { id: prevId, messages: prevMsgs };
+      void flushPersist();
+    }
+    void loadSession(id, { background: true });
   };
 
   const executeDelete = useCallback(
