@@ -339,10 +339,10 @@ export function IzopComposerPostDraftCard({
       media: media.map(m => ({ fileUrl: m.fileUrl?.slice(0, 50), type: m.type })),
     });
     if (
-      (draft.platform.toUpperCase() === 'THREADS' || draft.mediaType === 'photo' || draft.mediaType === 'video') &&
+      (draft.mediaType === 'photo' || draft.mediaType === 'video') &&
       media.length === 0
     ) {
-      console.log('[AI Chat Publish] BLOCKED: Media missing');
+      console.log('[AI Chat Publish] BLOCKED: Media missing for photo/video post');
       setError(
         'Media is missing from this draft. Re-attach the image in chat or use Open Composer, then try again.'
       );
@@ -488,7 +488,7 @@ export function IzopComposerPostDraftCard({
 
       {draft.canPublishFromChat && !published && !scheduled ? (
         <div className="px-3 pb-2 space-y-2 border-b border-neutral-100 dark:border-neutral-800">
-          {draft.platform.toUpperCase() === 'THREADS' ? (
+          {draft.platform.toUpperCase() === 'THREADS' && draft.mediaType !== 'text' ? (
             <ChatDraftStoryOption
               checked={threadsShareToInstagram}
               disabled={publishing}
