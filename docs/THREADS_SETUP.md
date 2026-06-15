@@ -56,7 +56,7 @@ Default OAuth scopes: `threads_basic`, `threads_content_publish`, `threads_manag
 
 ## Share to Instagram Story
 
-In the Composer, when **Threads** is selected, users can enable **Also share to Instagram Story**. Publishing sends `crossreshare_to_ig=true` when creating the media container (`me/threads`) and again on `threads_publish` (linked Instagram account required).
+In the Composer, when **Threads** is selected, users can enable **Also share to Instagram Story**. Publishing sets `crossreshare_to_ig=true` on the media container (`POST me/threads`). If Meta rejects cross-share, the app falls back to the connected Instagram account's Story API when available.
 
 After adding `threads_share_to_instagram`, reconnect Threads from Account so the token includes the new scope.
 

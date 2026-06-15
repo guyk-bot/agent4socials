@@ -937,6 +937,61 @@ export async function runPublishPostWorkflow(input: {
       });
     }
 
+    let instagramStoryFallback:
+      | {
+          accessToken: string;
+          platformUserId: string;
+          firstImageUrl?: string;
+          firstMediaUrl?: string;
+        }
+      | undefined;
+
+    if (platform === 'THREADS' && threadsIgShareForTarget && (firstImageUrl || firstMediaUrl)) {
+      const igAccount = await prisma.socialAccount.findFirst({
+        where: { userId: post.userId, platform: 'INSTAGRAM' },
+        select: { accessToken: true, platformUserId: true },
+        orderBy: { updatedAt: 'desc' },
+      });
+      const igToken = igAccount?.accessToken?.trim();
+      const igUserId = igAccount?.platformUserId?.trim();
+      if (igToken && igUserId) {
+        let igStoryImageUrl = firstImageUrl;
+        let igStoryMediaUrl = firstMediaUrl;
+        if (firstImageUrl) {
+          const storyJpeg =
+            (await ensureStoryJpegOnR2(firstImageUrl, fetch)) ??
+            (await ensureInstagramJpegOnR2(firstImageUrl, fetch));
+          if (storyJpeg) igStoryImageUrl = storyJpeg;
+        }
+        const mediaIsVideo = firstMediaUrl
+          ? /\.(mp4|mov|webm|m4v)(\?|$)/i.test(firstMediaUrl)
+          : false;
+        if (firstMediaUrl && !mediaIsVideo) {
+          const storyJpeg =
+            (await ensureStoryJpegOnR2(firstMediaUrl, fetch)) ??
+            (await ensureInstagramJpegOnR2(firstMediaUrl, fetch));
+          if (storyJpeg) igStoryMediaUrl = storyJpeg;
+        }
+        instagramStoryFallback = {
+          accessToken: igToken,
+          platformUserId: igUserId,
+          ...(igStoryImageUrl ? { firstImageUrl: igStoryImageUrl } : {}),
+          ...(igStoryMediaUrl ? { firstMediaUrl: igStoryMediaUrl } : {}),
+        };
+        console.log('[Threads] Prepared Instagram Story fallback', {
+          postId,
+          igPlatformUserId: igUserId.slice(0, 24),
+          hasStoryImage: Boolean(igStoryImageUrl),
+          hasStoryVideo: Boolean(firstMediaUrl && mediaIsVideo),
+        });
+      } else {
+        console.log('[Threads] No connected Instagram account for Story fallback', {
+          postId,
+          userId: post.userId,
+        });
+      }
+    }
+
     if (platform === 'TWITTER' && firstImageUrl) {
       const oauth1Ready =
         Boolean(creds?.twitterOAuth1AccessToken && creds?.twitterOAuth1AccessTokenSecret) &&
@@ -978,6 +1033,7 @@ export async function runPublishPostWorkflow(input: {
         : {}),
       ...(isStory ? { isStory: true } : {}),
         ...(platform === 'THREADS' && threadsIgShareForTarget ? { threadsShareToInstagram: true } : {}),
+        ...(instagramStoryFallback ? { instagramStoryFallback } : {}),
         ...((platform === 'INSTAGRAM' || platform === 'FACEBOOK') &&
         alsoPostToStory &&
         !isStory

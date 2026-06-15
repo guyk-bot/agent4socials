@@ -52,6 +52,13 @@ export type PublishTargetOptions = {
   linkedInVisibility?: 'PUBLIC' | 'CONNECTIONS';
   /** Threads: also share to linked Instagram account as a Story. */
   threadsShareToInstagram?: boolean;
+  /** When Threads crossreshare_to_ig is unavailable, publish Story via connected Instagram account. */
+  instagramStoryFallback?: {
+    accessToken: string;
+    platformUserId: string;
+    firstImageUrl?: string;
+    firstMediaUrl?: string;
+  };
   /** Instagram/Facebook feed publish: also post the same media as a Story. */
   alsoPostToStory?: boolean;
 };
@@ -544,6 +551,7 @@ export async function publishTarget(
     pinterestSandbox,
     isStory,
     threadsShareToInstagram,
+    instagramStoryFallback,
     alsoPostToStory,
   } = options;
   const { fetch: fetchFn, axios: axiosInstance } = deps;
@@ -2264,21 +2272,53 @@ export async function publishTarget(
       console.log('[Threads publishToThreads] Result:', {
         ok: result.ok,
         error: result.ok ? undefined : result.error?.slice(0, 200),
-        igStoryShareSkipped: result.ok ? result.igStoryShareSkipped : undefined,
+        igStoryCrossShareUsed: result.ok ? result.igStoryCrossShareUsed : undefined,
+        igStoryCrossShareUnavailable: result.ok ? result.igStoryCrossShareUnavailable : undefined,
       });
-      if (result.ok) {
-        return {
-          ok: true,
-          platformPostId: result.platformPostId,
-          ...(result.igStoryShareSkipped
-            ? {
-                storyShareNote:
-                  'IG Story: not sent (Instagram cross-share is not available for this app yet). Threads post published.',
-              }
-            : {}),
-        };
+
+      if (!result.ok) {
+        return { ok: false, error: result.error };
       }
-      return { ok: false, error: result.error };
+
+      let storyShareNote: string | undefined;
+      const needsNativeIgStory =
+        threadsShareToInstagram === true &&
+        result.igStoryCrossShareUnavailable === true &&
+        Boolean(instagramStoryFallback) &&
+        Boolean(firstImageUrl || firstMediaUrl);
+
+      if (needsNativeIgStory && instagramStoryFallback) {
+        console.log('[Threads] Using native Instagram Story fallback after crossreshare rejection');
+        try {
+          const igStory = await publishTarget(
+            {
+              platform: 'INSTAGRAM',
+              token: instagramStoryFallback.accessToken,
+              platformUserId: instagramStoryFallback.platformUserId,
+              caption: '',
+              firstImageUrl: instagramStoryFallback.firstImageUrl ?? firstImageUrl,
+              firstMediaUrl: instagramStoryFallback.firstMediaUrl ?? firstMediaUrl,
+              isStory: true,
+            },
+            deps
+          );
+          if (igStory.ok) {
+            storyShareNote = 'Story: shared to Instagram';
+          } else {
+            storyShareNote = `IG Story failed: ${(igStory.error ?? 'unknown error').slice(0, 160)}`;
+          }
+        } catch (e) {
+          storyShareNote = `IG Story failed: ${((e as Error).message ?? 'error').slice(0, 160)}`;
+        }
+      } else if (threadsShareToInstagram === true && result.igStoryCrossShareUsed) {
+        storyShareNote = 'Story: shared via Threads cross-share';
+      }
+
+      return {
+        ok: true,
+        platformPostId: result.platformPostId,
+        ...(storyShareNote ? { storyShareNote } : {}),
+      };
     }
 
     return { ok: false, error: `Publish not implemented for ${platform}` };
