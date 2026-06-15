@@ -516,6 +516,13 @@ export async function runPublishPostWorkflow(input: {
   const results: PublishOutcome[] = await Promise.all(
     post.targets.map(async (target): Promise<PublishOutcome> => {
     try {
+    console.log('[Target publish start]', {
+      postId: post.id,
+      platform: target.platform,
+      accountId: target.socialAccountId,
+      username: target.socialAccount?.username,
+      currentStatus: target.status,
+    });
     if (target.status === PostStatus.POSTED) {
       return { platform: target.platform, ok: true };
     }
@@ -530,10 +537,25 @@ export async function runPublishPostWorkflow(input: {
       });
     }
     if (platform === 'THREADS') {
+      console.log('[Threads publish start]', {
+        postId,
+        accountId: socialAccount.id,
+        username: socialAccount.username,
+        hasAccessToken: Boolean(socialAccount.accessToken),
+        tokenLength: socialAccount.accessToken?.length || 0,
+        expiresAt: socialAccount.expiresAt,
+      });
       try {
         const freshAccount = await prisma.socialAccount.findUnique({
           where: { id: socialAccount.id },
           select: { accessToken: true, expiresAt: true },
+        });
+        console.log('[Threads fresh token check]', {
+          postId,
+          accountId: socialAccount.id,
+          freshTokenLength: freshAccount?.accessToken?.length || 0,
+          freshExpiresAt: freshAccount?.expiresAt,
+          tokenMatches: freshAccount?.accessToken === socialAccount.accessToken,
         });
         const accessToken = freshAccount?.accessToken?.trim() || socialAccount.accessToken;
         token = await getValidThreadsToken(
@@ -544,6 +566,11 @@ export async function runPublishPostWorkflow(input: {
           },
           { forceRefresh: false }
         );
+        console.log('[Threads token validation success]', {
+          postId,
+          accountId: socialAccount.id,
+          finalTokenLength: token?.length || 0,
+        });
       } catch (tokenErr) {
         const msg =
           (tokenErr as Error)?.message ??
@@ -552,6 +579,7 @@ export async function runPublishPostWorkflow(input: {
           postId,
           accountId: socialAccount.id,
           error: msg,
+          tokenErr: tokenErr instanceof Error ? tokenErr.stack : tokenErr,
         });
         await prisma.postTarget.update({
           where: { id: target.id },
@@ -873,11 +901,36 @@ export async function runPublishPostWorkflow(input: {
     }
     const publishDeps = { fetch, axios };
     const targetTimeoutLabel = `${platform} publish timed out after ${publishTargetTimeoutMs(platform) / 1000}s`;
+    
+    if (platform === 'THREADS') {
+      console.log('[Threads publish call start]', {
+        postId,
+        accountId: socialAccount.id,
+        caption: caption?.slice(0, 100),
+        hasImageUrl: Boolean(firstImageUrl),
+        hasVideoUrl: Boolean(firstMediaUrl),
+        imageUrl: firstImageUrl?.slice(0, 80),
+        videoUrl: firstMediaUrl?.slice(0, 80),
+        threadsShareToInstagram: publishOpts.threadsShareToInstagram,
+        tokenLength: token?.length || 0,
+      });
+    }
+    
     let result = await promiseWithTimeout(
       publishTarget(publishOpts, publishDeps),
       publishTargetTimeoutMs(platform),
       targetTimeoutLabel
     );
+
+    if (platform === 'THREADS') {
+      console.log('[Threads publish call result]', {
+        postId,
+        accountId: socialAccount.id,
+        success: result.ok,
+        platformPostId: result.ok ? result.platformPostId : undefined,
+        error: result.ok ? undefined : result.error?.slice(0, 200),
+      });
+    }
 
     const isTwitterUnauthorized =
       platform === 'TWITTER' &&
@@ -886,6 +939,11 @@ export async function runPublishPostWorkflow(input: {
     const isThreadsTokenError =
       platform === 'THREADS' && !result.ok && isThreadsInvalidTokenMessage(result.error);
     if (isThreadsTokenError) {
+      console.log('[Threads token retry]', {
+        postId,
+        accountId: socialAccount.id,
+        originalError: result.error?.slice(0, 200),
+      });
       try {
         token = await getValidThreadsToken(
           {
@@ -895,15 +953,32 @@ export async function runPublishPostWorkflow(input: {
           },
           { forceRefresh: true }
         );
+        console.log('[Threads token refresh success]', {
+          postId,
+          accountId: socialAccount.id,
+          newTokenLength: token?.length || 0,
+        });
         result = await promiseWithTimeout(
           publishTarget({ ...publishOpts, token }, publishDeps),
           publishTargetTimeoutMs(platform),
           targetTimeoutLabel
         );
+        console.log('[Threads retry result]', {
+          postId,
+          accountId: socialAccount.id,
+          retrySuccess: result.ok,
+          retryPlatformPostId: result.ok ? result.platformPostId : undefined,
+          retryError: result.ok ? undefined : result.error?.slice(0, 200),
+        });
       } catch (refreshErr) {
         const msg =
           (refreshErr as Error)?.message ??
           'Threads session expired. Disconnect and reconnect Threads in Accounts.';
+        console.error('[Threads token refresh failed]', {
+          postId,
+          accountId: socialAccount.id,
+          refreshError: refreshErr instanceof Error ? refreshErr.message : refreshErr,
+        });
         await markThreadsNeedsReconnect(socialAccount.id, msg);
         result = { ok: false, error: msg };
       }
@@ -949,6 +1024,14 @@ export async function runPublishPostWorkflow(input: {
     }
 
     if (result.ok) {
+      console.log('[Target publish SUCCESS]', {
+        postId: post.id,
+        platform: target.platform,
+        accountId: target.socialAccountId,
+        platformPostId: result.platformPostId,
+        mediaSkipped: result.mediaSkipped,
+        sentToInbox: result.sentToInbox,
+      });
       const inboxNote = result.sentToInbox
         ? 'TikTok queued this in your app Inbox instead of publishing directly. Open the TikTok app to finish posting.'
         : undefined;
@@ -995,6 +1078,15 @@ export async function runPublishPostWorkflow(input: {
         );
       }
     }
+    
+    console.log('[Target publish FAILED]', {
+      postId: post.id,
+      platform: target.platform,
+      accountId: target.socialAccountId,
+      error: result.error?.slice(0, 200),
+      platformPostId: result.platformPostId,
+    });
+    
     // Do not overwrite POSTED: overlapping publishes (double submit / retry) can succeed on
     // the platform first, then a slower duplicate attempt returns an error and would wrongly
     // mark the target FAILED and hide it from dashboard Content History.
@@ -1062,6 +1154,16 @@ export async function runPublishPostWorkflow(input: {
     })
   );
 
+  console.log('[Publish workflow complete]', {
+    postId,
+    bodyOk,
+    totalTargets,
+    postedCount,
+    anyFailed,
+    nextPostStatus,
+    results: results.map(r => ({ platform: r.platform, ok: r.ok, error: r.error?.slice(0, 100) })),
+  });
+  
   const body: Record<string, unknown> = { ok: bodyOk, results };
   if (isDebug && debugInfo) body.debugInfo = debugInfo;
   return { status: 200, body };
