@@ -231,11 +231,20 @@ async function resolveAccountId(
   const platform = normalizePlatformArg(args.platform as string | undefined);
   if (platform) {
     const acc = await prisma.socialAccount.findFirst({
-      where: { userId, platform },
+      where: { userId, platform, accessToken: { not: null } },
       select: { id: true },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: 'desc' },
     });
-    if (!acc) throw new Error(`No connected ${platform} account found.`);
+    if (!acc) {
+      // Fallback: try any account for this platform (even without token)
+      const fallbackAcc = await prisma.socialAccount.findFirst({
+        where: { userId, platform },
+        select: { id: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (!fallbackAcc) throw new Error(`No connected ${platform} account found.`);
+      return fallbackAcc.id;
+    }
     return acc.id;
   }
   if (opts?.required) {
