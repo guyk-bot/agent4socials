@@ -2200,13 +2200,24 @@ export async function publishTarget(
     if (platform === 'THREADS') {
       const { publishToThreads } = await import('@/lib/threads/publish');
       const mediaIsVideo = firstMediaUrl ? /\.(mp4|mov|webm|m4v)(\?|$)/i.test(firstMediaUrl) : false;
-      const result = await publishToThreads({
+      const publishParams = {
         accessToken: token,
         text: caption,
         imageUrl: firstImageUrl || (firstMediaUrl && !mediaIsVideo ? firstMediaUrl : null),
         videoUrl: firstMediaUrl && mediaIsVideo ? firstMediaUrl : null,
         shareToInstagramStory: threadsShareToInstagram === true,
+      };
+      console.log('[Threads publishToThreads] Calling with params:', {
+        textLength: publishParams.text?.length,
+        hasImageUrl: Boolean(publishParams.imageUrl),
+        imageUrl: publishParams.imageUrl?.slice(0, 100),
+        hasVideoUrl: Boolean(publishParams.videoUrl),
+        videoUrl: publishParams.videoUrl?.slice(0, 100),
+        shareToInstagram: publishParams.shareToInstagramStory,
+        tokenLength: publishParams.accessToken?.length,
       });
+      const result = await publishToThreads(publishParams);
+      console.log('[Threads publishToThreads] Result:', { ok: result.ok, error: result.ok ? undefined : result.error?.slice(0, 200) });
       if (result.ok) return result;
       return { ok: false, error: result.error };
     }

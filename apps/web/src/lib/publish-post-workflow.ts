@@ -608,8 +608,16 @@ export async function runPublishPostWorkflow(input: {
       targetMedia[0] && targetMedia[0].type === 'VIDEO' ? (targetMedia[0] as { thumbnailUrl?: string }).thumbnailUrl : undefined;
     let imageUrls: string[] | undefined;
     if (platform === 'TIKTOK' || platform === 'LINKEDIN' || platform === 'YOUTUBE' || platform === 'THREADS') {
-      if (firstMediaUrl) firstMediaUrl = resolveDirectPublishMediaUrl(firstMediaUrl);
-      if (firstImageUrl) firstImageUrl = resolveDirectPublishMediaUrl(firstImageUrl);
+      if (firstMediaUrl) {
+        console.log('[Media URL Debug] Original firstMediaUrl:', firstMediaUrl);
+        firstMediaUrl = resolveDirectPublishMediaUrl(firstMediaUrl);
+        console.log('[Media URL Debug] Resolved firstMediaUrl:', firstMediaUrl);
+      }
+      if (firstImageUrl) {
+        console.log('[Media URL Debug] Original firstImageUrl:', firstImageUrl);
+        firstImageUrl = resolveDirectPublishMediaUrl(firstImageUrl);
+        console.log('[Media URL Debug] Resolved firstImageUrl:', firstImageUrl);
+      }
     }
     if (platform === 'THREADS') {
       // For Threads, use direct URLs - Meta's API can't access our proxy URLs
