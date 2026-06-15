@@ -1051,6 +1051,9 @@ export async function runPublishPostWorkflow(input: {
           ? 'TikTok is still processing your video. Check your TikTok profile in a few minutes.'
           : undefined;
       const storyNote = result.storyShareNote ? result.storyShareNote : undefined;
+      if (storyNote) {
+        console.log('[Publish Debug] Story note detected:', { postId, platform, storyNote, mediaType: postMediaType });
+      }
       const targetNote = inboxNote ?? processingNote ?? storyNote;
       await withPrismaPoolRetry('publish-target-posted', () =>
         prisma.postTarget.update({

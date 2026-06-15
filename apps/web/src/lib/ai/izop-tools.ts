@@ -657,6 +657,15 @@ async function buildComposerPostDraft(
       ? 'video'
       : 'photo'
     : mapPostTypeToMediaType(postType);
+  
+  // Debug logging for media type assignment
+  console.log('[Draft Debug] Media type assignment:', { 
+    postType, 
+    hasMedia: mediaList.length > 0, 
+    finalMediaType: mediaType,
+    platform: args.platform 
+  });
+  
   const platformArg = normalizePlatformArg(args.platform as string | undefined);
   const accountId = await resolveAccountId(
     userId,
@@ -666,9 +675,20 @@ async function buildComposerPostDraft(
   const account = await assertAccount(userId, accountId!);
   const platformUpper = account.platform;
 
+  // Safeguard: Ensure text-only posts on text-capable platforms use 'text' mediaType
+  let finalMediaType = mediaType;
+  if (!mediaList.length && platformSupportsTextOnly(platformUpper) && mediaType !== 'text') {
+    console.log('[Draft Debug] Correcting mediaType for text-only post:', { 
+      originalMediaType: mediaType, 
+      correctedMediaType: 'text', 
+      platform: platformUpper 
+    });
+    finalMediaType = 'text';
+  }
+
   if (
     isWeakComposerCaption(caption) &&
-    mediaType === 'text' &&
+    finalMediaType === 'text' &&
     platformSupportsTextOnly(platformUpper)
   ) {
     try {
@@ -687,9 +707,9 @@ async function buildComposerPostDraft(
   const display = await enrichAccountDisplayForDraft(account);
   const textOnlySupported = platformSupportsTextOnly(platformUpper);
   const hasMedia = mediaList.length > 0;
-  const canPublishFromChat = canPublishDraftFromChat(platformUpper, mediaType, hasMedia);
+  const canPublishFromChat = canPublishDraftFromChat(platformUpper, finalMediaType, hasMedia);
 
-  if (mediaType === 'text' && platformRequiresMedia(platformUpper) && !opts?.allowComposerOnly) {
+  if (finalMediaType === 'text' && platformRequiresMedia(platformUpper) && !opts?.allowComposerOnly) {
     throw new Error(
       `${platformLabel(platformUpper)} requires an image or video. Mention it in your reply and offer Composer; do not create a draft unless the user asks.`
     );
@@ -698,7 +718,7 @@ async function buildComposerPostDraft(
   const sessionDraft = buildIzopComposerDraftPayload({
     platforms: [platformUpper],
     caption,
-    mediaType: mediaType === 'text' && platformRequiresMedia(platformUpper) ? 'photo' : mediaType,
+    mediaType: finalMediaType === 'text' && platformRequiresMedia(platformUpper) ? 'photo' : finalMediaType,
     mediaList,
   });
 
@@ -711,7 +731,7 @@ async function buildComposerPostDraft(
     profilePicture: display.profilePicture ?? null,
     accountId: accountId!,
     caption,
-    mediaType,
+    mediaType: finalMediaType,
     textOnlySupported,
     canPublishFromChat,
     composerUrl: IZOP_COMPOSER_HREF,

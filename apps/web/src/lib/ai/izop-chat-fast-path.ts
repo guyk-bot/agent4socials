@@ -241,6 +241,9 @@ async function createTextOnlyPostPreviewFromThread(
   }
 
   const caption = await resolveCaptionForUpload(messages, ctx, platform, []);
+  // Explicitly ensure text-only posts use 'text' postType
+  console.log('[Fast Path Debug] Creating text-only post:', { platform, postType: 'text', caption: caption.slice(0, 50) });
+  
   const out = await runIzopTool(
     'prepare_platform_post_drafts',
     {

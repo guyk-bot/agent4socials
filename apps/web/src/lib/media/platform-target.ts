@@ -29,6 +29,9 @@ export function inferPostMediaKindFromText(text: string): PostMediaKind {
   // Don't treat "text-only" + "thread" combinations as story posts
   if (/\b(text-?only|text)\b/i.test(text) && /\bthread/i.test(text)) return 'feed';
   
+  // Never return 'story' for text that explicitly mentions text-only posting
+  if (/\b(text-?only|just\s+text|only\s+text)\b/i.test(text)) return 'feed';
+  
   if (/\bstor(y|ies)\b/i.test(text)) return 'story';
   if (/\b(reels?|shorts?)\b/i.test(text) || /\btiktok\b/i.test(text)) return 'reel';
   return 'feed';

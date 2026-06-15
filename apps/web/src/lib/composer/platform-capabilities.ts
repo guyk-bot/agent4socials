@@ -59,6 +59,7 @@ export function postingCapabilitiesPromptBlock(): string {
     '- When the user attaches media and asks to post (especially Threads), call open_composer_draft with mediaUrls from the attachment URLs, or prepare_platform_post_drafts for text-only platforms.',
     '- open_composer_draft opens inline Composer in chat (same options as full Composer: platforms, caption, media, schedule, publish).',
     '- When the user asks to post on all platforms without media, call prepare_platform_post_drafts for text-only platforms only.',
+    '- For text-only posts (no media), ALWAYS use postType: "text", never "story" - stories are only for Instagram/Facebook image/video posts.',
     '- For Instagram/TikTok/YouTube/Pinterest with media, use open_composer_draft with mediaUrls so inline Composer is pre-filled.',
     '- You cannot publish posts yourself. Previews appear as cards; the user must click Allow / publish on each card, or publish from inline Composer.',
     '- Never say a post was published unless the user approved via a preview card or Composer.',
