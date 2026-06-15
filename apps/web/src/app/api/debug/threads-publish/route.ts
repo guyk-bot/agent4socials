@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { debugThreadsPublishWorkflow } from '@/lib/threads/debug-publish';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getPrismaUserIdFromRequest } from '@/lib/get-prisma-user';
 
 export async function POST(request: NextRequest) {
   try {
     // Check authentication
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const userId = await getPrismaUserIdFromRequest(request.headers.get('authorization'));
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
