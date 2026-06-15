@@ -293,7 +293,7 @@ export function ensureActiveChatInSessionList(
   const msgs = readCachedMessages(userId, activeId) as StoredIzopMessage[] | null;
   const now = new Date().toISOString();
 
-  if (existing) {
+  if (existing && sessionShouldShowInSidebar(existing, userId)) {
     return dedupeChatSessions([existing, ...sessions]);
   }
 
@@ -332,7 +332,9 @@ export function syncChatSessionsWithServer(
   const hidden = readDeletedChatIds(userId);
   const cached = readCachedSessionList(userId) ?? [];
 
-  // Clean up cache for deleted sessions
+  // Drop server chats that no longer exist remotely; keep offline drafts only.
+  const prunedCache = cached.filter((s) => s.id.startsWith('offline-') || serverIds.has(s.id));
+
   for (const s of cached) {
     if (!s.id.startsWith('offline-') && !serverIds.has(s.id)) {
       writeCachedMessages(userId, s.id, []);
@@ -341,12 +343,14 @@ export function syncChatSessionsWithServer(
 
   const merged = sanitizeChatSessionList(userId, [
     ...serverSessions.filter((s) => !hidden.has(s.id)),
-    ...cached.filter((s) => !hidden.has(s.id) && !serverIds.has(s.id)),
+    ...prunedCache.filter(
+      (s) => s.id.startsWith('offline-') && !hidden.has(s.id) && !serverIds.has(s.id)
+    ),
   ]);
 
   writeCachedSessionList(userId, merged);
 
-  for (const s of cached) {
+  for (const s of prunedCache) {
     if (s.id.startsWith('offline-') && !merged.some((m) => m.id === s.id)) {
       writeCachedMessages(userId, s.id, []);
     }

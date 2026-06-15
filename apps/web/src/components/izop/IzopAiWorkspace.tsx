@@ -20,6 +20,7 @@ import {
   writeCachedMessages,
   writeCachedSessionList,
   writeLastActiveChatId,
+  purgeSessionFromLocalCache,
 } from '@/lib/ai/izop-chat-local-cache';
 import {
   dedupeChatSessions,
@@ -970,7 +971,7 @@ export default function IzopAiWorkspace() {
       const wasActive = activeIdRef.current === id;
       markChatDeleted(user?.id, id);
 
-      writeCachedMessages(user?.id, id, []);
+      purgeSessionFromLocalCache(user?.id, id);
       abortChatRunner(id, true);
 
       if (readPendingNewChatId(user?.id) === id) {

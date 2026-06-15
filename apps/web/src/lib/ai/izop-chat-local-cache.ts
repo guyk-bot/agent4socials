@@ -147,13 +147,19 @@ export function reconcileDeletedChatIds(userId: string | undefined, serverIds: S
   if (!deleted.size) return;
   const next = new Set<string>();
   for (const id of deleted) {
-    if (id.startsWith('offline-') || serverIds.has(id)) next.add(id);
+    if (id.startsWith('offline-')) {
+      if (serverIds.has(id)) next.add(id);
+      continue;
+    }
+    // Keep hiding until the server list no longer includes this id (delete confirmed).
+    if (serverIds.has(id)) next.add(id);
   }
   try {
     if (next.size) {
       localStorage.setItem(deletedIdsKey(userId), JSON.stringify([...next]));
     } else {
       localStorage.removeItem(deletedIdsKey(userId));
+      localStorage.removeItem(`izop_aysop_chat_deleted_${userId}`);
     }
   } catch {
     /* quota */
@@ -206,6 +212,32 @@ export function clearCachedMessagesForSessions(
   }
   try {
     localStorage.removeItem(lastActiveKey(userId));
+  } catch {
+    /* quota */
+  }
+}
+
+/** Remove a session from list + message caches (both current and legacy keys). */
+export function purgeSessionFromLocalCache(userId: string | undefined, sessionId: string): void {
+  if (!userId || !sessionId.trim()) return;
+  writeCachedMessages(userId, sessionId, []);
+  const list = (readCachedSessionList(userId) ?? []).filter((s) => s.id !== sessionId);
+  writeCachedSessionList(userId, list);
+  try {
+    const legacyListKey = `izop_aysop_chat_list_${userId}`;
+    const legacyRaw = localStorage.getItem(legacyListKey);
+    if (legacyRaw) {
+      const legacy = JSON.parse(legacyRaw) as IzopChatSessionSummary[];
+      if (Array.isArray(legacy)) {
+        const cleaned = legacy.filter((s) => s.id !== sessionId);
+        if (cleaned.length) {
+          localStorage.setItem(legacyListKey, JSON.stringify(cleaned));
+        } else {
+          localStorage.removeItem(legacyListKey);
+        }
+      }
+    }
+    localStorage.removeItem(`izop_aysop_chat_${userId}_${sessionId}`);
   } catch {
     /* quota */
   }
