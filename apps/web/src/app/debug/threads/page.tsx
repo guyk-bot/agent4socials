@@ -1,9 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+
+type ThreadsAccountOption = {
+  id: string;
+  username: string;
+  platformUserId?: string;
+  lastSyncStatus?: string | null;
+};
 
 function extractApiError(error: unknown): { message: string; payload: unknown } {
   const ax = error as { response?: { data?: unknown; status?: number }; message?: string };
@@ -19,10 +26,41 @@ function extractApiError(error: unknown): { message: string; payload: unknown } 
 
 export default function ThreadsDebugPage() {
   const { user, loading } = useAuth();
-  const [accountId, setAccountId] = useState('cmq9pcmt30035hnjbo6oi3zsq');
+  const [accountId, setAccountId] = useState('');
+  const [threadsAccounts, setThreadsAccounts] = useState<ThreadsAccountOption[]>([]);
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [accountsError, setAccountsError] = useState<string | null>(null);
   const [testText, setTestText] = useState('');
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [loadingTest, setLoadingTest] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    setAccountsLoading(true);
+    setAccountsError(null);
+    void api
+      .get('/debug/threads-publish')
+      .then((res) => {
+        if (cancelled) return;
+        const accounts = Array.isArray(res.data?.accounts) ? (res.data.accounts as ThreadsAccountOption[]) : [];
+        setThreadsAccounts(accounts);
+        if (accounts.length > 0) {
+          setAccountId((prev) => (prev && accounts.some((a) => a.id === prev) ? prev : accounts[0].id));
+        }
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        const { message } = extractApiError(error);
+        setAccountsError(message);
+      })
+      .finally(() => {
+        if (!cancelled) setAccountsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const runDebugTest = async () => {
     if (!accountId.trim()) {
@@ -84,15 +122,37 @@ export default function ThreadsDebugPage() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-2">
-                Account ID
+                Threads account
               </label>
-              <input
-                type="text"
-                value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
-                className="w-full px-3 py-2 border border-[var(--border)] rounded-md bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40"
-                placeholder="Enter Threads account ID"
-              />
+              {accountsLoading ? (
+                <p className="text-sm text-[var(--muted)]">Loading your connected Threads accounts…</p>
+              ) : threadsAccounts.length > 0 ? (
+                <select
+                  value={accountId}
+                  onChange={(e) => setAccountId(e.target.value)}
+                  className="w-full px-3 py-2 border border-[var(--border)] rounded-md bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/40"
+                >
+                  {threadsAccounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      @{acc.username} ({acc.id})
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+                  No connected Threads account found. Connect or reconnect Threads from{' '}
+                  <Link href="/dashboard/account" className="underline">
+                    Accounts
+                  </Link>
+                  , then refresh this page.
+                </div>
+              )}
+              {accountsError ? (
+                <p className="mt-2 text-sm text-red-600">Could not load accounts: {accountsError}</p>
+              ) : null}
+              <p className="mt-2 text-xs text-[var(--muted)]">
+                Account ID is filled automatically from your connected Threads account after reconnect.
+              </p>
             </div>
 
             <div>
@@ -110,7 +170,7 @@ export default function ThreadsDebugPage() {
 
             <button
               onClick={runDebugTest}
-              disabled={loadingTest}
+              disabled={loadingTest || !accountId.trim() || accountsLoading}
               className="bg-[var(--primary)] text-white px-6 py-2 rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loadingTest ? 'Running Debug Test...' : 'Run Debug Test'}
@@ -193,9 +253,22 @@ export default function ThreadsDebugPage() {
                 </div>
               </div>
             ) : (
-              <div className="text-red-600">
+              <div className="text-red-600 space-y-2">
                 <p className="font-medium">Debug test failed:</p>
-                <p className="text-sm mt-1">{String(result.error ?? 'Unknown error')}</p>
+                <p className="text-sm">{String(result.error ?? 'Unknown error')}</p>
+                {Array.isArray(result.connectedThreadsAccounts) &&
+                (result.connectedThreadsAccounts as ThreadsAccountOption[]).length > 0 ? (
+                  <div className="text-sm text-[var(--foreground)]">
+                    <p className="font-medium">Your connected Threads accounts:</p>
+                    <ul className="mt-1 list-disc pl-5">
+                      {(result.connectedThreadsAccounts as ThreadsAccountOption[]).map((acc) => (
+                        <li key={acc.id}>
+                          @{acc.username}: <code className="text-xs">{acc.id}</code>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
             )}
 
