@@ -79,6 +79,12 @@ export type IzopArtifact =
       composerUrl: string;
       sessionDraft?: import('@/lib/composer/izop-composer-draft-bridge').IzopComposerDraftPayload;
       previewMediaUrls?: string[];
+      /** Set when user approved publish/schedule from chat so UI stays resolved after navigation. */
+      publishedAt?: string | null;
+      publishedPostId?: string | null;
+      scheduledAt?: string | null;
+      publishStatusMessage?: string | null;
+      publishError?: string | null;
     }
   | {
       type: 'composer_session_draft';

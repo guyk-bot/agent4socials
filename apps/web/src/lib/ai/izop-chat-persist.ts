@@ -28,12 +28,72 @@ export function hasConversation(messages: StoredIzopMessage[]): boolean {
   );
 }
 
-/** Prefer the richer copy when local cache and server history disagree. */
-export function pickBestStoredMessages<T extends { content?: string; attachments?: unknown[] }>(
+type ArtifactRow = Record<string, unknown>;
+
+function composerDraftPublishWeight(artifacts: unknown[] | undefined): number {
+  if (!Array.isArray(artifacts)) return 0;
+  return artifacts.reduce<number>((sum, raw) => {
+    const art = raw as ArtifactRow;
+    if (art?.type !== 'composer_post_draft') return sum;
+    let w = 0;
+    if (typeof art.publishedAt === 'string') w += 500;
+    if (typeof art.scheduledAt === 'string') w += 500;
+    if (typeof art.publishedPostId === 'string') w += 200;
+    if (typeof art.publishStatusMessage === 'string') w += 100;
+    if (typeof art.publishError === 'string') w += 100;
+    return sum + w;
+  }, 0);
+}
+
+function mergeComposerDraftPublishFields(
+  serverArt: ArtifactRow,
+  localArt: ArtifactRow | undefined
+): ArtifactRow {
+  if (serverArt.type !== 'composer_post_draft' || localArt?.type !== 'composer_post_draft') {
+    return serverArt;
+  }
+  const merged = { ...serverArt };
+  if (!merged.publishedAt && localArt.publishedAt) merged.publishedAt = localArt.publishedAt;
+  if (!merged.publishedPostId && localArt.publishedPostId) merged.publishedPostId = localArt.publishedPostId;
+  if (!merged.scheduledAt && localArt.scheduledAt) merged.scheduledAt = localArt.scheduledAt;
+  if (!merged.publishStatusMessage && localArt.publishStatusMessage) {
+    merged.publishStatusMessage = localArt.publishStatusMessage;
+  }
+  if (!merged.publishError && localArt.publishError) merged.publishError = localArt.publishError;
+  return merged;
+}
+
+function mergeResolvedArtifactPublishState<T extends { artifacts?: unknown[] }>(
+  picked: T[],
   local: T[],
   server: T[]
 ): T[] {
-  if (server.length > local.length) return server;
+  if (picked.length === 0 || local.length !== picked.length) return picked;
+  return picked.map((row, index) => {
+    const localRow = local[index];
+    const serverRow = server[index];
+    if (!Array.isArray(row.artifacts)) return row;
+    const mergedArtifacts = row.artifacts.map((art, artifactIndex) => {
+      const localArt = Array.isArray(localRow?.artifacts)
+        ? (localRow.artifacts[artifactIndex] as ArtifactRow | undefined)
+        : undefined;
+      const serverArt = Array.isArray(serverRow?.artifacts)
+        ? (serverRow.artifacts[artifactIndex] as ArtifactRow | undefined)
+        : undefined;
+      const base = (art as ArtifactRow) ?? {};
+      return mergeComposerDraftPublishFields(base, localArt ?? serverArt);
+    });
+    return { ...row, artifacts: mergedArtifacts };
+  });
+}
+
+/** Prefer the richer copy when local cache and server history disagree. */
+export function pickBestStoredMessages<
+  T extends { content?: string; attachments?: unknown[]; artifacts?: unknown[] },
+>(local: T[], server: T[]): T[] {
+  if (server.length > local.length) {
+    return mergeResolvedArtifactPublishState(server, local, server);
+  }
   if (local.length > server.length) return local;
   if (local.length === 0) return server;
 
@@ -42,9 +102,11 @@ export function pickBestStoredMessages<T extends { content?: string; attachments
       (sum, row) =>
         sum +
         String(row.content ?? '').length +
-        (Array.isArray(row.attachments) ? row.attachments.length * 200 : 0),
+        (Array.isArray(row.attachments) ? row.attachments.length * 200 : 0) +
+        composerDraftPublishWeight(row.artifacts),
       0
     );
 
-  return weight(server) >= weight(local) ? server : local;
+  const picked = weight(server) >= weight(local) ? server : local;
+  return mergeResolvedArtifactPublishState(picked, local, server);
 }

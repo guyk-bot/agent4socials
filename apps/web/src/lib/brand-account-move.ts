@@ -786,6 +786,7 @@ export function clearPostConnectOAuthUrlParams(options?: { dropConnectingOnly?: 
       url.searchParams.delete('newUsername');
       url.searchParams.delete('newPic');
       url.searchParams.delete('just_connected');
+      url.searchParams.delete('reconnect');
       // Keep accountId so /dashboard stays on the connected account view.
     }
     window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);

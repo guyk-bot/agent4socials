@@ -169,15 +169,17 @@ function oauthSuccessHtml(
   var username = ${safeUsername};
   var profilePicture = ${safeProfilePicture};
   if (window.opener) {
-    try {
-      window.opener.postMessage({
-        type: ${msgType},
-        accountId: accountId,
-        platform: platform,
-        username: username,
-        profilePicture: profilePicture
-      }, window.location.origin);
-    } catch (e) {}
+    var msg = {
+      type: ${msgType},
+      accountId: accountId,
+      platform: platform,
+      username: username,
+      profilePicture: profilePicture
+    };
+    var origins = ['https://www.izop.ai', 'https://izop.ai', window.location.origin];
+    origins.forEach(function (o) {
+      try { window.opener.postMessage(msg, o); } catch (e) {}
+    });
     setTimeout(function () { try { window.close(); } catch (e2) {} }, 400);
     return;
   }

@@ -25,6 +25,7 @@ export function isThreadsInvalidTokenMessage(msg: string | undefined | null): bo
     m.includes('invalid oauth') ||
     (m.includes('oauth') && m.includes('access token')) ||
     m.includes('session has expired') ||
+    m.includes('session expired') ||
     m.includes('error validating access token') ||
     m.includes('access token is invalid')
   );
@@ -79,6 +80,11 @@ async function tryRefreshThreadsToken(
   return null;
 }
 
+async function threadsTokenProfileValid(token: string): Promise<boolean> {
+  const profile = await fetchThreadsProfile(token, 12_000);
+  return Boolean(profile?.id);
+}
+
 async function resolveThreadsToken(
   account: { id: string; accessToken: string; expiresAt?: Date | null },
   opts?: { forceRefresh?: boolean }
@@ -86,11 +92,14 @@ async function resolveThreadsToken(
   let token = account.accessToken.trim();
   if (!token) throw new ThreadsReconnectRequiredError();
 
+  if (await threadsTokenProfileValid(token)) {
+    return token;
+  }
+
   const upgradeToken = async (): Promise<string | null> => {
     const next = await tryRefreshThreadsToken(token);
     if (!next) return null;
-    const profile = await fetchThreadsProfile(next.accessToken, 12_000);
-    if (profile?.id) {
+    if (await threadsTokenProfileValid(next.accessToken)) {
       return persistThreadsToken(account.id, next.accessToken, next.expiresInSec);
     }
     token = next.accessToken;
@@ -100,8 +109,9 @@ async function resolveThreadsToken(
   const upgraded = await upgradeToken();
   if (upgraded) return upgraded;
 
-  const profile = await fetchThreadsProfile(token, 12_000);
-  if (profile?.id) return token;
+  if (await threadsTokenProfileValid(token)) {
+    return token;
+  }
 
   if (opts?.forceRefresh) {
     const forced = await upgradeToken();
@@ -109,11 +119,8 @@ async function resolveThreadsToken(
   }
 
   const lastChance = await tryRefreshThreadsToken(token);
-  if (lastChance) {
-    const profile2 = await fetchThreadsProfile(lastChance.accessToken, 12_000);
-    if (profile2?.id) {
-      return persistThreadsToken(account.id, lastChance.accessToken, lastChance.expiresInSec);
-    }
+  if (lastChance && (await threadsTokenProfileValid(lastChance.accessToken))) {
+    return persistThreadsToken(account.id, lastChance.accessToken, lastChance.expiresInSec);
   }
 
   const reconnectMsg =

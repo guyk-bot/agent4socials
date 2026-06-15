@@ -64,8 +64,10 @@ function isOAuthConnectSyncActive(
   accountId: string | undefined | null,
   justConnected: boolean,
   justConnectedParam = false,
-  postConnectReturn = false
+  postConnectReturn = false,
+  reconnectParam = false
 ): boolean {
+  if (reconnectParam) return false;
   if (!accountId || isConnectLoadDone(accountId)) return false;
   return Boolean(justConnected || justConnectedParam || postConnectReturn);
 }
@@ -454,6 +456,7 @@ export default function DashboardPage() {
   const brandMovedParam = searchParams.get('brandMoved') === '1';
   const brandKeptParam = searchParams.get('brandKept') === '1';
   const justConnectedParam = searchParams.get('just_connected') === '1';
+  const reconnectParam = searchParams.get('reconnect') === '1';
   const postConnectReturn = connectingParam === '1' || brandMovedParam || brandKeptParam || justConnectedParam;
 
   /** Resolved account for analytics; stub from OAuth URL until accounts API returns. */
@@ -486,7 +489,8 @@ export default function DashboardPage() {
     analyticsAccount?.id,
     justConnected,
     justConnectedParam,
-    postConnectReturn
+    postConnectReturn,
+    reconnectParam
   );
 
   const [stats, setStats] = useState({ accounts: 0, scheduled: 0, posted: 0, failed: 0 });
@@ -894,6 +898,20 @@ export default function DashboardPage() {
   // OAuth return: defer account selection until brand assignment runs (avoids wrong-brand analytics flash).
   useLayoutEffect(() => {
     if (!accountIdFromUrl || twitter1oaNext === '1') return;
+    if (reconnectParam) {
+      setSelectedPlatformForConnect(null);
+      setSelectedAccountId(accountIdFromUrl);
+      markConnectLoadDone(accountIdFromUrl);
+      clearOAuthConnectInFlight();
+      setJustConnected(false);
+      setConnectBannerVisible(false);
+      pendingPostConnectAccountIdRef.current = null;
+      router.replace(
+        postConnectDashboardHref(accountIdFromUrl, searchParams.get('newPlatform')),
+        { scroll: false }
+      );
+      return;
+    }
     if (postConnectReturn) {
       setSelectedPlatformForConnect(null);
       setSelectedAccountId(accountIdFromUrl);
@@ -931,7 +949,19 @@ export default function DashboardPage() {
       return;
     }
     setSelectedAccountId(accountIdFromUrl);
-  }, [accountIdFromUrl, postConnectReturn, twitter1oaNext, setSelectedAccountId, setSelectedPlatformForConnect, router, searchParams]);
+  }, [accountIdFromUrl, postConnectReturn, reconnectParam, twitter1oaNext, setSelectedAccountId, setSelectedPlatformForConnect, router, searchParams]);
+
+  const reconnectRefreshStartedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!reconnectParam || !accountIdFromUrl) return;
+    if (reconnectRefreshStartedRef.current === accountIdFromUrl) return;
+    reconnectRefreshStartedRef.current = accountIdFromUrl;
+    void fetchAccounts();
+    const platform = searchParams.get('newPlatform')?.toUpperCase();
+    if (platform === 'INSTAGRAM' || platform === 'FACEBOOK' || platform === 'THREADS') {
+      triggerInboxWarmClient(true);
+    }
+  }, [reconnectParam, accountIdFromUrl, searchParams]);
 
   // When accountId is in URL: clean URL; after connect refresh cache and clear stale per-account data.
   useEffect(() => {
@@ -953,12 +983,14 @@ export default function DashboardPage() {
           const oauthNoise =
             url.searchParams.has('connecting') ||
             url.searchParams.has('just_connected') ||
+            url.searchParams.has('reconnect') ||
             url.searchParams.has('newPlatform') ||
             url.searchParams.has('newUsername') ||
             url.searchParams.has('newPic');
           if (oauthNoise) {
             url.searchParams.delete('connecting');
             url.searchParams.delete('just_connected');
+            url.searchParams.delete('reconnect');
             url.searchParams.delete('newPlatform');
             url.searchParams.delete('newUsername');
             url.searchParams.delete('newPic');
@@ -1102,8 +1134,10 @@ export default function DashboardPage() {
       setOauthLaunchingMethod(undefined);
       if (payload.platform) setOauthInFlightPlatform(payload.platform.trim().toUpperCase());
       const { accountId, platform, username, profilePicture } = payload;
+      const prevAccountIds = readCachedAccountIdsFromStorage();
+      const isReconnect = Boolean(accountId && prevAccountIds.has(accountId));
       if (accountId && platform) {
-        storePostConnectTargetAccount(accountId, platform);
+        storePostConnectTargetAccount(accountId, platform, { reconnect: isReconnect });
         pendingPostConnectAccountIdRef.current = accountId;
         setSelectedAccountId(accountId);
         setCachedAccounts((prev) =>
@@ -1114,26 +1148,38 @@ export default function DashboardPage() {
             profilePicture,
           })
         );
-        resetDashboardDataForPostConnect(accountId);
-        setInsights(null);
-        setImportedPosts([]);
-        setInsightsLoading(true);
-        setImportedPostsLoading(true);
-        setJustConnected(true);
-        singleAccountPostsRunKeyRef.current = '';
-        insightsRunKeyRef.current = '';
-        if (!shouldStayOnPageAfterOAuthConnect()) {
-          // Keep just_connected=1 so redirect hook doesn't fire before cache settles
-          const params = new URLSearchParams();
-          params.set('just_connected', '1');
-          params.set('accountId', accountId);
-          params.set('newPlatform', platform);
-          if (username) params.set('newUsername', username);
-          if (profilePicture) params.set('newPic', profilePicture);
-          router.replace(`${DASHBOARD_AFTER_CONNECT_PATH}?${params.toString()}`, { scroll: false });
+        if (isReconnect) {
+          markConnectLoadDone(accountId);
+          clearOAuthConnectInFlight();
+          setJustConnected(false);
+          setConnectBannerVisible(false);
+          if (!shouldStayOnPageAfterOAuthConnect()) {
+            router.replace(
+              buildDashboardSuccessRedirect(accountId, platform, { reconnect: '1' }),
+              { scroll: false }
+            );
+          }
+        } else {
+          resetDashboardDataForPostConnect(accountId);
+          setInsights(null);
+          setImportedPosts([]);
+          setInsightsLoading(true);
+          setImportedPostsLoading(true);
+          setJustConnected(true);
+          singleAccountPostsRunKeyRef.current = '';
+          insightsRunKeyRef.current = '';
+          if (!shouldStayOnPageAfterOAuthConnect()) {
+            // Keep just_connected=1 so redirect hook doesn't fire before cache settles
+            const params = new URLSearchParams();
+            params.set('just_connected', '1');
+            params.set('accountId', accountId);
+            params.set('newPlatform', platform);
+            if (username) params.set('newUsername', username);
+            if (profilePicture) params.set('newPic', profilePicture);
+            router.replace(`${DASHBOARD_AFTER_CONNECT_PATH}?${params.toString()}`, { scroll: false });
+          }
         }
       }
-      const prevAccountIds = readCachedAccountIdsFromStorage();
       const pendingBrandId = readPendingConnectActiveBrand() ?? activeBrandId;
       void fetchAccounts().then(async (list) => {
         if (!accountId) return;

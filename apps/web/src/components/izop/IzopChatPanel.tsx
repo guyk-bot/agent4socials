@@ -32,6 +32,7 @@ import {
 } from '@/lib/brand-context-utils';
 import { isIzopQuickReplyMessage } from '@/lib/ai/izop-quick-replies';
 import type { IzopArtifact } from '@/lib/ai/izop-artifacts';
+import type { ComposerDraftPublishPatch } from '@/lib/ai/composer-draft-artifact-state';
 import {
   IZOP_CHAT_FILE_ACCEPT,
   IZOP_CHAT_MAX_ATTACHMENTS,
@@ -111,15 +112,25 @@ export default function IzopChatPanel({
     (
       messageId: string,
       artifactIndex: number,
-      patch: { approvedAt?: string; dismissedAt?: string; resumeDismissedAt?: string }
+      patch: {
+        approvedAt?: string;
+        dismissedAt?: string;
+        resumeDismissedAt?: string;
+      } & ComposerDraftPublishPatch
     ) => {
       const next = messages.map((m) => {
         if (m.id !== messageId || !m.artifacts?.[artifactIndex]) return m;
         const artifacts = [...m.artifacts];
         const current = artifacts[artifactIndex];
-        if (current?.type !== 'brand_context_update') return m;
-        artifacts[artifactIndex] = { ...current, ...patch };
-        return { ...m, artifacts };
+        if (current?.type === 'brand_context_update') {
+          artifacts[artifactIndex] = { ...current, ...patch };
+          return { ...m, artifacts };
+        }
+        if (current?.type === 'composer_post_draft') {
+          artifacts[artifactIndex] = { ...current, ...patch };
+          return { ...m, artifacts };
+        }
+        return m;
       });
       onMessagesChange(next);
     },

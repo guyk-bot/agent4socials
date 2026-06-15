@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { formatMetricNumber } from '@/lib/metric-format';
 import type { IzopArtifact, AppViewId } from '@/lib/ai/izop-artifacts';
+import type { ComposerDraftPublishPatch } from '@/lib/ai/composer-draft-artifact-state';
 import { IzopAnalyticsReportCard } from '@/components/izop/IzopAnalyticsReportCard';
 import { IzopComposerPostDraftCard } from '@/components/izop/IzopComposerPostDraftCard';
 import { IzopComposerSessionDraftCard } from '@/components/izop/IzopComposerSessionDraftCard';
@@ -115,7 +116,11 @@ export function IzopArtifactCards({
   messageId?: string;
   onArtifactResolved?: (
     artifactIndex: number,
-    patch: { approvedAt?: string; dismissedAt?: string; resumeDismissedAt?: string }
+    patch: {
+      approvedAt?: string;
+      dismissedAt?: string;
+      resumeDismissedAt?: string;
+    } & ComposerDraftPublishPatch
   ) => void;
   onScanLeads?: () => void;
   scanningLeads?: boolean;
@@ -481,7 +486,17 @@ export function IzopArtifactCards({
           return (
             <div key={key} className="space-y-2">
               {draftRun.map((draft, j) => (
-                <IzopComposerPostDraftCard key={`${key}-${j}`} draft={draft} />
+                <IzopComposerPostDraftCard
+                  key={`${key}-${j}`}
+                  draft={draft}
+                  messageId={messageId}
+                  artifactIndex={i + j}
+                  onArtifactResolved={
+                    onArtifactResolved
+                      ? (patch) => onArtifactResolved(i + j, patch)
+                      : undefined
+                  }
+                />
               ))}
             </div>
           );

@@ -26,7 +26,13 @@ import type { IzopComposerDraftPayload } from '@/lib/composer/izop-composer-draf
 import { mediaListFromUrls } from '@/lib/composer/izop-composer-draft-bridge';
 import { avatarDisplayUrl } from '@/lib/avatar-display-url';
 import { friendlyIzopChatError } from '@/lib/ai/izop-chat-errors';
+import {
+  markComposerDraftPublishState,
+  readComposerDraftPublishState,
+  type ComposerDraftPublishPatch,
+} from '@/lib/ai/composer-draft-artifact-state';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
+import { useAuth } from '@/context/AuthContext';
 
 type Draft = Extract<IzopArtifact, { type: 'composer_post_draft' }>;
 
@@ -54,18 +60,62 @@ const PLATFORM_ACCENT: Record<string, string> = {
   PINTEREST: 'bg-[#E60023] text-white',
 };
 
-export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
+export function IzopComposerPostDraftCard({
+  draft,
+  messageId,
+  artifactIndex = 0,
+  onArtifactResolved,
+}: {
+  draft: Draft;
+  messageId?: string;
+  artifactIndex?: number;
+  onArtifactResolved?: (patch: ComposerDraftPublishPatch) => void;
+}) {
+  const { user } = useAuth();
   const accountsCache = useAccountsCache();
+  const storedPublish = useMemo(() => {
+    if (draft.publishedAt || draft.scheduledAt || draft.publishError || draft.publishStatusMessage) {
+      return {
+        publishedAt: draft.publishedAt ?? undefined,
+        publishedPostId: draft.publishedPostId ?? undefined,
+        scheduledAt: draft.scheduledAt ?? undefined,
+        publishStatusMessage: draft.publishStatusMessage ?? undefined,
+        publishError: draft.publishError ?? undefined,
+      };
+    }
+    if (messageId) {
+      return readComposerDraftPublishState(user?.id, messageId, artifactIndex);
+    }
+    return null;
+  }, [
+    draft.publishedAt,
+    draft.publishedPostId,
+    draft.scheduledAt,
+    draft.publishStatusMessage,
+    draft.publishError,
+    messageId,
+    user?.id,
+    artifactIndex,
+  ]);
+
+  const persistPublishState = (patch: ComposerDraftPublishPatch) => {
+    if (messageId) {
+      markComposerDraftPublishState(user?.id, messageId, artifactIndex, patch);
+    }
+    onArtifactResolved?.(patch);
+  };
   const allCachedAccounts = accountsCache?.allCachedAccounts ?? [];
   const [confirming, setConfirming] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [scheduleAt, setScheduleAt] = useState('');
   const [publishing, setPublishing] = useState(false);
-  const [published, setPublished] = useState(false);
-  const [publishedPostId, setPublishedPostId] = useState<string | null>(null);
-  const [scheduled, setScheduled] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [published, setPublished] = useState(Boolean(storedPublish?.publishedAt));
+  const [publishedPostId, setPublishedPostId] = useState<string | null>(
+    storedPublish?.publishedPostId ?? null
+  );
+  const [scheduled, setScheduled] = useState(Boolean(storedPublish?.scheduledAt));
+  const [status, setStatus] = useState<string | null>(storedPublish?.publishStatusMessage ?? null);
+  const [error, setError] = useState<string | null>(storedPublish?.publishError ?? null);
   const [threadsShareToInstagram, setThreadsShareToInstagram] = useState(false);
   const [alsoPostToStory, setAlsoPostToStory] = useState(false);
   const [liveAccount, setLiveAccount] = useState<{
@@ -231,18 +281,28 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
       setPublished(true);
       setConfirming(false);
       setScheduling(false);
-      setStatus(
+      const statusMessage =
         threadsShareToInstagram || alsoPostToStory
           ? 'Publishing started (including Story). Check History for live status.'
-          : 'Publishing started. Check History for live status.'
-      );
+          : 'Publishing started. Check History for live status.';
+      setStatus(statusMessage);
+      persistPublishState({
+        publishedAt: new Date().toISOString(),
+        publishedPostId: postId,
+        publishStatusMessage: statusMessage,
+        publishError: undefined,
+      });
     } catch (e) {
       const msg = friendlyIzopChatError(e, 'Could not publish. Try Open Composer or History.');
-      setError(
+      const displayMsg =
         /threads session expired|invalid oauth|reconnect threads/i.test(msg)
           ? `${msg} Go to Account, disconnect Threads, reconnect, then try Allow again.`
-          : msg
-      );
+          : msg;
+      setError(displayMsg);
+      persistPublishState({
+        publishError: displayMsg,
+        publishStatusMessage: undefined,
+      });
     } finally {
       setPublishing(false);
     }
@@ -270,14 +330,22 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
       setScheduled(true);
       setConfirming(false);
       setScheduling(false);
-      setStatus(
-        `Scheduled for ${new Date(scheduleAt).toLocaleString()}.${
-          threadsShareToInstagram || alsoPostToStory ? ' Story sharing is included.' : ''
-        } Preview on Calendar or History anytime.`
-      );
+      const statusMessage = `Scheduled for ${new Date(scheduleAt).toLocaleString()}.${
+        threadsShareToInstagram || alsoPostToStory ? ' Story sharing is included.' : ''
+      } Preview on Calendar or History anytime.`;
+      setStatus(statusMessage);
+      persistPublishState({
+        scheduledAt: new Date(scheduleAt).toISOString(),
+        publishStatusMessage: statusMessage,
+        publishError: undefined,
+      });
     } catch (e) {
       const msg = friendlyIzopChatError(e, 'Could not schedule. Try Calendar or Composer.');
       setError(msg);
+      persistPublishState({
+        publishError: msg,
+        publishStatusMessage: undefined,
+      });
     } finally {
       setPublishing(false);
     }

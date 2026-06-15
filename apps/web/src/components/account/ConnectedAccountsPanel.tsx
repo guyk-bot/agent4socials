@@ -64,50 +64,63 @@ export function ConnectedAccountsPanel() {
 
   const accounts = (cachedAccounts as SocialAccount[]) ?? [];
 
-  const goToPlatformDashboard = (accountId: string, platform: string) => {
+  const goToPlatformDashboard = (
+    accountId: string,
+    platform: string,
+    opts?: { reconnect?: boolean }
+  ) => {
     clearPostConnectTargetAccount();
     setSelectedAccountId(accountId);
     router.replace(
-      buildDashboardSuccessRedirect(accountId, platform, { just_connected: '1' })
+      buildDashboardSuccessRedirect(
+        accountId,
+        platform,
+        opts?.reconnect ? { reconnect: '1' } : { just_connected: '1' }
+      )
     );
   };
 
   useEffect(() => {
     const target = readPostConnectTargetAccount();
     if (target) {
-      goToPlatformDashboard(target.accountId, target.platform);
+      goToPlatformDashboard(target.accountId, target.platform, { reconnect: target.reconnect });
     }
   }, []);
 
   useEffect(() => {
-    return listenForOAuthComplete(async (payload) => {
-      try {
-        const res = await api.get(`/social/accounts?_=${Date.now()}`);
-        const data = Array.isArray(res.data) ? res.data : [];
-        setCachedAccounts(data);
-        const { accountId, platform } = payload;
-        const connected = accountId ? data.find((a) => a.id === accountId) : undefined;
-        const plat = connected?.platform ?? platform ?? '';
-        if (accountId && plat && finishPostConnectBrandAssignment) {
-          finishPostConnectBrandAssignment(
-            accountId,
-            data,
-            connected
-              ? { platform: connected.platform, username: connected.username }
-              : platform
-                ? { platform, username: undefined }
-                : undefined,
-            {
-              successRedirect: buildDashboardSuccessRedirect(accountId, plat || platform),
-            }
-          );
-        }
-        if (accountId && plat) {
-          goToPlatformDashboard(accountId, plat);
-        }
-      } catch {
-        /* ignore */
+    return listenForOAuthComplete((payload) => {
+      const { accountId, platform } = payload;
+      const target = readPostConnectTargetAccount();
+      const isReconnect = target?.reconnect === true;
+      if (accountId && platform) {
+        goToPlatformDashboard(accountId, platform, { reconnect: isReconnect });
+        setReconnectingId(null);
       }
+      void (async () => {
+        try {
+          const res = await api.get(`/social/accounts?_=${Date.now()}`);
+          const data = Array.isArray(res.data) ? res.data : [];
+          setCachedAccounts(data);
+          const connected = accountId ? data.find((a) => a.id === accountId) : undefined;
+          const plat = connected?.platform ?? platform ?? '';
+          if (accountId && plat && finishPostConnectBrandAssignment) {
+            finishPostConnectBrandAssignment(
+              accountId,
+              data,
+              connected
+                ? { platform: connected.platform, username: connected.username }
+                : platform
+                  ? { platform, username: undefined }
+                  : undefined,
+              {
+                successRedirect: buildDashboardSuccessRedirect(accountId, plat || platform),
+              }
+            );
+          }
+        } catch {
+          /* ignore */
+        }
+      })();
     });
   }, [setCachedAccounts, finishPostConnectBrandAssignment, router, setSelectedAccountId]);
 
@@ -165,7 +178,7 @@ export function ConnectedAccountsPanel() {
     const oauthPopup = prepareOAuthConnectPopup();
     setReconnectingId(acc.id);
     storeOAuthConnectInFlight(acc.platform);
-    storePostConnectTargetAccount(acc.id, acc.platform);
+    storePostConnectTargetAccount(acc.id, acc.platform, { reconnect: true });
     try {
       const liMethod =
         acc.platform === 'LINKEDIN' && acc.linkedinConnectionKind === 'organization_page'
@@ -202,15 +215,19 @@ export function ConnectedAccountsPanel() {
           alert('Could not open sign-in. Allow pop-ups for www.izop.io or try Reconnect again.');
         } else if (oauthPopup && !oauthPopup.closed) {
           watchOAuthConnectPopup(oauthPopup, acc.platform, () => {
+            goToPlatformDashboard(acc.id, acc.platform, { reconnect: true });
+            setReconnectingId(null);
             pollOAuthConnectAccount(
               acc.platform,
               async () => {
                 const r = await api.get(`/social/accounts?_=${Date.now()}`);
                 return Array.isArray(r.data) ? r.data : [];
               },
-              (found) => {
-                goToPlatformDashboard(found.id, found.platform);
-                setReconnectingId(null);
+              () => {
+                void api.get(`/social/accounts?_=${Date.now()}`).then((r) => {
+                  const data = Array.isArray(r.data) ? r.data : [];
+                  setCachedAccounts(data);
+                });
               },
               { requireInFlight: false, maxMs: 90_000 }
             );
@@ -218,11 +235,12 @@ export function ConnectedAccountsPanel() {
         }
       } else {
         closeOAuthConnectPopup(oauthPopup);
+        setReconnectingId(null);
       }
     } catch {
       closeOAuthConnectPopup(oauthPopup);
+      setReconnectingId(null);
     }
-    setReconnectingId(null);
   };
 
   return (

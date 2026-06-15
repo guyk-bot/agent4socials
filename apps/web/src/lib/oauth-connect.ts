@@ -126,8 +126,19 @@ export function clearOAuthConnectInFlightForPlatform(platform: string): void {
   }
 }
 
+export type PostConnectTargetAccount = {
+  accountId: string;
+  platform: string;
+  /** True when reconnecting an existing row (skip first-connect loading UI). */
+  reconnect?: boolean;
+};
+
 /** After OAuth from Account settings, always open this account on /dashboard. */
-export function storePostConnectTargetAccount(accountId: string, platform: string): void {
+export function storePostConnectTargetAccount(
+  accountId: string,
+  platform: string,
+  opts?: { reconnect?: boolean }
+): void {
   if (typeof window === 'undefined' || !accountId || !platform) return;
   try {
     localStorage.setItem(
@@ -135,6 +146,7 @@ export function storePostConnectTargetAccount(accountId: string, platform: strin
       JSON.stringify({
         accountId,
         platform: platform.trim().toUpperCase(),
+        reconnect: opts?.reconnect === true,
         startedAt: Date.now(),
       })
     );
@@ -143,18 +155,27 @@ export function storePostConnectTargetAccount(accountId: string, platform: strin
   }
 }
 
-export function readPostConnectTargetAccount(): { accountId: string; platform: string } | null {
+export function readPostConnectTargetAccount(): PostConnectTargetAccount | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(POST_CONNECT_TARGET_ACCOUNT_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { accountId?: string; platform?: string; startedAt?: number };
+    const parsed = JSON.parse(raw) as {
+      accountId?: string;
+      platform?: string;
+      reconnect?: boolean;
+      startedAt?: number;
+    };
     if (!parsed?.accountId || !parsed?.platform) return null;
     if (parsed.startedAt && Date.now() - parsed.startedAt > POST_CONNECT_TARGET_TTL_MS) {
       localStorage.removeItem(POST_CONNECT_TARGET_ACCOUNT_KEY);
       return null;
     }
-    return { accountId: parsed.accountId, platform: parsed.platform };
+    return {
+      accountId: parsed.accountId,
+      platform: parsed.platform,
+      reconnect: parsed.reconnect === true,
+    };
   } catch {
     return null;
   }
@@ -412,6 +433,39 @@ export function openOAuthConnectUrl(url: string): OpenOAuthConnectResult {
   return navigateOAuthConnect(url, null);
 }
 
+/** Origins the OAuth callback tab may target when notifying window.opener (www vs naked host). */
+export function trustedOAuthOpenerOrigins(): string[] {
+  const origins = ['https://www.izop.ai', 'https://izop.ai'];
+  if (typeof window !== 'undefined') {
+    try {
+      const o = window.location.origin;
+      if (o && !origins.includes(o)) origins.push(o);
+    } catch {
+      /* ignore */
+    }
+  }
+  return origins;
+}
+
+/** Post OAuth success to the opener on every trusted app origin (fixes www vs izop.ai mismatch). */
+export function postOAuthCompleteToOpener(payload: OAuthCompletePayload = {}): void {
+  if (typeof window === 'undefined' || !window.opener) return;
+  const message = {
+    type: OAUTH_COMPLETE_MESSAGE,
+    accountId: payload.accountId ?? null,
+    platform: payload.platform ?? null,
+    username: payload.username ?? null,
+    profilePicture: payload.profilePicture ?? null,
+  };
+  for (const origin of trustedOAuthOpenerOrigins()) {
+    try {
+      window.opener.postMessage(message, origin);
+    } catch {
+      /* ignore cross-origin or closed opener */
+    }
+  }
+}
+
 /** Origins allowed to post OAuth completion back to the funnel / dashboard opener. */
 export function isTrustedOAuthMessageOrigin(origin: string): boolean {
   try {
@@ -444,20 +498,7 @@ export function listenForOAuthComplete(onComplete: (payload: OAuthCompletePayloa
 /** When OAuth finishes in a popup, notify opener and close this tab. */
 export function notifyOAuthOpenerAndClose(payload: OAuthCompletePayload = {}): void {
   if (typeof window === 'undefined' || !window.opener) return;
-  try {
-    window.opener.postMessage(
-      {
-        type: OAUTH_COMPLETE_MESSAGE,
-        accountId: payload.accountId ?? null,
-        platform: payload.platform ?? null,
-        username: payload.username ?? null,
-        profilePicture: payload.profilePicture ?? null,
-      },
-      window.location.origin
-    );
-  } catch {
-    /* ignore cross-origin or closed opener */
-  }
+  postOAuthCompleteToOpener(payload);
   window.setTimeout(() => {
     try {
       window.close();
