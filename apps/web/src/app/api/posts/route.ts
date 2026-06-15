@@ -298,6 +298,12 @@ export async function POST(request: NextRequest) {
       console.error('[POST /api/posts] schema drift (apply migration or ensure-*.sql):', e);
       return NextResponse.json({ message: drift }, { status: 503 });
     }
+    if (isPrismaPoolError(e)) {
+      return NextResponse.json(
+        { message: 'Database is busy. Wait 30 seconds and try Allow again.' },
+        { status: 503 }
+      );
+    }
     const message = e instanceof Error ? e.message : 'Failed to create post';
     console.error('[POST /api/posts]', e);
     return NextResponse.json({ message }, { status: 500 });

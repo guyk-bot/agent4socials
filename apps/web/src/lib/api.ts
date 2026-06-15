@@ -14,6 +14,8 @@ export const API_IZOP_CHAT_ATTACHMENTS_TIMEOUT_MS = 180_000;
 /** Presigned URL + large PUT to R2. */
 export const API_MEDIA_UPLOAD_TIMEOUT_MS = 180_000;
 export const API_IZOP_SESSION_PERSIST_TIMEOUT_MS = 120_000;
+/** Create post + start publish from iZop AI chat (DB + background publish). */
+export const API_PUBLISH_FROM_CHAT_TIMEOUT_MS = 120_000;
 /** Direct PUT to R2 after presign (large PDFs/videos). */
 export const R2_DIRECT_UPLOAD_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -94,6 +96,10 @@ function applyApiTimeout(config: {
     if (method === 'patch') {
       floor(API_IZOP_SESSION_PERSIST_TIMEOUT_MS);
     }
+  } else if (/\/posts\/[^/]+(\/publish|\/finalize-publish-status)?$/.test(path)) {
+    floor(API_PUBLISH_FROM_CHAT_TIMEOUT_MS);
+  } else if (/\/posts(\?|$)/.test(path)) {
+    floor(API_PUBLISH_FROM_CHAT_TIMEOUT_MS);
   }
 }
 

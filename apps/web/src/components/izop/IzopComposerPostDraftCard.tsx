@@ -23,10 +23,25 @@ import {
   threadsInstagramStoryEligible,
 } from '@/lib/composer/story-share-options';
 import type { IzopComposerDraftPayload } from '@/lib/composer/izop-composer-draft-bridge';
+import { mediaListFromUrls } from '@/lib/composer/izop-composer-draft-bridge';
 import { avatarDisplayUrl } from '@/lib/avatar-display-url';
+import { friendlyIzopChatError } from '@/lib/ai/izop-chat-errors';
 import { useAccountsCache } from '@/context/AccountsCacheContext';
 
 type Draft = Extract<IzopArtifact, { type: 'composer_post_draft' }>;
+
+function resolveDraftMediaForPublish(draft: Draft): { fileUrl: string; type: 'IMAGE' | 'VIDEO' }[] {
+  if (draft.sessionDraft?.mediaList?.length) {
+    return draft.sessionDraft.mediaList.map((m) => ({
+      fileUrl: m.fileUrl,
+      type: m.type,
+    }));
+  }
+  if (draft.previewMediaUrls?.length) {
+    return mediaListFromUrls(draft.previewMediaUrls);
+  }
+  return [];
+}
 
 const PLATFORM_ACCENT: Record<string, string> = {
   TWITTER: 'bg-neutral-900 text-white',
@@ -185,7 +200,17 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
     setPublishing(true);
     setError(null);
     setStatus(null);
-    const media = draft.sessionDraft?.mediaList ?? [];
+    const media = resolveDraftMediaForPublish(draft);
+    if (
+      (draft.platform.toUpperCase() === 'THREADS' || draft.mediaType === 'photo' || draft.mediaType === 'video') &&
+      media.length === 0
+    ) {
+      setError(
+        'Media is missing from this draft. Re-attach the image in chat or use Open Composer, then try again.'
+      );
+      setPublishing(false);
+      return;
+    }
     const resolvedMediaType =
       media.length > 0
         ? media[0].type === 'VIDEO'
@@ -194,7 +219,10 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
         : draft.mediaType;
     try {
       const createRes = await api.post<{ id: string }>('/posts', buildPostPayload(resolvedMediaType, media));
-      const postId = createRes.data.id;
+      const postId = createRes.data?.id;
+      if (!postId) {
+        throw new Error('Post was created but no id was returned. Try History or Composer.');
+      }
       await api.post(`/posts/${postId}/publish`, {});
       setPublishedPostId(postId);
       setPublished(true);
@@ -206,10 +234,12 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
           : 'Publishing started. Check History for live status.'
       );
     } catch (e) {
-      const msg =
-        (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Could not publish. Try Open Composer or History.';
-      setError(msg);
+      const msg = friendlyIzopChatError(e, 'Could not publish. Try Open Composer or History.');
+      setError(
+        /threads session expired|invalid oauth|reconnect threads/i.test(msg)
+          ? `${msg} Go to Account, disconnect Threads, reconnect, then try Allow again.`
+          : msg
+      );
     } finally {
       setPublishing(false);
     }
@@ -220,7 +250,7 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
     setPublishing(true);
     setError(null);
     setStatus(null);
-    const media = draft.sessionDraft?.mediaList ?? [];
+    const media = resolveDraftMediaForPublish(draft);
     const resolvedMediaType =
       media.length > 0
         ? media[0].type === 'VIDEO'
@@ -243,9 +273,7 @@ export function IzopComposerPostDraftCard({ draft }: { draft: Draft }) {
         } Preview on Calendar or History anytime.`
       );
     } catch (e) {
-      const msg =
-        (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Could not schedule. Try Calendar or Composer.';
+      const msg = friendlyIzopChatError(e, 'Could not schedule. Try Calendar or Composer.');
       setError(msg);
     } finally {
       setPublishing(false);
