@@ -539,7 +539,6 @@ export async function runPublishPostWorkflow(input: {
       console.log('[Threads publish start]', {
         postId,
         accountId: socialAccount.id,
-        username: socialAccount.username,
         hasAccessToken: Boolean(socialAccount.accessToken),
         tokenLength: socialAccount.accessToken?.length || 0,
         expiresAt: socialAccount.expiresAt,
