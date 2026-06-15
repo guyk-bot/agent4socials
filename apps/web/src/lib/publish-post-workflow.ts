@@ -612,8 +612,13 @@ export async function runPublishPostWorkflow(input: {
       if (firstImageUrl) firstImageUrl = resolveDirectPublishMediaUrl(firstImageUrl);
     }
     if (platform === 'THREADS') {
-      if (firstImageUrl) firstImageUrl = publicMediaUrlForMeta(firstImageUrl);
-      if (firstMediaUrl && !firstVideo?.fileUrl) firstMediaUrl = publicMediaUrlForMeta(firstMediaUrl);
+      // For Threads, use direct URLs - Meta's API can't access our proxy URLs
+      // firstImageUrl and firstMediaUrl already converted to direct URLs above
+      console.log('[Threads media URLs]', {
+        postId,
+        firstImageUrl: firstImageUrl?.slice(0, 80),
+        firstMediaUrl: firstMediaUrl?.slice(0, 80),
+      });
     }
     if (platform === 'PINTEREST' && firstImageUrl) {
       firstImageUrl = publicMediaUrlForMeta(firstImageUrl);
