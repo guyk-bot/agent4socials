@@ -77,4 +77,4 @@ export function metaAlsoStoryDescription(platform: string): string {
 export const THREADS_INSTAGRAM_STORY_LABEL = 'Also share to Instagram Story';
 
 export const THREADS_INSTAGRAM_STORY_DESCRIPTION =
-  'Uses the Threads threads_share_to_instagram permission. Your Instagram account must be linked in the Threads app (Settings), not in iZop. Reconnect Threads after adding this scope.';
+  'Uses threads_share_to_instagram. Link Instagram in the Threads app (Settings). Threads publishes first; your Story ring may update 2 to 5 minutes later.';

@@ -111,7 +111,10 @@ function threadsInstagramStoryStatus(post: PostHistoryRow): {
     const threadsStatus = (threadsTarget?.status ?? post.status ?? '').toString().toUpperCase();
     const err = String(threadsTarget?.error ?? '');
     if (/story:\s*shared/i.test(err)) {
-        return { label: 'IG Story: shared', className: 'bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-950/50 dark:text-fuchsia-200' };
+        return {
+            label: 'IG Story: shared (2 to 5 min)',
+            className: 'bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-950/50 dark:text-fuchsia-200',
+        };
     }
     if (/ig story failed/i.test(err)) {
         return { label: 'IG Story: failed', className: 'bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-200' };

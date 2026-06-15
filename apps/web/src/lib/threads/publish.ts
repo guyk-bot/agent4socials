@@ -178,11 +178,19 @@ export async function publishToThreads(options: {
   }
 
   const containerId = created.containerId;
-  if (options.imageUrl?.trim() || options.videoUrl?.trim()) {
-    const ready = await waitForThreadsContainerReady(containerId, token);
+  const isVideo = Boolean(options.videoUrl?.trim());
+  const isImage = Boolean(options.imageUrl?.trim());
+  if (isVideo) {
+    const ready = await waitForThreadsContainerReady(containerId, token, 90_000);
     if (!ready) {
-      console.log('[publishToThreads] Container not FINISHED yet; publishing anyway');
+      return {
+        ok: false,
+        error: 'Threads video is still processing. Try again in a minute.',
+      };
     }
+  } else if (isImage) {
+    // Images are often publishable before status=FINISHED; avoid blocking up to 2 min.
+    await waitForThreadsContainerReady(containerId, token, 12_000);
   }
 
   if (!wantIgShare) {

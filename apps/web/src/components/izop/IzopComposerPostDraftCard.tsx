@@ -269,9 +269,9 @@ export function IzopComposerPostDraftCard({
             }
             const msg =
               threadsShareToInstagram && /story:\s*shared/i.test(note)
-                ? `Published to ${draft.platformLabel} and Instagram Story.`
+                ? `Published to ${draft.platformLabel}. Instagram Story can take 2 to 5 minutes to show on your ring.`
                 : threadsShareToInstagram
-                  ? `Published to ${draft.platformLabel}. Check your Instagram Story ring (may take a minute).`
+                  ? `Published to ${draft.platformLabel}. Instagram Story may take a few minutes to appear.`
                   : `Published to ${draft.platformLabel}. Check History for details.`;
             setStatus(msg);
             persistPublishState({
@@ -407,7 +407,7 @@ export function IzopComposerPostDraftCard({
       setScheduling(false);
       const statusMessage =
         threadsShareToInstagram || alsoPostToStory
-          ? 'Publishing started (including Story). Check History for live status.'
+          ? 'Publishing started (including Story). Threads is usually instant; Instagram Story can take 2 to 5 minutes.'
           : 'Publishing started. Check History for live status.';
       setStatus(statusMessage);
       persistPublishState({

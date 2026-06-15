@@ -2275,7 +2275,8 @@ export async function publishTarget(
       let storyShareNote: string | undefined;
       if (threadsShareToInstagram === true) {
         if (result.igStoryShared) {
-          storyShareNote = 'Story: shared';
+          storyShareNote =
+            'Story: shared (Instagram Story may take 2 to 5 minutes to appear on your ring)';
         } else if (result.igStoryShareSkipped) {
           storyShareNote = `IG Story failed: ${(result.igStoryError ?? 'Instagram cross-share unavailable').slice(0, 180)}`;
         }
