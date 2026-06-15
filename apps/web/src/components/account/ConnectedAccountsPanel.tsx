@@ -201,6 +201,10 @@ export function ConnectedAccountsPanel() {
         startParams.set('step', 'consent');
         startParams.set('reconnect_account_id', acc.id);
       }
+      if (acc.platform === 'THREADS') {
+        startParams.set('force_full_consent', '1');
+        startParams.set('reconnect_account_id', acc.id);
+      }
       const qs = startParams.toString() ? `?${startParams.toString()}` : '';
       const res = await api.get(`/social/oauth/${acc.platform.toLowerCase()}/start${qs}`);
       const url = res?.data?.url;

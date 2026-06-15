@@ -229,6 +229,68 @@ export function IzopComposerPostDraftCard({
     };
   }, [draft.sessionDraft, threadsShareToInstagram, alsoPostToStory]);
 
+  const watchPublishOutcome = (postId: string) => {
+    void (async () => {
+      const platformUpper = draft.platform.toUpperCase();
+      for (let attempt = 0; attempt < 45; attempt++) {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, 2000));
+        try {
+          const res = await api.get<{
+            status?: string;
+            targets?: Array<{ platform?: string; status?: string; error?: string | null }>;
+          }>(`/posts/${postId}`);
+          const target = (res.data?.targets ?? []).find(
+            (t) => String(t.platform ?? '').toUpperCase() === platformUpper
+          );
+          if (target?.status === 'POSTED') {
+            const msg = `Published to ${draft.platformLabel}. Check History for details.`;
+            setStatus(msg);
+            persistPublishState({
+              publishedAt: new Date().toISOString(),
+              publishedPostId: postId,
+              publishStatusMessage: msg,
+              publishError: undefined,
+            });
+            return;
+          }
+          if (target?.status === 'FAILED') {
+            const err =
+              target.error?.trim() ||
+              `Publish failed on ${draft.platformLabel}. Reconnect the account and try Allow again.`;
+            setPublished(false);
+            setPublishedPostId(null);
+            setError(err);
+            setStatus(null);
+            persistPublishState({
+              publishedAt: undefined,
+              publishedPostId: undefined,
+              publishStatusMessage: undefined,
+              publishError: err,
+            });
+            return;
+          }
+          const postStatus = String(res.data?.status ?? '').toUpperCase();
+          if (postStatus === 'FAILED') {
+            const err = `Publish failed on ${draft.platformLabel}. Open History for details.`;
+            setPublished(false);
+            setPublishedPostId(null);
+            setError(err);
+            setStatus(null);
+            persistPublishState({
+              publishError: err,
+              publishStatusMessage: undefined,
+              publishedAt: undefined,
+              publishedPostId: undefined,
+            });
+            return;
+          }
+        } catch {
+          /* keep polling */
+        }
+      }
+    })();
+  };
+
   const buildPostPayload = (resolvedMediaType: string, media: { fileUrl: string; type: string }[]) => {
     const platformUpper = draft.platform.toUpperCase();
     return {
@@ -292,6 +354,7 @@ export function IzopComposerPostDraftCard({
         publishStatusMessage: statusMessage,
         publishError: undefined,
       });
+      watchPublishOutcome(postId);
     } catch (e) {
       const msg = friendlyIzopChatError(e, 'Could not publish. Try Open Composer or History.');
       const displayMsg =

@@ -531,11 +531,16 @@ export async function runPublishPostWorkflow(input: {
     }
     if (platform === 'THREADS') {
       try {
+        const freshAccount = await prisma.socialAccount.findUnique({
+          where: { id: socialAccount.id },
+          select: { accessToken: true, expiresAt: true },
+        });
+        const accessToken = freshAccount?.accessToken?.trim() || socialAccount.accessToken;
         token = await getValidThreadsToken(
           {
             id: socialAccount.id,
-            accessToken: socialAccount.accessToken,
-            expiresAt: socialAccount.expiresAt,
+            accessToken,
+            expiresAt: freshAccount?.expiresAt ?? socialAccount.expiresAt,
           },
           { forceRefresh: true }
         );
@@ -543,6 +548,11 @@ export async function runPublishPostWorkflow(input: {
         const msg =
           (tokenErr as Error)?.message ??
           'Threads session expired. Disconnect and reconnect Threads in Accounts.';
+        console.error('[Threads publish token]', {
+          postId,
+          accountId: socialAccount.id,
+          error: msg,
+        });
         await prisma.postTarget.update({
           where: { id: target.id },
           data: { status: PostStatus.FAILED, error: msg.slice(0, 500) },

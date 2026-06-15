@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/db';
 import {
   exchangeThreadsLongLivedToken,
-  fetchThreadsProfile,
+  probeThreadsAccessToken,
   refreshThreadsLongLivedToken,
 } from '@/lib/threads/threads-api';
 
@@ -81,8 +81,13 @@ async function tryRefreshThreadsToken(
 }
 
 async function threadsTokenProfileValid(token: string): Promise<boolean> {
-  const profile = await fetchThreadsProfile(token, 12_000);
-  return Boolean(profile?.id);
+  const probe = await probeThreadsAccessToken(token, 12_000);
+  if (probe.valid) return true;
+  if (probe.httpStatus && probe.httpStatus >= 500) {
+    await new Promise((r) => setTimeout(r, 800));
+    return (await probeThreadsAccessToken(token, 12_000)).valid;
+  }
+  return false;
 }
 
 async function resolveThreadsToken(
@@ -95,6 +100,8 @@ async function resolveThreadsToken(
   if (await threadsTokenProfileValid(token)) {
     return token;
   }
+
+  const lastProbe = await probeThreadsAccessToken(token, 12_000);
 
   const upgradeToken = async (): Promise<string | null> => {
     const next = await tryRefreshThreadsToken(token);
@@ -124,7 +131,11 @@ async function resolveThreadsToken(
   }
 
   const reconnectMsg =
-    'Threads access token is invalid or expired. Disconnect and reconnect Threads in Accounts, then try again.';
+    lastProbe.apiError && isThreadsInvalidTokenMessage(lastProbe.apiError)
+      ? `${lastProbe.apiError} Disconnect and reconnect Threads in Accounts, then try Allow again.`
+      : lastProbe.apiError
+        ? `Threads: ${lastProbe.apiError}`
+        : 'Threads access token is invalid or expired. Disconnect and reconnect Threads in Accounts, then try again.';
   await markThreadsNeedsReconnect(account.id, reconnectMsg);
   throw new ThreadsReconnectRequiredError(reconnectMsg);
 }

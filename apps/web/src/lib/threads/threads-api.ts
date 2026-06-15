@@ -161,14 +161,37 @@ export async function fetchThreadsProfile(
   accessToken: string,
   timeoutMs = 20_000
 ): Promise<ThreadsProfile | null> {
-  const { status, data } = await threadsGet<ThreadsProfile>(
+  const probe = await probeThreadsAccessToken(accessToken, timeoutMs);
+  return probe.profile ?? null;
+}
+
+export async function probeThreadsAccessToken(
+  accessToken: string,
+  timeoutMs = 20_000
+): Promise<{
+  valid: boolean;
+  profile?: ThreadsProfile | null;
+  httpStatus?: number;
+  apiError?: string;
+}> {
+  const { status, data } = await threadsGet<
+    ThreadsProfile & { error?: { message?: string; code?: number; type?: string } }
+  >(
     'me',
     accessToken,
     { fields: 'id,username,name,threads_profile_picture_url,threads_biography' },
     timeoutMs
   );
-  if (status !== 200 || !data?.id) return null;
-  return data;
+  if (status === 200 && data?.id) {
+    return { valid: true, profile: data, httpStatus: status };
+  }
+  const apiError =
+    data?.error?.message ??
+    (status >= 500 ? `Threads API unavailable (HTTP ${status})` : `Threads token check failed (HTTP ${status})`);
+  if (process.env.NODE_ENV !== 'test') {
+    console.warn('[Threads token probe]', { httpStatus: status, apiError, code: data?.error?.code });
+  }
+  return { valid: false, profile: null, httpStatus: status, apiError };
 }
 
 export async function exchangeThreadsCodeForShortLivedToken(

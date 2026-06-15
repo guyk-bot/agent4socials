@@ -382,10 +382,15 @@ export async function GET(
     }
     const threadsSwitchAccount =
       plat === 'THREADS' && request.nextUrl.searchParams.get('switch_account') === '1';
+    const threadsReconnectAccountId =
+      plat === 'THREADS'
+        ? request.nextUrl.searchParams.get('reconnect_account_id')?.trim() || undefined
+        : undefined;
     const threadsForceFullConsent =
       plat === 'THREADS' &&
       (threadsOAuthForceFullConsentEnabled() ||
-        request.nextUrl.searchParams.get('force_full_consent') === '1');
+        request.nextUrl.searchParams.get('force_full_consent') === '1' ||
+        Boolean(threadsReconnectAccountId));
     if (threadsForceFullConsent) {
       await revokeThreadsGrantForAppReview(oauthStateKey);
     }
