@@ -520,7 +520,6 @@ export async function runPublishPostWorkflow(input: {
       postId: post.id,
       platform: target.platform,
       accountId: target.socialAccountId,
-      username: target.socialAccount?.username,
       currentStatus: target.status,
     });
     if (target.status === PostStatus.POSTED) {
