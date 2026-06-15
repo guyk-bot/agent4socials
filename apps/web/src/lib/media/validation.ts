@@ -136,13 +136,15 @@ function getVideoInfo(file: File): Promise<{ dimensions: { width: number; height
  * Validate a file against platform constraints
  */
 export async function validateFileForPlatform(
-  file: File, 
-  platform: string, 
+  file: File,
+  platform: string,
   postType?: 'feed' | 'story' | 'shorts'
 ): Promise<ValidationResult> {
   const fileInfo = await getFileInfo(file);
-  const platformKey = postType ? `${platform}_${postType}` : platform;
-  const constraints = PLATFORM_MEDIA_CONSTRAINTS[platformKey] || PLATFORM_MEDIA_CONSTRAINTS[platform];
+  const normalizedPlatform = platform.toLowerCase();
+  const platformKey = postType ? `${normalizedPlatform}_${postType}` : normalizedPlatform;
+  const constraints =
+    PLATFORM_MEDIA_CONSTRAINTS[platformKey] || PLATFORM_MEDIA_CONSTRAINTS[normalizedPlatform];
   
   if (!constraints) {
     return {

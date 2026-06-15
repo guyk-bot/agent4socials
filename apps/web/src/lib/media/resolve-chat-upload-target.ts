@@ -10,6 +10,7 @@ export function resolveChatUploadTarget(args: {
   connectedPlatforms: string[];
 }): { platform?: string; postType?: 'feed' | 'story' | 'shorts' } {
   const blob = [...args.messageTexts, args.inputText ?? ''].filter(Boolean).join(' ');
+  const threadsInText = /\bthreads?\b/i.test(blob);
   const inferred = inferPlatformFromText(blob);
   const platforms = inferred
     ? [inferred]
@@ -21,6 +22,13 @@ export function resolveChatUploadTarget(args: {
   const platform = getMostRestrictivePlatform(platforms, mediaKind);
   if (!platform) return {};
 
-  const postType = mediaKind === 'story' ? 'story' : mediaKind === 'reel' ? 'shorts' : 'feed';
+  // Threads IG Story cross-share uses feed media specs; "story" in chat text must not
+  // tighten validation to instagram_story when the target platform is Threads.
+  if (threadsInText || platform === 'threads') {
+    return { platform: 'threads', postType: 'feed' };
+  }
+
+  const postType =
+    mediaKind === 'story' ? 'story' : mediaKind === 'reel' ? 'shorts' : 'feed';
   return { platform, postType };
 }
