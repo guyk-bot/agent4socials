@@ -63,6 +63,7 @@ import {
   autoFillBrandContextFromAccounts,
   missingBrandContextFieldKeys,
 } from '@/lib/ai/brand-context-auto-fill';
+import { generatePostCaptionForUser } from '@/lib/ai/generate-post-caption';
 import { clearBrandContextForUser } from '@/lib/ai/brand-context-clear';
 import { BRAND_CONTEXT_SETUP_READY_REPLY } from '@/lib/ai/izop-media-brand-prompt';
 
@@ -544,25 +545,20 @@ function canPublishDraftFromChat(
   hasMedia: boolean
 ): boolean {
   const upper = platform.toUpperCase();
-  console.log('[canPublishDraftFromChat] Debug:', {
-    platform: upper,
-    mediaType,
-    hasMedia,
-    platformSupportsTextOnly: platformSupportsTextOnly(upper),
-    textOnlyCheck: platformSupportsTextOnly(upper) && mediaType === 'text' && !hasMedia,
-    threadsMediaCheck: upper === 'THREADS' && hasMedia && (mediaType === 'photo' || mediaType === 'video'),
-  });
-  
-  if (platformSupportsTextOnly(upper) && mediaType === 'text' && !hasMedia) {
-    console.log('[canPublishDraftFromChat] Allowing text-only for platform:', upper);
-    return true;
-  }
-  if (upper === 'THREADS' && hasMedia && (mediaType === 'photo' || mediaType === 'video')) {
-    console.log('[canPublishDraftFromChat] Allowing media for THREADS');
-    return true;
-  }
-  console.log('[canPublishDraftFromChat] BLOCKING publish for:', { platform: upper, mediaType, hasMedia });
+  if (platformSupportsTextOnly(upper) && mediaType === 'text' && !hasMedia) return true;
+  if (upper === 'THREADS' && hasMedia && (mediaType === 'photo' || mediaType === 'video')) return true;
   return false;
+}
+
+function isWeakComposerCaption(caption: string): boolean {
+  const t = caption.trim();
+  if (!t || t.length < 25) return true;
+  return (
+    /your text-?only thread post here/i.test(t) ||
+    /\[caption here\]/i.test(t) ||
+    /placeholder/i.test(t) ||
+    /^write (your|a) (caption|post)/i.test(t)
+  );
 }
 
 async function resolvePlatformsFromArgs(
@@ -651,7 +647,7 @@ async function buildComposerPostDraft(
   args: Record<string, unknown>,
   opts?: { allowComposerOnly?: boolean }
 ): Promise<{ artifact: Extract<IzopArtifact, { type: 'composer_post_draft' }>; result: Record<string, unknown> }> {
-  const caption = String(args.caption ?? '').trim();
+  let caption = String(args.caption ?? '').trim();
   if (!caption) throw new Error('caption is required');
 
   const postType = String(args.postType ?? 'text');
@@ -669,6 +665,25 @@ async function buildComposerPostDraft(
   );
   const account = await assertAccount(userId, accountId!);
   const platformUpper = account.platform;
+
+  if (
+    isWeakComposerCaption(caption) &&
+    mediaType === 'text' &&
+    platformSupportsTextOnly(platformUpper)
+  ) {
+    try {
+      caption = await generatePostCaptionForUser(userId, {
+        platform: platformUpper,
+        userIntent:
+          typeof args.userIntent === 'string' && args.userIntent.trim()
+            ? args.userIntent.trim()
+            : caption,
+      });
+    } catch {
+      // Keep caller caption if generation is unavailable.
+    }
+  }
+
   const display = await enrichAccountDisplayForDraft(account);
   const textOnlySupported = platformSupportsTextOnly(platformUpper);
   const hasMedia = mediaList.length > 0;

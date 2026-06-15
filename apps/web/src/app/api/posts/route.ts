@@ -145,10 +145,12 @@ export async function POST(request: NextRequest) {
     }
   }
   const accountIds = [...new Set(validTargets.map((t) => t.socialAccountId))];
-  const accountsForUser = await prisma.socialAccount.findMany({
-    where: { id: { in: accountIds }, userId },
-    select: { id: true },
-  });
+  const accountsForUser = await withPrismaPoolRetry('POST /api/posts accounts', () =>
+    prisma.socialAccount.findMany({
+      where: { id: { in: accountIds }, userId },
+      select: { id: true },
+    })
+  );
   const foundIds = new Set(accountsForUser.map((a) => a.id));
   const missing = accountIds.filter((id) => !foundIds.has(id));
   if (missing.length) {
@@ -260,7 +262,7 @@ export async function POST(request: NextRequest) {
   };
   let post;
   try {
-    post = await prisma.post.create(createArgs);
+    post = await withPrismaPoolRetry('POST /api/posts create', () => prisma.post.create(createArgs));
   } catch (createErr) {
     if (
       !isMissingPostMediaTypeColumn(createErr) &&
@@ -270,10 +272,12 @@ export async function POST(request: NextRequest) {
     ) {
       throw createErr;
     }
-    post = await prisma.post.create({
-      ...createArgs,
-      data: stripMissingPostColumnsFromWriteData(baseCreateData, createErr) as never,
-    });
+    post = await withPrismaPoolRetry('POST /api/posts create fallback', () =>
+      prisma.post.create({
+        ...createArgs,
+        data: stripMissingPostColumnsFromWriteData(baseCreateData, createErr) as never,
+      })
+    );
   }
   if (scheduledAt) {
     try {

@@ -3,7 +3,7 @@ import type { IzopChatInputMessage } from '@/lib/ai/izop-openai-messages';
 import { findLatestMediaUserMessage } from '@/lib/ai/izop-openai-messages';
 import { isIzopQuickReplyMessage } from '@/lib/ai/izop-quick-replies';
 import { runIzopTool, type IzopArtifact, type IzopToolContext } from '@/lib/ai/izop-tools';
-import { platformLabel } from '@/lib/composer/platform-capabilities';
+import { platformLabel, platformSupportsTextOnly } from '@/lib/composer/platform-capabilities';
 import { accountsFromWorkspaces } from '@/lib/ai/izop-workspace-snapshot';
 import { prisma } from '@/lib/db';
 import {
@@ -166,6 +166,93 @@ async function resolveCaptionForUpload(
   } catch {
     return 'Here is something new for you. Let us know what you think.';
   }
+}
+
+function threadHasMediaAttachments(messages: IzopChatInputMessage[]): boolean {
+  return messages.some((m) =>
+    m.attachments?.some((a) => a.kind === 'image' || a.kind === 'video')
+  );
+}
+
+function userWantsTextOnlyThreadPost(messages: IzopChatInputMessage[]): boolean {
+  if (threadHasMediaAttachments(messages)) return false;
+
+  const userText = messages
+    .filter((m) => m.role === 'user')
+    .map((m) => m.content.trim())
+    .filter(
+      (t) =>
+        t &&
+        !isIzopQuickReplyMessage(t) &&
+        !SKIP_CAPTION_TEXT.test(t) &&
+        !CLEAR_BRAND_CONTEXT_INTENT.test(t)
+    )
+    .join('\n');
+
+  if (!userText.trim()) return false;
+
+  if (/\b(text-?only|caption-?only|no media|without (an )?image|without media)\b/i.test(userText)) {
+    return true;
+  }
+  if (/\bpost\s+(a\s+)?text\b/i.test(userText)) return true;
+  if (/\btext\s+(thread|post|threads)\b/i.test(userText)) return true;
+
+  // "post a thread" / "post to threads" with no media = text-only Threads post
+  if (/\b(post|publish|share|create|write)\b/i.test(userText) && /\bthread/i.test(userText)) {
+    return true;
+  }
+
+  return false;
+}
+
+async function userWantsImmediateTextPost(
+  messages: IzopChatInputMessage[],
+  ctx: IzopToolContext
+): Promise<boolean> {
+  if (userWantsTextOnlyThreadPost(messages)) return true;
+  if (threadHasMediaAttachments(messages)) return false;
+
+  const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+  const text = lastUser?.content.trim() ?? '';
+  if (!/\b(post|publish|share|create|write|upload)\b/i.test(text)) return false;
+
+  const cached = accountsFromWorkspaces(ctx.workspaces);
+  const accounts =
+    cached ??
+    (await prisma.socialAccount.findMany({
+      where: { userId: ctx.userId },
+      select: { platform: true },
+      orderBy: { createdAt: 'asc' },
+    }));
+  if (accounts.length !== 1) return false;
+  return platformSupportsTextOnly(accounts[0]!.platform);
+}
+
+async function createTextOnlyPostPreviewFromThread(
+  messages: IzopChatInputMessage[],
+  ctx: IzopToolContext
+): Promise<{ reply: string; artifacts: IzopArtifact[] }> {
+  const platform = await resolvePlatformForDraft(messages, ctx);
+  if (!platformSupportsTextOnly(platform)) {
+    return {
+      reply: `${platformLabel(platform)} needs media before you can publish from chat. Use Composer instead.`,
+      artifacts: [],
+    };
+  }
+
+  const caption = await resolveCaptionForUpload(messages, ctx, platform, []);
+  const out = await runIzopTool(
+    'prepare_platform_post_drafts',
+    {
+      drafts: [{ platform, caption, postType: 'text' }],
+    },
+    ctx
+  );
+
+  return {
+    reply: '',
+    artifacts: out.artifacts ?? [],
+  };
 }
 
 async function createPostPreviewFromThread(
@@ -349,11 +436,21 @@ export async function tryMediaActionFastPath(
     };
   }
 
-  if (
-    isPostUploadIntent(text)
-  ) {
+  if (isPostUploadIntent(text)) {
     return await createPostPreviewFromThread(messages, ctx);
   }
 
   return null;
+}
+
+/** Fast path: text-only Threads/Twitter/etc. post with brand-context caption, no LLM clarifying questions. */
+export async function tryTextOnlyPostFastPath(
+  messages: IzopChatInputMessage[],
+  ctx: IzopToolContext
+): Promise<{ reply: string; artifacts: IzopArtifact[] } | null> {
+  const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+  if (!lastUser) return null;
+  if (threadHasMediaAttachments(messages)) return null;
+  if (!(await userWantsImmediateTextPost(messages, ctx))) return null;
+  return await createTextOnlyPostPreviewFromThread(messages, ctx);
 }

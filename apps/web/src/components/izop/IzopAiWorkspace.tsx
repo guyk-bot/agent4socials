@@ -1077,7 +1077,9 @@ export default function IzopAiWorkspace() {
         if (user?.id) {
           if (hasUserMessage) {
             writeLastActiveChatId(user.id, id);
-            clearPendingNewChatId(user.id);
+            if (!id.startsWith('offline-')) {
+              clearPendingNewChatId(user.id);
+            }
           }
         }
         const rest = prev.filter((s) => s.id !== id);

@@ -357,6 +357,7 @@ export function IzopComposerPostDraftCard({
         : draft.mediaType;
     try {
       console.log('[AI Chat Publish] Creating post via API...');
+      setStatus('Creating post...');
       const createRes = await api.post<{ id: string }>('/posts', buildPostPayload(resolvedMediaType, media));
       console.log('[AI Chat Publish] Post created:', { postId: createRes.data?.id });
       const postId = createRes.data?.id;
@@ -388,7 +389,9 @@ export function IzopComposerPostDraftCard({
     } catch (e) {
       const msg = friendlyIzopChatError(e, 'Could not publish. Try Open Composer or History.');
       const displayMsg =
-        /threads session expired|invalid oauth|reconnect threads/i.test(msg)
+        /timeout|timed out|network error/i.test(msg)
+          ? 'Creating the post took too long (database may be busy). Wait 30 seconds and click Allow again.'
+          : /threads session expired|invalid oauth|reconnect threads/i.test(msg)
           ? `${msg} Go to Account, disconnect Threads, reconnect, then try Allow again.`
           : msg;
       setError(displayMsg);

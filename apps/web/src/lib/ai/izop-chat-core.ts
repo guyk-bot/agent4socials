@@ -37,6 +37,7 @@ import {
   isCasualIzopChatMessage,
   tryMediaActionFastPath,
   tryMediaBrandSetupFastPath,
+  tryTextOnlyPostFastPath,
   userResolvedMediaBrandChoice,
 } from '@/lib/ai/izop-chat-fast-path';
 import { MEDIA_BRAND_SETUP_REPLY, BRAND_CONTEXT_SETUP_READY_REPLY } from '@/lib/ai/izop-media-brand-prompt';
@@ -185,6 +186,8 @@ function buildSystemPrompt(
     '- Analytics → get_analytics_report_snapshot (charts appear)',
     '- Inbox → list_recent_inbox (reply buttons appear)',
     '- Post → prepare_platform_post_drafts with mediaUrls (platform preview cards, not Composer embed). Reply with empty text; caption lives only in the preview card.',
+    '- Text-only post (Threads, Twitter/X, Facebook, LinkedIn): if only one platform is connected, use it automatically. Do not ask which platform or ask for a caption. Write a ready-to-publish caption from brand context and call prepare_platform_post_drafts with postType text immediately.',
+    '- Never use placeholder captions like "Your text-only thread post here". Write real copy the user can publish.',
     '- Do NOT call list_connect_platforms or list_connected_accounts when the user asks to post or upload to a platform they already connected.',
     '- Leads → get_saved_leads or scan_leads',
     '- Clear brand context → clear_brand_context (only when user asks to delete/remove/clear all brand context)',
@@ -242,6 +245,11 @@ export async function runIzopChat(args: {
   const instantReply = instantCasualIzopReply(args.messages);
   if (instantReply) {
     return { reply: instantReply, artifacts: [] };
+  }
+
+  const textOnlyFast = await tryTextOnlyPostFastPath(args.messages, args.ctx);
+  if (textOnlyFast) {
+    return textOnlyFast;
   }
 
   const mediaFast = await tryMediaActionFastPath(args.messages, args.ctx);
