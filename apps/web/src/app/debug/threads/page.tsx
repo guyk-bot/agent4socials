@@ -175,7 +175,7 @@ export default function ThreadsDebugPage() {
                           </div>
                         )}
                         
-                        {step.data && (
+                        {step.data != null ? (
                           <div className="text-sm">
                             <details className="mt-2">
                               <summary className="cursor-pointer text-[var(--muted)] hover:text-[var(--foreground)]">
@@ -186,7 +186,7 @@ export default function ThreadsDebugPage() {
                               </pre>
                             </details>
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     ))}
                   </div>
