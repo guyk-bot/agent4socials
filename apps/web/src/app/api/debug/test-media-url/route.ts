@@ -13,13 +13,18 @@ export async function POST(request: NextRequest) {
     const resolvedUrl = resolveDirectPublishMediaUrl(mediaUrl);
     const isDirect = isDirectPublishMediaUrl(resolvedUrl);
     
-    // Test accessibility
+    // Test accessibility with timeout
     let accessibilityTest = { accessible: false, status: 0, error: null };
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
       const response = await fetch(resolvedUrl, { 
         method: 'HEAD',
-        timeout: 10000,
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
       accessibilityTest = {
         accessible: response.ok,
         status: response.status,
