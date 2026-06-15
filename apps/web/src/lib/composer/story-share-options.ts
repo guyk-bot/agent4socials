@@ -77,4 +77,4 @@ export function metaAlsoStoryDescription(platform: string): string {
 export const THREADS_INSTAGRAM_STORY_LABEL = 'Also share to Instagram Story';
 
 export const THREADS_INSTAGRAM_STORY_DESCRIPTION =
-  'Shares to the Instagram account linked in the Threads app (Settings). Reconnect Threads in Accounts if you connected before this option existed. Story may take a few minutes to appear.';
+  'Shares to the Instagram account linked in the Threads app (Settings). Requires Meta app approval for threads_share_to_instagram. If unavailable, your Threads post still publishes without Story sharing.';

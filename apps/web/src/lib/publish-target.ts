@@ -2261,8 +2261,23 @@ export async function publishTarget(
       });
       
       const result = await publishToThreads(publishParams);
-      console.log('[Threads publishToThreads] Result:', { ok: result.ok, error: result.ok ? undefined : result.error?.slice(0, 200) });
-      if (result.ok) return result;
+      console.log('[Threads publishToThreads] Result:', {
+        ok: result.ok,
+        error: result.ok ? undefined : result.error?.slice(0, 200),
+        igStoryShareSkipped: result.ok ? result.igStoryShareSkipped : undefined,
+      });
+      if (result.ok) {
+        return {
+          ok: true,
+          platformPostId: result.platformPostId,
+          ...(result.igStoryShareSkipped
+            ? {
+                storyShareNote:
+                  'IG Story: not sent (Instagram cross-share is not available for this app yet). Threads post published.',
+              }
+            : {}),
+        };
+      }
       return { ok: false, error: result.error };
     }
 

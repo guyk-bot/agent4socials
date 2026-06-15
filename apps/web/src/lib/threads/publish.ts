@@ -4,8 +4,127 @@ import {
 } from '@/lib/threads/threads-api';
 
 export type ThreadsPublishResult =
-  | { ok: true; platformPostId: string }
+  | { ok: true; platformPostId: string; igStoryShareSkipped?: boolean }
   | { ok: false; error: string };
+
+/** Meta returns this when threads_share_to_instagram is not granted or app is not approved for IG cross-share. */
+export const THREADS_IG_SHARE_UNAVAILABLE_SUBCODE = 4279044;
+
+type ThreadsApiErrorBody = {
+  error?: {
+    message?: string;
+    error_subcode?: number;
+    error_user_title?: string;
+    error_user_msg?: string;
+  };
+};
+
+function threadsApiErrorSubcode(data: unknown): number | undefined {
+  const subcode = (data as ThreadsApiErrorBody)?.error?.error_subcode;
+  return typeof subcode === 'number' ? subcode : undefined;
+}
+
+export function isThreadsInstagramShareUnavailableError(data: unknown): boolean {
+  return threadsApiErrorSubcode(data) === THREADS_IG_SHARE_UNAVAILABLE_SUBCODE;
+}
+
+function threadsApiErrorMessage(data: unknown, httpStatus: number): string {
+  const err = (data as ThreadsApiErrorBody)?.error;
+  if (isThreadsInstagramShareUnavailableError(data)) {
+    return (
+      err?.error_user_msg ??
+      'Instagram Story sharing is not available for this Threads account yet. The post was not sent with Story sharing.'
+    );
+  }
+  return err?.message ?? `Threads request failed (HTTP ${httpStatus})`;
+}
+
+function buildContainerForm(options: {
+  text: string;
+  imageUrl?: string | null;
+  videoUrl?: string | null;
+  shareToInstagramStory?: boolean;
+}): Record<string, string> {
+  const text = options.text.trim().slice(0, 500);
+  let form: Record<string, string>;
+  if (options.videoUrl?.trim()) {
+    form = {
+      media_type: 'VIDEO',
+      video_url: options.videoUrl.trim(),
+      text,
+    };
+  } else if (options.imageUrl?.trim()) {
+    form = {
+      media_type: 'IMAGE',
+      image_url: options.imageUrl.trim(),
+      text,
+    };
+  } else {
+    form = {
+      media_type: 'TEXT',
+      text,
+    };
+  }
+  if (options.shareToInstagramStory === true) {
+    form.crossreshare_to_ig = 'true';
+  }
+  return form;
+}
+
+async function createThreadsContainer(
+  accessToken: string,
+  baseForm: Record<string, string>,
+  tryIgShare: boolean
+): Promise<
+  | { ok: true; containerId: string; igShareUsed: boolean; igShareSkipped?: boolean }
+  | { ok: false; error: string }
+> {
+  const postContainer = async (form: Record<string, string>) =>
+    threadsPostForm<{ id?: string } & ThreadsApiErrorBody>('me/threads', accessToken, form);
+
+  if (tryIgShare) {
+    const withIg = { ...baseForm, crossreshare_to_ig: 'true' };
+    console.log('[publishToThreads] Creating container with IG Story share');
+    const first = await postContainer(withIg);
+    if (first.status === 200 && first.data?.id) {
+      return { ok: true, containerId: first.data.id, igShareUsed: true };
+    }
+    if (isThreadsInstagramShareUnavailableError(first.data)) {
+      console.log(
+        '[publishToThreads] IG Story share not available (4279044), retrying Threads-only container'
+      );
+      const withoutIg = { ...baseForm };
+      delete withoutIg.crossreshare_to_ig;
+      const second = await postContainer(withoutIg);
+      if (second.status === 200 && second.data?.id) {
+        return {
+          ok: true,
+          containerId: second.data.id,
+          igShareUsed: false,
+          igShareSkipped: true,
+        };
+      }
+      return {
+        ok: false,
+        error: threadsApiErrorMessage(second.data, second.status).slice(0, 300),
+      };
+    }
+    return {
+      ok: false,
+      error: threadsApiErrorMessage(first.data, first.status).slice(0, 300),
+    };
+  }
+
+  console.log('[publishToThreads] Creating container (Threads only)');
+  const create = await postContainer(baseForm);
+  if (create.status === 200 && create.data?.id) {
+    return { ok: true, containerId: create.data.id, igShareUsed: false };
+  }
+  return {
+    ok: false,
+    error: threadsApiErrorMessage(create.data, create.status).slice(0, 300),
+  };
+}
 
 async function publishCreationId(
   creationId: string,
@@ -13,13 +132,12 @@ async function publishCreationId(
   options?: { shareToInstagramStory?: boolean }
 ): Promise<ThreadsPublishResult> {
   const form: Record<string, string> = { creation_id: creationId };
-  // Meta also accepts this on publish; keep for compatibility with older docs/scripts.
   if (options?.shareToInstagramStory) {
     form.crossreshare_to_ig = 'true';
   }
-  
+
   console.log('[publishCreationId] Publishing with form:', form);
-  const pub = await threadsPostForm<{ id?: string; error?: { message?: string } }>(
+  const pub = await threadsPostForm<{ id?: string } & ThreadsApiErrorBody>(
     'me/threads_publish',
     accessToken,
     form
@@ -29,13 +147,10 @@ async function publishCreationId(
     hasId: Boolean(pub.data?.id),
     id: pub.data?.id,
     error: pub.data?.error,
-    fullData: pub.data,
   });
 
   if (pub.status !== 200 || !pub.data?.id) {
-    const msg =
-      pub.data?.error?.message ??
-      `Threads publish failed (HTTP ${pub.status})`;
+    const msg = threadsApiErrorMessage(pub.data, pub.status);
     console.log('[publishCreationId] Publish FAILED:', msg);
     return { ok: false, error: msg.slice(0, 300) };
   }
@@ -62,59 +177,27 @@ export async function publishToThreads(options: {
 
   const text = options.text.trim().slice(0, 500);
   if (!text) {
-    console.log('[publishToThreads] ERROR: Empty text after trim');
     return { ok: false, error: 'Threads requires caption text. Add a caption in the composer.' };
   }
   const token = options.accessToken;
-
-  let form: Record<string, string>;
-  if (options.videoUrl?.trim()) {
-    form = {
-      media_type: 'VIDEO',
-      video_url: options.videoUrl.trim(),
-      text,
-    };
-  } else if (options.imageUrl?.trim()) {
-    form = {
-      media_type: 'IMAGE',
-      image_url: options.imageUrl.trim(),
-      text,
-    };
-  } else {
-    form = {
-      media_type: 'TEXT',
-      text,
-    };
-  }
-
-  // Official Threads API: crossreshare_to_ig is set on container creation (me/threads).
-  if (options.shareToInstagramStory === true) {
-    form.crossreshare_to_ig = 'true';
-  }
-
-  console.log('[publishToThreads] Creating container with form:', form);
-  const create = await threadsPostForm<{ id?: string; error?: { message?: string } }>(
-    'me/threads',
-    token,
-    form
-  );
-  console.log('[publishToThreads] Container creation response:', {
-    status: create.status,
-    hasId: Boolean(create.data?.id),
-    id: create.data?.id,
-    error: create.data?.error,
-    fullData: create.data,
+  const baseForm = buildContainerForm({
+    text,
+    imageUrl: options.imageUrl,
+    videoUrl: options.videoUrl,
+    shareToInstagramStory: false,
   });
 
-  if (create.status !== 200 || !create.data?.id) {
-    const msg =
-      create.data?.error?.message ??
-      `Threads could not create post (HTTP ${create.status})`;
-    console.log('[publishToThreads] Container creation FAILED:', msg);
-    return { ok: false, error: msg.slice(0, 300) };
+  const created = await createThreadsContainer(
+    token,
+    baseForm,
+    options.shareToInstagramStory === true
+  );
+  if (!created.ok) {
+    console.log('[publishToThreads] Container creation FAILED:', created.error);
+    return { ok: false, error: created.error };
   }
 
-  const containerId = create.data.id;
+  const containerId = created.containerId;
   if (options.videoUrl?.trim()) {
     const ready = await waitForThreadsContainerReady(containerId, token);
     if (!ready) {
@@ -127,10 +210,22 @@ export async function publishToThreads(options: {
 
   console.log('[publishToThreads] Publishing container ID:', containerId);
   const result = await publishCreationId(containerId, token, {
-    shareToInstagramStory: options.shareToInstagramStory === true,
+    shareToInstagramStory: created.igShareUsed,
   });
-  console.log('[publishToThreads] Final result:', { ok: result.ok, error: result.ok ? undefined : result.error });
-  return result;
+  if (!result.ok) {
+    console.log('[publishToThreads] Final result:', { ok: false, error: result.error });
+    return result;
+  }
+
+  console.log('[publishToThreads] Final result:', {
+    ok: true,
+    igStoryShareSkipped: created.igShareSkipped,
+  });
+  return {
+    ok: true,
+    platformPostId: result.platformPostId,
+    ...(created.igShareSkipped ? { igStoryShareSkipped: true } : {}),
+  };
 }
 
 /** Poll video container until ready (best-effort). */

@@ -483,6 +483,7 @@ export async function runPublishPostWorkflow(input: {
                 refreshToken: true,
                 expiresAt: true,
                 credentialsJson: true,
+                scopes: true,
               },
             },
           },
@@ -540,9 +541,10 @@ export async function runPublishPostWorkflow(input: {
     bodyLinkedIn && typeof bodyLinkedIn === 'object' && !Array.isArray(bodyLinkedIn) ? bodyLinkedIn : {},
     linkedInAccountIds
   );
-  const threadsShareToInstagram =
+  const wantThreadsIgShare =
     requestBody.threadsShareToInstagram === true ||
     (post as { threadsShareToInstagram?: boolean }).threadsShareToInstagram === true;
+  const threadsShareToInstagram = wantThreadsIgShare;
   const alsoPostToStory =
     requestBody.alsoPostToStory === true ||
     (post as { alsoPostToStory?: boolean }).alsoPostToStory === true;
@@ -920,6 +922,21 @@ export async function runPublishPostWorkflow(input: {
 
     const isStory = postMediaType === 'story' && (platform === 'INSTAGRAM' || platform === 'FACEBOOK');
 
+    const accountScopes = Array.isArray(socialAccount.scopes)
+      ? (socialAccount.scopes as string[])
+      : [];
+    const threadsIgShareForTarget =
+      platform === 'THREADS' &&
+      threadsShareToInstagram &&
+      (accountScopes.length === 0 || accountScopes.includes('threads_share_to_instagram'));
+    if (platform === 'THREADS' && threadsShareToInstagram && !threadsIgShareForTarget) {
+      console.log('[Threads] IG Story share skipped: threads_share_to_instagram not in granted scopes', {
+        postId,
+        accountId: socialAccount.id,
+        scopes: accountScopes,
+      });
+    }
+
     if (platform === 'TWITTER' && firstImageUrl) {
       const oauth1Ready =
         Boolean(creds?.twitterOAuth1AccessToken && creds?.twitterOAuth1AccessTokenSecret) &&
@@ -960,7 +977,7 @@ export async function runPublishPostWorkflow(input: {
         ? { tiktokPostMediaKind: (isTiktokPhoto ? 'photo' : 'video') as 'photo' | 'video' }
         : {}),
       ...(isStory ? { isStory: true } : {}),
-        ...(platform === 'THREADS' && threadsShareToInstagram ? { threadsShareToInstagram: true } : {}),
+        ...(platform === 'THREADS' && threadsIgShareForTarget ? { threadsShareToInstagram: true } : {}),
         ...((platform === 'INSTAGRAM' || platform === 'FACEBOOK') &&
         alsoPostToStory &&
         !isStory

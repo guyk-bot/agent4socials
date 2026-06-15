@@ -118,6 +118,13 @@ export function IzopComposerPostDraftCard({
   const [error, setError] = useState<string | null>(storedPublish?.publishError ?? null);
   const [threadsShareToInstagram, setThreadsShareToInstagram] = useState(false);
   const [alsoPostToStory, setAlsoPostToStory] = useState(false);
+
+  useEffect(() => {
+    setThreadsShareToInstagram(false);
+    setAlsoPostToStory(false);
+    setConfirming(false);
+    setScheduling(false);
+  }, [messageId, artifactIndex, draft.platform, draft.accountId, draft.caption]);
   const [liveAccount, setLiveAccount] = useState<{
     username?: string;
     profilePicture?: string | null;
@@ -298,8 +305,8 @@ export function IzopComposerPostDraftCard({
       mediaType: resolvedMediaType === 'text' ? 'text' : resolvedMediaType,
       media,
       targets: [{ platform: draft.platform, socialAccountId: draft.accountId }],
-      ...(platformUpper === 'THREADS' && threadsShareToInstagram
-        ? { threadsShareToInstagram: true }
+      ...(platformUpper === 'THREADS'
+        ? { threadsShareToInstagram: threadsShareToInstagram === true }
         : {}),
       ...((platformUpper === 'INSTAGRAM' || platformUpper === 'FACEBOOK') && alsoPostToStory
         ? { alsoPostToStory: true }
@@ -366,7 +373,9 @@ export function IzopComposerPostDraftCard({
       }
       console.log('[AI Chat Publish] Starting publish via API...');
       await api.post(`/posts/${postId}/publish`, {
-        ...(threadsShareToInstagram ? { threadsShareToInstagram: true } : {}),
+        ...(draft.platform.toUpperCase() === 'THREADS'
+          ? { threadsShareToInstagram: threadsShareToInstagram === true }
+          : {}),
         ...(alsoPostToStory ? { alsoPostToStory: true } : {}),
       });
       console.log('[AI Chat Publish] Publish API call completed');

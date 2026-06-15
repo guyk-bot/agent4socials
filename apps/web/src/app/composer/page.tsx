@@ -596,7 +596,8 @@ function buildPublishRequestBody(
     tiktokPublishByAccountId: Record<string, TikTokDirectPostPayload>,
     linkedInPublishByAccountId: Record<string, LinkedInPublishSettings>,
     threadsShareToInstagram: boolean,
-    alsoPostToStory: boolean
+    alsoPostToStory: boolean,
+    platforms: string[] = []
 ): {
     mediaType: string;
     tiktokPublishByAccountId?: Record<string, TikTokDirectPostPayload>;
@@ -619,7 +620,9 @@ function buildPublishRequestBody(
     if (Object.keys(linkedInPublishByAccountId).length > 0) {
         body.linkedInPublishByAccountId = linkedInPublishByAccountId;
     }
-    if (threadsShareToInstagram) {
+    if (platforms.includes('THREADS') && mediaType !== 'text') {
+        body.threadsShareToInstagram = threadsShareToInstagram;
+    } else if (threadsShareToInstagram) {
         body.threadsShareToInstagram = true;
     }
     if (alsoPostToStory) {
@@ -2930,7 +2933,8 @@ export default function ComposerPage() {
                     tiktokPublishByAccountId,
                     buildLinkedInPublishByAccountId(targets, linkedInVisibility),
                     threadsShareToInstagram,
-                    alsoPostToStory
+                    alsoPostToStory,
+                    platforms
                 );
                 const publishPath = `/posts/${persistedEditPostId}/publish${debug ? '?debug=1' : ''}`;
                 if (includesTikTokTarget && !tiktokAccountIdsNeedingUi.every((id) => isTikTokDirectPostPayload(tiktokPublishByAccountId[id]))) {
@@ -3042,7 +3046,8 @@ export default function ComposerPage() {
                     tiktokPublishByAccountId,
                     buildLinkedInPublishByAccountId(targets, linkedInVisibility),
                     threadsShareToInstagram,
-                    alsoPostToStory
+                    alsoPostToStory,
+                    platforms
                 );
                 const publishPathCreate = `/posts/${postId}/publish${debug ? '?debug=1' : ''}`;
                 if (includesTikTokTarget && !tiktokAccountIdsNeedingUi.every((id) => isTikTokDirectPostPayload(tiktokPublishByAccountId[id]))) {
