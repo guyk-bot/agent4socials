@@ -544,8 +544,24 @@ function canPublishDraftFromChat(
   hasMedia: boolean
 ): boolean {
   const upper = platform.toUpperCase();
-  if (platformSupportsTextOnly(upper) && mediaType === 'text' && !hasMedia) return true;
-  if (upper === 'THREADS' && hasMedia && (mediaType === 'photo' || mediaType === 'video')) return true;
+  console.log('[canPublishDraftFromChat] Debug:', {
+    platform: upper,
+    mediaType,
+    hasMedia,
+    platformSupportsTextOnly: platformSupportsTextOnly(upper),
+    textOnlyCheck: platformSupportsTextOnly(upper) && mediaType === 'text' && !hasMedia,
+    threadsMediaCheck: upper === 'THREADS' && hasMedia && (mediaType === 'photo' || mediaType === 'video'),
+  });
+  
+  if (platformSupportsTextOnly(upper) && mediaType === 'text' && !hasMedia) {
+    console.log('[canPublishDraftFromChat] Allowing text-only for platform:', upper);
+    return true;
+  }
+  if (upper === 'THREADS' && hasMedia && (mediaType === 'photo' || mediaType === 'video')) {
+    console.log('[canPublishDraftFromChat] Allowing media for THREADS');
+    return true;
+  }
+  console.log('[canPublishDraftFromChat] BLOCKING publish for:', { platform: upper, mediaType, hasMedia });
   return false;
 }
 
