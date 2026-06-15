@@ -26,6 +26,9 @@ export function inferPlatformFromText(text: string): string | null {
 }
 
 export function inferPostMediaKindFromText(text: string): PostMediaKind {
+  // Don't treat "text-only" + "thread" combinations as story posts
+  if (/\b(text-?only|text)\b/i.test(text) && /\bthread/i.test(text)) return 'feed';
+  
   if (/\bstor(y|ies)\b/i.test(text)) return 'story';
   if (/\b(reels?|shorts?)\b/i.test(text) || /\btiktok\b/i.test(text)) return 'reel';
   return 'feed';
