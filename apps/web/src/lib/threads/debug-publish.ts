@@ -1,25 +1,37 @@
 import { prisma } from '@/lib/db';
 import { getValidThreadsToken } from './threads-token';
 import { publishToThreads } from './publish';
+import { defaultThreadsOAuthScopes, threadsGet } from './threads-api';
+
+const REQUIRED_PUBLISH_SCOPES = ['threads_basic', 'threads_content_publish'];
+
+type DebugStep = {
+  step: string;
+  success: boolean;
+  data?: Record<string, unknown>;
+  error?: string;
+};
+
+async function fetchThreadsGrantedScopes(accessToken: string): Promise<string[]> {
+  const { status, data } = await threadsGet<{ data?: Array<{ permission?: string; status?: string }> }>(
+    'me/permissions',
+    accessToken,
+    undefined,
+    12_000
+  );
+  if (status !== 200 || !Array.isArray(data?.data)) return [];
+  return data.data
+    .filter((row) => row?.status === 'granted' && typeof row.permission === 'string')
+    .map((row) => row.permission as string);
+}
 
 export async function debugThreadsPublishWorkflow(
   accountId: string,
-  text: string = "Test post from iZop AI - debugging publish workflow"
-): Promise<{
-  step: string;
-  success: boolean;
-  data?: any;
-  error?: string;
-}[]> {
-  const steps: {
-    step: string;
-    success: boolean;
-    data?: any;
-    error?: string;
-  }[] = [];
+  text: string = 'Test post from iZop AI - debugging publish workflow'
+): Promise<DebugStep[]> {
+  const steps: DebugStep[] = [];
 
   try {
-    // Step 1: Get social account
     steps.push({ step: '1. Getting social account', success: false });
     const socialAccount = await prisma.socialAccount.findUnique({
       where: { id: accountId },
@@ -55,28 +67,37 @@ export async function debugThreadsPublishWorkflow(
       expiresAt: socialAccount.expiresAt,
     };
 
-    // Step 2: Validate/refresh token
     steps.push({ step: '2. Validating Threads token', success: false });
-    
+
     let validToken: string;
     try {
-      // First, fetch fresh token from DB (as implemented in our fix)
       const freshAccount = await prisma.socialAccount.findUnique({
         where: { id: accountId },
         select: { accessToken: true, expiresAt: true },
       });
 
       const accessToken = freshAccount?.accessToken?.trim() || socialAccount.accessToken;
-      
-      validToken = await getValidThreadsToken(
-        {
-          id: accountId,
-          accessToken,
-          expiresAt: freshAccount?.expiresAt ?? socialAccount.expiresAt,
-        },
-        { forceRefresh: false }
-      );
-      
+
+      try {
+        validToken = await getValidThreadsToken(
+          {
+            id: accountId,
+            accessToken,
+            expiresAt: freshAccount?.expiresAt ?? socialAccount.expiresAt,
+          },
+          { forceRefresh: false }
+        );
+      } catch {
+        validToken = await getValidThreadsToken(
+          {
+            id: accountId,
+            accessToken,
+            expiresAt: freshAccount?.expiresAt ?? socialAccount.expiresAt,
+          },
+          { forceRefresh: true }
+        );
+      }
+
       steps[1].success = true;
       steps[1].data = {
         originalTokenLength: socialAccount.accessToken?.length || 0,
@@ -89,50 +110,63 @@ export async function debugThreadsPublishWorkflow(
       return steps;
     }
 
-    // Step 3: Test token with simple API call
-    steps.push({ step: '3. Testing token with profile fetch', success: false });
+    steps.push({ step: '3. Checking granted OAuth scopes', success: false });
+    const grantedScopes = await fetchThreadsGrantedScopes(validToken);
+    const missingScopes = REQUIRED_PUBLISH_SCOPES.filter((s) => !grantedScopes.includes(s));
+    steps[2].success = missingScopes.length === 0;
+    steps[2].data = {
+      grantedScopes,
+      requiredScopes: REQUIRED_PUBLISH_SCOPES,
+      configuredOAuthScopes: defaultThreadsOAuthScopes().split(','),
+      missingScopes,
+    };
+    if (missingScopes.length > 0) {
+      steps[2].error = `Missing scopes: ${missingScopes.join(', ')}. Disconnect Threads in Accounts and reconnect, approving all permissions.`;
+      return steps;
+    }
+
+    steps.push({ step: '4. Testing token with profile fetch', success: false });
     try {
       const { probeThreadsAccessToken } = await import('./threads-api');
       const probe = await probeThreadsAccessToken(validToken, 12000);
-      
-      steps[2].success = probe.valid;
-      steps[2].data = {
+
+      steps[3].success = probe.valid;
+      steps[3].data = {
         valid: probe.valid,
         httpStatus: probe.httpStatus,
         hasProfile: !!probe.profile,
         profileId: probe.profile?.id,
         username: probe.profile?.username,
       };
-      
+
       if (!probe.valid) {
-        steps[2].error = probe.apiError || 'Token probe failed';
+        steps[3].error = probe.apiError || 'Token probe failed';
         return steps;
       }
     } catch (probeError) {
-      steps[2].error = (probeError as Error)?.message || 'Token probe failed';
+      steps[3].error = (probeError as Error)?.message || 'Token probe failed';
       return steps;
     }
 
-    // Step 4: Test actual publishing
-    steps.push({ step: '4. Publishing to Threads', success: false });
+    steps.push({ step: '5. Publishing to Threads', success: false });
     try {
       const result = await publishToThreads({
         accessToken: validToken,
-        text: text,
+        text,
         shareToInstagramStory: false,
       });
-      
-      steps[3].success = result.ok;
+
+      steps[4].success = result.ok;
       if (result.ok) {
-        steps[3].data = {
+        steps[4].data = {
           platformPostId: result.platformPostId,
           success: true,
         };
       } else {
-        steps[3].error = result.error;
+        steps[4].error = result.error;
       }
     } catch (publishError) {
-      steps[3].error = (publishError as Error)?.message || 'Publish failed';
+      steps[4].error = (publishError as Error)?.message || 'Publish failed';
     }
 
     return steps;

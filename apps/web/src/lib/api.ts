@@ -68,7 +68,8 @@ function isPriorityApiPath(url?: string, baseURL?: string): boolean {
     path.includes('/sender-profile') ||
     /\/conversations(\?|$|\/)/.test(path) ||
     /\/posts\/[^/]+(\/publish|\/finalize-publish-status)?$/.test(path) ||
-    /\/posts(\?|$)/.test(path)
+    /\/posts(\?|$)/.test(path) ||
+    path.includes('/debug/threads-publish')
   );
 }
 
